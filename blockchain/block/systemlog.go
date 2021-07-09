@@ -76,6 +76,11 @@ func (log *BlkTransactionLog) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(log.toProto()))
 }
 
+// GetLogs returns a serialized byte stream for BlkTransactionLog
+func (log *BlkTransactionLog) GetLogs() []*TransactionLog {
+	return log.actionLogs
+}
+
 func (log *BlkTransactionLog) toProto() *iotextypes.TransactionLogs {
 	if len(log.actionLogs) == 0 {
 		return &iotextypes.TransactionLogs{}

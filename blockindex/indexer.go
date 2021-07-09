@@ -164,7 +164,7 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
 		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
-		if err := x.indexAction(actHash, selp, false); err != nil {
+		if err := x.indexAction(actHash, selp, false, nil); err != nil {
 			return err
 		}
 	}
@@ -299,12 +299,12 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	}
 
 	// index hash --> height
-	hash := blk.HashBlock()
-	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	blkHash := blk.HashBlock()
+	x.batch.Put(blockHashToHeightNS, blkHash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// index height --> block hash, number of actions, and total transfer amount
 	bd := &blockIndex{
-		hash:      hash[:],
+		hash:      blkHash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
 	if err := x.tbk.UseBatch(x.batch); err != nil {
@@ -320,6 +320,14 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	if err := x.tac.UseBatch(x.batch); err != nil {
 		return err
 	}
+
+	// map txs for each action in the block
+	txMap := make(map[hash.Hash256]*block.TransactionLog)
+	for _, log := range blk.TransactionLog().GetLogs() {
+		actHash := hash.BytesToHash256((log.Proto().ActionHash))
+		txMap[actHash] = log
+	}
+
 	// index actions in the block
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
@@ -328,10 +336,11 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err
 		}
-		if err := x.indexAction(actHash, selp, true); err != nil {
+		if err := x.indexAction(actHash, selp, true, txMap[actHash]); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -387,7 +396,7 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert bool) error {
+func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert bool, logs *block.TransactionLog) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
 	if err := x.updateIndexer(actHash, callerAddrBytes, insert); err != nil {
@@ -411,10 +420,27 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 	if err := x.updateIndexer(actHash, dstAddrBytes, insert); err != nil {
 		return err
 	}
+
+	//add to the index of the sender and recipient of tx in the action
+	if logs != nil {
+		for _, tx := range logs.Proto().Transactions {
+			txSender, err := address.FromString(tx.Sender)
+			if err != nil {
+				return err
+			}
+			if !address.Equal(txSender, elp.SrcPubkey().Address()) && !address.Equal(txSender, dstAddr) {
+				x.updateIndexer(actHash, txSender.Bytes(), insert)
+			}
+			txRecipient, err := address.FromString(tx.Recipient)
+			if err != nil {
+				return err
+			}
+			if !address.Equal(txRecipient, elp.SrcPubkey().Address()) && !address.Equal(txRecipient, dstAddr) {
+				x.updateIndexer(actHash, txRecipient.Bytes(), insert)
+			}
+		}
+	}
 	return nil
-
-	//add to the index of destination in contract
-
 }
 
 // TODO:
