@@ -164,7 +164,7 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
 		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
-		if err := x.indexAction(actHash, selp, false, nil); err != nil {
+		if err := x.indexAction(actHash, selp, nil, false); err != nil {
 			return err
 		}
 	}
@@ -336,7 +336,7 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err
 		}
-		if err := x.indexAction(actHash, selp, true, txMap[actHash]); err != nil {
+		if err := x.indexAction(actHash, selp, txMap[actHash], true); err != nil {
 			return err
 		}
 	}
@@ -396,10 +396,10 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert bool, logs *block.TransactionLog) error {
+func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, logs *block.TransactionLog, isInsert bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
-	if err := x.updateIndexer(actHash, callerAddrBytes, insert); err != nil {
+	if err := x.updateIndexer(actHash, callerAddrBytes, isInsert); err != nil {
 		return err
 	}
 
@@ -417,7 +417,7 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 	if bytes.Equal(dstAddrBytes, callerAddrBytes) {
 		return nil
 	}
-	if err := x.updateIndexer(actHash, dstAddrBytes, insert); err != nil {
+	if err := x.updateIndexer(actHash, dstAddrBytes, isInsert); err != nil {
 		return err
 	}
 
@@ -429,14 +429,14 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 				return err
 			}
 			if !address.Equal(txSender, elp.SrcPubkey().Address()) && !address.Equal(txSender, dstAddr) {
-				x.updateIndexer(actHash, txSender.Bytes(), insert)
+				x.updateIndexer(actHash, txSender.Bytes(), isInsert)
 			}
 			txRecipient, err := address.FromString(tx.Recipient)
 			if err != nil {
 				return err
 			}
 			if !address.Equal(txRecipient, elp.SrcPubkey().Address()) && !address.Equal(txRecipient, dstAddr) {
-				x.updateIndexer(actHash, txRecipient.Bytes(), insert)
+				x.updateIndexer(actHash, txRecipient.Bytes(), isInsert)
 			}
 		}
 	}
