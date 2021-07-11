@@ -528,7 +528,7 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(3)
 
 	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
@@ -555,8 +555,8 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 		nil,
 	)
 
-	require.NoError(bs.ProcessBlock(ctx, "peer1", blk2))
-	require.NoError(bs.ProcessBlock(ctx, "peer2", blk1))
+	require.NoError(bs.ProcessBlock(ctx, "peer1", blk1))
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk2))
 
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
@@ -568,7 +568,7 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(bs.ProcessBlock(ctx, "peer1", blk3))
 
 	h3 := chain.TipHeight()
-	assert.Equal(t, h2, h3)
+	assert.Equal(t, h2+1, h3)
 
 	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk4)
@@ -577,5 +577,5 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(bs.ProcessBlock(ctx, "peer2", blk4))
 
 	h4 := chain.TipHeight()
-	assert.Equal(t, h2+1, h4)
+	assert.Equal(t, h3+1, h4)
 }
