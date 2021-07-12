@@ -44,7 +44,6 @@ func TestGetPutBucketIndex(t *testing.T) {
 	testGetPut := func(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 		sm := testdb.NewMockStateManager(ctrl)
 
 		tests := []struct {

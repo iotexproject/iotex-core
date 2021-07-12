@@ -218,7 +218,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 func TestCreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstruct(ctrl)
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
@@ -242,7 +241,6 @@ func TestCreateGenesisStates(t *testing.T) {
 func TestCreatePostSystemActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstruct(ctrl)
 	require.NoError(err)
 	_, err = shiftCandidates(sm)
@@ -267,7 +265,6 @@ func TestCreatePostSystemActions(t *testing.T) {
 func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
@@ -360,7 +357,6 @@ func TestCreatePreStates(t *testing.T) {
 func TestHandle(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
@@ -571,7 +567,6 @@ func TestHandle(t *testing.T) {
 func TestNextCandidates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 	probationListMap := map[string]uint32{
@@ -621,7 +616,6 @@ func TestNextCandidates(t *testing.T) {
 func TestDelegatesAndNextDelegates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 

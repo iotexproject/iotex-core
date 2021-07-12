@@ -13,7 +13,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	fsm "github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -25,7 +25,6 @@ func TestBackdoorEvt(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mockCtx := NewMockContext(ctrl)
 	mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).AnyTimes()
 	mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).AnyTimes()
@@ -65,7 +64,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mockClock := clock.NewMock()
 	mockCtx := NewMockContext(ctrl)
 	mockCtx.EXPECT().Logger().Return(log.Logger("consensus")).AnyTimes()

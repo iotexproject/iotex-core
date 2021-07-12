@@ -65,7 +65,6 @@ func TestNewBlockSyncer(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
@@ -96,7 +95,6 @@ func TestBlockSyncerStart(t *testing.T) {
 	assert := assert.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	ctx := context.Background()
 	mBs := mock_blocksync.NewMockBlockSync(ctrl)
@@ -108,7 +106,6 @@ func TestBlockSyncerStop(t *testing.T) {
 	assert := assert.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	ctx := context.Background()
 	mBs := mock_blocksync.NewMockBlockSync(ctrl)
@@ -121,7 +118,6 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
@@ -150,7 +146,6 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -206,7 +201,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 	defer func() {
 		require.NoError(chain.Stop(ctx))
-		ctrl.Finish()
 	}()
 
 	h := chain.TipHeight()
@@ -293,7 +287,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	defer func() {
 		require.NoError(chain1.Stop(ctx))
 		require.NoError(chain2.Stop(ctx))
-		ctrl.Finish()
 	}()
 
 	// commit top
@@ -388,7 +381,6 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	defer func() {
 		require.NoError(chain1.Stop(ctx))
 		require.NoError(chain2.Stop(ctx))
-		ctrl.Finish()
 	}()
 
 	ctx, err = chain1.Context(ctx)
@@ -457,7 +449,6 @@ func TestBlockSyncerSync(t *testing.T) {
 	defer func() {
 		require.NoError(bs.Stop(ctx))
 		require.NoError(chain.Stop(ctx))
-		ctrl.Finish()
 	}()
 
 	ctx, err = chain.Context(ctx)
@@ -535,7 +526,6 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 
 	defer func() {
 		require.NoError(chain.Stop(ctx))
-		ctrl.Finish()
 	}()
 
 	ctx, err = chain.Context(ctx)

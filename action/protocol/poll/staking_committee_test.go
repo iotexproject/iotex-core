@@ -144,7 +144,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
@@ -170,7 +169,6 @@ func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sr, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
@@ -193,7 +191,6 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 func TestHandle_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	p, ctx, sm, _, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)

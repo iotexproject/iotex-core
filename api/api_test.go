@@ -1116,7 +1116,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
@@ -1180,7 +1179,6 @@ func TestServer_SendAction(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
@@ -1606,7 +1604,6 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1678,7 +1675,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1750,7 +1746,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1865,7 +1860,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)

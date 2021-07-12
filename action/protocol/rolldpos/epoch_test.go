@@ -71,7 +71,6 @@ func TestProtocol_ReadState(t *testing.T) {
 	arg2 := []byte("20")
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 

@@ -38,7 +38,6 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(3), _candIndex)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
@@ -186,7 +185,6 @@ func TestProtocol(t *testing.T) {
 func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	p, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
@@ -231,7 +229,6 @@ func TestCreatePreStates(t *testing.T) {
 func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	testPath, err := testutil.PathOfTempFile("test-bucket")
@@ -274,7 +271,6 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 func Test_CreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	selfStake, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)

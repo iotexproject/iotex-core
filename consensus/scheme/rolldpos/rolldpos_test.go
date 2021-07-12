@@ -54,7 +54,6 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	rp := rolldpos.NewProtocol(
@@ -182,7 +181,6 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 
 func TestValidateBlockFooter(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
@@ -257,7 +255,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {

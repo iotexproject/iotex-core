@@ -60,7 +60,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
@@ -238,7 +237,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm, p, _, _ := initAll(t, ctrl)
 	tests := []struct {
 		initBalance     int64
@@ -597,7 +595,6 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	tests := []struct {
 		initBalance     int64
 		caller          address.Address
@@ -912,7 +909,6 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 func TestProtocol_HandleUnstake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, p, candidate, candidate2 := initAll(t, ctrl)
 	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
@@ -1194,7 +1190,6 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 func TestProtocol_HandleWithdrawStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	tests := []struct {
 		// create stake fields
 		amount      string
@@ -1357,7 +1352,6 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 func TestProtocol_HandleChangeCandidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	tests := []struct {
 		// creat stake fields
@@ -1659,7 +1653,6 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 func TestProtocol_HandleTransferStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	tests := []struct {
 		// creat stake fields
@@ -1859,7 +1852,6 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	tests := []struct {
 		bucketOwner string
@@ -2092,7 +2084,6 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 func TestProtocol_HandleRestake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	callerAddr := identityset.Address(2)
 
 	tests := []struct {
@@ -2357,7 +2348,6 @@ func TestProtocol_HandleRestake(t *testing.T) {
 func TestProtocol_HandleDepositToStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	tests := []struct {
 		// creat stake fields
 		caller       address.Address
