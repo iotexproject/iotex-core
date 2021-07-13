@@ -13,7 +13,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
