@@ -528,7 +528,7 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(3)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
 
 	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
@@ -542,10 +542,12 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(err)
 
 	h := chain.TipHeight()
+
 	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
 
+	// fail to commit block
 	blk2 := block.NewBlockDeprecated(
 		uint32(123),
 		blk1.Height(),
@@ -554,28 +556,26 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk2))
+	h2 := chain.TipHeight()
+	assert.Equal(t, h, h2)
 
 	require.NoError(bs.ProcessBlock(ctx, "peer1", blk1))
-	require.NoError(bs.ProcessBlock(ctx, "peer2", blk2))
+	h3 := chain.TipHeight()
+	assert.Equal(t, h2+1, h3)
 
-	h2 := chain.TipHeight()
-	assert.Equal(t, h+1, h2)
-
+	// peer in BlockList
 	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
-
-	require.NoError(bs.ProcessBlock(ctx, "peer1", blk3))
-
-	h3 := chain.TipHeight()
-	assert.Equal(t, h2+1, h3)
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk3))
+	h4 := chain.TipHeight()
+	assert.Equal(t, h3, h4)
 
 	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk4)
 	require.NoError(err)
-
-	require.NoError(bs.ProcessBlock(ctx, "peer2", blk4))
-
-	h4 := chain.TipHeight()
-	assert.Equal(t, h3+1, h4)
+	require.NoError(bs.ProcessBlock(ctx, "peer1", blk4))
+	h5 := chain.TipHeight()
+	assert.Equal(t, h4+1, h5)
 }
