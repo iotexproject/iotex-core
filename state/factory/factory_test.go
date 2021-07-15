@@ -249,7 +249,6 @@ func testCandidates(sf Factory, t *testing.T) {
 	require.NotNil(t, selp)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	committee := mock_committee.NewMockCommittee(ctrl)
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(result, nil).AnyTimes()
@@ -1013,7 +1012,6 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	require.NoError(err)
 	accMap[identityset.Address(29).String()] = []action.SealedEnvelope{selp2}
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	ap := mock_actpool.NewMockActPool(ctrl)
 	ap.EXPECT().PendingActionMap().Return(accMap).Times(1)
 	gasLimit := uint64(1000000)

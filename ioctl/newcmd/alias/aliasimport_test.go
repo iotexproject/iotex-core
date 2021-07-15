@@ -13,7 +13,6 @@ import (
 
 func TestNewAliasImportCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	cfg := config.Config{
 		Aliases: map[string]string{
 			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",

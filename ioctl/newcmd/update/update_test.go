@@ -20,7 +20,6 @@ import (
 
 func TestNewUpdateCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
 		config.English).AnyTimes()

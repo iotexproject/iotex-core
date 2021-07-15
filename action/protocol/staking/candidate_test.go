@@ -180,7 +180,6 @@ func TestGetPutCandidate(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	// put candidates and get

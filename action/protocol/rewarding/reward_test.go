@@ -299,7 +299,6 @@ func TestProtocol_ClaimReward(t *testing.T) {
 
 func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)

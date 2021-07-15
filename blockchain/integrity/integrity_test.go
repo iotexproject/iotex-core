@@ -1593,7 +1593,6 @@ func TestBlockchain_AddSubscriber(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
 	// mock
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.NoError(bc.AddSubscriber(mb))
 	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
@@ -1613,7 +1612,6 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
 	// mock
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.Error(bc.RemoveSubscriber(mb))
 	req.NoError(bc.AddSubscriber(mb))

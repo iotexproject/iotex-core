@@ -37,7 +37,6 @@ import (
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
@@ -241,7 +240,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	registry := protocol.NewRegistry()
@@ -469,7 +467,6 @@ func TestStateCheckLegacy(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	p := NewProtocol(
 		genesis.Default.FoundationBonusP2StartEpoch,
@@ -544,7 +541,6 @@ func TestStateCheckLegacy(t *testing.T) {
 func TestMigrateValue(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	p := NewProtocol(
 		genesis.Default.FoundationBonusP2StartEpoch,

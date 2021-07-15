@@ -30,7 +30,6 @@ import (
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
 
@@ -98,7 +97,6 @@ func TestLoadStoreCommit(t *testing.T) {
 
 	testLoadStoreCommit := func(cfg config.Config, t *testing.T, enableAsync bool) {
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
 		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, sm, enableAsync)
@@ -249,7 +247,6 @@ func TestLoadStoreCommit(t *testing.T) {
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	testfunc := func(enableAsync bool) {
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)

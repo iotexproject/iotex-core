@@ -24,7 +24,6 @@ func TestRegister(t *testing.T) {
 
 func TestFind(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	require := require.New(t)
 	reg := NewRegistry()
@@ -43,7 +42,6 @@ func TestFind(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	reg := NewRegistry()
 	p := NewMockProtocol(ctrl)

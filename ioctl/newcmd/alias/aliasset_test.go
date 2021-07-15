@@ -19,7 +19,6 @@ import (
 
 func TestNewAliasSetCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	cfg := config.Config{
 		Aliases: map[string]string{
 			"a": "io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks",

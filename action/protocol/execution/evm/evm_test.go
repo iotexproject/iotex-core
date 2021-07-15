@@ -28,7 +28,6 @@ import (
 
 func TestExecuteContractFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
@@ -70,7 +69,6 @@ func TestConstantinople(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{

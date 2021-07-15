@@ -26,7 +26,6 @@ var (
 
 func TestBlockListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	errChan := make(chan error, 10)
 

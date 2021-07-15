@@ -47,7 +47,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	// set-up protocol and genesis states
