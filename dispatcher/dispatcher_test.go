@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
@@ -82,7 +82,7 @@ func TestHandleTell(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(ctx, config.Default.Chain.ID, peerstore.PeerInfo{}, msg)
+			d.HandleTell(ctx, config.Default.Chain.ID, peer.AddrInfo{}, msg)
 		}
 	}
 }
@@ -93,7 +93,7 @@ func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType,
 
 func (ds *dummySubscriber) HandleBlock(context.Context, string, *iotextypes.Block) error { return nil }
 
-func (ds *dummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
+func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error {
 	return nil
 }
 
