@@ -262,10 +262,10 @@ func (p *Agent) Start(ctx context.Context) error {
 
 // Stop disconnects from P2P network
 func (p *Agent) Stop(ctx context.Context) error {
-	log.L().Info("p2p is shutting down.", zap.Error(ctx.Err()))
 	if p.host == nil {
-		return nil
+		return ErrAgentNotStarted
 	}
+	log.L().Info("p2p is shutting down.", zap.Error(ctx.Err()))
 	if err := p.reconnectTask.Stop(ctx); err != nil {
 		return err
 	}
@@ -379,15 +379,19 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 }
 
 // Info returns agents' peer info.
-func (p *Agent) Info() peer.AddrInfo { return p.host.Info() }
+func (p *Agent) Info() (peer.AddrInfo, error) {
+	if p.host == nil {
+		return peer.AddrInfo{}, ErrAgentNotStarted
+	}
+	return p.host.Info(), nil
+}
 
 // Self returns the self network address
 func (p *Agent) Self() ([]multiaddr.Multiaddr, error) {
-	host := p.host
-	if host == nil {
+	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
-	return host.Addresses(), nil
+	return p.host.Addresses(), nil
 }
 
 // Neighbors returns the neighbors' peer info
@@ -460,6 +464,7 @@ func (p *Agent) connect(ctx context.Context) error {
 func (p *Agent) reconnect() {
 	if p.qosMetrics.lostConnection() {
 		log.L().Info("Network lost, try re-connecting.")
+		p.host.ClearBlocklist()
 		p.connect(context.Background())
 	}
 }

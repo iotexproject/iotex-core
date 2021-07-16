@@ -182,7 +182,6 @@ github.com/edsrzf/mmap-go v0.0.0-20160512033002-935e0e8a636c/go.mod h1:YO35OhQPt
 github.com/edsrzf/mmap-go v1.0.0 h1:CEBF7HpRnUCSJgGUb5h1Gm7e3VkmVDrR8lvWVLtrOFw=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/elastic/gosigar v0.10.5/go.mod h1:cdorVVzy1fhmEqmtgqkoE3bYtCfSCkVyjTyCIo22xvs=
-github.com/elastic/gosigar v0.12.0/go.mod h1:iXRIGg2tLnu7LBdpqzyQfGDEidKCfWcCMS0WKyPWoMs=
 github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4safvEdbitLhGGK48rN6g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
@@ -376,10 +375,12 @@ github.com/iotexproject/go-ethereum v1.7.4-0.20210604055808-21e763469056 h1:fDKE
 github.com/iotexproject/go-ethereum v1.7.4-0.20210604055808-21e763469056/go.mod h1:JIfVb6esrqALTExdz9hRYvrP0xBDf6wCncIu1hNwHpM=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
-github.com/iotexproject/go-p2p v0.2.13-0.20210715001404-a1c8b75cca52 h1:uyeE99TDD/Bgz4tlk9OAYzS0LLyriD6h/VWmYWp5TrY=
-github.com/iotexproject/go-p2p v0.2.13-0.20210715001404-a1c8b75cca52/go.mod h1:E7iEx7nfilmr1fBwlJCQPFhF4TKVax+3IVwEq/o2O5U=
+github.com/iotexproject/go-p2p v0.3.0 h1:fgMKUvCwwkkcmH7KUqDfkrZfKhHwo/c3MEGaoEvMnLw=
+github.com/iotexproject/go-p2p v0.3.0/go.mod h1:MjgwpexfBxhgq0cDoqHCxMQ1cLkv96p3xZJ02LLVGLA=
 github.com/iotexproject/go-pkgs v0.1.5-0.20210604060651-be5ee19f2575 h1:hrYlv0bYO/HHc4TWpDXMLI+0nr7bSI0oLsy/7Jjr/zw=
 github.com/iotexproject/go-pkgs v0.1.5-0.20210604060651-be5ee19f2575/go.mod h1:ttXhcwrtODyh7JozpJlCml09CjP0pcKqTe2B0MbTGc8=
+github.com/iotexproject/go-pkgs v0.1.5 h1:j4+Yr0E+3bPQgNK0NDrHAKdBjCm0tU3BbQuCayrXyP8=
+github.com/iotexproject/go-pkgs v0.1.5/go.mod h1:ttXhcwrtODyh7JozpJlCml09CjP0pcKqTe2B0MbTGc8=
 github.com/iotexproject/iotex-address v0.2.4 h1:qrkM+X6Z6Rljto1KH8ZgAUrnzU5AqMqN0OCXcQEauS4=
 github.com/iotexproject/iotex-address v0.2.4/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-antenna-go/v2 v2.5.1-0.20210604061028-2c2056a5bfdb h1:E6fAldFGmbCIEz0/RB0BRogLiRwrOCiUWUx7zWS3kyo=
@@ -1297,7 +1298,6 @@ golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20201207232520-09787c993a3a/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sys v0.0.0-20180810173357-98c5dad5d1a0/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180823144017-11551d06cbcc/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
