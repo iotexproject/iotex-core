@@ -12,7 +12,7 @@ import (
 	"math/rand"
 	"time"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -590,7 +590,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 }
 
 // HandleSyncRequest handles incoming sync request.
-func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
+func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peer.AddrInfo, sync *iotexrpc.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
 		return cs.p2pAgent.UnicastOutbound(
 			p2p.WitContext(ctx, p2p.Context{ChainID: cs.chain.ChainID()}),

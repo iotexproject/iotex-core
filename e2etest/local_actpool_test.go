@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -56,7 +56,7 @@ func TestLocalActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
-		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
 	)
@@ -134,7 +134,7 @@ func TestPressureActPool(t *testing.T) {
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
-		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 
 		},
 	)
