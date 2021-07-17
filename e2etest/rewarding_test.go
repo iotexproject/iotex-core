@@ -513,7 +513,8 @@ func injectClaim(
 	}
 
 	if err == nil {
-		pendingClaimActions[selp.Hash()] = expectedSuccess
+		selpHash, _ := selp.Hash()
+		pendingClaimActions[selpHash] = expectedSuccess
 	}
 
 	if wg != nil {

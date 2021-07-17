@@ -65,34 +65,34 @@ var (
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
-	testTransferHash = testTransfer.Hash()
+	testTransferHash, _ = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
 	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
-	testExecutionHash = testExecution.Hash()
+	testExecutionHash, _ = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
 	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1    = testTransfer1.Hash()
+	transferHash1, _    = testTransfer1.Hash()
 	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash2 = testTransfer2.Hash()
+	transferHash2, _ = testTransfer2.Hash()
 
 	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash1 = testExecution1.Hash()
+	executionHash1, _ = testExecution1.Hash()
 
 	testExecution2, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2 = testExecution2.Hash()
+	executionHash2, _ = testExecution2.Hash()
 
 	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash3 = testExecution3.Hash()
+	executionHash3, _ = testExecution3.Hash()
 
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
@@ -760,7 +760,7 @@ var (
 		to             []string
 	}{
 		{
-			actHash:        testExecution.Hash(),
+			actHash:        testExecutionHash,
 			numEvmTransfer: uint64(1),
 			amount:         [][]byte{big.NewInt(3).Bytes()},
 			from:           []string{identityset.Address(30).String()},
@@ -2130,7 +2130,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf.Hash()] = block.NewTransactionLog(tsf.Hash(),
+	tsfHash, err := tsf.Hash()
+	implicitLogs[tsfHash] = block.NewTransactionLog(tsfHash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
 	)
 
@@ -2162,7 +2163,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		if err := ap.Add(ctx, selp); err != nil {
 			return err
 		}
-		implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+		selpHash, err := selp.Hash()
+		implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
 	}
@@ -2170,7 +2172,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+	selpHash, err := selp.Hash()
+	implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
 	)
 	if err := ap.Add(ctx, selp); err != nil {
@@ -2181,8 +2184,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
-		execution1.Hash(),
+	execution1Hash, err := execution1.Hash()
+	implicitLogs[execution1Hash] = block.NewTransactionLog(
+		execution1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
 	if err := ap.Add(ctx, execution1); err != nil {
@@ -2219,7 +2223,11 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf1.Hash()] = block.NewTransactionLog(tsf1.Hash(),
+	tsf1Hash, err := tsf1.Hash()
+	if err != nil {
+		return err
+	}
+	implicitLogs[tsf1Hash] = block.NewTransactionLog(tsf1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
 	)
 	if err := ap.Add(ctx, tsf1); err != nil {
@@ -2229,7 +2237,11 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf2.Hash()] = block.NewTransactionLog(tsf2.Hash(),
+	tsf2Hash, err := tsf2.Hash()
+	if err != nil {
+		return err
+	}
+	implicitLogs[tsf2Hash] = block.NewTransactionLog(tsf2Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
 	)
 	if err := ap.Add(ctx, tsf2); err != nil {
@@ -2240,8 +2252,12 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
-		execution1.Hash(),
+	execution1Hash, err = execution1.Hash()
+	if err != nil {
+		return err
+	}
+	implicitLogs[execution1Hash] = block.NewTransactionLog(
+		execution1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
 	if err := ap.Add(ctx, execution1); err != nil {
@@ -2252,8 +2268,12 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution2.Hash()] = block.NewTransactionLog(
-		execution2.Hash(),
+	execution2Hash, err := execution2.Hash()
+	if err != nil {
+		return err
+	}
+	implicitLogs[execution2Hash] = block.NewTransactionLog(
+		execution2Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
 	if err := ap.Add(ctx, execution2); err != nil {
@@ -2287,7 +2307,8 @@ func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, co
 	// get deployed contract address
 	var contract string
 	if svr.dao != nil {
-		r, err := svr.dao.GetReceiptByActionHash(ex1.Hash(), height+1)
+		ex1Hash, err := ex1.Hash()
+		r, err := svr.dao.GetReceiptByActionHash(ex1Hash, height+1)
 		if err != nil {
 			return "", err
 		}
@@ -2522,7 +2543,8 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.NoError(err)
 
 	var requests []string
-	h1 := tsf1.Hash()
+	h1, err := tsf1.Hash()
+	require.NoError(err)
 	requests = append(requests, hex.EncodeToString(h1[:]))
 
 	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{})
@@ -2533,13 +2555,15 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.NoError(err)
 	require.Equal(1, len(res.Actions))
 
-	h2 := tsf2.Hash()
+	h2, err := tsf2.Hash()
+	require.NoError(err)
 	requests = append(requests, hex.EncodeToString(h2[:]))
 	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
 	require.NoError(err)
 	require.Equal(2, len(res.Actions))
 
-	h3 := tsf3.Hash()
+	h3, err := tsf3.Hash()
+	require.NoError(err)
 	_, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
 }

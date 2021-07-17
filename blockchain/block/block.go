@@ -158,7 +158,7 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 func (b *Block) ActionHashs() []string {
 	actHash := make([]string, len(b.Actions))
 	for i := range b.Actions {
-		h := b.Actions[i].Hash()
+		h, _ := b.Actions[i].Hash()
 		actHash[i] = hex.EncodeToString(h[:])
 	}
 	return actHash

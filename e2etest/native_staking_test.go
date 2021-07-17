@@ -121,7 +121,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, register2, true, initBalance, cand2Addr))
 
 		// get self-stake index from receipts
-		r1, err := dao.GetReceiptByActionHash(register1.Hash(), 1)
+		register1Hash, err := register1.Hash()
+		require.NoError(err)
+		r1, err := dao.GetReceiptByActionHash(register1Hash, 1)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs := r1.Logs()
@@ -156,7 +158,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, cs2, false, initBalance, voter2Addr))
 
 		// get bucket index from receipts
-		r1, err = dao.GetReceiptByActionHash(cs1.Hash(), 3)
+		cs1Hash, err := cs1.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(cs1Hash, 3)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -165,7 +169,8 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 		voter1BucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 
-		r1, err = dao.GetReceiptByActionHash(cs2.Hash(), 3)
+		cs2Hash, err := cs2.Hash()
+		r1, err = dao.GetReceiptByActionHash(cs2Hash, 3)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -181,7 +186,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), cc))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(cc.Hash(), 4)
+		ccHash, err := cc.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(ccHash, 4)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -203,7 +210,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), ts))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(ts.Hash(), 5)
+		tsHash, err := ts.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(tsHash, 5)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -233,7 +242,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), ds))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(ds.Hash(), 6)
+		dsHash, err := ds.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(dsHash, 6)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, r1.Status)
 		logs = r1.Logs()
@@ -250,7 +261,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), rs))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(rs.Hash(), 7)
+		rsHash, err := rs.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(rsHash, 7)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -278,7 +291,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), us))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(us.Hash(), 9)
+		usHash, err := us.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(usHash, 9)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), r1.Status)
 		logs = r1.Logs()
@@ -294,7 +309,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), us))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
-		r1, err = dao.GetReceiptByActionHash(us.Hash(), 10)
+		usHash, err = us.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(usHash, 10)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_Success), r1.Status)
 		logs = r1.Logs()
@@ -312,7 +329,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), us))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
-		r1, err = dao.GetReceiptByActionHash(us.Hash(), 11)
+		usHash, err = us.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(usHash, 11)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, r1.Status)
 		logs = r1.Logs()
@@ -330,7 +349,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), ws))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
-		r1, err = dao.GetReceiptByActionHash(ws.Hash(), 12)
+		wsHash, err := ws.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(wsHash, 12)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake, r1.Status)
 		logs = r1.Logs()
@@ -345,7 +366,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), ws))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 
-		r1, err = dao.GetReceiptByActionHash(ws.Hash(), 13)
+		wsHash, err = ws.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(wsHash, 13)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake, r1.Status)
 		logs = r1.Logs()

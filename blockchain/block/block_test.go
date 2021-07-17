@@ -67,7 +67,7 @@ func TestMerkle(t *testing.T) {
 
 	hashes := block.ActionHashs()
 	for i := range hashes {
-		h := actions[i].Hash()
+		h, _ := actions[i].Hash()
 		require.Equal(hex.EncodeToString(h[:]), hashes[i])
 	}
 

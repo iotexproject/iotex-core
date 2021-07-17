@@ -277,7 +277,8 @@ func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (actio
 		return action.SealedEnvelope{}, 0, err
 	}
 	for i, act := range blk.Actions {
-		if act.Hash() == h {
+		actHash, _ := act.Hash()
+		if actHash == h {
 			return act, uint32(i), nil
 		}
 	}

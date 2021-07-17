@@ -133,7 +133,10 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 		return nil, err
 	}
 	actionCtx.Caller = caller
-	actionCtx.ActionHash = selp.Hash()
+	actionCtx.ActionHash, err = selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	actionCtx.GasPrice = selp.GasPrice()
 	intrinsicGas, err := selp.IntrinsicGas()
 	if err != nil {
@@ -159,11 +162,12 @@ func (ws *workingSet) runAction(
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		elpHash, _ := elp.Hash()
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
 				"error when action %x mutates states",
-				elp.Hash(),
+				elpHash,
 			)
 		}
 		if receipt != nil {
@@ -421,7 +425,8 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			default:
-				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+				nextActionHash, _ := nextAction.Hash()
+				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
