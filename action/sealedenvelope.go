@@ -38,22 +38,22 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
-func (sealed *SealedEnvelope) Hash() hash.Hash256 {
+func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		tx, err := actionToRLP(sealed.Action())
 		if err != nil {
-			panic(err)
+			return hash.ZeroHash256, err
 		}
 		h, err := rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
 		if err != nil {
-			panic(err)
+			return hash.ZeroHash256, err
 		}
-		return h
+		return h, nil
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto())))
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
 	}
-	panic("unknown encoding type")
+	return hash.ZeroHash256, errors.Errorf("unknown encoding type %s", sealed.encoding)
 }
 
 // SrcPubkey returns the source public key
