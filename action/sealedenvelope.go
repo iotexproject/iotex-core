@@ -32,8 +32,9 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		return rlpRawHash(tx, sealed.evmNetworkID)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
+	default:
+		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
-	return hash.ZeroHash256, errors.Errorf("unknown encoding type %s", sealed.encoding)
 }
 
 // Hash returns the hash value of SealedEnvelope.
@@ -119,7 +120,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
-		return errors.Errorf("unknown encoding type %s", encoding)
+		return errors.Errorf("unknown encoding type %v", encoding)
 	}
 
 	// clear 'sealed' and populate new value
