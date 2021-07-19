@@ -238,7 +238,10 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	}
 
 	_, err = cli.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
-	h := selp.Hash()
+	h, err := selp.Hash()
+	if err != nil {
+		return "", err
+	}
 	hex := hex.EncodeToString(h[:])
 	if err != nil {
 		return hex, errors.Wrapf(err, "tx 0x%s failed to send to Blockchain", hex)

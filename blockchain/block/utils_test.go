@@ -88,7 +88,8 @@ func TestVerifyBlock(t *testing.T) {
 	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	blkhash := tsf1.Hash()
+	blkhash, err := tsf1.Hash()
+	require.NoError(err)
 	blk, err := NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(blkhash).

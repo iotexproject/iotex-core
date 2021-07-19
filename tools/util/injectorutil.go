@@ -351,7 +351,11 @@ func DeployContract(
 	log.L().Info("Created signed execution")
 
 	injectExecution(selp, execution, client, retryNum, retryInterval)
-	return selp.Hash(), nil
+	selpHash, err := selp.Hash()
+	if err != nil {
+		return hash.ZeroHash256, errors.Wrap(err, "failed to get hash")
+	}
+	return selpHash, nil
 }
 
 func injectTransfer(
@@ -383,7 +387,11 @@ func injectTransfer(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject transfer", zap.Error(err))
 	} else if pendingActionMap != nil {
-		pendingActionMap.Add(selp.Hash(), 1)
+		selpHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
+		pendingActionMap.Add(selpHash, 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 
@@ -416,7 +424,11 @@ func injectExecInteraction(
 	injectExecution(selp, execution, c, retryNum, retryInterval)
 
 	if pendingActionMap != nil {
-		pendingActionMap.Add(selp.Hash(), 1)
+		selpHash, err := selp.Hash()
+		if err != nil {
+			log.L().Error("Failed to inject transfer", zap.Error(err))
+		}
+		pendingActionMap.Add(selpHash, 1)
 	}
 
 	if wg != nil {
@@ -485,7 +497,11 @@ func injectStake(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject stake", zap.Error(err))
 	} else if pendingActionMap != nil {
-		pendingActionMap.Add(selp.Hash(), 1)
+		selpHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
+		pendingActionMap.Add(selpHash, 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 

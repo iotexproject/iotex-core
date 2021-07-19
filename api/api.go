@@ -362,7 +362,10 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, api.registry)
-	hash := selp.Hash()
+	hash, err := selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = api.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in.Action)
@@ -1331,7 +1334,10 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 
 func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (
 	*iotexapi.ActionInfo, error) {
-	actHash := selp.Hash()
+	actHash, err := selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	header, err := api.dao.Header(blkHash)
 	if err != nil {
 		return nil, err
@@ -1356,7 +1362,10 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 }
 
 func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
-	actHash := selp.Hash()
+	actHash, err := selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
@@ -1411,7 +1420,10 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 	}
 	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]
-		actHash := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
@@ -1436,7 +1448,10 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
 		ri := uint64(len(blk.Actions)) - 1 - i
 		selp := blk.Actions[ri]
-		actHash := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append([]*iotexapi.ActionInfo{
 			{

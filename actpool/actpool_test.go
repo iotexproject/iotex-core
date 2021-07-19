@@ -208,8 +208,9 @@ func TestActPool_AddActs(t *testing.T) {
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
 		nTsf, err := action.SignedTransfer(addr2, priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
-
-		ap2.allActions[nTsf.Hash()] = nTsf
+		nTsfHash, err := nTsf.Hash()
+		require.NoError(err)
+		ap2.allActions[nTsfHash] = nTsf
 	}
 	err = ap2.Add(ctx, tsf1)
 	require.Equal(action.ErrActPool, errors.Cause(err))
@@ -223,7 +224,9 @@ func TestActPool_AddActs(t *testing.T) {
 	for i := uint64(1); i < apConfig.MaxGasLimitPerPool/10000; i++ {
 		nTsf, err := action.SignedTransfer(addr2, priKey2, i, big.NewInt(50), nil, uint64(10000), big.NewInt(0))
 		require.NoError(err)
-		ap3.allActions[nTsf.Hash()] = nTsf
+		nTsfHash, err := nTsf.Hash()
+		require.NoError(err)
+		ap3.allActions[nTsfHash] = nTsf
 		intrinsicGas, err := nTsf.IntrinsicGas()
 		require.NoError(err)
 		ap3.gasInPool += intrinsicGas
@@ -800,8 +803,10 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(ap.Add(context.Background(), tsf3))
 	require.NoError(ap.Add(context.Background(), tsf4))
 
-	hash1 := tsf1.Hash()
-	hash2 := tsf4.Hash()
+	hash1, err := tsf1.Hash()
+	require.NoError(err)
+	hash2, err := tsf4.Hash()
+	require.NoError(err)
 	acts := []action.SealedEnvelope{tsf1, tsf4}
 	require.NotNil(ap.allActions[hash1])
 	require.NotNil(ap.allActions[hash2])
@@ -905,10 +910,12 @@ func TestActPool_GetActionByHash(t *testing.T) {
 
 	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	hash1 := tsf1.Hash()
+	hash1, err := tsf1.Hash()
+	require.NoError(err)
 	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	hash2 := tsf2.Hash()
+	hash2, err := tsf2.Hash()
+	require.NoError(err)
 
 	ap.allActions[hash1] = tsf1
 	act, err := ap.GetActionByHash(hash1)

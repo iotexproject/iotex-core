@@ -81,7 +81,10 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err != nil {
 		return err
 	}
-	deployHash = ex1.Hash()
+	deployHash, err = ex1.Hash()
+	if err != nil {
+		return err
+	}
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
@@ -120,7 +123,11 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 		if err := bc.CommitBlock(blk); err != nil {
 			return hash.ZeroHash256, err
 		}
-		return ex1.Hash(), nil
+		ex1Hash, err := ex1.Hash()
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		return ex1Hash, nil
 	}
 
 	var (
@@ -321,7 +328,10 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
-	deployHash = ex1.Hash()
+	deployHash, err = ex1.Hash()
+	if err != nil {
+		return err
+	}
 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
@@ -629,7 +639,8 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), ex1))
-	deployHash = ex1.Hash()
+	deployHash, err = ex1.Hash()
+	require.NoError(err)
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
@@ -659,7 +670,11 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		if err := bc.CommitBlock(blk); err != nil {
 			return hash.ZeroHash256, err
 		}
-		return ex1.Hash(), nil
+		ex1Hash, err := ex1.Hash()
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		return ex1Hash, nil
 	}
 
 	getBlockHash := func(x int64) []byte {
@@ -982,7 +997,9 @@ func TestConstantinople(t *testing.T) {
 			a, _, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(a)
-			require.Equal(actHash, a.Hash())
+			aHash, err := a.Hash()
+			require.NoError(err)
+			require.Equal(actHash, aHash)
 
 			actIndex, err := indexer.GetActionIndex(actHash[:])
 			require.NoError(err)
@@ -1738,7 +1755,9 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
-	r, err := dao.GetReceiptByActionHash(selp.Hash(), blk.Height())
+	selpHash, err := selp.Hash()
+	require.NoError(err)
+	r, err := dao.GetReceiptByActionHash(selpHash, blk.Height())
 	require.NoError(err)
 	return r.ContractAddress
 }
