@@ -1420,7 +1420,10 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 	}
 	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]
-		actHash, _ := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
@@ -1445,7 +1448,10 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
 		ri := uint64(len(blk.Actions)) - 1 - i
 		selp := blk.Actions[ri]
-		actHash, _ := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append([]*iotexapi.ActionInfo{
 			{

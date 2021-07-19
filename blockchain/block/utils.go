@@ -11,16 +11,18 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/pkg/errors"
 )
 
 func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
 	h := make([]hash.Hash256, 0, len(acts))
 	for _, act := range acts {
-		actHash, _ := act.Hash()
+		actHash, err := act.Hash()
+		if err != nil {
+			return hash.ZeroHash256
+		}
 		h = append(h, actHash)
 	}
 	if len(h) == 0 {

@@ -52,8 +52,9 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 		return h, nil
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
+	default:
+		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
-	return hash.ZeroHash256, errors.Errorf("unknown encoding type %s", sealed.encoding)
 }
 
 // SrcPubkey returns the source public key

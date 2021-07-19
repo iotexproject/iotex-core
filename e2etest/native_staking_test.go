@@ -170,6 +170,7 @@ func TestNativeStaking(t *testing.T) {
 		voter1BucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 
 		cs2Hash, err := cs2.Hash()
+		require.NoError(err)
 		r1, err = dao.GetReceiptByActionHash(cs2Hash, 3)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)

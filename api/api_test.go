@@ -2131,6 +2131,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	tsfHash, err := tsf.Hash()
+	if err != nil {
+		return err
+	}
 	implicitLogs[tsfHash] = block.NewTransactionLog(tsfHash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
 	)
@@ -2164,6 +2167,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 			return err
 		}
 		selpHash, err := selp.Hash()
+		if err != nil {
+			return err
+		}
 		implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
@@ -2173,6 +2179,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	selpHash, err := selp.Hash()
+	if err != nil {
+		return err
+	}
 	implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
 	)
@@ -2185,6 +2194,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	execution1Hash, err := execution1.Hash()
+	if err != nil {
+		return err
+	}
 	implicitLogs[execution1Hash] = block.NewTransactionLog(
 		execution1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
@@ -2308,6 +2320,9 @@ func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, co
 	var contract string
 	if svr.dao != nil {
 		ex1Hash, err := ex1.Hash()
+		if err != nil {
+			return "", err
+		}
 		r, err := svr.dao.GetReceiptByActionHash(ex1Hash, height+1)
 		if err != nil {
 			return "", err

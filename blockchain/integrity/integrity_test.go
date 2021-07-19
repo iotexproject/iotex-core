@@ -329,6 +329,9 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 		return err
 	}
 	deployHash, err = ex1.Hash()
+	if err != nil {
+		return err
+	}
 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
@@ -668,6 +671,9 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 			return hash.ZeroHash256, err
 		}
 		ex1Hash, err := ex1.Hash()
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
 		return ex1Hash, nil
 	}
 

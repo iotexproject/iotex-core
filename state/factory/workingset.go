@@ -162,7 +162,10 @@ func (ws *workingSet) runAction(
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
-		elpHash, _ := elp.Hash()
+		elpHash, err1 := elp.Hash()
+		if err1 != nil {
+			return nil, errors.Wrapf(err1, "Failed to get hash")
+		}
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
@@ -425,7 +428,10 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			default:
-				nextActionHash, _ := nextAction.Hash()
+				nextActionHash, err := nextAction.Hash()
+				if err != nil{
+					return nil, errors.Wrapf(err, "Failed to get hash for %x", nextActionHash)
+				}
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
 			if receipt != nil {

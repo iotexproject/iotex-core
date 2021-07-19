@@ -13,14 +13,13 @@ import (
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/pkg/errors"
 )
 
 // the NS/bucket name here are used in index.db, which is separate from chain.db
@@ -162,7 +161,10 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 
 	// delete action index
 	for _, selp := range blk.Actions {
-		actHash, _ := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			return err
+		}
 		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
 		if err := x.indexAction(actHash, selp, false); err != nil {
 			return err
@@ -322,7 +324,10 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	}
 	// index actions in the block
 	for _, selp := range blk.Actions {
-		actHash, _ := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			return err
+		}
 		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {

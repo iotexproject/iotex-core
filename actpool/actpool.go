@@ -328,7 +328,10 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 	// if already validated
-	selpHash, err := selp.Hash()
+	selpHash, err1 := selp.Hash()
+	if err1 != nil{
+		return err1
+	}
 	if _, ok := ap.allActions[selpHash]; ok {
 		return nil
 	}
@@ -464,7 +467,10 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 // deleteAccountDestinationActions just for destination map
 func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
 	for _, act := range acts {
-		hash, _ := act.Hash()
+		hash, err := act.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		desAddress, ok := act.Destination()
 		if ok {
 			dst := ap.accountDesActs[desAddress]
