@@ -24,15 +24,15 @@ func TestIndexBuilder(t *testing.T) {
 
 	blks := getTestBlocks(t)
 
-	t1Hash := blks[0].Actions[0].Hash()
-	t4Hash := blks[0].Actions[1].Hash()
-	e1Hash := blks[0].Actions[2].Hash()
-	t2Hash := blks[1].Actions[0].Hash()
-	t5Hash := blks[1].Actions[1].Hash()
-	e2Hash := blks[1].Actions[2].Hash()
-	t3Hash := blks[2].Actions[0].Hash()
-	t6Hash := blks[2].Actions[1].Hash()
-	e3Hash := blks[2].Actions[2].Hash()
+	t1Hash, _ := blks[0].Actions[0].Hash()
+	t4Hash, _ := blks[0].Actions[1].Hash()
+	e1Hash, _ := blks[0].Actions[2].Hash()
+	t2Hash, _ := blks[1].Actions[0].Hash()
+	t5Hash, _ := blks[1].Actions[1].Hash()
+	e2Hash, _ := blks[1].Actions[2].Hash()
+	t3Hash, _ := blks[2].Actions[0].Hash()
+	t6Hash, _ := blks[2].Actions[1].Hash()
+	e3Hash, _ := blks[2].Actions[2].Hash()
 
 	type index struct {
 		addr   hash.Hash160

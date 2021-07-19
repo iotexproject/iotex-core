@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -158,7 +159,10 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 func (b *Block) ActionHashs() []string {
 	actHash := make([]string, len(b.Actions))
 	for i := range b.Actions {
-		h := b.Actions[i].Hash()
+		h, err := b.Actions[i].Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		actHash[i] = hex.EncodeToString(h[:])
 	}
 	return actHash

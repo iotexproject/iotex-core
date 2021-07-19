@@ -200,7 +200,10 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
 		return errors.Wrap(action.ErrActPool, "insufficient gas space for action")
 	}
-	hash := act.Hash()
+	hash, err := act.Hash()
+	if err != nil {
+		return err
+	}
 	// Reject action if it already exists in pool
 	if _, exist := ap.allActions[hash]; exist {
 		actpoolMtc.WithLabelValues("existedAction").Inc()
@@ -325,7 +328,11 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 	// if already validated
-	if _, ok := ap.allActions[selp.Hash()]; ok {
+	selpHash, err1 := selp.Hash()
+	if err1 != nil{
+		return err1
+	}
+	if _, ok := ap.allActions[selpHash]; ok {
 		return nil
 	}
 	for _, ev := range ap.actionEnvelopeValidators {
@@ -447,7 +454,10 @@ func (ap *actPool) removeConfirmedActs() {
 
 func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
-		hash := act.Hash()
+		hash, err := act.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
 		intrinsicGas, _ := act.IntrinsicGas()
@@ -460,11 +470,15 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 // deleteAccountDestinationActions just for destination map
 func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
 	for _, act := range acts {
+		hash, err := act.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
 		desAddress, ok := act.Destination()
 		if ok {
 			dst := ap.accountDesActs[desAddress]
 			if dst != nil {
-				delete(dst, act.Hash())
+				delete(dst, hash)
 			}
 		}
 	}

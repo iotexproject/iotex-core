@@ -711,11 +711,13 @@ func testNonce(sf Factory, t *testing.T) {
 		})
 	intrinsicGas, err := selp.IntrinsicGas()
 	require.NoError(t, err)
+	selpHash, err := selp.Hash()
+	require.NoError(t, err)
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
 			Caller:       a,
-			ActionHash:   selp.Hash(),
+			ActionHash:   selpHash,
 			GasPrice:     selp.GasPrice(),
 			Nonce:        selp.Nonce(),
 			IntrinsicGas: intrinsicGas,
@@ -899,7 +901,8 @@ func testCommit(factory Factory, t *testing.T) {
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
-	blkHash := selp1.Hash()
+	blkHash, err := selp1.Hash()
+	require.NoError(err)
 
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
