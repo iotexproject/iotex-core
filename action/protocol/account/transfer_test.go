@@ -23,6 +23,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -46,7 +47,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	// set-up protocol and genesis states
@@ -54,9 +54,9 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	reward := rewarding.NewProtocol(0, 0)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
-	chainCtx := protocol.WithBlockchainCtx(
+	chainCtx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		config.Default.Genesis,
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
 	require.NoError(reward.CreateGenesisStates(ctx, sm))

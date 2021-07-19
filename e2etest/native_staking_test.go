@@ -90,8 +90,7 @@ func TestNativeStaking(t *testing.T) {
 		dao := svr.ChainService(chainID).BlockDAO()
 		require.NotNil(bc)
 
-		hu := config.NewHeightUpgrade(&cfg.Genesis)
-		require.True(hu.IsPost(config.FbkMigration, 1))
+		require.True(cfg.Genesis.IsFbkMigration(1))
 
 		// Create two candidates
 		cand1Addr := identityset.Address(0)
@@ -342,6 +341,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// withdraw	with correct timestamp
 		ws, err = action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ws))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 

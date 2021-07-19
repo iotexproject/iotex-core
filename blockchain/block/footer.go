@@ -9,8 +9,8 @@ package block
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"

@@ -24,7 +24,6 @@ import (
 func TestNewProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
@@ -53,7 +52,6 @@ func TestNewProtocol(t *testing.T) {
 func TestFindProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, _, _, _, _ := initConstruct(ctrl)
 	//if not registered
 	re := protocol.NewRegistry()
@@ -67,7 +65,6 @@ func TestFindProtocol(t *testing.T) {
 func TestMustGetProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, _, _, _, _ := initConstruct(ctrl)
 	//if not registered
 	re := protocol.NewRegistry()

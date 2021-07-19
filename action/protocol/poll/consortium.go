@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -75,8 +76,8 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 }
 
 func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if bcCtx.Genesis.ConsortiumCommitteeContractCode == "" {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.ConsortiumCommitteeContractCode == "" {
 		return nil, errors.New("cannot find consortium committee contract in gensis")
 	}
 
@@ -90,11 +91,11 @@ func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReade
 }
 
 func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	blkCtx.Producer, _ = address.FromString(consortiumCommitteeContractCreator)
-	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(bcCtx.Genesis.ConsortiumCommitteeContractCode)
+	blkCtx.GasLimit = g.BlockGasLimit
+	bytes, err := hexutil.Decode(g.ConsortiumCommitteeContractCode)
 	if err != nil {
 		return err
 	}
@@ -102,7 +103,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		"",
 		consortiumCommitteeContractNonce,
 		big.NewInt(0),
-		bcCtx.Genesis.BlockGasLimit,
+		g.BlockGasLimit,
 		big.NewInt(0),
 		bytes,
 	)
@@ -240,8 +241,12 @@ func (cc *consortiumCommittee) readDelegatesWithContractReader(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	var res []common.Address
-	if err = cc.abi.Unpack(&res, "delegates", data); err != nil {
+	ret, err := cc.abi.Unpack("delegates", data)
+	if err != nil {
+		return nil, err
+	}
+	res, err := toEtherAddressSlice(ret[0])
+	if err != nil {
 		return nil, err
 	}
 
@@ -288,4 +293,11 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 
 		return res, err
 	}
+}
+
+func toEtherAddressSlice(v interface{}) ([]common.Address, error) {
+	if addr, ok := v.([]common.Address); ok {
+		return addr, nil
+	}
+	return nil, ErrWrongData
 }

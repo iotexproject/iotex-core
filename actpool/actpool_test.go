@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/mock/mock_sealed_envelope_validator"
@@ -57,7 +58,6 @@ var (
 
 func TestActPool_NewActPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	cfg := config.Default
 
@@ -90,17 +90,14 @@ func TestActPool_NewActPool(t *testing.T) {
 func TestValidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), re),
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
+		cfg.Genesis,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
@@ -125,7 +122,6 @@ func TestValidate(t *testing.T) {
 func TestActPool_AddActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
@@ -291,7 +287,6 @@ func TestActPool_AddActs(t *testing.T) {
 
 func TestActPool_PickActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
@@ -372,7 +367,6 @@ func TestActPool_PickActs(t *testing.T) {
 
 func TestActPool_removeConfirmedActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
@@ -422,7 +416,6 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 func TestActPool_Reset(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
@@ -776,7 +769,6 @@ func TestActPool_Reset(t *testing.T) {
 
 func TestActPool_removeInvalidActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
@@ -820,7 +812,6 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 
 func TestActPool_GetPendingNonce(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
@@ -861,7 +852,6 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 
 func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
@@ -903,7 +893,6 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 
 func TestActPool_GetActionByHash(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
@@ -937,7 +926,6 @@ func TestActPool_GetActionByHash(t *testing.T) {
 
 func TestActPool_GetCapacity(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
@@ -952,7 +940,6 @@ func TestActPool_GetCapacity(t *testing.T) {
 
 func TestActPool_GetSize(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
@@ -1003,7 +990,6 @@ func TestActPool_GetSize(t *testing.T) {
 
 func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
 	apConfig := config.Default.ActPool

@@ -94,7 +94,7 @@ func (r *rangeIndex) Insert(key uint64, value []byte) error {
 
 // Get returns value by the key
 func (r *rangeIndex) Get(key uint64) ([]byte, error) {
-	return r.kvStore.Seek(r.bucket, key)
+	return r.kvStore.SeekNext(r.bucket, key)
 }
 
 // Delete deletes an existing key

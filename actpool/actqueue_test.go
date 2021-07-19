@@ -120,7 +120,6 @@ func TestActQueueUpdateNonce(t *testing.T) {
 
 func TestActQueuePendingActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	require := require.New(t)
 	cfg := config.Default
 	sf := mock_chainmanager.NewMockStateReader(ctrl)

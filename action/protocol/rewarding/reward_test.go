@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -299,7 +299,6 @@ func TestProtocol_ClaimReward(t *testing.T) {
 
 func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
@@ -352,7 +351,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	cfg := config.Default
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
-		&cfg.Genesis,
 		func(uint64, uint64) (map[string]uint64, error) {
 			return map[string]uint64{
 				identityset.Address(0).String(): 9,
@@ -402,11 +400,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(
 			protocol.WithRegistry(context.Background(), registry),
-			protocol.BlockchainCtx{
-				Genesis: ge,
-			},
+			ge,
 		),
 		protocol.BlockCtx{
 			BlockHeight: 0,
@@ -418,7 +414,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(
 		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis: ge,
 			Tip: protocol.TipInfo{
 				Height: 1,
 			},

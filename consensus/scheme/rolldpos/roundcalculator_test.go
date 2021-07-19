@@ -230,14 +230,16 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 				return nil, err
 			}
 			tipHeight := bc.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
+			ctx := genesis.WithGenesisContext(
+				protocol.WithBlockchainCtx(
+					protocol.WithRegistry(context.Background(), re),
+					protocol.BlockchainCtx{
+						Tip: protocol.TipInfo{
+							Height: tipHeight,
+						},
 					},
-				},
+				),
+				config.Default.Genesis,
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList

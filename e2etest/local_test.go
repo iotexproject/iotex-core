@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -88,10 +89,11 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	p := p2p.NewAgent(
-		cfg,
-		func(_ context.Context, _ uint32, _ proto.Message) {
+		cfg.Network,
+		cfg.Genesis.Hash(),
+		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 		},
-		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 		},
 	)
 	require.NotNil(p)
@@ -555,10 +557,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})))
+	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
 	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(dao.Stop(ctx))
 
@@ -579,10 +578,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})))
+	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)

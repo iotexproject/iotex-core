@@ -15,7 +15,6 @@ import (
 func TestNewAliasRemoveCmd(t *testing.T) {
 	// mock a client
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("%s is removed", config.English).Times(6)
 

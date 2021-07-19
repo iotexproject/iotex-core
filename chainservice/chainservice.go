@@ -12,10 +12,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
@@ -347,8 +347,7 @@ func New(
 				return err
 			}
 			retries := 1
-			hu := config.NewHeightUpgrade(&cfg.Genesis)
-			if hu.IsPre(config.Hawaii, blk.Height()) {
+			if !cfg.Genesis.IsHawaii(blk.Height()) {
 				retries = 4
 			}
 			var err error
@@ -378,19 +377,31 @@ func New(
 
 			return nil
 		},
-		func(ctx context.Context, start uint64, end uint64) error {
+		func(ctx context.Context, start uint64, end uint64, repeat int) {
 			peers, err := p2pAgent.Neighbors(ctx)
 			if err != nil {
-				return err
+				log.L().Error("failed to get neighbours", zap.Error(err))
+				return
 			}
 			if len(peers) == 0 {
-				return errors.New("no peers")
+				log.L().Error("no peers")
 			}
-			return p2pAgent.UnicastOutbound(
-				p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
-				peers[rand.Intn(len(peers))],
-				&iotexrpc.BlockSync{Start: start, End: end},
-			)
+			if repeat < 2 {
+				repeat = 2
+			}
+			if repeat > len(peers) {
+				repeat = len(peers)
+			}
+			for i := 0; i < repeat; i++ {
+				peer := peers[rand.Intn(len(peers)-i)]
+				if err := p2pAgent.UnicastOutbound(
+					p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
+					peer,
+					&iotexrpc.BlockSync{Start: start, End: end},
+				); err != nil {
+					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+				}
+			}
 		},
 	)
 	if err != nil {
@@ -564,7 +575,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Block) error {
+func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -573,11 +584,11 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 	if err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlock(ctx, blk)
+	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.
-func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
+func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peer.AddrInfo, sync *iotexrpc.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
 		return cs.p2pAgent.UnicastOutbound(
 			p2p.WitContext(ctx, p2p.Context{ChainID: cs.chain.ChainID()}),

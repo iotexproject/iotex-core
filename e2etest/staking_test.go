@@ -132,20 +132,22 @@ func TestStakingContract(t *testing.T) {
 		require.NoError(err)
 		blk, err = dao.GetBlockByHeight(height)
 		require.NoError(err)
-		ctx = protocol.WithBlockchainCtx(
-			protocol.WithRegistry(ctx, registry),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-				Tip: protocol.TipInfo{
-					Height:    height,
-					Hash:      blk.HashHeader(),
-					Timestamp: blk.Timestamp(),
-				},
-			})
+		ctx = genesis.WithGenesisContext(
+			protocol.WithBlockchainCtx(
+				protocol.WithRegistry(ctx, registry),
+				protocol.BlockchainCtx{
+					Tip: protocol.TipInfo{
+						Height:    height,
+						Hash:      blk.HashHeader(),
+						Timestamp: blk.Timestamp(),
+					},
+				}),
+			cfg.Genesis,
+		)
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
+		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)
-		tally, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, true)
+		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, true)
 		require.NoError(err)
 		require.Equal(numVoter*int(numBucket), len(tally.Candidates))
 		require.Equal(numVoter*int(numBucket), len(tally.Buckets))

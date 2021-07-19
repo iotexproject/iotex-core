@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotexproject/go-p2p"
+	gop2p "github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
@@ -25,16 +25,13 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
 // the default value in Default var.
-
-func init() {
-
-}
 
 var (
 	_evmNetworkID uint32
@@ -77,15 +74,15 @@ var (
 	Default = Config{
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
-		Network: Network{
+		Network: p2p.Network{
 			Host:              "0.0.0.0",
 			Port:              4689,
 			ExternalHost:      "",
 			ExternalPort:      4689,
 			BootstrapNodes:    []string{},
 			MasterKey:         "",
-			RateLimit:         p2p.DefaultRatelimitConfig,
-			ReconnectInterval: 300 * time.Second,
+			RateLimit:         gop2p.DefaultRatelimitConfig,
+			ReconnectInterval: 150 * time.Second,
 			EnableRateLimit:   true,
 			PrivateNetworkPSK: "",
 		},
@@ -164,9 +161,10 @@ var (
 			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
-			ActionChanSize:    1000,
-			BlockChanSize:     1000,
-			BlockSyncChanSize: 400,
+			ActionChanSize:             1000,
+			BlockChanSize:              1000,
+			BlockSyncChanSize:          400,
+			ProcessSyncRequestInterval: 0 * time.Second,
 		},
 		API: API{
 			UseRDS:    false,
@@ -222,22 +220,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	Network struct {
-		Host           string   `yaml:"host"`
-		Port           int      `yaml:"port"`
-		ExternalHost   string   `yaml:"externalHost"`
-		ExternalPort   int      `yaml:"externalPort"`
-		BootstrapNodes []string `yaml:"bootstrapNodes"`
-		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
-		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
-		// are supported: active, nat.
-		RelayType         string              `yaml:"relayType"`
-		ReconnectInterval time.Duration       `yaml:"reconnectInterval"`
-		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
-		EnableRateLimit   bool                `yaml:"enableRateLimit"`
-		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
-	}
-
 	// Chain is the config struct for blockchain package
 	Chain struct {
 		ChainDBPath            string           `yaml:"chainDBPath"`
@@ -334,9 +316,10 @@ type (
 
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
-		ActionChanSize    uint `yaml:"actionChanSize"`
-		BlockChanSize     uint `yaml:"blockChanSize"`
-		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
+		ActionChanSize             uint          `yaml:"actionChanSize"`
+		BlockChanSize              uint          `yaml:"blockChanSize"`
+		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
@@ -398,7 +381,7 @@ type (
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		Plugins            map[int]interface{}         `ymal:"plugins"`
-		Network            Network                     `yaml:"network"`
+		Network            p2p.Network                 `yaml:"network"`
 		Chain              Chain                       `yaml:"chain"`
 		ActPool            ActPool                     `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`
@@ -589,6 +572,10 @@ func ValidateDispatcher(cfg Config) error {
 	if cfg.Dispatcher.ActionChanSize <= 0 || cfg.Dispatcher.BlockChanSize <= 0 || cfg.Dispatcher.BlockSyncChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "dispatcher chan size should be greater than 0")
 	}
+
+	if cfg.Dispatcher.ProcessSyncRequestInterval < 0 {
+		return errors.Wrap(ErrInvalidCfg, "dispatcher processSyncRequestInterval should not be less than 0")
+	}
 	return nil
 }
 
@@ -643,25 +630,25 @@ func ValidateActPool(cfg Config) error {
 
 // ValidateForkHeights validates the forked heights
 func ValidateForkHeights(cfg Config) error {
-	hu := NewHeightUpgrade(&cfg.Genesis)
+	hu := cfg.Genesis
 	switch {
-	case hu.PacificBlockHeight() > hu.AleutianBlockHeight():
+	case hu.PacificBlockHeight > hu.AleutianBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Pacific is heigher than Aleutian")
-	case hu.AleutianBlockHeight() > hu.BeringBlockHeight():
+	case hu.AleutianBlockHeight > hu.BeringBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Aleutian is heigher than Bering")
-	case hu.BeringBlockHeight() > hu.CookBlockHeight():
+	case hu.BeringBlockHeight > hu.CookBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Bering is heigher than Cook")
-	case hu.CookBlockHeight() > hu.DardanellesBlockHeight():
+	case hu.CookBlockHeight > hu.DardanellesBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Cook is heigher than Dardanelles")
-	case hu.DardanellesBlockHeight() > hu.DaytonaBlockHeight():
+	case hu.DardanellesBlockHeight > hu.DaytonaBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Dardanelles is heigher than Daytona")
-	case hu.DaytonaBlockHeight() > hu.EasterBlockHeight():
+	case hu.DaytonaBlockHeight > hu.EasterBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Daytona is heigher than Easter")
-	case hu.EasterBlockHeight() > hu.FbkMigrationBlockHeight():
+	case hu.EasterBlockHeight > hu.FbkMigrationBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Easter is heigher than FairbankMigration")
-	case hu.FbkMigrationBlockHeight() > hu.FairbankBlockHeight():
+	case hu.FbkMigrationBlockHeight > hu.FairbankBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "FairbankMigration is heigher than Fairbank")
-	case hu.FairbankBlockHeight() > hu.GreenlandBlockHeight():
+	case hu.FairbankBlockHeight > hu.GreenlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Fairbank is heigher than Greenland")
 	}
 	return nil

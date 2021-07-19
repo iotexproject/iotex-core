@@ -30,7 +30,6 @@ import (
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
 
@@ -67,8 +66,7 @@ func TestCreateContract(t *testing.T) {
 	addr := identityset.Address(28)
 	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
-	hu := config.NewHeightUpgrade(&cfg.Genesis)
-	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hu.IsPost(config.Greenland, 0), hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 0, !cfg.Genesis.IsAleutian(0), cfg.Genesis.IsGreenland(0), hash.ZeroHash256)
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
@@ -99,7 +97,6 @@ func TestLoadStoreCommit(t *testing.T) {
 
 	testLoadStoreCommit := func(cfg config.Config, t *testing.T, enableAsync bool) {
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
 		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, sm, enableAsync)
@@ -250,7 +247,6 @@ func TestLoadStoreCommit(t *testing.T) {
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	testfunc := func(enableAsync bool) {
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)

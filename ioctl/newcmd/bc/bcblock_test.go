@@ -25,7 +25,6 @@ import (
 // test for bc info command
 func TestNewBCBlockCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	cfg := config.Config{}

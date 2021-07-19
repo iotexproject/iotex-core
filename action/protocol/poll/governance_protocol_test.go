@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -53,14 +54,16 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	epochStartHeight := rp.GetEpochHeight(2)
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: epochStartHeight - 1,
+	ctx = genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			protocol.WithRegistry(ctx, registry),
+			protocol.BlockchainCtx{
+				Tip: protocol.TipInfo{
+					Height: epochStartHeight - 1,
+				},
 			},
-		},
+		),
+		cfg.Genesis,
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -146,7 +149,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	slasher, err := NewSlasher(
-		&cfg.Genesis,
 		func(start, end uint64) (map[string]uint64, error) {
 			switch start {
 			case 1:
@@ -216,7 +218,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 func TestCreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstruct(ctrl)
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
@@ -240,7 +241,6 @@ func TestCreateGenesisStates(t *testing.T) {
 func TestCreatePostSystemActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstruct(ctrl)
 	require.NoError(err)
 	_, err = shiftCandidates(sm)
@@ -265,7 +265,6 @@ func TestCreatePostSystemActions(t *testing.T) {
 func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
@@ -358,7 +357,6 @@ func TestCreatePreStates(t *testing.T) {
 func TestHandle(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
@@ -417,9 +415,9 @@ func TestHandle(t *testing.T) {
 
 		_, err = shiftCandidates(sm2)
 		require.NoError(err)
-		candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, true)
+		_, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, true)
 		require.Error(err) // should return stateNotExist error
-		candidates, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, false)
+		candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, false)
 		require.NoError(err)
 		require.Equal(2, len(candidates))
 		require.Equal(candidates[0].Address, sc2[0].Address)
@@ -569,7 +567,6 @@ func TestHandle(t *testing.T) {
 func TestNextCandidates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 	probationListMap := map[string]uint32{
@@ -619,7 +616,6 @@ func TestNextCandidates(t *testing.T) {
 func TestDelegatesAndNextDelegates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 

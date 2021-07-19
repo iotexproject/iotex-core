@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -129,8 +129,7 @@ type bucketMessage struct {
 
 func (m *bucketMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf(m.Bucket.String())
-		return message
+		return m.Bucket.String()
 	}
 	return output.FormatString(output.Result, m)
 }

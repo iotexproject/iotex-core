@@ -62,7 +62,6 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(-1, bytes.Compare(bucketPoolAddrKey, bucketKey(0)))
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	pool, err := NewBucketPool(sm, false)

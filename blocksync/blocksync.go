@@ -25,7 +25,7 @@ import (
 
 type (
 	// RequestBlocks send a block request to peers
-	RequestBlocks func(ctx context.Context, start uint64, end uint64) error
+	RequestBlocks func(ctx context.Context, start uint64, end uint64, repeat int)
 	// TipHeight returns the tip height of blockchain
 	TipHeight func() uint64
 	// BlockByHeight returns the block of a given height
@@ -40,7 +40,7 @@ type BlockSync interface {
 
 	TargetHeight() uint64
 	ProcessSyncRequest(context.Context, uint64, uint64, func(context.Context, *block.Block) error) error
-	ProcessBlock(context.Context, *block.Block) error
+	ProcessBlock(context.Context, string, *block.Block) error
 	SyncStatus() string
 }
 
@@ -54,7 +54,6 @@ type blockSyncer struct {
 	commitBlockHandler   CommitBlock
 	requestBlocksHandler RequestBlocks
 
-	flushTask     *routine.RecurringTask
 	syncTask      *routine.RecurringTask
 	syncStageTask *routine.RecurringTask
 
@@ -65,6 +64,20 @@ type blockSyncer struct {
 	lastTipUpdateTime time.Time
 	targetHeight      uint64
 	mu                sync.RWMutex
+
+	peerBlockList sync.Map
+}
+
+type peerBlock struct {
+	pid   string
+	block *block.Block
+}
+
+func newPeerBlock(pid string, blk *block.Block) *peerBlock {
+	return &peerBlock{
+		pid:   pid,
+		block: blk,
+	}
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -75,15 +88,10 @@ func NewBlockSyncer(
 	commitBlockHandler CommitBlock,
 	requestBlocksHandler RequestBlocks,
 ) (BlockSync, error) {
-	buf := &blockBuffer{
-		blocks:       map[uint64]*block.Block{},
-		bufferSize:   cfg.BufferSize,
-		intervalSize: cfg.IntervalSize,
-	}
 	bs := &blockSyncer{
 		cfg:                  cfg,
 		lastTipUpdateTime:    time.Now(),
-		buf:                  buf,
+		buf:                  newBlockBuffer(cfg.BufferSize, cfg.IntervalSize),
 		tipHeightHandler:     tipHeightHandler,
 		blockByHeightHandler: blockByHeightHandler,
 		commitBlockHandler:   commitBlockHandler,
@@ -92,37 +100,44 @@ func NewBlockSyncer(
 	}
 	if bs.cfg.Interval != 0 {
 		bs.syncTask = routine.NewRecurringTask(bs.sync, bs.cfg.Interval)
-		bs.flushTask = routine.NewRecurringTask(bs.flush, bs.cfg.Interval)
 		bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, bs.cfg.Interval)
 	}
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
 	return bs, nil
 }
 
-func (bs *blockSyncer) flush() {
-	tip := bs.tipHeightHandler()
-	newTip := bs.buf.Flush(tip, bs.commitBlockHandler)
-	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", newTip))
+func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
+	if blks == nil {
+		return false
+	}
+	for _, blk := range blks {
+		if blk == nil {
+			continue
+		}
+		err := bs.commitBlockHandler(blk.block)
+		if err == nil {
+			return true
+		}
+		bs.peerBlockList.Store(blk.pid, true)
+
+		log.L().Debug("failed to commit block", zap.Error(err))
+	}
+	return false
 }
 
-func (bs *blockSyncer) updateTipHeight() (uint64, time.Time, uint64) {
+func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	tipHeight := bs.tipHeightHandler()
-	if tipHeight != bs.lastTip {
-		bs.lastTip = tipHeight
-		bs.lastTipUpdateTime = time.Now()
-	}
 
-	return bs.lastTip, bs.lastTipUpdateTime, bs.targetHeight
+	return bs.lastTipUpdateTime, bs.targetHeight
 }
 
 func (bs *blockSyncer) sync() {
-	tipHeight, updateTime, targetHeight := bs.updateTipHeight()
+	updateTime, targetHeight := bs.flushInfo()
 	if updateTime.Add(bs.cfg.Interval).After(time.Now()) {
 		return
 	}
-	intervals := bs.buf.GetBlocksIntervalsToSync(tipHeight, targetHeight)
+	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
 	if intervals != nil {
 		log.L().Info("block sync intervals.",
 			zap.Any("intervals", intervals),
@@ -130,15 +145,7 @@ func (bs *blockSyncer) sync() {
 	}
 
 	for i, interval := range intervals {
-		repeat := bs.cfg.MaxRepeat - i/bs.cfg.RepeatDecayStep
-		if repeat <= 0 {
-			repeat = 1
-		}
-		for j := 0; j < repeat; j++ {
-			if err := bs.requestBlocksHandler(context.Background(), interval.Start, interval.End); err != nil {
-				log.L().Debug("failed to sync block.", zap.Error(err))
-			}
-		}
+		bs.requestBlocksHandler(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
 }
 
@@ -152,11 +159,6 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
-	if bs.flushTask != nil {
-		if err := bs.flushTask.Start(ctx); err != nil {
-			return err
-		}
-	}
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
@@ -181,25 +183,42 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 			return err
 		}
 	}
-	if bs.flushTask != nil {
-		return bs.flushTask.Stop(ctx)
-	}
 	return nil
 }
 
 // ProcessBlock processes an incoming block
-func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
-	if bs.flushTask == nil {
-		return nil
-	}
+func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block.Block) error {
 	if blk == nil {
 		return errors.New("block is nil")
 	}
-	bs.buf.AddBlock(bs.tipHeightHandler(), blk)
+
+	_, ok := bs.peerBlockList.Load(peer)
+	if ok {
+		log.L().Info("peer in block list.")
+		return nil
+	}
+
+	tip := bs.tipHeightHandler()
+	if !bs.buf.AddBlock(tip, newPeerBlock(peer, blk)) {
+		return nil
+	}
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 	if blk.Height() > bs.targetHeight {
 		bs.targetHeight = blk.Height()
+	}
+	syncedHeight := tip
+	for {
+		if !bs.commitBlocks(bs.buf.Delete(syncedHeight + 1)) {
+			break
+		}
+		syncedHeight++
+	}
+	bs.buf.Cleanup(syncedHeight)
+	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
+	if syncedHeight > bs.lastTip {
+		bs.lastTip = syncedHeight
+		bs.lastTipUpdateTime = time.Now()
 	}
 	return nil
 }

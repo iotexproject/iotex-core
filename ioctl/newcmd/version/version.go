@@ -22,6 +22,7 @@ import (
 	ver "github.com/iotexproject/iotex-core/pkg/version"
 )
 
+// Multi-language support
 var (
 	uses = map[config.Language]string{
 		config.English: "version",
@@ -33,75 +34,78 @@ var (
 	}
 )
 
+type versionMessage struct {
+	Object      string                 `json:"object"`
+	VersionInfo *iotextypes.ServerMeta `json:"versionInfo"`
+}
+
 // NewVersionCmd represents the version command
-func NewVersionCmd(c ioctl.Client) *cobra.Command {
+func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
-	use, _ := c.SelectTranslation(uses)
-	short, _ := c.SelectTranslation(shorts)
+	use, _ := cli.SelectTranslation(uses)
+	short, _ := cli.SelectTranslation(shorts)
 	vc := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			message := versionMessage{
-				Object: "Client",
-				VersionInfo: &iotextypes.ServerMeta{
-					PackageVersion:  ver.PackageVersion,
-					PackageCommitID: ver.PackageCommitID,
-					GitStatus:       ver.GitStatus,
-					GoVersion:       ver.GoVersion,
-					BuildTime:       ver.BuildTime,
-				},
-			}
-			fmt.Println(message.String())
-			apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
-			if err != nil {
-				return err
-			}
-
-			response, err := apiClient.GetServerMeta(
-				context.Background(),
-				&iotexapi.GetServerMetaRequest{},
-			)
-			if err != nil {
-				sta, ok := status.FromError(err)
-				if ok {
-					return output.NewError(output.APIError, sta.Message(), nil)
-				}
-				return output.NewError(output.NetworkError, "failed to get version from server", err)
-			}
-			message = versionMessage{
-				Object:      config.ReadConfig.Endpoint,
-				VersionInfo: response.ServerMeta,
-			}
-			fmt.Println(message.String())
-			return nil
+			err := version(cli, endpoint, insecure)
+			return err
 		},
 	}
 	vc.PersistentFlags().StringVar(
 		&endpoint,
 		"endpoint",
-		c.Config().Endpoint,
+		cli.Config().Endpoint,
 		"set endpoint for once",
 	)
 	vc.PersistentFlags().BoolVar(
 		&insecure,
 		"insecure",
-		!c.Config().SecureConnect,
+		!cli.Config().SecureConnect,
 		"insecure connection for once",
 	)
-
 	return vc
 }
 
-type versionMessage struct {
-	Object      string                 `json:"object"`
-	VersionInfo *iotextypes.ServerMeta `json:"versionInfo"`
+func version(cli ioctl.Client, endpoint string, insecure bool) error {
+	message := versionMessage{
+		Object: "Client",
+		VersionInfo: &iotextypes.ServerMeta{
+			PackageVersion:  ver.PackageVersion,
+			PackageCommitID: ver.PackageCommitID,
+			GitStatus:       ver.GitStatus,
+			GoVersion:       ver.GoVersion,
+			BuildTime:       ver.BuildTime,
+		},
+	}
+	fmt.Println(message.String())
+	apiClient, err := cli.APIServiceClient(ioctl.APIServiceConfig{
+		Endpoint: endpoint,
+		Insecure: insecure,
+	})
+	if err != nil {
+		return err
+	}
+
+	response, err := apiClient.GetServerMeta(
+		context.Background(),
+		&iotexapi.GetServerMetaRequest{},
+	)
+	if err != nil {
+		if sta, ok := status.FromError(err); ok {
+			return output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return output.NewError(output.NetworkError, "failed to get version from server", err)
+	}
+	message = versionMessage{
+		Object:      config.ReadConfig.Endpoint,
+		VersionInfo: response.ServerMeta,
+	}
+	fmt.Println(message.String())
+	return nil
 }
 
 // TODO: output is an odd implementation, especially output.Format

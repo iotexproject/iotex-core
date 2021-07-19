@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -665,8 +664,9 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 
 	getBlockHash := func(x int64) []byte {
 		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
-		blockNumber := abi.U256(big.NewInt(x))
-		return append(funcSig[:4], blockNumber...)
+		// convert block number to uint256 (32-bytes)
+		blockNumber := hash.BytesToHash256(big.NewInt(x).Bytes())
+		return append(funcSig[:4], blockNumber[:]...)
 	}
 
 	var (
@@ -1034,8 +1034,7 @@ func TestConstantinople(t *testing.T) {
 			require.True(ok)
 			postBalance := new(big.Int).Sub(v.preBalance, gasFee)
 
-			hu := config.NewHeightUpgrade(&cfg.Genesis)
-			if hu.IsPre(config.Greenland, v.height) {
+			if !cfg.Genesis.IsGreenland(v.height) {
 				// pre-Greenland contains a tx with status = ReceiptStatus_ErrCodeStoreOutOfGas
 				// due to a bug the transfer is not reverted
 				require.Equal(2, len(tLog.Transactions))
@@ -1482,10 +1481,7 @@ func TestBlocks(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 10; i++ {
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -1510,9 +1506,9 @@ func TestActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		protocol.BlockchainCtx{Genesis: cfg.Genesis},
+		cfg.Genesis,
 	)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -1559,10 +1555,7 @@ func TestActions(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 5000; i++ {
 		tsf, err := action.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -1577,7 +1570,6 @@ func TestActions(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 0,
 				Hash:   blk.PrevHash(),
@@ -1601,7 +1593,6 @@ func TestBlockchain_AddSubscriber(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
 	// mock
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.NoError(bc.AddSubscriber(mb))
 	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
@@ -1621,7 +1612,6 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
 	// mock
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.Error(bc.RemoveSubscriber(mb))
 	req.NoError(bc.AddSubscriber(mb))

@@ -15,19 +15,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/iotexproject/go-p2p"
-	goproto "github.com/iotexproject/iotex-proto/golang"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	"github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/go-pkgs/hash"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 const (
@@ -70,33 +72,52 @@ const (
 
 type (
 	// HandleBroadcastInbound handles broadcast message when agent listens it from the network
-	HandleBroadcastInbound func(context.Context, uint32, proto.Message)
+	HandleBroadcastInbound func(context.Context, uint32, string, proto.Message)
 
 	// HandleUnicastInboundAsync handles unicast message when agent listens it from the network
-	HandleUnicastInboundAsync func(context.Context, uint32, peerstore.PeerInfo, proto.Message)
+	HandleUnicastInboundAsync func(context.Context, uint32, peer.AddrInfo, proto.Message)
+
+	// Network is the config of p2p
+	Network struct {
+		Host           string   `yaml:"host"`
+		Port           int      `yaml:"port"`
+		ExternalHost   string   `yaml:"externalHost"`
+		ExternalPort   int      `yaml:"externalPort"`
+		BootstrapNodes []string `yaml:"bootstrapNodes"`
+		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
+		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
+		// are supported: active, nat.
+		RelayType         string              `yaml:"relayType"`
+		ReconnectInterval time.Duration       `yaml:"reconnectInterval"`
+		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
+		EnableRateLimit   bool                `yaml:"enableRateLimit"`
+		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
+	}
+
+	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
+	Agent struct {
+		cfg                        Network
+		topicSuffix                string
+		broadcastInboundHandler    HandleBroadcastInbound
+		unicastInboundAsyncHandler HandleUnicastInboundAsync
+		host                       *p2p.Host
+		reconnectTimeout           time.Duration
+		reconnectTask              *routine.RecurringTask
+		qosMetrics                 *Qos
+	}
 )
 
-// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
-type Agent struct {
-	cfg                        config.Network
-	topicSuffix                string
-	broadcastInboundHandler    HandleBroadcastInbound
-	unicastInboundAsyncHandler HandleUnicastInboundAsync
-	host                       *p2p.Host
-	unicastBlocklist           *BlockList
-}
-
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
-	gh := cfg.Genesis.Hash()
-	log.L().Info("p2p agent", log.Hex("topicSuffix", gh[22:]))
+func NewAgent(cfg Network, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
 	return &Agent{
-		cfg: cfg.Network,
+		cfg: cfg,
 		// Make sure the honest node only care the messages related the chain from the same genesis
-		topicSuffix:                hex.EncodeToString(gh[22:]), // last 10 bytes of genesis hash
+		topicSuffix:                hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
-		unicastBlocklist:           NewBlockList(blockListLen),
+		reconnectTimeout:           cfg.ReconnectInterval,
+		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
 	}
 }
 
@@ -172,7 +193,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
 		}
-		p.broadcastInboundHandler(ctx, broadcast.ChainId, msg)
+		p.broadcastInboundHandler(ctx, broadcast.ChainId, peerID, msg)
+		p.qosMetrics.updateRecvBroadcast(time.Now())
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
@@ -209,15 +231,17 @@ func (p *Agent) Start(ctx context.Context) error {
 
 		stream, ok := p2p.GetUnicastStream(ctx)
 		if !ok {
-			err = errors.Wrap(err, "error when typifying unicast message")
+			err = errors.Wrap(err, "error when get unicast stream")
 			return
 		}
-		peerID = stream.Conn().RemotePeer().Pretty()
-		peerInfo := peerstore.PeerInfo{
-			ID:    stream.Conn().RemotePeer(),
+		remote := stream.Conn().RemotePeer()
+		peerID = remote.Pretty()
+		peerInfo := peer.AddrInfo{
+			ID:    remote,
 			Addrs: []multiaddr.Multiaddr{stream.Conn().RemoteMultiaddr()},
 		}
 		p.unicastInboundAsyncHandler(ctx, unicast.ChainId, peerInfo, msg)
+		p.qosMetrics.updateRecvUnicast(peerID, time.Now())
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")
@@ -230,13 +254,20 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 	p.host.JoinOverlay(ctx)
 	close(ready)
-	return nil
+
+	// check network connectivity every 60 blocks, and reconnect in case of disconnection
+	p.reconnectTask = routine.NewRecurringTask(p.reconnect, p.reconnectTimeout)
+	return p.reconnectTask.Start(ctx)
 }
 
 // Stop disconnects from P2P network
 func (p *Agent) Stop(ctx context.Context) error {
 	if p.host == nil {
-		return nil
+		return ErrAgentNotStarted
+	}
+	log.L().Info("p2p is shutting down.", zap.Error(ctx.Err()))
+	if err := p.reconnectTask.Stop(ctx); err != nil {
+		return err
 	}
 	if err := p.host.Close(); err != nil {
 		return errors.Wrap(err, "error when closing Agent host")
@@ -284,26 +315,29 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
-		return err
+		return
 	}
-	if err = host.Broadcast(broadcastTopic+p.topicSuffix, data); err != nil {
+	t := time.Now()
+	if err = host.Broadcast(ctx, broadcastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
-		return err
+		p.qosMetrics.updateSendBroadcast(t, false)
+		return
 	}
-	return err
+	p.qosMetrics.updateSendBroadcast(t, true)
+	return
 }
 
 // UnicastOutbound sends a unicast message to the given address
-func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) (err error) {
+func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
+	host := p.host
+	if host == nil {
+		return ErrAgentNotStarted
+	}
 	var (
 		peerName = peer.ID.Pretty()
 		msgType  iotexrpc.MessageType
 		msgBody  []byte
 	)
-	host := p.host
-	if host == nil {
-		return ErrAgentNotStarted
-	}
 	defer func() {
 		status := successStr
 		if err != nil {
@@ -311,11 +345,6 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		}
 		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
-
-	if p.unicastBlocklist.Blocked(peerName, time.Now()) {
-		err = errors.New("peer is in blocklist at this moment")
-		return
-	}
 
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
@@ -339,54 +368,43 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		return
 	}
 
+	t := time.Now()
 	if err = host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
-		p.unicastBlocklist.Add(peerName, time.Now())
+		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
 	}
-
-	// remove peer from blocklist upon success
-	p.unicastBlocklist.Remove(peerName)
+	p.qosMetrics.updateSendUnicast(peerName, t, true)
 	return
 }
 
 // Info returns agents' peer info.
-func (p *Agent) Info() (peerstore.PeerInfo, error) {
-	host := p.host
-	if host == nil {
-		return peerstore.PeerInfo{}, ErrAgentNotStarted
+func (p *Agent) Info() (peer.AddrInfo, error) {
+	if p.host == nil {
+		return peer.AddrInfo{}, ErrAgentNotStarted
 	}
-	return host.Info(), nil
+	return p.host.Info(), nil
 }
 
 // Self returns the self network address
 func (p *Agent) Self() ([]multiaddr.Multiaddr, error) {
-	host := p.host
-	if host == nil {
+	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
-	return host.Addresses(), nil
+	return p.host.Addresses(), nil
 }
 
 // Neighbors returns the neighbors' peer info
-func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
-	host := p.host
-	if host == nil {
+func (p *Agent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
+	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
-	var res []peerstore.PeerInfo
-	nbs, err := host.Neighbors(ctx)
-	if err != nil {
-		return nbs, err
-	}
+	return p.host.Neighbors(ctx), nil
+}
 
-	for i, nb := range nbs {
-		if p.unicastBlocklist.Blocked(nb.ID.Pretty(), time.Now()) || nb.ID.Pretty() == "" {
-			continue
-		}
-		res = append(res, nbs[i])
-	}
-	return res, nil
+// QosMetrics returns the Qos metrics
+func (p *Agent) QosMetrics() *Qos {
+	return p.qosMetrics
 }
 
 // connect connects to bootstrap nodes
@@ -441,6 +459,14 @@ func (p *Agent) connect(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (p *Agent) reconnect() {
+	if p.qosMetrics.lostConnection() {
+		log.L().Info("Network lost, try re-connecting.")
+		p.host.ClearBlocklist()
+		p.connect(context.Background())
+	}
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {

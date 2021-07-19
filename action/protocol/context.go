@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -35,8 +34,6 @@ type (
 
 	// BlockchainCtx provides blockchain auxiliary information.
 	BlockchainCtx struct {
-		// Genesis is a copy of current genesis
-		Genesis genesis.Genesis
 		// Tip is the information of tip block
 		Tip TipInfo
 	}

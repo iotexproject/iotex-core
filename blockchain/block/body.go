@@ -9,9 +9,9 @@ package block
 import (
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 )

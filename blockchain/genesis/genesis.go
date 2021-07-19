@@ -13,10 +13,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/config"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -62,6 +62,7 @@ func defaultConfig() Genesis {
 			FairbankBlockHeight:     5165641,
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
+			IcelandBlockHeight:      12289321,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -173,8 +174,15 @@ type (
 		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
 		// GreenlandBlockHeight is the start height of storing latest 720 block meta and rewarding/staking bucket pool
 		GreenlandBlockHeight uint64 `yaml:"greenlandHeight"`
-		// HawaiiBlockHeight is the start height to fix GetBlockHash in EVM
+		// HawaiiBlockHeight is the start height to
+		// 1. fix GetBlockHash in EVM
+		// 2. add revert message to log
+		// 3. fix change to same candidate in staking protocol
+		// 4. fix sorted map in StateDBAdapter
+		// 5. use pending nonce in EVM
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
+		// IcelandBlockHeight is the start height to support chainID opcode in EVM
+		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -391,6 +399,70 @@ func (g *Genesis) Hash() hash.Hash256 {
 		log.L().Panic("Error when marshaling genesis proto", zap.Error(err))
 	}
 	return hash.Hash256b(b)
+}
+
+func (g *Genesis) isPost(targetHeight, height uint64) bool {
+	return height >= targetHeight
+}
+
+// IsPacific checks whether height is equal to or larger than pacific height
+func (g *Genesis) IsPacific(height uint64) bool {
+	return g.isPost(g.PacificBlockHeight, height)
+}
+
+// IsAleutian checks whether height is equal to or larger than aleutian height
+func (g *Genesis) IsAleutian(height uint64) bool {
+	return g.isPost(g.AleutianBlockHeight, height)
+}
+
+// IsBering checks whether height is equal to or larger than bering height
+func (g *Genesis) IsBering(height uint64) bool {
+	return g.isPost(g.BeringBlockHeight, height)
+}
+
+// IsCook checks whether height is equal to or larger than cook height
+func (g *Genesis) IsCook(height uint64) bool {
+	return g.isPost(g.CookBlockHeight, height)
+}
+
+// IsDardanelles checks whether height is equal to or larger than dardanelles height
+func (g *Genesis) IsDardanelles(height uint64) bool {
+	return g.isPost(g.DardanellesBlockHeight, height)
+}
+
+// IsDaytona checks whether height is equal to or larger than daytona height
+func (g *Genesis) IsDaytona(height uint64) bool {
+	return g.isPost(g.DaytonaBlockHeight, height)
+}
+
+// IsEaster checks whether height is equal to or larger than easter height
+func (g *Genesis) IsEaster(height uint64) bool {
+	return g.isPost(g.EasterBlockHeight, height)
+}
+
+// IsFairbank checks whether height is equal to or larger than fairbank height
+func (g *Genesis) IsFairbank(height uint64) bool {
+	return g.isPost(g.FairbankBlockHeight, height)
+}
+
+// IsFbkMigration checks whether height is equal to or larger than fbk migration height
+func (g *Genesis) IsFbkMigration(height uint64) bool {
+	return g.isPost(g.FbkMigrationBlockHeight, height)
+}
+
+// IsGreenland checks whether height is equal to or larger than greenland height
+func (g *Genesis) IsGreenland(height uint64) bool {
+	return g.isPost(g.GreenlandBlockHeight, height)
+}
+
+// IsHawaii checks whether height is equal to or larger than hawaii height
+func (g *Genesis) IsHawaii(height uint64) bool {
+	return g.isPost(g.HawaiiBlockHeight, height)
+}
+
+// IsIceland checks whether height is equal to or larger than iceland height
+func (g *Genesis) IsIceland(height uint64) bool {
+	return g.isPost(g.IcelandBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the

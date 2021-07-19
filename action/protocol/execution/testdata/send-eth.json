@@ -9,6 +9,7 @@
         "rawAmount": "10000000000000000000",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 172378,
         "expectedBalances": [],
         "comment": "deploy send-eth contract"
     }],
@@ -19,6 +20,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 33678,
         "expectedBalances": [{
             "account": "io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph",
             "rawBalance": "3000000000000000000"

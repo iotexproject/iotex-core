@@ -21,9 +21,9 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 398700,
         "expectedBalances": [],
         "expectedStatus" : 1,
-        "failed": false,
         "comment": "deploy multisend contract"
     }],
     "executions": [{
@@ -32,6 +32,7 @@
         "rawAmount": "721",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 75497,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
             "rawBalance": "999999999999999999999999556"
@@ -51,6 +52,7 @@
         "rawAmount": "1",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 46760,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -71,6 +73,7 @@
         "rawAmount": "721",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 1200000,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -90,6 +93,7 @@
         "rawAmount": "100000000000",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 1970753,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -110,6 +114,7 @@
         "rawAmount": "9999999999999999",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 4750654,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
             "rawBalance": "999999999999999999999962656"

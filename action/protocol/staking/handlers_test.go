@@ -60,7 +60,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
@@ -78,9 +77,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(putCandidate(sm, candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
@@ -170,7 +167,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	for _, test := range tests {
 		require.NoError(setupAccount(sm, stakerAddr, test.initBalance))
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx := protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       stakerAddr,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: test.gasLimit,
@@ -240,7 +237,6 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm, p, _, _ := initAll(t, ctrl)
 	tests := []struct {
 		initBalance     int64
@@ -533,6 +529,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 		if test.err != nil {
 			continue
@@ -598,7 +595,6 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	tests := []struct {
 		initBalance     int64
 		caller          address.Address
@@ -834,13 +830,14 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 		_, err = p.Handle(ctx, act, sm)
 		require.NoError(err)
 
 		cu, err := action.NewCandidateUpdate(test.nonce, test.updateName, test.updateOperator, test.updateReward, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, _ = cu.IntrinsicGas()
-		ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
@@ -912,7 +909,6 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 func TestProtocol_HandleUnstake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, p, candidate, candidate2 := initAll(t, ctrl)
 	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
@@ -1173,9 +1169,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
 		}
-		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-			Genesis: greenland,
-		})
+		ctx = genesis.WithGenesisContext(ctx, greenland)
 		_, err = p.Start(ctx, sm)
 		require.NoError(err)
 		r, err := p.Handle(ctx, v.act, sm)
@@ -1196,7 +1190,6 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 func TestProtocol_HandleWithdrawStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	tests := []struct {
 		// create stake fields
 		amount      string
@@ -1282,10 +1275,10 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			act, err := action.NewUnstake(1, 0, nil, gasLimit, big.NewInt(unit.Qev))
 			require.NoError(err)
 			intrinsic, err := act.IntrinsicGas()
+			require.NoError(err)
 			actCost, err = act.Cost()
 			require.NoError(err)
-			require.NoError(err)
-			ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 				Caller:       caller,
 				GasPrice:     gasPrice,
 				IntrinsicGas: intrinsic,
@@ -1308,7 +1301,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		require.NoError(err)
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		blkCtx := protocol.MustGetBlockCtx(ctx)
-		ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       actionCtx.Caller,
 			GasPrice:     actionCtx.GasPrice,
 			IntrinsicGas: actionCtx.IntrinsicGas,
@@ -1359,7 +1352,6 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 func TestProtocol_HandleChangeCandidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	tests := []struct {
 		// creat stake fields
@@ -1571,7 +1563,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
 		// candidate2 vote self,index 0
-		initCreateStake(t, sm, candidate2.Owner, 101, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
+		ctx, _ := initCreateStake(t, sm, candidate2.Owner, 101, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 		// candidate vote self,index 1
 		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
 
@@ -1579,7 +1571,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
@@ -1661,7 +1653,6 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 func TestProtocol_HandleTransferStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	tests := []struct {
 		// creat stake fields
@@ -1784,7 +1775,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candi, candidate2 := initAll(t, ctrl)
-		_, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, false)
+		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, false)
 		if test.init {
 			initCreateStake(t, sm, candi.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candi, test.amount, false)
 		} else {
@@ -1796,7 +1787,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
@@ -1861,7 +1852,6 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	tests := []struct {
 		bucketOwner string
@@ -1876,7 +1866,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		sigNonce    uint64
 		status      iotextypes.ReceiptStatus
 	}{
-		// case I: p.hu.IsPre(config.Greenland, blkCtx.BlockHeight)
+		// case I: p.hu.IsPreGreenland(blkCtx.BlockHeight)
 		{
 			identityset.PrivateKey(2).HexString(),
 			1,
@@ -2015,7 +2005,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		stakeAmount := "100000000000000000000"
 		gasPrice := big.NewInt(unit.Qev)
 		gasLimit := uint64(10000)
-		initCreateStake(t, sm, identityset.Address(32), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand2, stakeAmount, false)
+		ctx, _ := initCreateStake(t, sm, identityset.Address(32), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand2, stakeAmount, false)
 		initCreateStake(t, sm, identityset.Address(31), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand1, stakeAmount, false)
 
 		// transfer to test.to through consignment
@@ -2029,7 +2019,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       caller,
 			GasPrice:     gasPrice,
 			IntrinsicGas: intrinsic,
@@ -2094,7 +2084,6 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 func TestProtocol_HandleRestake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	callerAddr := identityset.Address(2)
 
 	tests := []struct {
@@ -2276,7 +2265,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
-		_, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
+		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
 
 		if test.newAccount {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
@@ -2288,7 +2277,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
@@ -2359,7 +2348,6 @@ func TestProtocol_HandleRestake(t *testing.T) {
 func TestProtocol_HandleDepositToStake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	tests := []struct {
 		// creat stake fields
 		caller       address.Address
@@ -2489,7 +2477,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, _ := initAll(t, ctrl)
-		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, test.amount, test.autoStake)
+		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, test.amount, test.autoStake)
 
 		if test.newAccount {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
@@ -2499,7 +2487,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
@@ -2595,9 +2583,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
@@ -2631,9 +2617,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(putCandidate(sm, candidate2))
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)

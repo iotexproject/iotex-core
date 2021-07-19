@@ -10,12 +10,13 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 // admin stores the admin data of the rewarding protocol
@@ -108,28 +109,28 @@ func (p *Protocol) CreateGenesisStates(
 	sm protocol.StateManager,
 ) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	if err := p.assertZeroBlockHeight(blkCtx.BlockHeight); err != nil {
 		return err
 	}
 
-	blockReward := bcCtx.Genesis.BlockReward()
+	blockReward := g.BlockReward()
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
 	}
 
-	epochReward := bcCtx.Genesis.EpochReward()
+	epochReward := g.EpochReward()
 	if err := p.assertAmount(epochReward); err != nil {
 		return err
 	}
 
-	initBalance := bcCtx.Genesis.InitBalance()
-	numDelegatesForEpochReward := bcCtx.Genesis.NumDelegatesForEpochReward
-	exemptAddrs := bcCtx.Genesis.ExemptAddrsFromEpochReward()
-	foundationBonus := bcCtx.Genesis.FoundationBonus()
-	numDelegatesForFoundationBonus := bcCtx.Genesis.NumDelegatesForFoundationBonus
-	foundationBonusLastEpoch := bcCtx.Genesis.FoundationBonusLastEpoch
-	productivityThreshold := bcCtx.Genesis.ProductivityThreshold
+	initBalance := g.InitBalance()
+	numDelegatesForEpochReward := g.NumDelegatesForEpochReward
+	exemptAddrs := g.ExemptAddrsFromEpochReward()
+	foundationBonus := g.FoundationBonus()
+	numDelegatesForFoundationBonus := g.NumDelegatesForFoundationBonus
+	foundationBonusLastEpoch := g.FoundationBonusLastEpoch
+	productivityThreshold := g.ProductivityThreshold
 
 	if err := p.putState(
 		ctx,

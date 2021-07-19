@@ -111,11 +111,7 @@ func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[stri
 			return nil, err
 		}
 		producer := header.ProducerAddress()
-		if _, ok := stats[producer]; ok {
-			stats[producer]++
-		} else {
-			stats[producer] = 1
-		}
+		stats[producer]++
 	}
 
 	return stats, nil
@@ -360,12 +356,14 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		}
 	}
 
-	return protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: bc.config.Genesis,
-			Tip:     tip,
-		},
+	return genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Tip: tip,
+			},
+		),
+		bc.config.Genesis,
 	), nil
 }
 

@@ -7,9 +7,9 @@
 package rolldpos
 
 import (
-	"github.com/golang/protobuf/proto"
 	blake2b "github.com/minio/blake2b-simd"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )

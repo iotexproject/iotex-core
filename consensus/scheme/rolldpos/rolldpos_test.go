@@ -16,7 +16,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -25,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -53,7 +54,6 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	rp := rolldpos.NewProtocol(
@@ -181,7 +181,6 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 
 func TestValidateBlockFooter(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
@@ -256,7 +255,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
@@ -409,11 +407,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			registry := protocol.NewRegistry()
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 			require.NoError(t, err)
-			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(
+			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-				},
+				cfg.Genesis,
 			)))
 			actPool, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 			require.NoError(t, err)

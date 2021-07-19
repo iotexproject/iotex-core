@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -1116,7 +1116,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
@@ -1126,7 +1125,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1181,7 +1179,6 @@ func TestServer_SendAction(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
@@ -1529,7 +1526,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		Action:        nil,
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	_, err = svr.EstimateActionGasConsumption(context.Background(), request)
 	require.Error(err)
 }
 
@@ -1607,7 +1604,6 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1631,7 +1627,6 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1680,7 +1675,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1704,7 +1698,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1753,7 +1746,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1777,7 +1769,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1869,7 +1860,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1886,7 +1876,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -2551,6 +2540,6 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.Equal(2, len(res.Actions))
 
 	h3 := tsf3.Hash()
-	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
+	_, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
 }

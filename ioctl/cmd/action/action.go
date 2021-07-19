@@ -13,10 +13,10 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -57,7 +56,7 @@ var (
 
 const defaultGasLimit = uint64(20000000)
 
-var defaultGasPrice = big.NewInt(unit.Qev)
+// var defaultGasPrice = big.NewInt(unit.Qev)
 
 // Flags
 var (
@@ -406,6 +405,10 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
+	callerAddr, _ := Signer()
+	if callerAddr == "" {
+		callerAddr = address.ZeroAddress
+	}
 	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
 		ctx,
 		&iotexapi.ReadContractRequest{
@@ -414,7 +417,7 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 				Contract: contract.String(),
 				Data:     bytecode,
 			},
-			CallerAddress: address.ZeroAddress,
+			CallerAddress: callerAddr,
 		},
 	)
 	if err == nil {

@@ -20,7 +20,6 @@ import (
 // test for chainListener
 func TestChainListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	responder := mock_apiresponder.NewMockResponder(ctrl)
 	listener := NewChainListener()

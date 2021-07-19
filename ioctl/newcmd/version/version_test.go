@@ -23,7 +23,6 @@ import (
 
 func TestVersionCommand(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
 	cfg := config.Config{}

@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -51,12 +52,11 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	ctx = protocol.WithBlockchainCtx(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
+		config.Default.Genesis,
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -98,7 +98,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	slasher, err := NewSlasher(
-		&cfg.Genesis,
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
 		},
@@ -145,7 +144,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
@@ -171,7 +169,6 @@ func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	p, ctx, sr, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
@@ -194,7 +191,6 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 func TestHandle_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	p, ctx, sm, _, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)

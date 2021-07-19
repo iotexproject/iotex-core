@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 156741,
         "expectedBalances": [],
         "comment": "deploy tail-recursion contract"
     }],
@@ -18,7 +19,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 15311,
         "hasReturnValue": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000088",
         "comment": "call sum"
@@ -28,7 +29,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 15131,
         "hasReturnValue": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000088",
         "comment": "call sumloop"
@@ -38,7 +39,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 15461,
         "hasReturnValue": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000088",
         "comment": "call sumtail"
