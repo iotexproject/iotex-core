@@ -170,7 +170,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(g, e.height)
+		chainConfig := getChainConfig(g.Blockchain, e.height)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
