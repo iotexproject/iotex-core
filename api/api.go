@@ -1422,7 +1422,8 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 		selp := blk.Actions[i]
 		actHash, err := selp.Hash()
 		if err != nil {
-			log.L().Fatal("Failed to get hash", zap.Error(err))
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
 		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append(res, &iotexapi.ActionInfo{
@@ -1450,7 +1451,8 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 		selp := blk.Actions[ri]
 		actHash, err := selp.Hash()
 		if err != nil {
-			log.L().Fatal("Failed to get hash", zap.Error(err))
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
 		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append([]*iotexapi.ActionInfo{

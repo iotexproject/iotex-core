@@ -161,7 +161,8 @@ func (b *Block) ActionHashs() []string {
 	for i := range b.Actions {
 		h, err := b.Actions[i].Hash()
 		if err != nil {
-			log.L().Fatal("Failed to get hash", zap.Error(err))
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
 		}
 		actHash[i] = hex.EncodeToString(h[:])
 	}

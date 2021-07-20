@@ -11,7 +11,9 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -22,6 +24,7 @@ func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
 	for _, act := range acts {
 		actHash, err := act.Hash()
 		if err != nil {
+			log.L().Debug("Error in getting hash", zap.Error(err))
 			return hash.ZeroHash256
 		}
 		h = append(h, actHash)

@@ -456,7 +456,8 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
 		if err != nil {
-			log.L().Fatal("Failed to get hash", zap.Error(err))
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
 		}
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
@@ -472,7 +473,8 @@ func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope
 	for _, act := range acts {
 		hash, err := act.Hash()
 		if err != nil {
-			log.L().Fatal("Failed to get hash", zap.Error(err))
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
 		}
 		desAddress, ok := act.Destination()
 		if ok {
