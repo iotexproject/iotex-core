@@ -866,7 +866,11 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.Equal(t, 183, len(blk.Actions))
 	whetherInclude := false
 	for _, action := range blk.Actions {
-		if transfer1.Hash() == action.Hash() {
+		transfer1Hash, err := transfer1.Hash()
+		require.NoError(t, err)
+		actionHash, err := action.Hash()
+		require.NoError(t, err)
+		if transfer1Hash == actionHash {
 			whetherInclude = true
 			break
 		}
