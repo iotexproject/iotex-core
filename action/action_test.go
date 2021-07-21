@@ -38,7 +38,11 @@ func TestActionProtoAndVerify(t *testing.T) {
 		nselp := &SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
 
-		require.Equal(selp.Hash(), nselp.Hash())
+		selpHash, err := selp.Hash()
+		require.NoError(err)
+		nselpHash, err := nselp.Hash()
+		require.NoError(err)
+		require.Equal(selpHash, nselpHash)
 	})
 	t.Run("empty public key", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}

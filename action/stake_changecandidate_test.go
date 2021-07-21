@@ -71,7 +71,8 @@ func TestChangeCandidateSignVerify(t *testing.T) {
 	ser, err := proto.Marshal(selp.Proto())
 	require.NoError(err)
 	require.Equal("0a43080118c0843d22023130ea0236080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164124104755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf331a41d519eb3747163b945b862989b7e82a7f8468001e9683757cb88d5ddd95f81895047429e858bd48f7d59a88bfec92de231d216293aeba1e4fbe11461d9c9fc99801", hex.EncodeToString(ser))
-	hash := selp.Hash()
+	hash, err := selp.Hash()
+	require.NoError(err)
 	require.Equal("186526b5b9fe74e25beb52c83c41780a69108160bef2ddaf3bffb9f1f1e5e73a", hex.EncodeToString(hash[:]))
 	// verify signature
 	require.NoError(Verify(selp))

@@ -394,7 +394,14 @@ func TestLocalTransfer(t *testing.T) {
 			var selp action.SealedEnvelope
 			err := backoff.Retry(func() error {
 				var err error
-				selp, err = as.GetActionByActionHash(tsf.Hash())
+				tsfHash, err1 := tsf.Hash()
+				if err1 != nil {
+					return err1
+				}
+				selp, err = as.GetActionByActionHash(tsfHash)
+				if err != nil {
+					return err
+				}
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
@@ -442,11 +449,17 @@ func TestLocalTransfer(t *testing.T) {
 			//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
 			err := backoff.Retry(func() error {
 				var err error
-				_, err = ap.GetActionByHash(tsf.Hash())
+				tsfHash, err1 := tsf.Hash()
+				if err1 != nil {
+					return err1
+				}
+				_, err = ap.GetActionByHash(tsfHash)
 				return err
 			}, bo)
 			require.Error(err, tsfTest.message)
-			_, err = as.GetActionByActionHash(tsf.Hash())
+			tsfHash, err1 := tsf.Hash()
+			require.NoError(err1)
+			_, err = as.GetActionByActionHash(tsfHash)
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -459,11 +472,17 @@ func TestLocalTransfer(t *testing.T) {
 			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
 			err := backoff.Retry(func() error {
 				var err error
-				_, err = ap.GetActionByHash(tsf.Hash())
+				tsfHash, err1 := tsf.Hash()
+				if err1 != nil {
+					return err1
+				}
+				_, err = ap.GetActionByHash(tsfHash)
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
-			_, err = as.GetActionByActionHash(tsf.Hash())
+			tsfHash, err1 := tsf.Hash()
+			require.NoError(err1)
+			_, err = as.GetActionByActionHash(tsfHash)
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)

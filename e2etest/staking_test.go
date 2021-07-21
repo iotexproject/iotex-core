@@ -69,7 +69,8 @@ func TestStakingContract(t *testing.T) {
 		ex, err := action.SignedExecution(action.EmptyAddress, admin, 1, big.NewInt(0), 10000000, big.NewInt(testutil.TestGasPriceInt64), data)
 		require.NoError(err)
 
-		deployHash := ex.Hash()
+		deployHash, err := ex.Hash()
+		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ex))
 		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)

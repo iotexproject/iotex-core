@@ -299,7 +299,11 @@ func runExecutions(
 		if err := ap.Add(context.Background(), selp); err != nil {
 			return nil, err
 		}
-		hashes = append(hashes, selp.Hash())
+		selpHash, err := selp.Hash()
+		if err != nil {
+			return nil, err
+		}
+		hashes = append(hashes, selpHash)
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
@@ -618,7 +622,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash := selp.Hash()
+		eHash, err := selp.Hash()
+		require.NoError(err)
 		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
@@ -636,7 +641,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 		exe, _, err := dao.GetActionByActionHash(eHash, blk.Height())
 		require.NoError(err)
-		require.Equal(eHash, exe.Hash())
+		exeHash, err := exe.Hash()
+		require.NoError(err)
+		require.Equal(eHash, exeHash)
 
 		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
 		total, err := indexer.GetActionCountByAddress(addr27)
@@ -681,7 +688,8 @@ func TestProtocol_Handle(t *testing.T) {
 			v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 			require.Equal(byte(15), v[31])
 		*/
-		eHash = selp.Hash()
+		eHash, err = selp.Hash()
+		require.NoError(err)
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
@@ -706,7 +714,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash = selp.Hash()
+		eHash, err = selp.Hash()
+		require.NoError(err)
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
