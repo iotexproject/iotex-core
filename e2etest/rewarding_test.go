@@ -58,11 +58,6 @@ const (
 	totalClaimCasesNum
 )
 
-const (
-	numNodes  = 4
-	numAdmins = 2
-)
-
 func TestBlockReward(t *testing.T) {
 	r := require.New(t)
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -150,14 +145,26 @@ func TestBlockReward(t *testing.T) {
 }
 
 func TestBlockEpochReward(t *testing.T) {
-	require := require.New(t)
+
 	dbFilePaths := make([]string, 0)
 
 	//Test will stop after reaching this height
 	runToHeight := uint64(60)
 
+	//Number of nodes
+	numNodes := 4
+
 	// Set mini-cluster configurations
 	rand.Seed(time.Now().UnixNano())
+	var delegates []genesis.Delegate
+	for i := 0; i < numNodes; i++ {
+		delegates = append(delegates, genesis.Delegate{
+			OperatorAddrStr: identityset.Address(i + numNodes).String(),
+			RewardAddrStr:   identityset.Address(i).String(),
+			VotesStr:        "100000",
+		})
+
+	}
 	configs := make([]config.Config, numNodes)
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
@@ -166,32 +173,26 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, trieDBPath)
 		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, indexDBPath)
-		bloomfilterIndexDBPath := fmt.Sprintf("./bloomfilter.index%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, bloomfilterIndexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
-		systemLogDBPath := fmt.Sprintf("./systemlog%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, systemLogDBPath)
-		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
+		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
-		config := newConfig(identityset.PrivateKey(i), networkPort, apiPort, HTTPAdminPort)
-		config.Chain.ChainDBPath = chainDBPath
-		config.Chain.TrieDBPath = trieDBPath
-		config.Chain.IndexDBPath = indexDBPath
-		config.Chain.BloomfilterIndexDBPath = bloomfilterIndexDBPath
-		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
-		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
-		config.System.SystemLogDBPath = systemLogDBPath
+		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, identityset.PrivateKey(i),
+			networkPort, apiPort, uint64(numNodes))
+		cfg.Genesis.Delegates = delegates
+		cfg.Genesis.PollMode = "lifeLong"
+		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
+
 		if i == 0 {
-			config.Network.BootstrapNodes = []string{}
-			config.Network.MasterKey = "bootnode"
+			cfg.Network.BootstrapNodes = []string{}
+			cfg.Network.MasterKey = "bootnode"
 		}
-		config.Genesis.AleutianBlockHeight = 1
-		config.Genesis.PacificBlockHeight = 1
-		configs[i] = config
+
+		cfg.System.HTTPStatsPort = HTTPStatsPort
+		cfg.System.HTTPAdminPort = HTTPAdminPort
+		configs[i] = cfg
 	}
 
 	for _, dbFilePath := range dbFilePaths {
@@ -226,6 +227,7 @@ func TestBlockEpochReward(t *testing.T) {
 		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
 		defer svrs[i].Stop(context.Background())
 	}
+
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := "127.0.0.1:14014"
 
@@ -257,7 +259,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 	for i := 0; i < numNodes; i++ {
 		rp := rewarding.FindProtocol(svrs[i].ChainService(configs[i].Chain.ID).Registry())
-		require.NotNil(rp)
+		require.NotNil(t, rp)
 		rps[i] = rp
 
 		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
@@ -268,12 +270,12 @@ func TestBlockEpochReward(t *testing.T) {
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
 		initState, err := accountutil.AccountState(sfs[i], rewardAddrStr)
-		require.NoError(err)
+		require.NoError(t, err)
 		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
 		initState, err = accountutil.AccountState(sfs[i], operatorAddrStr)
-		require.NoError(err)
+		require.NoError(t, err)
 		initBalances[operatorAddrStr] = initState.Balance
 
 		claimedAmount[rewardAddrStr] = big.NewInt(0)
@@ -282,37 +284,30 @@ func TestBlockEpochReward(t *testing.T) {
 
 	}
 
-	ctx := context.Background()
-	ctx = protocol.WithBlockCtx(
+	blocksPerEpoch := configs[0].Genesis.Blockchain.NumDelegates * configs[0].Genesis.Blockchain.NumSubEpochs
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
-	)
-
-	blocksPerEpoch := configs[0].Genesis.Blockchain.NumDelegates * configs[0].Genesis.Blockchain.NumSubEpochs
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 
 	blockReward, err := rps[0].BlockReward(ctx, sfs[0])
-	require.NoError(err)
+	require.NoError(t, err)
 
 	//Calculate epoch reward shares for each delegate based on their weight (votes number)
 	epochReward, err := rps[0].EpochReward(ctx, sfs[0])
-	require.NoError(err)
+	require.NoError(t, err)
 	epRwdShares := make(map[string]*big.Int, numNodes)
 
 	totalVotes := big.NewInt(0)
 	for i := 0; i < numNodes; i++ {
-		totalVotes = totalVotes.Add(configs[0].Genesis.Delegates[i].Votes(), totalVotes)
+		totalVotes = totalVotes.Add(configs[0].Genesis.Delegates[0].Votes(), totalVotes)
 	}
 
 	for i := 0; i < numNodes; i++ {
-		tempShare := big.NewInt(0).Mul(epochReward, configs[0].Genesis.Delegates[i].Votes())
+		tempShare := big.NewInt(0).Mul(epochReward, configs[0].Genesis.Delegates[0].Votes())
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		epRwdShares[rewardAddrStr] = big.NewInt(0).Div(tempShare, totalVotes)
 	}
@@ -328,7 +323,6 @@ func TestBlockEpochReward(t *testing.T) {
 
 	if err := testutil.WaitUntil(100*time.Millisecond, 120*time.Second, func() (bool, error) {
 		height := chains[0].TipHeight()
-
 		//New height is reached, need to update block reward
 		if height > preHeight {
 
@@ -362,14 +356,14 @@ func TestBlockEpochReward(t *testing.T) {
 				for h := preExpectHigh + 1; h <= curHigh; h++ {
 					//Add block reward to current block producer
 					header, err := chains[0].BlockHeaderByHeight(h)
-					require.NoError(err)
+					require.NoError(t, err)
 					exptUnclaimed[getRewardAddStr[header.ProducerAddress()]] =
 						big.NewInt(0).Add(exptUnclaimed[getRewardAddStr[header.ProducerAddress()]], blockReward)
 
 					//update Epoch rewards
 					epochNum := h / blocksPerEpoch
 					if epochNum > preEpochNum {
-						require.Equal(epochNum, preEpochNum+1)
+						require.Equal(t, epochNum, preEpochNum+1)
 						preEpochNum = epochNum
 
 						//Add normal epoch reward
@@ -380,9 +374,9 @@ func TestBlockEpochReward(t *testing.T) {
 						}
 						//Add foundation bonus
 						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(context.Background(), sfs[0])
-						require.NoError(err)
+						require.NoError(t, err)
 						foundationBonus, err := rps[0].FoundationBonus(context.Background(), sfs[0])
-						require.NoError(err)
+						require.NoError(t, err)
 						if epochNum <= foundationBonusLastEpoch {
 							for i := 0; i < numNodes; i++ {
 								rewardAddrStr := identityset.Address(i + numNodes).String()
@@ -404,7 +398,7 @@ func TestBlockEpochReward(t *testing.T) {
 				return curHigh == curHighCheck, nil
 
 			})
-			require.NoError(err)
+			require.NoError(t, err)
 
 			//Comparing the expected and real unclaimed balance
 			for i := 0; i < numNodes; i++ {
@@ -415,7 +409,7 @@ func TestBlockEpochReward(t *testing.T) {
 				fmt.Println("Server ", i, " ", rewardAddrStr,
 					"  expected ", exptUnclaimed[rewardAddrStr].String())
 
-				require.Equal(exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
+				require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
 			}
 
 			// perform a random claim and record the amount
@@ -467,23 +461,23 @@ func TestBlockEpochReward(t *testing.T) {
 		updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
-	require.NoError(err)
+	require.NoError(t, err)
 
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		endState, err := accountutil.AccountState(sfs[0], rewardAddrStr)
-		require.NoError(err)
+		require.NoError(t, err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
 		fmt.Println("Server ", i, " ", rewardAddrStr, "Expected Balance ", expectBalance.String())
-		require.Equal(expectBalance.String(), endState.Balance.String())
+		require.Equal(t, expectBalance.String(), endState.Balance.String())
 
 		//Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
 		operatorState, err := accountutil.AccountState(sfs[i], operatorAddrStr)
-		require.NoError(err)
-		require.Equal(initBalances[operatorAddrStr], operatorState.Balance)
+		require.NoError(t, err)
+		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
 }
 
@@ -580,25 +574,26 @@ func updateExpectationWithPendingClaimList(
 }
 
 func newConfig(
+	chainDBPath,
+	trieDBPath,
+	indexDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
-	HTTPAdminPort int,
+	numNodes uint64,
 ) config.Config {
 	cfg := config.Default
-	defer func() {
-		delete(cfg.Plugins, config.GatewayPlugin)
-	}()
-	cfg.Plugins[config.GatewayPlugin] = true
-	cfg.Chain.EnableAsyncIndexWrite = false
 
-	cfg.System.HTTPAdminPort = HTTPAdminPort
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
+	cfg.Chain.ChainDBPath = chainDBPath
+	cfg.Chain.TrieDBPath = trieDBPath
+	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
+	cfg.Chain.EnableAsyncIndexWrite = false
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
@@ -614,13 +609,13 @@ func newConfig(
 
 	cfg.API.Port = apiPort
 
-	cfg.Genesis.BlockInterval = 500 * time.Millisecond
-	cfg.Genesis.Blockchain.NumSubEpochs = 2
+	cfg.Genesis.Blockchain.NumSubEpochs = 4
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
+
+	cfg.Genesis.BlockInterval = 500 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
-	cfg.Genesis.PollMode = "lifeLong"
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 	return cfg
 }
