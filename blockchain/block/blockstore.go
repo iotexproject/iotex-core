@@ -7,6 +7,8 @@
 package block
 
 import (
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -46,7 +48,12 @@ func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
 		return err
 	}
 	// verify merkle root can match after deserialize
-	if err := in.Block.VerifyTxRoot(in.Block.CalculateTxRoot()); err != nil {
+	txHash, err := in.Block.CalculateTxRoot()
+	if err != nil {
+		log.L().Debug("error in getting hash", zap.Error(err))
+		return err
+	}
+	if err := in.Block.VerifyTxRoot(txHash); err != nil {
 		return err
 	}
 

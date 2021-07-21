@@ -72,7 +72,11 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 
 // SignAndBuild signs and then builds a block.
 func (b *TestingBuilder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
-	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
+	var err error
+	b.blk.Header.txRoot, err = b.blk.CalculateTxRoot()
+	if err != nil {
+		return Block{}, errors.New("Failed to get hash")
+	}
 	b.blk.Header.pubkey = signerPrvKey.PublicKey()
 	h := b.blk.Header.HashHeaderCore()
 	sig, err := signerPrvKey.Sign(h[:])
@@ -108,6 +112,10 @@ func NewBlockDeprecated(
 		},
 	}
 
-	block.Header.txRoot = block.CalculateTxRoot()
+	var err error
+	block.Header.txRoot, err = block.CalculateTxRoot()
+	if err != nil {
+		return &Block{}
+	}
 	return block
 }
