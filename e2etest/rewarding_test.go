@@ -303,11 +303,11 @@ func TestBlockEpochReward(t *testing.T) {
 
 	totalVotes := big.NewInt(0)
 	for i := 0; i < numNodes; i++ {
-		totalVotes = totalVotes.Add(configs[0].Genesis.Delegates[0].Votes(), totalVotes)
+		totalVotes = totalVotes.Add(configs[0].Genesis.Delegates[i].Votes(), totalVotes)
 	}
 
 	for i := 0; i < numNodes; i++ {
-		tempShare := big.NewInt(0).Mul(epochReward, configs[0].Genesis.Delegates[0].Votes())
+		tempShare := big.NewInt(0).Mul(epochReward, configs[0].Genesis.Delegates[i].Votes())
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		epRwdShares[rewardAddrStr] = big.NewInt(0).Div(tempShare, totalVotes)
 	}
