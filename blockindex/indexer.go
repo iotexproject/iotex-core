@@ -162,7 +162,10 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 
 	// delete action index
 	for _, selp := range blk.Actions {
-		actHash := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			return err
+		}
 		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
 		if err := x.indexAction(actHash, selp, false); err != nil {
 			return err
@@ -322,7 +325,10 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	}
 	// index actions in the block
 	for _, selp := range blk.Actions {
-		actHash := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			return err
+		}
 		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {
