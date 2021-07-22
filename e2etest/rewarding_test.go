@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -159,9 +160,9 @@ func TestBlockEpochReward(t *testing.T) {
 	var delegates []genesis.Delegate
 	for i := 0; i < numNodes; i++ {
 		delegates = append(delegates, genesis.Delegate{
-			OperatorAddrStr: identityset.Address(i + numNodes).String(),
-			RewardAddrStr:   identityset.Address(i).String(),
-			VotesStr:        "100000",
+			OperatorAddrStr: identityset.Address(i).String(),
+			RewardAddrStr:   identityset.Address(i + numNodes).String(),
+			VotesStr:        strconv.Itoa(1000 + rand.Intn(1000)),
 		})
 
 	}
@@ -175,6 +176,10 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, indexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
+		bloomfilterIndexDBPath := fmt.Sprintf("./bloomfilter.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, bloomfilterIndexDBPath)
+		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPStatsPort := 8080 + i
@@ -184,14 +189,18 @@ func TestBlockEpochReward(t *testing.T) {
 		cfg.Genesis.Delegates = delegates
 		cfg.Genesis.PollMode = "lifeLong"
 		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
+		cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndexDBPath
+		cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
 
 		if i == 0 {
 			cfg.Network.BootstrapNodes = []string{}
 			cfg.Network.MasterKey = "bootnode"
+			cfg.Plugins[config.GatewayPlugin] = true
 		}
 
 		cfg.System.HTTPStatsPort = HTTPStatsPort
 		cfg.System.HTTPAdminPort = HTTPAdminPort
+
 		configs[i] = cfg
 	}
 
@@ -225,7 +234,7 @@ func TestBlockEpochReward(t *testing.T) {
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
 		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
-		defer svrs[i].Stop(context.Background())
+		//defer svrs[i].Stop(context.Background())
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -345,7 +354,7 @@ func TestBlockEpochReward(t *testing.T) {
 				for i := 0; i < numNodes; i++ {
 					rewardAddr := identityset.Address(i + numNodes)
 					unClaimedBalances[rewardAddr.String()], _, err =
-						rps[0].UnclaimedBalance(context.Background(), sfs[0], rewardAddr)
+						rps[0].UnclaimedBalance(ctx, sfs[0], rewardAddr)
 				}
 
 				if curHigh != chains[0].TipHeight() {
@@ -372,10 +381,11 @@ func TestBlockEpochReward(t *testing.T) {
 							expectAfterEpoch := big.NewInt(0).Add(exptUnclaimed[rewardAddrStr], epRwdShares[rewardAddrStr])
 							exptUnclaimed[rewardAddrStr] = expectAfterEpoch
 						}
+						ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 						//Add foundation bonus
-						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(context.Background(), sfs[0])
+						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(ctx, sfs[0])
 						require.NoError(t, err)
-						foundationBonus, err := rps[0].FoundationBonus(context.Background(), sfs[0])
+						foundationBonus, err := rps[0].FoundationBonus(ctx, sfs[0])
 						require.NoError(t, err)
 						if epochNum <= foundationBonusLastEpoch {
 							for i := 0; i < numNodes; i++ {
