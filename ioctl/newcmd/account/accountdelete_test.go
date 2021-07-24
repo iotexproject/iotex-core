@@ -28,7 +28,7 @@ func TestNewAccountDelete(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
 
-	ks := keystore.NewKeyStore("./",
+	ks := keystore.NewKeyStore(os.TempDir(),
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	acc, _ := ks.NewAccount("test")
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
@@ -39,7 +39,7 @@ func TestNewAccountDelete(t *testing.T) {
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
-	files, _ := ioutil.ReadDir(".")
+	files, _ := ioutil.ReadDir(os.TempDir())
 	for _, file := range files {
 		if strings.Contains(file.Name(), "UTC") {
 			_ = os.Remove(file.Name())
