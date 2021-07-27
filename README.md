@@ -14,6 +14,10 @@
 
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized blockchain protocol for powering real-world information marketplace in a decentralized-yet-scalable way. Refer to IoTeX [whitepaper](https://iotex.io/research/) for details.
 
+<a href="https://iotex.io/devdiscord" target="_blank">
+  <img src="https://github.com/iotexproject/halogrants/blob/880eea4af074b082a75608c7376bd7a8eaa1ac21/img/btn-discord.svg" height="36px">
+</a>
+
 ## Get started
 
 ### Minimum requirements
