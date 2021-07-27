@@ -7,7 +7,6 @@
 package account
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"testing"
