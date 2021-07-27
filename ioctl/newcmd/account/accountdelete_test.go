@@ -7,9 +7,9 @@
 package account
 
 import (
-	"io/ioutil"
+	"log"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -28,7 +28,9 @@ func TestNewAccountDelete(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
 
-	ks := keystore.NewKeyStore(os.TempDir(),
+	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
+	_ = os.MkdirAll(testAccountFolder, os.ModePerm)
+	ks := keystore.NewKeyStore(testAccountFolder,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	acc, _ := ks.NewAccount("test")
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
@@ -39,10 +41,8 @@ func TestNewAccountDelete(t *testing.T) {
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
-	files, _ := ioutil.ReadDir(os.TempDir())
-	for _, file := range files {
-		if strings.Contains(file.Name(), "UTC") {
-			_ = os.Remove(file.Name())
-		}
+	err = os.RemoveAll(testAccountFolder)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
