@@ -29,7 +29,10 @@ func TestNewAccountDelete(t *testing.T) {
 		config.English).AnyTimes()
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
-	_ = os.MkdirAll(testAccountFolder, os.ModePerm)
+	require.NoError(t, os.Mkdir(testAccountFolder, os.ModePerm))
+	defer func() {
+		require.NoError(t, os.RemoveAll(testAccountFolder))
+	}()
 	ks := keystore.NewKeyStore(testAccountFolder,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	acc, _ := ks.NewAccount("test")
@@ -40,9 +43,4 @@ func TestNewAccountDelete(t *testing.T) {
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
-
-	err = os.RemoveAll(testAccountFolder)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
