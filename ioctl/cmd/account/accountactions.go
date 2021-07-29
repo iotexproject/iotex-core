@@ -21,8 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-var countLimit *uint64
-
 // Multi-language support
 var (
 	actionsCmdShorts = map[config.Language]string{
@@ -32,10 +30,6 @@ var (
 	actionsCmdUses = map[config.Language]string{
 		config.English: "actions (ALIAS|ADDRESS)  [SKIP]",
 		config.Chinese: "actions (ALIAS|ADDRESS)  [SKIP]",
-	}
-	flagCountUsages = map[config.Language]string{
-		config.English: "choose a count limit",
-		config.Chinese: "选择一个计数限制",
 	}
 )
 
@@ -66,10 +60,6 @@ var accountActionsCmd = &cobra.Command{
 		err := accountActions(args)
 		return output.PrintError(err)
 	},
-}
-
-func init() {
-	countLimit = accountActionsCmd.Flags().Uint64("limit", 15, config.TranslateInLang(flagCountUsages, config.UILanguage))
 }
 
 func accountActions(args []string) error {
