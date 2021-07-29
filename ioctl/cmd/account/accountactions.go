@@ -40,7 +40,7 @@ var (
 )
 
 // TODO: remove struct definition after the release of anlytics v2
-type AllActionsByAddressResult struct {
+type allActionsByAddressResult struct {
 	ActHash    string
 	BlkHeight  string
 	Sender     string
@@ -51,9 +51,9 @@ type AllActionsByAddressResult struct {
 	RecordType string
 }
 
-type AllActionsByAddressResponse struct {
+type allActionsByAddressResponse struct {
 	Count   string
-	Results []*AllActionsByAddressResult
+	Results []*allActionsByAddressResult
 }
 
 // accountActionsCmd represents the account sign command
@@ -100,7 +100,7 @@ func accountActions(args []string) error {
 		return output.NewError(output.NetworkError, "failed to send request", nil)
 	}
 
-	var respData AllActionsByAddressResponse
+	var respData allActionsByAddressResponse
 	err = json.NewDecoder(resp.Body).Decode(&respData)
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to deserialize the response", nil)
