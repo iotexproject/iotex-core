@@ -358,9 +358,9 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
 	defer timer.End()
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
+	producer := blk.PublicKey().Address()
+	if producer == nil {
+		return errors.New("failed to get address")
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(

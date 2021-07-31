@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -65,9 +63,9 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err)
 				}
-				addr, err := address.FromBytes(private.PublicKey().Hash())
-				if err != nil {
-					return output.NewError(output.ConvertError, failToConvertPublicKeyIntoAddress, err)
+				addr := private.PublicKey().Address()
+				if addr == nil {
+					return output.NewError(output.ConvertError, failToConvertPublicKeyIntoAddress, nil)
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),

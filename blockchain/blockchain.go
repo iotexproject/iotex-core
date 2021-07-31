@@ -305,9 +305,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 		return errors.Wrap(err, "failed to verify block's signature and merkle root")
 	}
 
-	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
+	producerAddr := blk.PublicKey().Address()
+	if producerAddr == nil {
+		return errors.New("failed to get address")
 	}
 	ctx, err := bc.context(context.Background(), true)
 	if err != nil {

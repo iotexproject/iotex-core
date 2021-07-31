@@ -312,7 +312,7 @@ func SendAction(elp action.Envelope, signer string) error {
 	}
 
 	if util.AliasIsHdwalletKey(signer) {
-		addr, _ := address.FromBytes(prvKey.PublicKey().Hash())
+		addr := prvKey.PublicKey().Address()
 		signer = addr.String()
 		nonce, err := nonce(signer)
 		if err != nil {

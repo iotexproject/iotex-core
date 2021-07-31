@@ -129,9 +129,9 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to decode private key")
 		}
-		addr, err := address.FromBytes(pk.Hash())
-		if err != nil {
-			return err
+		addr := pk.Address()
+		if addr == nil {
+			return errors.New("failed to get address")
 		}
 		p.nonces.Add(addr.String(), 0)
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})

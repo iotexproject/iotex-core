@@ -103,8 +103,8 @@ func (s *Execution) checkAndAlert(hs string) {
 	}
 }
 func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
-	addr, err := address.FromBytes(pri.PublicKey().Hash())
-	if err != nil {
+	addr := pri.PublicKey().Address()
+	if addr == nil {
 		return
 	}
 	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())
