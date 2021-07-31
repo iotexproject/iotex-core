@@ -2,7 +2,9 @@ package action
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -245,4 +247,57 @@ func convertToNativeProto(tx *types.Transaction, isTsf bool) *iotextypes.ActionC
 		}
 	}
 	return &pb
+}
+
+func TestRawData(t *testing.T) {
+	require := require.New(t)
+
+	pvk, _ := crypto.GenerateKey()
+	ab := AbstractAction{
+		version:   1,
+		nonce:     2,
+		gasLimit:  21000,
+		gasPrice:  big.NewInt(1000000),
+		srcPubkey: pvk.PublicKey(),
+	}
+	createStakeAct := &CreateStake{
+		AbstractAction: ab,
+		amount:         big.NewInt(100),
+		payload:        signByte,
+	}
+
+	rlpAct, err := actionToRLP(createStakeAct)
+	require.NoError(err)
+	rawTx, err := generateRlpTx(rlpAct)
+	require.NoError(err)
+
+	//sign
+	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	require.True(ok)
+	signer := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID())))
+	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
+	require.NoError(err)
+
+	rawHash := signer.Hash(rawTx)
+	fmt.Printf("raw hash = %x\n", rawHash)
+
+	// extract sig
+	w, r, s := signedTx.RawSignatureValues()
+	sig := make([]byte, 64, 65)
+	rSize := len(r.Bytes())
+	copy(sig[32-rSize:32], r.Bytes())
+	sSize := len(s.Bytes())
+	copy(sig[64-sSize:], s.Bytes())
+	sig = append(sig, byte(w.Int64()))
+	fmt.Printf("signature = %x\n", sig)
+
+	h, err := rlpSignedHash(rlpAct, config.EVMNetworkID(), sig)
+	require.NoError(err)
+	fmt.Printf("signed hash = %x\n", h)
+
+	// recover public key
+	pubk, err := crypto.RecoverPubkey(rawHash[:], sig)
+	require.NoError(err)
+	require.Equal(pubk.HexString(), pvk.PublicKey().HexString())
+	require.True(pvk.PublicKey().Verify(rawHash[:], sig))
 }

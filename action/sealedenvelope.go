@@ -3,6 +3,7 @@ package action
 import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -46,11 +47,7 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		h, err := rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
-		if err != nil {
-			return hash.ZeroHash256, err
-		}
-		return h, nil
+		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
 	default:
@@ -134,14 +131,35 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 }
 
 func actionToRLP(action Action) (rlpTransaction, error) {
-	var tx rlpTransaction
+	var (
+		err error
+		tx  rlpTransaction
+	)
 	switch act := action.(type) {
 	case *Transfer:
 		tx = (*Transfer)(act)
 	case *Execution:
 		tx = (*Execution)(act)
+	case *CreateStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddrHash[:], act.Proto())
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
-	return tx, nil
+	return tx, err
+}
+
+func wrapStakingActionIntoExecution(ab AbstractAction, toAddr []byte, pb proto.Message) (rlpTransaction, error) {
+	addr, err := address.FromBytes(toAddr[:])
+	if err != nil {
+		return nil, err
+	}
+	data, err := proto.Marshal(pb)
+	if err != nil {
+		return nil, err
+	}
+	return &Execution{
+		AbstractAction: ab,
+		contract:       addr.String(),
+		data:           data,
+	}, nil
 }
