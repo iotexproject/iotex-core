@@ -46,11 +46,13 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		h, err := rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
+		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
+	case iotextypes.Encoding_ETHEREUM_STAKING:
+		tx, err := actionToWeb3Staking(sealed.Action())
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		return h, nil
+		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto()))), nil
 	default:
@@ -117,6 +119,16 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 			return err
 		}
 		sealed.evmNetworkID = config.EVMNetworkID()
+	case iotextypes.Encoding_ETHEREUM_STAKING:
+		// web-wrapped staking action
+		tx, err := actionToWeb3Staking(elp.Action())
+		if err != nil {
+			return err
+		}
+		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
+			return err
+		}
+		sealed.evmNetworkID = config.EVMNetworkID()
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
@@ -143,5 +155,15 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
+	return tx, nil
+}
+
+func actionToWeb3Staking(action Action) (rlpTransaction, error) {
+	var tx rlpTransaction
+	// convert to contract execution by filling the addr and calldata
+	// addr is pre-defined special addr for web3 staking
+	// like "000000web3stakecreate" for stake create, "000000web3candregister" for candidate register
+	// calldata is the proto-bytes of native staking action
+	// tx.data = proto.marshal(action.Proto())
 	return tx, nil
 }
