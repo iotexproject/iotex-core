@@ -7,10 +7,12 @@
 package api
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -40,11 +42,16 @@ func TestBlockListener(t *testing.T) {
 			BlockHeight: 2,
 		},
 	}
+	// add block with zero prev hash
+	selp2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+	require.NoError(t, err)
+
 	builder := block.NewTestingBuilder().
 		SetHeight(1).
 		SetVersion(111).
 		SetTimeStamp(time.Now()).
-		SetReceipts(receipts)
+		SetReceipts(receipts).
+		AddActions(selp2)
 	testBlock, err := builder.SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 
