@@ -71,8 +71,7 @@ func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIte
 // LoadNext load next action of account of top action
 func (ai *actionIterator) loadNextActionForTopAccount() {
 	sender := ai.heads[0].SrcPubkey()
-	callerAddr := sender.Address()
-	callerAddrStr := callerAddr.String()
+	callerAddrStr := sender.Address().String()
 	if actions, ok := ai.accountActs[callerAddrStr]; ok && len(actions) > 0 {
 		ai.heads[0], ai.accountActs[callerAddrStr] = actions[0], actions[1:]
 		heap.Fix(&ai.heads, 0)
