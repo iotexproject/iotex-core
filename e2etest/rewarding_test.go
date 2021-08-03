@@ -513,7 +513,11 @@ func injectClaim(
 	}
 
 	if err == nil {
-		pendingClaimActions[selp.Hash()] = expectedSuccess
+		selpHash, err1 := selp.Hash()
+		if err1 != nil {
+			log.L().Error("Failed to get hash", zap.Error(err1))
+		}
+		pendingClaimActions[selpHash] = expectedSuccess
 	}
 
 	if wg != nil {
