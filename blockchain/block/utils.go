@@ -30,7 +30,7 @@ func calculateTxRoot(acts []action.SealedEnvelope) (hash.Hash256, error) {
 		h = append(h, actHash)
 	}
 	if len(h) == 0 {
-		return hash.ZeroHash256, errors.Errorf("hash length is zero")
+		return hash.ZeroHash256, nil
 	}
 	return crypto.NewMerkleTree(h).HashTree(), nil
 }
