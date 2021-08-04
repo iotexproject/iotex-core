@@ -443,30 +443,37 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
-
 	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	var (
+		gasLimit = api.cfg.Genesis.BlockGasLimit
+		gasPrice = big.NewInt(0)
+	)
+	if in.GasLimit != 0 {
+		gasLimit = in.GasLimit
+	}
+	if _, ok := gasPrice.SetString(in.GasPrice, 10); !ok {
+		gasPrice = big.NewInt(0)
+	}
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		state.Nonce+1,
+		sc.Amount(),
+		gasLimit,
+		gasPrice,
+		sc.Data(),
+	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
