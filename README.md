@@ -1,4 +1,6 @@
-# iotex-core
+# iotex-core 
+
+Official Golang implementation of the IoTeX protocol.
 
 [![Join the forum](https://img.shields.io/badge/Discuss-IoTeX%20Community-blue)](https://community.iotex.io/c/research-development/protocol)
 [![Go version](https://img.shields.io/badge/go-1.14.4-blue.svg)](https://github.com/moovweb/gvm)
@@ -9,12 +11,24 @@
 [![Releases](https://img.shields.io/github/release/iotexproject/iotex-core/all.svg?style=flat-square)](https://github.com/iotexproject/iotex-core/releases)
 [![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-![IoTeX Logo](logo/IoTeX.png)
-----
+<a href="https://iotex.io/"><img src="logo/IoTeX.png" height="200px"/></a>
+
 
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized blockchain protocol for powering real-world information marketplace in a decentralized-yet-scalable way. Refer to IoTeX [whitepaper](https://iotex.io/research/) for details.
 
-## Get started
+<a href="https://iotex.io/devdiscord" target="_blank">
+  <img src="https://github.com/iotexproject/halogrants/blob/880eea4af074b082a75608c7376bd7a8eaa1ac21/img/btn-discord.svg" height="36px">
+</a>
+
+#### New to IoTeX?
+
+Please visit https://iotex.io official website or [IoTeX onboard pack](https://onboard.iotex.io/) to learn more about IoTeX network.
+
+#### Run a delegate?
+
+Please visit [IoTeX Delegate Manual](https://github.com/iotexproject/iotex-bootstrap) for detailed setup process.
+
+## Building the source code
 
 ### Minimum requirements
 
@@ -23,14 +37,7 @@ Welcome to the official Go implementation of IoTeX protocol! IoTeX is building t
 | [Golang](https://golang.org) | &ge; 1.14.4 | Go programming language |
 | [Protoc](https://developers.google.com/protocol-buffers/) | &ge; 3.6.0 | Protocol buffers, required only when you rebuild protobuf messages |
 
-### Get iotex-core
-
-The easiest way to get iotex-core is to use one of release packages which are available for OSX, Linux on the 
-[release page](https://github.com/iotexproject/iotex-core/releases). Iotex-core is also distributed via docker image
-on [docker hub](https://hub.docker.com/r/iotex/iotex-core).
-
-
-### Build iotex-core from code
+### Compile
 
 Download the code to your desired local location (doesn't have to be under `$GOPATH/src`)
 ```
