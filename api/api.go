@@ -468,7 +468,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		state.Nonce+1,
 		sc.Amount(),
 		gasLimit,
-		big.NewInt(0),
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
 		sc.Data(),
 	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
