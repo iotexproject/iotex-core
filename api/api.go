@@ -456,22 +456,16 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, err
 	}
 
-	var (
-		gasLimit = api.cfg.Genesis.BlockGasLimit
-		gasPrice = big.NewInt(0)
-	)
-	if in.GasLimit != 0 {
+	gasLimit := api.cfg.Genesis.BlockGasLimit
+	if in.GasLimit != 0 && in.GasLimit < gasLimit {
 		gasLimit = in.GasLimit
-	}
-	if _, ok := gasPrice.SetString(in.GasPrice, 10); !ok {
-		gasPrice = big.NewInt(0)
 	}
 	sc, _ = action.NewExecution(
 		sc.Contract(),
 		state.Nonce+1,
 		sc.Amount(),
 		gasLimit,
-		gasPrice,
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
 		sc.Data(),
 	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
