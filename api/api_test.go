@@ -1283,7 +1283,7 @@ func TestServer_ReadContract(t *testing.T) {
 			Execution:     exec.Proto().GetCore().GetExecution(),
 			CallerAddress: test.callerAddr,
 			GasLimit:      exec.GasLimit(),
-			GasPrice:      exec.GasPrice().String(),
+			GasPrice:      big.NewInt(unit.Qev).String(),
 		}
 
 		res, err := svr.ReadContract(context.Background(), request)
