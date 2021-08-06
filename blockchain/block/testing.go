@@ -78,7 +78,7 @@ func (b *TestingBuilder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, er
 	b.blk.Header.txRoot, err = b.blk.CalculateTxRoot()
 	if err != nil {
 		log.L().Debug("error in getting hash", zap.Error(err))
-		return Block{}, errors.New("failed to sign block")
+		return Block{}, errors.New("failed to get hash")
 	}
 	b.blk.Header.pubkey = signerPrvKey.PublicKey()
 	h := b.blk.Header.HashHeaderCore()
