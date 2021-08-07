@@ -92,17 +92,17 @@ func TestRlpDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
 	rlpTests := []struct {
-		raw    string
-		nonce  uint64
-		limit  uint64
-		price  string
-		amount string
-		to     string
-		isTsf  bool
-		data   bool
-		hash   string
-		pubkey string
-		pkhash string
+		raw     string
+		nonce   uint64
+		limit   uint64
+		price   string
+		amount  string
+		to      string
+		isTsf   bool
+		dataLen int
+		hash    string
+		pubkey  string
+		pkhash  string
 	}{
 		{
 			"f86e8085e8d4a51000825208943141df3f2e4415533bb6d6be2a351b2db9ee84ef88016345785d8a0000808224c6a0204d25fc0d7d8b3fdf162c6ee820f888f5533b1c382d79d5cbc8ec1d9091a9a8a016f1a58d7e0d0fd24be800f64a2d6433c5fcb31e3fc7562b7fbe62bc382a95bb",
@@ -112,7 +112,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"100000000000000000",
 			"io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
 			true,
-			false,
+			0,
 			"eead45fe6b510db9ed6dce9187280791c04bbaadd90c54a7f4b1f75ced382ff1",
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
 			"87eea07540789af85b64947aea21a3f00400b597",
@@ -125,7 +125,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"0",
 			"io143av880x0xce4tsy9sxwr8avhphq5sghum77ct",
 			false,
-			true,
+			68,
 			"7467dd6ccd4f3d7b6dc0002b26a45ad0b75a1793da4e3557cf6ff2582cbe25c9",
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
 			"87eea07540789af85b64947aea21a3f00400b597",
@@ -138,11 +138,26 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"0",
 			EmptyAddress,
 			false,
-			true,
+			508,
 			"b676128dae841742e3ab6e518acb30badc6b26230fe870821d1de08c85823067",
 			"049c6567f527f8fc98c0875d3d80097fcb4d5b7bfe037fc9dd5dbeaf563d58d7ff17a4f2b85df9734ecdb276622738e28f0b7cf224909ab7b128c5ca748729b0d2",
 			"1904bfcb93edc9bf961eead2e5c0de81dcc1d37d",
 		},
+		// stake create
+		{
+			"f87402830f424082520894000000000000007374616b696e67437265617465809012033130302a090102030405060708098224c5a01f1eb2b9dd9b9af61b68e9e2dae9c65421e0c6e84bc2bf77c1528d3d795cd054a01a8f4b78a7f0e96d578bf2c3b2c3bfe48b24d026e7cadf2ccd6d2e332ed2128f",
+			2,
+			21000,
+			"1000000",
+			"0",
+			"io1qqqqqqqqqqq8xarpdd5kue6rwfjkzar9k0wk6t",
+			false,
+			16,
+			"ab7e6135186a3f9b8d8f7c31e428635382a2f04974ab43d8eb5c5f2036f05dec",
+			"0468f50e1da7d0430b01d81ff24714cef5aea6a7a2b96271c7fff60c6a67896d201547001b8ee6ca0166e219f7303b62236c36ad5e79f6012e8e7eea4aaa99ded8",
+			"d301e82c10561c6048f2d72a6630bfa87a8703f2",
+		},
+		// more staking actions
 	}
 
 	for _, v := range rlpTests {
@@ -195,8 +210,10 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.Equal(v.limit, rlpTx.GasLimit())
 		require.Equal(v.to, rlpTx.Recipient())
 		require.Equal(v.amount, rlpTx.Amount().String())
-		require.Equal(v.data, len(rlpTx.Payload()) > 0)
+		fmt.Println("data len:", len(rlpTx.Payload()))
+		require.Equal(v.dataLen, len(rlpTx.Payload()))
 		h, err := selp.Hash()
+		fmt.Println("h:", hex.EncodeToString(h[:]))
 		require.NoError(err)
 		require.Equal(v.hash, hex.EncodeToString(h[:]))
 		require.Equal(pubkey, selp.SrcPubkey())
@@ -250,9 +267,13 @@ func convertToNativeProto(tx *types.Transaction, isTsf bool) *iotextypes.ActionC
 }
 
 func TestRawData(t *testing.T) {
+	// register the extern chain ID
+	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
 	require := require.New(t)
 
-	pvk, _ := crypto.GenerateKey()
+	// create staking action
+	pvk, err := crypto.GenerateKey()
+	require.NoError(err)
 	ab := AbstractAction{
 		version:   1,
 		nonce:     2,
@@ -260,44 +281,85 @@ func TestRawData(t *testing.T) {
 		gasPrice:  big.NewInt(1000000),
 		srcPubkey: pvk.PublicKey(),
 	}
-	createStakeAct := &CreateStake{
-		AbstractAction: ab,
-		amount:         big.NewInt(100),
-		payload:        signByte,
+
+	testCases := []struct {
+		Action
+		addrHash address.Hash160
+		dataLen  int
+	}{
+		{
+			&CreateStake{
+				AbstractAction: ab,
+				amount:         big.NewInt(100),
+				payload:        signByte,
+			},
+			address.StakingCreateAddrHash,
+			16,
+		},
+		{
+			&DepositToStake{
+				AbstractAction: ab,
+				bucketIndex:    1,
+				amount:         big.NewInt(100),
+				payload:        signByte,
+			},
+			address.StakingAddDepositAddrHash,
+			18,
+		},
+		// more staking actions
 	}
 
-	rlpAct, err := actionToRLP(createStakeAct)
-	require.NoError(err)
-	rawTx, err := generateRlpTx(rlpAct)
-	require.NoError(err)
+	for i, stakingAct := range testCases {
+		fmt.Printf("Act %d:\n", i)
+		// special addr of staking action
+		addr, _ := address.FromBytes(stakingAct.addrHash[:])
+		fmt.Printf("special addr = %s\n", addr)
 
-	//sign
-	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-	require.True(ok)
-	signer := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID())))
-	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
-	require.NoError(err)
+		// convert staking action into native tx
+		rlpAct, err := actionToRLP(stakingAct.Action)
+		require.NoError(err)
+		rawTx, err := generateRlpTx(rlpAct)
+		require.NoError(err)
+		require.Equal(stakingAct.dataLen, len(rlpAct.Payload()))
+		fmt.Printf("data length = %d\n", len(rlpAct.Payload()))
 
-	rawHash := signer.Hash(rawTx)
-	fmt.Printf("raw hash = %x\n", rawHash)
+		// generate signature from r, s in native signed tx
+		ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+		require.True(ok)
+		signer := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID())))
+		signedNativeTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
+		require.NoError(err)
+		w, r, s := signedNativeTx.RawSignatureValues()
+		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
+		sig := make([]byte, 64, 65)
+		rSize := len(r.Bytes())
+		copy(sig[32-rSize:32], r.Bytes())
+		sSize := len(s.Bytes())
+		copy(sig[64-sSize:], s.Bytes())
+		sig = append(sig, byte(recID))
+		fmt.Printf("signature = %x\n", sig)
+		fmt.Printf("w = %d, networkId = %d, recID = %d\n", w.Int64(), config.EVMNetworkID(), recID)
 
-	// extract sig
-	w, r, s := signedTx.RawSignatureValues()
-	sig := make([]byte, 64, 65)
-	rSize := len(r.Bytes())
-	copy(sig[32-rSize:32], r.Bytes())
-	sSize := len(s.Bytes())
-	copy(sig[64-sSize:], s.Bytes())
-	sig = append(sig, byte(w.Int64()))
-	fmt.Printf("signature = %x\n", sig)
+		// sign tx
+		signedTx, err := signRlpTx(rlpAct, config.EVMNetworkID(), sig)
+		require.NoError(err)
+		encoded, err := rlp.EncodeToBytes(signedTx)
+		require.NoError(err)
+		signedTxHex := hex.EncodeToString(encoded[:])
+		rawHash := signer.Hash(signedTx)
+		fmt.Printf("rawHash = %x\n", rawHash)
+		fmt.Printf("signed TX = %s\n", signedTxHex)
 
-	h, err := rlpSignedHash(rlpAct, config.EVMNetworkID(), sig)
-	require.NoError(err)
-	fmt.Printf("signed hash = %x\n", h)
+		h, err := rlpSignedHash(rlpAct, config.EVMNetworkID(), sig)
+		require.NoError(err)
+		fmt.Printf("signed TX hash = %x\n", h)
 
-	// recover public key
-	pubk, err := crypto.RecoverPubkey(rawHash[:], sig)
-	require.NoError(err)
-	require.Equal(pubk.HexString(), pvk.PublicKey().HexString())
-	require.True(pvk.PublicKey().Verify(rawHash[:], sig))
+		// recover public key
+		pubk, err := crypto.RecoverPubkey(rawHash[:], sig)
+		require.NoError(err)
+		require.Equal(pubk.HexString(), pvk.PublicKey().HexString())
+		require.True(pvk.PublicKey().Verify(rawHash[:], sig))
+		fmt.Printf("publicKey = %s\n", pubk.HexString())
+		fmt.Printf("publicKey hash = %s\n", hex.EncodeToString(pubk.Hash()))
+	}
 }

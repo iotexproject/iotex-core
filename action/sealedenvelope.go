@@ -142,6 +142,22 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 		tx = (*Execution)(act)
 	case *CreateStake:
 		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddrHash[:], act.Proto())
+	case *DepositToStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingAddDepositAddrHash[:], act.Proto())
+	case *ChangeCandidate:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingChangeCandAddrHash[:], act.Proto())
+	case *Unstake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUnstakeAddrHash[:], act.Proto())
+	case *WithdrawStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingWithdrawAddrHash[:], act.Proto())
+	case *Restake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRestakeAddrHash[:], act.Proto())
+	case *TransferStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingTransferAddrHash[:], act.Proto())
+	case *CandidateRegister:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRegisterCandAddrHash[:], act.Proto())
+	case *CandidateUpdate:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUpdateCandAddrHash[:], act.Proto())
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
