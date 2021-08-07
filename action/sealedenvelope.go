@@ -3,6 +3,7 @@ package action
 import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -43,12 +44,6 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		tx, err := actionToRLP(sealed.Action())
-		if err != nil {
-			return hash.ZeroHash256, err
-		}
-		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
-	case iotextypes.Encoding_ETHEREUM_STAKING:
-		tx, err := actionToWeb3Staking(sealed.Action())
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -119,16 +114,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 			return err
 		}
 		sealed.evmNetworkID = config.EVMNetworkID()
-	case iotextypes.Encoding_ETHEREUM_STAKING:
-		// web-wrapped staking action
-		tx, err := actionToWeb3Staking(elp.Action())
-		if err != nil {
-			return err
-		}
-		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
-			return err
-		}
-		sealed.evmNetworkID = config.EVMNetworkID()
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
@@ -146,24 +131,51 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 }
 
 func actionToRLP(action Action) (rlpTransaction, error) {
-	var tx rlpTransaction
+	var (
+		err error
+		tx  rlpTransaction
+	)
 	switch act := action.(type) {
 	case *Transfer:
 		tx = (*Transfer)(act)
 	case *Execution:
 		tx = (*Execution)(act)
+	case *CreateStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddrHash[:], act.Proto())
+	case *DepositToStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingAddDepositAddrHash[:], act.Proto())
+	case *ChangeCandidate:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingChangeCandAddrHash[:], act.Proto())
+	case *Unstake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUnstakeAddrHash[:], act.Proto())
+	case *WithdrawStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingWithdrawAddrHash[:], act.Proto())
+	case *Restake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRestakeAddrHash[:], act.Proto())
+	case *TransferStake:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingTransferAddrHash[:], act.Proto())
+	case *CandidateRegister:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRegisterCandAddrHash[:], act.Proto())
+	case *CandidateUpdate:
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUpdateCandAddrHash[:], act.Proto())
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
-	return tx, nil
+	return tx, err
 }
 
-func actionToWeb3Staking(action Action) (rlpTransaction, error) {
-	var tx rlpTransaction
-	// convert to contract execution by filling the addr and calldata
-	// addr is pre-defined special addr for web3 staking
-	// like "000000web3stakecreate" for stake create, "000000web3candregister" for candidate register
-	// calldata is the proto-bytes of native staking action
-	// tx.data = proto.marshal(action.Proto())
-	return tx, nil
+func wrapStakingActionIntoExecution(ab AbstractAction, toAddr []byte, pb proto.Message) (rlpTransaction, error) {
+	addr, err := address.FromBytes(toAddr[:])
+	if err != nil {
+		return nil, err
+	}
+	data, err := proto.Marshal(pb)
+	if err != nil {
+		return nil, err
+	}
+	return &Execution{
+		AbstractAction: ab,
+		contract:       addr.String(),
+		data:           data,
+	}, nil
 }

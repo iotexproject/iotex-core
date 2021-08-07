@@ -31,20 +31,7 @@ func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
 }
 
 func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256, error) {
-	if len(sig) != 65 {
-		return hash.ZeroHash256, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
-	}
-	sc := make([]byte, 65)
-	copy(sc, sig)
-	if sc[64] >= 27 {
-		sc[64] -= 27
-	}
-
-	rawTx, err := generateRlpTx(tx)
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sc)
+	signedTx, err := signRlpTx(tx, chainID, sig)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
@@ -68,4 +55,25 @@ func generateRlpTx(act rlpTransaction) (*types.Transaction, error) {
 		return types.NewTransaction(act.Nonce(), ethAddr, act.Amount(), act.GasLimit(), act.GasPrice(), act.Payload()), nil
 	}
 	return types.NewContractCreation(act.Nonce(), act.Amount(), act.GasLimit(), act.GasPrice(), act.Payload()), nil
+}
+
+func signRlpTx(tx rlpTransaction, chainID uint32, sig []byte) (*types.Transaction, error) {
+	if len(sig) != 65 {
+		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
+	}
+	sc := make([]byte, 65)
+	copy(sc, sig)
+	if sc[64] >= 27 {
+		sc[64] -= 27
+	}
+
+	rawTx, err := generateRlpTx(tx)
+	if err != nil {
+		return nil, err
+	}
+	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sc)
+	if err != nil {
+		return nil, err
+	}
+	return signedTx, nil
 }
