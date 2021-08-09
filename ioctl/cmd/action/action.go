@@ -418,6 +418,7 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 				Data:     bytecode,
 			},
 			CallerAddress: callerAddr,
+			GasLimit:      gasLimitFlag.Value().(uint64),
 		},
 	)
 	if err == nil {

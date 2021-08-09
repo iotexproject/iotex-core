@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -387,7 +388,8 @@ func SimulateExecution(
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
-			Caller: caller,
+			Caller:     caller,
+			ActionHash: hash.Hash256b(byteutil.Must(proto.Marshal(ex.Proto()))),
 		},
 	)
 	zeroAddr, err := address.FromString(address.ZeroAddress)
