@@ -443,14 +443,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if in.CallerAddress == action.EmptyAddress {
+		in.CallerAddress = address.ZeroAddress
+	}
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	callerAddr, err := address.FromString(in.CallerAddress)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
+	callerAddr, _ := address.FromString(in.CallerAddress)
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
@@ -472,8 +472,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	// ReadContract() is read-only, if no error returned, we consider it a success
+	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
+	var data string
+	if len(retval) > 0 {
+		data = "0x" + hex.EncodeToString(retval)
+	}
 	return &iotexapi.ReadContractResponse{
-		Data:    hex.EncodeToString(retval),
+		Data:    data,
 		Receipt: receipt.ConvertToReceiptPb(),
 	}, nil
 }
@@ -1558,13 +1564,6 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 
 	return &iotexapi.EstimateActionGasConsumptionResponse{
 		Gas: estimatedGas,
-	}, nil
-}
-
-func (api *Server) estimateActionGasConsumptionForTransfer(transfer *iotextypes.Transfer) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
-	payloadSize := uint64(len(transfer.Payload))
-	return &iotexapi.EstimateActionGasConsumptionResponse{
-		Gas: payloadSize*action.TransferPayloadGas + action.TransferBaseIntrinsicGas,
 	}, nil
 }
 
