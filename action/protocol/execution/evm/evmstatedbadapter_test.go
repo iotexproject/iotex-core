@@ -9,7 +9,6 @@ package evm
 import (
 	"bytes"
 	"math/big"
-	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -457,41 +456,67 @@ func TestPreimage(t *testing.T) {
 }
 
 func TestSortMap(t *testing.T) {
-	require := require.New(t)
-	size := 35
-	cMap := make(contractMap, size)
-	for i := 0; i < size; i++ {
-		addr := hash.BytesToHash160(identityset.Address(i).Bytes())
-		cMap[addr] = nil
-	}
+	uniqueSlice := func(slice []string) []string {
+		// create a map with all the values as key
+		uniqMap := make(map[string]struct{})
+		for _, v := range slice {
+			uniqMap[v] = struct{}{}
+		}
 
+		// turn the map keys into a slice
+		uniqSlice := make([]string, 0, len(uniqMap))
+		for v := range uniqMap {
+			uniqSlice = append(uniqSlice, v)
+		}
+		return uniqSlice
+	}
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	t.Run("before fix sort map", func(t *testing.T) {
-		testHash1 := func(cm contractMap) []hash.Hash160 {
-			addrs := make([]hash.Hash160, 0, len(cm))
-			for addr := range cm {
-				addrs = append(addrs, addr)
-			}
-			return addrs
-		}
-		t1 := testHash1(cMap)
+		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+		size := 10
+
 		for i := 0; i < size; i++ {
-			require.NotEqual(t1, testHash1(cMap))
+			addr := common.HexToAddress(identityset.Address(i).Hex())
+			stateDB.SetCode(addr, []byte("0123456789"))
+			stateDB.SetState(addr, k1, k2)
 		}
+		sn := stateDB.Snapshot()
+		caches := []string{}
+		for i := 0; i < size; i++ {
+			stateDB.RevertToSnapshot(sn)
+			s := ""
+			for _, c := range stateDB.cachedContract {
+				s += string(c.SelfState().Root[:])
+			}
+			caches = append(caches, s)
+		}
+		require.Greater(len(uniqueSlice(caches)), 1)
 	})
 
 	t.Run("after fix sort map", func(t *testing.T) {
-		testHash2 := func(cm contractMap) []hash.Hash160 {
-			addrs := make([]hash.Hash160, 0, len(cm))
-			for addr := range cm {
-				addrs = append(addrs, addr)
-			}
-			sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
-			return addrs
-		}
-		t2 := testHash2(cMap)
+		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256, SortCachedContractsOption())
+		size := 10
 
 		for i := 0; i < size; i++ {
-			require.Equal(t2, testHash2(cMap))
+			addr := common.HexToAddress(identityset.Address(i).Hex())
+			stateDB.SetCode(addr, []byte("0123456789"))
+			stateDB.SetState(addr, k1, k2)
 		}
+		sn := stateDB.Snapshot()
+		caches := []string{}
+		for i := 0; i < size; i++ {
+			stateDB.RevertToSnapshot(sn)
+			s := ""
+			for _, addr := range stateDB.cachedContractAddrs() {
+				c := stateDB.cachedContract[addr]
+				s += string(c.SelfState().Root[:])
+			}
+			caches = append(caches, s)
+		}
+		require.Equal(len(uniqueSlice(caches)), 1)
 	})
 }
