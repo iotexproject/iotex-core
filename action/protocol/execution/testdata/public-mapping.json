@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 89399,
         "expectedBalances": [],
         "comment": "deploy A contract"
     },{
@@ -17,6 +18,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 167253,
         "expectedBalances": [],
         "comment": "deploy B contract"
     }],
@@ -29,6 +31,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 34086,
         "comment": "call setContract"
     }, {
         "contractIndex": 0,
@@ -37,6 +40,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 30625,
         "comment": "call a.Set()"
     }, {
         "contractIndex": 1,
@@ -45,6 +49,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 13028,
         "hasReturnValue": true,
         "rawReturnValue": "000000000000000000000000000000000000000000000000000000000000002a",
         "comment": "call get()"

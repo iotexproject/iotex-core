@@ -32,6 +32,9 @@ func NewArrayDelete(exp string) ArrayDeletePassing {
 // MainFunc is function main() returns (uint[])
 func (f *arrayDeletePassing) GetArray() (ret []*big.Int, err error) {
 	retString, err := f.RunAsOwner().SetAddress(f.Address()).Read(ArrayDeletePassingGetArray, []byte(Producer))
+	if err != nil {
+		return
+	}
 	retBytes, err := hex.DecodeString(retString)
 	if err != nil {
 		return

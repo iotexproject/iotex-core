@@ -20,7 +20,6 @@ import (
 
 func TestNewUpdateCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
 		config.English).AnyTimes()
@@ -34,6 +33,6 @@ func TestNewUpdateCmd(t *testing.T) {
 	expectedError := errors.New("failed to execute bash command")
 	client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
 	client.EXPECT().ReadSecret().Return("abc", nil).AnyTimes()
-	res, err = util.ExecuteCmd(cmd)
+	_, err = util.ExecuteCmd(cmd)
 	require.EqualError(t, err, "mockTranslationResult: "+expectedError.Error())
 }

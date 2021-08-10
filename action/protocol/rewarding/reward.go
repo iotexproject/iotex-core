@@ -10,8 +10,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -141,8 +141,7 @@ func (p *Protocol) GrantEpochReward(
 ) ([]*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -170,7 +169,7 @@ func (p *Protocol) GrantEpochReward(
 	var err error
 	uqdMap := make(map[string]bool)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if hu.IsPre(config.Easter, epochStartHeight) {
+	if !g.IsEaster(epochStartHeight) {
 		// Get unqualified delegate list
 		uqd, err := pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {

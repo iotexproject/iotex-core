@@ -11,12 +11,13 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
-	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -28,10 +29,10 @@ import (
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
+	ReportFullness(context.Context, iotexrpc.MessageType, float32)
 	HandleAction(context.Context, *iotextypes.Action) error
-	HandleBlock(context.Context, *iotextypes.Block) error
-	HandleBlockSync(context.Context, *iotextypes.Block) error
-	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
+	HandleBlock(context.Context, string, *iotextypes.Block) error
+	HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
 }
 
@@ -43,10 +44,10 @@ type Dispatcher interface {
 	AddSubscriber(uint32, Subscriber)
 	// HandleBroadcast handles the incoming broadcast message. The transportation layer semantics is at least once.
 	// That said, the handler is likely to receive duplicate messages.
-	HandleBroadcast(context.Context, uint32, proto.Message)
+	HandleBroadcast(context.Context, uint32, string, proto.Message)
 	// HandleTell handles the incoming tell message. The transportation layer semantics is exact once. The sender is
 	// given for the sake of replying the message
-	HandleTell(context.Context, uint32, peerstore.PeerInfo, proto.Message)
+	HandleTell(context.Context, uint32, peer.AddrInfo, proto.Message)
 }
 
 var requestMtc = prometheus.NewCounterVec(
@@ -66,6 +67,7 @@ type blockMsg struct {
 	ctx     context.Context
 	chainID uint32
 	block   *iotextypes.Block
+	peer    string
 }
 
 func (m blockMsg) ChainID() uint32 {
@@ -77,7 +79,7 @@ type blockSyncMsg struct {
 	ctx     context.Context
 	chainID uint32
 	sync    *iotexrpc.BlockSync
-	peer    peerstore.PeerInfo
+	peer    peer.AddrInfo
 }
 
 func (m blockSyncMsg) ChainID() uint32 {
@@ -99,7 +101,11 @@ func (m actionMsg) ChainID() uint32 {
 type IotxDispatcher struct {
 	started        int32
 	shutdown       int32
-	eventChan      chan interface{}
+	actionChanLock sync.RWMutex
+	blockChanLock  sync.RWMutex
+	syncChanLock   sync.RWMutex
+	actionChan     chan *actionMsg
+	blockChan      chan *blockMsg
 	syncChan       chan *blockSyncMsg
 	eventAudit     map[iotexrpc.MessageType]int
 	eventAuditLock sync.RWMutex
@@ -107,16 +113,21 @@ type IotxDispatcher struct {
 	quit           chan struct{}
 	subscribers    map[uint32]Subscriber
 	subscribersMU  sync.RWMutex
+	peerLastSync   map[string]time.Time
+	syncInterval   time.Duration
 }
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),
-		syncChan:    make(chan *blockSyncMsg, cfg.Dispatcher.EventChanSize),
-		eventAudit:  make(map[iotexrpc.MessageType]int),
-		quit:        make(chan struct{}),
-		subscribers: make(map[uint32]Subscriber),
+		actionChan:   make(chan *actionMsg, cfg.Dispatcher.ActionChanSize),
+		blockChan:    make(chan *blockMsg, cfg.Dispatcher.BlockChanSize),
+		syncChan:     make(chan *blockSyncMsg, cfg.Dispatcher.BlockSyncChanSize),
+		eventAudit:   make(map[iotexrpc.MessageType]int),
+		quit:         make(chan struct{}),
+		subscribers:  make(map[uint32]Subscriber),
+		peerLastSync: make(map[string]time.Time),
+		syncInterval: cfg.Dispatcher.ProcessSyncRequestInterval,
 	}
 	return d, nil
 }
@@ -137,8 +148,9 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 		return errors.New("Dispatcher already started")
 	}
 	log.L().Info("Starting dispatcher.")
-	d.wg.Add(2)
-	go d.newsHandler()
+	d.wg.Add(3)
+	go d.actionHandler()
+	go d.blockHandler()
 	go d.syncHandler()
 
 	return nil
@@ -157,10 +169,12 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 }
 
 // EventQueueSize returns the event queue size
-func (d *IotxDispatcher) EventQueueSize() int {
-	d.eventAuditLock.RLock()
-	defer d.eventAuditLock.RUnlock()
-	return len(d.eventChan) + len(d.syncChan)
+func (d *IotxDispatcher) EventQueueSize() map[string]int {
+	return map[string]int{
+		"action": len(d.actionChan),
+		"block":  len(d.blockChan),
+		"sync":   len(d.syncChan),
+	}
 }
 
 // EventAudit returns the event audit map
@@ -174,58 +188,85 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 	return snapshot
 }
 
-// newsHandler is the main handler for handling all news from peers.
-func (d *IotxDispatcher) newsHandler() {
-loop:
+func (d *IotxDispatcher) actionHandler() {
 	for {
 		select {
-		case m := <-d.eventChan:
-			switch msg := m.(type) {
-			case *actionMsg:
-				d.handleActionMsg(msg)
-			case *blockMsg:
-				d.handleBlockMsg(msg)
-			default:
-				log.L().Warn("Invalid message type in block handler.", zap.Any("msg", msg))
-			}
+		case a := <-d.actionChan:
+			d.handleActionMsg(a)
 		case <-d.quit:
-			break loop
+			d.wg.Done()
+			log.L().Info("action handler is terminated.")
+			return
 		}
 	}
+}
 
-	d.wg.Done()
-	log.L().Info("news handler done.")
+// blockHandler is the main handler for handling all news from peers.
+func (d *IotxDispatcher) blockHandler() {
+	for {
+		select {
+		case b := <-d.blockChan:
+			d.handleBlockMsg(b)
+		case <-d.quit:
+			d.wg.Done()
+			log.L().Info("block handler is terminated.")
+			return
+		}
+	}
+}
+
+func (d *IotxDispatcher) checkSyncPermission(peerID string) bool {
+	now := time.Now()
+	last, ok := d.peerLastSync[peerID]
+	if ok && last.Add(d.syncInterval).After(now) {
+		return false
+	}
+
+	d.peerLastSync[peerID] = now
+	return true
 }
 
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
-loop:
 	for {
 		select {
 		case m := <-d.syncChan:
-			d.handleBlockSyncMsg(m)
+			if d.checkSyncPermission(m.peer.ID.Pretty()) {
+				d.handleBlockSyncMsg(m)
+			}
 		case <-d.quit:
-			break loop
+			d.wg.Done()
+			log.L().Info("block sync handler done.")
+			return
 		}
 	}
+}
 
-	d.wg.Done()
-	log.L().Info("block sync handler done.")
+func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
+	d.subscribersMU.RLock()
+	defer d.subscribersMU.RUnlock()
+	subscriber, ok := d.subscribers[chainID]
+	if !ok {
+		return nil
+	}
+
+	return subscriber
 }
 
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	log.L().Debug("receive actionMsg.")
 
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[m.ChainID()]
-	d.subscribersMU.RUnlock()
-	if ok {
+	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_ACTION)
 		if err := subscriber.HandleAction(m.ctx, m.action); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
 			log.L().Debug("Handle action request error.", zap.Error(err))
 		}
+		d.actionChanLock.RLock()
+		defer d.actionChanLock.RUnlock()
+
+		subscriber.ReportFullness(m.ctx, iotexrpc.MessageType_ACTION, float32(len(d.actionChan))/float32(cap(d.actionChan)))
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
 	}
@@ -235,14 +276,15 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	log.L().Debug("receive blockMsg.", zap.Uint64("height", m.block.GetHeader().GetCore().GetHeight()))
 
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[m.ChainID()]
-	d.subscribersMU.RUnlock()
-	if ok {
+	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_BLOCK)
-		if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
+		if err := subscriber.HandleBlock(m.ctx, m.peer, m.block); err != nil {
 			log.L().Error("Fail to handle the block.", zap.Error(err))
 		}
+		d.blockChanLock.RLock()
+		defer d.blockChanLock.RUnlock()
+
+		subscriber.ReportFullness(m.ctx, iotexrpc.MessageType_BLOCK, float32(len(d.blockChan))/float32(cap(d.blockChan)))
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
 	}
@@ -255,15 +297,16 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 		zap.Uint64("start", m.sync.Start),
 		zap.Uint64("end", m.sync.End))
 
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[m.ChainID()]
-	d.subscribersMU.RUnlock()
-	if ok {
+	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_BLOCK_REQUEST)
 		// dispatch to block sync
 		if err := subscriber.HandleSyncRequest(m.ctx, m.peer, m.sync); err != nil {
 			log.L().Error("Failed to handle sync request.", zap.Error(err))
 		}
+		d.syncChanLock.RLock()
+		defer d.syncChanLock.RUnlock()
+
+		subscriber.ReportFullness(m.ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(len(d.syncChan))/float32(cap(d.syncChan)))
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
 	}
@@ -274,45 +317,86 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&actionMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		action:  (msg).(*iotextypes.Action),
-	})
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the action", zap.Uint32("chain id", chainID))
+		return
+	}
+	d.actionChanLock.Lock()
+	defer d.actionChanLock.Unlock()
+	l := len(d.actionChan)
+	c := cap(d.actionChan)
+	if l < c {
+		d.actionChan <- &actionMsg{
+			ctx:     ctx,
+			chainID: chainID,
+			action:  (msg).(*iotextypes.Action),
+		}
+		l++
+	} else {
+		log.L().Warn("dispatcher action chan is full, drop an event.")
+	}
+	subscriber.ReportFullness(ctx, iotexrpc.MessageType_ACTION, float32(l)/float32(c))
 }
 
-// dispatchBlockCommit adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockCommit(ctx context.Context, chainID uint32, msg proto.Message) {
+// dispatchBlock adds the passed block message to the news handling queue.
+func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&blockMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		block:   (msg).(*iotextypes.Block),
-	})
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the block", zap.Uint32("chain id", chainID))
+		return
+	}
+	d.blockChanLock.Lock()
+	defer d.blockChanLock.Unlock()
+	l := len(d.blockChan)
+	c := cap(d.blockChan)
+	if l < c {
+		d.blockChan <- &blockMsg{
+			ctx:     ctx,
+			chainID: chainID,
+			block:   (msg).(*iotextypes.Block),
+			peer:    peer,
+		}
+		l++
+	} else {
+		log.L().Warn("dispatcher block chan is full, drop an event.")
+	}
+	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK, float32(l)/float32(c))
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint32, peer peerstore.PeerInfo, msg proto.Message) {
+func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint32, peer peer.AddrInfo, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-
-	if len(d.syncChan) == cap(d.syncChan) {
-		log.L().Warn("dispatcher sync chan is full, drop an event.")
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the request", zap.Uint32("chain id", chainID))
 		return
 	}
-	d.syncChan <- &blockSyncMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		peer:    peer,
-		sync:    (msg).(*iotexrpc.BlockSync),
+	d.syncChanLock.Lock()
+	defer d.syncChanLock.Unlock()
+	l := len(d.syncChan)
+	c := cap(d.syncChan)
+	if l < c {
+		d.syncChan <- &blockSyncMsg{
+			ctx:     ctx,
+			chainID: chainID,
+			peer:    peer,
+			sync:    (msg).(*iotexrpc.BlockSync),
+		}
+		l++
+	} else {
+		log.L().Warn("dispatcher sync chan is full, drop an event.")
 	}
+	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(l)/float32(c))
 }
 
 // HandleBroadcast handles incoming broadcast message
-func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, message proto.Message) {
+func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, message proto.Message) {
 	msgType, err := goproto.GetTypeFromRPCMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
@@ -333,14 +417,14 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 	case iotexrpc.MessageType_ACTION:
 		d.dispatchAction(ctx, chainID, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlockCommit(ctx, chainID, message)
+		d.dispatchBlock(ctx, chainID, peer, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 	}
 }
 
 // HandleTell handles incoming unicast message
-func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer peerstore.PeerInfo, message proto.Message) {
+func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer peer.AddrInfo, message proto.Message) {
 	msgType, err := goproto.GetTypeFromRPCMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleTell.", zap.Error(err))
@@ -349,18 +433,10 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlockCommit(ctx, chainID, message)
+		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}
-}
-
-func (d *IotxDispatcher) enqueueEvent(event interface{}) {
-	if len(d.eventChan) == cap(d.eventChan) {
-		log.L().Warn("dispatcher event chan is full, drop an event.")
-		return
-	}
-	d.eventChan <- event
 }
 
 func (d *IotxDispatcher) updateEventAudit(t iotexrpc.MessageType) {

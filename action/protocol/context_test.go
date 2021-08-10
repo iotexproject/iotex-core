@@ -14,8 +14,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestRegistryCtx(t *testing.T) {
@@ -34,17 +32,13 @@ func TestRegistryCtx(t *testing.T) {
 
 func TestWithBlockchainCtx(t *testing.T) {
 	require := require.New(t)
-	bcCtx := BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	}
+	bcCtx := BlockchainCtx{}
 	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
 }
 
 func TestGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
-	bcCtx := BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	}
+	bcCtx := BlockchainCtx{}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
 	_, ok := GetBlockchainCtx(ctx)
@@ -53,9 +47,7 @@ func TestGetBlockchainCtx(t *testing.T) {
 
 func TestMustGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
-	bcCtx := BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	}
+	bcCtx := BlockchainCtx{}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
 	// Case I: Normal

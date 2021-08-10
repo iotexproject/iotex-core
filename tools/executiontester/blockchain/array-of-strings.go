@@ -31,6 +31,9 @@ func NewArrayString(exp string) ArrayString {
 // GetString is calling function bar() constant returns(string)
 func (f *arrayString) GetString() (ret string, err error) {
 	rets, err := f.RunAsOwner().SetAddress(f.Address()).Read(ArrayStringBar, []byte(Producer))
+	if err != nil {
+		return
+	}
 	retBytes, err := hex.DecodeString(rets)
 	if err != nil {
 		return

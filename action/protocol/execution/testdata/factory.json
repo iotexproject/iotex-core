@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 423312,
         "expectedBalances": [],
         "comment": "deploy factory contract"
     }] ,
@@ -18,7 +19,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 29152,
         "comment": "call set(uint[] _amounts)"
     },{
         "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -26,9 +27,9 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 144321,
         "readOnly": true,
-        "rawReturnValue": "0000000000000000000000000549a49fac70b98274dc9a561fb67b8db02409a2",
-        "comment": "call greaterThan"
+        "rawReturnValue": "000000000000000000000000c8e5c035c33d8b7aad7ea7d506b2c87ff32cf592",
+        "comment": "call make()"
     }]
 }

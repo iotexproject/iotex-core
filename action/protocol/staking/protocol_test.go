@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
@@ -37,7 +38,6 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(3), _candIndex)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
@@ -106,9 +106,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)
@@ -187,17 +185,11 @@ func TestProtocol(t *testing.T) {
 func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	p, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: genesis.Default,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
 		protocol.BlockCtx{
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},
@@ -208,7 +200,7 @@ func TestCreatePreStates(t *testing.T) {
 	csm, err := NewCandidateStateManager(sm, false)
 	require.NoError(err)
 	require.NotNil(csm)
-	csm, err = NewCandidateStateManager(sm, true)
+	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 	require.NoError(p.CreatePreStates(ctx, sm))
 	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
@@ -237,10 +229,17 @@ func TestCreatePreStates(t *testing.T) {
 func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
-	store := db.NewMemKVStore()
+	testPath, err := testutil.PathOfTempFile("test-bucket")
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, testPath)
+	}()
+
+	cfg := db.DefaultConfig
+	cfg.DbPath = testPath
+	store := db.NewBoltDB(cfg)
 	cbi, err := NewStakingCandidatesBucketsIndexer(store)
 	require.NoError(err)
 
@@ -255,12 +254,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx = protocol.WithRegistry(ctx, reg)
 	ctx = protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			ctx,
-			protocol.BlockchainCtx{
-				Genesis: genesis.Default,
-			},
-		),
+		genesis.WithGenesisContext(ctx, genesis.Default),
 		protocol.BlockCtx{
 			BlockHeight: genesis.Default.GreenlandBlockHeight,
 		},
@@ -277,7 +271,6 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 func Test_CreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
 	selfStake, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
@@ -356,12 +349,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 		},
 	}
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: genesis.Default,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
 		protocol.BlockCtx{
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},

@@ -106,19 +106,13 @@ func TestBlockReward(t *testing.T) {
 		return svr.ChainService(1).Blockchain().TipHeight() >= 5, nil
 	}))
 
-	ctx := context.Background()
-	ctx = protocol.WithBlockCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
@@ -474,9 +468,6 @@ func TestBlockEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
-
-	return
-
 }
 
 func injectClaim(
@@ -522,7 +513,11 @@ func injectClaim(
 	}
 
 	if err == nil {
-		pendingClaimActions[selp.Hash()] = expectedSuccess
+		selpHash, err1 := selp.Hash()
+		if err1 != nil {
+			log.L().Error("Failed to get hash", zap.Error(err1))
+		}
+		pendingClaimActions[selpHash] = expectedSuccess
 	}
 
 	if wg != nil {

@@ -20,7 +20,6 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = abi.U256
 	_ = bind.Bind
 	_ = common.Big1
 	_ = types.BloomLookup
@@ -28,7 +27,7 @@ var (
 )
 
 // ConsortiumManagementABI is the input ABI used to generate the binding from.
-const ConsortiumManagementABI = "[{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"},{\"name\":\"capacity\",\"type\":\"uint8\"}],\"name\":\"proposeNewMember\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"operators\",\"outputs\":[{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"},{\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"addOperator\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"proposeMemberDeletion\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"delegates\",\"outputs\":[{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"proposal\",\"outputs\":[{\"name\":\"id\",\"type\":\"uint256\"},{\"name\":\"proposer\",\"type\":\"address\"},{\"name\":\"ptype\",\"type\":\"uint8\"},{\"name\":\"member\",\"type\":\"address\"},{\"name\":\"capacity\",\"type\":\"uint8\"},{\"name\":\"approves\",\"type\":\"address[]\"},{\"name\":\"disapproves\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"disapprove\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"},{\"name\":\"capacity\",\"type\":\"uint8\"}],\"name\":\"proposeMemberModification\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isMember\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"removeOperator\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"healthEndpoint\",\"outputs\":[{\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"members\",\"outputs\":[{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"},{\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"updateHealthEndpoint\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"addrs\",\"type\":\"address[]\"},{\"name\":\"capacities\",\"type\":\"uint8[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"proposer\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"ptype\",\"type\":\"uint8\"},{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"capacity\",\"type\":\"uint8\"}],\"name\":\"Propose\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"SettleProposal\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"approve\",\"type\":\"bool\"}],\"name\":\"Vote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"AddOperator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"RemoveOperator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"UpdateOperatorHealthEndpoint\",\"type\":\"event\"}]"
+const ConsortiumManagementABI = "[{\"inputs\":[{\"name\":\"orgs\",\"type\":\"address[]\"},{\"name\":\"capacities\",\"type\":\"uint8[]\"},{\"name\":\"delegates\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"proposer\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"ptype\",\"type\":\"uint8\"},{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"capacity\",\"type\":\"uint8\"}],\"name\":\"Propose\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"SettleProposal\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"approve\",\"type\":\"bool\"}],\"name\":\"Vote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"AddOperator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"RemoveOperator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"member\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"operator\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"UpdateOperatorHealthEndpoint\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"members\",\"outputs\":[{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isMember\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"},{\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"addOperator\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"removeOperator\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"healthEndpoint\",\"outputs\":[{\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"operator\",\"type\":\"address\"},{\"name\":\"endpoint\",\"type\":\"string\"}],\"name\":\"updateHealthEndpoint\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"operators\",\"outputs\":[{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"delegates\",\"outputs\":[{\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"proposal\",\"outputs\":[{\"name\":\"id\",\"type\":\"uint256\"},{\"name\":\"proposer\",\"type\":\"address\"},{\"name\":\"ptype\",\"type\":\"uint8\"},{\"name\":\"member\",\"type\":\"address\"},{\"name\":\"capacity\",\"type\":\"uint8\"},{\"name\":\"approves\",\"type\":\"address[]\"},{\"name\":\"disapproves\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"},{\"name\":\"capacity\",\"type\":\"uint8\"}],\"name\":\"proposeNewMember\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"proposeMemberDeletion\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"},{\"name\":\"capacity\",\"type\":\"uint8\"}],\"name\":\"proposeMemberModification\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"disapprove\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 // ConsortiumManagement is an auto generated Go binding around an Ethereum contract.
 type ConsortiumManagement struct {
@@ -138,7 +137,7 @@ func bindConsortiumManagement(address common.Address, caller bind.ContractCaller
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_ConsortiumManagement *ConsortiumManagementRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_ConsortiumManagement *ConsortiumManagementRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _ConsortiumManagement.Contract.ConsortiumManagementCaller.contract.Call(opts, result, method, params...)
 }
 
@@ -157,7 +156,7 @@ func (_ConsortiumManagement *ConsortiumManagementRaw) Transact(opts *bind.Transa
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_ConsortiumManagement *ConsortiumManagementCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_ConsortiumManagement *ConsortiumManagementCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _ConsortiumManagement.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -174,137 +173,162 @@ func (_ConsortiumManagement *ConsortiumManagementTransactorRaw) Transact(opts *b
 
 // Delegates is a free data retrieval call binding the contract method 0x6138b19e.
 //
-// Solidity: function delegates() constant returns(address[])
+// Solidity: function delegates() view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementCaller) Delegates(opts *bind.CallOpts) ([]common.Address, error) {
-	var (
-		ret0 = new([]common.Address)
-	)
-	out := ret0
-	err := _ConsortiumManagement.contract.Call(opts, out, "delegates")
-	return *ret0, err
+	var out []interface{}
+	err := _ConsortiumManagement.contract.Call(opts, &out, "delegates")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
 }
 
 // Delegates is a free data retrieval call binding the contract method 0x6138b19e.
 //
-// Solidity: function delegates() constant returns(address[])
+// Solidity: function delegates() view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementSession) Delegates() ([]common.Address, error) {
 	return _ConsortiumManagement.Contract.Delegates(&_ConsortiumManagement.CallOpts)
 }
 
 // Delegates is a free data retrieval call binding the contract method 0x6138b19e.
 //
-// Solidity: function delegates() constant returns(address[])
+// Solidity: function delegates() view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementCallerSession) Delegates() ([]common.Address, error) {
 	return _ConsortiumManagement.Contract.Delegates(&_ConsortiumManagement.CallOpts)
 }
 
 // HealthEndpoint is a free data retrieval call binding the contract method 0xb44d5fc7.
 //
-// Solidity: function healthEndpoint(address operator) constant returns(string)
+// Solidity: function healthEndpoint(address operator) view returns(string)
 func (_ConsortiumManagement *ConsortiumManagementCaller) HealthEndpoint(opts *bind.CallOpts, operator common.Address) (string, error) {
-	var (
-		ret0 = new(string)
-	)
-	out := ret0
-	err := _ConsortiumManagement.contract.Call(opts, out, "healthEndpoint", operator)
-	return *ret0, err
+	var out []interface{}
+	err := _ConsortiumManagement.contract.Call(opts, &out, "healthEndpoint", operator)
+
+	if err != nil {
+		return *new(string), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+
+	return out0, err
+
 }
 
 // HealthEndpoint is a free data retrieval call binding the contract method 0xb44d5fc7.
 //
-// Solidity: function healthEndpoint(address operator) constant returns(string)
+// Solidity: function healthEndpoint(address operator) view returns(string)
 func (_ConsortiumManagement *ConsortiumManagementSession) HealthEndpoint(operator common.Address) (string, error) {
 	return _ConsortiumManagement.Contract.HealthEndpoint(&_ConsortiumManagement.CallOpts, operator)
 }
 
 // HealthEndpoint is a free data retrieval call binding the contract method 0xb44d5fc7.
 //
-// Solidity: function healthEndpoint(address operator) constant returns(string)
+// Solidity: function healthEndpoint(address operator) view returns(string)
 func (_ConsortiumManagement *ConsortiumManagementCallerSession) HealthEndpoint(operator common.Address) (string, error) {
 	return _ConsortiumManagement.Contract.HealthEndpoint(&_ConsortiumManagement.CallOpts, operator)
 }
 
 // IsMember is a free data retrieval call binding the contract method 0xa230c524.
 //
-// Solidity: function isMember(address addr) constant returns(bool)
+// Solidity: function isMember(address addr) view returns(bool)
 func (_ConsortiumManagement *ConsortiumManagementCaller) IsMember(opts *bind.CallOpts, addr common.Address) (bool, error) {
-	var (
-		ret0 = new(bool)
-	)
-	out := ret0
-	err := _ConsortiumManagement.contract.Call(opts, out, "isMember", addr)
-	return *ret0, err
+	var out []interface{}
+	err := _ConsortiumManagement.contract.Call(opts, &out, "isMember", addr)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
 }
 
 // IsMember is a free data retrieval call binding the contract method 0xa230c524.
 //
-// Solidity: function isMember(address addr) constant returns(bool)
+// Solidity: function isMember(address addr) view returns(bool)
 func (_ConsortiumManagement *ConsortiumManagementSession) IsMember(addr common.Address) (bool, error) {
 	return _ConsortiumManagement.Contract.IsMember(&_ConsortiumManagement.CallOpts, addr)
 }
 
 // IsMember is a free data retrieval call binding the contract method 0xa230c524.
 //
-// Solidity: function isMember(address addr) constant returns(bool)
+// Solidity: function isMember(address addr) view returns(bool)
 func (_ConsortiumManagement *ConsortiumManagementCallerSession) IsMember(addr common.Address) (bool, error) {
 	return _ConsortiumManagement.Contract.IsMember(&_ConsortiumManagement.CallOpts, addr)
 }
 
 // Members is a free data retrieval call binding the contract method 0xbdd4d18d.
 //
-// Solidity: function members() constant returns(address[])
+// Solidity: function members() view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementCaller) Members(opts *bind.CallOpts) ([]common.Address, error) {
-	var (
-		ret0 = new([]common.Address)
-	)
-	out := ret0
-	err := _ConsortiumManagement.contract.Call(opts, out, "members")
-	return *ret0, err
+	var out []interface{}
+	err := _ConsortiumManagement.contract.Call(opts, &out, "members")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
 }
 
 // Members is a free data retrieval call binding the contract method 0xbdd4d18d.
 //
-// Solidity: function members() constant returns(address[])
+// Solidity: function members() view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementSession) Members() ([]common.Address, error) {
 	return _ConsortiumManagement.Contract.Members(&_ConsortiumManagement.CallOpts)
 }
 
 // Members is a free data retrieval call binding the contract method 0xbdd4d18d.
 //
-// Solidity: function members() constant returns(address[])
+// Solidity: function members() view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementCallerSession) Members() ([]common.Address, error) {
 	return _ConsortiumManagement.Contract.Members(&_ConsortiumManagement.CallOpts)
 }
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address addr) constant returns(address[])
+// Solidity: function operators(address addr) view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementCaller) Operators(opts *bind.CallOpts, addr common.Address) ([]common.Address, error) {
-	var (
-		ret0 = new([]common.Address)
-	)
-	out := ret0
-	err := _ConsortiumManagement.contract.Call(opts, out, "operators", addr)
-	return *ret0, err
+	var out []interface{}
+	err := _ConsortiumManagement.contract.Call(opts, &out, "operators", addr)
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
 }
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address addr) constant returns(address[])
+// Solidity: function operators(address addr) view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementSession) Operators(addr common.Address) ([]common.Address, error) {
 	return _ConsortiumManagement.Contract.Operators(&_ConsortiumManagement.CallOpts, addr)
 }
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address addr) constant returns(address[])
+// Solidity: function operators(address addr) view returns(address[])
 func (_ConsortiumManagement *ConsortiumManagementCallerSession) Operators(addr common.Address) ([]common.Address, error) {
 	return _ConsortiumManagement.Contract.Operators(&_ConsortiumManagement.CallOpts, addr)
 }
 
 // Proposal is a free data retrieval call binding the contract method 0x753ec103.
 //
-// Solidity: function proposal() constant returns(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity, address[] approves, address[] disapproves)
+// Solidity: function proposal() view returns(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity, address[] approves, address[] disapproves)
 func (_ConsortiumManagement *ConsortiumManagementCaller) Proposal(opts *bind.CallOpts) (struct {
 	Id          *big.Int
 	Proposer    common.Address
@@ -314,7 +338,10 @@ func (_ConsortiumManagement *ConsortiumManagementCaller) Proposal(opts *bind.Cal
 	Approves    []common.Address
 	Disapproves []common.Address
 }, error) {
-	ret := new(struct {
+	var out []interface{}
+	err := _ConsortiumManagement.contract.Call(opts, &out, "proposal")
+
+	outstruct := new(struct {
 		Id          *big.Int
 		Proposer    common.Address
 		Ptype       uint8
@@ -323,14 +350,22 @@ func (_ConsortiumManagement *ConsortiumManagementCaller) Proposal(opts *bind.Cal
 		Approves    []common.Address
 		Disapproves []common.Address
 	})
-	out := ret
-	err := _ConsortiumManagement.contract.Call(opts, out, "proposal")
-	return *ret, err
+
+	outstruct.Id = out[0].(*big.Int)
+	outstruct.Proposer = out[1].(common.Address)
+	outstruct.Ptype = out[2].(uint8)
+	outstruct.Member = out[3].(common.Address)
+	outstruct.Capacity = out[4].(uint8)
+	outstruct.Approves = out[5].([]common.Address)
+	outstruct.Disapproves = out[6].([]common.Address)
+
+	return *outstruct, err
+
 }
 
 // Proposal is a free data retrieval call binding the contract method 0x753ec103.
 //
-// Solidity: function proposal() constant returns(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity, address[] approves, address[] disapproves)
+// Solidity: function proposal() view returns(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity, address[] approves, address[] disapproves)
 func (_ConsortiumManagement *ConsortiumManagementSession) Proposal() (struct {
 	Id          *big.Int
 	Proposer    common.Address
@@ -345,7 +380,7 @@ func (_ConsortiumManagement *ConsortiumManagementSession) Proposal() (struct {
 
 // Proposal is a free data retrieval call binding the contract method 0x753ec103.
 //
-// Solidity: function proposal() constant returns(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity, address[] approves, address[] disapproves)
+// Solidity: function proposal() view returns(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity, address[] approves, address[] disapproves)
 func (_ConsortiumManagement *ConsortiumManagementCallerSession) Proposal() (struct {
 	Id          *big.Int
 	Proposer    common.Address
@@ -650,6 +685,17 @@ func (_ConsortiumManagement *ConsortiumManagementFilterer) WatchAddOperator(opts
 	}), nil
 }
 
+// ParseAddOperator is a log parse operation binding the contract event 0xc1ad0c93e1873e80f0551582678c47e2e3cd93d9f12f18b1012ed1ad51654d74.
+//
+// Solidity: event AddOperator(address member, address operator, string endpoint)
+func (_ConsortiumManagement *ConsortiumManagementFilterer) ParseAddOperator(log types.Log) (*ConsortiumManagementAddOperator, error) {
+	event := new(ConsortiumManagementAddOperator)
+	if err := _ConsortiumManagement.contract.UnpackLog(event, "AddOperator", log); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
 // ConsortiumManagementProposeIterator is returned from FilterPropose and is used to iterate over the raw logs and unpacked data for Propose events raised by the ConsortiumManagement contract.
 type ConsortiumManagementProposeIterator struct {
 	Event *ConsortiumManagementPropose // Event containing the contract specifics and raw log
@@ -776,6 +822,17 @@ func (_ConsortiumManagement *ConsortiumManagementFilterer) WatchPropose(opts *bi
 	}), nil
 }
 
+// ParsePropose is a log parse operation binding the contract event 0x8665d2ae7d62e4273cdfc40af1cbbea2232b315ca2a2e244c833366f2b8ae9eb.
+//
+// Solidity: event Propose(uint256 id, address proposer, uint8 ptype, address member, uint8 capacity)
+func (_ConsortiumManagement *ConsortiumManagementFilterer) ParsePropose(log types.Log) (*ConsortiumManagementPropose, error) {
+	event := new(ConsortiumManagementPropose)
+	if err := _ConsortiumManagement.contract.UnpackLog(event, "Propose", log); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
 // ConsortiumManagementRemoveOperatorIterator is returned from FilterRemoveOperator and is used to iterate over the raw logs and unpacked data for RemoveOperator events raised by the ConsortiumManagement contract.
 type ConsortiumManagementRemoveOperatorIterator struct {
 	Event *ConsortiumManagementRemoveOperator // Event containing the contract specifics and raw log
@@ -899,6 +956,17 @@ func (_ConsortiumManagement *ConsortiumManagementFilterer) WatchRemoveOperator(o
 	}), nil
 }
 
+// ParseRemoveOperator is a log parse operation binding the contract event 0xb157cf3e9ae29eb366b3bdda54b41d4738ada5daa73f8d2f1bef6280bb1418e4.
+//
+// Solidity: event RemoveOperator(address member, address operator)
+func (_ConsortiumManagement *ConsortiumManagementFilterer) ParseRemoveOperator(log types.Log) (*ConsortiumManagementRemoveOperator, error) {
+	event := new(ConsortiumManagementRemoveOperator)
+	if err := _ConsortiumManagement.contract.UnpackLog(event, "RemoveOperator", log); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
 // ConsortiumManagementSettleProposalIterator is returned from FilterSettleProposal and is used to iterate over the raw logs and unpacked data for SettleProposal events raised by the ConsortiumManagement contract.
 type ConsortiumManagementSettleProposalIterator struct {
 	Event *ConsortiumManagementSettleProposal // Event containing the contract specifics and raw log
@@ -1020,6 +1088,17 @@ func (_ConsortiumManagement *ConsortiumManagementFilterer) WatchSettleProposal(o
 			}
 		}
 	}), nil
+}
+
+// ParseSettleProposal is a log parse operation binding the contract event 0xf412ee5dcd836b3a4fa40ae9d7e90eeea743a32f4e0ba26c91c7cbc8c3d8b44b.
+//
+// Solidity: event SettleProposal(uint256 id, bool success)
+func (_ConsortiumManagement *ConsortiumManagementFilterer) ParseSettleProposal(log types.Log) (*ConsortiumManagementSettleProposal, error) {
+	event := new(ConsortiumManagementSettleProposal)
+	if err := _ConsortiumManagement.contract.UnpackLog(event, "SettleProposal", log); err != nil {
+		return nil, err
+	}
+	return event, nil
 }
 
 // ConsortiumManagementUpdateOperatorHealthEndpointIterator is returned from FilterUpdateOperatorHealthEndpoint and is used to iterate over the raw logs and unpacked data for UpdateOperatorHealthEndpoint events raised by the ConsortiumManagement contract.
@@ -1146,6 +1225,17 @@ func (_ConsortiumManagement *ConsortiumManagementFilterer) WatchUpdateOperatorHe
 	}), nil
 }
 
+// ParseUpdateOperatorHealthEndpoint is a log parse operation binding the contract event 0x8daf704ffb23b2e479e9849d1bda8860345f6c15d43b68cd9cf8622952564895.
+//
+// Solidity: event UpdateOperatorHealthEndpoint(address member, address operator, string endpoint)
+func (_ConsortiumManagement *ConsortiumManagementFilterer) ParseUpdateOperatorHealthEndpoint(log types.Log) (*ConsortiumManagementUpdateOperatorHealthEndpoint, error) {
+	event := new(ConsortiumManagementUpdateOperatorHealthEndpoint)
+	if err := _ConsortiumManagement.contract.UnpackLog(event, "UpdateOperatorHealthEndpoint", log); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
 // ConsortiumManagementVoteIterator is returned from FilterVote and is used to iterate over the raw logs and unpacked data for Vote events raised by the ConsortiumManagement contract.
 type ConsortiumManagementVoteIterator struct {
 	Event *ConsortiumManagementVote // Event containing the contract specifics and raw log
@@ -1268,4 +1358,15 @@ func (_ConsortiumManagement *ConsortiumManagementFilterer) WatchVote(opts *bind.
 			}
 		}
 	}), nil
+}
+
+// ParseVote is a log parse operation binding the contract event 0xcfa82ef0390c8f3e57ebe6c0665352a383667e792af012d350d9786ee5173d26.
+//
+// Solidity: event Vote(uint256 id, address voter, bool approve)
+func (_ConsortiumManagement *ConsortiumManagementFilterer) ParseVote(log types.Log) (*ConsortiumManagementVote, error) {
+	event := new(ConsortiumManagementVote)
+	if err := _ConsortiumManagement.contract.UnpackLog(event, "Vote", log); err != nil {
+		return nil, err
+	}
+	return event, nil
 }

@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -77,7 +78,7 @@ type (
 		// Genesis returns the genesis
 		Genesis() genesis.Genesis
 		// Context returns current context
-		Context() (context.Context, error)
+		Context(context.Context) (context.Context, error)
 
 		// For block operations
 		// MintNewBlock creates a new block with given actions
@@ -110,11 +111,7 @@ func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[stri
 			return nil, err
 		}
 		producer := header.ProducerAddress()
-		if _, ok := stats[producer]; ok {
-			stats[producer]++
-		} else {
-			stats[producer] = 1
-		}
+		stats[producer]++
 	}
 
 	return stats, nil
@@ -127,6 +124,7 @@ type blockchain struct {
 	config         config.Config
 	blockValidator block.Validator
 	lifecycle      lifecycle.Lifecycle
+	clk            clock.Clock
 	pubSubManager  PubSubManager
 	timerFactory   *prometheustimer.TimerFactory
 
@@ -169,6 +167,15 @@ func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
 	}
 }
 
+// ClockOption overrides the default clock
+func ClockOption(clk clock.Clock) Option {
+	return func(bc *blockchain, conf config.Config) error {
+		bc.clk = clk
+
+		return nil
+	}
+}
+
 // NewBlockchain creates a new blockchain and DB instance
 // TODO: replace sf with blockbuilderfactory
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
@@ -177,6 +184,7 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		config:        cfg,
 		dao:           dao,
 		bbf:           bbf,
+		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
 	}
 	for _, opt := range opts {
@@ -320,11 +328,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	return bc.blockValidator.Validate(ctx, blk)
 }
 
-func (bc *blockchain) Context() (context.Context, error) {
+func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	return bc.context(context.Background(), true)
+	return bc.context(ctx, true)
 }
 
 func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
@@ -348,12 +356,14 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		}
 	}
 
-	return protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: bc.config.Genesis,
-			Tip:     tip,
-		},
+	return genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Tip: tip,
+			},
+		),
+		bc.config.Genesis,
 	), nil
 }
 

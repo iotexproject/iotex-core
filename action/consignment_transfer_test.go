@@ -78,9 +78,9 @@ func TestConsignmentTransfer(t *testing.T) {
 
 	// generate payload from tests
 	v := sigTests[2]
-	b, err := NewConsignJSON("Trezor", v.recipient, v.sig, 47, 136)
+	_, err := NewConsignJSON("Trezor", v.recipient, v.sig, 47, 136)
 	r.Equal(ErrNotSupported, err)
-	b, err = NewConsignJSON("Ethereum", v.recipient, v.sig, 47, 136)
+	b, err := NewConsignJSON("Ethereum", v.recipient, v.sig, 47, 136)
 	r.NoError(err)
 
 	// process the payload as a consignment transfer

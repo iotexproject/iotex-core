@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestStakingTransfer(t *testing.T) {
@@ -57,7 +57,8 @@ func TestStakingTransferSignVerify(t *testing.T) {
 	ser, err := proto.Marshal(selp.Proto())
 	require.NoError(err)
 	require.Equal("0a43080118c0843d22023130f20236080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164124104755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf331a41fa26db427ab87a56a129196c1604f2e22c4dd2a1f99b2217bc916260757d00093d9e6dccdf53e3b0b64e41a69d71c238fbf9281625164694a74dfbeba075d0ce01", hex.EncodeToString(ser))
-	hash := selp.Hash()
+	hash, err := selp.Hash()
+	require.NoError(err)
 	require.Equal("74b2e1d6a09ba5d1298fa422d5850991ae516865077282196295a38f93c78b85", hex.EncodeToString(hash[:]))
 	// verify signature
 	require.NoError(Verify(selp))

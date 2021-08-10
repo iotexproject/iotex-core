@@ -57,7 +57,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
-	p2pAgent := p2p.NewAgent(cfg, dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	p2pAgent := p2p.NewAgent(cfg.Network, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
@@ -66,7 +66,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			chainservice.WithTesting(),
 		}
 	}
-	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
+	cs, err = chainservice.New(cfg, p2pAgent, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
@@ -132,7 +132,7 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	opts = append(opts, chainservice.WithSubChain())
-	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
+	cs, err := chainservice.New(cfg, s.p2pAgent, opts...)
 	if err != nil {
 		return err
 	}

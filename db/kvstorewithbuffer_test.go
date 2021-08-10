@@ -15,7 +15,6 @@ import (
 
 func TestFlusher(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	t.Run("create failed with nil kvStore", func(t *testing.T) {
 		f, err := NewKVStoreFlusher(nil, nil)
 		require.Nil(t, f)

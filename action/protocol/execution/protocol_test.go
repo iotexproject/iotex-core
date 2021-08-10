@@ -55,7 +55,8 @@ type ExpectedBalance struct {
 
 // GenesisBlockHeight defines an genesis blockHeight
 type GenesisBlockHeight struct {
-	IsBering bool `json:"isBering"`
+	IsBering  bool `json:"isBering"`
+	IsIceland bool `json:"isIceland"`
 }
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -242,7 +243,7 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	ctx, err := bc.Context()
+	ctx, err := bc.Context(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -298,7 +299,11 @@ func runExecutions(
 		if err := ap.Add(context.Background(), selp); err != nil {
 			return nil, err
 		}
-		hashes = append(hashes, selp.Hash())
+		selpHash, err := selp.Hash()
+		if err != nil {
+			return nil, err
+		}
+		hashes = append(hashes, selpHash)
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
@@ -336,9 +341,20 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
 	if sct.InitGenesis.IsBering {
+		cfg.Genesis.Blockchain.AleutianBlockHeight = 0
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
 	cfg.Genesis.HawaiiBlockHeight = 0
+	if sct.InitGenesis.IsIceland {
+		cfg.Genesis.CookBlockHeight = 0
+		cfg.Genesis.DardanellesBlockHeight = 0
+		cfg.Genesis.DaytonaBlockHeight = 0
+		cfg.Genesis.EasterBlockHeight = 0
+		cfg.Genesis.FbkMigrationBlockHeight = 0
+		cfg.Genesis.FairbankBlockHeight = 0
+		cfg.Genesis.GreenlandBlockHeight = 0
+		cfg.Genesis.IcelandBlockHeight = 0
+	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
 	}
@@ -521,14 +537,11 @@ func TestProtocol_Validate(t *testing.T) {
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
+	data := make([]byte, 32769)
 
-	t.Run("Oversized data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		data := tmpPayload[:]
-		ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
-		require.NoError(err)
-		require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), ex, nil)))
-	})
+	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+	require.NoError(err)
+	require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
 
 func TestProtocol_Handle(t *testing.T) {
@@ -609,7 +622,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash := selp.Hash()
+		eHash, err := selp.Hash()
+		require.NoError(err)
 		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
@@ -627,7 +641,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 		exe, _, err := dao.GetActionByActionHash(eHash, blk.Height())
 		require.NoError(err)
-		require.Equal(eHash, exe.Hash())
+		exeHash, err := exe.Hash()
+		require.NoError(err)
+		require.Equal(eHash, exeHash)
 
 		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
 		total, err := indexer.GetActionCountByAddress(addr27)
@@ -672,7 +688,8 @@ func TestProtocol_Handle(t *testing.T) {
 			v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 			require.Equal(byte(15), v[31])
 		*/
-		eHash = selp.Hash()
+		eHash, err = selp.Hash()
+		require.NoError(err)
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
@@ -697,7 +714,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash = selp.Hash()
+		eHash, err = selp.Hash()
+		require.NoError(err)
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
@@ -809,6 +827,10 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("SendEth", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/send-eth.json")
 	})
+	// modifier
+	t.Run("Modifier", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/modifiers.json")
+	})
 	// multisend
 	t.Run("Multisend", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/multisend.json")
@@ -855,6 +877,77 @@ func TestMaxTime(t *testing.T) {
 
 	t.Run("max-time-2", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/maxtime2.json")
+	})
+}
+
+func TestIstanbulEVM(t *testing.T) {
+	cfg := config.Default
+	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
+	t.Run("ArrayReturn", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/array-return.json")
+	})
+	t.Run("BasicToken", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/basic-token.json")
+	})
+	t.Run("CallDynamic", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/call-dynamic.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/chainid-selfbalance.json")
+	})
+	t.Run("ChangeState", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/changestate.json")
+	})
+	t.Run("F.value", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/f.value.json")
+	})
+	t.Run("Gas-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/gas-test.json")
+	})
+	t.Run("InfiniteLoop", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/infiniteloop.json")
+	})
+	t.Run("MappingDelete", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/mapping-delete.json")
+	})
+	t.Run("max-time", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/maxtime.json")
+	})
+	t.Run("Modifier", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/modifiers.json")
+	})
+	t.Run("Multisend", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/multisend.json")
+	})
+	t.Run("NoVariableLengthReturns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/no-variable-length-returns.json")
+	})
+	t.Run("PublicMapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/public-mapping.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/reentry-attack.json")
+	})
+	t.Run("RemoveFromArray", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/remove-from-array.json")
+	})
+	t.Run("SendEth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/send-eth.json")
+	})
+	t.Run("Sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/storage-test.json")
+	})
+	t.Run("TailRecursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/tail-recursion.json")
+	})
+	t.Run("Tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/wireconnection.json")
 	})
 }
 

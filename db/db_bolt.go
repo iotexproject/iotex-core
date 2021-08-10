@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -24,11 +23,11 @@ const fileMode = 0600
 type BoltDB struct {
 	db     *bolt.DB
 	path   string
-	config config.DB
+	config Config
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
-func NewBoltDB(cfg config.DB) *BoltDB {
+func NewBoltDB(cfg Config) *BoltDB {
 	return &BoltDB{
 		db:     nil,
 		path:   cfg.DbPath,
@@ -345,13 +344,13 @@ func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
 		}
 	}
 	if err != nil {
-		err = errors.Wrap(ErrIO, err.Error())
+		return errors.Wrap(ErrIO, err.Error())
 	}
 	return nil
 }
 
-// Seek returns value by the key
-func (b *BoltDB) Seek(name []byte, key uint64) ([]byte, error) {
+// SeekNext returns value by the key (if key not exist, use next key)
+func (b *BoltDB) SeekNext(name []byte, key uint64) ([]byte, error) {
 	var value []byte
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(name)
@@ -366,6 +365,27 @@ func (b *BoltDB) Seek(name []byte, key uint64) ([]byte, error) {
 		return nil
 	})
 	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// SeekPrev returns value by the key (if key not exist, use previous key)
+func (b *BoltDB) SeekPrev(name []byte, key uint64) ([]byte, error) {
+	var value []byte
+	if err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(name)
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+		}
+		// seek to start
+		cur := bucket.Cursor()
+		cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
+		_, v := cur.Prev()
+		value = make([]byte, len(v))
+		copy(value, v)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return value, nil

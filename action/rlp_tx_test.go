@@ -8,12 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/config"
 )
@@ -194,7 +194,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.Equal(v.to, rlpTx.Recipient())
 		require.Equal(v.amount, rlpTx.Amount().String())
 		require.Equal(v.data, len(rlpTx.Payload()) > 0)
-		h := selp.Hash()
+		h, err := selp.Hash()
+		require.NoError(err)
 		require.Equal(v.hash, hex.EncodeToString(h[:]))
 		require.Equal(pubkey, selp.SrcPubkey())
 		require.True(bytes.Equal(sig, selp.signature))

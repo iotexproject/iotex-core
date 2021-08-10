@@ -24,7 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -72,7 +73,7 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg config.DB) BlockDAO {
+func NewBlockDAO(indexers []BlockIndexer, cfg db.Config) BlockDAO {
 	blkStore, err := filedao.NewFileDAO(cfg)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
@@ -87,7 +88,7 @@ func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, config.DB{MaxCacheSize: 16})
+	return createBlockDAO(blkStore, indexers, db.Config{MaxCacheSize: 16})
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -106,15 +107,16 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 }
 
 func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) (context.Context, error) {
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
 	if !ok {
 		return nil, errors.New("failed to find blockchain ctx")
 	}
+	bcCtx := protocol.BlockchainCtx{}
 	if height == 0 {
 		bcCtx.Tip = protocol.TipInfo{
 			Height:    0,
-			Hash:      bcCtx.Genesis.Hash(),
-			Timestamp: time.Unix(bcCtx.Genesis.Timestamp, 0),
+			Hash:      g.Hash(),
+			Timestamp: time.Unix(g.Timestamp, 0),
 		}
 	} else {
 		header, err := dao.HeaderByHeight(height)
@@ -131,7 +133,7 @@ func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) 
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
 	if !ok {
 		return errors.New("failed to find blockchain ctx")
 	}
@@ -159,17 +161,17 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			ctx, err = dao.fillWithBlockInfoAsTip(ctx, i-1)
+			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, i-1)
 			if err != nil {
 				return err
 			}
 			if err := indexer.PutBlock(protocol.WithBlockCtx(
-				ctx,
+				ctxWithTip,
 				protocol.BlockCtx{
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
 					Producer:       producer,
-					GasLimit:       bcCtx.Genesis.BlockGasLimit,
+					GasLimit:       g.BlockGasLimit,
 				},
 			), blk); err != nil {
 				return err
@@ -275,7 +277,11 @@ func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (actio
 		return action.SealedEnvelope{}, 0, err
 	}
 	for i, act := range blk.Actions {
-		if act.Hash() == h {
+		actHash, err := act.Hash()
+		if err != nil {
+			return action.SealedEnvelope{}, 0, errors.Errorf("hash failed for block %d", height)
+		}
+		if actHash == h {
 			return act, uint32(i), nil
 		}
 	}
@@ -380,7 +386,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg config.DB) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}

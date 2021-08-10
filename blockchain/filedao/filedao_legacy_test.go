@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -26,7 +27,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	var (
 		normalHeaderSize, compressHeaderSize int
 	)
-	testFdInterface := func(cfg config.DB, t *testing.T) {
+	testFdInterface := func(cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -72,10 +73,10 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
@@ -90,7 +91,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
@@ -127,7 +128,7 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
 	fd, err := newFileDAOLegacy(cfg)
@@ -153,7 +154,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r.Equal(value, header)
 
 	// getBlockValue when NS is not exist
-	value, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
+	_, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
 	r.Error(db.ErrNotExist, errors.Cause(err))
 
 	r.NoError(legacy.Stop(ctx))

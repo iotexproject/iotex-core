@@ -37,7 +37,6 @@ import (
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
@@ -180,12 +179,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: ge,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, ge)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -204,14 +198,16 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Caller: identityset.Address(28),
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: ge,
-			Tip: protocol.TipInfo{
-				Height: 20,
+	ctx = genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			protocol.WithRegistry(ctx, registry),
+			protocol.BlockchainCtx{
+				Tip: protocol.TipInfo{
+					Height: 20,
+				},
 			},
-		},
+		),
+		ge,
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
@@ -244,7 +240,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	registry := protocol.NewRegistry()
@@ -318,12 +313,7 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		},
-	)
+	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), cfg.Genesis)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -356,7 +346,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se1, err := action.Sign(e1, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err := p.Handle(ctx, se1.Action(), sm)
+	_, err = p.Handle(ctx, se1.Action(), sm)
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
@@ -368,7 +358,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err = p.Handle(ctx, se2.Action(), sm)
+	receipt, err := p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs()))
@@ -389,7 +379,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se3, err := action.Sign(e3, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err = p.Handle(ctx, se3.Action(), sm)
+	_, err = p.Handle(ctx, se3.Action(), sm)
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
@@ -477,17 +467,17 @@ func TestStateCheckLegacy(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	p := NewProtocol(
 		genesis.Default.FoundationBonusP2StartEpoch,
 		genesis.Default.FoundationBonusP2EndEpoch,
 	)
-	chainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Genesis{
+	chainCtx := genesis.WithGenesisContext(
+		context.Background(),
+		genesis.Genesis{
 			Blockchain: genesis.Blockchain{GreenlandBlockHeight: 3},
 		},
-	})
+	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 		BlockHeight: 2,
 	})
@@ -551,7 +541,6 @@ func TestStateCheckLegacy(t *testing.T) {
 func TestMigrateValue(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	p := NewProtocol(
 		genesis.Default.FoundationBonusP2StartEpoch,

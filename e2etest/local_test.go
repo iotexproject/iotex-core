@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -29,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -87,10 +89,11 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	p := p2p.NewAgent(
-		cfg,
-		func(_ context.Context, _ uint32, _ proto.Message) {
+		cfg.Network,
+		cfg.Genesis.Hash(),
+		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 		},
-		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {
 		},
 	)
 	require.NotNil(p)
@@ -210,7 +213,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 1
 	// C --> A
 	s, _ = accountutil.AccountState(sf, identityset.Address(30).String())
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf1))
@@ -231,7 +234,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 2
 	// F --> D
 	s, _ = accountutil.AccountState(sf, identityset.Address(33).String())
-	tsf2, err := testutil.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf2))
@@ -252,7 +255,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 3
 	// B --> B
 	s, _ = accountutil.AccountState(sf, identityset.Address(29).String())
-	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf3))
@@ -273,7 +276,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 4
 	// test --> E
 	s, _ = accountutil.AccountState(sf, identityset.Address(27).String())
-	tsf4, err := testutil.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf4))
@@ -554,10 +557,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})))
+	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
 	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(dao.Stop(ctx))
 
@@ -578,10 +578,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})))
+	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)

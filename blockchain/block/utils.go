@@ -11,7 +11,9 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -20,7 +22,12 @@ import (
 func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
 	h := make([]hash.Hash256, 0, len(acts))
 	for _, act := range acts {
-		h = append(h, act.Hash())
+		actHash, err := act.Hash()
+		if err != nil {
+			log.L().Debug("Error in getting hash", zap.Error(err))
+			return hash.ZeroHash256
+		}
+		h = append(h, actHash)
 	}
 	if len(h) == 0 {
 		return hash.ZeroHash256
@@ -43,14 +50,6 @@ func calculateTransferAmount(acts []action.SealedEnvelope) *big.Int {
 
 // VerifyBlock verifies the block signature and tx root
 func VerifyBlock(blk *Block) error {
-	if blk.Height() == 0 {
-		// verify genesis block hash
-		if blk.HashBlock() != GenesisHash() {
-			return errors.New("genesis block hash does not match")
-		}
-		return nil
-	}
-
 	// verify new block's signature is correct
 	if !blk.VerifySignature() {
 		return errors.Errorf(

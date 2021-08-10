@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -33,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -52,7 +54,6 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	rp := rolldpos.NewProtocol(
@@ -77,6 +78,25 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
 	})
+	t.Run("mock-clock", func(t *testing.T) {
+		sk := identityset.PrivateKey(0)
+		r, err := NewRollDPoSBuilder().
+			SetConfig(cfg).
+			SetAddr(identityset.Address(0).String()).
+			SetPriKey(sk).
+			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
+			SetClock(clock.NewMock()).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
+			RegisterProtocol(rp).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		_, ok := r.ctx.clock.(*clock.Mock)
+		assert.True(t, ok)
+	})
 
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
@@ -88,6 +108,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			SetClock(clock.NewMock()).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
@@ -160,11 +181,11 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 
 func TestValidateBlockFooter(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
 	}
+	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -198,6 +219,7 @@ func TestValidateBlockFooter(t *testing.T) {
 				candidates[3],
 			}, nil
 		}).
+		SetClock(clock).
 		RegisterProtocol(rp).
 		Build()
 	require.NoError(t, err)
@@ -233,13 +255,13 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
 	}
 
+	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -267,6 +289,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
+		SetClock(clock).
 		SetDelegatesByEpochFunc(func(uint64) ([]string, error) {
 			return []string{
 				candidates[0],
@@ -279,8 +302,9 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
+	clock.Add(r.ctx.BlockInterval(blockHeight))
 	require.NoError(t, r.ctx.Start(context.Background()))
-	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), time.Now(), 2*time.Second)
+	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
 	require.NoError(t, err)
 
 	m, err := r.Metrics()
@@ -383,11 +407,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			registry := protocol.NewRegistry()
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 			require.NoError(t, err)
-			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(
+			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-				},
+				cfg.Genesis,
 			)))
 			actPool, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 			require.NoError(t, err)

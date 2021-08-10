@@ -12,13 +12,13 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 var (
 	loadGenesisHash sync.Once
-	_genesisHash    hash.Hash256
+	genesisHash     hash.Hash256
 )
 
 // GenesisBlock returns the genesis block
@@ -27,7 +27,7 @@ func GenesisBlock() *Block {
 		Header: Header{
 			version:          version.ProtocolVersion,
 			height:           0,
-			timestamp:        time.Unix(config.GenesisTimestamp(), 0),
+			timestamp:        time.Unix(genesis.Timestamp(), 0),
 			prevBlockHash:    hash.ZeroHash256,
 			txRoot:           hash.ZeroHash256,
 			deltaStateDigest: hash.ZeroHash256,
@@ -38,12 +38,12 @@ func GenesisBlock() *Block {
 
 // GenesisHash returns the genesis block's hash
 func GenesisHash() hash.Hash256 {
-	return _genesisHash
+	return genesisHash
 }
 
-// LoadGenesisHash is done once to compute and save the genesis block's hash
-func LoadGenesisHash() {
+// LoadGenesisHash is done once to compute and save the genesis'es hash
+func LoadGenesisHash(g *genesis.Genesis) {
 	loadGenesisHash.Do(func() {
-		_genesisHash = GenesisBlock().HashBlock()
+		genesisHash = g.Hash()
 	})
 }

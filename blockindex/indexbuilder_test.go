@@ -12,9 +12,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -25,15 +24,15 @@ func TestIndexBuilder(t *testing.T) {
 
 	blks := getTestBlocks(t)
 
-	t1Hash := blks[0].Actions[0].Hash()
-	t4Hash := blks[0].Actions[1].Hash()
-	e1Hash := blks[0].Actions[2].Hash()
-	t2Hash := blks[1].Actions[0].Hash()
-	t5Hash := blks[1].Actions[1].Hash()
-	e2Hash := blks[1].Actions[2].Hash()
-	t3Hash := blks[2].Actions[0].Hash()
-	t6Hash := blks[2].Actions[1].Hash()
-	e3Hash := blks[2].Actions[2].Hash()
+	t1Hash, _ := blks[0].Actions[0].Hash()
+	t4Hash, _ := blks[0].Actions[1].Hash()
+	e1Hash, _ := blks[0].Actions[2].Hash()
+	t2Hash, _ := blks[1].Actions[0].Hash()
+	t5Hash, _ := blks[1].Actions[1].Hash()
+	e2Hash, _ := blks[1].Actions[2].Hash()
+	t3Hash, _ := blks[2].Actions[0].Hash()
+	t6Hash, _ := blks[2].Actions[1].Hash()
+	e3Hash, _ := blks[2].Actions[2].Hash()
 
 	type index struct {
 		addr   hash.Hash160
@@ -60,12 +59,7 @@ func TestIndexBuilder(t *testing.T) {
 	}
 
 	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
-		)
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		defer func() {
@@ -162,7 +156,7 @@ func TestIndexBuilder(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		testutil.CleanupPath(t, indexPath)
 	}()
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 
 	for _, v := range []struct {

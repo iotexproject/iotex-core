@@ -21,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -214,14 +215,14 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 			r.Equal(db.ErrNotExist, errors.Cause(err))
 			_, err = fd.GetReceipts(i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			log, err = fd.TransactionLogs(i)
+			_, err = fd.TransactionLogs(i)
 			r.Equal(ErrNotSupported, err)
 		}
 	}
 }
 
 func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	block.LoadGenesisHash()
+	block.LoadGenesisHash(&config.Default.Genesis)
 	r := &action.Receipt{
 		Status:      1,
 		BlockHeight: height,

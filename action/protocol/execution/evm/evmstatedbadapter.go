@@ -65,6 +65,7 @@ type (
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
 		sortCachedContracts bool
+		usePendingNonce     bool
 	}
 )
 
@@ -75,6 +76,14 @@ type StateDBAdapterOption func(*StateDBAdapter) error
 func SortCachedContractsOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.sortCachedContracts = true
+		return nil
+	}
+}
+
+// UsePendingNonceOption set sort cached contracts as true
+func UsePendingNonceOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.usePendingNonce = true
 		return nil
 	}
 }
@@ -220,6 +229,14 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	return state.Balance
 }
 
+// InitNonce returns the init nonce of an account
+func (stateDB *StateDBAdapter) InitNonce() uint64 {
+	if stateDB.usePendingNonce {
+		return 1
+	}
+	return 0
+}
+
 // GetNonce gets the nonce of account
 func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	addr, err := address.FromBytes(evmAddr.Bytes())
@@ -227,16 +244,22 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		log.L().Error("Failed to convert evm address.", zap.Error(err))
 		return 0
 	}
+	nonce := uint64(0)
 	state, err := stateDB.AccountState(addr.String())
 	if err != nil {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
 		// stateDB.logError(err)
-		return 0
+	} else {
+		nonce = state.Nonce
+	}
+	if stateDB.usePendingNonce {
+		nonce++
 	}
 	log.L().Debug("Called GetNonce.",
 		zap.String("address", addr.String()),
-		zap.Uint64("nonce", state.Nonce))
-	return state.Nonce
+		zap.Uint64("nonce", nonce))
+
+	return nonce
 }
 
 // SetNonce sets the nonce of account
@@ -251,6 +274,12 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
 		// stateDB.logError(err)
 		return
+	}
+	if stateDB.usePendingNonce {
+		if nonce == 0 {
+			panic("invalid nonce zero")
+		}
+		nonce--
 	}
 	log.L().Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
@@ -446,7 +475,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	return sn
 }
 
-// AddLog adds log
+// AddLog adds log whose transaction amount is larger than 0
 func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 	log.L().Debug("Called AddLog.", zap.Any("log", evmLog))
 	addr, err := address.FromBytes(evmLog.Address.Bytes())
@@ -464,14 +493,16 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		if len(topics) != 3 {
 			panic("Invalid in contract transfer topics")
 		}
-		from, _ := address.FromBytes(topics[1][12:])
-		to, _ := address.FromBytes(topics[2][12:])
-		stateDB.transactionLogs = append(stateDB.transactionLogs, &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-			Sender:    from.String(),
-			Recipient: to.String(),
-			Amount:    new(big.Int).SetBytes(evmLog.Data),
-		})
+		if amount, zero := new(big.Int).SetBytes(evmLog.Data), big.NewInt(0); amount.Cmp(zero) == 1 {
+			from, _ := address.FromBytes(topics[1][12:])
+			to, _ := address.FromBytes(topics[2][12:])
+			stateDB.transactionLogs = append(stateDB.transactionLogs, &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+				Sender:    from.String(),
+				Recipient: to.String(),
+				Amount:    amount,
+			})
+		}
 		return
 	}
 

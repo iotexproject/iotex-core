@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -90,7 +91,7 @@ func TestNewFileDAOv2(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
@@ -110,7 +111,7 @@ func TestNewFileDAOv2(t *testing.T) {
 }
 
 func TestNewFdInterface(t *testing.T) {
-	testFdInterface := func(cfg config.DB, start uint64, t *testing.T) {
+	testFdInterface := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -226,7 +227,7 @@ func TestNewFdInterface(t *testing.T) {
 			r.Equal(db.ErrNotExist, errors.Cause(err))
 			_, err = fd.GetReceipts(i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			log, err = fd.TransactionLogs(i)
+			_, err = fd.TransactionLogs(i)
 			r.Equal(ErrNotSupported, err)
 		}
 
@@ -253,12 +254,12 @@ func TestNewFdInterface(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	_, err = newFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
-	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash(&config.Default.Genesis)
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
@@ -271,7 +272,7 @@ func TestNewFdInterface(t *testing.T) {
 }
 
 func TestNewFdStart(t *testing.T) {
-	testFdStart := func(cfg config.DB, start uint64, t *testing.T) {
+	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
@@ -336,7 +337,7 @@ func TestNewFdStart(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	for _, compress := range []string{"", compress.Gzip} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {

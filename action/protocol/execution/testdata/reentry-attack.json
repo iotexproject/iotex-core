@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 150441,
         "expectedBalances": [],
         "comment": "deploy MiniDAO contract"
     },{
@@ -19,6 +20,7 @@
         "rawAmount": "5000000000000000000",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 268653,
         "expectedBalances": [],
         "comment": "deploy Attacker contract"
     }],
@@ -29,6 +31,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 107897,
         "expectedBalances": [{
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
             "rawBalance": "999999995000000000000000000"
@@ -36,7 +39,7 @@
             "account": "",
             "rawBalance": "2000000000000000000"
         },{
-            "account": "io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn",
+            "account": "io1q64m9jsrsd9afa3vvyx2wcn78hgjmx5h0y0kh6",
             "rawBalance": "3000000000000000000"
         }],
         "comment": "attack"

@@ -90,7 +90,6 @@ func initMockStateManager(ctrl *gomock.Controller) (*mock_chainmanager.MockState
 func TestAddBalance(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
@@ -108,7 +107,6 @@ func TestAddBalance(t *testing.T) {
 func TestRefundAPIs(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
@@ -122,7 +120,6 @@ func TestRefundAPIs(t *testing.T) {
 func TestEmptyAndCode(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
@@ -139,7 +136,6 @@ func TestEmptyAndCode(t *testing.T) {
 func TestForEachStorage(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
@@ -175,7 +171,6 @@ func TestForEachStorage(t *testing.T) {
 func TestNonce(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
@@ -190,7 +185,6 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 	testSnapshotAndRevert := func(cfg config.Config, t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
@@ -373,7 +367,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 			// test preimage
 			for _, e := range test.preimage {
-				v, _ := stateDB.preimages[e.hash]
+				v := stateDB.preimages[e.hash]
 				require.Equal(e.v, []byte(v))
 			}
 		}
@@ -394,7 +388,6 @@ func TestGetCommittedState(t *testing.T) {
 	t.Run("committed state with in mem DB", func(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
@@ -421,7 +414,6 @@ func TestGetCommittedState(t *testing.T) {
 
 func TestGetBalanceOnError(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	errs := []error{
@@ -440,7 +432,6 @@ func TestGetBalanceOnError(t *testing.T) {
 func TestPreimage(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)

@@ -191,7 +191,7 @@ func TestParseOutputArgument(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t, err := abi.NewType(test.t, test.components)
+		t, err := abi.NewType(test.t, "", test.components)
 		r.NoError(err)
 		result, ok := parseOutputArgument(test.v, &t)
 		r.True(ok)

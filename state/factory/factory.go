@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -388,9 +389,8 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 }
 
 func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	preEaster := hu.IsPre(config.Easter, height)
+	g := genesis.MustExtractGenesisContext(ctx)
+	preEaster := !g.IsEaster(height)
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
 			if wi.Namespace() == ArchiveTrieNamespace {
@@ -522,13 +522,13 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(
 		protocol.WithRegistry(ctx, sf.registry),
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			GasLimit:       g.BlockGasLimit,
 			Producer:       producer,
 		},
 	)
@@ -729,5 +729,4 @@ func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.workingsets.Add(key, ws)
-	return
 }

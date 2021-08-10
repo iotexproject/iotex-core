@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 )
 
@@ -59,13 +59,13 @@ func TestChecksumNamespaceAndKeys(t *testing.T) {
 func TestReadFileHeader(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_v2.db"
 
 	// test non-existing file
-	h, err := readFileHeader(cfg.DbPath, FileLegacyMaster)
+	_, err := readFileHeader(cfg.DbPath, FileLegacyMaster)
 	r.Equal(ErrFileNotExist, err)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
 	// empty legacy file is invalid
@@ -74,9 +74,9 @@ func TestReadFileHeader(t *testing.T) {
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
 	r.NoError(legacy.Stop(ctx))
-	h, err = readFileHeader(cfg.DbPath, FileLegacyMaster)
+	_, err = readFileHeader(cfg.DbPath, FileLegacyMaster)
 	r.Equal(ErrFileInvalid, err)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileInvalid, err)
 
 	// commit 1 block to make it a valid legacy file
@@ -102,7 +102,7 @@ func TestReadFileHeader(t *testing.T) {
 		{FileAll, FileLegacyMaster, nil},
 	}
 	for _, v := range test1 {
-		h, err = readFileHeader(cfg.DbPath, v.checkType)
+		h, err := readFileHeader(cfg.DbPath, v.checkType)
 		r.Equal(v.err, err)
 		if err == nil {
 			r.Equal(v.version, h.Version)
@@ -121,7 +121,7 @@ func TestReadFileHeader(t *testing.T) {
 		{FileAll, FileV2, nil},
 	}
 	for _, v := range test2 {
-		h, err = readFileHeader(cfg.DbPath, v.checkType)
+		h, err := readFileHeader(cfg.DbPath, v.checkType)
 		r.Equal(v.err, err)
 		if err == nil {
 			r.Equal(v.version, h.Version)
@@ -134,20 +134,20 @@ func TestReadFileHeader(t *testing.T) {
 func TestNewFileDAOSplitV2(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.V2BlocksToSplitDB = 10
 	cfg.DbPath = "./filedao_v2.db"
 	defer os.RemoveAll(cfg.DbPath)
 
 	// test non-existing file
-	h, err := checkMasterChainDBFile(cfg.DbPath)
+	_, err := checkMasterChainDBFile(cfg.DbPath)
 	r.Equal(ErrFileNotExist, err)
 
 	// test empty db file, this will create new v2 file
 	fd, err := NewFileDAO(cfg)
 	r.NoError(err)
 	r.NotNil(fd)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	h, err := readFileHeader(cfg.DbPath, FileAll)
 	r.NoError(err)
 	r.Equal(FileV2, h.Version)
 	ctx := context.Background()
@@ -189,7 +189,7 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 func TestNewFileDAOSplitLegacy(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_v2.db"
 	defer os.RemoveAll(cfg.DbPath)
 
@@ -306,7 +306,7 @@ func TestCheckFiles(t *testing.T) {
 		r.Equal(v.ok, ok)
 	}
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_v2.db"
 	_, files := checkAuxFiles(cfg.DbPath, FileLegacyAuxiliary)
 	r.Nil(files)

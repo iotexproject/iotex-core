@@ -9,11 +9,12 @@ package dispatcher
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -24,11 +25,11 @@ import (
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
 	cfg := config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
-		Dispatcher: config.Dispatcher{EventChanSize: 1024},
+		Dispatcher: config.Dispatcher{ActionChanSize: 1024, BlockChanSize: 1024, BlockSyncChanSize: 1024, ProcessSyncRequestInterval: 0 * time.Second},
 	}
 	dp, err := NewDispatcher(cfg)
 	assert.NoError(t, err)
-	dp.AddSubscriber(chainID, &DummySubscriber{})
+	dp.AddSubscriber(chainID, &dummySubscriber{})
 	return dp
 }
 
@@ -66,7 +67,7 @@ func TestHandleBroadcast(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleBroadcast(ctx, config.Default.Chain.ID, msg)
+			d.HandleBroadcast(ctx, config.Default.Chain.ID, "peer1", msg)
 		}
 	}
 }
@@ -81,21 +82,21 @@ func TestHandleTell(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(ctx, config.Default.Chain.ID, peerstore.PeerInfo{}, msg)
+			d.HandleTell(ctx, config.Default.Chain.ID, peer.AddrInfo{}, msg)
 		}
 	}
 }
 
-type DummySubscriber struct{}
+type dummySubscriber struct{}
 
-func (s *DummySubscriber) HandleBlock(context.Context, *iotextypes.Block) error { return nil }
+func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
 
-func (s *DummySubscriber) HandleBlockSync(context.Context, *iotextypes.Block) error { return nil }
+func (ds *dummySubscriber) HandleBlock(context.Context, string, *iotextypes.Block) error { return nil }
 
-func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
+func (ds *dummySubscriber) HandleSyncRequest(context.Context, peer.AddrInfo, *iotexrpc.BlockSync) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
+func (ds *dummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
-func (s *DummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
+func (ds *dummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }

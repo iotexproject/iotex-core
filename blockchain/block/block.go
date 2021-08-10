@@ -10,8 +10,9 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -158,7 +159,11 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 func (b *Block) ActionHashs() []string {
 	actHash := make([]string, len(b.Actions))
 	for i := range b.Actions {
-		h := b.Actions[i].Hash()
+		h, err := b.Actions[i].Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
 		actHash[i] = hex.EncodeToString(h[:])
 	}
 	return actHash

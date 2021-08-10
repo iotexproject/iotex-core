@@ -8,8 +8,8 @@ package consensus
 
 import (
 	"context"
-	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -18,6 +18,7 @@ import (
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
@@ -93,6 +94,7 @@ func NewConsensus(
 		}
 	}
 
+	clock := clock.New()
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	var err error
 	switch cfg.Consensus.Scheme {
@@ -102,17 +104,16 @@ func NewConsensus(
 			SetPriKey(cfg.ProducerPrivateKey()).
 			SetConfig(cfg).
 			SetChainManager(bc).
+			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
 				re := protocol.NewRegistry()
 				if err := ops.rp.Register(re); err != nil {
 					return nil, err
 				}
-				ctx := protocol.WithBlockchainCtx(
+				ctx := genesis.WithGenesisContext(
 					protocol.WithRegistry(context.Background(), re),
-					protocol.BlockchainCtx{
-						Genesis: cfg.Genesis,
-					},
+					cfg.Genesis,
 				)
 				tipHeight := bc.TipHeight()
 				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
@@ -145,7 +146,7 @@ func NewConsensus(
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:
 		mintBlockCB := func() (*block.Block, error) {
-			blk, err := bc.MintNewBlock(time.Now())
+			blk, err := bc.MintNewBlock(clock.Now())
 			if err != nil {
 				log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
 				return nil, err

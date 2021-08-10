@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
@@ -31,6 +32,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -174,19 +177,18 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 
 func TestEstimateGasForAction(t *testing.T) {
 	require := require.New(t)
-	act := getAction()
-	require.NotNil(act)
+	ctrl := gomock.NewController(t)
+
 	cfg := config.Default
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
-	require.NoError(err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, factory.NewMinter(sf, ap))
-	require.NoError(bc.Start(context.Background()))
-	require.NotNil(bc)
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, config.Default.API)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	mBc := mock_blockchain.NewMockBlockchain(ctrl)
+	gs := NewGasStation(mBc, sf.SimulateExecution, dao, config.Default.API)
 	require.NotNil(gs)
+
+	act := getAction()
+	require.NotNil(act)
 	ret, err := gs.EstimateGasForAction(act)
 	require.NoError(err)
 	// base intrinsic gas 10000
@@ -195,8 +197,6 @@ func TestEstimateGasForAction(t *testing.T) {
 	// test for payload
 	act = getActionWithPayload()
 	require.NotNil(act)
-	require.NoError(bc.Start(context.Background()))
-	require.NotNil(bc)
 	ret, err = gs.EstimateGasForAction(act)
 	require.NoError(err)
 	// base intrinsic gas 10000,plus data size*ExecutionDataGas
@@ -216,7 +216,7 @@ func getAction() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
-		Signature:    testutil.ValidSig,
+		Signature:    action.ValidSig,
 	}
 	return
 }
@@ -234,7 +234,7 @@ func getActionWithPayload() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
-		Signature:    testutil.ValidSig,
+		Signature:    action.ValidSig,
 	}
 	return
 }

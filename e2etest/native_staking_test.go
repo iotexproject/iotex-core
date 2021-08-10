@@ -90,8 +90,7 @@ func TestNativeStaking(t *testing.T) {
 		dao := svr.ChainService(chainID).BlockDAO()
 		require.NotNil(bc)
 
-		hu := config.NewHeightUpgrade(&cfg.Genesis)
-		require.True(hu.IsPost(config.FbkMigration, 1))
+		require.True(cfg.Genesis.IsFbkMigration(1))
 
 		// Create two candidates
 		cand1Addr := identityset.Address(0)
@@ -100,10 +99,10 @@ func TestNativeStaking(t *testing.T) {
 		cand2Addr := identityset.Address(1)
 		cand2PriKey := identityset.PrivateKey(1)
 
-		register1, err := testutil.SignedCandidateRegister(1, candidate1Name, cand1Addr.String(), cand1Addr.String(),
+		register1, err := action.SignedCandidateRegister(1, candidate1Name, cand1Addr.String(), cand1Addr.String(),
 			cand1Addr.String(), selfStake.String(), 91, true, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
-		register2, err := testutil.SignedCandidateRegister(1, candidate2Name, cand2Addr.String(), cand2Addr.String(),
+		register2, err := action.SignedCandidateRegister(1, candidate2Name, cand2Addr.String(), cand2Addr.String(),
 			cand2Addr.String(), selfStake.String(), 1, false, nil, gasLimit, gasPrice, cand2PriKey)
 		require.NoError(err)
 
@@ -122,7 +121,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, register2, true, initBalance, cand2Addr))
 
 		// get self-stake index from receipts
-		r1, err := dao.GetReceiptByActionHash(register1.Hash(), 1)
+		register1Hash, err := register1.Hash()
+		require.NoError(err)
+		r1, err := dao.GetReceiptByActionHash(register1Hash, 1)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs := r1.Logs()
@@ -138,11 +139,11 @@ func TestNativeStaking(t *testing.T) {
 		voter2Addr := identityset.Address(3)
 		voter2PriKey := identityset.PrivateKey(3)
 
-		cs1, err := testutil.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
+		cs1, err := action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter1PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), cs1))
-		cs2, err := testutil.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
+		cs2, err := action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), cs2))
@@ -157,7 +158,9 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, cs2, false, initBalance, voter2Addr))
 
 		// get bucket index from receipts
-		r1, err = dao.GetReceiptByActionHash(cs1.Hash(), 3)
+		cs1Hash, err := cs1.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(cs1Hash, 3)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -166,7 +169,9 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 		voter1BucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 
-		r1, err = dao.GetReceiptByActionHash(cs2.Hash(), 3)
+		cs2Hash, err := cs2.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(cs2Hash, 3)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -176,13 +181,15 @@ func TestNativeStaking(t *testing.T) {
 		voter2BucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 
 		// change candidate
-		cc, err := testutil.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
+		cc, err := action.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
 			gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), cc))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(cc.Hash(), 4)
+		ccHash, err := cc.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(ccHash, 4)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -199,12 +206,14 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate2Name, cand2Addr.String(), selfStake, expectedVotes, cand2Addr))
 
 		// transfer stake
-		ts, err := testutil.SignedTransferStake(2, voter2Addr.String(), voter1BucketIndex, nil, gasLimit, gasPrice, voter1PriKey)
+		ts, err := action.SignedTransferStake(2, voter2Addr.String(), voter1BucketIndex, nil, gasLimit, gasPrice, voter1PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ts))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(ts.Hash(), 5)
+		tsHash, err := ts.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(tsHash, 5)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -229,12 +238,14 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(voter1BucketIndex, bis[1])
 
 		// deposit to stake
-		ds, err := testutil.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
+		ds, err := action.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ds))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(ds.Hash(), 6)
+		dsHash, err := ds.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(dsHash, 6)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, r1.Status)
 		logs = r1.Logs()
@@ -245,13 +256,15 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand2Addr.Bytes()), logs[0].Topics[3])
 
 		// restake
-		rs, err := testutil.SignedRestake(4, voter2BucketIndex, 1, true, nil,
+		rs, err := action.SignedRestake(4, voter2BucketIndex, 1, true, nil,
 			gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), rs))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(rs.Hash(), 7)
+		rsHash, err := rs.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(rsHash, 7)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_Success, r1.Status)
 		logs = r1.Logs()
@@ -265,7 +278,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate2Name, cand2Addr.String(), selfStake, expectedVotes, cand2Addr))
 
 		// deposit to stake again
-		ds, err = testutil.SignedDepositToStake(5, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
+		ds, err = action.SignedDepositToStake(5, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ds))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
@@ -274,12 +287,14 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, ds, false, big.NewInt(0).Sub(initBalance, vote), voter2Addr))
 
 		// unstake voter stake
-		us, err := testutil.SignedReclaimStake(false, 6, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
+		us, err := action.SignedReclaimStake(false, 6, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), us))
 		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
-		r1, err = dao.GetReceiptByActionHash(us.Hash(), 9)
+		usHash, err := us.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(usHash, 9)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), r1.Status)
 		logs = r1.Logs()
@@ -290,12 +305,14 @@ func TestNativeStaking(t *testing.T) {
 
 		// unstake with correct timestamp
 		unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
-		us, err = testutil.SignedReclaimStake(false, 7, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
+		us, err = action.SignedReclaimStake(false, 7, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), us))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
-		r1, err = dao.GetReceiptByActionHash(us.Hash(), 10)
+		usHash, err = us.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(usHash, 10)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_Success), r1.Status)
 		logs = r1.Logs()
@@ -308,12 +325,14 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
 
 		// unstake self stake
-		us, err = testutil.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		us, err = action.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), us))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
-		r1, err = dao.GetReceiptByActionHash(us.Hash(), 11)
+		usHash, err = us.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(usHash, 11)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrInvalidBucketType, r1.Status)
 		logs = r1.Logs()
@@ -326,12 +345,14 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
 
 		// withdraw stake
-		ws, err := testutil.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		ws, err := action.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ws))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
-		r1, err = dao.GetReceiptByActionHash(ws.Hash(), 12)
+		wsHash, err := ws.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(wsHash, 12)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake, r1.Status)
 		logs = r1.Logs()
@@ -341,11 +362,14 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
 		// withdraw	with correct timestamp
-		ws, err = testutil.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		ws, err = action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ws))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 
-		r1, err = dao.GetReceiptByActionHash(ws.Hash(), 13)
+		wsHash, err = ws.Hash()
+		require.NoError(err)
+		r1, err = dao.GetReceiptByActionHash(wsHash, 13)
 		require.NoError(err)
 		require.EqualValues(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake, r1.Status)
 		logs = r1.Logs()

@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -42,8 +42,8 @@ const (
 // Multi-language support
 var (
 	delegateCmdUses = map[config.Language]string{
-		config.English: "delegate [-e epoch-num|-n] [-a]",
-		config.Chinese: "delegate [-e epoch数|-n] [-a]",
+		config.English: "delegate [-e epoch-num] [-a]",
+		config.Chinese: "delegate [-e epoch数] [-a]",
 	}
 	delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",

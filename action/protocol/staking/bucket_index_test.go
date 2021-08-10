@@ -20,10 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
-const (
-	stateDBPath1 = "stateDB1.test"
-)
-
 func TestBucketIndices(t *testing.T) {
 	require := require.New(t)
 
@@ -48,7 +44,6 @@ func TestGetPutBucketIndex(t *testing.T) {
 	testGetPut := func(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 		sm := testdb.NewMockStateManager(ctrl)
 
 		tests := []struct {

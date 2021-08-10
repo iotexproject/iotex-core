@@ -94,7 +94,7 @@ func migrateDbFile() error {
 		return fmt.Errorf("--new-file is empty")
 	}
 	if oldFile == newFile {
-		return fmt.Errorf("The values of --old-file --new-file flags cannot be the same")
+		return fmt.Errorf("the values of --old-file --new-file flags cannot be the same")
 	}
 	if blockHeight == 0 {
 		return fmt.Errorf("--block-height is 0")
@@ -104,12 +104,12 @@ func migrateDbFile() error {
 	if err != nil {
 		return err
 	} else if height < blockHeight {
-		return fmt.Errorf("The --block-height cannot be larger than the height of the migration file")
+		return fmt.Errorf("the --block-height cannot be larger than the height of the migration file")
 	}
 
-	cfg, err := config.New()
+	cfg, err := config.New([]string{}, []string{})
 	if err != nil {
-		return fmt.Errorf("Failed to new config: %v", err)
+		return fmt.Errorf("failed to new config: %v", err)
 	}
 
 	cfg.DB.DbPath = oldFile
@@ -121,10 +121,10 @@ func migrateDbFile() error {
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {
-		return fmt.Errorf("Failed to start the old db file")
+		return fmt.Errorf("failed to start the old db file")
 	}
 	if err := newDAO.Start(ctx); err != nil {
-		return fmt.Errorf("Failed to start the new db file")
+		return fmt.Errorf("failed to start the new db file")
 	}
 
 	defer func() {
@@ -140,14 +140,14 @@ func migrateDbFile() error {
 
 		hash, err := oldDAO.GetBlockHash(i)
 		if err != nil {
-			return fmt.Errorf("Failed to get block hash on height %d: %v", i, err)
+			return fmt.Errorf("failed to get block hash on height %d: %v", i, err)
 		}
 		blk, err := oldDAO.GetBlock(hash)
 		if err != nil {
-			return fmt.Errorf("Failed to get block on height %d: %v", i, err)
+			return fmt.Errorf("failed to get block on height %d: %v", i, err)
 		}
 		if err := newDAO.PutBlock(ctx, blk); err != nil {
-			return fmt.Errorf("Failed to migrate block on height %d: %v", i, err)
+			return fmt.Errorf("failed to migrate block on height %d: %v", i, err)
 		}
 
 		if i%uint64(step) == 0 {

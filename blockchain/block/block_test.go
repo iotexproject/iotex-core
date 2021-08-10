@@ -37,19 +37,19 @@ func TestMerkle(t *testing.T) {
 	producerPriKey := identityset.PrivateKey(27)
 	amount := uint64(50 << 22)
 	// create testing transactions
-	selp0, err := testutil.SignedTransfer(producerAddr, producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp0, err := action.SignedTransfer(producerAddr, producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp1, err := testutil.SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp1, err := action.SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp2, err := action.SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp3, err := testutil.SignedTransfer(identityset.Address(30).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp3, err := action.SignedTransfer(identityset.Address(30).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp4, err := testutil.SignedTransfer(identityset.Address(32).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp4, err := action.SignedTransfer(identityset.Address(32).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
 	// create block using above 5 tx and verify merkle
@@ -67,7 +67,8 @@ func TestMerkle(t *testing.T) {
 
 	hashes := block.ActionHashs()
 	for i := range hashes {
-		h := actions[i].Hash()
+		h, err := actions[i].Hash()
+		require.NoError(err)
 		require.Equal(hex.EncodeToString(h[:]), hashes[i])
 	}
 
@@ -97,7 +98,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 						Nonce:   101,
 					},
 					SenderPubKey: senderPubKey.Bytes(),
-					Signature:    testutil.ValidSig,
+					Signature:    action.ValidSig,
 				},
 				{
 					Core: &iotextypes.ActionCore{
@@ -108,7 +109,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 						Nonce:   102,
 					},
 					SenderPubKey: senderPubKey.Bytes(),
-					Signature:    testutil.ValidSig,
+					Signature:    action.ValidSig,
 				},
 			},
 		},

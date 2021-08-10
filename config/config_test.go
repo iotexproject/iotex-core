@@ -15,16 +15,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 const (
 	overwritePath = "_overwritePath"
 	secretPath    = "_secretPath"
 	subChainPath  = "_subChainPath"
+)
+
+var (
+	_overwritePath string
+	_secretPath    string
+	_subChainPath  string
 )
 
 func makePathAndWriteFile(cfgStr, flagForPath string) (err error) {
@@ -97,12 +104,6 @@ chain:
 	return sk, cfgStr, err
 }
 
-func TestDB_SplitDBSize(t *testing.T) {
-	var db = DB{SplitDBSizeMB: uint64(1)}
-	var expected = uint64(1 * 1024 * 1024)
-	require.Equal(t, expected, db.SplitDBSize())
-}
-
 func TestStrs_String(t *testing.T) {
 	ss := strs{"test"}
 	str := "TEST"
@@ -110,14 +111,16 @@ func TestStrs_String(t *testing.T) {
 }
 
 func TestNewDefaultConfig(t *testing.T) {
-	cfg, err := New()
+	cfg, err := New([]string{}, []string{})
 	require.NoError(t, err)
+	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
-	require.Equal(t, cfg.Genesis.Timestamp, GenesisTimestamp())
+	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	require.Equal(t, cfg.Genesis.Timestamp, genesis.Timestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {
-	cfg, err := New(DoNotValidate)
+	cfg, err := New([]string{}, []string{}, DoNotValidate)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	exp := Default
@@ -126,10 +129,7 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 }
 
 func TestNewConfigWithWrongConfigPath(t *testing.T) {
-	_overwritePath = "wrong_path"
-	defer func() { _overwritePath = "" }()
-
-	cfg, err := New()
+	cfg, err := New([]string{"wrong_path", ""}, []string{})
 	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
@@ -139,10 +139,10 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 }
 
 func TestNewConfigWithPlugins(t *testing.T) {
-	_plugins = strs{
+	_plugins := strs{
 		"gateway",
 	}
-	cfg, err := New()
+	cfg, err := New([]string{}, _plugins)
 
 	require.Nil(t, cfg.Plugins[GatewayPlugin])
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestNewConfigWithPlugins(t *testing.T) {
 		"trick",
 	}
 
-	cfg, err = New()
+	cfg, err = New([]string{}, _plugins)
 
 	require.Equal(t, Config{}, cfg)
 	require.Error(t, err)
@@ -169,7 +169,7 @@ func TestNewConfigWithOverride(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_overwritePath"})
 
-	cfg, err := New()
+	cfg, err := New([]string{_overwritePath, ""}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -185,7 +185,7 @@ func TestNewConfigWithSecret(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_overwritePath", "_secretPath"})
 
-	cfg, err := New()
+	cfg, err := New([]string{_overwritePath, _secretPath}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -200,27 +200,46 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_overwritePath")
 
-	cfg, err := New()
+	cfg, err := New([]string{_overwritePath, ""}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.NoError(t, err)
 
-	cfg, err = New()
+	cfg, err = New([]string{_overwritePath, ""}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
 
 func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
-	cfg.Dispatcher.EventChanSize = 0
+	require.NoError(t, ValidateDispatcher(cfg))
+	cfg.Dispatcher.ActionChanSize = 0
 	err := ValidateDispatcher(cfg)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
-		strings.Contains(err.Error(), "dispatcher event chan size should be greater than 0"),
+		strings.Contains(err.Error(), "dispatcher chan size should be greater than 0"),
+	)
+	cfg.Dispatcher.ActionChanSize = 100
+	cfg.Dispatcher.BlockChanSize = 0
+	err = ValidateDispatcher(cfg)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "dispatcher chan size should be greater than 0"),
+	)
+	cfg.Dispatcher.BlockChanSize = 100
+	cfg.Dispatcher.BlockSyncChanSize = 0
+	err = ValidateDispatcher(cfg)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "dispatcher chan size should be greater than 0"),
 	)
 }
 
@@ -389,21 +408,8 @@ func newTestCfg(fork string) Config {
 	return cfg
 }
 
-func TestNewSubDefaultConfig(t *testing.T) {
-	_, err := NewSub()
-	require.NoError(t, err)
-}
-
-func TestNewSubConfigWithoutValidation(t *testing.T) {
-	cfg, err := NewSub(DoNotValidate)
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-}
-
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
-	_subChainPath = "wrong_path"
-	defer func() { _subChainPath = "" }()
-	cfg, err := NewSub()
+	cfg, err := NewSub([]string{"", "wrong_path"})
 	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
@@ -418,7 +424,7 @@ func TestNewSubConfigWithSubChainPath(t *testing.T) {
 	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
 	defer resetPathValues(t, []string{"_subChainPath"})
-	cfg, err := NewSub()
+	cfg, err := NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -433,7 +439,7 @@ func TestNewSubConfigWithSecret(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_subChainPath", "_secretPath"})
 
-	cfg, err := NewSub()
+	cfg, err := NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -449,32 +455,21 @@ func TestNewSubConfigWithLookupEnv(t *testing.T) {
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_subChainPath")
 
-	cfg, err := NewSub()
+	cfg, err := NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.NoError(t, err)
 
-	cfg, err = NewSub()
+	cfg, err = NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
 
-func TestNewSubConfigWithoutSubChainPath(t *testing.T) {
-	_subChainPath = ""
-	cfg, err := NewSub()
-	require.Equal(t, Config{}, cfg)
-	require.Nil(t, err)
-}
-
 func TestWhitelist(t *testing.T) {
 	require := require.New(t)
-
-	cfg, err := NewSub()
-	require.NoError(err)
-	require.NotNil(cfg)
-
+	cfg := Config{}
 	sk, err := crypto.HexStringToPrivateKey("308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6")
 	require.NoError(err)
 	require.False(cfg.whitelistSignatureScheme(sk))

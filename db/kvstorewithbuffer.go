@@ -210,7 +210,7 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 			case batch.Put:
 				// if DB contains the same key, that should be obsoleted
 				for i := range fk {
-					if bytes.Compare(fk[i], k) == 0 {
+					if bytes.Equal(fk[i], k) {
 						fk = append(fk[:i], fk[i+1:]...)
 						fv = append(fv[:i], fv[i+1:]...)
 						break
@@ -220,7 +220,7 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 				fv = append(fv, v)
 			case batch.Delete:
 				for i := range fk {
-					if bytes.Compare(fk[i], k) == 0 {
+					if bytes.Equal(fk[i], k) {
 						fk = append(fk[:i], fk[i+1:]...)
 						fv = append(fv[:i], fv[i+1:]...)
 						break

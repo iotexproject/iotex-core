@@ -11,17 +11,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	statedb "github.com/iotexproject/iotex-core/state"
@@ -58,7 +59,7 @@ type HeartbeatHandler struct {
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
-func NewHeartbeatHandler(s *Server, cfg config.Network) *HeartbeatHandler {
+func NewHeartbeatHandler(s *Server, cfg p2p.Network) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
 		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
@@ -77,6 +78,12 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 	numDPEvts := dp.EventQueueSize()
+	totalDPEventNumber := 0
+	events := []string{}
+	for event, num := range numDPEvts {
+		totalDPEventNumber += num
+		events = append(events, event+":"+strconv.Itoa(num))
+	}
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
 		h.l.Error("error when serializing the dispatcher event audit map.", zap.Error(err))
@@ -92,11 +99,11 @@ func (h *HeartbeatHandler) Log() {
 	numPeers := len(peers)
 	h.l.Info("Node status.",
 		zap.Int("numPeers", numPeers),
-		zap.Int("pendingDispatcherEvents", numDPEvts),
+		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
 	heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
-	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(numDPEvts))
+	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
 	// chain service
 	for _, c := range h.s.chainservices {
 		// Consensus metrics

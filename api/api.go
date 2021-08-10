@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
@@ -361,7 +362,10 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, api.registry)
-	hash := selp.Hash()
+	hash, err := selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = api.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in.Action)
@@ -442,30 +446,31 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
-
 	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	ctx, err = api.bc.Context()
+	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	gasLimit := api.cfg.Genesis.BlockGasLimit
+	if in.GasLimit != 0 && in.GasLimit < gasLimit {
+		gasLimit = in.GasLimit
+	}
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		state.Nonce+1,
+		sc.Amount(),
+		gasLimit,
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
+		sc.Data(),
+	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -704,6 +709,9 @@ func (api *Server) GetLogs(
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
 		logs, err = api.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
+		if err != nil {
+			return nil, err
+		}
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		startBlock := req.GetFromBlock()
@@ -862,7 +870,7 @@ func (api *Server) GetTransactionLogByActionHash(
 	}
 
 	for _, log := range sysLog.Logs {
-		if bytes.Compare(h, log.ActionHash) == 0 {
+		if bytes.Equal(h, log.ActionHash) {
 			return &iotexapi.GetTransactionLogByActionHashResponse{
 				TransactionLog: log,
 			}, nil
@@ -954,11 +962,9 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
-	ctx = protocol.WithBlockchainCtx(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, api.registry),
-		protocol.BlockchainCtx{
-			Genesis: api.cfg.Genesis,
-		},
+		api.cfg.Genesis,
 	)
 
 	rp := rolldpos.FindProtocol(api.registry)
@@ -1260,12 +1266,17 @@ func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, e
 // generateBlockMeta generates BlockMeta from block
 func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	header := blk.Header
-	hash := header.HashBlock()
 	height := header.Height()
 	ts, _ := ptypes.TimestampProto(header.Timestamp())
-	var producerAddress string
+	var (
+		producerAddress string
+		h               hash.Hash256
+	)
 	if blk.Height() > 0 {
 		producerAddress = header.ProducerAddress()
+		h = header.HashBlock()
+	} else {
+		h = block.GenesisHash()
 	}
 	txRoot := header.TxRoot()
 	receiptRoot := header.ReceiptRoot()
@@ -1273,7 +1284,7 @@ func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	prevHash := header.PrevHash()
 
 	blockMeta := iotextypes.BlockMeta{
-		Hash:              hex.EncodeToString(hash[:]),
+		Hash:              hex.EncodeToString(h[:]),
 		Height:            height,
 		Timestamp:         ts,
 		ProducerAddress:   producerAddress,
@@ -1324,7 +1335,10 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 
 func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (
 	*iotexapi.ActionInfo, error) {
-	actHash := selp.Hash()
+	actHash, err := selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	header, err := api.dao.Header(blkHash)
 	if err != nil {
 		return nil, err
@@ -1349,7 +1363,10 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 }
 
 func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
-	actHash := selp.Hash()
+	actHash, err := selp.Hash()
+	if err != nil {
+		return nil, err
+	}
 	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
@@ -1404,7 +1421,11 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 	}
 	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]
-		actHash := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
@@ -1429,7 +1450,11 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
 		ri := uint64(len(blk.Actions)) - 1 - i
 		selp := blk.Actions[ri]
-		actHash := selp.Hash()
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append([]*iotexapi.ActionInfo{
 			{
@@ -1574,7 +1599,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	ctx, err := api.bc.Context()
+	ctx, err := api.bc.Context(context.Background())
 	if err != nil {
 		return false, nil, err
 	}

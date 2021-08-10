@@ -21,7 +21,6 @@ func TestVoteReviser(t *testing.T) {
 	r := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
@@ -129,9 +128,7 @@ func TestVoteReviser(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)

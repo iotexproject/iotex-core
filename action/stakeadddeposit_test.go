@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
@@ -107,7 +107,8 @@ func TestDeposit(t *testing.T) {
 		ser, err = proto.Marshal(selp.Proto())
 		require.NoError(err)
 		require.Equal(test.Sign, hex.EncodeToString(ser))
-		hash := selp.Hash()
+		hash, err := selp.Hash()
+		require.NoError(err)
 		require.Equal(test.SelpHash, hex.EncodeToString(hash[:]))
 		// verify signature
 		require.NoError(Verify(selp))

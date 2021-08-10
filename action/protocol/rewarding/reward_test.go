@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -226,6 +226,11 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimActionCtx.Caller = identityset.Address(0)
 		claimCtx := protocol.WithActionCtx(ctx, claimActionCtx)
 
+		// Record the init balance of account
+		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		require.NoError(t, err)
+		initBalance := primAcc.Balance
+
 		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
 		require.NoError(t, err)
 
@@ -235,9 +240,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
+		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
+		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim negative amount of token will fail
 		_, err = p.Claim(claimCtx, sm, big.NewInt(-5))
@@ -255,7 +261,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
+		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim another 5 token
 		rlog, err := p.Claim(claimCtx, sm, big.NewInt(5))
@@ -274,7 +280,8 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000010), primAcc.Balance)
+		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
+		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
 		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
@@ -292,7 +299,6 @@ func TestProtocol_ClaimReward(t *testing.T) {
 
 func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
@@ -345,7 +351,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	cfg := config.Default
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
-		&cfg.Genesis,
 		func(uint64, uint64) (map[string]uint64, error) {
 			return map[string]uint64{
 				identityset.Address(0).String(): 9,
@@ -395,11 +400,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(
 			protocol.WithRegistry(context.Background(), registry),
-			protocol.BlockchainCtx{
-				Genesis: ge,
-			},
+			ge,
 		),
 		protocol.BlockCtx{
 			BlockHeight: 0,
@@ -411,7 +414,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(
 		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis: ge,
 			Tip: protocol.TipInfo{
 				Height: 1,
 			},
