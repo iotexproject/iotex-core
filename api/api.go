@@ -446,30 +446,31 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
-
 	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	gasLimit := api.cfg.Genesis.BlockGasLimit
+	if in.GasLimit != 0 && in.GasLimit < gasLimit {
+		gasLimit = in.GasLimit
+	}
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		state.Nonce+1,
+		sc.Amount(),
+		gasLimit,
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
+		sc.Data(),
+	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
