@@ -103,6 +103,7 @@ func (s *Xrc20) checkAndAlert(hs string) {
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	addr := pri.PublicKey().Address()
 	if addr == nil {
+		err = errors.New("failed to get address")
 		return
 	}
 	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())

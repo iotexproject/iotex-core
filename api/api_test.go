@@ -66,18 +66,18 @@ var (
 		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferHash, _ = testTransfer.Hash()
-	testTransferPb   = testTransfer.Proto()
+	testTransferPb      = testTransfer.Proto()
 
 	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionHash, _ = testExecution.Hash()
-	testExecutionPb   = testExecution.Proto()
+	testExecutionPb      = testExecution.Proto()
 
 	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1, _    = testTransfer1.Hash()
+	transferHash1, _ = testTransfer1.Hash()
 	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash2, _ = testTransfer2.Hash()

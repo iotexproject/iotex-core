@@ -65,7 +65,7 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 				}
 				addr := private.PublicKey().Address()
 				if addr == nil {
-					return output.NewError(output.ConvertError, failToConvertPublicKeyIntoAddress, nil)
+					return output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil)
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),

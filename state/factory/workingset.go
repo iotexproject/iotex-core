@@ -429,7 +429,7 @@ func (ws *workingSet) pickAndRunActions(
 				continue
 			default:
 				nextActionHash, err := nextAction.Hash()
-				if err != nil{
+				if err != nil {
 					return nil, errors.Wrapf(err, "Failed to get hash for %x", nextActionHash)
 				}
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)

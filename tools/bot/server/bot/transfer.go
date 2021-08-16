@@ -94,6 +94,7 @@ func (s *Transfer) checkAndAlert(hs string) {
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	addr := pri.PublicKey().Address()
 	if addr == nil {
+		err = errors.New("failed to get address")
 		return
 	}
 	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)

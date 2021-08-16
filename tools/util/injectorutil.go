@@ -728,7 +728,7 @@ func CheckPendingActionList(
 						return false
 					}
 					executoraddr := selp.SrcPubkey().Address()
-					if executoraddr != nil {
+					if executoraddr == nil {
 						retErr = errors.New("failed to get address")
 						return false
 					}
