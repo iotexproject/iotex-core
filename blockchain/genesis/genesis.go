@@ -63,6 +63,7 @@ func defaultConfig() Genesis {
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
+			JutlandBlockHeight:      16289321,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -183,6 +184,8 @@ type (
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
 		// IcelandBlockHeight is the start height to support chainID opcode in EVM
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
+		// JutlandBlockHeight is the start height to cover all EVM error codes
+		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -401,68 +404,73 @@ func (g *Genesis) Hash() hash.Hash256 {
 	return hash.Hash256b(b)
 }
 
-func (g *Genesis) isPost(targetHeight, height uint64) bool {
+func (g *Blockchain) isPost(targetHeight, height uint64) bool {
 	return height >= targetHeight
 }
 
 // IsPacific checks whether height is equal to or larger than pacific height
-func (g *Genesis) IsPacific(height uint64) bool {
+func (g *Blockchain) IsPacific(height uint64) bool {
 	return g.isPost(g.PacificBlockHeight, height)
 }
 
 // IsAleutian checks whether height is equal to or larger than aleutian height
-func (g *Genesis) IsAleutian(height uint64) bool {
+func (g *Blockchain) IsAleutian(height uint64) bool {
 	return g.isPost(g.AleutianBlockHeight, height)
 }
 
 // IsBering checks whether height is equal to or larger than bering height
-func (g *Genesis) IsBering(height uint64) bool {
+func (g *Blockchain) IsBering(height uint64) bool {
 	return g.isPost(g.BeringBlockHeight, height)
 }
 
 // IsCook checks whether height is equal to or larger than cook height
-func (g *Genesis) IsCook(height uint64) bool {
+func (g *Blockchain) IsCook(height uint64) bool {
 	return g.isPost(g.CookBlockHeight, height)
 }
 
 // IsDardanelles checks whether height is equal to or larger than dardanelles height
-func (g *Genesis) IsDardanelles(height uint64) bool {
+func (g *Blockchain) IsDardanelles(height uint64) bool {
 	return g.isPost(g.DardanellesBlockHeight, height)
 }
 
 // IsDaytona checks whether height is equal to or larger than daytona height
-func (g *Genesis) IsDaytona(height uint64) bool {
+func (g *Blockchain) IsDaytona(height uint64) bool {
 	return g.isPost(g.DaytonaBlockHeight, height)
 }
 
 // IsEaster checks whether height is equal to or larger than easter height
-func (g *Genesis) IsEaster(height uint64) bool {
+func (g *Blockchain) IsEaster(height uint64) bool {
 	return g.isPost(g.EasterBlockHeight, height)
 }
 
 // IsFairbank checks whether height is equal to or larger than fairbank height
-func (g *Genesis) IsFairbank(height uint64) bool {
+func (g *Blockchain) IsFairbank(height uint64) bool {
 	return g.isPost(g.FairbankBlockHeight, height)
 }
 
 // IsFbkMigration checks whether height is equal to or larger than fbk migration height
-func (g *Genesis) IsFbkMigration(height uint64) bool {
+func (g *Blockchain) IsFbkMigration(height uint64) bool {
 	return g.isPost(g.FbkMigrationBlockHeight, height)
 }
 
 // IsGreenland checks whether height is equal to or larger than greenland height
-func (g *Genesis) IsGreenland(height uint64) bool {
+func (g *Blockchain) IsGreenland(height uint64) bool {
 	return g.isPost(g.GreenlandBlockHeight, height)
 }
 
 // IsHawaii checks whether height is equal to or larger than hawaii height
-func (g *Genesis) IsHawaii(height uint64) bool {
+func (g *Blockchain) IsHawaii(height uint64) bool {
 	return g.isPost(g.HawaiiBlockHeight, height)
 }
 
 // IsIceland checks whether height is equal to or larger than iceland height
-func (g *Genesis) IsIceland(height uint64) bool {
+func (g *Blockchain) IsIceland(height uint64) bool {
 	return g.isPost(g.IcelandBlockHeight, height)
+}
+
+// IsJutland checks whether height is equal to or larger than jutland height
+func (g *Blockchain) IsJutland(height uint64) bool {
+	return g.isPost(g.JutlandBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
