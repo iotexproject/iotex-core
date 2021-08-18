@@ -66,7 +66,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		tsf, ok := act.(*action.Transfer)
-		if (!ok) {
+		if !ok {
 			return nil, nil
 		}
 

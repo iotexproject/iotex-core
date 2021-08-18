@@ -83,17 +83,18 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		err         error
 		status      uint64
 		contractLog uint64
+		receiptNull bool
 	}{
 		{
-			alfa, 1, big.NewInt(2), bravo.String(), 10000, big.NewInt(1), false, nil, uint64(iotextypes.ReceiptStatus_Success), 2,
+			alfa, 1, big.NewInt(2), bravo.String(), 10000, big.NewInt(1), false, nil, uint64(iotextypes.ReceiptStatus_Success), 2, false,
 		},
 		// transfer to contract address only charges gas fee
 		{
-			alfa, 2, big.NewInt(20), charlie.String(), 10000, big.NewInt(1), true, nil, uint64(iotextypes.ReceiptStatus_Failure), 1,
+			alfa, 2, big.NewInt(20), charlie.String(), 10000, big.NewInt(1), true, nil, uint64(iotextypes.ReceiptStatus_Failure), 1, true,
 		},
 		// not enough balance
 		{
-			alfa, 3, big.NewInt(30000), bravo.String(), 10000, big.NewInt(1), false, state.ErrNotEnoughBalance, uint64(iotextypes.ReceiptStatus_Failure), 1,
+			alfa, 3, big.NewInt(30000000000), bravo.String(), 10000, big.NewInt(1), false, state.ErrNotEnoughBalance, uint64(iotextypes.ReceiptStatus_Failure), 1, false,
 		},
 	}
 
@@ -120,6 +121,11 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
 		receipt, err := p.Handle(ctx, tsf, sm)
+		if v.receiptNull {
+			require.Nil(receipt)
+			continue
+		}
+
 		require.Equal(v.err, errors.Cause(err))
 		if err != nil {
 			require.Nil(receipt)
