@@ -19,12 +19,22 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+)
+
+type (
+	// Dispatcher is the dispatcher config
+	DispatcherConfig struct {
+		ActionChanSize             uint          `yaml:"actionChanSize"`
+		BlockChanSize              uint          `yaml:"blockChanSize"`
+		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
+		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
+	}
 )
 
 // Subscriber is the dispatcher subscriber interface
@@ -118,16 +128,16 @@ type IotxDispatcher struct {
 }
 
 // NewDispatcher creates a new Dispatcher
-func NewDispatcher(cfg config.Config) (Dispatcher, error) {
+func NewDispatcher(cfg DispatcherConfig) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		actionChan:   make(chan *actionMsg, cfg.Dispatcher.ActionChanSize),
-		blockChan:    make(chan *blockMsg, cfg.Dispatcher.BlockChanSize),
-		syncChan:     make(chan *blockSyncMsg, cfg.Dispatcher.BlockSyncChanSize),
+		actionChan:   make(chan *actionMsg, cfg.ActionChanSize),
+		blockChan:    make(chan *blockMsg, cfg.BlockChanSize),
+		syncChan:     make(chan *blockSyncMsg, cfg.BlockSyncChanSize),
 		eventAudit:   make(map[iotexrpc.MessageType]int),
 		quit:         make(chan struct{}),
 		subscribers:  make(map[uint32]Subscriber),
 		peerLastSync: make(map[string]time.Time),
-		syncInterval: cfg.Dispatcher.ProcessSyncRequestInterval,
+		syncInterval: cfg.ProcessSyncRequestInterval,
 	}
 	return d, nil
 }

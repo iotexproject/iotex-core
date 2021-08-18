@@ -16,18 +16,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
 )
 
+var (
+	defaultChainID uint32 = 4689
+)
+
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
-	cfg := config.Config{
-		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
-		Dispatcher: config.Dispatcher{ActionChanSize: 1024, BlockChanSize: 1024, BlockSyncChanSize: 1024, ProcessSyncRequestInterval: 0 * time.Second},
-	}
-	dp, err := NewDispatcher(cfg)
+	dp, err := NewDispatcher(DispatcherConfig{
+		ActionChanSize:             1024,
+		BlockChanSize:              1024,
+		BlockSyncChanSize:          1024,
+		ProcessSyncRequestInterval: 0 * time.Second})
 	assert.NoError(t, err)
 	dp.AddSubscriber(chainID, &dummySubscriber{})
 	return dp
@@ -35,7 +38,7 @@ func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
 
 func startDispatcher(t *testing.T) (ctx context.Context, d Dispatcher) {
 	ctx = context.Background()
-	d = createDispatcher(t, config.Default.Chain.ID)
+	d = createDispatcher(t, defaultChainID)
 	assert.NotNil(t, d)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
@@ -67,7 +70,7 @@ func TestHandleBroadcast(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleBroadcast(ctx, config.Default.Chain.ID, "peer1", msg)
+			d.HandleBroadcast(ctx, defaultChainID, "peer1", msg)
 		}
 	}
 }
@@ -82,7 +85,7 @@ func TestHandleTell(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(ctx, config.Default.Chain.ID, peer.AddrInfo{}, msg)
+			d.HandleTell(ctx, defaultChainID, peer.AddrInfo{}, msg)
 		}
 	}
 }

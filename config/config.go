@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -160,7 +161,7 @@ var (
 			MaxRepeat:             3,
 			RepeatDecayStep:       1,
 		},
-		Dispatcher: Dispatcher{
+		Dispatcher: dispatcher.DispatcherConfig{
 			ActionChanSize:             1000,
 			BlockChanSize:              1000,
 			BlockSyncChanSize:          400,
@@ -314,15 +315,6 @@ type (
 		CommitTTL                    time.Duration `yaml:"commitTTL"`
 	}
 
-	// Dispatcher is the dispatcher config
-	Dispatcher struct {
-		ActionChanSize             uint          `yaml:"actionChanSize"`
-		BlockChanSize              uint          `yaml:"blockChanSize"`
-		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
-		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
-		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	}
-
 	// API is the api service config
 	API struct {
 		UseRDS          bool       `yaml:"useRDS"`
@@ -387,7 +379,7 @@ type (
 		Consensus          Consensus                   `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
 		BlockSync          BlockSync                   `yaml:"blockSync"`
-		Dispatcher         Dispatcher                  `yaml:"dispatcher"`
+		Dispatcher         dispatcher.DispatcherConfig `yaml:"dispatcher"`
 		API                API                         `yaml:"api"`
 		System             System                      `yaml:"system"`
 		DB                 db.Config                   `yaml:"db"`
