@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -64,7 +65,28 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	exec, ok := act.(*action.Execution)
 	if !ok {
-		return nil, nil
+		tsf, ok := act.(*action.Transfer)
+		if (!ok) {
+			return nil, nil
+		}
+
+		recipientAddr, err := address.FromString(tsf.Recipient())
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
+		}
+		recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
+		if err == nil && recipientAcct.IsContract() {
+			exec, _ = action.NewExecution(
+				tsf.Recipient(),
+				tsf.Nonce(),
+				tsf.Amount(),
+				tsf.GasLimit(),
+				tsf.GasPrice(),
+				tsf.Payload(),
+			)
+		} else {
+			return nil, nil
+		}
 	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 

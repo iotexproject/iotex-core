@@ -34,6 +34,16 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if !ok {
 		return nil, nil
 	}
+
+	recipientAddr, err := address.FromString(tsf.Recipient())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
+	}
+	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
+	if err == nil && recipientAcct.IsContract() {
+		return nil, nil
+	}
+
 	// check sender
 	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
 	if err != nil {
@@ -63,37 +73,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 				return nil, err
 			}
 		}
-	}
-
-	recipientAddr, err := address.FromString(tsf.Recipient())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
-	}
-	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
-	if err == nil && recipientAcct.IsContract() {
-		// update sender Nonce
-		accountutil.SetNonce(tsf, sender)
-		// put updated sender's state to trie
-		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
-			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
-		}
-		if g.IsPacific(blkCtx.BlockHeight) {
-			if p.depositGas != nil {
-				depositLog, err = p.depositGas(ctx, sm, gasFee)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-		receipt := &action.Receipt{
-			Status:          uint64(iotextypes.ReceiptStatus_Failure),
-			BlockHeight:     blkCtx.BlockHeight,
-			ActionHash:      actionCtx.ActionHash,
-			GasConsumed:     actionCtx.IntrinsicGas,
-			ContractAddress: p.addr.String(),
-		}
-		receipt.AddTransactionLogs(depositLog)
-		return receipt, nil
 	}
 
 	// update sender Balance
