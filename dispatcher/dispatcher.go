@@ -27,7 +27,7 @@ import (
 )
 
 type (
-	// Dispatcher is the dispatcher config
+	// DispatcherConfig is the dispatcher config
 	DispatcherConfig struct {
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
