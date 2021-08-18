@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	defaultChainID uint32 = 4689
+	defaultChainID uint32 = 1
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
