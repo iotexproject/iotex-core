@@ -130,7 +130,11 @@ func TestUnicast(t *testing.T) {
 		src = peer.ID.Pretty()
 	}
 
-	bootnode := NewAgent(Network{Host: "127.0.0.1", Port: testutil.RandomPort(), ReconnectInterval: 150 * time.Second}, hash.ZeroHash256, b, u)
+	bootnode := NewAgent(Network{
+		Host:              "127.0.0.1",
+		Port:              testutil.RandomPort(),
+		ReconnectInterval: 150 * time.Second,
+	}, hash.ZeroHash256, b, u)
 	r.NoError(bootnode.Start(ctx))
 
 	addrs, err := bootnode.Self()
@@ -149,7 +153,7 @@ func TestUnicast(t *testing.T) {
 	for i := 0; i < n; i++ {
 		neighbors, err := agents[i].Neighbors(ctx)
 		r.NoError(err)
-		r.True(len(neighbors) > 0)
+		r.True(len(neighbors) >= n/3)
 		for _, neighbor := range neighbors {
 			r.NoError(agents[i].UnicastOutbound(WitContext(ctx, Context{ChainID: 1}), neighbor, &testingpb.TestPayload{
 				MsgBody: []byte{uint8(i)},
