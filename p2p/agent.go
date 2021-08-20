@@ -96,11 +96,13 @@ type (
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 	Agent struct {
+		ctx                        context.Context
 		cfg                        Network
 		topicSuffix                string
 		broadcastInboundHandler    HandleBroadcastInbound
 		unicastInboundAsyncHandler HandleUnicastInboundAsync
 		host                       *p2p.Host
+		bootNodeAddr               []multiaddr.Multiaddr
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
@@ -148,7 +150,8 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
+	p.ctx = ctx
+	if err := host.AddBroadcastPubSub(ctx, broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var (
@@ -247,6 +250,15 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when adding unicast pubsub")
 	}
 
+	// create boot nodes list except itself
+	hostName := host.HostIdentity()
+	for _, bootstrapNode := range p.cfg.BootstrapNodes {
+		bootAddr := multiaddr.StringCast(bootstrapNode)
+		if !strings.Contains(bootAddr.String(), hostName) {
+			p.bootNodeAddr = append(p.bootNodeAddr, bootAddr)
+		}
+	}
+
 	// connect to bootstrap nodes
 	p.host = host
 	if err = p.connect(ctx); err != nil {
@@ -318,7 +330,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(ctx, broadcastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Broadcast(p.ctx, broadcastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
@@ -369,7 +381,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	}
 
 	t := time.Now()
-	if err = host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Unicast(p.ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
@@ -399,7 +411,22 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
-	return p.host.Neighbors(ctx), nil
+
+	// filter out bootnodes
+	var nb []peer.AddrInfo
+	for _, peer := range p.host.Neighbors(ctx) {
+		isValid := true
+		for _, bootNode := range p.bootNodeAddr {
+			if strings.Contains(bootNode.String(), peer.ID.Pretty()) {
+				isValid = false
+				break
+			}
+		}
+		if isValid {
+			nb = append(nb, peer)
+		}
+	}
+	return nb, nil
 }
 
 // QosMetrics returns the Qos metrics
@@ -418,12 +445,7 @@ func (p *Agent) connect(ctx context.Context) error {
 	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
 
 	// try to connect to all bootstrap node beside itself.
-	for _, bootstrapNode := range p.cfg.BootstrapNodes {
-		bootAddr := multiaddr.StringCast(bootstrapNode)
-		if strings.Contains(bootAddr.String(), p.host.HostIdentity()) {
-			continue
-		}
-
+	for _, bootAddr := range p.bootNodeAddr {
 		tryNum++
 		go func() {
 			if err := exponentialRetry(
@@ -441,7 +463,7 @@ func (p *Agent) connect(ctx context.Context) error {
 	}
 
 	// wait until half+1 bootnodes get connected
-	desiredConnNum = len(p.cfg.BootstrapNodes)/2 + 1
+	desiredConnNum = len(p.bootNodeAddr)/2 + 1
 	for {
 		select {
 		case err := <-connErrChan:
@@ -462,8 +484,12 @@ func (p *Agent) connect(ctx context.Context) error {
 }
 
 func (p *Agent) reconnect() {
-	if p.qosMetrics.lostConnection() {
-		log.L().Info("Network lost, try re-connecting.")
+	peers, err := p.Neighbors(context.Background())
+	if err == ErrAgentNotStarted {
+		return
+	}
+	if len(peers) == 0 || p.qosMetrics.lostConnection() {
+		log.L().Info("network lost, try re-connecting.")
 		p.host.ClearBlocklist()
 		p.connect(context.Background())
 	}

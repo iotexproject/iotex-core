@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -62,6 +63,11 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	defer func() {
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, indexDBPath)
+	}()
 
 	// create server
 	ctx := context.Background()
@@ -304,8 +310,6 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.NoError(err)
 	require.True(9 == bc.TipHeight())
-	// State may not be committed when the block is committed already
-	time.Sleep(2 * time.Second)
 
 	// check balance
 	s, err = accountutil.AccountState(sf, identityset.Address(28).String())
@@ -377,18 +381,37 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	defer func() {
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, indexDBPath)
+	}()
+
+	// bootnode
+	ctx := context.Background()
+	bootnodePort := testutil.RandomPort()
+	bootnode := p2p.NewAgent(p2p.Network{
+		Host:              "127.0.0.1",
+		Port:              bootnodePort,
+		ReconnectInterval: 150 * time.Second},
+		hash.ZeroHash256,
+		func(_ context.Context, _ uint32, _ string, msg proto.Message) {},
+		func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {})
+	require.NoError(bootnode.Start(ctx))
+	addrs, err := bootnode.Self()
+	require.NoError(err)
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 
 	// Create server
-	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
 
-	chainID := cfg.Chain.ID
-	bc := svr.ChainService(chainID).Blockchain()
-	sf := svr.ChainService(chainID).StateFactory()
-	ap := svr.ChainService(chainID).ActionPool()
-	dao := svr.ChainService(chainID).BlockDAO()
+	sChain := svr.ChainService(cfg.Chain.ID)
+	bc := sChain.Blockchain()
+	sf := sChain.StateFactory()
+	ap := sChain.ActionPool()
+	dao := sChain.BlockDAO()
 	require.NotNil(bc)
 	require.NotNil(sf)
 	require.NotNil(ap)
@@ -411,7 +434,6 @@ func TestLocalSync(t *testing.T) {
 	blk, err = dao.GetBlockByHeight(5)
 	require.NoError(err)
 	hash5 := blk.HashBlock()
-	require.NotNil(svr.P2PAgent())
 
 	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
@@ -425,17 +447,20 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
+	defer func() {
+		testutil.CleanupPath(t, testTriePath2)
+		testutil.CleanupPath(t, testDBPath2)
+		testutil.CleanupPath(t, indexDBPath2)
+	}()
 
-	addrs, err := svr.P2PAgent().Self()
-	require.NoError(err)
 	// Create client
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
-
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(cli.Start(ctx))
-	require.NotNil(cli.ChainService(chainID).Blockchain())
+	nChain := cli.ChainService(cfg.Chain.ID)
+	require.NotNil(nChain.Blockchain())
 	require.NotNil(cli.P2PAgent())
 
 	defer func() {
@@ -444,34 +469,34 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().Neighbors(context.Background())
+		peers, err := svr.P2PAgent().Neighbors(ctx)
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)
 
 	err = svr.P2PAgent().BroadcastOutbound(
 		p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID}),
-		blk.ConvertToBlockPb(),
-	)
+		blk.ConvertToBlockPb())
 	require.NoError(err)
+	nDao := nChain.BlockDAO()
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(1)
+		blk1, err := nDao.GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
 		}
-		blk2, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(2)
+		blk2, err := nDao.GetBlockByHeight(2)
 		if err != nil {
 			return false, nil
 		}
-		blk3, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(3)
+		blk3, err := nDao.GetBlockByHeight(3)
 		if err != nil {
 			return false, nil
 		}
-		blk4, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(4)
+		blk4, err := nDao.GetBlockByHeight(4)
 		if err != nil {
 			return false, nil
 		}
-		blk5, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(5)
+		blk5, err := nDao.GetBlockByHeight(5)
 		if err != nil {
 			return false, nil
 		}
@@ -484,19 +509,19 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(testutil.WaitUntil(time.Millisecond*100, time.Second*60, check))
 
 	// verify 4 received blocks
-	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(1)
+	blk, err = nDao.GetBlockByHeight(1)
 	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(2)
+	blk, err = nDao.GetBlockByHeight(2)
 	require.NoError(err)
 	require.Equal(hash2, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(3)
+	blk, err = nDao.GetBlockByHeight(3)
 	require.NoError(err)
 	require.Equal(hash3, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(4)
+	blk, err = nDao.GetBlockByHeight(4)
 	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(5)
+	blk, err = nDao.GetBlockByHeight(5)
 	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
