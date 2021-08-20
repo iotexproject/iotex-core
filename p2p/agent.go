@@ -98,6 +98,7 @@ type (
 	Agent struct {
 		ctx                        context.Context
 		cfg                        Network
+		chainID                    uint32
 		topicSuffix                string
 		broadcastInboundHandler    HandleBroadcastInbound
 		unicastInboundAsyncHandler HandleUnicastInboundAsync
@@ -109,11 +110,26 @@ type (
 	}
 )
 
+// DefaultConfig is the default config of p2p
+var DefaultConfig = Network{
+	Host:              "0.0.0.0",
+	Port:              4689,
+	ExternalHost:      "",
+	ExternalPort:      4689,
+	BootstrapNodes:    []string{},
+	MasterKey:         "",
+	RateLimit:         p2p.DefaultRatelimitConfig,
+	ReconnectInterval: 150 * time.Second,
+	EnableRateLimit:   true,
+	PrivateNetworkPSK: "",
+}
+
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg Network, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
 	return &Agent{
-		cfg: cfg,
+		cfg:     cfg,
+		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
 		topicSuffix:                hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
@@ -187,6 +203,10 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
+		if broadcast.ChainId != p.chainID {
+			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", broadcast.ChainId, p.chainID)
+			return
+		}
 
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
@@ -226,6 +246,10 @@ func (p *Agent) Start(ctx context.Context) error {
 		msg, err := goproto.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying unicast message")
+			return
+		}
+		if unicast.ChainId != p.chainID {
+			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", unicast.ChainId, p.chainID)
 			return
 		}
 
@@ -288,7 +312,7 @@ func (p *Agent) Stop(ctx context.Context) error {
 }
 
 // BroadcastOutbound sends a broadcast message to the whole network
-func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
+func (p *Agent) BroadcastOutbound(_ context.Context, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -312,13 +336,8 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	if err != nil {
 		return
 	}
-	p2pCtx, ok := GetContext(ctx)
-	if !ok {
-		err = errors.New("P2P context doesn't exist")
-		return
-	}
 	broadcast := iotexrpc.BroadcastMsg{
-		ChainId:   p2pCtx.ChainID,
+		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
@@ -340,7 +359,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 }
 
 // UnicastOutbound sends a unicast message to the given address
-func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
+func (p *Agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -362,13 +381,8 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	if err != nil {
 		return
 	}
-	p2pCtx, ok := GetContext(ctx)
-	if !ok {
-		err = errors.New("P2P context doesn't exist")
-		return
-	}
 	unicast := iotexrpc.UnicastMsg{
-		ChainId:   p2pCtx.ChainID,
+		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
