@@ -92,24 +92,10 @@ func init() {
 }
 
 // Sign sign message with signer
-func Sign(signer, password, message string) (signedMessage string, err error) {
-	var pri crypto.PrivateKey
-	if !util.AliasIsHdwalletKey(signer) {
-		pri, err = LocalAccountToPrivateKey(signer, password)
-		if err != nil {
-			return
-		}
-	} else {
-		account, change, index, err1 := util.ParseHdwPath(signer)
-		if err1 != nil {
-			err = output.NewError(output.InputError, "invalid hdwallet key format", err1)
-			return
-		}
-
-		_, pri, err = hdwallet.DeriveKey(account, change, index, password)
-		if err != nil {
-			return
-		}
+func Sign(signer, password, message string) (string, error) {
+	pri, err := PrivateKeyFromSigner(signer, password)
+	if err != nil {
+		return "", err
 	}
 	mes := message
 	head := message[:2]
@@ -118,28 +104,27 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 	}
 	b, err := hex.DecodeString(mes)
 	if err != nil {
-		return
+		return "", err
 	}
 	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(b))
 	msg := append([]byte(prefix), b...)
 	mesToSign := hash.Hash256b(msg)
 	ret, err := pri.Sign(mesToSign[:])
 	if err != nil {
-		return
+		return "", err
 	}
-	signedMessage = hex.EncodeToString(ret)
-	return
+	return hex.EncodeToString(ret), nil
 }
 
-// LocalAccountToPrivateKey generates our PrivateKey interface from Keystore account
-func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
+// keyStoreAccountToPrivateKey generates our PrivateKey interface from Keystore account
+func keyStoreAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	addrString, err := util.Address(signer)
 	if err != nil {
 		return nil, err
 	}
 	addr, err := address.FromString(addrString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert bytes into address")
+		return nil, fmt.Errorf("invalid account #%s, addr %s", signer, addrString)
 	}
 
 	if CryptoSm2 {
@@ -161,6 +146,39 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 	}
 
 	return nil, fmt.Errorf("account #%s does not match all local keys", signer)
+}
+
+// PrivateKeyFromSigner returns private key from signer
+func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
+	var (
+		prvKey crypto.PrivateKey
+		err    error
+	)
+
+	if !IsSignerExist(signer) && !util.AliasIsHdwalletKey(signer) {
+		return nil, fmt.Errorf("invalid address #%s", signer)
+	}
+
+	if password == "" {
+		output.PrintQuery(fmt.Sprintf("Enter password for #%s:\n", signer))
+		password, err = util.ReadSecretFromStdin()
+		if err != nil {
+			return nil, output.NewError(output.InputError, "failed to get password", err)
+		}
+	}
+
+	if util.AliasIsHdwalletKey(signer) {
+		account, change, index, err := util.ParseHdwPath(signer)
+		if err != nil {
+			return nil, output.NewError(output.InputError, "invalid HDWallet key format", err)
+		}
+		_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+		if err != nil {
+			return nil, output.NewError(output.InputError, "failed to derive key from HDWallet", err)
+		}
+		return prvKey, nil
+	}
+	return keyStoreAccountToPrivateKey(signer, password)
 }
 
 // GetAccountMeta gets account metadata
