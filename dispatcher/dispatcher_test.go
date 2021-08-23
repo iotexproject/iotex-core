@@ -9,7 +9,6 @@ package dispatcher
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/libp2p/go-libp2p-core/peer"
