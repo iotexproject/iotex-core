@@ -27,11 +27,7 @@ var (
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
-	dp, err := NewDispatcher(Config{
-		ActionChanSize:             1024,
-		BlockChanSize:              1024,
-		BlockSyncChanSize:          1024,
-		ProcessSyncRequestInterval: 0 * time.Second})
+	dp, err := NewDispatcher(DefaultConfig)
 	assert.NoError(t, err)
 	dp.AddSubscriber(chainID, &dummySubscriber{})
 	return dp
