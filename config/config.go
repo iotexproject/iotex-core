@@ -161,7 +161,7 @@ var (
 			MaxRepeat:             3,
 			RepeatDecayStep:       1,
 		},
-		Dispatcher: dispatcher.DispatcherConfig{
+		Dispatcher: dispatcher.Config{
 			ActionChanSize:             1000,
 			BlockChanSize:              1000,
 			BlockSyncChanSize:          400,
@@ -379,7 +379,7 @@ type (
 		Consensus          Consensus                   `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
 		BlockSync          BlockSync                   `yaml:"blockSync"`
-		Dispatcher         dispatcher.DispatcherConfig `yaml:"dispatcher"`
+		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`
 		API                API                         `yaml:"api"`
 		System             System                      `yaml:"system"`
 		DB                 db.Config                   `yaml:"db"`

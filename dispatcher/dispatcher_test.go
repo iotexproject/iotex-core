@@ -26,7 +26,7 @@ var (
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
-	dp, err := NewDispatcher(DispatcherConfig{
+	dp, err := NewDispatcher(Config{
 		ActionChanSize:             1024,
 		BlockChanSize:              1024,
 		BlockSyncChanSize:          1024,

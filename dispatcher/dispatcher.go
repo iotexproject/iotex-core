@@ -27,8 +27,8 @@ import (
 )
 
 type (
-	// DispatcherConfig is the dispatcher config
-	DispatcherConfig struct {
+	// Config is the dispatcher config
+	Config struct {
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
 		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
@@ -128,7 +128,7 @@ type IotxDispatcher struct {
 }
 
 // NewDispatcher creates a new Dispatcher
-func NewDispatcher(cfg DispatcherConfig) (Dispatcher, error) {
+func NewDispatcher(cfg Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
 		actionChan:   make(chan *actionMsg, cfg.ActionChanSize),
 		blockChan:    make(chan *blockMsg, cfg.BlockChanSize),
