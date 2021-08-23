@@ -13,7 +13,6 @@ import (
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -177,7 +176,7 @@ func (h *Header) VerifySignature() bool {
 
 // ProducerAddress returns the address of producer
 func (h *Header) ProducerAddress() string {
-	addr, _ := address.FromBytes(h.pubkey.Hash())
+	addr := h.pubkey.Address()
 	return addr.String()
 }
 

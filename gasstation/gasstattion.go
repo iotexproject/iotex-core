@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -114,9 +115,9 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 	}
 	// Special handling for executions
 	if sc, ok := selp.Action().(*action.Execution); ok {
-		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-		if err != nil {
-			return 0, err
+		callerAddr := selp.SrcPubkey().Address()
+		if callerAddr == nil {
+			return 0, errors.New("failed to get address")
 		}
 		ctx, err := gs.bc.Context(context.Background())
 		if err != nil {

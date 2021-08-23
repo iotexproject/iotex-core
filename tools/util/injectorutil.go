@@ -19,7 +19,6 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -102,9 +101,9 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode private key")
 		}
-		addr, err := address.FromBytes(pk.Hash())
-		if err != nil {
-			return nil, err
+		addr := pk.Address()
+		if addr == nil {
+			return nil, errors.New("failed to get address")
 		}
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
@@ -712,9 +711,9 @@ func CheckPendingActionList(
 						retErr = err
 						return false
 					}
-					senderaddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-					if err != nil {
-						retErr = err
+					senderaddr := selp.SrcPubkey().Address()
+					if senderaddr == nil {
+						retErr = errors.New("failed to get address")
 						return false
 					}
 
@@ -728,9 +727,9 @@ func CheckPendingActionList(
 						retErr = err
 						return false
 					}
-					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-					if err != nil {
-						retErr = err
+					executoraddr := selp.SrcPubkey().Address()
+					if executoraddr == nil {
+						retErr = errors.New("failed to get address")
 						return false
 					}
 
@@ -741,9 +740,9 @@ func CheckPendingActionList(
 						retErr = err
 						return false
 					}
-					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-					if err != nil {
-						retErr = err
+					executoraddr := selp.SrcPubkey().Address()
+					if executoraddr == nil {
+						retErr = errors.New("failed to get address")
 						return false
 					}
 					cost, err := act.Cost()
