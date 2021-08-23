@@ -27,6 +27,7 @@ import (
 )
 
 type (
+	// Config is the config for dispatcher
 	Config struct {
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
@@ -37,6 +38,7 @@ type (
 )
 
 var (
+	// DefaultConfig is the default config
 	DefaultConfig = Config{
 		ActionChanSize:             1000,
 		BlockChanSize:              1000,
