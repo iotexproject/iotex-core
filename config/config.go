@@ -161,12 +161,7 @@ var (
 			MaxRepeat:             3,
 			RepeatDecayStep:       1,
 		},
-		Dispatcher: dispatcher.Config{
-			ActionChanSize:             1000,
-			BlockChanSize:              1000,
-			BlockSyncChanSize:          400,
-			ProcessSyncRequestInterval: 0 * time.Second,
-		},
+		Dispatcher: dispatcher.DefaultConfig,
 		API: API{
 			UseRDS:    false,
 			Port:      14014,

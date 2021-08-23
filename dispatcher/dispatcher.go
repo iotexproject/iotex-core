@@ -27,13 +27,21 @@ import (
 )
 
 type (
-	// Config is the dispatcher config
 	Config struct {
 		ActionChanSize             uint          `yaml:"actionChanSize"`
 		BlockChanSize              uint          `yaml:"blockChanSize"`
 		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
 		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
+	}
+)
+
+var (
+	DefaultConfig = Config{
+		ActionChanSize:             1000,
+		BlockChanSize:              1000,
+		BlockSyncChanSize:          400,
+		ProcessSyncRequestInterval: 0 * time.Second,
 	}
 )
 

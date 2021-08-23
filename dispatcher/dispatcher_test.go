@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
 )
 
+// TODO: define defaultChainID in chain.DefaultConfig
 var (
 	defaultChainID uint32 = 1
 )
