@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -194,7 +195,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, g, blkCtx.GasLimit, blkCtx.BlockHeight)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, g.Blockchain, blkCtx.GasLimit, blkCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -254,7 +255,7 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
-func getChainConfig(g genesis.Genesis, height uint64) *params.ChainConfig {
+func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
@@ -269,7 +270,7 @@ func getChainConfig(g genesis.Genesis, height uint64) *params.ChainConfig {
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Genesis, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
 	isBering := g.IsBering(blockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
@@ -387,7 +388,8 @@ func SimulateExecution(
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
-			Caller: caller,
+			Caller:     caller,
+			ActionHash: hash.Hash256b(byteutil.Must(proto.Marshal(ex.Proto()))),
 		},
 	)
 	zeroAddr, err := address.FromString(address.ZeroAddress)

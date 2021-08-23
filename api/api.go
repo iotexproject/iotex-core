@@ -446,36 +446,43 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
+	if in.CallerAddress == action.EmptyAddress {
+		in.CallerAddress = address.ZeroAddress
+	}
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
-
-	callerAddr, err := address.FromString(in.CallerAddress)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
+	callerAddr, _ := address.FromString(in.CallerAddress)
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	gasLimit := api.cfg.Genesis.BlockGasLimit
+	if in.GasLimit != 0 && in.GasLimit < gasLimit {
+		gasLimit = in.GasLimit
+	}
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		state.Nonce+1,
+		sc.Amount(),
+		gasLimit,
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
+		sc.Data(),
+	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	// ReadContract() is read-only, if no error returned, we consider it a success
+	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
+	var data string
+	if len(retval) > 0 {
+		data = "0x" + hex.EncodeToString(retval)
+	}
 	return &iotexapi.ReadContractResponse{
-		Data:    hex.EncodeToString(retval),
+		Data:    data,
 		Receipt: receipt.ConvertToReceiptPb(),
 	}, nil
 }
@@ -1574,13 +1581,6 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 
 	return &iotexapi.EstimateActionGasConsumptionResponse{
 		Gas: estimatedGas,
-	}, nil
-}
-
-func (api *Server) estimateActionGasConsumptionForTransfer(transfer *iotextypes.Transfer) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
-	payloadSize := uint64(len(transfer.Payload))
-	return &iotexapi.EstimateActionGasConsumptionResponse{
-		Gas: payloadSize*action.TransferPayloadGas + action.TransferBaseIntrinsicGas,
 	}, nil
 }
 

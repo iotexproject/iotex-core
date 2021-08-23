@@ -329,7 +329,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	}
 	// if already validated
 	selpHash, err1 := selp.Hash()
-	if err1 != nil{
+	if err1 != nil {
 		return err1
 	}
 	if _, ok := ap.allActions[selpHash]; ok {

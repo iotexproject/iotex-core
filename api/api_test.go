@@ -66,18 +66,18 @@ var (
 		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferHash, _ = testTransfer.Hash()
-	testTransferPb   = testTransfer.Proto()
+	testTransferPb      = testTransfer.Proto()
 
 	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionHash, _ = testExecution.Hash()
-	testExecutionPb   = testExecution.Proto()
+	testExecutionPb      = testExecution.Proto()
 
 	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1, _    = testTransfer1.Hash()
+	transferHash1, _ = testTransfer1.Hash()
 	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash2, _ = testTransfer2.Hash()
@@ -85,11 +85,6 @@ var (
 	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash1, _ = testExecution1.Hash()
-
-	testExecution2, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2, _ = testExecution2.Hash()
-
 	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3, _ = testExecution3.Hash()
@@ -407,7 +402,7 @@ var (
 			2,
 		},
 		{
-			hex.EncodeToString(executionHash2[:]),
+			hex.EncodeToString(executionHash1[:]),
 			uint64(iotextypes.ReceiptStatus_Success),
 			2,
 		},
@@ -419,14 +414,18 @@ var (
 	}
 
 	readContractTests = []struct {
-		execHash   string
-		callerAddr string
-		retValue   string
+		execHash    string
+		callerAddr  string
+		actionHash  string
+		retValue    string
+		gasConsumed uint64
 	}{
 		{
-			hex.EncodeToString(executionHash2[:]),
-			identityset.Address(30).String(),
+			hex.EncodeToString(executionHash1[:]),
 			"",
+			"08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4",
+			"",
+			10100,
 		},
 	}
 
@@ -747,24 +746,6 @@ var (
 			fromBlock: 1,
 			count:     100,
 			numLogs:   4,
-		},
-	}
-
-	getImplicitTransfersByActionHashTest = []struct {
-		// Arguments
-		actHash hash.Hash256
-		// Expected Values
-		numEvmTransfer uint64
-		amount         [][]byte
-		from           []string
-		to             []string
-	}{
-		{
-			actHash:        testExecutionHash,
-			numEvmTransfer: uint64(1),
-			amount:         [][]byte{big.NewInt(3).Bytes()},
-			from:           []string{identityset.Address(30).String()},
-			to:             []string{identityset.Address(29).String()},
 		},
 	}
 
@@ -1303,11 +1284,16 @@ func TestServer_ReadContract(t *testing.T) {
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
 			CallerAddress: test.callerAddr,
+			GasLimit:      exec.GasLimit(),
+			GasPrice:      big.NewInt(unit.Qev).String(),
 		}
 
 		res, err := svr.ReadContract(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.retValue, res.Data)
+		require.EqualValues(1, res.Receipt.Status)
+		require.Equal(test.actionHash, hex.EncodeToString(res.Receipt.ActHash))
+		require.Equal(test.gasConsumed, res.Receipt.GasConsumed)
 	}
 }
 
@@ -2117,29 +2103,19 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	ctx := context.Background()
 	addr0 := identityset.Address(27).String()
-	priKey0 := identityset.PrivateKey(27)
 	addr1 := identityset.Address(28).String()
-	priKey1 := identityset.PrivateKey(28)
 	addr2 := identityset.Address(29).String()
 	addr3 := identityset.Address(30).String()
 	priKey3 := identityset.PrivateKey(30)
 	addr4 := identityset.Address(31).String()
 	// Add block 1
 	// Producer transfer--> C
-	tsf, err := action.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	tsfHash, err := tsf.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[tsfHash] = block.NewTransactionLog(tsfHash,
+	implicitLogs[transferHash1] = block.NewTransactionLog(transferHash1,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
 	)
 
 	blk1Time := testutil.TimestampNow()
-	if err := ap.Add(ctx, tsf); err != nil {
+	if err := ap.Add(ctx, testTransfer1); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(blk1Time)
@@ -2174,34 +2150,17 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
 	}
-	selp, err := action.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	selpHash, err := selp.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
+	implicitLogs[transferHash2] = block.NewTransactionLog(transferHash2,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
 	)
-	if err := ap.Add(ctx, selp); err != nil {
+	if err := ap.Add(ctx, testTransfer2); err != nil {
 		return err
 	}
-	execution1, err := action.SignedExecution(addr4, priKey3, 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	if err != nil {
-		return err
-	}
-	execution1Hash, err := execution1.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[execution1Hash] = block.NewTransactionLog(
-		execution1Hash,
+	implicitLogs[executionHash1] = block.NewTransactionLog(
+		executionHash1,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
-	if err := ap.Add(ctx, execution1); err != nil {
+	if err := ap.Add(ctx, testExecution1); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
@@ -2245,7 +2204,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := action.SignedTransfer(addr1, identityset.PrivateKey(28), uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -2259,12 +2218,12 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
-	execution1, err = action.SignedExecution(addr4, priKey3, 8,
+	execution1, err := action.SignedExecution(addr4, priKey3, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
-	execution1Hash, err = execution1.Hash()
+	execution1Hash, err := execution1.Hash()
 	if err != nil {
 		return err
 	}
@@ -2275,20 +2234,11 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
-	execution2, err := action.SignedExecution(addr4, priKey1, 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	if err != nil {
-		return err
-	}
-	execution2Hash, err := execution2.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[execution2Hash] = block.NewTransactionLog(
-		execution2Hash,
+	implicitLogs[executionHash3] = block.NewTransactionLog(
+		executionHash3,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
-	if err := ap.Add(ctx, execution2); err != nil {
+	if err := ap.Add(ctx, testExecution3); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
