@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -106,8 +105,8 @@ func BenchmarkLooping(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		priKey, err := crypto.HexStringToPrivateKey(fmt.Sprintf("1%063x", i))
 		require.NoError(b, err)
-		addr, err := address.FromBytes(priKey.PublicKey().Hash())
-		require.NoError(b, err)
+		addr := priKey.PublicKey().Address()
+		require.NotNil(b, addr)
 		tsf, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(100000), big.NewInt(int64(i)))
 		require.NoError(b, err)
 		bd := &action.EnvelopeBuilder{}

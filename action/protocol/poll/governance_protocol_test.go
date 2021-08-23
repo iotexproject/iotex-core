@@ -394,8 +394,8 @@ func TestHandle(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp2.SrcPubkey().Address()
+		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
 			protocol.BlockCtx{
@@ -441,8 +441,8 @@ func TestHandle(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp2.SrcPubkey().Address()
+		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
 			protocol.BlockCtx{
@@ -476,8 +476,8 @@ func TestHandle(t *testing.T) {
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
-		caller, err := address.FromBytes(selp3.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp3.SrcPubkey().Address()
+		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
 			ctx3,
 			protocol.BlockCtx{
@@ -510,8 +510,8 @@ func TestHandle(t *testing.T) {
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
-		caller, err := address.FromBytes(selp4.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp4.SrcPubkey().Address()
+		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
 			ctx4,
 			protocol.BlockCtx{
@@ -544,8 +544,8 @@ func TestHandle(t *testing.T) {
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)
-		caller, err := address.FromBytes(selp5.SrcPubkey().Hash())
-		require.NoError(err)
+		caller := selp5.SrcPubkey().Address()
+		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(
 			ctx5,
 			protocol.BlockCtx{

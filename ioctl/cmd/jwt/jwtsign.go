@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-antenna-go/v2/jwt"
 	"github.com/spf13/cobra"
 
@@ -76,7 +75,7 @@ func jwtSign() error {
 		return err
 	}
 	pubKey := prvKey.PublicKey()
-	addr, _ := address.FromBytes(pubKey.Hash())
+	addr := pubKey.Address()
 
 	// sign JWT
 	now := time.Now().Unix()

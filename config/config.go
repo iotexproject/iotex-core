@@ -484,11 +484,11 @@ func EVMNetworkID() uint32 {
 // ProducerAddress returns the configured producer address derived from key
 func (cfg Config) ProducerAddress() address.Address {
 	sk := cfg.ProducerPrivateKey()
-	addr, err := address.FromBytes(sk.PublicKey().Hash())
-	if err != nil {
+	addr := sk.PublicKey().Address()
+	if addr == nil {
 		log.L().Panic(
 			"Error when constructing producer address",
-			zap.Error(err),
+			zap.Error(errors.New("failed to get address")),
 		)
 	}
 	return addr

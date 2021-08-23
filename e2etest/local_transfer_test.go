@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
@@ -22,7 +23,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -314,24 +314,24 @@ func TestLocalTransfer(t *testing.T) {
 		if tsfTest.senderAcntState == AcntCreate {
 			sk, err := crypto.GenerateKey()
 			require.NoError(err)
-			addr, err := address.FromBytes(sk.PublicKey().Hash())
-			require.NoError(err)
+			addr := sk.PublicKey().Address()
+			require.NotNil(addr)
 			cfg.Genesis.InitBalanceMap[addr.String()] = tsfTest.senderBalance.String()
 			getSimpleTransferTests[i].senderPriKey = sk
 		}
 		if tsfTest.recvAcntState == AcntCreate {
 			sk, err := crypto.GenerateKey()
 			require.NoError(err)
-			addr, err := address.FromBytes(sk.PublicKey().Hash())
-			require.NoError(err)
+			addr := sk.PublicKey().Address()
+			require.NotNil(addr)
 			cfg.Genesis.InitBalanceMap[addr.String()] = tsfTest.recvBalance.String()
 			getSimpleTransferTests[i].recvPriKey = sk
 		}
 	}
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
-		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		require.NoError(err)
+		addr := sk.PublicKey().Address()
+		require.NotNil(addr)
 		cfg.Genesis.InitBalanceMap[addr.String()] = "30000"
 	}
 
@@ -514,16 +514,16 @@ func initStateKeyAddr(
 	retAddr := ""
 	switch accountState {
 	case AcntCreate:
-		addr, err := address.FromBytes(retKey.PublicKey().Hash())
-		if err != nil {
-			return nil, "", err
+		addr := retKey.PublicKey().Address()
+		if addr == nil {
+			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
 
 	case AcntExist:
-		addr, err := address.FromBytes(retKey.PublicKey().Hash())
-		if err != nil {
-			return nil, "", err
+		addr := retKey.PublicKey().Address()
+		if addr == nil {
+			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
 		existState, err := accountutil.AccountState(sf, retAddr)
@@ -536,9 +536,9 @@ func initStateKeyAddr(
 		if err != nil {
 			return nil, "", err
 		}
-		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		if err != nil {
-			return nil, "", err
+		addr := sk.PublicKey().Address()
+		if addr == nil {
+			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
 		retKey = sk

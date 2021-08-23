@@ -61,7 +61,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 
 	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
-		eAddr, _ := address.FromBytes(pk.Hash())
+		eAddr := pk.Address()
 		if strings.EqualFold(eAddr.String(), addr) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
