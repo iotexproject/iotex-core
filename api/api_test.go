@@ -416,12 +416,14 @@ var (
 	readContractTests = []struct {
 		execHash    string
 		callerAddr  string
+		actionHash  string
 		retValue    string
 		gasConsumed uint64
 	}{
 		{
 			hex.EncodeToString(executionHash1[:]),
-			identityset.Address(30).String(),
+			"",
+			"08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4",
 			"",
 			10100,
 		},
@@ -1290,6 +1292,7 @@ func TestServer_ReadContract(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.retValue, res.Data)
 		require.EqualValues(1, res.Receipt.Status)
+		require.Equal(test.actionHash, hex.EncodeToString(res.Receipt.ActHash))
 		require.Equal(test.gasConsumed, res.Receipt.GasConsumed)
 	}
 }
