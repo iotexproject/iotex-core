@@ -170,14 +170,12 @@ func (p *Agent) Start(ctx context.Context) error {
 			p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &broadcast); err != nil {
-			err = errors.Wrap(err, "error when marshaling broadcast message")
-			return
+			return errors.Wrap(err, "error when marshaling broadcast message")
 		}
 		// Skip the broadcast message if it's from the node itself
 		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
 		if !ok {
-			err = errors.New("error when asserting broadcast msg context")
-			return
+			return errors.New("error when asserting broadcast msg context")
 		}
 		peerID = rawmsg.GetFrom().Pretty()
 		if p.host.HostIdentity() == peerID {
@@ -190,8 +188,7 @@ func (p *Agent) Start(ctx context.Context) error {
 
 		msg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
-			err = errors.Wrap(err, "error when typifying broadcast message")
-			return
+			return errors.Wrap(err, "error when typifying broadcast message")
 		}
 		p.broadcastInboundHandler(ctx, broadcast.ChainId, peerID, msg)
 		p.qosMetrics.updateRecvBroadcast(time.Now())
@@ -217,13 +214,11 @@ func (p *Agent) Start(ctx context.Context) error {
 			p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
-			err = errors.Wrap(err, "error when marshaling unicast message")
-			return
+			return errors.Wrap(err, "error when marshaling unicast message")
 		}
 		msg, err := goproto.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
-			err = errors.Wrap(err, "error when typifying unicast message")
-			return
+			return errors.Wrap(err, "error when typifying unicast message")
 		}
 
 		t, _ := ptypes.Timestamp(unicast.GetTimestamp())
@@ -231,8 +226,7 @@ func (p *Agent) Start(ctx context.Context) error {
 
 		stream, ok := p2p.GetUnicastStream(ctx)
 		if !ok {
-			err = errors.Wrap(err, "error when get unicast stream")
-			return
+			return errors.Wrap(err, "error when get unicast stream")
 		}
 		remote := stream.Conn().RemotePeer()
 		peerID = remote.Pretty()
@@ -298,12 +292,11 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	}()
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
-		return
+		return err
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		err = errors.New("P2P context doesn't exist")
-		return
+		return errors.New("P2P context doesn't exist")
 	}
 	broadcast := iotexrpc.BroadcastMsg{
 		ChainId:   p2pCtx.ChainID,
@@ -314,14 +307,12 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
-		err = errors.Wrap(err, "error when marshaling broadcast message")
-		return
+		return errors.Wrap(err, "error when marshaling broadcast message")
 	}
 	t := time.Now()
 	if err = host.Broadcast(ctx, broadcastTopic+p.topicSuffix, data); err != nil {
-		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
-		return
+		return errors.Wrap(err, "error when sending broadcast message")
 	}
 	p.qosMetrics.updateSendBroadcast(t, true)
 	return
@@ -348,12 +339,11 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
-		return
+		return err
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		err = errors.New("P2P context doesn't exist")
-		return
+		return errors.New("P2P context doesn't exist")
 	}
 	unicast := iotexrpc.UnicastMsg{
 		ChainId:   p2pCtx.ChainID,
@@ -364,15 +354,13 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	}
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
-		err = errors.Wrap(err, "error when marshaling unicast message")
-		return
+		return errors.Wrap(err, "error when marshaling unicast message")
 	}
 
 	t := time.Now()
 	if err = host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
-		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
-		return
+		return errors.Wrap(err, "error when sending unicast message")
 	}
 	p.qosMetrics.updateSendUnicast(peerName, t, true)
 	return
