@@ -53,7 +53,7 @@ func NewInMemTestServer(cfg config.Config) (*Server, error) {
 
 func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// create dispatcher instance
-	dispatcher, err := dispatcher.NewDispatcher(cfg)
+	dispatcher, err := dispatcher.NewDispatcher(cfg.Dispatcher)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
