@@ -456,19 +456,43 @@ func TestPreimage(t *testing.T) {
 }
 
 func TestSortMap(t *testing.T) {
-	uniqueSlice := func(slice []string) []string {
-		// create a map with all the values as key
-		uniqMap := make(map[string]struct{})
-		for _, v := range slice {
-			uniqMap[v] = struct{}{}
+	uniqueSlice := func(slice []string) bool {
+		for _, v := range slice[1:] {
+			if v != slice[0] {
+				return false
+			}
 		}
+		return true
+	}
 
-		// turn the map keys into a slice
-		uniqSlice := make([]string, 0, len(uniqMap))
-		for v := range uniqMap {
-			uniqSlice = append(uniqSlice, v)
+	testFunc := func(t *testing.T, sm *mock_chainmanager.MockStateManager, opts ...StateDBAdapterOption) bool {
+		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256, opts...)
+		size := 10
+
+		for i := 0; i < size; i++ {
+			addr := common.HexToAddress(identityset.Address(i).Hex())
+			stateDB.SetCode(addr, []byte("0123456789"))
+			stateDB.SetState(addr, k1, k2)
 		}
-		return uniqSlice
+		sn := stateDB.Snapshot()
+		caches := []string{}
+		for i := 0; i < size; i++ {
+			stateDB.RevertToSnapshot(sn)
+			s := ""
+			if stateDB.sortCachedContracts {
+				for _, addr := range stateDB.cachedContractAddrs() {
+					c := stateDB.cachedContract[addr]
+					s += string(c.SelfState().Root[:])
+				}
+			} else {
+				for _, c := range stateDB.cachedContract {
+					s += string(c.SelfState().Root[:])
+				}
+			}
+
+			caches = append(caches, s)
+		}
+		return uniqueSlice(caches)
 	}
 	require := require.New(t)
 
@@ -476,47 +500,10 @@ func TestSortMap(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	t.Run("before fix sort map", func(t *testing.T) {
-		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
-		size := 10
-
-		for i := 0; i < size; i++ {
-			addr := common.HexToAddress(identityset.Address(i).Hex())
-			stateDB.SetCode(addr, []byte("0123456789"))
-			stateDB.SetState(addr, k1, k2)
-		}
-		sn := stateDB.Snapshot()
-		caches := []string{}
-		for i := 0; i < size; i++ {
-			stateDB.RevertToSnapshot(sn)
-			s := ""
-			for _, c := range stateDB.cachedContract {
-				s += string(c.SelfState().Root[:])
-			}
-			caches = append(caches, s)
-		}
-		require.Greater(len(uniqueSlice(caches)), 1)
+		require.False(testFunc(t, sm))
 	})
 
 	t.Run("after fix sort map", func(t *testing.T) {
-		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256, SortCachedContractsOption())
-		size := 10
-
-		for i := 0; i < size; i++ {
-			addr := common.HexToAddress(identityset.Address(i).Hex())
-			stateDB.SetCode(addr, []byte("0123456789"))
-			stateDB.SetState(addr, k1, k2)
-		}
-		sn := stateDB.Snapshot()
-		caches := []string{}
-		for i := 0; i < size; i++ {
-			stateDB.RevertToSnapshot(sn)
-			s := ""
-			for _, addr := range stateDB.cachedContractAddrs() {
-				c := stateDB.cachedContract[addr]
-				s += string(c.SelfState().Root[:])
-			}
-			caches = append(caches, s)
-		}
-		require.Equal(len(uniqueSlice(caches)), 1)
+		require.True(testFunc(t, sm, SortCachedContractsOption()))
 	})
 }
