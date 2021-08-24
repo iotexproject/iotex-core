@@ -477,12 +477,8 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	var data string
-	if len(retval) > 0 {
-		data = "0x" + hex.EncodeToString(retval)
-	}
 	return &iotexapi.ReadContractResponse{
-		Data:    data,
+		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
 	}, nil
 }
@@ -1349,7 +1345,7 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 	if err != nil {
 		return nil, err
 	}
-	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+	sender := selp.SrcPubkey().Address()
 	receipt, err := api.dao.GetReceiptByActionHash(actHash, blkHeight)
 	if err != nil {
 		return nil, err
@@ -1373,7 +1369,7 @@ func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionIn
 	if err != nil {
 		return nil, err
 	}
-	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+	sender := selp.SrcPubkey().Address()
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
@@ -1432,7 +1428,7 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+		sender := selp.SrcPubkey().Address()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -1461,7 +1457,7 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+		sender := selp.SrcPubkey().Address()
 		res = append([]*iotexapi.ActionInfo{
 			{
 				Action:    selp.Proto(),

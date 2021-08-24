@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -157,9 +156,9 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 					return err
 				}
 			}
-			producer, err := address.FromBytes(blk.PublicKey().Hash())
-			if err != nil {
-				return err
+			producer := blk.PublicKey().Address()
+			if producer == nil {
+				return errors.New("failed to get address")
 			}
 			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, i-1)
 			if err != nil {

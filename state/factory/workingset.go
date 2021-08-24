@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -128,9 +127,10 @@ func (ws *workingSet) runActions(
 
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
-	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-	if err != nil {
-		return nil, err
+	var err error
+	caller := selp.SrcPubkey().Address()
+	if caller == nil {
+		return nil, errors.New("failed to get address")
 	}
 	actionCtx.Caller = caller
 	actionCtx.ActionHash, err = selp.Hash()
@@ -296,9 +296,9 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 func (ws *workingSet) validateNonce(blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
-		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-		if err != nil {
-			return err
+		caller := selp.SrcPubkey().Address()
+		if caller == nil {
+			return errors.New("failed to get address")
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 	}
@@ -412,9 +412,9 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if err != nil {
-				caller, err := address.FromBytes(nextAction.SrcPubkey().Hash())
-				if err != nil {
-					return nil, err
+				caller := nextAction.SrcPubkey().Address()
+				if caller == nil {
+					return nil, errors.New("failed to get address")
 				}
 				ap.DeleteAction(caller)
 				actionIterator.PopAccount()

@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
@@ -452,4 +453,57 @@ func TestPreimage(t *testing.T) {
 	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v3[:]))
 	require.NoError(err)
 	require.Equal([]byte("hen"), []byte(k))
+}
+
+func TestSortMap(t *testing.T) {
+	uniqueSlice := func(slice []string) bool {
+		for _, v := range slice[1:] {
+			if v != slice[0] {
+				return false
+			}
+		}
+		return true
+	}
+
+	testFunc := func(t *testing.T, sm *mock_chainmanager.MockStateManager, opts ...StateDBAdapterOption) bool {
+		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256, opts...)
+		size := 10
+
+		for i := 0; i < size; i++ {
+			addr := common.HexToAddress(identityset.Address(i).Hex())
+			stateDB.SetCode(addr, []byte("0123456789"))
+			stateDB.SetState(addr, k1, k2)
+		}
+		sn := stateDB.Snapshot()
+		caches := []string{}
+		for i := 0; i < size; i++ {
+			stateDB.RevertToSnapshot(sn)
+			s := ""
+			if stateDB.sortCachedContracts {
+				for _, addr := range stateDB.cachedContractAddrs() {
+					c := stateDB.cachedContract[addr]
+					s += string(c.SelfState().Root[:])
+				}
+			} else {
+				for _, c := range stateDB.cachedContract {
+					s += string(c.SelfState().Root[:])
+				}
+			}
+
+			caches = append(caches, s)
+		}
+		return uniqueSlice(caches)
+	}
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	t.Run("before fix sort map", func(t *testing.T) {
+		require.False(testFunc(t, sm))
+	})
+
+	t.Run("after fix sort map", func(t *testing.T) {
+		require.True(testFunc(t, sm, SortCachedContractsOption()))
+	})
 }

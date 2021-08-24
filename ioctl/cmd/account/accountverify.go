@@ -12,8 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -59,9 +57,9 @@ func accountVerify() error {
 	if err != nil {
 		return output.NewError(output.CryptoError, "failed to generate private key from hex string", err)
 	}
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
+	addr := priKey.PublicKey().Address()
+	if addr == nil {
+		return output.NewError(output.ConvertError, "failed to convert public key into address", nil)
 	}
 	message := verifyMessage{
 		Address:   addr.String(),

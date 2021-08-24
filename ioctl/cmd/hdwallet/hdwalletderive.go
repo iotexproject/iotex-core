@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -118,9 +117,9 @@ func DeriveKey(account, change, index uint32, password string) (string, crypto.P
 		return "", nil, output.NewError(output.InputError, "failed to Bytes private key", err)
 	}
 
-	addr, err := address.FromBytes(prvKey.PublicKey().Hash())
-	if err != nil {
-		return "", nil, output.NewError(output.ConvertError, "failed to convert public key into address", err)
+	addr := prvKey.PublicKey().Address()
+	if addr == nil {
+		return "", nil, output.NewError(output.ConvertError, "failed to convert public key into address", nil)
 	}
 	return addr.String(), prvKey, nil
 }
