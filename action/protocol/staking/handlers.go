@@ -848,7 +848,7 @@ func delBucketAndIndex(sm protocol.StateManager, owner, cand address.Address, in
 func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	caller, err := accountutil.LoadAccount(sr, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	caller, err := accountutil.LoadAccount(sr, actionCtx.Caller)
 	if err != nil {
 		return nil, &handleError{
 			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),

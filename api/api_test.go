@@ -2062,7 +2062,7 @@ func TestServer_GetTransactionLogByActionHash(t *testing.T) {
 	}
 
 	// check implicit transfer receiver balance
-	state, err := accountutil.LoadAccount(svr.sf, hash.BytesToHash160(identityset.Address(31).Bytes()))
+	state, err := accountutil.LoadAccount(svr.sf, identityset.Address(31))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), state.Balance)
 }

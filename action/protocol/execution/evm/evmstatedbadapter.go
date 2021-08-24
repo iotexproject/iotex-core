@@ -578,7 +578,7 @@ func (stateDB *StateDBAdapter) AccountState(encodedAddr string) (*state.Account,
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	return accountutil.LoadAccount(stateDB.sm, addrHash)
+	return accountutil.LoadAccountByHash160(stateDB.sm, addrHash)
 }
 
 //======================================
@@ -593,7 +593,7 @@ func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 		copy(codeHash[:], contract.SelfState().CodeHash)
 		return codeHash
 	}
-	account, err := accountutil.LoadAccount(stateDB.sm, addr)
+	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr)
 	if err != nil {
 		log.L().Error("Failed to get code hash.", zap.Error(err))
 		// TODO (zhi) not all err should be logged
@@ -615,7 +615,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		}
 		return code
 	}
-	account, err := accountutil.LoadAccount(stateDB.sm, addr)
+	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr)
 	if err != nil {
 		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
@@ -785,7 +785,7 @@ func (stateDB *StateDBAdapter) getContract(addr hash.Hash160) (Contract, error) 
 }
 
 func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, error) {
-	account, err := accountutil.LoadAccount(stateDB.sm, addr)
+	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
