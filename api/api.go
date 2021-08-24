@@ -474,12 +474,8 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	var data string
-	if len(retval) > 0 {
-		data = "0x" + hex.EncodeToString(retval)
-	}
 	return &iotexapi.ReadContractResponse{
-		Data:    data,
+		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
 	}, nil
 }
