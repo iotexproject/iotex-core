@@ -135,6 +135,33 @@ func SignedCreateStake(nonce uint64,
 	return selp, nil
 }
 
+// SignedCreateStake returns a signed create stake
+func SignedRLPCreateStake(nonce uint64,
+	candidateName, amount string,
+	duration uint32,
+	autoStake bool,
+	payload []byte,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	stakerPriKey crypto.PrivateKey,
+) (SealedEnvelope, error) {
+	cs, err := NewCreateStake(nonce, candidateName, amount, duration, autoStake,
+		payload, gasLimit, gasPrice)
+	if err != nil {
+		return SealedEnvelope{}, err
+	}
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(cs).Build()
+	selp, err := RLPSign(elp, stakerPriKey)
+	if err != nil {
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign create stake %v", elp)
+	}
+	return selp, nil
+}
+
 // SignedReclaimStake returns a signed unstake or withdraw stake
 func SignedReclaimStake(
 	withdraw bool,

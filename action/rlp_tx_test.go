@@ -2,7 +2,6 @@ package action
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -513,28 +512,29 @@ func TestRawData(t *testing.T) {
 
 		// convert staking action into native tx
 		rlpAct, err := actionToRLP(stakingAct.Action)
-		require.NoError(err)
-		rawTx, err := generateRlpTx(rlpAct)
-		require.NoError(err)
-		require.Equal(stakingAct.dataLen, len(rlpAct.Payload()))
-		fmt.Printf("data length = %d\n", len(rlpAct.Payload()))
+		sig := GetRLPSig(stakingAct.Action, pvk)
+		// require.NoError(err)
+		// rawTx, err := generateRlpTx(rlpAct)
+		// require.NoError(err)
+		// require.Equal(stakingAct.dataLen, len(rlpAct.Payload()))
+		// fmt.Printf("data length = %d\n", len(rlpAct.Payload()))
 
-		// generate signature from r, s in native signed tx
-		ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-		require.True(ok)
+		// // generate signature from r, s in native signed tx
+		// ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+		// require.True(ok)
 		signer := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID())))
-		signedNativeTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
-		require.NoError(err)
-		w, r, s := signedNativeTx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
-		sig := make([]byte, 64, 65)
-		rSize := len(r.Bytes())
-		copy(sig[32-rSize:32], r.Bytes())
-		sSize := len(s.Bytes())
-		copy(sig[64-sSize:], s.Bytes())
-		sig = append(sig, byte(recID))
-		fmt.Printf("signature = %x\n", sig)
-		fmt.Printf("w = %d, networkId = %d, recID = %d\n", w.Int64(), config.EVMNetworkID(), recID)
+		// signedNativeTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
+		// require.NoError(err)
+		// w, r, s := signedNativeTx.RawSignatureValues()
+		// recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
+		// sig := make([]byte, 64, 65)
+		// rSize := len(r.Bytes())
+		// copy(sig[32-rSize:32], r.Bytes())
+		// sSize := len(s.Bytes())
+		// copy(sig[64-sSize:], s.Bytes())
+		// sig = append(sig, byte(recID))
+		// fmt.Printf("signature = %x\n", sig)
+		// fmt.Printf("w = %d, networkId = %d, recID = %d\n", w.Int64(), config.EVMNetworkID(), recID)
 
 		// sign tx
 		signedTx, err := signRlpTx(rlpAct, config.EVMNetworkID(), sig)

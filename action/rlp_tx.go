@@ -1,13 +1,17 @@
 package action
 
 import (
+	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
 )
@@ -76,4 +80,41 @@ func signRlpTx(tx rlpTransaction, chainID uint32, sig []byte) (*types.Transactio
 		return nil, err
 	}
 	return signedTx, nil
+}
+
+func GetRLPSig(act Action, pvk crypto.PrivateKey) []byte {
+	// register the extern chain ID
+	fmt.Printf("CHAINID: %d\n", int64(config.EVMNetworkID()))
+	// convert staking action into native tx
+	rlpAct, err := actionToRLP(act)
+	if err != nil {
+		return []byte{}
+	}
+	rawTx, err := generateRlpTx(rlpAct)
+	if err != nil {
+		return []byte{}
+	}
+	fmt.Printf("data length = %d\n", len(rlpAct.Payload()))
+
+	// generate signature from r, s in native signed tx
+	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	if ok != true {
+		return []byte{}
+	}
+	signer := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID())))
+	signedNativeTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
+	if err != nil {
+		return []byte{}
+	}
+	w, r, s := signedNativeTx.RawSignatureValues()
+	recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
+	sig := make([]byte, 64, 65)
+	rSize := len(r.Bytes())
+	copy(sig[32-rSize:32], r.Bytes())
+	sSize := len(s.Bytes())
+	copy(sig[64-sSize:], s.Bytes())
+	sig = append(sig, byte(recID))
+	fmt.Printf("signature = %x\n", sig)
+	fmt.Printf("w = %d, networkId = %d, recID = %d\n", w.Int64(), config.EVMNetworkID(), recID)
+	return sig
 }

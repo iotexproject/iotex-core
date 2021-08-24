@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
@@ -44,6 +45,28 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		return sealed, errors.Wrap(err, "failed to generate envelope hash")
 	}
 	sig, err := sk.Sign(h[:])
+	if err != nil {
+		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", h)
+	}
+	sealed.signature = sig
+	act.Action().SetEnvelopeContext(sealed)
+	return sealed, nil
+}
+
+// Sign signs the action using sender's private key
+func RLPSign(act Envelope, pvk crypto.PrivateKey) (SealedEnvelope, error) {
+	sealed := SealedEnvelope{
+		Envelope:  act,
+		srcPubkey: pvk.PublicKey(),
+		encoding:  iotextypes.Encoding_ETHEREUM_RLP,
+	}
+
+	h, err := sealed.envelopeHash()
+	if err != nil {
+		return sealed, errors.Wrap(err, "failed to generate envelope hash")
+	}
+
+	sig := GetRLPSig(act.Action(), pvk)
 	if err != nil {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", h)
 	}

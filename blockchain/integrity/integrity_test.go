@@ -245,6 +245,9 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 }
 
 func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) error {
+	// register the extern chain ID
+	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
+
 	// Add block 1
 	addr0 := identityset.Address(27).String()
 	tsf0, err := action.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -517,6 +520,31 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
+	if err := bc.CommitBlock(blk); err != nil {
+		return err
+	}
+	ap.Reset()
+
+	// Add block 6
+	stkAct0, err := action.SignedRLPCreateStake(
+		7,
+		"robotbp00001",
+		"100000000000000000000",
+		0,
+		false,
+		[]byte{},
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64),
+		identityset.PrivateKey(0))
+	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), stkAct0); err != nil {
+		return err
+	}
+	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	if err != nil {
+		return err
+	}
 	return bc.CommitBlock(blk)
 }
 
@@ -565,7 +593,7 @@ func TestCreateBlockchain(t *testing.T) {
 	// add 4 sample blocks
 	require.NoError(addTestingTsfBlocks(cfg, bc, nil, ap))
 	height = bc.TipHeight()
-	require.Equal(5, int(height))
+	require.Equal(6, int(height))
 }
 
 func TestGetBlockHash(t *testing.T) {
