@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -56,9 +57,10 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 // Sign signs the action using sender's private key
 func RLPSign(act Envelope, pvk crypto.PrivateKey) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{
-		Envelope:  act,
-		srcPubkey: pvk.PublicKey(),
-		encoding:  iotextypes.Encoding_ETHEREUM_RLP,
+		Envelope:     act,
+		srcPubkey:    pvk.PublicKey(),
+		encoding:     iotextypes.Encoding_ETHEREUM_RLP,
+		evmNetworkID: config.EVMNetworkID(),
 	}
 
 	h, err := sealed.envelopeHash()

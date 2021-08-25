@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -94,6 +95,8 @@ type (
 
 		// RemoveSubscriber make you listen to every single produced block
 		RemoveSubscriber(BlockCreationSubscriber) error
+
+		// GetActionByHash(h hash.Hash256) bool
 	}
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
@@ -426,6 +429,15 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	defer bc.mu.Unlock()
 
 	return bc.pubSubManager.RemoveBlockListener(s)
+}
+
+func (bc *blockchain) GetActionByHash(h hash.Hash256) bool {
+	env, _, err := bc.dao.GetActionByActionHash(h, 6)
+	if err != nil {
+		return false
+	}
+	fmt.Printf("enc: %d\n", env.Encoding())
+	return true
 }
 
 //======================================

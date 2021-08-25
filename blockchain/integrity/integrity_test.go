@@ -74,6 +74,10 @@ var (
 	postGrPostStore *big.Int
 )
 
+var (
+	actHashTmp hash.Hash256
+)
+
 func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.BlockDAO, sf factory.Factory, ap actpool.ActPool) error {
 	// Add block 1
 	priKey0 := identityset.PrivateKey(27)
@@ -278,6 +282,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	addr5 := identityset.Address(32).String()
 	priKey5 := identityset.PrivateKey(32)
 	addr6 := identityset.Address(33).String()
+	priKey7 := identityset.PrivateKey(26)
 	// Add block 2
 	// test --> A, B, C, D, E, F
 	tsf1, err := action.SignedTransfer(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -527,14 +532,19 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 6
 	stkAct0, err := action.SignedRLPCreateStake(
-		7,
+		1,
 		"robotbp00001",
 		"100000000000000000000",
 		0,
 		false,
 		[]byte{},
 		testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64),
-		identityset.PrivateKey(0))
+		priKey7)
+	if err != nil {
+		return err
+	}
+	actHashTmp, err = stkAct0.Hash()
+	fmt.Printf("Act signed hash: %x\n", actHashTmp)
 	if err != nil {
 		return err
 	}
@@ -593,6 +603,7 @@ func TestCreateBlockchain(t *testing.T) {
 	// add 4 sample blocks
 	require.NoError(addTestingTsfBlocks(cfg, bc, nil, ap))
 	height = bc.TipHeight()
+	// require.True(bc.GetActionByHash(actHashTmp))
 	require.Equal(6, int(height))
 }
 
@@ -891,7 +902,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(t, err)
 	require.NotNil(t, blk)
-	require.Equal(t, 183, len(blk.Actions))
+	require.Equal(t, 184, len(blk.Actions))
 	whetherInclude := false
 	for _, action := range blk.Actions {
 		transfer1Hash, err := transfer1.Hash()
@@ -1148,7 +1159,7 @@ func TestConstantinople(t *testing.T) {
 	cfg.Genesis.BeringBlockHeight = 8
 	cfg.Genesis.GreenlandBlockHeight = 9
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
-
+	cfg.Genesis.InitBalanceMap[identityset.Address(26).String()] = unit.ConvertIotxToRau(10000000000).String()
 	t.Run("test Constantinople contract", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
