@@ -326,10 +326,7 @@ func New(
 		}
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	rewardingProtocol := rewarding.NewProtocol(
-		cfg.Genesis.FoundationBonusP2StartEpoch,
-		cfg.Genesis.FoundationBonusP2EndEpoch,
-	)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, sf, copts...)
 	if err != nil {
