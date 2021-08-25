@@ -20,7 +20,7 @@
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
         "rawExpectedGasConsumed": 34042,
-        "comment": "store 20"
+        "comment": "retrieve 20"
     },{
         "readOnly": true,
         "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -40,7 +40,7 @@
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
         "rawExpectedGasConsumed": 5389,
-        "comment": "retrieve 20"
+        "comment": "self destruct"
     },
     {
         "readOnly": true,
