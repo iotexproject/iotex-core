@@ -35,7 +35,7 @@ func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
 }
 
 func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256, error) {
-	signedTx, err := signRlpTx(tx, chainID, sig)
+	signedTx, err := reconstructSignedRlpTxFromSig(tx, chainID, sig)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
@@ -61,7 +61,7 @@ func generateRlpTx(act rlpTransaction) (*types.Transaction, error) {
 	return types.NewContractCreation(act.Nonce(), act.Amount(), act.GasLimit(), act.GasPrice(), act.Payload()), nil
 }
 
-func signRlpTx(tx rlpTransaction, chainID uint32, sig []byte) (*types.Transaction, error) {
+func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte) (*types.Transaction, error) {
 	if len(sig) != 65 {
 		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
 	}
@@ -98,7 +98,7 @@ func GetRLPSig(act Action, pvk crypto.PrivateKey) []byte {
 
 	// generate signature from r, s in native signed tx
 	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-	if ok != true {
+	if !ok {
 		return []byte{}
 	}
 	signer := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID())))

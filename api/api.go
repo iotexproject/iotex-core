@@ -446,34 +446,37 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
+	if in.CallerAddress == action.EmptyAddress {
+		in.CallerAddress = address.ZeroAddress
+	}
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
-
-	callerAddr, err := address.FromString(in.CallerAddress)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
+	callerAddr, _ := address.FromString(in.CallerAddress)
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	gasLimit := api.cfg.Genesis.BlockGasLimit
+	if in.GasLimit != 0 && in.GasLimit < gasLimit {
+		gasLimit = in.GasLimit
+	}
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		state.Nonce+1,
+		sc.Amount(),
+		gasLimit,
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
+		sc.Data(),
+	)
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	// ReadContract() is read-only, if no error returned, we consider it a success
+	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
 	return &iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
@@ -1342,7 +1345,7 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 	if err != nil {
 		return nil, err
 	}
-	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+	sender := selp.SrcPubkey().Address()
 	receipt, err := api.dao.GetReceiptByActionHash(actHash, blkHeight)
 	if err != nil {
 		return nil, err
@@ -1366,7 +1369,7 @@ func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionIn
 	if err != nil {
 		return nil, err
 	}
-	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+	sender := selp.SrcPubkey().Address()
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
@@ -1425,7 +1428,7 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+		sender := selp.SrcPubkey().Address()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -1454,7 +1457,7 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+		sender := selp.SrcPubkey().Address()
 		res = append([]*iotexapi.ActionInfo{
 			{
 				Action:    selp.Proto(),
@@ -1574,13 +1577,6 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 
 	return &iotexapi.EstimateActionGasConsumptionResponse{
 		Gas: estimatedGas,
-	}, nil
-}
-
-func (api *Server) estimateActionGasConsumptionForTransfer(transfer *iotextypes.Transfer) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
-	payloadSize := uint64(len(transfer.Payload))
-	return &iotexapi.EstimateActionGasConsumptionResponse{
-		Gas: payloadSize*action.TransferPayloadGas + action.TransferBaseIntrinsicGas,
 	}, nil
 }
 

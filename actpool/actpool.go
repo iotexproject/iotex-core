@@ -223,9 +223,9 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 
-	caller, err := address.FromBytes(act.SrcPubkey().Hash())
-	if err != nil {
-		return err
+	caller := act.SrcPubkey().Address()
+	if caller == nil {
+		return errors.New("failed to get address")
 	}
 	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())
 }
@@ -319,9 +319,9 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
-	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-	if err != nil {
-		return err
+	caller := selp.SrcPubkey().Address()
+	if caller == nil {
+		return errors.New("failed to get address")
 	}
 	if _, ok := ap.senderBlackList[caller.String()]; ok {
 		actpoolMtc.WithLabelValues("blacklisted").Inc()
@@ -329,7 +329,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	}
 	// if already validated
 	selpHash, err1 := selp.Hash()
-	if err1 != nil{
+	if err1 != nil {
 		return err1
 	}
 	if _, ok := ap.allActions[selpHash]; ok {

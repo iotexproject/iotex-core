@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -102,8 +101,9 @@ func (s *Xrc20) checkAndAlert(hs string) {
 	}
 }
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	addr, err := address.FromBytes(pri.PublicKey().Hash())
-	if err != nil {
+	addr := pri.PublicKey().Address()
+	if addr == nil {
+		err = errors.New("failed to get address")
 		return
 	}
 	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())
