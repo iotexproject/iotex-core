@@ -953,6 +953,9 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("wireconnection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/wireconnection.json")
 	})
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/self-destruct.json")
+	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
