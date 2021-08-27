@@ -260,9 +260,9 @@ func newAccountSm2(alias string) (string, error) {
 		return "", output.NewError(output.CryptoError, "failed to generate sm2 private key", err)
 	}
 
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	addr := priKey.PublicKey().Address()
+	if addr == nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 
 	pemFilePath := sm2KeyPath(addr)
@@ -329,9 +329,9 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 	}
 	defer priKey.Zero()
 
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	addr := priKey.PublicKey().Address()
+	if addr == nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 
 	switch sk := priKey.EcdsaPrivateKey().(type) {

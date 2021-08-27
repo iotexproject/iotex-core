@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-antenna-go/v2/account"
 	"github.com/iotexproject/iotex-antenna-go/v2/iotex"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -93,8 +92,9 @@ func (s *Transfer) checkAndAlert(hs string) {
 	}
 }
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	addr, err := address.FromBytes(pri.PublicKey().Hash())
-	if err != nil {
+	addr := pri.PublicKey().Address()
+	if addr == nil {
+		err = errors.New("failed to get address")
 		return
 	}
 	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)

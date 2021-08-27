@@ -14,7 +14,6 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -179,9 +178,9 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 ) error {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	endorserAddr, err := address.FromBytes(en.Endorser().Hash())
-	if err != nil {
-		return err
+	endorserAddr := en.Endorser().Address()
+	if endorserAddr == nil {
+		return errors.New("failed to get address")
 	}
 	if !ctx.roundCalc.IsDelegate(endorserAddr.String(), height) {
 		return errors.Errorf("%s is not delegate of the corresponding round", endorserAddr)
@@ -205,9 +204,9 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 			height,
 		)
 	}
-	endorserAddr, err := address.FromBytes(en.Endorser().Hash())
-	if err != nil {
-		return err
+	endorserAddr := en.Endorser().Address()
+	if endorserAddr == nil {
+		return errors.New("failed to get address")
 	}
 	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
 		return errors.Errorf(

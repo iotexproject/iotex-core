@@ -119,12 +119,12 @@ func (cfg *ExecutionConfig) PrivateKey() crypto.PrivateKey {
 
 func (cfg *ExecutionConfig) Executor() address.Address {
 	priKey := cfg.PrivateKey()
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
+	addr := priKey.PublicKey().Address()
+	if addr == nil {
 		log.L().Panic(
 			"invalid private key",
 			zap.String("privateKey", cfg.RawPrivateKey),
-			zap.Error(err),
+			zap.Error(errors.New("failed to get address")),
 		)
 	}
 
@@ -239,9 +239,9 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	addr, err := address.FromBytes(ecfg.PrivateKey().PublicKey().Hash())
-	if err != nil {
-		return nil, nil, err
+	addr := ecfg.PrivateKey().PublicKey().Address()
+	if addr == nil {
+		return nil, nil, errors.New("failed to get address")
 	}
 	ctx, err := bc.Context(context.Background())
 	if err != nil {

@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
@@ -165,9 +164,9 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "failed to convert public key from bytes", err)
 	}
-	senderAddress, err := address.FromBytes(pubKey.Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	senderAddress := pubKey.Address()
+	if senderAddress == nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 	//ioctl action should display IOTX unit instead Raul
 	gasPriceUnitIOTX, err := util.StringToIOTX(action.Core.GasPrice)

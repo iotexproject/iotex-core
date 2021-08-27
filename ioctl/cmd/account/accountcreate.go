@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
@@ -82,9 +80,9 @@ func accountCreate() error {
 				return output.NewError(output.CryptoError, "failed to generate new sm2 private key", err)
 			}
 		}
-		addr, err := address.FromBytes(private.PublicKey().Hash())
-		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert public key into address", err)
+		addr := private.PublicKey().Address()
+		if addr == nil {
+			return output.NewError(output.ConvertError, "failed to convert public key into address", nil)
 		}
 		newAccount := generatedAccount{
 			Address:    addr.String(),

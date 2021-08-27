@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -20,8 +19,8 @@ import (
 func TestPutPollResult(t *testing.T) {
 	candidates := state.CandidateList{}
 	pk := identityset.PrivateKey(32).PublicKey()
-	addr, err := address.FromBytes(pk.Hash())
-	assert.NoError(t, err)
+	addr := pk.Address()
+	assert.NotNil(t, addr)
 	candidates = append(candidates, &state.Candidate{
 		Address: addr.String(),
 		Votes:   big.NewInt(1000),
