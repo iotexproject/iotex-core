@@ -360,6 +360,14 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	if err = selp.LoadProto(in.Action); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
+	// reject action if chainID is not matched at JutlandHeight
+	if api.cfg.Genesis.Blockchain.IsJutland(api.bc.TipHeight()) {
+		if api.bc.ChainID() != in.GetAction().Core.GetChainID() {
+			return nil, status.Error(codes.InvalidArgument, "ChainID does not match")
+		}
+	}
+
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, api.registry)
 	hash, err := selp.Hash()
