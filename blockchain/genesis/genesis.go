@@ -27,11 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-const (
-	// TODO: define features name here instead of hardfork
-	FEATURE_PACIFIC = "pacific"
-)
-
 // Default contains the default genesis config
 var Default = defaultConfig()
 
@@ -69,61 +64,6 @@ func defaultConfig() Genesis {
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
 			JutlandBlockHeight:      16289321,
-
-			Pacific: HardFork{
-				Height: 432001,
-				EnableFeatures: []string{
-					FEATURE_PACIFIC,
-				},
-			},
-			Aleutian: HardFork{
-				Height: 864001,
-				EnableFeatures: []string{},
-			},
-			Bering: HardFork{
-				Height: 1512001,
-				EnableFeatures: []string{},
-			},
-			Cook: HardFork{
-				Height: 1641601,
-				EnableFeatures: []string{},
-			},
-			Dardanelles: HardFork{
-				Height: 1816201,
-				EnableFeatures: []string{},
-			},
-			Daytona: HardFork{
-				Height: 3238921,
-				EnableFeatures: []string{},
-			},
-			Easter: HardFork{
-				Height: 4478761,
-				EnableFeatures: []string{},
-			},
-			FbkMigration: HardFork{
-				Height: 5157001,
-				EnableFeatures: []string{},
-			},
-			Fairbank: HardFork{
-				Height: 5165641,
-				EnableFeatures: []string{},
-			},
-			Greenland: HardFork{
-				Height: 6544441,
-				EnableFeatures: []string{},
-			},
-			Hawaii: HardFork{
-				Height: 11267641,
-				EnableFeatures: []string{},
-			},
-			Iceland: HardFork{
-				Height: 12289321,
-				EnableFeatures: []string{},
-			},
-			Jutland: HardFork{
-				Height: 16289321,
-				EnableFeatures: []string{},
-			},
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -194,10 +134,6 @@ type (
 		Rewarding  `yaml:"rewarding"`
 		Staking    `yaml:"staking"`
 	}
-	HardFork struct {
-		Height uint64 `yaml:"height"`
-		EnableFeatures []string `yaml:"enableFeatures"`
-	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
 		// Timestamp is the timestamp of the genesis block
@@ -250,22 +186,6 @@ type (
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
 		// JutlandBlockHeight is the start height to cover all EVM error codes
 		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
-
-		Pacific HardFork `yaml:"pacific"`
-		Aleutian HardFork `yaml:"aleutian"`
-		Bering HardFork `yaml:"bering"`
-		Cook HardFork `yaml:"cook"`
-		Dardanelles HardFork `yaml:"dardanelles"`
-		Daytona HardFork `yaml:"daytona"`
-		Easter HardFork `yaml:"easter"`
-		FbkMigration HardFork `yaml:"fbkMigration"`
-		Fairbank HardFork `yaml:"fairbank"`
-		Greenland HardFork `yaml:"greenland"`
-		Hawaii HardFork `yaml:"hawaii"`
-		Iceland HardFork `yaml:"iceland"`
-		Jutland HardFork `yaml:"jutland"`
-
-		FeatureHeightMap map[string]uint64 `yaml:"featureHeights"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -398,7 +318,6 @@ func New(genesisPath string) (Genesis, error) {
 	if err := yaml.Get(config.Root).Populate(&genesis); err != nil {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
-	genesis.loadFeatures()
 	return genesis, nil
 }
 
@@ -483,41 +402,6 @@ func (g *Genesis) Hash() hash.Hash256 {
 		log.L().Panic("Error when marshaling genesis proto", zap.Error(err))
 	}
 	return hash.Hash256b(b)
-}
-
-func (g *Blockchain) loadFeatures() {
-	hardForks := []*HardFork{
-		&g.Pacific,
-		&g.Aleutian,
-		&g.Bering,
-		&g.Cook,
-		&g.Dardanelles,
-		&g.Daytona,
-		&g.Easter,
-		&g.FbkMigration,
-		&g.Fairbank,
-		&g.Greenland,
-		&g.Hawaii,
-		&g.Iceland,
-		&g.Jutland,
-	}
-	for _, v := range hardForks {
-		for _, feature := range v.EnableFeatures {
-			_, ok := g.FeatureHeightMap[feature]
-			if !ok {
-				g.FeatureHeightMap[feature] = v.Height
-			}
-		}
-	}
-}
-
-func (g *Blockchain) supportFeature(height uint64, feature string) bool {
-	ht, ok := g.FeatureHeightMap[feature]
-	return ok && ht >= height
-}
-
-func (g *Blockchain) SupportPacific(height uint64) bool {
-	return g.supportFeature(height, FEATURE_PACIFIC)
 }
 
 func (g *Blockchain) isPost(targetHeight, height uint64) bool {

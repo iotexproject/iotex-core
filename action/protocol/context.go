@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -24,6 +25,8 @@ type (
 	actionContextKey struct{}
 
 	registryContextKey struct{}
+
+	featureContextKey struct{}
 
 	// TipInfo contains the tip block information
 	TipInfo struct {
@@ -62,6 +65,10 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+	}
+
+	FeatureCtx struct {
+		DepositGasLast bool
 	}
 )
 
@@ -146,4 +153,29 @@ func MustGetActionCtx(ctx context.Context) ActionCtx {
 		log.S().Panic("Miss action context")
 	}
 	return ac
+}
+
+func WithFeatureCtx(ctx context.Context) context.Context {
+	g := genesis.MustExtractGenesisContext(ctx)
+	blkCtx := MustGetBlockCtx(ctx)
+	return context.WithValue(
+		ctx,
+		featureContextKey{},
+		FeatureCtx{
+			DepositGasLast: g.IsPacific(blkCtx.BlockHeight),
+		},
+	)
+}
+
+func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
+	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
+	return fc, ok
+}
+
+func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
+	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
+	if !ok {
+		log.S().Panic("Miss feature context")
+	}
+	return fc
 }

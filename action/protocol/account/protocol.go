@@ -64,9 +64,10 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	actCtx := protocol.WithFeatureCtx(ctx)
 	switch act := act.(type) {
 	case *action.Transfer:
-		return p.handleTransfer(ctx, act, sm)
+		return p.handleTransfer(actCtx, act, sm)
 	}
 	return nil, nil
 }
