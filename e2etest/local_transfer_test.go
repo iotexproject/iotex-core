@@ -408,7 +408,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
-			newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+			newSenderState, _ := accountutil.AccountStateByHash160(sf, senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -418,7 +418,7 @@ func TestLocalTransfer(t *testing.T) {
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
 			require.Equal(expectedSenderBalance.String(), newSenderState.Balance.String(), tsfTest.message)
 
-			newRecvState, err := accountutil.AccountState(sf, recvAddr)
+			newRecvState, err := accountutil.AccountStateByHash160(sf, recvAddr)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -463,7 +463,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+				newSenderState, _ := accountutil.AccountStateByHash160(sf, senderAddr)
 				require.Equal(tsfTest.senderBalance.String(), newSenderState.Balance.String())
 			}
 
@@ -526,7 +526,7 @@ func initStateKeyAddr(
 			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
-		existState, err := accountutil.AccountState(sf, retAddr)
+		existState, err := accountutil.AccountStateByHash160(sf, retAddr)
 		if err != nil {
 			return nil, "", err
 		}

@@ -59,10 +59,10 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 
 	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
 
-	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
+	valid := NewGenericValidator(nil, func(sr StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
 		eAddr := pk.Address()
-		if strings.EqualFold(eAddr.String(), addr) {
+		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
 		return &state.Account{Nonce: 2}, nil

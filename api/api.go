@@ -177,8 +177,12 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if in.Address == address.RewardingPoolAddr || in.Address == address.StakingBucketPoolAddr {
 		return api.getProtocolAccount(ctx, in.Address)
 	}
+	addr, err := address.FromString(in.Address)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
 
-	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
+	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -189,7 +193,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if api.indexer == nil {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
-	addr, err := address.FromString(in.Address)
+	addr, err = address.FromString(in.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +453,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
-	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
+	state, err := accountutil.AccountStateByHash160(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1531,7 +1535,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	state, err := accountutil.AccountState(api.sf, sender)
+	state, err := accountutil.AccountStateByHash160(api.sf, sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

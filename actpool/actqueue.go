@@ -232,7 +232,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	confirmedState, err := accountutil.AccountState(q.ap.sf, q.address)
+	confirmedState, err := accountutil.AccountStateByHash160(q.ap.sf, q.address)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil
