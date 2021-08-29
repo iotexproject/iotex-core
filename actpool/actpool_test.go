@@ -1022,7 +1022,7 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedState, err := accountutil.AccountState(ap.sf, addr)
+	committedState, err := accountutil.AccountStateByHash160(ap.sf, addr)
 	return committedState.Nonce + 1, err
 }
 
@@ -1031,7 +1031,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	state, err := accountutil.AccountState(ap.sf, addr)
+	state, err := accountutil.AccountStateByHash160(ap.sf, addr)
 	if err != nil {
 		return nil, err
 	}

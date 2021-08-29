@@ -263,12 +263,12 @@ func TestBlockEpochReward(t *testing.T) {
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initState, err := accountutil.AccountState(sfs[i], rewardAddrStr)
+		initState, err := accountutil.AccountStateByHash160(sfs[i], rewardAddrStr)
 		require.NoError(t, err)
 		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
-		initState, err = accountutil.AccountState(sfs[i], operatorAddrStr)
+		initState, err = accountutil.AccountStateByHash160(sfs[i], operatorAddrStr)
 		require.NoError(t, err)
 		initBalances[operatorAddrStr] = initState.Balance
 
@@ -454,7 +454,7 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endState, err := accountutil.AccountState(sfs[0], rewardAddrStr)
+		endState, err := accountutil.AccountStateByHash160(sfs[0], rewardAddrStr)
 		require.NoError(t, err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
@@ -463,7 +463,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 		//Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
-		operatorState, err := accountutil.AccountState(sfs[i], operatorAddrStr)
+		operatorState, err := accountutil.AccountStateByHash160(sfs[i], operatorAddrStr)
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
