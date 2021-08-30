@@ -88,7 +88,6 @@ func init() {
 	// Load or reset config file
 	var err error
 	ReadConfig, err = LoadConfig()
-	fmt.Printf("%+v\n", ReadConfig)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = reset() // Config file doesn't exist
