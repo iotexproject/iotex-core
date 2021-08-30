@@ -27,7 +27,7 @@ type AbstractAction struct {
 // Version returns the version
 func (act *AbstractAction) Version() uint32 { return act.version }
 
-// GasLimit returns the gas limit
+// ChainID returns the chainID
 func (act *AbstractAction) ChainID() uint32 { return act.chainID }
 
 // Nonce returns the nonce
