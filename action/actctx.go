@@ -80,7 +80,7 @@ func (act *AbstractAction) SanityCheck() error {
 	}
 	// Reject execution of chainID not equal the node's chainID
 	if act.ChainID() != config.Default.Chain.ID {
-		return errors.Wrap(ErrChainID, "negative value")
+		return errors.Wrap(ErrChainID, "does not match the node's chainID")
 	}
 	return nil
 }
