@@ -79,7 +79,7 @@ func (act *AbstractAction) SanityCheck() error {
 		return errors.Wrap(ErrGasPrice, "negative value")
 	}
 	// Reject execution of chainID not equal the node's chainID
-	if act.ChainID() != config.Default.Chain.ID {
+	if act.ChainID() != config.ChainID() {
 		return errors.Wrap(ErrChainID, "does not match the node's chainID")
 	}
 	return nil

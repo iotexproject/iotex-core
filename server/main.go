@@ -108,6 +108,8 @@ func main() {
 		glog.Fatalln("EVM Network ID is not set, call config.New() first")
 	}
 
+	config.SetChainID(cfg.Chain.ID)
+
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
