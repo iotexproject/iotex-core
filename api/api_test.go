@@ -816,6 +816,9 @@ func TestServer_GetAccount(t *testing.T) {
 	// failure
 	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
+	// error account
+	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: "io3fn88lge6hyzmruh40cn6l3e49dfkqzqk3lgtq3"})
+	require.Error(err)
 
 	// success: reward pool
 	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
@@ -855,6 +858,10 @@ func TestServer_GetActions(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
 	}
+
+	// failure: empty request
+	_, err = svr.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
+	require.Error(err)
 }
 
 func TestServer_GetAction(t *testing.T) {
@@ -1058,6 +1065,9 @@ func TestServer_GetBlockMetas(t *testing.T) {
 			prevBlkPb = blkPb
 		}
 	}
+	// failure: empty request
+	_, err = svr.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+	require.Error(err)
 }
 
 func TestServer_GetBlockMeta(t *testing.T) {
@@ -1262,6 +1272,33 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 		require.Equal(test.blkHeight, receiptPb.BlkHeight)
 		require.NotEqual(hash.ZeroHash256, res.ReceiptInfo.BlkHash)
 	}
+
+	// failure: empty request
+	_, err = svr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "0x"})
+	require.Error(err)
+	// failure: wrong hash
+	_, err = svr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "b7faffcb8b01fa9f32112155bcb93d714f599eab3178e577e88dafd2140bfc5a"})
+	require.Error(err)
+
+}
+
+func TestServer_GetServerMeta(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	resProto, err := svr.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	res := resProto.GetServerMeta()
+	require.Equal(res.BuildTime, version.BuildTime)
+	require.Equal(res.GoVersion, version.GoVersion)
+	require.Equal(res.GitStatus, version.GitStatus)
+	require.Equal(res.PackageCommitID, version.PackageCommitID)
+	require.Equal(res.PackageVersion, version.PackageVersion)
 }
 
 func TestServer_ReadContract(t *testing.T) {
