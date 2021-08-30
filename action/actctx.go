@@ -10,12 +10,14 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/pkg/errors"
 )
 
 // AbstractAction is an abstract implementation of Action interface
 type AbstractAction struct {
 	version   uint32
+	chainID   uint32
 	nonce     uint64
 	gasLimit  uint64
 	gasPrice  *big.Int
@@ -24,6 +26,9 @@ type AbstractAction struct {
 
 // Version returns the version
 func (act *AbstractAction) Version() uint32 { return act.version }
+
+// GasLimit returns the gas limit
+func (act *AbstractAction) ChainID() uint32 { return act.chainID }
 
 // Nonce returns the nonce
 func (act *AbstractAction) Nonce() uint64 { return act.nonce }
@@ -60,6 +65,7 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 		return
 	}
 	act.version = selp.Version()
+	act.chainID = selp.ChainID()
 	act.nonce = selp.Nonce()
 	act.gasLimit = selp.GasLimit()
 	act.gasPrice = selp.GasPrice()
@@ -71,6 +77,10 @@ func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(ErrGasPrice, "negative value")
+	}
+	// Reject execution of chainID not equal the node's chainID
+	if act.ChainID() != config.Default.Chain.ID {
+		return errors.Wrap(ErrChainID, "negative value")
 	}
 	return nil
 }

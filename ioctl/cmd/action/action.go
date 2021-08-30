@@ -67,6 +67,7 @@ var (
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 	yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
 	passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
+	chainIDFlag  = flag.NewUint64VarP("chainID", "", 0, "set chainID for action")
 )
 
 // ActionCmd represents the action command
@@ -148,6 +149,7 @@ func RegisterWriteCommand(cmd *cobra.Command) {
 	nonceFlag.RegisterCommand(cmd)
 	yesFlag.RegisterCommand(cmd)
 	passwordFlag.RegisterCommand(cmd)
+	chainIDFlag.RegisterCommand(cmd)
 }
 
 // gasPriceInRau returns the suggest gas price
@@ -383,6 +385,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	}
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
+			SetChainID(getChainID()).
 			SetNonce(nonce).
 			SetGasPrice(gasPriceRau).
 			SetGasLimit(gasLimit).
@@ -447,4 +450,9 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 		return output.NewError(output.ValidationError, "balance is not enough", nil)
 	}
 	return nil
+}
+
+// getChainID returns the user input chainID
+func getChainID() uint32 {
+	return chainIDFlag.Value().(uint32)
 }
