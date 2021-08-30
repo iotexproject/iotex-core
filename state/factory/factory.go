@@ -518,9 +518,9 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := sf.timerFactory.NewTimer("Commit")
 	sf.mutex.Unlock()
 	defer timer.End()
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
+	producer := blk.PublicKey().Address()
+	if producer == nil {
+		return errors.New("failed to get address")
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(

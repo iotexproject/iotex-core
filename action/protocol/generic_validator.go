@@ -9,7 +9,6 @@ package protocol
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -40,9 +39,9 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 	if err := action.Verify(selp); err != nil {
 		return errors.Wrap(err, "failed to verify action signature")
 	}
-	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-	if err != nil {
-		return err
+	caller := selp.SrcPubkey().Address()
+	if caller == nil {
+		return errors.New("failed to get address")
 	}
 	// Reject action if nonce is too low
 	confirmedState, err := v.accountState(v.sr, caller.String())
