@@ -57,14 +57,15 @@ type Context struct {
 
 // Config defines the config schema
 type Config struct {
-	Wallet         string            `json:"wallet" yaml:"wallet"`
-	Endpoint       string            `json:"endpoint" yaml:"endpoint"`
-	SecureConnect  bool              `json:"secureConnect" yaml:"secureConnect"`
-	Aliases        map[string]string `json:"aliases" yaml:"aliases"`
-	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
-	Explorer       string            `json:"explorer" yaml:"explorer"`
-	Language       string            `json:"language" yaml:"language"`
-	Nsv2height     uint64            `json:"nsv2height" yaml:"nsv2height"`
+	Wallet           string            `json:"wallet" yaml:"wallet"`
+	Endpoint         string            `json:"endpoint" yaml:"endpoint"`
+	SecureConnect    bool              `json:"secureConnect" yaml:"secureConnect"`
+	Aliases          map[string]string `json:"aliases" yaml:"aliases"`
+	DefaultAccount   Context           `json:"defaultAccount" yaml:"defaultAccount"`
+	Explorer         string            `json:"explorer" yaml:"explorer"`
+	Language         string            `json:"language" yaml:"language"`
+	Nsv2height       uint64            `json:"nsv2height" yaml:"nsv2height"`
+	AnalyserEndpoint string            `json:"analyserEndpoint" yaml:"analyserEndpoint"`
 }
 
 var (
@@ -87,6 +88,7 @@ func init() {
 	// Load or reset config file
 	var err error
 	ReadConfig, err = LoadConfig()
+	fmt.Printf("%+v\n", ReadConfig)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = reset() // Config file doesn't exist
@@ -107,6 +109,10 @@ func init() {
 	}
 	if ReadConfig.Nsv2height == 0 {
 		ReadConfig.Nsv2height = config.Default.Genesis.FairbankBlockHeight
+	}
+	if ReadConfig.AnalyserEndpoint == "" {
+		ReadConfig.AnalyserEndpoint = defaultAnalyserEndpoint
+		completeness = false
 	}
 	if !completeness {
 		err := writeConfig()

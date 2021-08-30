@@ -21,6 +21,24 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+type (
+	allActionsByAddressResult struct {
+		ActHash    string
+		BlkHeight  string
+		Sender     string
+		Recipient  string
+		ActType    string
+		Amount     string
+		TimeStamp  string
+		RecordType string
+	}
+
+	allActionsByAddressResponse struct {
+		Count   string
+		Results []*allActionsByAddressResult
+	}
+)
+
 // Multi-language support
 var (
 	actionsCmdShorts = map[config.Language]string{
@@ -32,23 +50,6 @@ var (
 		config.Chinese: "actions (ALIAS|ADDRESS)  [SKIP]",
 	}
 )
-
-// TODO: remove struct definition after the release of anlytics v2
-type allActionsByAddressResult struct {
-	ActHash    string
-	BlkHeight  string
-	Sender     string
-	Recipient  string
-	ActType    string
-	Amount     string
-	TimeStamp  string
-	RecordType string
-}
-
-type allActionsByAddressResponse struct {
-	Count   string
-	Results []*allActionsByAddressResult
-}
 
 // accountActionsCmd represents the account sign command
 var accountActionsCmd = &cobra.Command{
@@ -84,7 +85,7 @@ func accountActions(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to pack in json", nil)
 	}
-	resp, err := http.Post("https://iotexscout.io/apiproxy/api.ActionsService.GetAllActionsByAddress", "application/json",
+	resp, err := http.Post(config.ReadConfig.AnalyserEndpoint+"/api.ActionsService.GetActionsByAddress", "application/json",
 		bytes.NewBuffer(jsonData))
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to send request", nil)
