@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -105,8 +106,49 @@ func getBucketList(method, addr string, args ...string) (err error) {
 		return getBucketListByVoter(addr, uint32(offset), uint32(limit))
 	case bucketlistMethodByCandidate:
 		return getBucketListByCand(addr, uint32(offset), uint32(limit))
+	case "all":
+		return getBucketListAll(uint32(offset), uint32(limit))
 	}
 	return output.NewError(output.InputError, "unknown <method>", nil)
+}
+
+func getBucketListAll(offset, limit uint32) error {
+	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_Buckets{
+			Buckets: &iotexapi.ReadStakingDataRequest_VoteBuckets{
+				Pagination: &iotexapi.PaginationParam{
+					Offset: offset,
+					Limit:  limit,
+				},
+			},
+		},
+	}
+
+	start := time.Now()
+	bl, err := GetBucketList(iotexapi.ReadStakingDataMethod_BUCKETS, readStakingdataRequest)
+	if err != nil {
+		return err
+	}
+	r := time.Now().Sub(start)
+	start = start.Add(r)
+	var bucketlist []*bucket
+	for _, b := range bl.Buckets {
+		bucket, err := newBucket(b)
+		if err != nil {
+			return err
+		}
+		bucketlist = append(bucketlist, bucket)
+	}
+	//message := bucketlistMessage{
+	//	Node:       config.ReadConfig.Endpoint,
+	//	Bucketlist: bucketlist,
+	//}
+	//fmt.Println(message.String())
+	fmt.Println("offset/limit =", offset, limit)
+	fmt.Println("read time =", r)
+	fmt.Println("process time =", time.Now().Sub(start))
+	fmt.Println("number of buckets =", len(bucketlist))
+	return nil
 }
 
 // getBucketList get bucket list from chain by voter address
