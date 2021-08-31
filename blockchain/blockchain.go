@@ -360,7 +360,8 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
-				Tip: tip,
+				Tip:     tip,
+				ChainID: config.ChainID(),
 			},
 		),
 		bc.config.Genesis,

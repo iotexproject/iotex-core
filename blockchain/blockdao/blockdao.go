@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -110,7 +111,9 @@ func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) 
 	if !ok {
 		return nil, errors.New("failed to find blockchain ctx")
 	}
-	bcCtx := protocol.BlockchainCtx{}
+	bcCtx := protocol.BlockchainCtx{
+		ChainID: config.ChainID(),
+	}
 	if height == 0 {
 		bcCtx.Tip = protocol.TipInfo{
 			Height:    0,
