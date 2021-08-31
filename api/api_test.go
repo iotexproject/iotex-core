@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -1997,6 +1998,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 		}
 		require.Equal(test.numActiveCensusBlockProducers, numActiveBlockProducers)
 	}
+
+	// failure: epoch number
+	_, err = svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
+	require.Error(err)
 }
 
 func TestServer_GetRawBlocks(t *testing.T) {
@@ -2040,6 +2045,31 @@ func TestServer_GetRawBlocks(t *testing.T) {
 		require.Equal(test.numActions, numActions)
 		require.Equal(test.numReceipts, numReceipts)
 	}
+
+	// failure: invalid count
+	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  1,
+		Count:        0,
+		WithReceipts: true,
+	})
+	require.Error(err)
+
+	// failure: invalid startHeight
+	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  1000000,
+		Count:        10,
+		WithReceipts: true,
+	})
+	require.Error(err)
+
+	// failure: invalid endHeight
+	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  3,
+		Count:        1000,
+		WithReceipts: true,
+	})
+	require.Error(err)
+
 }
 
 func TestServer_GetLogs(t *testing.T) {
@@ -2070,6 +2100,18 @@ func TestServer_GetLogs(t *testing.T) {
 		logs := res.Logs
 		require.Equal(test.numLogs, len(logs))
 	}
+
+	// failure: empty request
+	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
+		Filter: &iotexapi.LogsFilter{},
+	})
+	fmt.Println(err)
+	require.Error(err)
+
+	// failure: empty filter
+	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
+	fmt.Println(err)
+	require.Error(err)
 }
 
 func TestServer_GetTransactionLogByActionHash(t *testing.T) {
