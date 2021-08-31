@@ -264,12 +264,15 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
 	// enable earlier Ethereum forks at Greenland
 	chainConfig.GreenlandBlock = new(big.Int).SetUint64(g.GreenlandBlockHeight)
-	// support chainid at Iceland
-	chainConfig.IcelandBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
+	// support chainid and enable Istanbul + MuirGlacier at Iceland
+	chainConfig.IstanbulBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
+	chainConfig.MuirGlacierBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
-	chainConfig.JutlandBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
+	// enable Berlin + London at Jutland
+	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
+	chainConfig.LondonBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
 	return &chainConfig
 }
 
