@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -154,6 +155,10 @@ func (ws *workingSet) runAction(
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
 		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+	}
+	// Reject execution of chainID not equal the node's chainID
+	if elp.ChainID() != config.ChainID() {
+		return nil, errors.Wrap(action.ErrChainID, "does not match the node's chainID")
 	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)

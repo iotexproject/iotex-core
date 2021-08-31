@@ -67,7 +67,6 @@ var (
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 	yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
 	passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
-	chainIDFlag  = flag.NewUint64VarP("chainID", "", 0, "set chainID for action")
 )
 
 // ActionCmd represents the action command
@@ -149,7 +148,6 @@ func RegisterWriteCommand(cmd *cobra.Command) {
 	nonceFlag.RegisterCommand(cmd)
 	yesFlag.RegisterCommand(cmd)
 	passwordFlag.RegisterCommand(cmd)
-	chainIDFlag.RegisterCommand(cmd)
 }
 
 // gasPriceInRau returns the suggest gas price
@@ -453,6 +451,17 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 }
 
 // getChainID returns the user input chainID
+//mainnet chainID = 1 , testnet chainID = 2
+
 func getChainID() uint32 {
-	return chainIDFlag.Value().(uint32)
+	var chainID uint32
+	endpoint := config.ReadConfig.Endpoint
+	//mainnet endpoint check
+	if strings.Contains(endpoint, "api.iotex.one") ||
+		strings.Contains(endpoint, "api.mainnet.iotex.one") {
+		chainID = 1
+	} else if strings.Contains(endpoint, "api.testnet.iotex.one") {
+		chainID = 2
+	}
+	return chainID
 }

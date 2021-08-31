@@ -38,6 +38,7 @@ var (
 	_evmNetworkID uint32
 	loadChainID   sync.Once
 	_chainID      uint32
+	_onceChainID  sync.Once
 )
 
 const (
@@ -484,7 +485,9 @@ func EVMNetworkID() uint32 {
 
 // SetChainID sets the chainID
 func SetChainID(id uint32) {
-	atomic.StoreUint32(&_chainID, id)
+	_onceChainID.Do(func() {
+		_chainID = id
+	})
 }
 
 // ChainID returns the chainID

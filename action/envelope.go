@@ -14,6 +14,7 @@ type (
 	Envelope interface {
 		Version() uint32
 		Nonce() uint64
+		ChainID() uint32
 		GasLimit() uint64
 		GasPrice() *big.Int
 		Destination() (string, bool)
@@ -23,7 +24,6 @@ type (
 		Proto() *iotextypes.ActionCore
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
-		ChainID() uint32
 		SetChainID(chainID uint32)
 	}
 

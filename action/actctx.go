@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/pkg/errors"
 )
 
@@ -77,10 +76,6 @@ func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(ErrGasPrice, "negative value")
-	}
-	// Reject execution of chainID not equal the node's chainID
-	if act.ChainID() != config.ChainID() {
-		return errors.Wrap(ErrChainID, "does not match the node's chainID")
 	}
 	return nil
 }
