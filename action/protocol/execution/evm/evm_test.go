@@ -8,6 +8,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -210,6 +213,51 @@ func TestConstantinople(t *testing.T) {
 			require.False(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
 			require.False(chainRules.IsIstanbul)
 		}
+	}
+}
+
+func TestEvmError(t *testing.T) {
+	r := require.New(t)
+	g := genesis.Default.Blockchain
+
+	beringTests := []struct {
+		evmError error
+		status   iotextypes.ReceiptStatus
+	}{
+		{vm.ErrOutOfGas, iotextypes.ReceiptStatus_ErrOutOfGas},
+		{vm.ErrCodeStoreOutOfGas, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas},
+		{vm.ErrDepth, iotextypes.ReceiptStatus_ErrDepth},
+		{vm.ErrContractAddressCollision, iotextypes.ReceiptStatus_ErrContractAddressCollision},
+		{vm.ErrExecutionReverted, iotextypes.ReceiptStatus_ErrExecutionReverted},
+		{vm.ErrMaxCodeSizeExceeded, iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded},
+		{vm.ErrWriteProtection, iotextypes.ReceiptStatus_ErrWriteProtection},
+		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
+	}
+	for _, v := range beringTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
+	}
+
+	jutlandTests := []struct {
+		evmError error
+		status   iotextypes.ReceiptStatus
+	}{
+		{vm.ErrInvalidSubroutineEntry, iotextypes.ReceiptStatus_ErrInvalidSubroutineEntry},
+		{vm.ErrInsufficientBalance, iotextypes.ReceiptStatus_ErrInsufficientBalance},
+		{vm.ErrInvalidJump, iotextypes.ReceiptStatus_ErrInvalidJump},
+		{vm.ErrReturnDataOutOfBounds, iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds},
+		{vm.ErrGasUintOverflow, iotextypes.ReceiptStatus_ErrGasUintOverflow},
+		{vm.ErrInvalidRetsub, iotextypes.ReceiptStatus_ErrInvalidRetsub},
+		{vm.ErrReturnStackExceeded, iotextypes.ReceiptStatus_ErrReturnStackExceeded},
+		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
+	}
+	for _, v := range jutlandTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
 	}
 }
 
