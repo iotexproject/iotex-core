@@ -75,7 +75,7 @@ var ActionCmd = &cobra.Command{
 	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
 }
 
-var MapChainID = map[string]uint32{
+var mapChainID = map[string]uint32{
 	"api.iotex.one":                   1,
 	"api.mainnet.iotex.one":           1,
 	"api.testnet.iotex.one":           2,
@@ -461,7 +461,7 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 func getChainID() uint32 {
 	var chainID uint32
 	endpoint := config.ReadConfig.Endpoint
-	for k, v := range MapChainID {
+	for k, v := range mapChainID {
 		if strings.Contains(endpoint, k) {
 			chainID = v
 			break

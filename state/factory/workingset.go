@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -158,9 +159,13 @@ func (ws *workingSet) runAction(
 	}
 	// Reject execution of chainID not equal the node's chainID
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
-	if elp.ChainID() != blkChainCtx.ChainID {
-		return nil, errors.Wrap(action.ErrChainID, "does not match the node's chainID")
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.IsJutland(ws.height) {
+		if elp.ChainID() != blkChainCtx.ChainID {
+			return nil, errors.Wrap(action.ErrChainID, "does not match the node's chainID")
+		}
 	}
+
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
