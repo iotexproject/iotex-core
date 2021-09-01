@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -34,7 +33,7 @@ func TestValidator(t *testing.T) {
 
 	valid := protocol.NewGenericValidator(nil, func(sr protocol.StateReader, addr string) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
-		eAddr, _ := address.FromBytes(pk.Hash())
+		eAddr := pk.Address()
 		if strings.EqualFold(eAddr.String(), addr) {
 			return nil, errors.New("MockChainManager nonce error")
 		}

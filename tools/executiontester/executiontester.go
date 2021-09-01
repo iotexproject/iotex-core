@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -183,9 +183,9 @@ func createAccount() (string, string, string, error) {
 		return "", "", "", err
 	}
 	pubKey := priKey.PublicKey()
-	addr, err := address.FromBytes(pubKey.Hash())
-	if err != nil {
-		return "", "", "", err
+	addr := pubKey.Address()
+	if addr == nil {
+		return "", "", "", errors.New("failed to get address")
 	}
 	return pubKey.HexString(), priKey.HexString(), addr.String(), nil
 }

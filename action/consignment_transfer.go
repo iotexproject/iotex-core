@@ -114,9 +114,9 @@ func processConsignmentEther(c ConsignJSON) (Consignment, error) {
 	}
 
 	con := consignment{}
-	con.signer, err = address.FromBytes(pk.Hash())
-	if err != nil {
-		return nil, err
+	con.signer = pk.Address()
+	if con.signer == nil {
+		return nil, errors.New("failed to get address")
 	}
 	con.recipient, err = address.FromString(msg.Recipient)
 	if err != nil {

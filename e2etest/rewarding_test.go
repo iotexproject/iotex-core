@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -120,8 +119,8 @@ func TestBlockReward(t *testing.T) {
 
 	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	addr, err := address.FromBytes(sk.PublicKey().Hash())
-	require.NoError(t, err)
+	addr := sk.PublicKey().Address()
+	require.NotNil(t, addr)
 
 	blockReward, err := rp.BlockReward(ctx, sf)
 	require.NoError(t, err)
@@ -485,8 +484,8 @@ func injectClaim(
 		wg.Add(1)
 	}
 	payload := []byte{}
-	beneficiaryAddr, err := address.FromBytes(beneficiaryPri.PublicKey().Hash())
-	require.NoError(t, err)
+	beneficiaryAddr := beneficiaryPri.PublicKey().Address()
+	require.NotNil(t, beneficiaryAddr)
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: beneficiaryAddr.String()}
 	response, err := c.GetAccount(ctx, &request)
@@ -539,8 +538,8 @@ func updateExpectationWithPendingClaimList(
 		if err == nil {
 			selp, err := api.GetActionByActionHash(selpHash)
 			require.NoError(t, err)
-			addr, err := address.FromBytes(selp.SrcPubkey().Hash())
-			require.NoError(t, err)
+			addr := selp.SrcPubkey().Address()
+			require.NotNil(t, addr)
 
 			act := &action.ClaimFromRewardingFund{}
 			err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())

@@ -272,7 +272,6 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 
 //Error in executeInEVM is a consensus issue
 func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
-	isBering := g.IsBering(blockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
@@ -313,7 +312,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen.
 		// Should be a hard fork (Bering)
-		if evmErr == vm.ErrInsufficientBalance && isBering {
+		if evmErr == vm.ErrInsufficientBalance && g.IsBering(blockHeight) {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), evmErr
 		}
 	}
@@ -326,15 +325,59 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 	}
 	remainingGas += refund
 
+	errCode := uint64(iotextypes.ReceiptStatus_Success)
 	if evmErr != nil {
-		return ret, evmParams.gas, remainingGas, contractRawAddress, evmErrToErrStatusCode(evmErr, isBering), nil
+		errCode = evmErrToErrStatusCode(evmErr, g, blockHeight)
 	}
-	return ret, evmParams.gas, remainingGas, contractRawAddress, uint64(iotextypes.ReceiptStatus_Success), nil
+	return ret, evmParams.gas, remainingGas, contractRawAddress, errCode, nil
 }
 
 // evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
-func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
-	if isBering {
+func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (errStatusCode uint64) {
+	if g.IsJutland(height) {
+		switch evmErr {
+		case vm.ErrOutOfGas:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
+		case vm.ErrCodeStoreOutOfGas:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
+		case vm.ErrDepth:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrDepth)
+		case vm.ErrContractAddressCollision:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
+		case vm.ErrExecutionReverted:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
+		case vm.ErrMaxCodeSizeExceeded:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
+		case vm.ErrWriteProtection:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
+		case vm.ErrInvalidSubroutineEntry:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInvalidSubroutineEntry)
+		case vm.ErrInsufficientBalance:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInsufficientBalance)
+		case vm.ErrInvalidJump:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInvalidJump)
+		case vm.ErrReturnDataOutOfBounds:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds)
+		case vm.ErrGasUintOverflow:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrGasUintOverflow)
+		case vm.ErrInvalidRetsub:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInvalidRetsub)
+		case vm.ErrReturnStackExceeded:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrReturnStackExceeded)
+		default:
+			//This errors from go-ethereum, are not-accessible variable.
+			switch evmErr.Error() {
+			case "no compatible interpreter":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
+			default:
+				log.L().Error("evm internal error", zap.Error(evmErr))
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
+			}
+		}
+		return
+	}
+
+	if g.IsBering(height) {
 		switch evmErr {
 		case vm.ErrOutOfGas:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
@@ -356,13 +399,15 @@ func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
 			case "no compatible interpreter":
 				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
 			default:
+				log.L().Error("evm internal error", zap.Error(evmErr))
 				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
 			}
 		}
-	} else {
-		// it prevents from breaking chain
-		errStatusCode = uint64(iotextypes.ReceiptStatus_Failure)
+		return
 	}
+
+	// before Bering height, return one common failure
+	errStatusCode = uint64(iotextypes.ReceiptStatus_Failure)
 	return
 }
 
