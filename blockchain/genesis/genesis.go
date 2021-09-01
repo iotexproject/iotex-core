@@ -185,9 +185,11 @@ type (
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
 		// IcelandBlockHeight is the start height to support chainID opcode and EVM Istanbul
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
-		// JutlandBlockHeight is the start height to support EVM London
+		// JutlandBlockHeight is the start height to support EVM London + new EVM error codes
 		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
-		// KamchatkaBlockHeight is the start height to mitigate replay attack
+		// KamchatkaBlockHeight is the start height to
+		// 1. implement IIP-11
+		// 2. extend foundation bonus
 		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
 	}
 	// Account contains the configs for account protocol
