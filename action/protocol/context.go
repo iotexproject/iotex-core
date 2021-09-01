@@ -28,6 +28,8 @@ type (
 
 	featureContextKey struct{}
 
+	featureWithHeightContextKey struct{}
+
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height    uint64
@@ -67,8 +69,31 @@ type (
 		Nonce uint64
 	}
 
+	CheckFunc func(height uint64) bool
+
 	FeatureCtx struct {
-		DepositGasLast bool
+		DepositGasLast            bool
+		SystemWideActionGasLimit  bool
+		NotFixTopicCopyBug        bool
+		SetRevertMessageToReceipt bool
+		FixGetHashFnHeight        bool
+		UsePendingNonceOption     bool
+		AsyncContractTrie         bool
+		StoreOutOfGasToReceipt    bool
+		RefundAllDeposit          bool
+		AddChainIdToConfig        bool
+		UseV2Storage              bool
+		CheckUnstaked             bool
+		SkipStakingIndexer        bool
+		ReturnFetchError          bool
+		CanNotTranferToSelf       bool
+		PostFairbankMigration     bool
+	}
+
+	FeatureWithHeightCtx struct {
+		GetUnproductiveDelegates CheckFunc
+		EnableSMStorage          CheckFunc
+		ReadStateFromDB          CheckFunc
 	}
 )
 
@@ -157,12 +182,27 @@ func MustGetActionCtx(ctx context.Context) ActionCtx {
 
 func WithFeatureCtx(ctx context.Context) context.Context {
 	g := genesis.MustExtractGenesisContext(ctx)
-	blkCtx := MustGetBlockCtx(ctx)
+	height := MustGetBlockCtx(ctx).BlockHeight
 	return context.WithValue(
 		ctx,
 		featureContextKey{},
 		FeatureCtx{
-			DepositGasLast: g.IsPacific(blkCtx.BlockHeight),
+			DepositGasLast:            g.IsPacific(height),
+			SystemWideActionGasLimit:  !g.IsAleutian(height),
+			NotFixTopicCopyBug:        !g.IsAleutian(height),
+			SetRevertMessageToReceipt: g.IsHawaii(height),
+			FixGetHashFnHeight:        g.IsHawaii(height),
+			UsePendingNonceOption:     g.IsHawaii(height),
+			AsyncContractTrie:         g.IsGreenland(height),
+			StoreOutOfGasToReceipt:    !g.IsGreenland(height),
+			RefundAllDeposit:          g.IsPacific(height),
+			AddChainIdToConfig:        g.IsIceland(height),
+			UseV2Storage:              g.IsGreenland(height),
+			CheckUnstaked:             g.IsGreenland(height),
+			SkipStakingIndexer:        !g.IsFairbank(height),
+			ReturnFetchError:          !g.IsGreenland(height),
+			CanNotTranferToSelf:       g.IsHawaii(height),
+			PostFairbankMigration:     g.IsFbkMigration(height),
 		},
 	)
 }
@@ -174,6 +214,38 @@ func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
 
 func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
 	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
+	if !ok {
+		log.S().Panic("Miss feature context")
+	}
+	return fc
+}
+
+func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
+	g := genesis.MustExtractGenesisContext(ctx)
+	return context.WithValue(
+		ctx,
+		featureWithHeightContextKey{},
+		FeatureWithHeightCtx{
+			GetUnproductiveDelegates: func(_height uint64) bool {
+				return !g.IsEaster(_height)
+			},
+			EnableSMStorage: func(_height uint64) bool {
+				return g.IsGreenland(_height)
+			},
+			ReadStateFromDB: func(_height uint64) bool {
+				return g.IsGreenland(_height)
+			},
+		},
+	)
+}
+
+func GetFeatureWithHeightCtx(ctx context.Context) (FeatureWithHeightCtx, bool) {
+	fc, ok := ctx.Value(featureWithHeightContextKey{}).(FeatureWithHeightCtx)
+	return fc, ok
+}
+
+func MustGetFeatureWithHeightCtx(ctx context.Context) FeatureWithHeightCtx {
+	fc, ok := ctx.Value(featureWithHeightContextKey{}).(FeatureWithHeightCtx)
 	if !ok {
 		log.S().Panic("Miss feature context")
 	}

@@ -83,6 +83,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		// Grant epoch reward
 		rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
@@ -189,6 +190,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
+		ctx = protocol.WithFeatureWithHeightCtx(ctx)
 		// Grant epoch reward
 		_, err = p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
@@ -438,6 +440,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 	require.NoError(t, err)
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	// Grant block reward
 	_, err = p.GrantBlockReward(ctx, sm)
 	require.NoError(t, err)

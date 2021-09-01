@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -220,8 +219,8 @@ func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateL
 }
 
 func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.Int, uint64, error) {
-	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsGreenland(csr.Height()) {
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	if featureCtx.ReadStateFromDB(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
@@ -236,8 +235,8 @@ func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.I
 }
 
 func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint64, uint64, error) {
-	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsGreenland(csr.Height()) {
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	if featureCtx.ReadStateFromDB(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))

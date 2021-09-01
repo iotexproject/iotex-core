@@ -154,6 +154,8 @@ func (p *Protocol) Handle(
 	act action.Action,
 	sm protocol.StateManager,
 ) (*action.Receipt, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+
 	// TODO: simplify the boilerplate
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
@@ -253,9 +255,7 @@ func (p *Protocol) Name() string {
 
 // useV2Storage return true after greenland when we start using v2 storage.
 func useV2Storage(ctx context.Context) bool {
-	g := genesis.MustExtractGenesisContext(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	return g.IsGreenland(blkCtx.BlockHeight)
+	return protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(ctx)).UseV2Storage
 }
 
 func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
