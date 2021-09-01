@@ -108,17 +108,12 @@ func main() {
 		glog.Fatalln("EVM Network ID is not set, call config.New() first")
 	}
 
-	config.SetChainID(cfg.Chain.ID)
-	if config.ChainID() == 0 {
-		glog.Fatalln("Chain ID is not set, call config.New() first")
-	}
-
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	cfgToLog.Network.MasterKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
-	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), config.ChainID())
+	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
 	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
 	log.S().Infof("Genesis hash: %x", block.GenesisHash())
 

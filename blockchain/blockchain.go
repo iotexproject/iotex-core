@@ -10,7 +10,6 @@ import (
 	"context"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/facebookgo/clock"
@@ -211,7 +210,7 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 }
 
 func (bc *blockchain) ChainID() uint32 {
-	return atomic.LoadUint32(&bc.config.Chain.ID)
+	return bc.config.Chain.ID
 }
 
 func (bc *blockchain) ChainAddress() string {
@@ -361,7 +360,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 			ctx,
 			protocol.BlockchainCtx{
 				Tip:     tip,
-				ChainID: config.ChainID(),
+				ChainID: bc.ChainID(),
 			},
 		),
 		bc.config.Genesis,

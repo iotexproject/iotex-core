@@ -37,8 +37,6 @@ import (
 var (
 	_evmNetworkID uint32
 	loadChainID   sync.Once
-	_chainID      uint32
-	_onceChainID  sync.Once
 )
 
 const (
@@ -481,18 +479,6 @@ func SetEVMNetworkID(id uint32) {
 // EVMNetworkID returns the extern chain ID
 func EVMNetworkID() uint32 {
 	return atomic.LoadUint32(&_evmNetworkID)
-}
-
-// SetChainID sets the chainID
-func SetChainID(id uint32) {
-	_onceChainID.Do(func() {
-		_chainID = id
-	})
-}
-
-// ChainID returns the chainID
-func ChainID() uint32 {
-	return atomic.LoadUint32(&_chainID)
 }
 
 // ProducerAddress returns the configured producer address derived from key

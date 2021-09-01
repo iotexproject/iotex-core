@@ -75,6 +75,13 @@ var ActionCmd = &cobra.Command{
 	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
 }
 
+var MapChainID = map[string]uint32{
+	"api.iotex.one":                   1,
+	"api.mainnet.iotex.one":           1,
+	"api.testnet.iotex.one":           2,
+	"api.nightly-cluster-2.iotex.one": 3,
+}
+
 type sendMessage struct {
 	Info   string `json:"info"`
 	TxHash string `json:"txHash"`
@@ -451,17 +458,14 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 }
 
 // getChainID returns the user input chainID
-//mainnet chainID = 1 , testnet chainID = 2
-
 func getChainID() uint32 {
 	var chainID uint32
 	endpoint := config.ReadConfig.Endpoint
-	//mainnet endpoint check
-	if strings.Contains(endpoint, "api.iotex.one") ||
-		strings.Contains(endpoint, "api.mainnet.iotex.one") {
-		chainID = 1
-	} else if strings.Contains(endpoint, "api.testnet.iotex.one") {
-		chainID = 2
+	for k, v := range MapChainID {
+		if strings.Contains(endpoint, k) {
+			chainID = v
+			break
+		}
 	}
 	return chainID
 }
