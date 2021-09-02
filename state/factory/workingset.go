@@ -97,7 +97,6 @@ func (ws *workingSet) validate(ctx context.Context) error {
 			ws.height,
 		)
 	}
-
 	return nil
 }
 
@@ -162,7 +161,7 @@ func (ws *workingSet) runAction(
 	g := genesis.MustExtractGenesisContext(ctx)
 	if g.IsJutland(ws.height) {
 		if elp.ChainID() != blkChainCtx.ChainID {
-			return nil, errors.Wrap(action.ErrChainID, "does not match the node's chainID")
+			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
 		}
 	}
 
