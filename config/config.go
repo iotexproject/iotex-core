@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	gop2p "github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
@@ -75,18 +74,7 @@ var (
 	Default = Config{
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
-		Network: p2p.Network{
-			Host:              "0.0.0.0",
-			Port:              4689,
-			ExternalHost:      "",
-			ExternalPort:      4689,
-			BootstrapNodes:    []string{},
-			MasterKey:         "",
-			RateLimit:         gop2p.DefaultRatelimitConfig,
-			ReconnectInterval: 150 * time.Second,
-			EnableRateLimit:   true,
-			PrivateNetworkPSK: "",
-		},
+		Network: p2p.DefaultConfig,
 		Chain: Chain{
 			ChainDBPath:            "/var/data/chain.db",
 			TrieDBPath:             "/var/data/trie.db",
