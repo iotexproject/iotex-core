@@ -96,22 +96,40 @@ type (
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 	Agent struct {
+		ctx                        context.Context
 		cfg                        Network
+		chainID                    uint32
 		topicSuffix                string
 		broadcastInboundHandler    HandleBroadcastInbound
 		unicastInboundAsyncHandler HandleUnicastInboundAsync
 		host                       *p2p.Host
+		bootNodeAddr               []multiaddr.Multiaddr
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
 	}
 )
 
+// DefaultConfig is the default config of p2p
+var DefaultConfig = Network{
+	Host:              "0.0.0.0",
+	Port:              4689,
+	ExternalHost:      "",
+	ExternalPort:      4689,
+	BootstrapNodes:    []string{},
+	MasterKey:         "",
+	RateLimit:         p2p.DefaultRatelimitConfig,
+	ReconnectInterval: 150 * time.Second,
+	EnableRateLimit:   true,
+	PrivateNetworkPSK: "",
+}
+
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg Network, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
 	return &Agent{
-		cfg: cfg,
+		cfg:     cfg,
+		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
 		topicSuffix:                hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
@@ -148,7 +166,8 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
+	p.ctx = ctx
+	if err := host.AddBroadcastPubSub(ctx, broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var (
@@ -182,6 +201,10 @@ func (p *Agent) Start(ctx context.Context) error {
 		peerID = rawmsg.GetFrom().Pretty()
 		if p.host.HostIdentity() == peerID {
 			skip = true
+			return
+		}
+		if broadcast.ChainId != p.chainID {
+			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", broadcast.ChainId, p.chainID)
 			return
 		}
 
@@ -225,6 +248,10 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
 		}
+		if unicast.ChainId != p.chainID {
+			err = errors.Errorf("chain ID mismatch, received %d, expecting %d", unicast.ChainId, p.chainID)
+			return
+		}
 
 		t, _ := ptypes.Timestamp(unicast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
@@ -245,6 +272,15 @@ func (p *Agent) Start(ctx context.Context) error {
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")
+	}
+
+	// create boot nodes list except itself
+	hostName := host.HostIdentity()
+	for _, bootstrapNode := range p.cfg.BootstrapNodes {
+		bootAddr := multiaddr.StringCast(bootstrapNode)
+		if !strings.Contains(bootAddr.String(), hostName) {
+			p.bootNodeAddr = append(p.bootNodeAddr, bootAddr)
+		}
 	}
 
 	// connect to bootstrap nodes
@@ -276,7 +312,7 @@ func (p *Agent) Stop(ctx context.Context) error {
 }
 
 // BroadcastOutbound sends a broadcast message to the whole network
-func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
+func (p *Agent) BroadcastOutbound(_ context.Context, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -300,13 +336,8 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	if err != nil {
 		return
 	}
-	p2pCtx, ok := GetContext(ctx)
-	if !ok {
-		err = errors.New("P2P context doesn't exist")
-		return
-	}
 	broadcast := iotexrpc.BroadcastMsg{
-		ChainId:   p2pCtx.ChainID,
+		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
@@ -318,7 +349,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(ctx, broadcastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Broadcast(p.ctx, broadcastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
@@ -328,7 +359,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 }
 
 // UnicastOutbound sends a unicast message to the given address
-func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
+func (p *Agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -350,13 +381,8 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	if err != nil {
 		return
 	}
-	p2pCtx, ok := GetContext(ctx)
-	if !ok {
-		err = errors.New("P2P context doesn't exist")
-		return
-	}
 	unicast := iotexrpc.UnicastMsg{
-		ChainId:   p2pCtx.ChainID,
+		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
@@ -369,7 +395,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg pro
 	}
 
 	t := time.Now()
-	if err = host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Unicast(p.ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
@@ -399,7 +425,22 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
-	return p.host.Neighbors(ctx), nil
+
+	// filter out bootnodes
+	var nb []peer.AddrInfo
+	for _, peer := range p.host.Neighbors(ctx) {
+		isValid := true
+		for _, bootNode := range p.bootNodeAddr {
+			if strings.Contains(bootNode.String(), peer.ID.Pretty()) {
+				isValid = false
+				break
+			}
+		}
+		if isValid {
+			nb = append(nb, peer)
+		}
+	}
+	return nb, nil
 }
 
 // QosMetrics returns the Qos metrics
@@ -418,12 +459,7 @@ func (p *Agent) connect(ctx context.Context) error {
 	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
 
 	// try to connect to all bootstrap node beside itself.
-	for _, bootstrapNode := range p.cfg.BootstrapNodes {
-		bootAddr := multiaddr.StringCast(bootstrapNode)
-		if strings.Contains(bootAddr.String(), p.host.HostIdentity()) {
-			continue
-		}
-
+	for _, bootAddr := range p.bootNodeAddr {
 		tryNum++
 		go func() {
 			if err := exponentialRetry(
@@ -441,7 +477,7 @@ func (p *Agent) connect(ctx context.Context) error {
 	}
 
 	// wait until half+1 bootnodes get connected
-	desiredConnNum = len(p.cfg.BootstrapNodes)/2 + 1
+	desiredConnNum = len(p.bootNodeAddr)/2 + 1
 	for {
 		select {
 		case err := <-connErrChan:
@@ -462,8 +498,12 @@ func (p *Agent) connect(ctx context.Context) error {
 }
 
 func (p *Agent) reconnect() {
-	if p.qosMetrics.lostConnection() {
-		log.L().Info("Network lost, try re-connecting.")
+	peers, err := p.Neighbors(context.Background())
+	if err == ErrAgentNotStarted {
+		return
+	}
+	if len(peers) == 0 || p.qosMetrics.lostConnection() {
+		log.L().Info("network lost, try re-connecting.")
 		p.host.ClearBlocklist()
 		p.connect(context.Background())
 	}
