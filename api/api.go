@@ -468,6 +468,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
 		sc.Data(),
 	)
+	defer func() {
+		if r := recover(); r != nil {
+			log.L().Error("recover", zap.String("caller", in.CallerAddress))
+			log.L().Error("recover", zap.String("contract", sc.Contract()))
+			log.L().Error("recover", zap.String("amount", sc.Amount().String()))
+			log.L().Error("recover", log.Hex("data", sc.Data()))
+		}
+	}()
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -1581,6 +1589,14 @@ func (api *Server) isGasLimitEnough(
 	if err != nil {
 		return false, nil, err
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.L().Error("recover", zap.String("caller", caller.String()))
+			log.L().Error("recover", zap.String("contract", sc.Contract()))
+			log.L().Error("recover", zap.String("amount", sc.Amount().String()))
+			log.L().Error("recover", log.Hex("data", sc.Data()))
+		}
+	}()
 	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return false, nil, err

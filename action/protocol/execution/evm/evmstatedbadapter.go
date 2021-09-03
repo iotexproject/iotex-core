@@ -296,6 +296,8 @@ func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
 	log.L().Debug("Called SubRefund.", zap.Uint64("gas", gas))
 	// stateDB.journal.append(refundChange{prev: self.refund})
 	if gas > stateDB.refund {
+		log.L().Error("SubRefund", zap.Uint64("gas", gas))
+		log.L().Error("SubRefund", zap.Uint64("stateDB.refund", stateDB.refund))
 		panic("Refund counter not enough!")
 	}
 	stateDB.refund -= gas
