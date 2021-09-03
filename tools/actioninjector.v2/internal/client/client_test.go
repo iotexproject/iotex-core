@@ -38,6 +38,7 @@ func TestClient(t *testing.T) {
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
 	ctx := context.Background()
+	cfg.Genesis.JutlandBlockHeight = 10
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -59,6 +60,7 @@ func TestClient(t *testing.T) {
 	})
 	sf.EXPECT().Height().Return(uint64(10), nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
+	bc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	bh := &iotextypes.BlockHeader{Core: &iotextypes.BlockHeaderCore{
 		Version:          chainID,
