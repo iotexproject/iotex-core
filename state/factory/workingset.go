@@ -159,7 +159,7 @@ func (ws *workingSet) runAction(
 	// Reject execution of chainID not equal the node's chainID
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsJutland(ws.height) {
+	if g.IsKamchatka(ws.height) {
 		if elp.ChainID() != blkChainCtx.ChainID {
 			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
 		}
@@ -435,7 +435,7 @@ func (ws *workingSet) pickAndRunActions(
 			case nil:
 				// do nothing
 			case action.ErrChainID:
-				return nil, err
+				continue
 			case action.ErrHitGasLimit:
 				actionIterator.PopAccount()
 				continue

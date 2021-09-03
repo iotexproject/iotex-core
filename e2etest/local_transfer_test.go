@@ -603,118 +603,88 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 }
 
 type chainCase1 struct {
-	cfgChainID       uint32
-	cfgJutlandHeight uint64
-	testChainID      uint32
-	err              error
+	testChainID uint32
+	success     int
 }
 
 func TestChainIDWithJutland(t *testing.T) {
 
 	testCase := []chainCase1{
 		{
-			1, 30, 1, nil, // tx chainID = node chainID, height < jutland
+			1, 1, // tx chainID = node chainID, height < KamchatkaHeight
 		},
 		{
-			2, 31, 2, nil, // tx chainID = node chainID, height >= jutland
+			1, 1, // tx chainID = node chainID, height >= KamchatkaHeight
 		},
 		{
-			4, 31, 2, nil, // tx chainID != node chainID, height < jutland
+			1, 1, // tx chainID != node chainID, height < KamchatkaHeight
 		},
 		{
-			2, 31, 4, nil, // tx chainID != node chainID, height < jutland
+			1, 1, // tx chainID != node chainID, height < KamchatkaHeight
 		},
 		{
-			4, 30, 2, action.ErrChainID, // tx chainID != node chainID, height >= jutland
+			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
 		},
 		{
-			2, 30, 4, action.ErrChainID, // tx chainID != node chainID, height >= jutland
+			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
 		},
 		{
-			4, 10, 2, action.ErrChainID, // tx chainID != node chainID, height >= jutland
+			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
 		},
 		{
-			2, 10, 4, action.ErrChainID, // tx chainID != node chainID, height >= jutland
+			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
 		},
 	}
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Chain.ID = 1
+	cfg.Genesis.KamchatkaBlockHeight = uint64(4)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, acc.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	require.NoError(t, err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(t, err)
+	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(
+		cfg,
+		blkMemDao,
+		factory.NewMinter(sf, ap),
+	)
+	require.NoError(t, bc.Start(ctx))
 
-	testFunc := func(c chainCase1) error {
-		ctx := context.Background()
-		cfg := config.Default
-		cfg.Genesis.BlockGasLimit = uint64(100000)
-		cfg.Chain.ID = c.cfgChainID
-		cfg.Genesis.JutlandBlockHeight = c.cfgJutlandHeight
-		registry := protocol.NewRegistry()
-		acc := account.NewProtocol(rewarding.DepositGas)
-		require.NoError(t, acc.Register(registry))
-
-		sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-		if err != nil {
-			return err
-		}
-		ap, err := actpool.NewActPool(sf, cfg.ActPool)
-		if err != nil {
-			return err
-		}
-
-		blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-		bc := blockchain.NewBlockchain(
-			cfg,
-			blkMemDao,
-			factory.NewMinter(sf, ap),
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
+	for i, c := range testCase {
+		tsf, err := action.NewTransfer(
+			uint64(i)+1,
+			big.NewInt(100),
+			identityset.Address(27).String(),
+			[]byte{}, uint64(100000),
+			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
 		)
-		err = bc.Start(ctx)
-		if err != nil {
-			return err
-		}
-		for i := 0; i < 30; i++ {
-			tsf, err := action.NewTransfer(
-				uint64(i)+1,
-				big.NewInt(100),
-				identityset.Address(27).String(),
-				[]byte{}, uint64(100000),
-				big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
-			)
-			if err != nil {
-				return err
-			}
+		require.NoError(t, err)
 
-			bd := &action.EnvelopeBuilder{}
-			elp1 := bd.SetAction(tsf).
-				SetChainID(c.testChainID).
-				SetNonce(uint64(i) + 1).
-				SetGasLimit(100000).
-				SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
-			selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
-			if err != nil {
-				return err
-			}
+		bd := &action.EnvelopeBuilder{}
+		elp1 := bd.SetAction(tsf).
+			SetChainID(c.testChainID).
+			SetNonce(uint64(i) + 1).
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
+		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
+		require.NoError(t, err)
 
-			err = ap.Add(context.Background(), selp1)
-			if err != nil {
-				return err
-			}
-			blk, err := bc.MintNewBlock(testutil.TimestampNow())
-			if err != nil {
-				return err
-			}
-			err = bc.CommitBlock(blk)
-			if err != nil {
-				return err
-			}
-			err = bc.Stop(ctx)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		err = ap.Add(context.Background(), selp1)
+		require.NoError(t, err)
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		require.NoError(t, err)
+		err = bc.CommitBlock(blk)
+		require.NoError(t, err)
+		require.Equal(t, c.success, len(blk.Actions))
+		require.Equal(t, c.success, len(blk.Receipts))
 	}
-	for _, c := range testCase {
-		err := testFunc(c)
-		if c.err == nil || err == nil {
-			require.Equal(t, err, c.err)
-		} else {
-			require.ErrorIs(t, err, c.err)
-		}
-	}
+
 }
