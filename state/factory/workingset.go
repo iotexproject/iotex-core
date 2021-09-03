@@ -434,6 +434,8 @@ func (ws *workingSet) pickAndRunActions(
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
+			case action.ErrChainID:
+				return nil, err
 			case action.ErrHitGasLimit:
 				actionIterator.PopAccount()
 				continue

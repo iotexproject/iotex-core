@@ -364,7 +364,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// reject action if chainID is not matched at JutlandHeight
 	if api.cfg.Genesis.Blockchain.IsJutland(api.bc.TipHeight()) {
 		if api.bc.ChainID() != in.GetAction().Core.GetChainID() {
-			return nil, status.Error(codes.InvalidArgument, "ChainID does not match")
+			return nil, status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), in.GetAction().Core.GetChainID())
 		}
 	}
 
