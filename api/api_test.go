@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -725,7 +724,7 @@ var (
 		},
 	}
 
-	getLogsTest = []struct {
+	getLogsByRangeTest = []struct {
 		// Arguments
 		address   []string
 		topics    []*iotexapi.Topics
@@ -770,6 +769,8 @@ var (
 			5, codes.InvalidArgument,
 		},
 	}
+
+	block1Hash hash.Hash256
 )
 
 func TestServer_GetAccount(t *testing.T) {
@@ -851,17 +852,53 @@ func TestServer_GetActions(t *testing.T) {
 				},
 			},
 		}
+
 		res, err := svr.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
-			continue
+		} else {
+			require.NoError(err)
+			require.Equal(test.numActions, len(res.ActionInfo))
 		}
-		require.NoError(err)
-		require.Equal(test.numActions, len(res.ActionInfo))
+
+		svrDisableIndex := svr
+		svrDisableIndex.hasActionIndex = false
+		res, err = svrDisableIndex.GetActions(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+		} else {
+			require.NoError(err)
+			require.Equal(test.numActions, len(res.ActionInfo))
+		}
+
 	}
 
 	// failure: empty request
 	_, err = svr.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
+	require.Error(err)
+
+	// failure: range exceed limit
+	_, err = svr.GetActions(context.Background(),
+		&iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByIndex{
+				ByIndex: &iotexapi.GetActionsByIndexRequest{
+					Start: 1,
+					Count: 100000,
+				},
+			},
+		})
+	require.Error(err)
+
+	// failure: start exceed limit
+	_, err = svr.GetActions(context.Background(),
+		&iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByIndex{
+				ByIndex: &iotexapi.GetActionsByIndexRequest{
+					Start: 100000,
+					Count: 1,
+				},
+			},
+		})
 	require.Error(err)
 }
 
@@ -2082,7 +2119,7 @@ func TestServer_GetLogs(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	for _, test := range getLogsTest {
+	for _, test := range getLogsByRangeTest {
 		request := &iotexapi.GetLogsRequest{
 			Filter: &iotexapi.LogsFilter{
 				Address: test.address,
@@ -2101,16 +2138,69 @@ func TestServer_GetLogs(t *testing.T) {
 		require.Equal(test.numLogs, len(logs))
 	}
 
+	for _, v := range blkHash {
+		h, _ := hash.HexStringToHash256(v)
+		request := &iotexapi.GetLogsRequest{
+			Filter: &iotexapi.LogsFilter{
+				Address: []string{},
+				Topics:  []*iotexapi.Topics{},
+			},
+			Lookup: &iotexapi.GetLogsRequest_ByBlock{
+				ByBlock: &iotexapi.GetLogsByBlock{
+					BlockHash: h[:],
+				},
+			},
+		}
+		res, err := svr.GetLogs(context.Background(), request)
+		require.NoError(err)
+		logs := res.Logs
+		require.Equal(1, len(logs))
+	}
+
 	// failure: empty request
 	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
 		Filter: &iotexapi.LogsFilter{},
 	})
-	fmt.Println(err)
 	require.Error(err)
 
 	// failure: empty filter
 	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
-	fmt.Println(err)
+	require.Error(err)
+}
+
+func TestServer_GetElectionBuckets(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	// failure: no native election
+	request := &iotexapi.GetElectionBucketsRequest{
+		EpochNum: 0,
+	}
+	_, err = svr.GetElectionBuckets(context.Background(), request)
+	require.Error(err)
+}
+
+func TestServer_GetActionByActionHash(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	// failure: no native election
+	request := &iotexapi.GetElectionBucketsRequest{
+		EpochNum: 0,
+	}
+	_, err = svr.GetElectionBuckets(context.Background(), request)
 	require.Error(err)
 }
 
