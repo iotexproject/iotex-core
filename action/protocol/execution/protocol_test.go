@@ -868,6 +868,10 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("infiniteloop-bering", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
 	})
+	// self-destruct
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/self-destruct.json")
+	})
 }
 
 func TestMaxTime(t *testing.T) {
@@ -948,6 +952,9 @@ func TestIstanbulEVM(t *testing.T) {
 	})
 	t.Run("wireconnection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/wireconnection.json")
+	})
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/self-destruct.json")
 	})
 }
 
