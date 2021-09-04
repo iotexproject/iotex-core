@@ -267,7 +267,11 @@ func runExecutions(
 		var ok bool
 		executor := ecfg.Executor().String()
 		if nonce, ok = nonces[executor]; !ok {
-			state, err := accountutil.AccountStateByHash160(sf, executor)
+			executorAddr, err := address.FromString(executor)
+			if err != nil {
+				return nil, err
+			}
+			state, err := accountutil.AccountState(sf, executorAddr)
 			if err != nil {
 				return nil, err
 			}
@@ -511,7 +515,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			state, err := accountutil.AccountStateByHash160(sf, account)
+			accountAddr, err := address.FromString(account)
+			r.NoError(err)
+			state, err := accountutil.AccountState(sf, accountAddr)
 			r.NoError(err)
 			r.Equal(
 				0,

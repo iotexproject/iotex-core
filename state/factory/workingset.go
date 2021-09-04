@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-address/address"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -294,13 +295,13 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 }
 
 func (ws *workingSet) validateNonce(blk *block.Block) error {
-	accountNonceMap := make(map[string][]uint64)
+	accountNonceMap := make(map[address.Address][]uint64)
 	for _, selp := range blk.Actions {
 		caller := selp.SrcPubkey().Address()
 		if caller == nil {
 			return errors.New("failed to get address")
 		}
-		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
+		appendActionIndex(accountNonceMap, caller, selp.Nonce())
 	}
 
 	// Special handling for genesis block
@@ -309,7 +310,7 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedState, err := accountutil.AccountStateByHash160(ws, srcAddr)
+		confirmedState, err := accountutil.AccountState(ws, srcAddr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
