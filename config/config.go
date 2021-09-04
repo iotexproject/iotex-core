@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	gop2p "github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
@@ -75,18 +74,7 @@ var (
 	Default = Config{
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
-		Network: p2p.Network{
-			Host:              "0.0.0.0",
-			Port:              4689,
-			ExternalHost:      "",
-			ExternalPort:      4689,
-			BootstrapNodes:    []string{},
-			MasterKey:         "",
-			RateLimit:         gop2p.DefaultRatelimitConfig,
-			ReconnectInterval: 150 * time.Second,
-			EnableRateLimit:   true,
-			PrivateNetworkPSK: "",
-		},
+		Network: p2p.DefaultConfig,
 		Chain: Chain{
 			ChainDBPath:            "/var/data/chain.db",
 			TrieDBPath:             "/var/data/trie.db",
@@ -637,6 +625,12 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "FairbankMigration is heigher than Fairbank")
 	case hu.FairbankBlockHeight > hu.GreenlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Fairbank is heigher than Greenland")
+	case hu.GreenlandBlockHeight > hu.IcelandBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Greenland is heigher than Iceland")
+	case hu.IcelandBlockHeight > hu.JutlandBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Iceland is heigher than Jutland")
+	case hu.JutlandBlockHeight > hu.KamchatkaBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Jutland is heigher than Kamchatka")
 	}
 	return nil
 }

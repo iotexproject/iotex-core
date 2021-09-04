@@ -52,7 +52,11 @@ func TestBroadcast(t *testing.T) {
 	}
 	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
 	bootnodePort := testutil.RandomPort()
-	bootnode := NewAgent(Network{Host: "127.0.0.1", Port: bootnodePort, ReconnectInterval: 150 * time.Second}, hash.ZeroHash256, b, u)
+	bootnode := NewAgent(Network{
+		Host:              "127.0.0.1",
+		Port:              bootnodePort,
+		ReconnectInterval: 150 * time.Second,
+	}, 1, hash.ZeroHash256, b, u)
 	r.NoError(bootnode.Start(ctx))
 	r.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
 		ip := net.ParseIP("127.0.0.1")
@@ -72,7 +76,7 @@ func TestBroadcast(t *testing.T) {
 			Port:              port,
 			BootstrapNodes:    []string{addrs[0].String()},
 			ReconnectInterval: 150 * time.Second,
-		}, hash.ZeroHash256, b, u)
+		}, 1, hash.ZeroHash256, b, u)
 		r.NoError(agent.Start(ctx))
 		r.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
 			ip := net.ParseIP("127.0.0.1")
@@ -87,7 +91,7 @@ func TestBroadcast(t *testing.T) {
 	}
 
 	for i := 0; i < n; i++ {
-		r.NoError(agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
+		r.NoError(agents[i].BroadcastOutbound(ctx, &testingpb.TestPayload{
 			MsgBody: []byte{uint8(i)},
 		}))
 		r.NoError(testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
@@ -130,7 +134,11 @@ func TestUnicast(t *testing.T) {
 		src = peer.ID.Pretty()
 	}
 
-	bootnode := NewAgent(Network{Host: "127.0.0.1", Port: testutil.RandomPort(), ReconnectInterval: 150 * time.Second}, hash.ZeroHash256, b, u)
+	bootnode := NewAgent(Network{
+		Host:              "127.0.0.1",
+		Port:              testutil.RandomPort(),
+		ReconnectInterval: 150 * time.Second,
+	}, 2, hash.ZeroHash256, b, u)
 	r.NoError(bootnode.Start(ctx))
 
 	addrs, err := bootnode.Self()
@@ -141,7 +149,7 @@ func TestUnicast(t *testing.T) {
 			Port:              testutil.RandomPort(),
 			BootstrapNodes:    []string{addrs[0].String()},
 			ReconnectInterval: 150 * time.Second,
-		}, hash.ZeroHash256, b, u)
+		}, 2, hash.ZeroHash256, b, u)
 		r.NoError(agent.Start(ctx))
 		agents = append(agents, agent)
 	}
@@ -149,9 +157,9 @@ func TestUnicast(t *testing.T) {
 	for i := 0; i < n; i++ {
 		neighbors, err := agents[i].Neighbors(ctx)
 		r.NoError(err)
-		r.True(len(neighbors) > 0)
+		r.True(len(neighbors) >= n/3)
 		for _, neighbor := range neighbors {
-			r.NoError(agents[i].UnicastOutbound(WitContext(ctx, Context{ChainID: 1}), neighbor, &testingpb.TestPayload{
+			r.NoError(agents[i].UnicastOutbound(ctx, neighbor, &testingpb.TestPayload{
 				MsgBody: []byte{uint8(i)},
 			}))
 		}
