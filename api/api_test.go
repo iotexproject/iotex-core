@@ -769,8 +769,6 @@ var (
 			5, codes.InvalidArgument,
 		},
 	}
-
-	block1Hash hash.Hash256
 )
 
 func TestServer_GetAccount(t *testing.T) {
@@ -2196,12 +2194,13 @@ func TestServer_GetActionByActionHash(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	// failure: no native election
-	request := &iotexapi.GetElectionBucketsRequest{
-		EpochNum: 0,
+	actHash := []hash.Hash256{transferHash1, transferHash2, executionHash1, executionHash3}
+	expectedNounceRes := []uint64{1, 5, 6, 2}
+	for i, v := range actHash {
+		ret, err := svr.GetActionByActionHash(v)
+		require.NoError(err)
+		require.Equal(expectedNounceRes[i], ret.Envelope.Nonce())
 	}
-	_, err = svr.GetElectionBuckets(context.Background(), request)
-	require.Error(err)
 }
 
 func TestServer_GetTransactionLogByActionHash(t *testing.T) {
