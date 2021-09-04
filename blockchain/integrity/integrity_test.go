@@ -1261,12 +1261,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 		// invalid address returns error
-		act, err := accountutil.AccountStateByHash160(sf, "")
+		act, err := accountutil.AccountState(sf, nil)
 		require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
 		require.Nil(act)
 
 		// valid but unused address should return empty account
-		act, err = accountutil.AccountStateByHash160(sf, "io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+		addr, err := address.FromString("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+		require.NoError(err)
+		act, err = accountutil.AccountState(sf, addr)
 		require.NoError(err)
 		require.Equal(uint64(0), act.Nonce)
 		require.Equal(big.NewInt(0), act.Balance)
@@ -1648,22 +1650,22 @@ func TestHistoryForAccount(t *testing.T) {
 func testHistoryForAccount(t *testing.T, statetx bool) {
 	require := require.New(t)
 	bc, sf, _, _, ap := newChain(t, statetx)
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
-	b := identityset.Address(29).String()
+	b := identityset.Address(29)
 
 	// check the original balance a and b before transfer
-	AccountA, err := accountutil.AccountStateByHash160(sf, a)
+	AccountA, err := accountutil.AccountState(sf, a)
 	require.NoError(err)
-	AccountB, err := accountutil.AccountStateByHash160(sf, b)
+	AccountB, err := accountutil.AccountState(sf, b)
 	require.NoError(err)
 	require.Equal(big.NewInt(100), AccountA.Balance)
 	require.Equal(big.NewInt(100), AccountB.Balance)
 
 	// make a transfer from a to b
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[a] = []action.SealedEnvelope{}
-	tsf, err := action.SignedTransfer(b, priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	actionMap[a.String()] = []action.SealedEnvelope{}
+	tsf, err := action.SignedTransfer(b.String(), priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), tsf))
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -1672,23 +1674,23 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	require.NoError(bc.CommitBlock(blk))
 
 	// check balances after transfer
-	AccountA, err = accountutil.AccountStateByHash160(sf, a)
+	AccountA, err = accountutil.AccountState(sf, a)
 	require.NoError(err)
-	AccountB, err = accountutil.AccountStateByHash160(sf, b)
+	AccountB, err = accountutil.AccountState(sf, b)
 	require.NoError(err)
 	require.Equal(big.NewInt(90), AccountA.Balance)
 	require.Equal(big.NewInt(110), AccountB.Balance)
 
 	// check history account's balance
 	if statetx {
-		_, err = accountutil.AccountStateByHash160(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
 		require.Equal(factory.ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountStateByHash160(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
 		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 	} else {
-		AccountA, err = accountutil.AccountStateByHash160(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
+		AccountA, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
 		require.NoError(err)
-		AccountB, err = accountutil.AccountStateByHash160(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
+		AccountB, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
 		require.NoError(err)
 		require.Equal(big.NewInt(100), AccountA.Balance)
 		require.Equal(big.NewInt(100), AccountB.Balance)
@@ -1706,8 +1708,10 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, ap, t)
+	contractAddr, err := address.FromString(contract)
+	require.NoError(err)
 
-	account, err := accountutil.AccountStateByHash160(sf, contract)
+	account, err := accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the original balance
 	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
@@ -1716,7 +1720,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	require.Equal(expect, balance)
 	// make a transfer for contract
 	makeTransfer(contract, bc, ap, t)
-	account, err = accountutil.AccountStateByHash160(sf, contract)
+	account, err = accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the balance after transfer
 	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
@@ -1726,10 +1730,10 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 
 	// check the the original balance again
 	if statetx {
-		_, err = accountutil.AccountStateByHash160(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contract)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.True(errors.Cause(err) == factory.ErrNotSupported)
 	} else {
-		account, err = accountutil.AccountStateByHash160(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contract)
+		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.NoError(err)
 		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)

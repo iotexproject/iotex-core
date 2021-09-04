@@ -402,12 +402,12 @@ func TestSDBState(t *testing.T) {
 
 func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -449,7 +449,7 @@ func testState(sf Factory, t *testing.T) {
 
 	//test AccountState() & State()
 	var testAccount state.Account
-	accountA, err := accountutil.AccountStateByHash160(sf, a)
+	accountA, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 	_, err = sf.State(&testAccount, protocol.LegacyKeyOption(sHash))
@@ -460,13 +460,13 @@ func testState(sf Factory, t *testing.T) {
 
 func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
-	b := identityset.Address(31).String()
+	a := identityset.Address(28)
+	b := identityset.Address(31)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -482,13 +482,13 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	accountA, err := accountutil.AccountStateByHash160(sf, a)
+	accountA, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
-	accountB, err := accountutil.AccountStateByHash160(sf, b)
+	accountB, err := accountutil.AccountState(sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(100), accountA.Balance)
 	require.Equal(t, big.NewInt(0), accountB.Balance)
-	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(1, big.NewInt(10), b.String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
@@ -512,9 +512,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	// check latest balance
-	accountA, err = accountutil.AccountStateByHash160(sf, a)
+	accountA, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
-	accountB, err = accountutil.AccountStateByHash160(sf, b)
+	accountB, err = accountutil.AccountState(sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 	require.Equal(t, big.NewInt(10), accountB.Balance)
@@ -522,20 +522,20 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// check archive data
 	if statetx {
 		// statetx not support archive mode
-		_, err = accountutil.AccountStateByHash160(NewHistoryStateReader(sf, 0), a)
+		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountStateByHash160(NewHistoryStateReader(sf, 0), b)
+		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
 		if !archive {
-			_, err = accountutil.AccountStateByHash160(NewHistoryStateReader(sf, 0), a)
+			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
-			_, err = accountutil.AccountStateByHash160(NewHistoryStateReader(sf, 0), b)
+			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
-			accountA, err = accountutil.AccountStateByHash160(NewHistoryStateReader(sf, 0), a)
+			accountA, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
 			require.NoError(t, err)
-			accountB, err = accountutil.AccountStateByHash160(NewHistoryStateReader(sf, 0), b)
+			accountB, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
 			require.NoError(t, err)
 			require.Equal(t, big.NewInt(100), accountA.Balance)
 			require.Equal(t, big.NewInt(0), accountB.Balance)
@@ -1516,7 +1516,11 @@ func benchState(sf Factory, b *testing.B) {
 	for n := 1; n < b.N; n++ {
 		b.StartTimer()
 		idx := rand.Int() % len(accounts)
-		_, err := accountutil.AccountStateByHash160(sf, accounts[idx])
+		addr, err := address.FromString(accounts[idx])
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = accountutil.AccountState(sf, addr)
 		if err != nil {
 			b.Fatal(err)
 		}

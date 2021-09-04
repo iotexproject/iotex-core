@@ -9,6 +9,7 @@ package actpool
 import (
 	"bytes"
 	"context"
+	"github.com/iotexproject/iotex-address/address"
 	"math/big"
 	"strings"
 	"testing"
@@ -1022,7 +1023,11 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedState, err := accountutil.AccountStateByHash160(ap.sf, addr)
+	accountAddress, err := address.FromString(addr)
+	if err != nil {
+		return 0, err
+	}
+	committedState, err := accountutil.AccountState(ap.sf, accountAddress)
 	return committedState.Nonce + 1, err
 }
 
@@ -1031,7 +1036,11 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	state, err := accountutil.AccountStateByHash160(ap.sf, addr)
+	accountAddress, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+	state, err := accountutil.AccountState(ap.sf, accountAddress)
 	if err != nil {
 		return nil, err
 	}

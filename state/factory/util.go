@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -30,7 +31,7 @@ func processOptions(opts ...protocol.StateOption) (*protocol.StateConfig, error)
 	return cfg, nil
 }
 
-func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonce uint64) {
+func appendActionIndex(accountNonceMap map[address.Address][]uint64, srcAddr address.Address, nonce uint64) {
 	if nonce == 0 {
 		return
 	}

@@ -261,20 +261,20 @@ func TestBlockEpochReward(t *testing.T) {
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
 
-		rewardAddrStr := identityset.Address(i + numNodes).String()
-		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initState, err := accountutil.AccountStateByHash160(sfs[i], rewardAddrStr)
+		rewardAddr := identityset.Address(i + numNodes)
+		exptUnclaimed[rewardAddr.String()] = big.NewInt(0)
+		initState, err := accountutil.AccountState(sfs[i], rewardAddr)
 		require.NoError(t, err)
-		initBalances[rewardAddrStr] = initState.Balance
+		initBalances[rewardAddr.String()] = initState.Balance
 
-		operatorAddrStr := identityset.Address(i).String()
-		initState, err = accountutil.AccountStateByHash160(sfs[i], operatorAddrStr)
+		operatorAddr := identityset.Address(i)
+		initState, err = accountutil.AccountState(sfs[i], operatorAddr)
 		require.NoError(t, err)
-		initBalances[operatorAddrStr] = initState.Balance
+		initBalances[operatorAddr.String()] = initState.Balance
 
-		claimedAmount[rewardAddrStr] = big.NewInt(0)
+		claimedAmount[rewardAddr.String()] = big.NewInt(0)
 
-		getRewardAddStr[identityset.Address(i).String()] = rewardAddrStr
+		getRewardAddStr[identityset.Address(i).String()] = rewardAddr.String()
 
 	}
 
@@ -453,19 +453,19 @@ func TestBlockEpochReward(t *testing.T) {
 
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
-		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endState, err := accountutil.AccountStateByHash160(sfs[0], rewardAddrStr)
+		rewardAddr := identityset.Address(i + numNodes)
+		endState, err := accountutil.AccountState(sfs[0], rewardAddr)
 		require.NoError(t, err)
-		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
-		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
-		fmt.Println("Server ", i, " ", rewardAddrStr, "Expected Balance ", expectBalance.String())
+		fmt.Println("Server ", i, " ", rewardAddr, " Closing Balance ", endState.Balance.String())
+		expectBalance := big.NewInt(0).Add(initBalances[rewardAddr.String()], claimedAmount[rewardAddr.String()])
+		fmt.Println("Server ", i, " ", rewardAddr, "Expected Balance ", expectBalance.String())
 		require.Equal(t, expectBalance.String(), endState.Balance.String())
 
 		//Make sure the non-reward addresses have not received money
-		operatorAddrStr := identityset.Address(i).String()
-		operatorState, err := accountutil.AccountStateByHash160(sfs[i], operatorAddrStr)
+		operatorAddr := identityset.Address(i)
+		operatorState, err := accountutil.AccountState(sfs[i], operatorAddr)
 		require.NoError(t, err)
-		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
+		require.Equal(t, initBalances[operatorAddr.String()], operatorState.Balance)
 	}
 }
 
