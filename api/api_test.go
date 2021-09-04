@@ -89,6 +89,24 @@ var (
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3, _ = testExecution3.Hash()
 
+	// invalid nounce
+	testTransferInvalid1, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 2, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid1Pb = testTransferInvalid1.Proto()
+
+	// invalid gas price
+	testTransferInvalid2, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(-1))
+	testTransferInvalid2Pb = testTransferInvalid2.Proto()
+
+	// invalid balance
+	testTransferInvalid3, _ = action.SignedTransfer(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 3, big.NewInt(29), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid3Pb = testTransferInvalid3.Proto()
+
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
@@ -769,6 +787,28 @@ var (
 			5, codes.InvalidArgument,
 		},
 	}
+
+	getActionByActionHashTest = []struct {
+		h              hash.Hash256
+		expectedNounce uint64
+	}{
+		{
+			transferHash1,
+			1,
+		},
+		{
+			transferHash2,
+			5,
+		},
+		{
+			executionHash1,
+			6,
+		},
+		{
+			executionHash3,
+			2,
+		},
+	}
 )
 
 func TestServer_GetAccount(t *testing.T) {
@@ -1259,6 +1299,30 @@ func TestServer_SendAction(t *testing.T) {
 			},
 			testTransferPb,
 			"insufficient space for action: invalid actpool",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			testTransferInvalid1Pb,
+			"invalid nonce",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			testTransferInvalid2Pb,
+			"invalid gas price",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			testTransferInvalid3Pb,
+			"invalid balance",
 		},
 	}
 
@@ -2194,12 +2258,10 @@ func TestServer_GetActionByActionHash(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	actHash := []hash.Hash256{transferHash1, transferHash2, executionHash1, executionHash3}
-	expectedNounceRes := []uint64{1, 5, 6, 2}
-	for i, v := range actHash {
-		ret, err := svr.GetActionByActionHash(v)
+	for _, test := range getActionByActionHashTest {
+		ret, err := svr.GetActionByActionHash(test.h)
 		require.NoError(err)
-		require.Equal(expectedNounceRes[i], ret.Envelope.Nonce())
+		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
 }
 
