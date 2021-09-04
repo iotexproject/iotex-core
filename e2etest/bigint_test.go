@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-address/address"
 	"math/big"
 	"testing"
 
@@ -42,13 +43,15 @@ func TestTransfer_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc, sf, ap := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := accountutil.AccountStateByHash160(sf, executor)
+	executorAddress, err := address.FromString(executor)
+	r.NoError(err)
+	stateBeforeTransfer, err := accountutil.AccountState(sf, executorAddress)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, sf, ap, r)
 	r.NoError(err)
 	r.Equal(2, len(blk.Actions))
 	r.Error(bc.ValidateBlock(blk))
-	state, err := accountutil.AccountStateByHash160(sf, executor)
+	state, err := accountutil.AccountState(sf, executorAddress)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
@@ -58,14 +61,16 @@ func TestAction_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc, sf, ap := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := accountutil.AccountStateByHash160(sf, executor)
+	executorAddress, err := address.FromString(executor)
+	r.NoError(err)
+	stateBeforeTransfer, err := accountutil.AccountState(sf, executorAddress)
 	r.NoError(err)
 	blk, err := prepareAction(bc, sf, ap, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Equal(2, len(blk.Actions))
 	r.Error(bc.ValidateBlock(blk))
-	state, err := accountutil.AccountStateByHash160(sf, executor)
+	state, err := accountutil.AccountState(sf, executorAddress)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }

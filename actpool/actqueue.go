@@ -8,6 +8,7 @@ package actpool
 
 import (
 	"container/heap"
+	"github.com/iotexproject/iotex-address/address"
 	"go.uber.org/zap"
 	"math/big"
 	"sort"
@@ -232,7 +233,12 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	confirmedState, err := accountutil.AccountStateByHash160(q.ap.sf, q.address)
+	actionAddress, err := address.FromString(q.address)
+	if err != nil {
+		log.L().Error("Error when converting the address to address.Address", zap.String("address", q.address), zap.Error(err))
+		return nil
+	}
+	confirmedState, err := accountutil.AccountState(q.ap.sf, actionAddress)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil

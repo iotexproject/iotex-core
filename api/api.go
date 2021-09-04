@@ -453,11 +453,18 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
-	state, err := accountutil.AccountStateByHash160(api.sf, in.CallerAddress)
+	addr, err := address.FromString(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	callerAddr, _ := address.FromString(in.CallerAddress)
+	state, err := accountutil.AccountState(api.sf, addr)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	callerAddr, err := address.FromString(in.CallerAddress)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
@@ -1535,7 +1542,11 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	state, err := accountutil.AccountStateByHash160(api.sf, sender)
+	senderAddr, err := address.FromString(sender)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	state, err := accountutil.AccountState(api.sf, senderAddr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
