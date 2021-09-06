@@ -244,7 +244,7 @@ func New(
 	}
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
+			return p2pAgent.BroadcastOutbound(context.Background(), msg)
 		}),
 	}
 	var (
@@ -395,7 +395,7 @@ func New(
 			for i := 0; i < repeat; i++ {
 				peer := peers[rand.Intn(len(peers)-i)]
 				if err := p2pAgent.UnicastOutbound(
-					p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
+					ctx,
 					peer,
 					&iotexrpc.BlockSync{Start: start, End: end},
 				); err != nil {
@@ -420,7 +420,6 @@ func New(
 		actPool,
 		registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 			return p2pAgent.BroadcastOutbound(ctx, msg)
 		}),
 		api.WithNativeElection(electionCommittee),
@@ -591,7 +590,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peer.AddrInfo, sync *iotexrpc.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
 		return cs.p2pAgent.UnicastOutbound(
-			p2p.WitContext(ctx, p2p.Context{ChainID: cs.chain.ChainID()}),
+			ctx,
 			peer,
 			blk.ConvertToBlockPb(),
 		)
