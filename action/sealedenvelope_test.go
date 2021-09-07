@@ -2,7 +2,6 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -52,64 +51,6 @@ func TestSealedEnvelope_InvalidType(t *testing.T) {
 	hash1, err := selp.envelopeHash()
 	require.Equal(hash1, hash.ZeroHash256)
 	require.Contains(err.Error(), "invalid action type")
-}
-
-func TestSealedEnvelope_Actions(t *testing.T) {
-	require := require.New(t)
-
-	createStake, err := NewCreateStake(uint64(10), addr2, "100", uint32(10000), true, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	changeCandidate, err := NewChangeCandidate(1, candidate1Name, 2, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	unstake, err := NewUnstake(nonce, 2, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	withdrawStake, err := NewWithdrawStake(nonce, 2, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	restake, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	transferStake, err := NewTransferStake(nonce, cand1Addr, 2, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	candidateRegister, err := NewCandidateRegister(nonce, candidate1Name, cand1Addr, cand1Addr, cand1Addr, big.NewInt(10).String(), 91, true, payload, gasLimit, gasPrice)
-	require.NoError(err)
-
-	candidateUpdate, err := NewCandidateUpdate(nonce, candidate1Name, cand1Addr, cand1Addr, gasLimit, gasPrice)
-	require.NoError(err)
-
-	tests := []actionPayload{
-		createStake,
-		depositToStake,
-		changeCandidate,
-		unstake,
-		withdrawStake,
-		restake,
-		transferStake,
-		candidateRegister,
-		candidateUpdate,
-	}
-
-	for _, test := range tests {
-		bd := &EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
-			SetAction(test).
-			SetGasLimit(100000).Build()
-		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
-		rlp, err := actionToRLP(selp.Action())
-
-		require.NoError(err)
-
-		require.Equal(elp.Nonce(), rlp.Nonce())
-		require.Equal(elp.GasPrice(), rlp.GasPrice())
-		require.Equal(elp.GasLimit(), rlp.GasLimit())
-	}
 }
 
 func TestSealedEnvelope_Proto(t *testing.T) {
