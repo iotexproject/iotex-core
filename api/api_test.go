@@ -88,6 +88,24 @@ var (
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 
+	// invalid nounce
+	testTransferInvalid1, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 2, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid1Pb = testTransferInvalid1.Proto()
+
+	// invalid gas price
+	testTransferInvalid2, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(-1))
+	testTransferInvalid2Pb = testTransferInvalid2.Proto()
+
+	// invalid balance
+	testTransferInvalid3, _ = action.SignedTransfer(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 3, big.NewInt(29), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid3Pb = testTransferInvalid3.Proto()
+
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
@@ -723,7 +741,7 @@ var (
 		},
 	}
 
-	getLogsTest = []struct {
+	getLogsByRangeTest = []struct {
 		// Arguments
 		address   []string
 		topics    []*iotexapi.Topics
@@ -766,6 +784,28 @@ var (
 		},
 		{
 			5, codes.InvalidArgument,
+		},
+	}
+
+	getActionByActionHashTest = []struct {
+		h              hash.Hash256
+		expectedNounce uint64
+	}{
+		{
+			transferHash1,
+			1,
+		},
+		{
+			transferHash2,
+			5,
+		},
+		{
+			executionHash1,
+			6,
+		},
+		{
+			executionHash3,
+			2,
 		},
 	}
 )
@@ -815,6 +855,9 @@ func TestServer_GetAccount(t *testing.T) {
 	// failure
 	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
+	// error account
+	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: "io3fn88lge6hyzmruh40cn6l3e49dfkqzqk3lgtq3"})
+	require.Error(err)
 
 	// success: reward pool
 	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
@@ -846,14 +889,54 @@ func TestServer_GetActions(t *testing.T) {
 				},
 			},
 		}
+
 		res, err := svr.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
-			continue
+		} else {
+			require.NoError(err)
+			require.Equal(test.numActions, len(res.ActionInfo))
 		}
-		require.NoError(err)
-		require.Equal(test.numActions, len(res.ActionInfo))
+
+		svrDisableIndex := svr
+		svrDisableIndex.hasActionIndex = false
+		res, err = svrDisableIndex.GetActions(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+		} else {
+			require.NoError(err)
+			require.Equal(test.numActions, len(res.ActionInfo))
+		}
+
 	}
+
+	// failure: empty request
+	_, err = svr.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
+	require.Error(err)
+
+	// failure: range exceed limit
+	_, err = svr.GetActions(context.Background(),
+		&iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByIndex{
+				ByIndex: &iotexapi.GetActionsByIndexRequest{
+					Start: 1,
+					Count: 100000,
+				},
+			},
+		})
+	require.Error(err)
+
+	// failure: start exceed limit
+	_, err = svr.GetActions(context.Background(),
+		&iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByIndex{
+				ByIndex: &iotexapi.GetActionsByIndexRequest{
+					Start: 100000,
+					Count: 1,
+				},
+			},
+		})
+	require.Error(err)
 }
 
 func TestServer_GetAction(t *testing.T) {
@@ -1057,6 +1140,9 @@ func TestServer_GetBlockMetas(t *testing.T) {
 			prevBlkPb = blkPb
 		}
 	}
+	// failure: empty request
+	_, err = svr.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+	require.Error(err)
 }
 
 func TestServer_GetBlockMeta(t *testing.T) {
@@ -1215,6 +1301,30 @@ func TestServer_SendAction(t *testing.T) {
 			testTransferPb,
 			"insufficient space for action: invalid actpool",
 		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			testTransferInvalid1Pb,
+			"invalid nonce",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			testTransferInvalid2Pb,
+			"invalid gas price",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			testTransferInvalid3Pb,
+			"invalid balance",
+		},
 	}
 
 	for _, test := range tests {
@@ -1263,6 +1373,33 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 		require.Equal(test.blkHeight, receiptPb.BlkHeight)
 		require.NotEqual(hash.ZeroHash256, res.ReceiptInfo.BlkHash)
 	}
+
+	// failure: empty request
+	_, err = svr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "0x"})
+	require.Error(err)
+	// failure: wrong hash
+	_, err = svr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "b7faffcb8b01fa9f32112155bcb93d714f599eab3178e577e88dafd2140bfc5a"})
+	require.Error(err)
+
+}
+
+func TestServer_GetServerMeta(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	resProto, err := svr.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	res := resProto.GetServerMeta()
+	require.Equal(res.BuildTime, version.BuildTime)
+	require.Equal(res.GoVersion, version.GoVersion)
+	require.Equal(res.GitStatus, version.GitStatus)
+	require.Equal(res.PackageCommitID, version.PackageCommitID)
+	require.Equal(res.PackageVersion, version.PackageVersion)
 }
 
 func TestServer_ReadContract(t *testing.T) {
@@ -1966,6 +2103,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 		}
 		require.Equal(test.numActiveCensusBlockProducers, numActiveBlockProducers)
 	}
+
+	// failure: epoch number
+	_, err = svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
+	require.Error(err)
 }
 
 func TestServer_GetRawBlocks(t *testing.T) {
@@ -2009,6 +2150,31 @@ func TestServer_GetRawBlocks(t *testing.T) {
 		require.Equal(test.numActions, numActions)
 		require.Equal(test.numReceipts, numReceipts)
 	}
+
+	// failure: invalid count
+	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  1,
+		Count:        0,
+		WithReceipts: true,
+	})
+	require.Error(err)
+
+	// failure: invalid startHeight
+	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  1000000,
+		Count:        10,
+		WithReceipts: true,
+	})
+	require.Error(err)
+
+	// failure: invalid endHeight
+	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  3,
+		Count:        1000,
+		WithReceipts: true,
+	})
+	require.Error(err)
+
 }
 
 func TestServer_GetLogs(t *testing.T) {
@@ -2021,7 +2187,7 @@ func TestServer_GetLogs(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	for _, test := range getLogsTest {
+	for _, test := range getLogsByRangeTest {
 		request := &iotexapi.GetLogsRequest{
 			Filter: &iotexapi.LogsFilter{
 				Address: test.address,
@@ -2038,6 +2204,70 @@ func TestServer_GetLogs(t *testing.T) {
 		require.NoError(err)
 		logs := res.Logs
 		require.Equal(test.numLogs, len(logs))
+	}
+
+	for _, v := range blkHash {
+		h, _ := hash.HexStringToHash256(v)
+		request := &iotexapi.GetLogsRequest{
+			Filter: &iotexapi.LogsFilter{
+				Address: []string{},
+				Topics:  []*iotexapi.Topics{},
+			},
+			Lookup: &iotexapi.GetLogsRequest_ByBlock{
+				ByBlock: &iotexapi.GetLogsByBlock{
+					BlockHash: h[:],
+				},
+			},
+		}
+		res, err := svr.GetLogs(context.Background(), request)
+		require.NoError(err)
+		logs := res.Logs
+		require.Equal(1, len(logs))
+	}
+
+	// failure: empty request
+	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
+		Filter: &iotexapi.LogsFilter{},
+	})
+	require.Error(err)
+
+	// failure: empty filter
+	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
+	require.Error(err)
+}
+
+func TestServer_GetElectionBuckets(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	// failure: no native election
+	request := &iotexapi.GetElectionBucketsRequest{
+		EpochNum: 0,
+	}
+	_, err = svr.GetElectionBuckets(context.Background(), request)
+	require.Error(err)
+}
+
+func TestServer_GetActionByActionHash(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	for _, test := range getActionByActionHashTest {
+		ret, err := svr.GetActionByActionHash(test.h)
+		require.NoError(err)
+		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
 }
 
