@@ -69,8 +69,10 @@ type (
 		Nonce uint64
 	}
 
+	// CheckFunc is function type to check by height.
 	CheckFunc func(height uint64) bool
 
+	// FeatureCtx provides features information.
 	FeatureCtx struct {
 		DepositGasLast            bool
 		SystemWideActionGasLimit  bool
@@ -81,7 +83,7 @@ type (
 		AsyncContractTrie         bool
 		StoreOutOfGasToReceipt    bool
 		RefundAllDeposit          bool
-		AddChainIdToConfig        bool
+		AddChainIDToConfig        bool
 		UseV2Storage              bool
 		CheckUnstaked             bool
 		SkipStakingIndexer        bool
@@ -90,6 +92,7 @@ type (
 		PostFairbankMigration     bool
 	}
 
+	// FeatureWithHeightCtx provides feature check functions.
 	FeatureWithHeightCtx struct {
 		GetUnproductiveDelegates CheckFunc
 		EnableSMStorage          CheckFunc
@@ -180,6 +183,7 @@ func MustGetActionCtx(ctx context.Context) ActionCtx {
 	return ac
 }
 
+// WithFeatureCtx add FeatureCtx into context.
 func WithFeatureCtx(ctx context.Context) context.Context {
 	g := genesis.MustExtractGenesisContext(ctx)
 	height := MustGetBlockCtx(ctx).BlockHeight
@@ -196,7 +200,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AsyncContractTrie:         g.IsGreenland(height),
 			StoreOutOfGasToReceipt:    !g.IsGreenland(height),
 			RefundAllDeposit:          g.IsPacific(height),
-			AddChainIdToConfig:        g.IsIceland(height),
+			AddChainIDToConfig:        g.IsIceland(height),
 			UseV2Storage:              g.IsGreenland(height),
 			CheckUnstaked:             g.IsGreenland(height),
 			SkipStakingIndexer:        !g.IsFairbank(height),
@@ -207,11 +211,14 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 	)
 }
 
+// GetFeatureCtx gets FeatureCtx.
 func GetFeatureCtx(ctx context.Context) (FeatureCtx, bool) {
 	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
 	return fc, ok
 }
 
+// MustGetFeatureCtx must get FeatureCtx.
+// If context doesn't exist, this function panic.
 func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
 	fc, ok := ctx.Value(featureContextKey{}).(FeatureCtx)
 	if !ok {
@@ -220,6 +227,7 @@ func MustGetFeatureCtx(ctx context.Context) FeatureCtx {
 	return fc
 }
 
+// WithFeatureWithHeightCtx add FeatureWithHeightCtx into context.
 func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 	g := genesis.MustExtractGenesisContext(ctx)
 	return context.WithValue(
@@ -239,11 +247,14 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 	)
 }
 
+// GetFeatureWithHeightCtx gets FeatureWithHeightCtx.
 func GetFeatureWithHeightCtx(ctx context.Context) (FeatureWithHeightCtx, bool) {
 	fc, ok := ctx.Value(featureWithHeightContextKey{}).(FeatureWithHeightCtx)
 	return fc, ok
 }
 
+// MustGetFeatureWithHeightCtx must get FeatureWithHeightCtx.
+// If context doesn't exist, this function panic.
 func MustGetFeatureWithHeightCtx(ctx context.Context) FeatureWithHeightCtx {
 	fc, ok := ctx.Value(featureWithHeightContextKey{}).(FeatureWithHeightCtx)
 	if !ok {
