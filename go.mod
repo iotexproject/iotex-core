@@ -35,6 +35,10 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.2
 	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
+	go.opentelemetry.io/otel v1.0.0-RC3
+	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC3
+	go.opentelemetry.io/otel/sdk v1.0.0-RC3
+	go.opentelemetry.io/otel/trace v1.0.0-RC3
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.16.0

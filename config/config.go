@@ -353,6 +353,14 @@ type (
 		RangeBloomFilterNumHash uint64 `yaml:"rangeBloomFilterNumHash"`
 	}
 
+	// Tracer is the config for tracer
+	Tracer struct {
+		// EndPoint the jaeger endpoint
+		EndPoint string `yaml:"endpoint"`
+		// InstanceID MUST be unique for each instance of the same
+		InstanceID string `yaml:"instanceID"`
+	}
+
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		Plugins            map[int]interface{}         `ymal:"plugins"`
@@ -370,6 +378,7 @@ type (
 		Log                log.GlobalConfig            `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis            genesis.Genesis             `yaml:"genesis"`
+		Tracer             Tracer                      `yaml:"tracer"`
 	}
 
 	// Validate is the interface of validating the config
