@@ -41,12 +41,19 @@ type (
 		hash common.Hash
 		v    []byte
 	}
+	access struct {
+		addr  common.Address
+		slots []common.Hash
+		nx    []common.Hash
+		exist bool
+	}
 	stateDBTest struct {
-		balance  []bal
-		codes    []code
-		states   []evmSet
-		suicide  []sui
-		preimage []image
+		balance    []bal
+		codes      []code
+		states     []evmSet
+		suicide    []sui
+		preimage   []image
+		accessList []access
 	}
 )
 
