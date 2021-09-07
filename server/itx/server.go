@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/chainservice"
@@ -170,6 +171,9 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 
 // StartServer starts a node server
 func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg config.Config) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("start server")
+	defer span.End()
 	if err := svr.Start(ctx); err != nil {
 		log.L().Fatal("Failed to start server.", zap.Error(err))
 		return
