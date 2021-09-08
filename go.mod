@@ -35,6 +35,7 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.2
 	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.22.0
 	go.opentelemetry.io/otel v1.0.0-RC3
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC3
 	go.opentelemetry.io/otel/sdk v1.0.0-RC3
@@ -46,8 +47,8 @@ require (
 	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/genproto v0.0.0-20201211151036-40ec1c210f7a
-	google.golang.org/grpc v1.33.2
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/grpc v1.39.0
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
