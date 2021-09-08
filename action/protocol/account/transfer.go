@@ -28,7 +28,7 @@ const TransferSizeLimit = 32 * 1024
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	DepositGasLast := protocol.MustGetFeatureCtx(ctx).DepositGasLast
+	FixDoubleChargeGas := protocol.MustGetFeatureCtx(ctx).FixDoubleChargeGas
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
@@ -51,7 +51,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	var depositLog *action.TransactionLog
-	if !DepositGasLast {
+	if !FixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
@@ -76,7 +76,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if DepositGasLast {
+		if FixDoubleChargeGas {
 			if p.depositGas != nil {
 				depositLog, err = p.depositGas(ctx, sm, gasFee)
 				if err != nil {
@@ -118,7 +118,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if DepositGasLast {
+	if FixDoubleChargeGas {
 		if p.depositGas != nil {
 			depositLog, err = p.depositGas(ctx, sm, gasFee)
 			if err != nil {

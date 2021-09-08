@@ -65,7 +65,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCreateStake, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleCreateStake, featureCtx.NewStakingReceiptFormat)
 
 	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -135,7 +135,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleUnstake, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleUnstake, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -153,7 +153,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, errCandNotExist
 	}
 
-	if featureCtx.CheckUnstaked && bucket.isUnstaked() {
+	if featureCtx.CannotUnstakeAgain && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("unstake an already unstaked bucket again not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -204,7 +204,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, featureCtx.NewStakingReceiptFormat)
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -219,7 +219,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// check unstake time
 	cannotWithdraw := bucket.UnstakeStartTime.Unix() == 0
-	if featureCtx.CheckUnstaked {
+	if featureCtx.CannotUnstakeAgain {
 		cannotWithdraw = !bucket.isUnstaked()
 	}
 	if cannotWithdraw {
@@ -230,7 +230,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	withdrawWaitTime := p.config.WithdrawWaitingPeriod
-	if !featureCtx.PostFairbankMigration {
+	if !featureCtx.NewStakingReceiptFormat {
 		withdrawWaitTime = _withdrawWaitingTime
 	}
 	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(withdrawWaitTime)) {
@@ -266,7 +266,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	if featureCtx.CheckUnstaked {
+	if featureCtx.CannotUnstakeAgain {
 		log.SetData(bucket.StakedAmount.Bytes())
 	}
 
@@ -284,7 +284,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -307,14 +307,14 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, errCandNotExist
 	}
 
-	if featureCtx.CheckUnstaked && bucket.isUnstaked() {
+	if featureCtx.CannotUnstakeAgain && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("change candidate for an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
 
-	if featureCtx.CanNotTranferToSelf && address.Equal(prevCandidate.Owner, candidate.Owner) {
+	if featureCtx.CannotTranferToSelf && address.Equal(prevCandidate.Owner, candidate.Owner) {
 		// change to same candidate, do nothing
 		return log, &handleError{
 			err:           errors.New("change to same candidate"),
@@ -367,7 +367,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleTransferStake, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleTransferStake, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -391,7 +391,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
-	if featureCtx.CanNotTranferToSelf && address.Equal(newOwner, bucket.Owner) {
+	if featureCtx.CannotTranferToSelf && address.Equal(newOwner, bucket.Owner) {
 		// change to same owner, do nothing
 		return log, &handleError{
 			err:           errors.New("transfer to same owner"),
@@ -451,7 +451,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleDepositToStake, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleDepositToStake, featureCtx.NewStakingReceiptFormat)
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -474,7 +474,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, errCandNotExist
 	}
 
-	if featureCtx.CheckUnstaked && bucket.isUnstaked() {
+	if featureCtx.CannotUnstakeAgain && bucket.isUnstaked() {
 		return log, nil, &handleError{
 			err:           errors.New("deposit to an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -550,7 +550,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleRestake, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleRestake, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -568,7 +568,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		return log, errCandNotExist
 	}
 
-	if featureCtx.CheckUnstaked && bucket.isUnstaked() {
+	if featureCtx.CannotUnstakeAgain && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("restake an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -628,7 +628,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, featureCtx.NewStakingReceiptFormat)
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
@@ -737,7 +737,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 ) (*receiptLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, featureCtx.PostFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {

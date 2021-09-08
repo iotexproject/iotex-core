@@ -206,6 +206,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -307,6 +308,7 @@ func TestCreatePreStates(t *testing.T) {
 				Producer:    identityset.Address(1),
 			},
 		)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
 		bl := &vote.ProbationList{}
 		key := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
@@ -579,6 +581,7 @@ func TestNextCandidates(t *testing.T) {
 		IntensityRate: 50,
 	}
 	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList))
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	filteredCandidates, err := p.NextCandidates(ctx, sm)
 	require.NoError(err)
 	require.Equal(6, len(filteredCandidates))
@@ -627,6 +630,7 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	}
 	require.NoError(setNextEpochProbationList(sm, nil, 31, probationList))
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	delegates, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates))

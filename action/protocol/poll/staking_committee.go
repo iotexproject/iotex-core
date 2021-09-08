@@ -175,6 +175,7 @@ func (sc *stakingCommittee) Start(ctx context.Context, sr protocol.StateReader) 
 }
 
 func (sc *stakingCommittee) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	if psc, ok := sc.governanceStaking.(protocol.PreStatesCreator); ok {
 		return psc.CreatePreStates(ctx, sm)
 	}
@@ -183,10 +184,12 @@ func (sc *stakingCommittee) CreatePreStates(ctx context.Context, sm protocol.Sta
 }
 
 func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	ctx = protocol.WithFeatureCtx(ctx)
 	return createPostSystemActions(ctx, sr, sc)
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
 	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
 		return nil, err
@@ -195,6 +198,7 @@ func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm pr
 }
 
 func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return validate(ctx, sr, sc, act)
 }
 
@@ -211,11 +215,11 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 		return nil, err
 	}
 
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	// convert to epoch start height
-	if !g.IsCook(rp.GetEpochHeight(rp.GetEpochNum(height))) {
+	if !featureCtx.EnableNativeStaking(rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
 	// native staking using contract starts from Cook
@@ -225,7 +229,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 
 	// TODO: extract tip info inside of Votes function
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, g.IsDaytona(height))
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, featureCtx.StakingCorrectGas(height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
@@ -247,22 +251,27 @@ func (sc *stakingCommittee) CalculateUnproductiveDelegates(
 }
 
 func (sc *stakingCommittee) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return sc.governanceStaking.Delegates(ctx, sr)
 }
 
 func (sc *stakingCommittee) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return sc.governanceStaking.NextDelegates(ctx, sr)
 }
 
 func (sc *stakingCommittee) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return sc.governanceStaking.Candidates(ctx, sr)
 }
 
 func (sc *stakingCommittee) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return sc.governanceStaking.NextCandidates(ctx, sr)
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	return sc.governanceStaking.ReadState(ctx, sr, method, args...)
 }
 
@@ -320,11 +329,11 @@ func (sc *stakingCommittee) mergeCandidates(list state.CandidateList, votes *Vot
 func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *action.Receipt, err error) error {
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
-	if !g.IsCook(epochHeight) {
+	if !featureCtx.EnableNativeStaking(epochHeight) {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {

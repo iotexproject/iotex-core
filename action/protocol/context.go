@@ -74,29 +74,34 @@ type (
 
 	// FeatureCtx provides features information.
 	FeatureCtx struct {
-		DepositGasLast            bool
-		SystemWideActionGasLimit  bool
-		NotFixTopicCopyBug        bool
-		SetRevertMessageToReceipt bool
-		FixGetHashFnHeight        bool
-		UsePendingNonceOption     bool
-		AsyncContractTrie         bool
-		StoreOutOfGasToReceipt    bool
-		RefundAllDeposit          bool
-		AddChainIDToConfig        bool
-		UseV2Storage              bool
-		CheckUnstaked             bool
-		SkipStakingIndexer        bool
-		ReturnFetchError          bool
-		CanNotTranferToSelf       bool
-		PostFairbankMigration     bool
+		FixDoubleChargeGas          bool
+		SystemWideActionGasLimit    bool
+		NotFixTopicCopyBug          bool
+		SetRevertMessageToReceipt   bool
+		FixGetHashFnHeight          bool
+		UsePendingNonceOption       bool
+		AsyncContractTrie           bool
+		AddOutOfGasToTransactionLog bool
+		AddChainIDToConfig          bool
+		UseV2Storage                bool
+		CannotUnstakeAgain          bool
+		SkipStakingIndexer          bool
+		ReturnFetchError            bool
+		CannotTranferToSelf         bool
+		NewStakingReceiptFormat     bool
+		UpdateBlockMeta             bool
+		CurrentEpochProductivity    bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
 	FeatureWithHeightCtx struct {
 		GetUnproductiveDelegates CheckFunc
-		EnableSMStorage          CheckFunc
 		ReadStateFromDB          CheckFunc
+		UseV2Staking             CheckFunc
+		EnableNativeStaking      CheckFunc
+		StakingCorrectGas        CheckFunc
+		CalculateProbationList   CheckFunc
+		LoadCandidatesLegacy     CheckFunc
 	}
 )
 
@@ -191,22 +196,23 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 		ctx,
 		featureContextKey{},
 		FeatureCtx{
-			DepositGasLast:            g.IsPacific(height),
-			SystemWideActionGasLimit:  !g.IsAleutian(height),
-			NotFixTopicCopyBug:        !g.IsAleutian(height),
-			SetRevertMessageToReceipt: g.IsHawaii(height),
-			FixGetHashFnHeight:        g.IsHawaii(height),
-			UsePendingNonceOption:     g.IsHawaii(height),
-			AsyncContractTrie:         g.IsGreenland(height),
-			StoreOutOfGasToReceipt:    !g.IsGreenland(height),
-			RefundAllDeposit:          g.IsPacific(height),
-			AddChainIDToConfig:        g.IsIceland(height),
-			UseV2Storage:              g.IsGreenland(height),
-			CheckUnstaked:             g.IsGreenland(height),
-			SkipStakingIndexer:        !g.IsFairbank(height),
-			ReturnFetchError:          !g.IsGreenland(height),
-			CanNotTranferToSelf:       g.IsHawaii(height),
-			PostFairbankMigration:     g.IsFbkMigration(height),
+			FixDoubleChargeGas:          g.IsPacific(height),
+			SystemWideActionGasLimit:    !g.IsAleutian(height),
+			NotFixTopicCopyBug:          !g.IsAleutian(height),
+			SetRevertMessageToReceipt:   g.IsHawaii(height),
+			FixGetHashFnHeight:          g.IsHawaii(height),
+			UsePendingNonceOption:       g.IsHawaii(height),
+			AsyncContractTrie:           g.IsGreenland(height),
+			AddOutOfGasToTransactionLog: !g.IsGreenland(height),
+			AddChainIDToConfig:          g.IsIceland(height),
+			UseV2Storage:                g.IsGreenland(height),
+			CannotUnstakeAgain:          g.IsGreenland(height),
+			SkipStakingIndexer:          !g.IsFairbank(height),
+			ReturnFetchError:            !g.IsGreenland(height),
+			CannotTranferToSelf:         g.IsHawaii(height),
+			NewStakingReceiptFormat:     g.IsFbkMigration(height),
+			UpdateBlockMeta:             g.IsGreenland(height),
+			CurrentEpochProductivity:    g.IsGreenland(height),
 		},
 	)
 }
@@ -234,14 +240,26 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 		ctx,
 		featureWithHeightContextKey{},
 		FeatureWithHeightCtx{
-			GetUnproductiveDelegates: func(_height uint64) bool {
-				return !g.IsEaster(_height)
+			GetUnproductiveDelegates: func(height uint64) bool {
+				return !g.IsEaster(height)
 			},
-			EnableSMStorage: func(_height uint64) bool {
-				return g.IsGreenland(_height)
+			ReadStateFromDB: func(height uint64) bool {
+				return g.IsGreenland(height)
 			},
-			ReadStateFromDB: func(_height uint64) bool {
-				return g.IsGreenland(_height)
+			UseV2Staking: func(height uint64) bool {
+				return g.IsFairbank(height)
+			},
+			EnableNativeStaking: func(height uint64) bool {
+				return g.IsCook(height)
+			},
+			StakingCorrectGas: func(height uint64) bool {
+				return g.IsDaytona(height)
+			},
+			CalculateProbationList: func(height uint64) bool {
+				return g.IsEaster(height)
+			},
+			LoadCandidatesLegacy: func(height uint64) bool {
+				return !g.IsEaster(height)
 			},
 		},
 	)

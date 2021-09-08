@@ -453,6 +453,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
 	// Grant epoch reward
+	ctx = protocol.WithFeatureCtx(ctx)
 	rewardLogs, err := p.GrantEpochReward(ctx, sm)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(rewardLogs))

@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -70,6 +69,7 @@ func (sc *stakingCommand) Start(ctx context.Context, sr protocol.StateReader) (i
 }
 
 func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	if sc.useV2(ctx, sm) {
 		if p, ok := sc.stakingV2.(protocol.PreStatesCreator); ok {
 			return p.CreatePreStates(ctx, sm)
@@ -148,6 +148,7 @@ func (sc *stakingCommand) NextCandidates(ctx context.Context, sr protocol.StateR
 }
 
 func (sc *stakingCommand) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	if sc.useV2(ctx, sr) {
 		res, height, err := sc.stakingV2.ReadState(ctx, sr, method, args...)
 		if err != nil && sc.stakingV1 != nil {
@@ -174,6 +175,7 @@ func (sc *stakingCommand) Name() string {
 }
 
 func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bool {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
 		panic("failed to return out height from state reader")
@@ -182,8 +184,8 @@ func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bo
 }
 
 func (sc *stakingCommand) useV2ByHeight(ctx context.Context, height uint64) bool {
-	g := genesis.MustExtractGenesisContext(ctx)
-	if sc.stakingV1 == nil || g.IsFairbank(height) {
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	if sc.stakingV1 == nil || featureCtx.UseV2Staking(height) {
 		return true
 	}
 	return false

@@ -81,6 +81,7 @@ func TestCreateGenesisStates_WithLifeLong(t *testing.T) {
 	p, ctx, sm, err := initLifeLongDelegateProtocol(ctrl)
 	require.NoError(err)
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 }
 
@@ -91,6 +92,7 @@ func TestProtocol_Handle_WithLifeLong(t *testing.T) {
 	p, ctx, sm, err := initLifeLongDelegateProtocol(ctrl)
 	require.NoError(err)
 
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	receipt, error := p.Handle(ctx, nil, sm)
 	require.Nil(receipt)
 	require.NoError(error)
