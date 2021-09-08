@@ -602,44 +602,33 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 	return l
 }
 
-type chainCase1 struct {
-	testChainID uint32
-	success     int
-}
+func TestChainIDWithKamchatkaHeight(t *testing.T) {
 
-func TestChainIDWithJutland(t *testing.T) {
-
-	testCase := []chainCase1{
+	testCase := []struct {
+		chainID uint32
+		success bool
+	}{
 		{
-			1, 1, // tx chainID = node chainID, height < KamchatkaHeight
+			1, true, // tx chainID = node chainID, height < KamchatkaHeight
 		},
 		{
-			1, 1, // tx chainID = node chainID, height >= KamchatkaHeight
+			2, true, // tx chainID != node chainID, height < KamchatkaHeight
 		},
 		{
-			1, 1, // tx chainID != node chainID, height < KamchatkaHeight
+			1, true, // tx chainID = node chainID, height = KamchatkaHeight
 		},
 		{
-			1, 1, // tx chainID != node chainID, height < KamchatkaHeight
+			1, true, // tx chainID = node chainID, height > KamchatkaHeight
 		},
 		{
-			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
-		},
-		{
-			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
-		},
-		{
-			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
-		},
-		{
-			2, 0, // tx chainID != node chainID, height >= KamchatkaHeight
+			2, false, // tx chainID != node chainID, height > KamchatkaHeight
 		},
 	}
+
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
-	cfg.Chain.ID = 1
-	cfg.Genesis.KamchatkaBlockHeight = uint64(4)
+	cfg.Genesis.KamchatkaBlockHeight = uint64(3)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
@@ -670,7 +659,7 @@ func TestChainIDWithJutland(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp1 := bd.SetAction(tsf).
-			SetChainID(c.testChainID).
+			SetChainID(c.chainID).
 			SetNonce(uint64(i) + 1).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
@@ -683,8 +672,8 @@ func TestChainIDWithJutland(t *testing.T) {
 		require.NoError(t, err)
 		err = bc.CommitBlock(blk)
 		require.NoError(t, err)
-		require.Equal(t, c.success, len(blk.Actions))
-		require.Equal(t, c.success, len(blk.Receipts))
+		require.Equal(t, 1, len(blk.Actions))
+		require.Equal(t, c.success, len(blk.Receipts) == 1)
 	}
 
 }

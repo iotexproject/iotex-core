@@ -38,7 +38,6 @@ func TestClient(t *testing.T) {
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
 	ctx := context.Background()
-	cfg.Genesis.KamchatkaBlockHeight = 10
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
