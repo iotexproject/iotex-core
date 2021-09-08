@@ -197,6 +197,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	method []byte,
 	args ...[]byte,
 ) ([]byte, uint64, error) {
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	switch string(method) {
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
