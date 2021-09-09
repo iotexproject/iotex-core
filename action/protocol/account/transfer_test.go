@@ -59,6 +59,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		config.Default.Genesis,
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(reward.CreateGenesisStates(ctx, sm))
 
 	// initial deposit to alfa and charlie (as a contract)
