@@ -293,6 +293,7 @@ func testCandidates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	require.NoError(t, sf.Start(ctx))
 	defer require.NoError(t, sf.Stop(ctx))
 
@@ -304,14 +305,16 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
-		protocol.WithBlockCtx(
-			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-			protocol.BlockCtx{
-				BlockHeight: 1,
-				Producer:    identityset.Address(27),
-				GasLimit:    gasLimit,
-			},
-		),
+		protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+				protocol.BlockCtx{
+					BlockHeight: 1,
+					Producer:    identityset.Address(27),
+					GasLimit:    gasLimit,
+				},
+			),
+		)),
 		&blk,
 	))
 
@@ -1028,6 +1031,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 		genesis.WithGenesisContext(ctx, genesis.Default),
 		protocol.BlockchainCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
