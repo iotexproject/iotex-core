@@ -78,6 +78,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
@@ -186,6 +187,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.EqualError(test.err, errors.Cause(err).Error())
 			continue
 		}
+		ctx = protocol.WithFeatureCtx(ctx)
 		r, err := p.Handle(ctx, act, sm)
 		require.NoError(err)
 		require.Equal(uint64(test.status), r.Status)
@@ -530,6 +532,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 		if test.err != nil {
 			continue
@@ -831,6 +834,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			GasLimit:       test.blkGasLimit,
 		})
 		ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Handle(ctx, act, sm)
 		require.NoError(err)
 
@@ -1076,6 +1080,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			blkCtx.BlockTimeStamp = test.ctxTimestamp
 			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 		}
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		var r *action.Receipt
 		if test.clear {
 			csm, err := NewCandidateStateManager(sm, false)
@@ -1084,7 +1089,6 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.True(ok)
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
-			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
@@ -1171,6 +1175,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
 		}
 		ctx = genesis.WithGenesisContext(ctx, greenland)
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		_, err = p.Start(ctx, sm)
 		require.NoError(err)
 		r, err := p.Handle(ctx, v.act, sm)
@@ -1583,6 +1588,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		var r *action.Receipt
 		if test.clear {
 			csm, err := NewCandidateStateManager(sm, false)
@@ -1592,7 +1598,6 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			cc := sc.candCenter.GetBySelfStakingIndex(test.index)
 			sc.candCenter.deleteForTestOnly(cc.Owner)
 			require.False(csm.ContainsOwner(cc.Owner))
-			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
@@ -1800,6 +1805,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 		r, err := p.Handle(ctx, act, sm)
 		require.Equal(test.err, errors.Cause(err))
 		if r != nil {
@@ -2588,6 +2594,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		GasLimit:       blkGasLimit,
 	})
 	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
@@ -2622,6 +2629,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(putCandidate(sm, candidate2))
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)

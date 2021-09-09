@@ -73,7 +73,6 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	sm protocol.StateManager,
 ) (err error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	if blkCtx.BlockHeight != 0 {
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
@@ -105,12 +104,10 @@ func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.C
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	return p.sh.CreatePreStates(ctx, sm, p.indexer)
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return handle(ctx, act, sm, p.indexer, p.addr.String())
 }
 
@@ -200,7 +197,6 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	method []byte,
 	args ...[]byte,
 ) ([]byte, uint64, error) {
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	switch string(method) {
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {

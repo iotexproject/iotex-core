@@ -62,7 +62,6 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	ctx = protocol.WithFeatureCtx(ctx)
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil, nil

@@ -60,7 +60,6 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Creating genesis states for lifelong delegates protocol")
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	return setCandidates(ctx, sm, nil, p.delegates, uint64(1))
 }
 

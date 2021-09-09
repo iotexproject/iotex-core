@@ -356,7 +356,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		}
 	}
 
-	return genesis.WithGenesisContext(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
@@ -364,7 +364,8 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 			},
 		),
 		bc.config.Genesis,
-	), nil
+	)
+	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
@@ -382,6 +383,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(

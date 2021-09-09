@@ -132,7 +132,7 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	featureCtx := protocol.MustGetFeatureWithHeightCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
@@ -211,8 +211,8 @@ func (p *Protocol) CreateGenesisStates(
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	featureCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(ctx))
-	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(protocol.WithFeatureWithHeightCtx(ctx))
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
@@ -271,7 +271,6 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
@@ -288,7 +287,6 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
@@ -396,7 +394,6 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
-	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	m := iotexapi.ReadStakingDataMethod{}
 	if err := proto.Unmarshal(method, &m); err != nil {
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal method name")

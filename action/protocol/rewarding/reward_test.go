@@ -410,6 +410,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))

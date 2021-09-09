@@ -259,8 +259,8 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	beforeEaster := !featureWithHeightCtx.CalculateProbationList(targetEpochStartHeight)
-	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, beforeEaster, readFromNext)
+	calculate := !featureWithHeightCtx.CalculateProbationList(targetEpochStartHeight)
+	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, calculate, readFromNext)
 	if err != nil {
 		return nil, uint64(0), errors.Wrapf(err, "failed to get candidates at height %d", targetEpochStartHeight)
 	}
@@ -268,7 +268,7 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 	if rp.GetEpochNum(targetEpochStartHeight) < rp.GetEpochNum(stateHeight) {
 		return nil, uint64(0), errors.Wrap(ErrInconsistentHeight, "state factory epoch number became larger than target epoch number")
 	}
-	if beforeEaster {
+	if calculate {
 		return candidates, stateHeight, nil
 	}
 	// After Easter height, probation unqualified delegates based on productivity

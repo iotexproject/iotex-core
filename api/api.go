@@ -968,6 +968,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 		protocol.WithRegistry(ctx, api.registry),
 		api.cfg.Genesis,
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {

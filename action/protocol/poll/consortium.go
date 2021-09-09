@@ -124,7 +124,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
-	ctx = protocol.WithFeatureCtx(ctx)
+
 	// deploy consortiumCommittee contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,

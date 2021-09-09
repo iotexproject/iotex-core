@@ -119,6 +119,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		require.NoError(err)
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
+		ctx = protocol.WithFeatureCtx(ctx)
 		receipt, err := p.Handle(ctx, tsf, sm)
 		require.Equal(v.err, errors.Cause(err))
 		if err != nil {

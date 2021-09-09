@@ -119,8 +119,8 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
-	LoadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(nextEpochHeight)
-	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, LoadCandidatesLegacy, true); errors.Cause(err) != state.ErrStateNotExist {
+	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(nextEpochHeight)
+	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, loadCandidatesLegacy, true); errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
 	log.L().Debug(
