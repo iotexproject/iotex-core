@@ -672,7 +672,7 @@ func TestChainIDWithKamchatkaHeight(t *testing.T) {
 		require.NoError(t, err)
 		err = bc.CommitBlock(blk)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(blk.Actions))
+		require.Equal(t, c.success, len(blk.Actions) == 1)
 		require.Equal(t, c.success, len(blk.Receipts) == 1)
 	}
 
