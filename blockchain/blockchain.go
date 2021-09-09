@@ -321,6 +321,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			Producer:       producerAddr,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	if bc.blockValidator == nil {
 		return nil
 	}

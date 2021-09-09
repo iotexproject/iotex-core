@@ -533,6 +533,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {
