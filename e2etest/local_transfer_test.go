@@ -372,15 +372,11 @@ func TestLocalTransfer(t *testing.T) {
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc, sf)
 		require.NoError(err, tsfTest.message)
-		senderAddress, err := address.FromString(senderAddr)
-		require.NoError(err)
 
 		_, recvAddr, err := initStateKeyAddr(tsfTest.recvAcntState, tsfTest.recvPriKey, tsfTest.recvBalance, bc, sf)
 		require.NoError(err, tsfTest.message)
-		recvAddress, err := address.FromString(recvAddr)
-		require.NoError(err)
 
-		tsf, err := action.SignedTransfer(recvAddr, senderPriKey, tsfTest.nonce, tsfTest.amount,
+		tsf, err := action.SignedTransfer(recvAddr.String(), senderPriKey, tsfTest.nonce, tsfTest.amount,
 			tsfTest.payload, tsfTest.gasLimit, tsfTest.gasPrice)
 		require.NoError(err, tsfTest.message)
 
@@ -413,7 +409,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
-			newSenderState, _ := accountutil.AccountState(sf, senderAddress)
+			newSenderState, _ := accountutil.AccountState(sf, senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -423,7 +419,7 @@ func TestLocalTransfer(t *testing.T) {
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
 			require.Equal(expectedSenderBalance.String(), newSenderState.Balance.String(), tsfTest.message)
 
-			newRecvState, err := accountutil.AccountState(sf, recvAddress)
+			newRecvState, err := accountutil.AccountState(sf, recvAddr)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -468,7 +464,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderState, _ := accountutil.AccountState(sf, senderAddress)
+				newSenderState, _ := accountutil.AccountState(sf, senderAddr)
 				require.Equal(tsfTest.senderBalance.String(), newSenderState.Balance.String())
 			}
 
@@ -506,7 +502,7 @@ func TestLocalTransfer(t *testing.T) {
 
 // initStateKeyAddr, if the given private key is nil,
 // creates key, address, and init the new account with given balance
-// otherwise, calculate the the address, and load test with existing
+// otherwise, calculate the address, and load test with existing
 // balance state.
 func initStateKeyAddr(
 	accountState AccountState,
@@ -514,37 +510,38 @@ func initStateKeyAddr(
 	initBalance *big.Int,
 	bc blockchain.Blockchain,
 	sf factory.Factory,
-) (crypto.PrivateKey, string, error) {
+) (crypto.PrivateKey, address.Address, error) {
 	retKey := privateKey
-	retAddr := ""
+	var retAddr address.Address
 	switch accountState {
 	case AcntCreate:
 		addr := retKey.PublicKey().Address()
 		if addr == nil {
-			return nil, "", errors.New("failed to get address")
+			return nil, nil, errors.New("failed to get address")
 		}
-		retAddr = addr.String()
+		retAddr = addr
+
 	case AcntExist:
 		addr := retKey.PublicKey().Address()
 		if addr == nil {
-			return nil, "", errors.New("failed to get address")
+			return nil, nil, errors.New("failed to get address")
 		}
+		retAddr = addr
 		existState, err := accountutil.AccountState(sf, addr)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 		initBalance.Set(existState.Balance)
-		retAddr = addr.String()
 	case AcntNotRegistered:
 		sk, err := crypto.GenerateKey()
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 		addr := sk.PublicKey().Address()
 		if addr == nil {
-			return nil, "", errors.New("failed to get address")
+			return nil, nil, errors.New("failed to get address")
 		}
-		retAddr = addr.String()
+		retAddr = addr
 		retKey = sk
 	case AcntBadAddr:
 		rand.Seed(time.Now().UnixNano())
@@ -552,7 +549,11 @@ func initStateKeyAddr(
 		for i := range b {
 			b[i] = byte(65 + rand.Intn(26))
 		}
-		retAddr = string(b)
+		addr, err := address.FromString(string(b))
+		if err != nil {
+			return nil, nil, errors.New("failed to get address")
+		}
+		retAddr = addr
 	}
 	return retKey, retAddr, nil
 }
