@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"container/heap"
-	"github.com/iotexproject/iotex-address/address"
 	"go.uber.org/zap"
 	"math/big"
 	"sort"
@@ -17,6 +16,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"

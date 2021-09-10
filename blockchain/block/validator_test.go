@@ -8,13 +8,14 @@ package block
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-address/address"
 	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
