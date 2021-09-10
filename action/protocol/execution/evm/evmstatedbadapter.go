@@ -62,6 +62,8 @@ type (
 		suicideSnapshot     map[int]deleteAccount // snapshots of suicide accounts
 		preimages           preimageMap
 		preimageSnapshot    map[int]preimageMap
+		accessList          *accessList // Per-transaction access list
+		accessListSnapshot  map[int]*accessList
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
 		sortCachedContracts bool
@@ -109,6 +111,8 @@ func NewStateDBAdapter(
 		suicideSnapshot:    make(map[int]deleteAccount),
 		preimages:          make(preimageMap),
 		preimageSnapshot:   make(map[int]preimageMap),
+		accessList:         newAccessList(),
+		accessListSnapshot: make(map[int]*accessList),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 		asyncContractTrie:  asyncContractTrie,
 	}
@@ -371,6 +375,54 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	return true
 }
 
+// PrepareAccessList handles the preparatory steps for executing a state transition with
+// regards to both EIP-2929 and EIP-2930:
+//
+// - Add sender to access list (2929)
+// - Add destination to access list (2929)
+// - Add precompiles to access list (2929)
+// - Add the contents of the optional tx access list (2930)
+//
+// This method should only be called if Berlin/2929+2930 is applicable at the current number.
+func (stateDB *StateDBAdapter) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	stateDB.AddAddressToAccessList(sender)
+	if dst != nil {
+		stateDB.AddAddressToAccessList(*dst)
+		// If it's a create-tx, the destination will be added inside evm.create
+	}
+	for _, addr := range precompiles {
+		stateDB.AddAddressToAccessList(addr)
+	}
+	for _, el := range list {
+		stateDB.AddAddressToAccessList(el.Address)
+		for _, key := range el.StorageKeys {
+			stateDB.AddSlotToAccessList(el.Address, key)
+		}
+	}
+}
+
+// AddressInAccessList returns true if the given address is in the access list
+func (stateDB *StateDBAdapter) AddressInAccessList(addr common.Address) bool {
+	return stateDB.accessList.ContainsAddress(addr)
+}
+
+// SlotInAccessList returns true if the given (address, slot)-tuple is in the access list
+func (stateDB *StateDBAdapter) SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool) {
+	return stateDB.accessList.Contains(addr, slot)
+}
+
+// AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
+// even if the feature/fork is not active yet
+func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {
+	stateDB.accessList.AddAddress(addr)
+}
+
+// AddSlotToAccessList adds the given (address,slot) to the access list. This operation is safe to perform
+// even if the feature/fork is not active yet
+func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {
+	stateDB.accessList.AddSlot(addr, slot)
+}
+
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	addr, err := address.FromBytes(evmAddr.Bytes())
@@ -409,25 +461,19 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore modified contracts
 	stateDB.cachedContract = nil
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
-	if stateDB.sortCachedContracts {
-		for _, addr := range stateDB.cachedContractAddrs() {
-			c := stateDB.cachedContract[addr]
-			if err := c.LoadRoot(); err != nil {
-				log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
-				return
-			}
-		}
-	} else {
-		for addr, c := range stateDB.cachedContract {
-			if err := c.LoadRoot(); err != nil {
-				log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
-				return
-			}
+	for _, addr := range stateDB.cachedContractAddrs() {
+		c := stateDB.cachedContract[addr]
+		if err := c.LoadRoot(); err != nil {
+			log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+			return
 		}
 	}
 	// restore preimages
 	stateDB.preimages = nil
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
+	// restore access list
+	stateDB.accessList = nil
+	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -435,7 +481,9 @@ func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
 	for addr := range stateDB.cachedContract {
 		addrs = append(addrs, addr)
 	}
-	sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
+	if stateDB.sortCachedContracts {
+		sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
+	}
 	return addrs
 }
 
@@ -456,14 +504,8 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	stateDB.suicideSnapshot[sn] = sa
 	// save a copy of modified contracts
 	c := make(contractMap)
-	if stateDB.sortCachedContracts {
-		for _, addr := range stateDB.cachedContractAddrs() {
-			c[addr] = stateDB.cachedContract[addr].Snapshot()
-		}
-	} else {
-		for addr := range stateDB.cachedContract {
-			c[addr] = stateDB.cachedContract[addr].Snapshot()
-		}
+	for _, addr := range stateDB.cachedContractAddrs() {
+		c[addr] = stateDB.cachedContract[addr].Snapshot()
 	}
 	stateDB.contractSnapshot[sn] = c
 	// save a copy of preimages
@@ -472,6 +514,8 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		p[k] = v
 	}
 	stateDB.preimageSnapshot[sn] = p
+	// save a copy of access list
+	stateDB.accessListSnapshot[sn] = stateDB.accessList.Copy()
 	return sn
 }
 
@@ -806,10 +850,14 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.suicideSnapshot = nil
 	stateDB.preimages = nil
 	stateDB.preimageSnapshot = nil
+	stateDB.accessList = nil
+	stateDB.accessListSnapshot = nil
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
 	stateDB.suicideSnapshot = make(map[int]deleteAccount)
 	stateDB.preimages = make(preimageMap)
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
+	stateDB.accessList = newAccessList()
+	stateDB.accessListSnapshot = make(map[int]*accessList)
 }
