@@ -421,6 +421,13 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
+// SendAction is the API to send an action to blockchain.
+func (api *Server) ChainID(ctx context.Context, in *iotexapi.ChainIDRequest) (*iotexapi.ChainIDResponse, error) {
+	return &iotexapi.ChainIDResponse{
+		ChainID: api.bc.ChainID(),
+	}, nil
+}
+
 // GetReceiptByAction gets receipt with corresponding action hash
 func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error) {
 	if !api.hasActionIndex || api.indexer == nil {

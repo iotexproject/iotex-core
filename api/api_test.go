@@ -1403,6 +1403,21 @@ func TestServer_GetServerMeta(t *testing.T) {
 	require.Equal(res.PackageVersion, version.PackageVersion)
 }
 
+func TestServer_GetChainID(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	res, err := svr.ChainID(context.Background(), &iotexapi.ChainIDRequest{})
+	require.NoError(err)
+	require.Equal(res.GetChainID(), uint32(1))
+}
+
 func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
