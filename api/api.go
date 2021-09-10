@@ -421,7 +421,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
-// SendAction is the API to send an action to blockchain.
+// ChainID is the API to get the chainID.
 func (api *Server) ChainID(ctx context.Context, in *iotexapi.ChainIDRequest) (*iotexapi.ChainIDResponse, error) {
 	return &iotexapi.ChainIDResponse{
 		ChainID: api.bc.ChainID(),
