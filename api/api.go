@@ -453,18 +453,18 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
-	addr, err := address.FromString(in.CallerAddress)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	state, err := accountutil.AccountState(api.sf, addr)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
 	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	state, err := accountutil.AccountState(api.sf, callerAddr)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	//callerAddr, err := address.FromString(in.CallerAddress)
+	//if err != nil {
+	//	return nil, status.Error(codes.InvalidArgument, err.Error())
+	//}
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err

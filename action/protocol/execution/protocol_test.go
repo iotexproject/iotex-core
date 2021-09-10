@@ -265,20 +265,16 @@ func runExecutions(
 		log.S().Info(ecfg.Comment)
 		var nonce uint64
 		var ok bool
-		executor := ecfg.Executor().String()
-		if nonce, ok = nonces[executor]; !ok {
-			executorAddr, err := address.FromString(executor)
-			if err != nil {
-				return nil, err
-			}
-			state, err := accountutil.AccountState(sf, executorAddr)
+		executor := ecfg.Executor()
+		if nonce, ok = nonces[executor.String()]; !ok {
+			state, err := accountutil.AccountState(sf, executor)
 			if err != nil {
 				return nil, err
 			}
 			nonce = state.Nonce
 		}
 		nonce = nonce + 1
-		nonces[executor] = nonce
+		nonces[executor.String()] = nonce
 		exec, err := action.NewExecution(
 			contractAddrs[i],
 			nonce,

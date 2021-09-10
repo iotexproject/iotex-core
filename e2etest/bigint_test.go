@@ -8,12 +8,13 @@ package e2etest
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-address/address"
 	"math/big"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"

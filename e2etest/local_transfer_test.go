@@ -9,7 +9,6 @@ package e2etest
 import (
 	"context"
 	"fmt"
-	"github.com/iotexproject/iotex-address/address"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -24,6 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
