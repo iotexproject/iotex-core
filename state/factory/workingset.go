@@ -8,7 +8,6 @@ package factory
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-address/address"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -16,8 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
