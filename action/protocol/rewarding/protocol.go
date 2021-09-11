@@ -71,11 +71,14 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 // verify that foundation bonus extension epochs are in increasing order
 func validateFoundationBonusExtension(cfg genesis.Rewarding) error {
 	end := cfg.FoundationBonusLastEpoch
-	if cfg.FoundationBonusP2StartEpoch < end || cfg.FoundationBonusP2EndEpoch < cfg.FoundationBonusP2StartEpoch {
-		return errInvalidEpoch
+	hasP2Extension := (cfg.FoundationBonusP2StartEpoch > 0 || cfg.FoundationBonusP2EndEpoch > 0)
+	if hasP2Extension {
+		if cfg.FoundationBonusP2StartEpoch < end || cfg.FoundationBonusP2EndEpoch < cfg.FoundationBonusP2StartEpoch {
+			return errInvalidEpoch
+		}
+		end = cfg.FoundationBonusP2EndEpoch
 	}
 
-	end = cfg.FoundationBonusP2EndEpoch
 	for _, v := range cfg.FoundationBonusExtension {
 		if v.Start < end || v.End < v.Start {
 			return errInvalidEpoch
@@ -148,12 +151,35 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 		return err
 	}
 
-	a.foundationBonusExtension = append(a.foundationBonusExtension,
-		genesis.Period{p.cfg.FoundationBonusP2StartEpoch, p.cfg.FoundationBonusP2EndEpoch})
-	for _, v := range p.cfg.FoundationBonusExtension {
-		a.foundationBonusExtension = append(a.foundationBonusExtension,
-			genesis.Period{v.Start, v.End})
+	hasP2Extension := (p.cfg.FoundationBonusP2StartEpoch > 0 || p.cfg.FoundationBonusP2EndEpoch > 0)
+	if !a.hasFoundationBonusExtension() {
+		if hasP2Extension {
+			a.foundationBonusExtension = append(a.foundationBonusExtension,
+				genesis.Period{p.cfg.FoundationBonusP2StartEpoch, p.cfg.FoundationBonusP2EndEpoch})
+		}
+		for _, v := range p.cfg.FoundationBonusExtension {
+			a.foundationBonusExtension = append(a.foundationBonusExtension,
+				genesis.Period{v.Start, v.End})
+		}
+		return p.putState(ctx, sm, adminKey, &a)
 	}
+
+	// add the last/new foundation bonus extension period to admin
+	adminExtension := len(a.foundationBonusExtension)
+	configExtension := len(p.cfg.FoundationBonusExtension)
+	if hasP2Extension {
+		configExtension++
+	}
+	if configExtension != adminExtension+1 {
+		return errInvalidEpoch
+	}
+
+	last := len(p.cfg.FoundationBonusExtension) - 1
+	if p.cfg.FoundationBonusExtension[last].Start < a.foundationBonusExtension[adminExtension-1].End {
+		return errInvalidEpoch
+	}
+	a.foundationBonusExtension = append(a.foundationBonusExtension,
+		genesis.Period{p.cfg.FoundationBonusExtension[last].Start, p.cfg.FoundationBonusExtension[last].End})
 	return p.putState(ctx, sm, adminKey, &a)
 }
 

@@ -566,14 +566,24 @@ func TestMigrateValue(t *testing.T) {
 		r.NoError(err)
 		r.Equal(e1, e)
 
-		for _, h := range []uint64{
-			g.GreenlandBlockHeight,
-			g.KamchatkaBlockHeight,
+		for i, v := range []struct {
+			height uint64
+			err    error
+		}{
+			{g.GreenlandBlockHeight, nil},
+			{g.KamchatkaBlockHeight, nil},
+			{g.KamchatkaBlockHeight, errInvalidEpoch},
+			{g.KamchatkaBlockHeight, errInvalidEpoch},
 		} {
+			if i == 3 {
+				// test wrong vale (start < end)
+				p.cfg.FoundationBonusExtension = append(p.cfg.FoundationBonusExtension,
+					genesis.Period{18440, 20000})
+			}
 			blkCtx := protocol.MustGetBlockCtx(ctx)
-			blkCtx.BlockHeight = h
+			blkCtx.BlockHeight = v.height
 			fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, blkCtx))
-			r.NoError(p.CreatePreStates(fCtx, sm))
+			r.Equal(v.err, p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
 			_, err = p.stateV1(sm, adminKey, &a)
@@ -593,7 +603,7 @@ func TestMigrateValue(t *testing.T) {
 			r.NoError(err)
 			r.Equal(e1, e)
 
-			switch h {
+			switch v.height {
 			case g.GreenlandBlockHeight:
 				r.False(a.hasFoundationBonusExtension())
 				r.Equal(a1, a)
@@ -606,6 +616,8 @@ func TestMigrateValue(t *testing.T) {
 				r.Equal(a.foundationBonusExtension[1:], g.FoundationBonusExtension)
 				a.foundationBonusExtension = nil
 				r.Equal(a1, a)
+				// test migrate with no data
+				r.NoError(p.migrateValueGreenland(ctx, sm))
 			}
 		}
 
