@@ -1553,6 +1553,10 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
+	// 21000 is min tx gas defined in geth
+	if estimatedGas < 21000 {
+		estimatedGas = 21000
+	}
 	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

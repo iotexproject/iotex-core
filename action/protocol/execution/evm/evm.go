@@ -291,7 +291,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_ErrOutOfGas), nil
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
