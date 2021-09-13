@@ -872,6 +872,10 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("self-destruct", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/self-destruct.json")
 	})
+	// datacopy
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/datacopy.json")
+	})
 }
 
 func TestMaxTime(t *testing.T) {
@@ -955,6 +959,9 @@ func TestIstanbulEVM(t *testing.T) {
 	})
 	t.Run("self-destruct", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/self-destruct.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
 	})
 }
 
