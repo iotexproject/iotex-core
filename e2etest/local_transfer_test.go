@@ -26,10 +26,16 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -594,4 +600,80 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
+}
+
+func TestChainIDWithKamchatkaHeight(t *testing.T) {
+
+	testCase := []struct {
+		chainID uint32
+		success bool
+	}{
+		{
+			1, true, // tx chainID = node chainID, height < KamchatkaHeight
+		},
+		{
+			2, true, // tx chainID != node chainID, height < KamchatkaHeight
+		},
+		{
+			1, true, // tx chainID = node chainID, height = KamchatkaHeight
+		},
+		{
+			1, true, // tx chainID = node chainID, height > KamchatkaHeight
+		},
+		{
+			2, false, // tx chainID != node chainID, height > KamchatkaHeight
+		},
+	}
+
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Genesis.KamchatkaBlockHeight = uint64(3)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, acc.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	require.NoError(t, err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(t, err)
+	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(
+		cfg,
+		blkMemDao,
+		factory.NewMinter(sf, ap),
+	)
+	require.NoError(t, bc.Start(ctx))
+
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
+	for i, c := range testCase {
+		tsf, err := action.NewTransfer(
+			uint64(i)+1,
+			big.NewInt(100),
+			identityset.Address(27).String(),
+			[]byte{}, uint64(100000),
+			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
+		)
+		require.NoError(t, err)
+
+		bd := &action.EnvelopeBuilder{}
+		elp1 := bd.SetAction(tsf).
+			SetChainID(c.chainID).
+			SetNonce(uint64(i) + 1).
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
+		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
+		require.NoError(t, err)
+
+		err = ap.Add(context.Background(), selp1)
+		require.NoError(t, err)
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		require.NoError(t, err)
+		err = bc.CommitBlock(blk)
+		require.NoError(t, err)
+		require.Equal(t, c.success, len(blk.Actions) == 1)
+		require.Equal(t, c.success, len(blk.Receipts) == 1)
+	}
+
 }
