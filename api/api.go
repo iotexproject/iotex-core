@@ -436,24 +436,26 @@ func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetRecei
 }
 
 // ReadContract reads the state in a contract address specified by the slot
-func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRequest) (*iotexapi.ReadContractResponse, error) {
+func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRequest) (res *iotexapi.ReadContractResponse, err error) {
 	log.L().Debug("receive read smart contract request")
 
 	sc := &action.Execution{}
-	if err := sc.LoadProto(in.Execution); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	if err = sc.LoadProto(in.Execution); err != nil {
+		err = status.Error(codes.InvalidArgument, err.Error())
+		return
 	}
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
 	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		err = status.Error(codes.InvalidArgument, err.Error())
+		return
 	}
 	callerAddr, _ := address.FromString(in.CallerAddress)
 	ctx, err = api.bc.Context(ctx)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	gasLimit := api.cfg.Genesis.BlockGasLimit
@@ -474,18 +476,21 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 			log.L().Error("recover", zap.String("contract", sc.Contract()))
 			log.L().Error("recover", zap.String("amount", sc.Amount().String()))
 			log.L().Error("recover", log.Hex("data", sc.Data()))
+			err = errors.New("failed to read contract")
 		}
 	}()
 	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		err = status.Error(codes.Internal, err.Error())
+		return
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	return &iotexapi.ReadContractResponse{
+	res = &iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
-	}, nil
+	}
+	return
 }
 
 // ReadState reads state on blockchain
@@ -1576,7 +1581,7 @@ func (api *Server) isGasLimitEnough(
 	sc *action.Execution,
 	nonce uint64,
 	gasLimit uint64,
-) (bool, *action.Receipt, error) {
+) (enough bool, receipt *action.Receipt, err error) {
 	sc, _ = action.NewExecution(
 		sc.Contract(),
 		nonce,
@@ -1587,7 +1592,7 @@ func (api *Server) isGasLimitEnough(
 	)
 	ctx, err := api.bc.Context(context.Background())
 	if err != nil {
-		return false, nil, err
+		return
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -1595,13 +1600,15 @@ func (api *Server) isGasLimitEnough(
 			log.L().Error("recover", zap.String("contract", sc.Contract()))
 			log.L().Error("recover", zap.String("amount", sc.Amount().String()))
 			log.L().Error("recover", log.Hex("data", sc.Data()))
+			err = errors.New("failed to estimate gas")
 		}
 	}()
-	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
+	_, receipt, err = api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
-		return false, nil, err
+		return
 	}
-	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), receipt, nil
+	enough = receipt.Status == uint64(iotextypes.ReceiptStatus_Success)
+	return
 }
 
 func (api *Server) getProductivityByEpoch(
