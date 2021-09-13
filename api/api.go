@@ -270,7 +270,8 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if tipHeight == 0 {
 		return &iotexapi.GetChainMetaResponse{
 			ChainMeta: &iotextypes.ChainMeta{
-				Epoch: &iotextypes.EpochData{},
+				Epoch:   &iotextypes.EpochData{},
+				ChainID: api.bc.ChainID(),
 			},
 		}, nil
 	}
@@ -279,7 +280,8 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		syncStatus = api.bs.SyncStatus()
 	}
 	chainMeta := &iotextypes.ChainMeta{
-		Height: tipHeight,
+		Height:  tipHeight,
+		ChainID: api.bc.ChainID(),
 	}
 	if api.indexer == nil {
 		return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil

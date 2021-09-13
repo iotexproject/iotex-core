@@ -26,6 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
@@ -73,13 +74,6 @@ var (
 var ActionCmd = &cobra.Command{
 	Use:   config.TranslateInLang(actionCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
-}
-
-var mapChainID = map[string]uint32{
-	"api.iotex.one":                   1,
-	"api.mainnet.iotex.one":           1,
-	"api.testnet.iotex.one":           2,
-	"api.nightly-cluster-2.iotex.one": 3,
 }
 
 type sendMessage struct {
@@ -318,6 +312,12 @@ func SendAction(elp action.Envelope, signer string) error {
 		return err
 	}
 
+	chainMeta, err := bc.GetChainMeta()
+	if err != nil {
+		return output.NewError(0, "failed to get chain meta", err)
+	}
+	elp.SetChainID(chainMeta.GetChainID())
+
 	if util.AliasIsHdwalletKey(signer) {
 		addr := prvKey.PublicKey().Address()
 		signer = addr.String()
@@ -390,7 +390,6 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	}
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
-			SetChainID(getChainID()).
 			SetNonce(nonce).
 			SetGasPrice(gasPriceRau).
 			SetGasLimit(gasLimit).
@@ -455,17 +454,4 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 		return output.NewError(output.ValidationError, "balance is not enough", nil)
 	}
 	return nil
-}
-
-// getChainID returns the user input chainID
-func getChainID() uint32 {
-	var chainID uint32
-	endpoint := config.ReadConfig.Endpoint
-	for k, v := range mapChainID {
-		if strings.Contains(endpoint, k) {
-			chainID = v
-			break
-		}
-	}
-	return chainID
 }
