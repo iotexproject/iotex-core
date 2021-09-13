@@ -16,6 +16,7 @@ const (
 	id          = 1
 )
 
+// Option the tracer provider option
 type Option func(ops *optionParams) error
 
 type optionParams struct {
@@ -39,6 +40,7 @@ func WithInstanceID(instanceID string) Option {
 	}
 }
 
+// NewProvider create an instance of tracer provider
 func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 	var (
 		err                           error
