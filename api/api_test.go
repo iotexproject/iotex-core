@@ -2794,5 +2794,5 @@ func TestServer_GetEstimateGasSpecial(t *testing.T) {
 	}
 	res, err := svr.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
-	require.Equal(uint64(21000), res.Gas)
+	require.Equal(uint64(10777), res.Gas)
 }
