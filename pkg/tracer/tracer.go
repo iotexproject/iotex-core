@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	service     = "iotex-server"
-	environment = "production"
-	id          = 1
+	service = "iotex-server"
 )
 
 // Option the tracer provider option
