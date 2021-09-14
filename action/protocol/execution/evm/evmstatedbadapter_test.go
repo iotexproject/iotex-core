@@ -93,7 +93,7 @@ func TestAddBalance(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)
@@ -109,7 +109,7 @@ func TestRefundAPIs(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -123,7 +123,7 @@ func TestEmptyAndCode(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -139,7 +139,7 @@ func TestForEachStorage(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -174,20 +174,20 @@ func TestNonce(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(cfg config.Config, t *testing.T) {
+	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, 1, true, async, true, hash.ZeroHash256)
 		tests := []stateDBTest{
 			{
 				[]bal{
@@ -377,9 +377,13 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
 	}
 
-	t.Run("contract snapshot/revert/commit with in memery DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit with in memory DB", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t)
+		testSnapshotAndRevert(cfg, t, false)
+	})
+	t.Run("contract snapshot/revert/commit with async trie in memory DB", func(t *testing.T) {
+		cfg := config.Default
+		testSnapshotAndRevert(cfg, t, true)
 	})
 }
 
@@ -390,7 +394,7 @@ func TestGetCommittedState(t *testing.T) {
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
 		// k2 does not exist
@@ -422,7 +426,7 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -434,7 +438,7 @@ func TestPreimage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
@@ -466,7 +470,7 @@ func TestSortMap(t *testing.T) {
 	}
 
 	testFunc := func(t *testing.T, sm *mock_chainmanager.MockStateManager, opts ...StateDBAdapterOption) bool {
-		stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256, opts...)
+		stateDB := NewStateDBAdapter(sm, 1, true, false, true, hash.ZeroHash256, opts...)
 		size := 10
 
 		for i := 0; i < size; i++ {
