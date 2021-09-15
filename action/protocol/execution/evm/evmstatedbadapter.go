@@ -681,7 +681,7 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 	}
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.L().Error("Failed to get committed state.", zap.Error(err))
+		log.L().Debug("Failed to get committed state.", zap.Error(err))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
