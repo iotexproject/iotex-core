@@ -14,7 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -60,13 +59,13 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 		}).AnyTimes()
 
 	addrv1 := identityset.Address(27)
-	s, err := accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
+	s, err := accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
 	require.Equal(s.Balance, state.EmptyAccount().Balance)
 
 	// create account
 	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
-	s, err = accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
+	s, err = accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
 	require.Equal("5", s.Balance.String())
 	require.Equal(uint64(0x0), s.Nonce)
@@ -128,7 +127,7 @@ func TestProtocol_Initialize(t *testing.T) {
 	)
 
 	require.Error(createAccount(sm, identityset.Address(0).String(), big.NewInt(0)))
-	acc0, err := accountutil.LoadAccount(sm, hash.BytesToHash160(identityset.Address(0).Bytes()))
+	acc0, err := accountutil.LoadAccount(sm, identityset.Address(0))
 	require.NoError(err)
 	require.Equal(big.NewInt(100), acc0.Balance)
 }

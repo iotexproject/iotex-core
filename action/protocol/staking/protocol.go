@@ -493,7 +493,7 @@ func (p *Protocol) settleAction(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return nil, err
 	}
