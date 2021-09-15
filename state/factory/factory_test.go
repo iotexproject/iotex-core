@@ -306,12 +306,17 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
-		protocol.WithBlockCtx(
-			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-			protocol.BlockCtx{
-				BlockHeight: 1,
-				Producer:    identityset.Address(27),
-				GasLimit:    gasLimit,
+		protocol.WithBlockchainCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+				protocol.BlockCtx{
+					BlockHeight: 1,
+					Producer:    identityset.Address(27),
+					GasLimit:    gasLimit,
+				},
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
 			},
 		),
 		&blk,
@@ -411,14 +416,16 @@ func testState(sf Factory, t *testing.T) {
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(
+	ctx := protocol.WithBlockchainCtx(protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		},
-	)
+	), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	ctx = genesis.WithGenesisContext(ctx, ge)
 
 	require.NoError(t, sf.Start(ctx))
@@ -504,6 +511,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -585,6 +595,9 @@ func testFactoryStates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -725,6 +738,9 @@ func testNonce(sf Factory, t *testing.T) {
 			IntrinsicGas: intrinsicGas,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(sf, a.String())

@@ -1228,6 +1228,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		if test.emptyChain {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+			mbc.EXPECT().ChainID().Return(uint32(1)).Times(1)
 			svr.bc = mbc
 		}
 		res, err := svr.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
@@ -1256,6 +1257,8 @@ func TestServer_SendAction(t *testing.T) {
 	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
+	svr.cfg.Genesis.KamchatkaBlockHeight = 10
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	for i, test := range sendActionTests {
