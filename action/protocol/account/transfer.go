@@ -10,7 +10,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -69,7 +68,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
-	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
+	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
 	if err == nil && recipientAcct.IsContract() {
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
