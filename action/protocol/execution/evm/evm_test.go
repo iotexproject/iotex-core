@@ -139,14 +139,23 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			11267641,
 		},
-		// after Iceland
+		// Iceland -- Jutland
 		{
 			action.EmptyAddress,
-			21267641,
+			12289321,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			21267641,
+			12289321,
+		},
+		// after Jutland
+		{
+			action.EmptyAddress,
+			20000000,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			20000000,
 		},
 	}
 
@@ -174,17 +183,17 @@ func TestConstantinople(t *testing.T) {
 
 		var evmConfig vm.Config
 		chainConfig := getChainConfig(g.Blockchain, e.height)
-		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
+		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
-		require.False(evmChainConfig.IsDAOFork(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
-		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
-		require.True(evmChainConfig.IsConstantinople(evm.BlockNumber))
-		require.True(evmChainConfig.IsPetersburg(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.Context.BlockNumber))
+		require.False(evmChainConfig.IsDAOFork(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP150(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP158(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP155(evm.Context.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsByzantium(evm.Context.BlockNumber))
+		require.True(evmChainConfig.IsConstantinople(evm.Context.BlockNumber))
+		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
 		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
@@ -197,22 +206,27 @@ func TestConstantinople(t *testing.T) {
 		require.True(chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
-		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
-		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
+		require.Equal(big.NewInt(int64(g.BeringBlockHeight)), evmChainConfig.BeringBlock)
+		require.Equal(big.NewInt(int64(g.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
 		require.Equal(!g.IsBering(e.height), evm.IsPreBering())
 
 		// iceland = support chainID + enable Istanbul and Muir Glacier
-		if g.IsIceland(e.height) {
+		isIceland := g.IsIceland(e.height)
+		if isIceland {
 			require.EqualValues(config.EVMNetworkID(), evmChainConfig.ChainID.Uint64())
-			require.True(evmChainConfig.IsIstanbul(evm.BlockNumber))
-			require.True(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
-			require.True(chainRules.IsIstanbul)
 		} else {
 			require.Nil(evmChainConfig.ChainID)
-			require.False(evmChainConfig.IsIstanbul(evm.BlockNumber))
-			require.False(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
-			require.False(chainRules.IsIstanbul)
 		}
+		require.Equal(big.NewInt(int64(g.IcelandBlockHeight)), evmChainConfig.MuirGlacierBlock)
+		require.Equal(big.NewInt(int64(g.IcelandBlockHeight)), evmChainConfig.IstanbulBlock)
+		require.Equal(isIceland, evmChainConfig.IsIstanbul(evm.Context.BlockNumber))
+		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
+		require.Equal(isIceland, chainRules.IsIstanbul)
+
+		require.False(evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		require.False(evmChainConfig.IsLondon(evm.Context.BlockNumber))
+		require.False(chainRules.IsBerlin)
+		require.False(chainRules.IsLondon)
 	}
 }
 
@@ -244,13 +258,10 @@ func TestEvmError(t *testing.T) {
 		evmError error
 		status   iotextypes.ReceiptStatus
 	}{
-		{vm.ErrInvalidSubroutineEntry, iotextypes.ReceiptStatus_ErrInvalidSubroutineEntry},
 		{vm.ErrInsufficientBalance, iotextypes.ReceiptStatus_ErrInsufficientBalance},
 		{vm.ErrInvalidJump, iotextypes.ReceiptStatus_ErrInvalidJump},
 		{vm.ErrReturnDataOutOfBounds, iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds},
 		{vm.ErrGasUintOverflow, iotextypes.ReceiptStatus_ErrGasUintOverflow},
-		{vm.ErrInvalidRetsub, iotextypes.ReceiptStatus_ErrInvalidRetsub},
-		{vm.ErrReturnStackExceeded, iotextypes.ReceiptStatus_ErrReturnStackExceeded},
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range jutlandTests {

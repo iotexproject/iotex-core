@@ -70,7 +70,8 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 type (
 	// Params is the context and parameters
 	Params struct {
-		context            vm.Context
+		context            vm.BlockContext
+		txCtx              vm.TxContext
 		nonce              uint64
 		executorRawAddress string
 		amount             *big.Int
@@ -126,21 +127,23 @@ func newParams(
 		}
 	}
 
-	context := vm.Context{
+	context := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     getHashFn,
-		Origin:      executorAddr,
 		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    gasLimit,
-		GasPrice:    execution.GasPrice(),
 	}
 
 	return &Params{
 		context,
+		vm.TxContext{
+			Origin:   executorAddr,
+			GasPrice: execution.GasPrice(),
+		},
 		execution.Nonce(),
 		actionCtx.Caller.String(),
 		execution.Amount(),
@@ -151,20 +154,20 @@ func newParams(
 }
 
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
-	executorNonce := stateDB.GetNonce(ps.context.Origin)
+	executorNonce := stateDB.GetNonce(ps.txCtx.Origin)
 	if executorNonce > ps.nonce {
-		log.S().Errorf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
+		log.S().Errorf("Nonce on %v: %d vs %d", ps.txCtx.Origin, executorNonce, ps.nonce)
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
 	if gasLimit < ps.gas {
 		return action.ErrHitGasLimit
 	}
-	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.context.GasPrice)
-	if stateDB.GetBalance(ps.context.Origin).Cmp(maxGasValue) < 0 {
+	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
+	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(maxGasValue) < 0 {
 		return action.ErrInsufficientBalanceForGas
 	}
-	stateDB.SubBalance(ps.context.Origin, maxGasValue)
+	stateDB.SubBalance(ps.txCtx.Origin, maxGasValue)
 	return nil
 }
 
@@ -210,24 +213,24 @@ func ExecuteContract(
 	var burnLog *action.TransactionLog
 	if g.IsPacific(blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
-		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
+		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
 	} else {
 		if remainingGas > 0 {
-			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
-			stateDB.AddBalance(ps.context.Origin, remainingValue)
+			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.txCtx.GasPrice)
+			stateDB.AddBalance(ps.txCtx.Origin, remainingValue)
 		}
 		if depositGas-remainingGas > 0 {
 			burnLog = &action.TransactionLog{
 				Type:      iotextypes.TransactionLogType_GAS_FEE,
 				Sender:    actionCtx.Caller.String(),
 				Recipient: "", // burned
-				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice),
+				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.txCtx.GasPrice),
 			}
 		}
 	}
 	var depositLog *action.TransactionLog
 	if depositGas-remainingGas > 0 {
-		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
+		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.txCtx.GasPrice)
 		depositLog, err = depositGasFunc(ctx, sm, gasValue)
 		if err != nil {
 			return nil, nil, err
@@ -261,8 +264,9 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
 	// enable earlier Ethereum forks at Greenland
 	chainConfig.GreenlandBlock = new(big.Int).SetUint64(g.GreenlandBlockHeight)
-	// support chainid at Iceland
-	chainConfig.IcelandBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
+	// support chainid and enable Istanbul + MuirGlacier at Iceland
+	chainConfig.IstanbulBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
+	chainConfig.MuirGlacierBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
@@ -278,7 +282,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 	}
 	var config vm.Config
 	chainConfig := getChainConfig(g, blockHeight)
-	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
+	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
@@ -288,7 +292,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
-	executor := vm.AccountRef(evmParams.context.Origin)
+	executor := vm.AccountRef(evmParams.txCtx.Origin)
 	var ret []byte
 	var evmErr error
 	if evmParams.contract == nil {
@@ -302,7 +306,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 			}
 		}
 	} else {
-		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
+		stateDB.SetNonce(evmParams.txCtx.Origin, stateDB.GetNonce(evmParams.txCtx.Origin)+1)
 		// process contract
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
 	}
@@ -349,8 +353,6 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (e
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
 		case vm.ErrWriteProtection:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
-		case vm.ErrInvalidSubroutineEntry:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInvalidSubroutineEntry)
 		case vm.ErrInsufficientBalance:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInsufficientBalance)
 		case vm.ErrInvalidJump:
@@ -359,10 +361,6 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (e
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds)
 		case vm.ErrGasUintOverflow:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrGasUintOverflow)
-		case vm.ErrInvalidRetsub:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInvalidRetsub)
-		case vm.ErrReturnStackExceeded:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrReturnStackExceeded)
 		default:
 			//This errors from go-ethereum, are not-accessible variable.
 			switch evmErr.Error() {

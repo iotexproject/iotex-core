@@ -478,7 +478,7 @@ func checkAccountState(
 		regFee, _ := new(big.Int).SetString(cfg.Genesis.RegistrationConsts.Fee, 10)
 		cost.Add(cost, regFee)
 	}
-	acct1, err := accountutil.LoadAccount(sr, hash.BytesToHash160(accountAddr.Bytes()))
+	acct1, err := accountutil.LoadAccount(sr, accountAddr)
 	if err != nil {
 		return err
 	}
