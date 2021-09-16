@@ -738,6 +738,9 @@ func (api *Server) GetLogs(
 		if paginationSize == 0 {
 			paginationSize = 1000
 		}
+		if paginationSize > 5000 {
+			paginationSize = 5000
+		}
 		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
