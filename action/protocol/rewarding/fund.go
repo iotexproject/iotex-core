@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -73,7 +72,7 @@ func (p *Protocol) Deposit(
 		return nil, err
 	}
 	// Subtract balance from caller
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +129,7 @@ func (p *Protocol) assertEnoughBalance(
 	sm protocol.StateReader,
 	amount *big.Int,
 ) error {
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return err
 	}
