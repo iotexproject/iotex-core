@@ -1554,7 +1554,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	}
 	estimatedGas := receipt.GasConsumed
 	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
-	if err != nil {
+	if err != nil && err != action.ErrOutOfGas {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1563,7 +1563,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		for low <= high {
 			mid := (low + high) / 2
 			enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
-			if err != nil {
+			if err != nil && err != action.ErrOutOfGas {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {
