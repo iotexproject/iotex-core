@@ -21,8 +21,4 @@ contract Datacopy {
     function updateStore(bytes memory ret) internal {
         store = ret;
     }
-    
-    function printStore() public view returns (bytes memory){
-        return store;
-    }
 }

@@ -267,7 +267,7 @@ func runExecutions(
 	ap actpool.ActPool,
 	ecfgs []*ExecutionConfig,
 	contractAddrs []string,
-) ([]*action.Receipt, error, *ExpectedBlockInfo) {
+) ([]*action.Receipt, *ExpectedBlockInfo, error) {
 	nonces := map[string]uint64{}
 	hashes := []hash.Hash256{}
 	for i, ecfg := range ecfgs {
@@ -278,7 +278,7 @@ func runExecutions(
 		if nonce, ok = nonces[executor]; !ok {
 			state, err := accountutil.AccountState(sf, executor)
 			if err != nil {
-				return nil, err, nil
+				return nil, nil, err
 			}
 			nonce = state.Nonce
 		}
@@ -293,7 +293,7 @@ func runExecutions(
 			ecfg.ByteCode(),
 		)
 		if err != nil {
-			return nil, err, nil
+			return nil, nil, err
 		}
 		builder := &action.EnvelopeBuilder{}
 		elp := builder.SetAction(exec).
@@ -303,30 +303,30 @@ func runExecutions(
 			Build()
 		selp, err := action.Sign(elp, ecfg.PrivateKey())
 		if err != nil {
-			return nil, err, nil
+			return nil, nil, err
 		}
 		if err := ap.Add(context.Background(), selp); err != nil {
-			return nil, err, nil
+			return nil, nil, err
 		}
 		selpHash, err := selp.Hash()
 		if err != nil {
-			return nil, err, nil
+			return nil, nil, err
 		}
 		hashes = append(hashes, selpHash)
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
-		return nil, err, nil
+		return nil, nil, err
 	}
 
 	if err := bc.CommitBlock(blk); err != nil {
-		return nil, err, nil
+		return nil, nil, err
 	}
 	receipts := []*action.Receipt{}
 	for _, hash := range hashes {
 		receipt, err := dao.GetReceiptByActionHash(hash, blk.Height())
 		if err != nil {
-			return nil, err, nil
+			return nil, nil, err
 		}
 		receipts = append(receipts, receipt)
 	}
@@ -337,7 +337,7 @@ func runExecutions(
 		hex.EncodeToString(receiptRootHash[:]),
 	}
 
-	return receipts, nil, blkInfo
+	return receipts, blkInfo, nil
 }
 
 func (sct *SmartContractTest) prepareBlockchain(
@@ -430,7 +430,7 @@ func (sct *SmartContractTest) deployContracts(
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		receipts, err, _ := runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&contract}, []string{action.EmptyAddress})
+		receipts, _, err := runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&contract}, []string{action.EmptyAddress})
 		r.NoError(err)
 		r.Equal(1, len(receipts))
 		receipt := receipts[0]
@@ -505,7 +505,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 		} else {
 			var receipts []*action.Receipt
-			receipts, err, blkInfo = runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&exec}, []string{contractAddr})
+			receipts, blkInfo, err = runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&exec}, []string{contractAddr})
 			r.NoError(err)
 			r.Equal(1, len(receipts))
 			receipt = receipts[0]
@@ -1035,7 +1035,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	contractAddr := contractAddresses[0]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		receipts, err, _ := runExecutions(
+		receipts, _, err := runExecutions(
 			bc, sf, dao, ap, []*ExecutionConfig{
 				{
 					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -1066,7 +1066,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 			})
 			contractAddrs = append(contractAddrs, contractAddr)
 		}
-		receipts, err, _ = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		receipts, _, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
 		r.NoError(err)
 		for _, receipt := range receipts {
 			r.Equal(uint64(1), receipt.Status)
@@ -1112,7 +1112,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 	contractAddr := contractAddresses[0]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		receipts, err, _ := runExecutions(
+		receipts, _, err := runExecutions(
 			bc, sf, dao, ap, []*ExecutionConfig{
 				{
 					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -1143,7 +1143,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 			})
 			contractAddrs = append(contractAddrs, contractAddr)
 		}
-		receipts, err, _ = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		receipts, _, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
 		r.NoError(err)
 		for _, receipt := range receipts {
 			r.Equal(uint64(1), receipt.Status)
