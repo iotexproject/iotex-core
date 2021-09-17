@@ -64,6 +64,7 @@ type (
 		preimageSnapshot    map[int]preimageMap
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
+		fixSnapshotOrder    bool
 		sortCachedContracts bool
 		usePendingNonce     bool
 	}
@@ -94,6 +95,7 @@ func NewStateDBAdapter(
 	blockHeight uint64,
 	notFixTopicCopyBug bool,
 	asyncContractTrie bool,
+	fixSnapshotOrder bool,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
@@ -111,6 +113,7 @@ func NewStateDBAdapter(
 		preimageSnapshot:   make(map[int]preimageMap),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 		asyncContractTrie:  asyncContractTrie,
+		fixSnapshotOrder:   fixSnapshotOrder,
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -473,6 +476,13 @@ func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
+	// save a copy of modified contracts
+	c := make(contractMap)
+	if stateDB.fixSnapshotOrder {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
+	}
 	sn := stateDB.sm.Snapshot()
 	if _, ok := stateDB.suicideSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
@@ -486,10 +496,10 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		sa[k] = v
 	}
 	stateDB.suicideSnapshot[sn] = sa
-	// save a copy of modified contracts
-	c := make(contractMap)
-	for _, addr := range stateDB.cachedContractAddrs() {
-		c[addr] = stateDB.cachedContract[addr].Snapshot()
+	if !stateDB.fixSnapshotOrder {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
 	}
 	stateDB.contractSnapshot[sn] = c
 	// save a copy of preimages

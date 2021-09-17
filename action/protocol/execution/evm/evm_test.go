@@ -172,7 +172,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), g.IsKamchatka(e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
