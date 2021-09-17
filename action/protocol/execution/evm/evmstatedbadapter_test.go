@@ -181,13 +181,13 @@ func TestNonce(t *testing.T) {
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async bool) {
+	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(sm, 1, true, async, true, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, 1, true, async, fixSnapshot, hash.ZeroHash256)
 		tests := []stateDBTest{
 			{
 				[]bal{
@@ -349,25 +349,32 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// test revert
 		for i, test := range reverts {
 			stateDB.RevertToSnapshot(len(reverts) - 1 - i)
-
 			// test balance
 			for _, e := range test.balance {
 				amount := stateDB.GetBalance(e.addr)
 				require.Equal(e.v, amount)
 			}
-			// test states
-			for _, e := range test.states {
-				require.Equal(e.v, stateDB.GetState(e.addr, e.k))
+			if async && !fixSnapshot {
+				// test preimage
+				for _, e := range reverts[0].preimage {
+					v := stateDB.preimages[e.hash]
+					require.Equal(e.v, []byte(v))
+				}
+			} else {
+				// test states
+				for _, e := range test.states {
+					require.Equal(e.v, stateDB.GetState(e.addr, e.k))
+				}
+				// test preimage
+				for _, e := range test.preimage {
+					v := stateDB.preimages[e.hash]
+					require.Equal(e.v, []byte(v))
+				}
 			}
 			// test suicide/exist
 			for _, e := range test.suicide {
 				require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
 				require.Equal(e.exist, stateDB.Exist(e.addr))
-			}
-			// test preimage
-			for _, e := range test.preimage {
-				v := stateDB.preimages[e.hash]
-				require.Equal(e.v, []byte(v))
 			}
 		}
 
@@ -377,13 +384,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
 	}
 
-	t.Run("contract snapshot/revert/commit with in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit in memory DB", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false)
+		testSnapshotAndRevert(cfg, t, false, true)
+	})
+	t.Run("contract snapshot/revert/commit without bug fix in memory DB", func(t *testing.T) {
+		cfg := config.Default
+		testSnapshotAndRevert(cfg, t, false, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie in memory DB", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true)
+		testSnapshotAndRevert(cfg, t, true, true)
+	})
+	t.Run("contract snapshot/revert/commit with async trie and without bug fix in memory DB", func(t *testing.T) {
+		cfg := config.Default
+		testSnapshotAndRevert(cfg, t, true, false)
 	})
 }
 
