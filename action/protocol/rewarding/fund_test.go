@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -41,7 +40,7 @@ func TestProtocol_Fund(t *testing.T) {
 		availableBalance, _, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
-		acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+		acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
