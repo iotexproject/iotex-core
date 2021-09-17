@@ -123,6 +123,12 @@ func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
 	return b
 }
 
+// SetChainID sets action's chainID.
+func (b *EnvelopeBuilder) SetChainID(chainID uint32) *EnvelopeBuilder {
+	b.elp.chainID = chainID
+	return b
+}
+
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
 	if b.elp.gasPrice == nil {

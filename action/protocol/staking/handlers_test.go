@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -224,7 +223,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.LessOrEqual(test.amount, candidate.Votes.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(stakerAddr.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, stakerAddr)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -581,7 +580,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			require.Equal(test.amountStr, candidate.SelfStake.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -893,7 +892,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			require.Equal(test.amountStr, candidate.SelfStake.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -1122,7 +1121,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.Equal(test.afterUnstake, candidate.Votes.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -1336,7 +1335,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Error(err)
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, caller)
 			require.NoError(err)
 			withdrawCost, err := withdraw.Cost()
 			require.NoError(err)
@@ -1639,7 +1638,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(test.afterChange, cand.Votes.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -1838,7 +1837,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.LessOrEqual(test.afterTransfer, candidate.SelfStake.Uint64())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -2070,7 +2069,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			require.LessOrEqual(uint64(0), candidate.SelfStake.Uint64())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -2334,7 +2333,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			require.Equal(test.afterRestake, candidate.Votes.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -2553,7 +2552,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(test.afterDeposit, candidate.Votes.String())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, test.caller)
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
@@ -2641,7 +2640,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// Subtract balance from caller
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return nil, err
 	}

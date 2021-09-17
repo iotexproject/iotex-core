@@ -36,6 +36,8 @@ type (
 	BlockchainCtx struct {
 		// Tip is the information of tip block
 		Tip TipInfo
+		//ChainID of the node
+		ChainID uint32
 	}
 
 	// BlockCtx provides block auxiliary information.
