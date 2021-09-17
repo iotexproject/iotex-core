@@ -53,8 +53,13 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.A
 	return nil, err
 }
 
-// LoadAccount loads an account state
-func LoadAccount(sr protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
+// LoadAccount loads an account state by address.Address
+func LoadAccount(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
+	return LoadAccountByHash160(sr, hash.BytesToHash160(addr.Bytes()))
+}
+
+// LoadAccountByHash160 loads an account state by 20-byte address
+func LoadAccountByHash160(sr protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
 	var account state.Account
 	if _, err := sr.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {

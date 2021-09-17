@@ -121,7 +121,7 @@ func testRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -142,7 +142,7 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -162,12 +162,14 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 func testSnapshot(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+	sHashAddr := identityset.Address(28)
 	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
+	tHashAddr := identityset.Address(29)
 
-	s, err := accountutil.LoadAccount(ws, tHash)
+	s, err := accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
-	s, err = accountutil.LoadAccount(ws, sHash)
+	s, err = accountutil.LoadAccount(ws, sHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -183,7 +185,7 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
 
-	s, err = accountutil.LoadAccount(ws, tHash)
+	s, err = accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()

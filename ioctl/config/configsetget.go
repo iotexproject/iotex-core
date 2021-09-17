@@ -22,17 +22,18 @@ import (
 
 // Regexp patterns
 const (
-	ipPattern       = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
-	domainPattern   = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
-	urlPattern      = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
-	localPattern    = "localhost"
-	endpointPattern = "(" + ipPattern + "|(" + domainPattern + ")" + "|(" + localPattern + "))" + `(:\d{1,5})?`
+	ipPattern               = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
+	domainPattern           = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
+	urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
+	localPattern            = "localhost"
+	endpointPattern         = "(" + ipPattern + "|(" + domainPattern + ")" + "|(" + localPattern + "))" + `(:\d{1,5})?`
+	defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 )
 
 var (
 	supportedLanguage = []string{"English", "中文"}
 	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height"}
-	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "all"}
+	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "all"}
 	validExpl         = []string{"iotexscan", "iotxplorer"}
 	endpointCompile   = regexp.MustCompile("^" + endpointPattern + "$")
 )
@@ -133,29 +134,25 @@ func Get(arg string) error {
 		}
 		message := endpointMessage{Endpoint: ReadConfig.Endpoint, SecureConnect: ReadConfig.SecureConnect}
 		fmt.Println(message.String())
-		return nil
 	case "wallet":
 		output.PrintResult(ReadConfig.Wallet)
-		return nil
 	case "defaultacc":
 		if ReadConfig.DefaultAccount.AddressOrAlias == "" {
 			return output.NewError(output.ConfigError, "default account did not set", nil)
 		}
 		fmt.Println(ReadConfig.DefaultAccount.String())
-		return nil
 	case "explorer":
 		output.PrintResult(ReadConfig.Explorer)
-		return nil
 	case "language":
 		output.PrintResult(ReadConfig.Language)
-		return nil
 	case "nsv2height":
 		fmt.Println(ReadConfig.Nsv2height)
-		return nil
+	case "analyserEndpoint":
+		fmt.Println(ReadConfig.AnalyserEndpoint)
 	case "all":
 		fmt.Println(ReadConfig.String())
-		return nil
 	}
+	return nil
 }
 
 // GetContextAddressOrAlias gets current context
@@ -230,6 +227,8 @@ func set(args []string) error {
 		}
 		ReadConfig.Endpoint = args[1]
 		ReadConfig.SecureConnect = !Insecure
+	case "analyserEndpoint":
+		ReadConfig.AnalyserEndpoint = args[1]
 	case "wallet":
 		ReadConfig.Wallet = args[1]
 	case "explorer":
@@ -293,6 +292,7 @@ func reset() error {
 	ReadConfig.DefaultAccount = *new(Context)
 	ReadConfig.Explorer = "iotexscan"
 	ReadConfig.Language = "English"
+	ReadConfig.AnalyserEndpoint = defaultAnalyserEndpoint
 
 	err := writeConfig()
 	if err != nil {

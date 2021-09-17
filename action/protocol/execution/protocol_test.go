@@ -104,7 +104,7 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 
 func readCode(sr protocol.StateReader, addr []byte) ([]byte, error) {
 	var c evm.SerializableBytes
-	account, err := accountutil.LoadAccount(sr, hash.BytesToHash160(addr))
+	account, err := accountutil.LoadAccountByHash160(sr, hash.BytesToHash160(addr))
 	if err != nil {
 		return nil, err
 	}
