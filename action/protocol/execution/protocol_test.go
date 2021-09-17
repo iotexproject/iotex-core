@@ -992,6 +992,9 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
 	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
