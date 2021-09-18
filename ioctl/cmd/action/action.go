@@ -26,6 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
@@ -310,6 +311,12 @@ func SendAction(elp action.Envelope, signer string) error {
 	if err != nil {
 		return err
 	}
+
+	chainMeta, err := bc.GetChainMeta()
+	if err != nil {
+		return output.NewError(0, "failed to get chain meta", err)
+	}
+	elp.SetChainID(chainMeta.GetChainID())
 
 	if util.AliasIsHdwalletKey(signer) {
 		addr := prvKey.PublicKey().Address()

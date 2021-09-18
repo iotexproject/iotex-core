@@ -191,6 +191,7 @@ func ExecuteContract(
 		blkCtx.BlockHeight,
 		!g.IsAleutian(blkCtx.BlockHeight),
 		g.IsGreenland(blkCtx.BlockHeight),
+		g.IsKamchatka(blkCtx.BlockHeight),
 		actionCtx.ActionHash,
 		opts...,
 	)
@@ -270,9 +271,6 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
-	// enable Berlin + London at Jutland
-	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
-	chainConfig.LondonBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
 	return &chainConfig
 }
 

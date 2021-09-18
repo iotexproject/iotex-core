@@ -170,7 +170,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), g.IsKamchatka(e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
@@ -217,16 +217,16 @@ func TestConstantinople(t *testing.T) {
 		} else {
 			require.Nil(evmChainConfig.ChainID)
 		}
+		require.Equal(big.NewInt(int64(g.IcelandBlockHeight)), evmChainConfig.MuirGlacierBlock)
+		require.Equal(big.NewInt(int64(g.IcelandBlockHeight)), evmChainConfig.IstanbulBlock)
 		require.Equal(isIceland, evmChainConfig.IsIstanbul(evm.Context.BlockNumber))
 		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
 		require.Equal(isIceland, chainRules.IsIstanbul)
 
-		// jutland = enable Berlin + London
-		isJutland := g.IsJutland(e.height)
-		require.Equal(isJutland, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
-		require.Equal(isJutland, evmChainConfig.IsLondon(evm.Context.BlockNumber))
-		require.Equal(isJutland, chainRules.IsBerlin)
-		require.Equal(isJutland, chainRules.IsLondon)
+		require.False(evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		require.False(evmChainConfig.IsLondon(evm.Context.BlockNumber))
+		require.False(chainRules.IsBerlin)
+		require.False(chainRules.IsLondon)
 	}
 }
 

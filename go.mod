@@ -21,7 +21,7 @@ require (
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
 	github.com/iotexproject/iotex-proto v0.5.2
 	github.com/libp2p/go-libp2p-core v0.8.5
-	github.com/mattn/go-sqlite3 v1.11.0
+	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/multiformats/go-multiaddr v0.3.3
