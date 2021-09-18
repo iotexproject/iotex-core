@@ -121,7 +121,7 @@ func testRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -142,7 +142,7 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -162,12 +162,14 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 func testSnapshot(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+	sHashAddr := identityset.Address(28)
 	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
+	tHashAddr := identityset.Address(29)
 
-	s, err := accountutil.LoadAccount(ws, tHash)
+	s, err := accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
-	s, err = accountutil.LoadAccount(ws, sHash)
+	s, err = accountutil.LoadAccount(ws, sHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -183,7 +185,7 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
 
-	s, err = accountutil.LoadAccount(ws, tHash)
+	s, err = accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
@@ -304,12 +306,17 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
-		protocol.WithBlockCtx(
-			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-			protocol.BlockCtx{
-				BlockHeight: 1,
-				Producer:    identityset.Address(27),
-				GasLimit:    gasLimit,
+		protocol.WithBlockchainCtx(
+			protocol.WithBlockCtx(
+				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+				protocol.BlockCtx{
+					BlockHeight: 1,
+					Producer:    identityset.Address(27),
+					GasLimit:    gasLimit,
+				},
+			),
+			protocol.BlockchainCtx{
+				ChainID: 1,
 			},
 		),
 		&blk,
@@ -409,14 +416,16 @@ func testState(sf Factory, t *testing.T) {
 	ge := genesis.Default
 	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(
+	ctx := protocol.WithBlockchainCtx(protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		},
-	)
+	), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	ctx = genesis.WithGenesisContext(ctx, ge)
 
 	require.NoError(t, sf.Start(ctx))
@@ -502,6 +511,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -583,6 +595,9 @@ func testFactoryStates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
@@ -723,6 +738,9 @@ func testNonce(sf Factory, t *testing.T) {
 			IntrinsicGas: intrinsicGas,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(sf, a)

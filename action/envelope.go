@@ -14,6 +14,7 @@ type (
 	Envelope interface {
 		Version() uint32
 		Nonce() uint64
+		ChainID() uint32
 		GasLimit() uint64
 		GasPrice() *big.Int
 		Destination() (string, bool)
@@ -23,10 +24,12 @@ type (
 		Proto() *iotextypes.ActionCore
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
+		SetChainID(chainID uint32)
 	}
 
 	envelope struct {
 		version  uint32
+		chainID  uint32
 		nonce    uint64
 		gasLimit uint64
 		gasPrice *big.Int
@@ -239,3 +242,9 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 
 // SetNonce sets the nonce value
 func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
+
+// ChainID return the chainID value
+func (elp *envelope) ChainID() uint32 { return elp.chainID }
+
+// SetChainID sets the chainID value
+func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
