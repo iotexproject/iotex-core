@@ -1261,16 +1261,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 		// invalid address returns error
-		addr, err := address.FromString("")
-		require.NoError(err)
-		act, err := accountutil.AccountState(sf, addr)
+		_, err = address.FromString("")
 		require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
-		require.Nil(act)
 
 		// valid but unused address should return empty account
-		addr, err = address.FromString("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+		addr, err := address.FromString("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
 		require.NoError(err)
-		act, err = accountutil.AccountState(sf, addr)
+		act, err := accountutil.AccountState(sf, addr)
 		require.NoError(err)
 		require.Equal(uint64(0), act.Nonce)
 		require.Equal(big.NewInt(0), act.Balance)
