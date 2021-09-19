@@ -82,7 +82,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(sf)
 	require.NotNil(ap)
 
-	i27State, err := accountutil.AccountState(sf, identityset.Address(27).String())
+	i27State, err := accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc, ap))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
@@ -113,48 +113,48 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := accountutil.AccountState(sf, identityset.Address(28).String())
+	s, err := accountutil.AccountState(sf, identityset.Address(28))
 	require.NoError(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(29).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(29))
 	require.NoError(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(30).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(30))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(31).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(31))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(32).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(32))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(33).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(33))
 	require.NoError(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(27).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -218,7 +218,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 1
 	// C --> A
-	s, _ = accountutil.AccountState(sf, identityset.Address(30).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(30))
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -239,7 +239,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = accountutil.AccountState(sf, identityset.Address(33).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(33))
 	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -260,7 +260,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = accountutil.AccountState(sf, identityset.Address(29).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(29))
 	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -281,7 +281,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = accountutil.AccountState(sf, identityset.Address(27).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(27))
 	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -312,48 +312,48 @@ func TestLocalCommit(t *testing.T) {
 	require.True(9 == bc.TipHeight())
 
 	// check balance
-	s, err = accountutil.AccountState(sf, identityset.Address(28).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(28))
 	require.NoError(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(29).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(29))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(30).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(30))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(31).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(31))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(32).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(32))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(33).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(33))
 	require.NoError(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(27).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)

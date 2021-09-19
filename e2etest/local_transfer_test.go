@@ -25,6 +25,8 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -408,7 +410,9 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
-			newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+			senderAddr1, err := address.FromString(senderAddr)
+			require.NoError(err)
+			newSenderState, _ := accountutil.AccountState(sf, senderAddr1)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -418,7 +422,9 @@ func TestLocalTransfer(t *testing.T) {
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
 			require.Equal(expectedSenderBalance.String(), newSenderState.Balance.String(), tsfTest.message)
 
-			newRecvState, err := accountutil.AccountState(sf, recvAddr)
+			recvAddr1, err := address.FromString(recvAddr)
+			require.NoError(err)
+			newRecvState, err := accountutil.AccountState(sf, recvAddr1)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -463,7 +469,9 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+				senderAddr1, err := address.FromString(senderAddr)
+				require.NoError(err)
+				newSenderState, _ := accountutil.AccountState(sf, senderAddr1)
 				require.Equal(tsfTest.senderBalance.String(), newSenderState.Balance.String())
 			}
 
@@ -526,7 +534,7 @@ func initStateKeyAddr(
 			return nil, "", errors.New("failed to get address")
 		}
 		retAddr = addr.String()
-		existState, err := accountutil.AccountState(sf, retAddr)
+		existState, err := accountutil.AccountState(sf, addr)
 		if err != nil {
 			return nil, "", err
 		}

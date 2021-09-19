@@ -402,12 +402,12 @@ func TestSDBState(t *testing.T) {
 
 func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -460,13 +460,13 @@ func testState(sf Factory, t *testing.T) {
 
 func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
-	b := identityset.Address(31).String()
+	a := identityset.Address(28)
+	b := identityset.Address(31)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -488,7 +488,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(100), accountA.Balance)
 	require.Equal(t, big.NewInt(0), accountB.Balance)
-	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(1, big.NewInt(10), b.String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
@@ -725,7 +725,7 @@ func testNonce(sf Factory, t *testing.T) {
 	)
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
-	state, err := accountutil.AccountState(sf, a.String())
+	state, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), state.Nonce)
 
@@ -745,7 +745,7 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, sf.PutBlock(ctx, &blk))
-	state, err = accountutil.AccountState(sf, a.String())
+	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
 }
@@ -1516,7 +1516,11 @@ func benchState(sf Factory, b *testing.B) {
 	for n := 1; n < b.N; n++ {
 		b.StartTimer()
 		idx := rand.Int() % len(accounts)
-		_, err := accountutil.AccountState(sf, accounts[idx])
+		addr, err := address.FromString(accounts[idx])
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = accountutil.AccountState(sf, addr)
 		if err != nil {
 			b.Fatal(err)
 		}

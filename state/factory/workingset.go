@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -309,7 +311,11 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedState, err := accountutil.AccountState(ws, srcAddr)
+		addr, err := address.FromString(srcAddr)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get the address.Address of address %s", srcAddr)
+		}
+		confirmedState, err := accountutil.AccountState(ws, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}

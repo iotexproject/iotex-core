@@ -16,6 +16,8 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -232,7 +234,12 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	confirmedState, err := accountutil.AccountState(q.ap.sf, q.address)
+	addr, err := address.FromString(q.address)
+	if err != nil {
+		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
+		return nil
+	}
+	confirmedState, err := accountutil.AccountState(q.ap.sf, addr)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil

@@ -87,17 +87,13 @@ func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
 }
 
 // AccountState returns the confirmed account state on the chain
-func AccountState(sr protocol.StateReader, encodedAddr string) (*state.Account, error) {
-	a, _, err := AccountStateWithHeight(sr, encodedAddr)
+func AccountState(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
+	a, _, err := AccountStateWithHeight(sr, addr)
 	return a, err
 }
 
 // AccountStateWithHeight returns the confirmed account state on the chain with what height the state is read from.
-func AccountStateWithHeight(sr protocol.StateReader, encodedAddr string) (*state.Account, uint64, error) {
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "error when getting the pubkey hash")
-	}
+func AccountStateWithHeight(sr protocol.StateReader, addr address.Address) (*state.Account, uint64, error) {
 	pkHash := hash.BytesToHash160(addr.Bytes())
 	var account state.Account
 	h, err := sr.State(&account, protocol.LegacyKeyOption(pkHash))

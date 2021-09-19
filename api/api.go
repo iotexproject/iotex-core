@@ -177,8 +177,11 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if in.Address == address.RewardingPoolAddr || in.Address == address.StakingBucketPoolAddr {
 		return api.getProtocolAccount(ctx, in.Address)
 	}
-
-	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
+	addr, err := address.FromString(in.Address)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -188,10 +191,6 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	}
 	if api.indexer == nil {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	addr, err := address.FromString(in.Address)
-	if err != nil {
-		return nil, err
 	}
 	numActions, err := api.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
@@ -449,7 +448,11 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
-	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
+	addr, err := address.FromString(in.CallerAddress)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	state, err := accountutil.AccountState(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1531,7 +1534,11 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	state, err := accountutil.AccountState(api.sf, sender)
+	addr, err := address.FromString(sender)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	state, err := accountutil.AccountState(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

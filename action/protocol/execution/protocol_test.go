@@ -224,7 +224,7 @@ func readExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	state, err := accountutil.AccountState(sf, ecfg.Executor().String())
+	state, err := accountutil.AccountState(sf, ecfg.Executor())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -265,8 +265,8 @@ func runExecutions(
 		log.S().Info(ecfg.Comment)
 		var nonce uint64
 		var ok bool
-		executor := ecfg.Executor().String()
-		if nonce, ok = nonces[executor]; !ok {
+		executor := ecfg.Executor()
+		if nonce, ok = nonces[executor.String()]; !ok {
 			state, err := accountutil.AccountState(sf, executor)
 			if err != nil {
 				return nil, err
@@ -274,7 +274,7 @@ func runExecutions(
 			nonce = state.Nonce
 		}
 		nonce = nonce + 1
-		nonces[executor] = nonce
+		nonces[executor.String()] = nonce
 		exec, err := action.NewExecution(
 			contractAddrs[i],
 			nonce,
@@ -511,7 +511,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			state, err := accountutil.AccountState(sf, account)
+			addr, err := address.FromString(account)
+			r.NoError(err)
+			state, err := accountutil.AccountState(sf, addr)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -631,7 +633,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		// test IsContract
-		state, err := accountutil.AccountState(sf, contract.String())
+		state, err := accountutil.AccountState(sf, contract)
 		require.NoError(err)
 		require.True(state.IsContract())
 

@@ -14,6 +14,8 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -42,13 +44,15 @@ func TestTransfer_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc, sf, ap := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
+	addr, err := address.FromString(executor)
+	r.NoError(err)
+	stateBeforeTransfer, err := accountutil.AccountState(sf, addr)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, sf, ap, r)
 	r.NoError(err)
 	r.Equal(2, len(blk.Actions))
 	r.Error(bc.ValidateBlock(blk))
-	state, err := accountutil.AccountState(sf, executor)
+	state, err := accountutil.AccountState(sf, addr)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
@@ -58,14 +62,16 @@ func TestAction_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc, sf, ap := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
+	addr, err := address.FromString(executor)
+	r.NoError(err)
+	stateBeforeTransfer, err := accountutil.AccountState(sf, addr)
 	r.NoError(err)
 	blk, err := prepareAction(bc, sf, ap, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Equal(2, len(blk.Actions))
 	r.Error(bc.ValidateBlock(blk))
-	state, err := accountutil.AccountState(sf, executor)
+	state, err := accountutil.AccountState(sf, addr)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
