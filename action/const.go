@@ -33,4 +33,6 @@ var (
 	ErrVotee = errors.New("votee is not a candidate")
 	// ErrNotFound indicates the nonexistence of action
 	ErrNotFound = errors.New("action not found")
+	// ErrChainID indicates the error of chainID
+	ErrChainID = errors.New("invalid chainID")
 )

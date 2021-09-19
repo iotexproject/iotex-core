@@ -269,7 +269,8 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if tipHeight == 0 {
 		return &iotexapi.GetChainMetaResponse{
 			ChainMeta: &iotextypes.ChainMeta{
-				Epoch: &iotextypes.EpochData{},
+				Epoch:   &iotextypes.EpochData{},
+				ChainID: api.bc.ChainID(),
 			},
 		}, nil
 	}
@@ -278,7 +279,8 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		syncStatus = api.bs.SyncStatus()
 	}
 	chainMeta := &iotextypes.ChainMeta{
-		Height: tipHeight,
+		Height:  tipHeight,
+		ChainID: api.bc.ChainID(),
 	}
 	if api.indexer == nil {
 		return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil
@@ -359,6 +361,14 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	if err = selp.LoadProto(in.Action); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
+	// reject action if chainID is not matched at KamchatkaHeight
+	if api.cfg.Genesis.Blockchain.IsKamchatka(api.bc.TipHeight()) {
+		if api.bc.ChainID() != in.GetAction().Core.GetChainID() {
+			return nil, status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), in.GetAction().Core.GetChainID())
+		}
+	}
+
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, api.registry)
 	hash, err := selp.Hash()
@@ -1561,7 +1571,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	}
 	estimatedGas := receipt.GasConsumed
 	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
-	if err != nil {
+	if err != nil && err != action.ErrOutOfGas {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1570,7 +1580,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		for low <= high {
 			mid := (low + high) / 2
 			enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
-			if err != nil {
+			if err != nil && err != action.ErrOutOfGas {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {

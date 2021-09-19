@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -157,6 +158,15 @@ func (ws *workingSet) runAction(
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
 		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
 	}
+	// Reject execution of chainID not equal the node's chainID
+	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.IsKamchatka(ws.height) {
+		if elp.ChainID() != blkChainCtx.ChainID {
+			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
+		}
+	}
+
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
@@ -430,6 +440,8 @@ func (ws *workingSet) pickAndRunActions(
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
+			case action.ErrChainID:
+				continue
 			case action.ErrHitGasLimit:
 				actionIterator.PopAccount()
 				continue
