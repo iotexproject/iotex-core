@@ -1,4 +1,8 @@
 {
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true
+    },
     "initBalances": [{
         "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
         "rawBalance": "1000000000000000000000000000"
@@ -10,6 +14,7 @@
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
         "rawExpectedGasConsumed": 250102,
+        "expectedStatus": 1,
         "expectedBalances": [],
         "comment": "deploy datacopy contract"
     }],
@@ -19,12 +24,13 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 32504,
+        "rawExpectedGasConsumed": 33104,
+        "expectedStatus": 1,
         "comment": "the data of return is [0x11, 0x22, 0x33]",
         "expectedBlockInfos" : {
             "txRootHash" : "3672945ca662bea4dd977e799374c5ce36c0c3e9ecbe98f1655f33439bbfe40c",
-            "stateRootHash" : "6fb3dc7f5ef66ce9b384f034191d6a67801e01961ecd824061c4101035844667",
-            "receiptRootHash" : "0dfe7718f029aaffccd9c20bfaa50a1fb3405014de68af4f89516160de53d2f2"
+            "stateRootHash" : "244ff11fa850cbd07b490db861e95ce0ae8e76a18b3c0093cbaeadee0d34e1f8",
+            "receiptRootHash" : "973667a354122928d6df937faea2d989401a705aa1769b9d594e00cb714c3a0b"
         }
     }]
 }
