@@ -18,7 +18,7 @@ jobs:
 
   build_test_docker:
     docker:
-      - image: circleci/golang:1.14.4
+      - image: cimg/go:1.16.6
     working_directory: ~/apps/iotex-core
     resource_class: medium
     steps:
@@ -40,10 +40,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.14.4
+          name: install golang 1.16.6
           command: |
-            curl -o go1.14.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.14.4.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.14.4.darwin-amd64.tar.gz
+            curl -o go1.16.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.16.6.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.16.6.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -73,11 +73,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang 1.14.4
+          name: clean go 1.9 update golang 1.16.6
           command: |
-            wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.16.6.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.14.4.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.16.6.linux-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -99,7 +99,7 @@ jobs:
     docker:
       # specify the version
       # - image: iotex/iotex-core-ci:latest
-      - image: circleci/golang:${GOLANG_VERSION}
+      - image: cimg/go:${GOLANG_VERSION}
 
     working_directory: ~/iotex-core
     steps:
@@ -109,7 +109,7 @@ jobs:
 
   nightly_bin_build_docker:
     docker:
-      - image: circleci/golang:${GOLANG_VERSION}
+      - image: cimg/go:${GOLANG_VERSION}
 
     working_directory: ~/iotex-core
     steps:
