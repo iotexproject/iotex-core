@@ -370,6 +370,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.FairbankBlockHeight = 0
 		cfg.Genesis.GreenlandBlockHeight = 0
 		cfg.Genesis.IcelandBlockHeight = 0
+		cfg.Genesis.JutlandBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
