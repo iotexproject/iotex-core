@@ -170,7 +170,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), g.IsKamchatka(e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
@@ -227,6 +227,9 @@ func TestConstantinople(t *testing.T) {
 		require.False(evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.False(chainRules.IsBerlin)
 		require.False(chainRules.IsLondon)
+
+		require.Equal(big.NewInt(int64(g.JutlandBlockHeight)), evmChainConfig.JutlandBlock)
+		require.Equal(g.IsJutland(e.height), evmChainConfig.IsJutland(evm.Context.BlockNumber))
 	}
 }
 

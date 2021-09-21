@@ -191,6 +191,7 @@ func ExecuteContract(
 		blkCtx.BlockHeight,
 		!g.IsAleutian(blkCtx.BlockHeight),
 		g.IsGreenland(blkCtx.BlockHeight),
+		g.IsKamchatka(blkCtx.BlockHeight),
 		actionCtx.ActionHash,
 		opts...,
 	)
@@ -270,6 +271,9 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
+	// for safety, we enable the opCall fix at Jutland height
+	// to be reverted post-Jutland if verified that this is not necessary
+	chainConfig.JutlandBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
 	return &chainConfig
 }
 
