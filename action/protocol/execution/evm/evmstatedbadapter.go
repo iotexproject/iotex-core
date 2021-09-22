@@ -64,6 +64,7 @@ type (
 		preimageSnapshot    map[int]preimageMap
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
+		fixSnapshotOrder    bool
 		sortCachedContracts bool
 		usePendingNonce     bool
 	}
@@ -94,6 +95,7 @@ func NewStateDBAdapter(
 	blockHeight uint64,
 	notFixTopicCopyBug bool,
 	asyncContractTrie bool,
+	fixSnapshotOrder bool,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
@@ -111,6 +113,7 @@ func NewStateDBAdapter(
 		preimageSnapshot:   make(map[int]preimageMap),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 		asyncContractTrie:  asyncContractTrie,
+		fixSnapshotOrder:   fixSnapshotOrder,
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -371,6 +374,36 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	return true
 }
 
+// PrepareAccessList handles the preparatory steps for executing a state transition with
+// regards to both EIP-2929 and EIP-2930:
+//
+// - Add sender to access list (2929)
+// - Add destination to access list (2929)
+// - Add precompiles to access list (2929)
+// - Add the contents of the optional tx access list (2930)
+//
+// This method should only be called if Berlin/2929+2930 is applicable at the current number.
+func (stateDB *StateDBAdapter) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+}
+
+// AddressInAccessList returns true if the given address is in the access list
+func (stateDB *StateDBAdapter) AddressInAccessList(addr common.Address) bool {
+	return false
+}
+
+// SlotInAccessList returns true if the given (address, slot)-tuple is in the access list
+func (stateDB *StateDBAdapter) SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool) {
+	return false, false
+}
+
+// AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
+// even if the feature/fork is not active yet
+func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {}
+
+// AddSlotToAccessList adds the given (address,slot) to the access list. This operation is safe to perform
+// even if the feature/fork is not active yet
+func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {}
+
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	addr, err := address.FromBytes(evmAddr.Bytes())
@@ -409,20 +442,11 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore modified contracts
 	stateDB.cachedContract = nil
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
-	if stateDB.sortCachedContracts {
-		for _, addr := range stateDB.cachedContractAddrs() {
-			c := stateDB.cachedContract[addr]
-			if err := c.LoadRoot(); err != nil {
-				log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
-				return
-			}
-		}
-	} else {
-		for addr, c := range stateDB.cachedContract {
-			if err := c.LoadRoot(); err != nil {
-				log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
-				return
-			}
+	for _, addr := range stateDB.cachedContractAddrs() {
+		c := stateDB.cachedContract[addr]
+		if err := c.LoadRoot(); err != nil {
+			log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+			return
 		}
 	}
 	// restore preimages
@@ -435,12 +459,21 @@ func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
 	for addr := range stateDB.cachedContract {
 		addrs = append(addrs, addr)
 	}
-	sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
+	if stateDB.sortCachedContracts {
+		sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
+	}
 	return addrs
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
+	// save a copy of modified contracts
+	c := make(contractMap)
+	if stateDB.fixSnapshotOrder {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
+	}
 	sn := stateDB.sm.Snapshot()
 	if _, ok := stateDB.suicideSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
@@ -454,14 +487,8 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		sa[k] = v
 	}
 	stateDB.suicideSnapshot[sn] = sa
-	// save a copy of modified contracts
-	c := make(contractMap)
-	if stateDB.sortCachedContracts {
+	if !stateDB.fixSnapshotOrder {
 		for _, addr := range stateDB.cachedContractAddrs() {
-			c[addr] = stateDB.cachedContract[addr].Snapshot()
-		}
-	} else {
-		for addr := range stateDB.cachedContract {
 			c[addr] = stateDB.cachedContract[addr].Snapshot()
 		}
 	}
@@ -578,7 +605,7 @@ func (stateDB *StateDBAdapter) AccountState(encodedAddr string) (*state.Account,
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	return accountutil.LoadAccount(stateDB.sm, addrHash)
+	return accountutil.LoadAccountByHash160(stateDB.sm, addrHash)
 }
 
 //======================================
@@ -593,7 +620,7 @@ func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 		copy(codeHash[:], contract.SelfState().CodeHash)
 		return codeHash
 	}
-	account, err := accountutil.LoadAccount(stateDB.sm, addr)
+	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr)
 	if err != nil {
 		log.L().Error("Failed to get code hash.", zap.Error(err))
 		// TODO (zhi) not all err should be logged
@@ -615,7 +642,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		}
 		return code
 	}
-	account, err := accountutil.LoadAccount(stateDB.sm, addr)
+	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr)
 	if err != nil {
 		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
@@ -662,7 +689,7 @@ func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k commo
 	}
 	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.L().Error("Failed to get committed state.", zap.Error(err))
+		log.L().Debug("Failed to get committed state.", zap.Error(err))
 		stateDB.logError(err)
 		return common.Hash{}
 	}
@@ -785,7 +812,7 @@ func (stateDB *StateDBAdapter) getContract(addr hash.Hash160) (Contract, error) 
 }
 
 func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, error) {
-	account, err := accountutil.LoadAccount(stateDB.sm, addr)
+	account, err := accountutil.LoadAccountByHash160(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}

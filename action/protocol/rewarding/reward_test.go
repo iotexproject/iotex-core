@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -229,7 +228,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimCtx := protocol.WithActionCtx(ctx, claimActionCtx)
 
 		// Record the init balance of account
-		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err := accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		initBalance := primAcc.Balance
 
@@ -242,7 +241,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
 		assert.Equal(t, initBalance, primAcc.Balance)
@@ -261,7 +260,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, initBalance, primAcc.Balance)
 
@@ -280,7 +279,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
 		assert.Equal(t, initBalance, primAcc.Balance)

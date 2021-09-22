@@ -41,6 +41,8 @@ type (
 	BlockchainCtx struct {
 		// Tip is the information of tip block
 		Tip TipInfo
+		//ChainID of the node
+		ChainID uint32
 	}
 
 	// BlockCtx provides block auxiliary information.
@@ -91,6 +93,7 @@ type (
 		NewStakingReceiptFormat     bool
 		UpdateBlockMeta             bool
 		CurrentEpochProductivity    bool
+		FixSnapshotOrder            bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -213,6 +216,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			NewStakingReceiptFormat:     g.IsFbkMigration(height),
 			UpdateBlockMeta:             g.IsGreenland(height),
 			CurrentEpochProductivity:    g.IsGreenland(height),
+			FixSnapshotOrder:            g.IsKamchatka(height),
 		},
 	)
 }
