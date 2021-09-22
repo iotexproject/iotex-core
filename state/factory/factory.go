@@ -243,6 +243,7 @@ func (sf *factory) Start(ctx context.Context) error {
 				Producer:       sf.cfg.ProducerAddress(),
 				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
 			})
+		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -532,6 +533,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {

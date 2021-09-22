@@ -115,6 +115,7 @@ func NewConsensus(
 					protocol.WithRegistry(context.Background(), re),
 					cfg.Genesis,
 				)
+				ctx = protocol.WithFeatureWithHeightCtx(ctx)
 				tipHeight := bc.TipHeight()
 				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
 				var candidatesList state.CandidateList
