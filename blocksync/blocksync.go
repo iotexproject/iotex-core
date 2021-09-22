@@ -120,7 +120,7 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		}
 		bs.peerBlockList.Store(blk.pid, true)
 
-		log.L().Debug("failed to commit block", zap.Error(err))
+		log.L().Error("failed to commit block", zap.Error(err), zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 	}
 	return false
 }
