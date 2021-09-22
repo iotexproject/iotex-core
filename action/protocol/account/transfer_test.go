@@ -94,7 +94,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		},
 		// not enough balance
 		{
-			alfa, 3, big.NewInt(30000), bravo.String(), 10000, big.NewInt(1), false, state.ErrNotEnoughBalance, uint64(iotextypes.ReceiptStatus_Failure), 1,
+			alfa, 3, big.NewInt(30000000000), bravo.String(), 10000, big.NewInt(1), false, state.ErrNotEnoughBalance, uint64(iotextypes.ReceiptStatus_Failure), 1,
 		},
 	}
 
