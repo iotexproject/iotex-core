@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -27,8 +26,8 @@ const TransferSizeLimit = 32 * 1024
 // handleTransfer handles a transfer
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	fixDoubleChargeGas := protocol.MustGetFeatureCtx(ctx).FixDoubleChargeGas
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
@@ -51,7 +50,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	var depositLog *action.TransactionLog
-	if !g.IsPacific(blkCtx.BlockHeight) {
+	if !fixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
@@ -76,7 +75,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if g.IsPacific(blkCtx.BlockHeight) {
+		if fixDoubleChargeGas {
 			if p.depositGas != nil {
 				depositLog, err = p.depositGas(ctx, sm, gasFee)
 				if err != nil {
@@ -118,7 +117,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if g.IsPacific(blkCtx.BlockHeight) {
+	if fixDoubleChargeGas {
 		if p.depositGas != nil {
 			depositLog, err = p.depositGas(ctx, sm, gasFee)
 			if err != nil {
