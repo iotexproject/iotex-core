@@ -94,7 +94,7 @@ func main() {
 	sf := svr.ChainService(cfg.Chain.ID).StateFactory()
 	dao := svr.ChainService(cfg.Chain.ID).BlockDAO()
 	if err := bc.Start(context.Background()); err == nil {
-		log.L().Info("State DB status is normal.")
+		log.L().Debug("State DB status is normal.")
 	}
 	defer func() {
 		if err := bc.Stop(context.Background()); err != nil {

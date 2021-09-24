@@ -384,7 +384,7 @@ func main() {
 				return
 			}
 
-			log.S().Info("Fp token transfer test pass!")
+			log.S().Debug("Fp token transfer test pass!")
 		}
 		deleteDBFiles = true
 	}
