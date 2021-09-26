@@ -564,11 +564,15 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // SuggestGasPrice suggests gas price
 func (api *Server) SuggestGasPrice(ctx context.Context, in *iotexapi.SuggestGasPriceRequest) (*iotexapi.SuggestGasPriceResponse, error) {
-	suggestPrice, err := api.gs.SuggestGasPrice()
+	suggestPrice, err := api.suggestGasPrice()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.SuggestGasPriceResponse{GasPrice: suggestPrice}, nil
+}
+
+func (api *Server) suggestGasPrice() (uint64, error) {
+	return api.gs.SuggestGasPrice()
 }
 
 // EstimateGasForAction estimates gas for action
