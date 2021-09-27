@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/big"
 	"net"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -110,6 +111,7 @@ type Server struct {
 	registry          *protocol.Registry
 	chainListener     Listener
 	grpcServer        *grpc.Server
+	httpServer        *http.Server
 	hasActionIndex    bool
 	electionCommittee committee.Committee
 }
@@ -942,6 +944,13 @@ func (api *Server) GetTransactionLogByBlockHeight(
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.API.Port)
+	web3PortStr := ":" + strconv.Itoa(api.cfg.API.Web3Port)
+
+	api.httpServer = &http.Server{
+		Addr: web3PortStr,
+	}
+	http.Handle("/", api)
+
 	lis, err := net.Listen("tcp", portStr)
 	if err != nil {
 		log.L().Error("API server failed to listen.", zap.Error(err))
@@ -951,6 +960,10 @@ func (api *Server) Start() error {
 
 	go func() {
 		if err := api.grpcServer.Serve(lis); err != nil {
+			log.L().Fatal("Node failed to serve.", zap.Error(err))
+		}
+
+		if err := api.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
@@ -966,6 +979,11 @@ func (api *Server) Start() error {
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcServer.Stop()
+
+	if err := api.httpServer.Shutdown(context.Background()); err != nil {
+		return errors.Wrap(err, "failed to stop http server")
+	}
+
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
