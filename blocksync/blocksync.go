@@ -199,13 +199,14 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	}
 
 	tip := bs.tipHeightHandler()
-	if !bs.buf.AddBlock(tip, newPeerBlock(peer, blk)) {
-		return nil
-	}
+	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	if blk.Height() > bs.targetHeight {
-		bs.targetHeight = blk.Height()
+	if targetHeight > bs.targetHeight {
+		bs.targetHeight = targetHeight
+	}
+	if !added {
+		return nil
 	}
 	syncedHeight := tip
 	for {

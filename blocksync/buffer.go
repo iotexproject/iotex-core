@@ -66,18 +66,21 @@ func (b *blockBuffer) Cleanup(height uint64) {
 }
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) bool {
+func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	blkHeight := blk.block.Height()
-	if blkHeight > tipHeight && blkHeight <= tipHeight+b.bufferSize {
-		if _, ok := b.blockQueues[blkHeight]; !ok {
-			b.blockQueues[blkHeight] = newUniQueue()
-		}
-		b.blockQueues[blkHeight].enque(blk)
-		return true
+	if blkHeight <= tipHeight {
+		return false, 0
 	}
-	return false
+	if blkHeight > tipHeight+b.bufferSize {
+		return false, tipHeight + b.bufferSize
+	}
+	if _, ok := b.blockQueues[blkHeight]; !ok {
+		b.blockQueues[blkHeight] = newUniQueue()
+	}
+	b.blockQueues[blkHeight].enque(blk)
+	return true, blkHeight
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
