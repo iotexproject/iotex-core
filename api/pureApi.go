@@ -1,15 +1,18 @@
 package api
 
+import "strconv"
+
 var (
-	FuncMap = map[string]func(*Server, interface{}) interface{}{
+	FuncMap = map[string]func(*Server, interface{}) (interface{}, error){
 		"eth_gasPrice": gasPrice,
 	}
 )
 
-func gasPrice(svr *Server, in interface{}) interface{} {
+func gasPrice(svr *Server, in interface{}) (interface{}, error) {
 	val, err := svr.suggestGasPrice()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return val
+	ret := strconv.FormatUint(val, 16)
+	return "0x" + ret, nil
 }
