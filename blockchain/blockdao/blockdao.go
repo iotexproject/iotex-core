@@ -164,23 +164,15 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			for retry := 1; retry <= 10; retry++ {
-				err := indexer.PutBlock(protocol.WithBlockCtx(
-					ctxWithTip,
-					protocol.BlockCtx{
-						BlockHeight:    i,
-						BlockTimeStamp: blk.Timestamp(),
-						Producer:       producer,
-						GasLimit:       g.BlockGasLimit,
-					},
-				), blk)
-				if err == nil {
-					break
-				}
-				if errors.Cause(err) == block.ErrDeltaStateMismatch {
-					log.L().Info("delta state mismatch", zap.Uint64("block", i), zap.Int("retry", retry))
-					continue
-				}
+			if err := indexer.PutBlock(protocol.WithBlockCtx(
+				ctxWithTip,
+				protocol.BlockCtx{
+					BlockHeight:    i,
+					BlockTimeStamp: blk.Timestamp(),
+					Producer:       producer,
+					GasLimit:       g.BlockGasLimit,
+				},
+			), blk); err != nil {
 				return err
 			}
 			if i%5000 == 0 {
