@@ -383,25 +383,32 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 //
 // This method should only be called if Berlin/2929+2930 is applicable at the current number.
 func (stateDB *StateDBAdapter) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
 }
 
 // AddressInAccessList returns true if the given address is in the access list
 func (stateDB *StateDBAdapter) AddressInAccessList(addr common.Address) bool {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
 	return false
 }
 
 // SlotInAccessList returns true if the given (address, slot)-tuple is in the access list
 func (stateDB *StateDBAdapter) SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
 	return false, false
 }
 
 // AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
 // even if the feature/fork is not active yet
-func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {}
+func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
+}
 
 // AddSlotToAccessList adds the given (address,slot) to the access list. This operation is safe to perform
 // even if the feature/fork is not active yet
-func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {}
+func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
+}
 
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
