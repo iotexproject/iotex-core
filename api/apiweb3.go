@@ -12,14 +12,14 @@ import (
 type (
 	web3Req struct {
 		Jsonrpc string      `json:"jsonrpc"`
-		Id      int         `json:"id"`
+		ID      int         `json:"id"`
 		Method  string      `json:"method"`
 		Params  interface{} `json:"params"`
 	}
 
 	web3Resp struct {
 		Jsonrpc string      `json:"jsonrpc"`
-		Id      int         `json:"id"`
+		ID      int         `json:"id"`
 		Result  interface{} `json:"result,omitempty"`
 		Error   web3Err     `json:"error,omitempty"`
 	}
@@ -60,7 +60,7 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 			}
 			resp = web3Resp{
 				Jsonrpc: "2.0",
-				Id:      web3Req.Id,
+				ID:      web3Req.ID,
 				Error: web3Err{
 					Code:    int(s.Code()),
 					Message: s.Message(),
@@ -69,7 +69,7 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 		} else {
 			resp = web3Resp{
 				Jsonrpc: "2.0",
-				Id:      web3Req.Id,
+				ID:      web3Req.ID,
 				Result:  res,
 			}
 		}
