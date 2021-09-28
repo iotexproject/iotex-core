@@ -21,7 +21,7 @@ type (
 		Jsonrpc string      `json:"jsonrpc"`
 		Id      int         `json:"id"`
 		Result  interface{} `json:"result,omitempty"`
-		Error   Web3Err     `json:"error,omitempty"`
+		Error   web3Err     `json:"error,omitempty"`
 	}
 
 	web3Err struct {
@@ -43,8 +43,8 @@ func (api *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 
-	web3Reqs := getWeb3Reqs(req)
-	var web3Resp []Web3Resp
+	web3Reqs := getweb3Reqs(req)
+	var web3Resps []web3Resp
 
 	for _, web3Req := range web3Reqs {
 		if _, ok := apiMap[web3Req.Method]; !ok {
@@ -52,39 +52,39 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 		}
 
 		res, err := apiMap[web3Req.Method](api, web3Req.Params)
-		var resp Web3Resp
+		var resp web3Resp
 		if err != nil {
 			s, ok := status.FromError(err)
 			if !ok {
 				panic(err)
 			}
-			resp = Web3Resp{
+			resp = web3Resp{
 				Jsonrpc: "2.0",
 				Id:      web3Req.Id,
-				Error: Web3Err{
+				Error: web3Err{
 					Code:    int(s.Code()),
 					Message: s.Message(),
 				},
 			}
 		} else {
-			resp = Web3Resp{
+			resp = web3Resp{
 				Jsonrpc: "2.0",
 				Id:      web3Req.Id,
 				Result:  res,
 			}
 		}
-		web3Resp = append(web3Resp, resp)
+		web3Resps = append(web3Resps, resp)
 	}
 
 	// write responses
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	if len(web3Resp) > 1 {
-		if err := json.NewEncoder(w).Encode(web3Resp); err != nil {
+	if len(web3Resps) > 1 {
+		if err := json.NewEncoder(w).Encode(web3Resps); err != nil {
 			panic(err)
 		}
 	} else {
-		if err := json.NewEncoder(w).Encode(web3Resp[0]); err != nil {
+		if err := json.NewEncoder(w).Encode(web3Resps[0]); err != nil {
 			panic(err)
 		}
 	}
@@ -96,8 +96,8 @@ func isJSONArray(data []byte) bool {
 	return len(data) > 0 && data[0] == '['
 }
 
-func getWeb3Reqs(req *http.Request) []Web3Req {
-	var web3Reqs []Web3Req
+func getweb3Reqs(req *http.Request) []web3Req {
+	var web3Reqs []web3Req
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		panic(err)
@@ -108,7 +108,7 @@ func getWeb3Reqs(req *http.Request) []Web3Req {
 			panic(err)
 		}
 	} else {
-		var web3Req Web3Req
+		var web3Req web3Req
 		err := json.Unmarshal(data, &web3Req)
 		if err != nil {
 			panic(err)
