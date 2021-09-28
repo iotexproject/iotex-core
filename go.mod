@@ -47,6 +47,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.4.0
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.4.0-safefix
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3

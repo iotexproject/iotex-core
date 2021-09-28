@@ -90,7 +90,7 @@ func newParams(
 ) (*Params, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
@@ -104,12 +104,12 @@ func newParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if blkCtx.BlockHeight > 0 && !g.IsAleutian(blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
+	if blkCtx.BlockHeight > 0 && featureCtx.SystemWideActionGasLimit && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
 	var getHashFn vm.GetHashFunc
-	if !g.IsHawaii(blkCtx.BlockHeight) {
+	if !featureCtx.FixGetHashFnHeight {
 		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - n)
 			if err != nil {
@@ -182,15 +182,17 @@ func ExecuteContract(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	opts := []StateDBAdapterOption{}
-	if g.IsHawaii(blkCtx.BlockHeight) {
+	if featureCtx.UsePendingNonceOption {
 		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
 	}
 	stateDB := NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
-		!g.IsAleutian(blkCtx.BlockHeight),
-		g.IsGreenland(blkCtx.BlockHeight),
+		featureCtx.NotFixTopicCopyBug,
+		featureCtx.AsyncContractTrie,
+		featureCtx.FixSnapshotOrder,
 		actionCtx.ActionHash,
 		opts...,
 	)
@@ -211,7 +213,7 @@ func ExecuteContract(
 
 	receipt.Status = statusCode
 	var burnLog *action.TransactionLog
-	if g.IsPacific(blkCtx.BlockHeight) {
+	if featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.txCtx.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.txCtx.GasPrice))
 	} else {
@@ -243,11 +245,11 @@ func ExecuteContract(
 	stateDB.clear()
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
-		!g.IsGreenland(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+		featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
 
-	if g.IsHawaii(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
+	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		data := retval[4:]
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
@@ -270,6 +272,9 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
+	// for safety, we enable the opCall fix at Jutland height
+	// to be reverted post-Jutland if verified that this is not necessary
+	chainConfig.JutlandBlock = new(big.Int).SetUint64(g.JutlandBlockHeight)
 	return &chainConfig
 }
 
@@ -449,6 +454,7 @@ func SimulateExecution(
 		},
 	)
 
+	ctx = protocol.WithFeatureCtx(ctx)
 	return ExecuteContract(
 		ctx,
 		sm,
