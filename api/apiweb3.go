@@ -9,51 +9,26 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type Web3Req struct {
-	Jsonrpc string      `json:"jsonrpc"`
-	Id      int         `json:"id"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
-}
-
-type Web3Resp struct {
-	Jsonrpc string      `json:"jsonrpc"`
-	Id      int         `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   Web3Err     `json:"error,omitempty"`
-}
-
-type Web3Err struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func isJSONArray(data []byte) bool {
-	data = bytes.TrimLeft(data, " \t\r\n")
-	return len(data) > 0 && data[0] == '['
-}
-
-func getWeb3Reqs(req *http.Request) []Web3Req {
-	var web3Reqs []Web3Req
-	data, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		panic(err)
+type (
+	Web3Req struct {
+		Jsonrpc string      `json:"jsonrpc"`
+		Id      int         `json:"id"`
+		Method  string      `json:"method"`
+		Params  interface{} `json:"params"`
 	}
-	if isJSONArray(data) {
-		err := json.Unmarshal(data, &web3Reqs)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		var web3Req Web3Req
-		err := json.Unmarshal(data, &web3Req)
-		if err != nil {
-			panic(err)
-		}
-		web3Reqs = append(web3Reqs, web3Req)
+
+	Web3Resp struct {
+		Jsonrpc string      `json:"jsonrpc"`
+		Id      int         `json:"id"`
+		Result  interface{} `json:"result,omitempty"`
+		Error   Web3Err     `json:"error,omitempty"`
 	}
-	return web3Reqs
-}
+
+	Web3Err struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+)
 
 func (api *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
@@ -72,11 +47,11 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 	var web3Resp []Web3Resp
 
 	for _, web3Req := range web3Reqs {
-		if _, ok := FuncMap[web3Req.Method]; !ok {
+		if _, ok := apiMap[web3Req.Method]; !ok {
 			panic(ok) // not exist
 		}
 
-		res, err := FuncMap[web3Req.Method](api, web3Req.Params)
+		res, err := apiMap[web3Req.Method](api, web3Req.Params)
 		var resp Web3Resp
 		if err != nil {
 			s, ok := status.FromError(err)
@@ -114,4 +89,31 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+}
+
+func isJSONArray(data []byte) bool {
+	data = bytes.TrimLeft(data, " \t\r\n")
+	return len(data) > 0 && data[0] == '['
+}
+
+func getWeb3Reqs(req *http.Request) []Web3Req {
+	var web3Reqs []Web3Req
+	data, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		panic(err)
+	}
+	if isJSONArray(data) {
+		err := json.Unmarshal(data, &web3Reqs)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		var web3Req Web3Req
+		err := json.Unmarshal(data, &web3Req)
+		if err != nil {
+			panic(err)
+		}
+		web3Reqs = append(web3Reqs, web3Req)
+	}
+	return web3Reqs
 }

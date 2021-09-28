@@ -3,7 +3,7 @@ package api
 import "strconv"
 
 var (
-	FuncMap = map[string]func(*Server, interface{}) (interface{}, error){
+	apiMap = map[string]func(*Server, interface{}) (interface{}, error){
 		"eth_gasPrice": gasPrice,
 	}
 )
