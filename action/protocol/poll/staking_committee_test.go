@@ -146,6 +146,7 @@ func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	p, ctx, sm, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var candlist state.CandidateList
 	_, err = sm.State(&candlist, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -173,6 +174,7 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	elp, err := psac.CreatePostSystemActions(ctx, sr)
 	require.NoError(err)
 	require.Equal(1, len(elp))
@@ -194,6 +196,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 
 	p, ctx, sm, _, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 
 	// wrong action
@@ -216,6 +219,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	t.Run("All right", func(t *testing.T) {
 		p2, ctx2, sm2, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx2 = protocol.WithFeatureWithHeightCtx(ctx2)
 		require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -245,6 +249,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		// Case 2: Only producer could create this protocol
 		p2, ctx2, sm2, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx2 = protocol.WithFeatureWithHeightCtx(ctx2)
 		require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -279,6 +284,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	t.Run("Duplicate candidate", func(t *testing.T) {
 		p3, ctx3, sm3, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx3 = protocol.WithFeatureWithHeightCtx(ctx3)
 		require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 		var sc3 state.CandidateList
 		_, err = sm3.State(&sc3, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -315,6 +321,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	t.Run("Delegate's length is not equal", func(t *testing.T) {
 		p4, ctx4, sm4, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx4 = protocol.WithFeatureWithHeightCtx(ctx4)
 		require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 		var sc4 state.CandidateList
 		_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
@@ -343,6 +350,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
+		ctx4 = protocol.WithFeatureWithHeightCtx(ctx4)
 		err = p4.Validate(ctx4, selp4.Action(), sm4)
 		require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
 	})
@@ -350,6 +358,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	t.Run("Candidate's vote is not equal", func(t *testing.T) {
 		p5, ctx5, sm5, _, err := initConstructStakingCommittee(ctrl)
 		require.NoError(err)
+		ctx5 = protocol.WithFeatureWithHeightCtx(ctx5)
 		require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 		var sc5 state.CandidateList
 		_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
