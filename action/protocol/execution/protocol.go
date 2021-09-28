@@ -81,7 +81,10 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 
 		recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
-		if err == nil && recipientAcct.IsContract() {
+		if err != nil {
+			return nil, err
+		}
+		if recipientAcct.IsContract() {
 			exec, _ = action.NewExecution(
 				tsf.Recipient(),
 				tsf.Nonce(),
