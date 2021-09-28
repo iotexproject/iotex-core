@@ -10,21 +10,21 @@ import (
 )
 
 type (
-	Web3Req struct {
+	web3Req struct {
 		Jsonrpc string      `json:"jsonrpc"`
 		Id      int         `json:"id"`
 		Method  string      `json:"method"`
 		Params  interface{} `json:"params"`
 	}
 
-	Web3Resp struct {
+	web3Resp struct {
 		Jsonrpc string      `json:"jsonrpc"`
 		Id      int         `json:"id"`
 		Result  interface{} `json:"result,omitempty"`
 		Error   Web3Err     `json:"error,omitempty"`
 	}
 
-	Web3Err struct {
+	web3Err struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 	}
