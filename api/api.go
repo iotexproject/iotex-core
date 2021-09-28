@@ -994,7 +994,8 @@ func (api *Server) Start() error {
 	api.httpServer = &http.Server{
 		Addr: web3PortStr,
 	}
-	http.Handle("/", api)
+	mux := http.NewServeMux()
+	mux.Handle("/", api)
 
 	lis, err := net.Listen("tcp", portStr)
 	if err != nil {
