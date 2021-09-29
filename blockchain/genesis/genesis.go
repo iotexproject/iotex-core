@@ -63,7 +63,7 @@ func defaultConfig() Genesis {
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
-			JutlandBlockHeight:      16289321,
+			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    26289321,
 		},
 		Account: Account{
