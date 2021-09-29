@@ -132,14 +132,14 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, g.IsGreenland(height))
+	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -211,6 +211,8 @@ func (p *Protocol) CreateGenesisStates(
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
@@ -222,7 +224,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, g.IsGreenland(blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(blkCtx.BlockHeight))
 		if err != nil {
 			return err
 		}
@@ -239,7 +241,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return nil
 	}
 	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight || !g.IsFairbank(epochStartHeight) {
+	if epochStartHeight != blkCtx.BlockHeight || featureCtx.SkipStakingIndexer {
 		return nil
 	}
 
@@ -269,12 +271,12 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, g.IsGreenland(height))
+	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
 	if err != nil {
 		return err
 	}
@@ -285,12 +287,12 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, g.IsGreenland(height))
+	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, err
 	}

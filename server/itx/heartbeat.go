@@ -97,7 +97,7 @@ func (h *HeartbeatHandler) Log() {
 		peers = nil
 	}
 	numPeers := len(peers)
-	h.l.Info("Node status.",
+	h.l.Debug("Node status.",
 		zap.Int("numPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
@@ -143,7 +143,7 @@ func (h *HeartbeatHandler) Log() {
 		actPoolCapacity := c.ActionPool().GetCapacity()
 		targetHeight := c.BlockSync().TargetHeight()
 
-		h.l.Info("chain service status",
+		h.l.Debug("chain service status",
 			zap.Int("rolldposEvents", numPendingEvts),
 			zap.String("fsmState", string(state)),
 			zap.Uint64("blockchainHeight", height),

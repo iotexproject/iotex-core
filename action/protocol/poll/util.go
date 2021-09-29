@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -110,7 +109,7 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 
 func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -120,8 +119,8 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
-	beforeEaster := !g.IsEaster(nextEpochHeight)
-	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, beforeEaster, true); errors.Cause(err) != state.ErrStateNotExist {
+	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(nextEpochHeight)
+	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, loadCandidatesLegacy, true); errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
 	log.L().Debug(
@@ -163,20 +162,20 @@ func setCandidates(
 	candidates state.CandidateList,
 	height uint64, // epoch start height
 ) error {
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
 		return errors.New("put poll result height should be epoch start height")
 	}
-	preEaster := !g.IsEaster(height)
+	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
 	for _, candidate := range candidates {
 		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		delegate.IsCandidate = true
-		if preEaster {
+		if loadCandidatesLegacy {
 			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
 				return err
 			}
@@ -200,7 +199,7 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
-	if preEaster {
+	if loadCandidatesLegacy {
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
 		return err
 	}

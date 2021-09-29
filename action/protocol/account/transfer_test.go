@@ -59,6 +59,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		config.Default.Genesis,
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(reward.CreateGenesisStates(ctx, sm))
 
 	// initial deposit to alfa and charlie (as a contract)
@@ -121,6 +122,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		require.NoError(err)
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
+		ctx = protocol.WithFeatureCtx(ctx)
 		receipt, err := p.Handle(ctx, tsf, sm)
 		require.Equal(v.err, errors.Cause(err))
 		if err != nil {
