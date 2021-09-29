@@ -172,6 +172,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				Producer:       sdb.cfg.ProducerAddress(),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
 			})
+		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -372,6 +373,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {

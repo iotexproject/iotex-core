@@ -121,7 +121,7 @@ func testRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -142,7 +142,7 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, identityset.Address(28))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -162,12 +162,14 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 func testSnapshot(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+	sHashAddr := identityset.Address(28)
 	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
+	tHashAddr := identityset.Address(29)
 
-	s, err := accountutil.LoadAccount(ws, tHash)
+	s, err := accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
-	s, err = accountutil.LoadAccount(ws, sHash)
+	s, err = accountutil.LoadAccount(ws, sHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -183,7 +185,7 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
 
-	s, err = accountutil.LoadAccount(ws, tHash)
+	s, err = accountutil.LoadAccount(ws, tHashAddr)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
@@ -293,6 +295,7 @@ func testCandidates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	require.NoError(t, sf.Start(ctx))
 	defer require.NoError(t, sf.Stop(ctx))
 
@@ -304,21 +307,22 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
-		protocol.WithBlockchainCtx(
-			protocol.WithBlockCtx(
-				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-				protocol.BlockCtx{
-					BlockHeight: 1,
-					Producer:    identityset.Address(27),
-					GasLimit:    gasLimit,
+		protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(
+			protocol.WithBlockchainCtx(
+				protocol.WithBlockCtx(
+					genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(27),
+						GasLimit:    gasLimit,
+					},
+				),
+				protocol.BlockchainCtx{
+					ChainID: 1,
 				},
 			),
-			protocol.BlockchainCtx{
-				ChainID: 1,
-			},
 		),
-		&blk,
-	))
+		), &blk))
 
 	candidates, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(t, err)
@@ -1044,6 +1048,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 		genesis.WithGenesisContext(ctx, genesis.Default),
 		protocol.BlockchainCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
