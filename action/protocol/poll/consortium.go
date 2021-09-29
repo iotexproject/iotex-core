@@ -85,7 +85,7 @@ func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReade
 	ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), consortiumCommitteeContractNonce)
 	iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
 	cc.contract = iotxAddr.String()
-	log.L().Info("Loaded consortium committee contract", zap.String("address", iotxAddr.String()))
+	log.L().Debug("Loaded consortium committee contract", zap.String("address", iotxAddr.String()))
 
 	return nil, nil
 }
@@ -124,6 +124,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+
 	// deploy consortiumCommittee contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,

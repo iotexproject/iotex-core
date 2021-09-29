@@ -56,6 +56,7 @@ func TestExecuteContractFailure(t *testing.T) {
 	})
 	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 
+	ctx = protocol.WithFeatureCtx(ctx)
 	retval, receipt, err := ExecuteContract(ctx, sm, e,
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
@@ -176,6 +177,7 @@ func TestConstantinople(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		})
+		ctx = protocol.WithFeatureCtx(ctx)
 		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})

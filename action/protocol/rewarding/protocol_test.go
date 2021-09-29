@@ -180,6 +180,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		},
 	)
 	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -314,6 +315,7 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(ctx)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -481,6 +483,7 @@ func TestStateCheckLegacy(t *testing.T) {
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 		BlockHeight: 2,
 	})
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	tests := []struct {
 		before, add *big.Int
@@ -527,6 +530,7 @@ func TestStateCheckLegacy(t *testing.T) {
 			ctx = protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 				BlockHeight: 3,
 			})
+			ctx = protocol.WithFeatureCtx(ctx)
 		}
 	}
 
