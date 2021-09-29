@@ -8,13 +8,14 @@ package actpool
 
 import (
 	"container/heap"
-	"go.uber.org/zap"
+	"encoding/hex"
 	"math/big"
 	"sort"
 	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -103,17 +104,24 @@ func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 	return aq
 }
 
-// Overlap returns whether the current queue contains the given nonce
+// Overlap returns whether the current queue contains the given act
 func (q *actQueue) Overlaps(act action.SealedEnvelope) bool {
-	_, exist := q.items[act.Nonce()]
-	return exist
+	if actInPool, exist := q.items[act.Nonce()]; exist && hex.EncodeToString(actInPool.Signature()) == hex.EncodeToString(act.Signature()) {
+		return true
+	}
+	return false
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act action.SealedEnvelope) error {
 	nonce := act.Nonce()
-	if _, exist := q.items[nonce]; exist {
-		return errors.Wrap(action.ErrNonce, "duplicate nonce")
+	if actInPool, exist := q.items[nonce]; exist {
+		// act of higher gas price cut in line
+		if act.GasPrice().Cmp(actInPool.GasPrice()) != 1 {
+			return errors.Wrap(action.ErrNonce, "smaller gas price compared with the act of same nonce")
+		}
+		q.items[nonce] = act
+		return nil
 	}
 	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
 	q.items[nonce] = act
