@@ -39,34 +39,53 @@ var (
 	epochRewardHistoryKeyPrefix = []byte("erh")
 	accountKeyPrefix            = []byte("acc")
 	exemptKey                   = []byte("xpt")
+	errInvalidEpoch             = errors.New("invalid start/end epoch number")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
-	keyPrefix                   []byte
-	addr                        address.Address
-	foundationBonusP2StartEpoch uint64
-	foundationBonusP2EndEpoch   uint64
+	keyPrefix []byte
+	addr      address.Address
+	cfg       genesis.Rewarding
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(
-	foundationBonusP2Start uint64,
-	foundationBonusP2End uint64,
-) *Protocol {
+func NewProtocol(cfg genesis.Rewarding) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
-	return &Protocol{
-		keyPrefix:                   h[:],
-		addr:                        addr,
-		foundationBonusP2StartEpoch: foundationBonusP2Start,
-		foundationBonusP2EndEpoch:   foundationBonusP2End,
+	if err = validateFoundationBonusExtension(cfg); err != nil {
+		log.L().Panic("failed to validate foundation bonus extension", zap.Error(err))
 	}
+	return &Protocol{
+		keyPrefix: h[:],
+		addr:      addr,
+		cfg:       cfg,
+	}
+}
+
+// verify that foundation bonus extension epochs are in increasing order
+func validateFoundationBonusExtension(cfg genesis.Rewarding) error {
+	end := cfg.FoundationBonusLastEpoch
+	hasP2Extension := (cfg.FoundationBonusP2StartEpoch > 0 || cfg.FoundationBonusP2EndEpoch > 0)
+	if hasP2Extension {
+		if cfg.FoundationBonusP2StartEpoch < end || cfg.FoundationBonusP2EndEpoch < cfg.FoundationBonusP2StartEpoch {
+			return errInvalidEpoch
+		}
+		end = cfg.FoundationBonusP2EndEpoch
+	}
+
+	for _, v := range cfg.FoundationBonusExtension {
+		if v.Start < end || v.End < v.Start {
+			return errInvalidEpoch
+		}
+		end = v.End
+	}
+	return nil
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -96,6 +115,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return p.SetReward(ctx, sm, g.DardanellesBlockReward(), true)
 	case g.GreenlandBlockHeight:
 		return p.migrateValueGreenland(ctx, sm)
+	case g.KamchatkaBlockHeight:
+		return p.setFoundationBonusExtension(ctx, sm)
 	}
 	return nil
 }
@@ -122,6 +143,45 @@ func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value inte
 		return err
 	}
 	return p.deleteStateV1(sm, key)
+}
+
+func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.StateManager) error {
+	a := admin{}
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+		return err
+	}
+
+	hasP2Extension := (p.cfg.FoundationBonusP2StartEpoch > 0 || p.cfg.FoundationBonusP2EndEpoch > 0)
+	if !a.hasFoundationBonusExtension() {
+		if hasP2Extension {
+			a.foundationBonusExtension = append(a.foundationBonusExtension,
+				genesis.Period{p.cfg.FoundationBonusP2StartEpoch, p.cfg.FoundationBonusP2EndEpoch})
+		}
+		for _, v := range p.cfg.FoundationBonusExtension {
+			a.foundationBonusExtension = append(a.foundationBonusExtension,
+				genesis.Period{v.Start, v.End})
+			log.L().Info("add fbExtension", zap.Uint64("start", v.Start), zap.Uint64("end", v.End))
+		}
+		return p.putState(ctx, sm, adminKey, &a)
+	}
+
+	// add the last/new foundation bonus extension period to admin
+	adminExtension := len(a.foundationBonusExtension)
+	configExtension := len(p.cfg.FoundationBonusExtension)
+	if hasP2Extension {
+		configExtension++
+	}
+	if configExtension != adminExtension+1 {
+		return errInvalidEpoch
+	}
+
+	last := len(p.cfg.FoundationBonusExtension) - 1
+	if p.cfg.FoundationBonusExtension[last].Start < a.foundationBonusExtension[adminExtension-1].End {
+		return errInvalidEpoch
+	}
+	a.foundationBonusExtension = append(a.foundationBonusExtension,
+		genesis.Period{p.cfg.FoundationBonusExtension[last].Start, p.cfg.FoundationBonusExtension[last].End})
+	return p.putState(ctx, sm, adminKey, &a)
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions

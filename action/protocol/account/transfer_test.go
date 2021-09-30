@@ -52,7 +52,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	// set-up protocol and genesis states
 	p := NewProtocol(rewarding.DepositGas)
-	reward := rewarding.NewProtocol(0, 0)
+	reward := rewarding.NewProtocol(config.Default.Genesis.Rewarding)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
 	chainCtx := genesis.WithGenesisContext(

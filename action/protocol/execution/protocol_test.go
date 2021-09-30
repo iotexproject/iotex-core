@@ -376,7 +376,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	reward := rewarding.NewProtocol(0, 0)
+	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)

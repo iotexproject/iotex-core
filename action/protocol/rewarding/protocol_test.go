@@ -35,51 +35,65 @@ import (
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
+func TestValidateExtension(t *testing.T) {
+	r := require.New(t)
+
+	g := config.Default.Genesis.Rewarding
+	r.NoError(validateFoundationBonusExtension(g))
+
+	last := g.FoundationBonusP2StartEpoch
+	g.FoundationBonusP2StartEpoch = g.FoundationBonusLastEpoch - 1
+	r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
+	g.FoundationBonusP2StartEpoch = last
+
+	last = g.FoundationBonusP2EndEpoch
+	g.FoundationBonusP2EndEpoch = g.FoundationBonusP2StartEpoch - 1
+	r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
+	g.FoundationBonusP2EndEpoch = last
+
+	for i, v := range g.FoundationBonusExtension {
+		g.FoundationBonusExtension[i].Start = last - 1
+		r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
+		g.FoundationBonusExtension[i].Start = v.Start
+		g.FoundationBonusExtension[i].End = v.Start - 1
+		r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
+		g.FoundationBonusExtension[i].End = v.End
+		last = v.End
+	}
+}
+
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	registry := protocol.NewRegistry()
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cb := batch.NewCachedBatch()
+	sm := testdb.NewMockStateManager(ctrl)
 
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			cfg, err := protocol.CreateStateConfig(opts...)
-			if err != nil {
-				return 0, err
-			}
-			val, err := cb.Get("state", cfg.Key)
-			if err != nil {
-				return 0, state.ErrStateNotExist
-			}
-			return 0, state.Deserialize(account, val)
-		}).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			cfg, err := protocol.CreateStateConfig(opts...)
-			if err != nil {
-				return 0, err
-			}
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return 0, err
-			}
-			cb.Put("state", cfg.Key, ss, "failed to put state")
-			return 0, nil
-		}).AnyTimes()
-
-	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-
+	g := config.Default.Genesis
+	// Create a test account with 1000 token
+	g.InitBalanceMap[identityset.Address(28).String()] = "1000"
+	g.Rewarding.InitBalanceStr = "0"
+	g.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	g.Rewarding.BlockRewardStr = "10"
+	g.Rewarding.EpochRewardStr = "100"
+	g.Rewarding.NumDelegatesForEpochReward = 4
+	g.Rewarding.FoundationBonusStr = "5"
+	g.Rewarding.NumDelegatesForFoundationBonus = 5
+	g.Rewarding.FoundationBonusLastEpoch = 365
+	g.Rewarding.ProductivityThreshold = 50
+	// Initialize the protocol
+	if withExempt {
+		g.Rewarding.ExemptAddrStrsFromEpochReward = []string{
+			identityset.Address(31).String(),
+		}
+		g.Rewarding.NumDelegatesForEpochReward = 10
+	}
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
 	)
-	p := NewProtocol(
-		genesis.Default.FoundationBonusP2StartEpoch,
-		genesis.Default.FoundationBonusP2EndEpoch,
-	)
+	p := NewProtocol(g.Rewarding)
 	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
@@ -155,60 +169,35 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	require.NoError(t, pp.Register(registry))
 	require.NoError(t, p.Register(registry))
 
-	ge := config.Default.Genesis
-	// Create a test account with 1000 token
-	ge.InitBalanceMap[identityset.Address(28).String()] = "1000"
-	ge.Rewarding.InitBalanceStr = "0"
-	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	ge.Rewarding.BlockRewardStr = "10"
-	ge.Rewarding.EpochRewardStr = "100"
-	ge.Rewarding.NumDelegatesForEpochReward = 4
-	ge.Rewarding.FoundationBonusStr = "5"
-	ge.Rewarding.NumDelegatesForFoundationBonus = 5
-	ge.Rewarding.FoundationBonusLastEpoch = 365
-	ge.Rewarding.ProductivityThreshold = 50
-	// Initialize the protocol
-	if withExempt {
-		ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{
-			identityset.Address(31).String(),
-		}
-		ge.Rewarding.NumDelegatesForEpochReward = 10
-	}
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
 	)
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = genesis.WithGenesisContext(ctx, g)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
 	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
+		ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
+		ctx, protocol.ActionCtx{
 			Caller: identityset.Address(28),
 		},
 	)
-	ctx = genesis.WithGenesisContext(
-		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(ctx, registry),
-			protocol.BlockchainCtx{
-				Tip: protocol.TipInfo{
-					Height: 20,
-				},
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, registry), protocol.BlockchainCtx{
+			Tip: protocol.TipInfo{
+				Height: 20,
 			},
-		),
-		ge,
+		},
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
@@ -243,7 +232,7 @@ func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cfg := config.Default
+	g := config.Default.Genesis
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
@@ -275,38 +264,37 @@ func TestProtocol_Handle(t *testing.T) {
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
 
-	cfg.Genesis.NumSubEpochs = 15
+	g.Rewarding.InitBalanceStr = "1000000"
+	g.Rewarding.BlockRewardStr = "10"
+	g.Rewarding.EpochRewardStr = "100"
+	g.Rewarding.NumDelegatesForEpochReward = 10
+	g.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	g.Rewarding.FoundationBonusStr = "5"
+	g.Rewarding.NumDelegatesForFoundationBonus = 5
+	g.Rewarding.FoundationBonusLastEpoch = 0
+	g.Rewarding.ProductivityThreshold = 50
+	// Create a test account with 1000000 token
+	g.InitBalanceMap[identityset.Address(0).String()] = "1000000"
+	g.NumSubEpochs = 15
 	rp := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
+		rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
 	)
-	require.Equal(t, cfg.Genesis.FairbankBlockHeight, rp.GetEpochHeight(cfg.Genesis.FoundationBonusP2StartEpoch))
-	require.Equal(t, cfg.Genesis.FoundationBonusP2StartEpoch, rp.GetEpochNum(cfg.Genesis.FairbankBlockHeight))
-	require.Equal(t, cfg.Genesis.FoundationBonusP2EndEpoch, cfg.Genesis.FoundationBonusP2StartEpoch+24*365)
+	require.Equal(t, g.FairbankBlockHeight, rp.GetEpochHeight(g.FoundationBonusP2StartEpoch))
+	require.Equal(t, g.FoundationBonusP2StartEpoch, rp.GetEpochNum(g.FairbankBlockHeight))
+	require.Equal(t, g.FoundationBonusP2EndEpoch, g.FoundationBonusP2StartEpoch+24*365)
 	require.NoError(t, rp.Register(registry))
-	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+	pp := poll.NewLifeLongDelegatesProtocol(g.Delegates)
 	require.NoError(t, pp.Register(registry))
-	p := NewProtocol(0, 0)
+	p := NewProtocol(g.Rewarding)
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))
 
 	// address package also defined protocol address, make sure they match
 	require.Equal(t, p.addr.Bytes(), address.RewardingProtocolAddrHash[:])
-
-	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
-	cfg.Genesis.Rewarding.BlockRewardStr = "10"
-	cfg.Genesis.Rewarding.EpochRewardStr = "100"
-	cfg.Genesis.Rewarding.NumDelegatesForEpochReward = 10
-	cfg.Genesis.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	cfg.Genesis.Rewarding.FoundationBonusStr = "5"
-	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 5
-	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
-	cfg.Genesis.Rewarding.ProductivityThreshold = 50
-	// Create a test account with 1000000 token
-	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "1000000"
 
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -315,7 +303,7 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
-	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), cfg.Genesis)
+	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), g)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -471,10 +459,7 @@ func TestStateCheckLegacy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
-	p := NewProtocol(
-		genesis.Default.FoundationBonusP2StartEpoch,
-		genesis.Default.FoundationBonusP2EndEpoch,
-	)
+	p := NewProtocol(genesis.Default.Rewarding)
 	chainCtx := genesis.WithGenesisContext(
 		context.Background(),
 		genesis.Genesis{
@@ -542,57 +527,118 @@ func TestStateCheckLegacy(t *testing.T) {
 }
 
 func TestMigrateValue(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	sm := testdb.NewMockStateManager(ctrl)
-	p := NewProtocol(
-		genesis.Default.FoundationBonusP2StartEpoch,
-		genesis.Default.FoundationBonusP2EndEpoch,
-	)
-	// put old
-	require.NoError(p.putStateV1(sm, adminKey, &admin{
-		blockReward:                big.NewInt(811),
-		epochReward:                big.NewInt(922),
-		foundationBonus:            big.NewInt(700),
-		numDelegatesForEpochReward: 118,
-	}))
-	require.NoError(p.putStateV1(sm, fundKey, &fund{
-		totalBalance:     big.NewInt(811),
-		unclaimedBalance: big.NewInt(922),
-	}))
-	require.NoError(p.putStateV1(sm, exemptKey, &exempt{
-		addrs: []address.Address{identityset.Address(0)},
-	}))
+	r := require.New(t)
 
-	// migrate
-	require.NoError(p.migrateValueGreenland(context.Background(), sm))
+	a1 := admin{
+		blockReward:                    big.NewInt(10),
+		epochReward:                    big.NewInt(100),
+		numDelegatesForEpochReward:     10,
+		foundationBonus:                big.NewInt(5),
+		numDelegatesForFoundationBonus: 5,
+		foundationBonusLastEpoch:       365,
+		productivityThreshold:          50,
+	}
+	f1 := fund{
+		totalBalance:     new(big.Int),
+		unclaimedBalance: new(big.Int),
+	}
+	e1 := exempt{
+		[]address.Address{identityset.Address(31)},
+	}
+	g := genesis.Default
 
-	// assert old (not exist)
-	_, err := p.stateV1(sm, adminKey, &admin{})
-	require.Equal(state.ErrStateNotExist, err)
-	_, err = p.stateV1(sm, fundKey, &fund{})
-	require.Equal(state.ErrStateNotExist, err)
-	_, err = p.stateV1(sm, exemptKey, &exempt{})
-	require.Equal(state.ErrStateNotExist, err)
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		// verify v1 state
+		a := admin{}
+		_, err := p.stateV1(sm, adminKey, &a)
+		r.NoError(err)
+		r.Equal(a1, a)
+		r.False(a.hasFoundationBonusExtension())
 
-	// assert new (with correct value)
-	a := admin{}
-	_, err = p.stateV2(sm, adminKey, &a)
-	require.NoError(err)
-	require.Equal(uint64(118), a.numDelegatesForEpochReward)
-	require.Equal("811", a.blockReward.String())
+		f := fund{}
+		_, err = p.stateV1(sm, fundKey, &f)
+		r.NoError(err)
+		r.Equal(f1, f)
 
-	f := fund{}
-	_, err = p.stateV2(sm, fundKey, &f)
-	require.NoError(err)
-	require.Equal("811", f.totalBalance.String())
+		e := exempt{}
+		_, err = p.stateV1(sm, exemptKey, &e)
+		r.NoError(err)
+		r.Equal(e1, e)
 
-	e := exempt{}
-	_, err = p.stateV2(sm, exemptKey, &e)
-	require.NoError(err)
-	require.Equal(identityset.Address(0).String(), e.addrs[0].String())
+		for i, v := range []struct {
+			height uint64
+			err    error
+		}{
+			{g.GreenlandBlockHeight, nil},
+			{g.KamchatkaBlockHeight, nil},
+			{g.KamchatkaBlockHeight, errInvalidEpoch},
+			{g.KamchatkaBlockHeight, errInvalidEpoch},
+		} {
+			if i == 3 {
+				// test wrong vale (start < end)
+				p.cfg.FoundationBonusExtension = append(p.cfg.FoundationBonusExtension,
+					genesis.Period{18440, 20000})
+			}
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			blkCtx.BlockHeight = v.height
+			fCtx := protocol.WithBlockCtx(ctx, blkCtx)
+			r.Equal(v.err, p.CreatePreStates(fCtx, sm))
 
-	// test migrate with no data
-	require.NoError(p.migrateValueGreenland(context.Background(), sm))
+			// verify v1 is deleted
+			_, err = p.stateV1(sm, adminKey, &a)
+			r.Equal(state.ErrStateNotExist, err)
+			_, err = p.stateV1(sm, fundKey, &f)
+			r.Equal(state.ErrStateNotExist, err)
+			_, err = p.stateV1(sm, exemptKey, &e)
+			r.Equal(state.ErrStateNotExist, err)
+
+			// verify v2 exist
+			_, err = p.stateV2(sm, adminKey, &a)
+			r.NoError(err)
+			_, err = p.stateV2(sm, fundKey, &f)
+			r.NoError(err)
+			r.Equal(f1, f)
+			_, err = p.stateV2(sm, exemptKey, &e)
+			r.NoError(err)
+			r.Equal(e1, e)
+
+			switch v.height {
+			case g.GreenlandBlockHeight:
+				r.False(a.hasFoundationBonusExtension())
+				r.Equal(a1, a)
+				// test migrate with no data
+				r.NoError(p.migrateValueGreenland(ctx, sm))
+			case g.KamchatkaBlockHeight:
+				r.True(a.hasFoundationBonusExtension())
+				r.Equal(a.foundationBonusExtension[0].Start, g.FoundationBonusP2StartEpoch)
+				r.Equal(a.foundationBonusExtension[0].End, g.FoundationBonusP2EndEpoch)
+				r.Equal(a.foundationBonusExtension[1:], g.FoundationBonusExtension)
+				a.foundationBonusExtension = nil
+				r.Equal(a1, a)
+				// test migrate with no data
+				r.NoError(p.migrateValueGreenland(ctx, sm))
+			}
+		}
+
+		// verify grant foundation bonus epoch
+		_, err = p.stateV2(sm, adminKey, &a)
+		r.NoError(err)
+		for _, v := range []struct {
+			epoch uint64
+			grant bool
+		}{
+			{365, true},
+			{366, false},
+			{g.Rewarding.FoundationBonusP2StartEpoch - 1, false},
+			{g.Rewarding.FoundationBonusP2StartEpoch, true},
+			{g.Rewarding.FoundationBonusP2EndEpoch, true},
+			{g.Rewarding.FoundationBonusP2EndEpoch + 1, false},
+			{g.Rewarding.FoundationBonusExtension[0].Start - 1, false},
+			{g.Rewarding.FoundationBonusExtension[0].Start, true},
+			{g.Rewarding.FoundationBonusExtension[0].End, true},
+			{g.Rewarding.FoundationBonusExtension[0].End + 1, false},
+		} {
+			r.Equal(v.grant, a.grantFoundationBonus(v.epoch))
+		}
+	}, true)
 }
