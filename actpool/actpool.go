@@ -227,7 +227,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())
+	return ap.enqueueAction(caller, act, hash, act.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -351,17 +351,14 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 //======================================
 // private functions
 //======================================
-func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
-	addr, err := address.FromString(sender)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get sender's address for action %x", actHash)
-	}
+func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
 	confirmedState, err := accountutil.AccountState(ap.sf, addr)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
 	confirmedNonce := confirmedState.Nonce
+	sender := addr.String()
 
 	queue := ap.accountActs[sender]
 	if queue == nil {
