@@ -331,7 +331,23 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	p := NewProtocol(0, 0)
+	ge := config.Default.Genesis
+	ge.Rewarding.InitBalanceStr = "0"
+	ge.Rewarding.BlockRewardStr = "10"
+	ge.Rewarding.EpochRewardStr = "100"
+	ge.Rewarding.NumDelegatesForEpochReward = 10
+	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	ge.Rewarding.FoundationBonusStr = "5"
+	ge.Rewarding.NumDelegatesForFoundationBonus = 5
+	ge.Rewarding.FoundationBonusLastEpoch = 365
+	ge.Rewarding.ProductivityThreshold = 50
+	ge.Rewarding.FoundationBonusP2StartEpoch = 365
+	ge.Rewarding.FoundationBonusP2EndEpoch = 365
+
+	// Create a test account with 1000 token
+	ge.InitBalanceMap[identityset.Address(0).String()] = "1000"
+
+	p := NewProtocol(ge.Rewarding)
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -384,20 +400,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	require.NoError(t, pp.Register(registry))
 	require.NoError(t, p.Register(registry))
-
-	ge := config.Default.Genesis
-	ge.Rewarding.InitBalanceStr = "0"
-	ge.Rewarding.BlockRewardStr = "10"
-	ge.Rewarding.EpochRewardStr = "100"
-	ge.Rewarding.NumDelegatesForEpochReward = 10
-	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	ge.Rewarding.FoundationBonusStr = "5"
-	ge.Rewarding.NumDelegatesForFoundationBonus = 5
-	ge.Rewarding.FoundationBonusLastEpoch = 365
-	ge.Rewarding.ProductivityThreshold = 50
-
-	// Create a test account with 1000 token
-	ge.InitBalanceMap[identityset.Address(0).String()] = "1000"
 
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
