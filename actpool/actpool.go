@@ -439,11 +439,7 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 // removeConfirmedActs removes processed (committed to block) actions from pool
 func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		addr, err := address.FromString(from)
-		if err != nil {
-			log.L().Error("Error when getting address", zap.Error(err))
-			return
-		}
+		addr, _ := address.FromString(from)
 		confirmedState, err := accountutil.AccountState(ap.sf, addr)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
@@ -517,11 +513,7 @@ func (ap *actPool) reset() {
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
-		addr, err := address.FromString(from)
-		if err != nil {
-			log.L().Error("Error when getting  address.", zap.Error(err))
-			return
-		}
+		addr, _ := address.FromString(from)
 		state, err := accountutil.AccountState(ap.sf, addr)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
