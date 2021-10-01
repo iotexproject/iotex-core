@@ -551,7 +551,7 @@ func TestCreateBlockchain(t *testing.T) {
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
@@ -602,7 +602,7 @@ func TestGetBlockHash(t *testing.T) {
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
@@ -758,7 +758,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	)
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -832,7 +832,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -932,7 +932,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 		require.NoError(ep.Register(registry))
-		rewardingProtocol := rewarding.NewProtocol(0, 0)
+		rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 		require.NoError(rewardingProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		defer func() {
@@ -1419,7 +1419,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	require.NoError(rewardingProtocol.Register(registry))
 	pollProtocol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(pollProtocol.Register(registry))

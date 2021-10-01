@@ -101,7 +101,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 		)),
 	)
 	r.NotNil(bc)
-	reward := rewarding.NewProtocol(0, 0)
+	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
