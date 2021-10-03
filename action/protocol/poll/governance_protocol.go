@@ -86,7 +86,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 		if err == nil || errors.Cause(err) != db.ErrNotExist {
 			break
 		}
-		log.L().Info("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
+		log.L().Debug("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
 		time.Sleep(p.initialCandidatesInterval)
 	}
 	if err != nil {
