@@ -63,7 +63,7 @@ func defaultConfig() Genesis {
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
-			JutlandBlockHeight:      16289321,
+			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    26289321,
 		},
 		Account: Account{
@@ -90,6 +90,9 @@ func defaultConfig() Genesis {
 			FoundationBonusLastEpoch:       8760,
 			FoundationBonusP2StartEpoch:    9698,
 			FoundationBonusP2EndEpoch:      18458,
+			FoundationBonusExtension: []Period{
+				{28440, 37200},
+			},
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -243,6 +246,11 @@ type (
 		// VotesStr is the score for the operator to rank and weight for rewardee to split epoch reward
 		VotesStr string `yaml:"votes"`
 	}
+	// Period consists of the start/end epoch
+	Period struct {
+		Start uint64 `yaml:"start"`
+		End   uint64 `yaml:"end"`
+	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
 		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
@@ -271,6 +279,8 @@ type (
 		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
+		// FoundationBonusExtension is the epoch number of extension foundation bonus after part 2
+		FoundationBonusExtension []Period `yaml:"foundationBonusExtension"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
