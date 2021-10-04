@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"container/heap"
-	"encoding/hex"
 	"math/big"
 	"sort"
 	"time"
@@ -51,7 +50,6 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // ActQueue is the interface of actQueue
 type ActQueue interface {
-	Overlaps(action.SealedEnvelope) bool
 	Put(action.SealedEnvelope) error
 	FilterNonce(uint64) []action.SealedEnvelope
 	UpdateQueue(uint64) []action.SealedEnvelope
@@ -104,21 +102,13 @@ func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 	return aq
 }
 
-// Overlap returns whether the current queue contains the given act
-func (q *actQueue) Overlaps(act action.SealedEnvelope) bool {
-	if actInPool, exist := q.items[act.Nonce()]; exist && hex.EncodeToString(actInPool.Signature()) == hex.EncodeToString(act.Signature()) {
-		return true
-	}
-	return false
-}
-
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act action.SealedEnvelope) error {
 	nonce := act.Nonce()
 	if actInPool, exist := q.items[nonce]; exist {
 		// act of higher gas price cut in line
 		if act.GasPrice().Cmp(actInPool.GasPrice()) != 1 {
-			return errors.Wrap(action.ErrNonce, "smaller gas price compared with the act of same nonce")
+			return errors.Wrap(action.ErrNonce, "gas price is smaller than the act of same nonce")
 		}
 		q.items[nonce] = act
 		return nil
