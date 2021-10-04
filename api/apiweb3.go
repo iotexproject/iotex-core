@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"google.golang.org/grpc/status"
 )
 
@@ -48,22 +49,27 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 
 	for _, web3Req := range web3Reqs {
 		if _, ok := apiMap[web3Req.Method]; !ok {
-			panic(ok) // not exist
+			log.L().Warn("unsupported web3 method.")
+			return
 		}
 
 		res, err := apiMap[web3Req.Method](api, web3Req.Params)
 		var resp web3Resp
 		if err != nil {
 			s, ok := status.FromError(err)
-			if !ok {
-				panic(err)
+			var errCode int
+			var errMsg string
+			if ok {
+				errCode, errMsg = int(s.Code()), s.Message()
+			} else {
+				errCode, errMsg = -1, err.Error()
 			}
 			resp = web3Resp{
 				Jsonrpc: "2.0",
 				ID:      web3Req.ID,
 				Error: web3Err{
-					Code:    int(s.Code()),
-					Message: s.Message(),
+					Code:    errCode,
+					Message: errMsg,
 				},
 			}
 		} else {
@@ -81,11 +87,13 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	if len(web3Resps) > 1 {
 		if err := json.NewEncoder(w).Encode(web3Resps); err != nil {
-			panic(err)
+			log.L().Warn("fail to respond request.")
+			return
 		}
 	} else {
 		if err := json.NewEncoder(w).Encode(web3Resps[0]); err != nil {
-			panic(err)
+			log.L().Warn("fail to respond request.")
+			return
 		}
 	}
 
