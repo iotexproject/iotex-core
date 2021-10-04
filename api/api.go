@@ -946,11 +946,12 @@ func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.API.Port)
 	web3PortStr := ":" + strconv.Itoa(api.cfg.API.Web3Port)
 
-	api.httpServer = &http.Server{
-		Addr: web3PortStr,
-	}
 	mux := http.NewServeMux()
 	mux.Handle("/", api)
+	api.httpServer = &http.Server{
+		Addr:    web3PortStr,
+		Handler: mux,
+	}
 
 	lis, err := net.Listen("tcp", portStr)
 	if err != nil {
