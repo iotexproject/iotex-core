@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 )
 
@@ -26,8 +27,8 @@ type (
 	}
 
 	web3Err struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
+		Code    int    `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
 	}
 )
 
@@ -35,8 +36,6 @@ func (api *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "POST":
 		api.handlePOSTReq(w, req)
-	case "GET":
-		w.Write([]byte{'2', '\n'})
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -44,12 +43,16 @@ func (api *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 
-	web3Reqs := getweb3Reqs(req)
-	var web3Resps []web3Resp
+	web3Reqs, err := getWeb3Reqs(req)
+	if err != nil {
+		log.L().Error("Failed to parse web3 requests.", zap.Error(err))
+		return
+	}
 
+	var web3Resps []web3Resp
 	for _, web3Req := range web3Reqs {
 		if _, ok := apiMap[web3Req.Method]; !ok {
-			log.L().Warn("unsupported web3 method.")
+			log.L().Warn("unsupported web3 method.", zap.String("method", web3Req.Method))
 			return
 		}
 
@@ -104,24 +107,24 @@ func isJSONArray(data []byte) bool {
 	return len(data) > 0 && data[0] == '['
 }
 
-func getweb3Reqs(req *http.Request) []web3Req {
+func getWeb3Reqs(req *http.Request) ([]web3Req, error) {
 	var web3Reqs []web3Req
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if isJSONArray(data) {
 		err := json.Unmarshal(data, &web3Reqs)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	} else {
 		var web3Req web3Req
 		err := json.Unmarshal(data, &web3Req)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		web3Reqs = append(web3Reqs, web3Req)
 	}
-	return web3Reqs
+	return web3Reqs, nil
 }
