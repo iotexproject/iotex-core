@@ -963,11 +963,14 @@ func (api *Server) Start() error {
 		if err := api.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
+	}()
 
+	go func() {
 		if err := api.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
+
 	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to subscribe to block creations")
 	}
