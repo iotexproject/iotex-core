@@ -23,7 +23,7 @@ type (
 		Jsonrpc string      `json:"jsonrpc"`
 		ID      int         `json:"id"`
 		Result  interface{} `json:"result,omitempty"`
-		Error   web3Err     `json:"error,omitempty"`
+		Error   *web3Err    `json:"error,omitempty"`
 	}
 
 	web3Err struct {
@@ -70,7 +70,7 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 			resp = web3Resp{
 				Jsonrpc: "2.0",
 				ID:      web3Req.ID,
-				Error: web3Err{
+				Error: &web3Err{
 					Code:    errCode,
 					Message: errMsg,
 				},
