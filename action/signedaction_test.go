@@ -28,7 +28,7 @@ var (
 )
 
 var (
-	gasPrice = big.NewInt(0)
+	gasPrice = big.NewInt(10)
 	gasLimit = uint64(1000000)
 )
 
