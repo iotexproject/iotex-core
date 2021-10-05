@@ -237,7 +237,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 	addr, err := address.FromString(q.address)
 	if err != nil {
 		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
-		return nil
+		return []action.SealedEnvelope{}
 	}
 	confirmedState, err := accountutil.AccountState(q.ap.sf, addr)
 	if err != nil {

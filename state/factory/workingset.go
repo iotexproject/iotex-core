@@ -321,10 +321,7 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		addr, err := address.FromString(srcAddr)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get the address.Address of address %s", srcAddr)
-		}
+		addr, _ := address.FromString(srcAddr)
 		confirmedState, err := accountutil.AccountState(ws, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
