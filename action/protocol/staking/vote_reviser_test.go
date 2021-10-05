@@ -129,6 +129,7 @@ func TestVoteReviser(t *testing.T) {
 
 	// load candidates from stateDB and verify
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)

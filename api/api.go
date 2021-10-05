@@ -738,6 +738,9 @@ func (api *Server) GetLogs(
 		if paginationSize == 0 {
 			paginationSize = 1000
 		}
+		if paginationSize > 5000 {
+			paginationSize = 5000
+		}
 		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
@@ -978,6 +981,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 		protocol.WithRegistry(ctx, api.registry),
 		api.cfg.Genesis,
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
@@ -1564,7 +1568,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	}
 	estimatedGas := receipt.GasConsumed
 	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
-	if err != nil {
+	if err != nil && err != action.ErrOutOfGas {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1573,7 +1577,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		for low <= high {
 			mid := (low + high) / 2
 			enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
-			if err != nil {
+			if err != nil && err != action.ErrOutOfGas {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {

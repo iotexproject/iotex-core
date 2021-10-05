@@ -8,6 +8,7 @@
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
 package rewardingpb;
+option go_package = "github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb";
 
 message Admin {
     string blockReward = 1;
@@ -17,6 +18,7 @@ message Admin {
     uint64 numDelegatesForFoundationBonus = 5;
     uint64 foundationBonusLastEpoch = 6;
     uint64 productivityThreshold = 7;
+    repeated Period foundationBonusExtension = 8;
 }
 
 message Fund {
@@ -44,4 +46,9 @@ message RewardLog {
     RewardType type = 1;
     string addr = 2;
     string amount = 3;
+}
+
+message Period {
+    uint64 start = 1;
+    uint64 end = 2;
 }

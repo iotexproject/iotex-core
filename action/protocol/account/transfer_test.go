@@ -51,7 +51,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	// set-up protocol and genesis states
 	p := NewProtocol(rewarding.DepositGas)
-	reward := rewarding.NewProtocol(0, 0)
+	reward := rewarding.NewProtocol(config.Default.Genesis.Rewarding)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
 	chainCtx := genesis.WithGenesisContext(
@@ -59,6 +59,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		config.Default.Genesis,
 	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(reward.CreateGenesisStates(ctx, sm))
 
 	// initial deposit to alfa and charlie (as a contract)
@@ -119,6 +120,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		require.NoError(err)
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
+		ctx = protocol.WithFeatureCtx(ctx)
 		receipt, err := p.Handle(ctx, tsf, sm)
 		require.Equal(v.err, errors.Cause(err))
 		if err != nil {

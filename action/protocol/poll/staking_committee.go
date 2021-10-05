@@ -210,11 +210,11 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 		return nil, err
 	}
 
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	// convert to epoch start height
-	if !g.IsCook(rp.GetEpochHeight(rp.GetEpochNum(height))) {
+	if !featureCtx.EnableNativeStaking(rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
 	// native staking using contract starts from Cook
@@ -224,7 +224,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 
 	// TODO: extract tip info inside of Votes function
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, g.IsDaytona(height))
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, featureCtx.StakingCorrectGas(height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
@@ -319,11 +319,11 @@ func (sc *stakingCommittee) mergeCandidates(list state.CandidateList, votes *Vot
 func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *action.Receipt, err error) error {
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
-	if !g.IsCook(epochHeight) {
+	if !featureCtx.EnableNativeStaking(epochHeight) {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
