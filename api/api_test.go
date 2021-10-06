@@ -860,13 +860,13 @@ func TestServer_GetAccount(t *testing.T) {
 	require.Error(err)
 
 	// success: reward pool
-	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	accountMeta2, _, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
 	require.NoError(err)
-	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
-	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
+	require.Equal(address.RewardingPoolAddr, accountMeta2.Address)
+	require.Equal("200000000000000000000101000", accountMeta2.Balance)
 
 	//failure: protocol staking isn't registered
-	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	_, _, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
 	require.Contains(err.Error(), "protocol staking isn't registered")
 }
 
