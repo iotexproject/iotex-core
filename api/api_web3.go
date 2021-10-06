@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 )
@@ -108,6 +109,11 @@ func isJSONArray(data []byte) bool {
 }
 
 func getWeb3Reqs(req *http.Request) ([]web3Req, error) {
+	contentType := req.Header.Get("Content-type")
+	if contentType != "application/json" {
+		return nil, errors.New("content-type is not application/json")
+	}
+
 	var web3Reqs []web3Req
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
