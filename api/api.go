@@ -112,6 +112,7 @@ type Server struct {
 	grpcServer        *grpc.Server
 	hasActionIndex    bool
 	electionCommittee committee.Committee
+	readCache         *ReadCache
 }
 
 // NewServer creates a new server
@@ -157,6 +158,7 @@ func NewServer(
 		chainListener:     NewChainListener(),
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
+		readCache:         NewReadCache(),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
@@ -169,6 +171,9 @@ func NewServer(
 	grpc_prometheus.Register(svr.grpcServer)
 	reflection.Register(svr.grpcServer)
 
+	if err := svr.chainListener.AddResponder(svr.readCache); err != nil {
+		return nil, err
+	}
 	return svr, nil
 }
 
@@ -444,6 +449,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		err = status.Error(codes.InvalidArgument, err.Error())
 		return
 	}
+	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
+	if d, ok := api.readCache.Get(key); ok {
+		res = &iotexapi.ReadContractResponse{}
+		if proto.Unmarshal(d, res) == nil {
+			return
+		}
+	}
+
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
@@ -489,6 +502,9 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	res = &iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
+	}
+	if d, err := proto.Marshal(res); err == nil {
+		api.readCache.Put(key, d)
 	}
 	return
 }
@@ -969,6 +985,20 @@ func (api *Server) Stop() error {
 }
 
 func (api *Server) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, uint64, error) {
+	key := ReadKey{
+		Name:   p.Name(),
+		Height: height,
+		Method: methodName,
+		Args:   arguments,
+	}
+	if d, ok := api.readCache.Get(key.Hash()); ok {
+		var h uint64
+		if height != "" {
+			h, _ = strconv.ParseUint(height, 0, 64)
+		}
+		return d, h, nil
+	}
+
 	// TODO: need to complete the context
 	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -993,12 +1023,20 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 		inputEpochNum := rp.GetEpochNum(inputHeight)
 		if inputEpochNum < tipEpochNum {
 			// old data, wrap to history state reader
-			return p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			if err == nil {
+				api.readCache.Put(key.Hash(), d)
+			}
+			return d, h, err
 		}
 	}
 
 	// TODO: need to distinguish user error and system error
-	return p.ReadState(ctx, api.sf, methodName, arguments...)
+	d, h, err := p.ReadState(ctx, api.sf, methodName, arguments...)
+	if err == nil {
+		api.readCache.Put(key.Hash(), d)
+	}
+	return d, h, err
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {

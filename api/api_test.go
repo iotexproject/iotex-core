@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -1944,6 +1943,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			}).AnyTimes()
 			svr.bc = mbc
 		}
+		svr.readCache.Clear()
 		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
@@ -2442,19 +2442,11 @@ func createServer(cfg config.Config, needActPool bool) (*Server, string, error) 
 		}
 	}
 
-	svr := &Server{
-		bc:             bc,
-		sf:             sf,
-		dao:            dao,
-		indexer:        indexer,
-		bfIndexer:      bfIndexer,
-		ap:             ap,
-		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
-		registry:       registry,
-		hasActionIndex: true,
+	svr, err := NewServer(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
+	if err != nil {
+		return nil, "", err
 	}
-
+	svr.hasActionIndex = true
 	return svr, bfIndexFile, nil
 }
 
