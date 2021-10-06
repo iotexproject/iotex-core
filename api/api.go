@@ -461,13 +461,12 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if d, ok := api.readCache.Get(sc.Contract() + string(sc.Data())); ok {
+	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
+	if d, ok := api.readCache.Get(key); ok {
 		res := iotexapi.ReadContractResponse{}
-		if err := proto.Unmarshal(d, &res); err != nil {
-			log.L().Error("failed to unmarshal cached read", zap.Error(err))
-			return nil, status.Error(codes.Internal, err.Error())
+		if err := proto.Unmarshal(d, &res); err == nil {
+			return &res, nil
 		}
-		return &res, nil
 	}
 
 	if in.CallerAddress == action.EmptyAddress {
@@ -506,7 +505,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		Receipt: receipt.ConvertToReceiptPb(),
 	}
 	if d, err := proto.Marshal(&res); err == nil {
-		api.readCache.Put(sc.Contract()+string(sc.Data()), d)
+		api.readCache.Put(key, d)
 	}
 	return &res, nil
 }
@@ -996,7 +995,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 		Method: methodName,
 		Args:   arguments,
 	}
-	if d, ok := api.readCache.Get(key.String()); ok {
+	if d, ok := api.readCache.Get(key.Hash()); ok {
 		var h uint64
 		if height != "" {
 			h, _ = strconv.ParseUint(height, 0, 64)
@@ -1031,7 +1030,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 			// old data, wrap to history state reader
 			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
 			if err == nil {
-				api.readCache.Put(key.String(), d)
+				api.readCache.Put(key.Hash(), d)
 			}
 			return d, h, err
 		}
@@ -1040,7 +1039,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 	// TODO: need to distinguish user error and system error
 	d, h, err := p.ReadState(ctx, api.sf, methodName, arguments...)
 	if err == nil {
-		api.readCache.Put(key.String(), d)
+		api.readCache.Put(key.Hash(), d)
 	}
 	return d, h, err
 }

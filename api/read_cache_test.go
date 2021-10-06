@@ -3,13 +3,14 @@ package api
 import (
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 )
 
 func TestReadKey(t *testing.T) {
 	r := require.New(t)
 
-	var keys []string
+	var keys []hash.Hash160
 	for _, v := range []ReadKey{
 		{"staking", "10", []byte("activeBuckets"), [][]byte{[]byte{0, 1}, []byte{2, 3, 4, 5, 6, 7, 8}}},
 		{"staking", "10", []byte("activeBuckets"), [][]byte{[]byte{0, 1, 2}, []byte{3, 4, 5, 6, 7, 8}}},
@@ -17,7 +18,7 @@ func TestReadKey(t *testing.T) {
 		{"staking", "10", []byte("activeBuckets"), [][]byte{[]byte{0, 1, 2, 3, 4, 5}, []byte{6, 7, 8}}},
 		{"staking", "10", []byte("activeBuckets"), [][]byte{[]byte{0, 1, 2, 3, 4, 5, 6, 7}, []byte{8}}},
 	} {
-		keys = append(keys, v.String())
+		keys = append(keys, v.Hash())
 	}
 
 	// all keys are different
@@ -34,13 +35,13 @@ func TestReadCache(t *testing.T) {
 
 	c := NewReadCache()
 	rcTests := []struct {
-		k string
+		k hash.Hash160
 		v []byte
 	}{
-		{"1", []byte{1}},
-		{"2", []byte{2}},
-		{"3", []byte{1}},
-		{"4", []byte{2}},
+		{hash.Hash160b([]byte{1}), []byte{1}},
+		{hash.Hash160b([]byte{2}), []byte{2}},
+		{hash.Hash160b([]byte{3}), []byte{1}},
+		{hash.Hash160b([]byte{4}), []byte{2}},
 	}
 	for _, v := range rcTests {
 		d, ok := c.Get(v.k)

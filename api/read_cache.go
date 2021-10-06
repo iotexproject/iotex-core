@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -23,25 +24,25 @@ type (
 	ReadCache struct {
 		total, hit int
 		lock       sync.RWMutex
-		bins       map[string][]byte
+		bins       map[hash.Hash160][]byte
 	}
 )
 
-// String returns the key as a string
-func (k *ReadKey) String() string {
+// Hash returns the hash of key's json string
+func (k *ReadKey) Hash() hash.Hash160 {
 	b, _ := json.Marshal(k)
-	return string(b)
+	return hash.Hash160b(b)
 }
 
 // NewReadCache returns a new read cache
 func NewReadCache() *ReadCache {
 	return &ReadCache{
-		bins: make(map[string][]byte),
+		bins: make(map[hash.Hash160][]byte),
 	}
 }
 
 // Get reads according to key
-func (rc *ReadCache) Get(key string) ([]byte, bool) {
+func (rc *ReadCache) Get(key hash.Hash160) ([]byte, bool) {
 	rc.lock.RLock()
 	defer rc.lock.RUnlock()
 
@@ -58,7 +59,7 @@ func (rc *ReadCache) Get(key string) ([]byte, bool) {
 }
 
 // Put writes according to key
-func (rc *ReadCache) Put(key string, value []byte) {
+func (rc *ReadCache) Put(key hash.Hash160, value []byte) {
 	rc.lock.Lock()
 	rc.bins[key] = value
 	rc.lock.Unlock()
@@ -68,7 +69,7 @@ func (rc *ReadCache) Put(key string, value []byte) {
 func (rc *ReadCache) Clear() {
 	rc.lock.Lock()
 	rc.bins = nil
-	rc.bins = make(map[string][]byte)
+	rc.bins = make(map[hash.Hash160][]byte)
 	rc.lock.Unlock()
 }
 
