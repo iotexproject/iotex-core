@@ -464,6 +464,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if d, ok := api.readCache.Get(sc.Contract() + string(sc.Data())); ok {
 		res := iotexapi.ReadContractResponse{}
 		if err := proto.Unmarshal(d, &res); err != nil {
+			log.L().Error("failed to unmarshal cached read", zap.Error(err))
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 		return &res, nil
@@ -504,8 +505,9 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
 	}
-	d, _ := proto.Marshal(&res)
-	api.readCache.Put(sc.Contract()+string(sc.Data()), d)
+	if d, err := proto.Marshal(&res); err == nil {
+		api.readCache.Put(sc.Contract()+string(sc.Data()), d)
+	}
 	return &res, nil
 }
 

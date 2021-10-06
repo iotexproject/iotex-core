@@ -66,8 +66,10 @@ func (rc *ReadCache) Put(key string, value []byte) {
 
 // Clear clears the cache
 func (rc *ReadCache) Clear() {
+	rc.lock.Lock()
 	rc.bins = nil
 	rc.bins = make(map[string][]byte)
+	rc.lock.Unlock()
 }
 
 // Respond implements the Responder interface
