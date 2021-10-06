@@ -28,7 +28,7 @@ func TestNewAccountDelete(t *testing.T) {
 		config.English).AnyTimes()
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
-	require.NoError(t, os.Mkdir(testAccountFolder, os.ModePerm))
+	require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
 	defer func() {
 		require.NoError(t, os.RemoveAll(testAccountFolder))
 	}()

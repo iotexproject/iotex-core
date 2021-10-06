@@ -452,7 +452,6 @@ func (ws *workingSet) pickAndRunActions(
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
 				ctx = protocol.WithBlockCtx(ctx, blkCtx)
-				ctx = protocol.WithFeatureCtx(ctx)
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, nextAction)
