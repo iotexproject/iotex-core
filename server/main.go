@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"go.opentelemetry.io/otel/trace"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -108,6 +110,18 @@ func main() {
 		glog.Fatalln("EVM Network ID is not set, call config.New() first")
 	}
 
+	tp, err := tracer.NewProvider(
+		tracer.WithEndpoint(cfg.Tracer.EndPoint),
+		tracer.WithInstanceID(cfg.Tracer.InstanceID),
+	)
+	if err != nil {
+		glog.Fatalln("Cannot config tracer provider", zap.Error(err))
+	}
+	tr := tp.Tracer("main")
+	_, span := tr.Start(ctx, "NewServer")
+	defer span.End()
+	ctx = trace.ContextWithSpan(ctx, span)
+
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
@@ -131,6 +145,9 @@ func main() {
 		// liveness end
 		if err := probeSvr.Stop(livenessCtx); err != nil {
 			log.L().Error("Error when stopping probe server.", zap.Error(err))
+		}
+		if err := tp.Shutdown(ctx); err != nil {
+			log.L().Error("Error when stopping tracer privoder.", zap.Error(err))
 		}
 		livenessCancel()
 	}()
