@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	service     = "iotex-server"
-	environment = "production"
-	id          = 1
+	_service = "iotex-tracer"
 )
 
 // Config is the config for tracer
