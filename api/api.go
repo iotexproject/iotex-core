@@ -440,7 +440,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
+	if err = api.broadcastHandler(ctx, api.bc.ChainID(), in.Action); err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil

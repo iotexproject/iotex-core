@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -185,6 +186,10 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("actPool Add")
+	defer span.End()
 
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {

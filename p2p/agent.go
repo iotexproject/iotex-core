@@ -20,6 +20,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
@@ -312,7 +313,11 @@ func (p *Agent) Stop(ctx context.Context) error {
 }
 
 // BroadcastOutbound sends a broadcast message to the whole network
-func (p *Agent) BroadcastOutbound(_ context.Context, msg proto.Message) (err error) {
+func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Agent BroadcastOutbound")
+	defer span.End()
+
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
