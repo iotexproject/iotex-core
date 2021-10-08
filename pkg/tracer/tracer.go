@@ -16,7 +16,7 @@ const (
 	id          = 1
 )
 
-// Tracer is the config for tracer
+// Config is the config for tracer
 type Config struct {
 	// EndPoint the jaeger endpoint
 	EndPoint string `yaml:"endpoint"`
@@ -24,6 +24,7 @@ type Config struct {
 	InstanceID string `yaml:"instanceID"`
 }
 
+// Option the tracer provider option
 type Option func(ops *optionParams) error
 
 type optionParams struct {
@@ -47,6 +48,7 @@ func WithInstanceID(instanceID string) Option {
 	}
 }
 
+// NewProvider create an instance of tracer provider
 func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 	var (
 		err                           error
