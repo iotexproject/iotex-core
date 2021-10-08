@@ -47,17 +47,52 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-// ExpectedBalance defines an account-balance pair
-type ExpectedBalance struct {
-	Account    string `json:"account"`
-	RawBalance string `json:"rawBalance"`
-}
+type (
+	// ExpectedBalance defines an account-balance pair
+	ExpectedBalance struct {
+		Account    string `json:"account"`
+		RawBalance string `json:"rawBalance"`
+	}
 
-// GenesisBlockHeight defines an genesis blockHeight
-type GenesisBlockHeight struct {
-	IsBering  bool `json:"isBering"`
-	IsIceland bool `json:"isIceland"`
-}
+	ExpectedBlockInfo struct {
+		TxRootHash      string `json:"txRootHash"`
+		StateRootHash   string `json:"stateRootHash"`
+		ReceiptRootHash string `json:"receiptRootHash"`
+	}
+
+	// GenesisBlockHeight defines an genesis blockHeight
+	GenesisBlockHeight struct {
+		IsBering  bool `json:"isBering"`
+		IsIceland bool `json:"isIceland"`
+	}
+
+	Log struct {
+		Topics []string `json:"topics"`
+		Data   string   `json:"data"`
+	}
+
+	ExecutionConfig struct {
+		Comment                 string            `json:"comment"`
+		ContractIndex           int               `json:"contractIndex"`
+		AppendContractAddress   bool              `json:"appendContractAddress"`
+		ContractIndexToAppend   int               `json:"contractIndexToAppend"`
+		ContractAddressToAppend string            `json:"contractAddressToAppend"`
+		ReadOnly                bool              `json:"readOnly"`
+		RawPrivateKey           string            `json:"rawPrivateKey"`
+		RawByteCode             string            `json:"rawByteCode"`
+		RawAmount               string            `json:"rawAmount"`
+		RawGasLimit             uint              `json:"rawGasLimit"`
+		RawGasPrice             string            `json:"rawGasPrice"`
+		Failed                  bool              `json:"failed"`
+		RawReturnValue          string            `json:"rawReturnValue"`
+		RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
+		ExpectedStatus          uint64            `json:"expectedStatus"`
+		ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
+		ExpectedLogs            []Log             `json:"expectedLogs"`
+		ExpectedErrorMsg        string            `json:"expectedErrorMsg"`
+		ExpectedBlockInfos      ExpectedBlockInfo `json:"expectedBlockInfos"`
+	}
+)
 
 func (eb *ExpectedBalance) Balance() *big.Int {
 	balance, ok := new(big.Int).SetString(eb.RawBalance, 10)
@@ -76,32 +111,6 @@ func readCode(sr protocol.StateReader, addr []byte) ([]byte, error) {
 	_, err = sr.State(&c, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(account.CodeHash[:]))
 
 	return c[:], err
-}
-
-type Log struct {
-	Topics []string `json:"topics"`
-	Data   string   `json:"data"`
-}
-
-type ExecutionConfig struct {
-	Comment                 string            `json:"comment"`
-	ContractIndex           int               `json:"contractIndex"`
-	AppendContractAddress   bool              `json:"appendContractAddress"`
-	ContractIndexToAppend   int               `json:"contractIndexToAppend"`
-	ContractAddressToAppend string            `json:"contractAddressToAppend"`
-	ReadOnly                bool              `json:"readOnly"`
-	RawPrivateKey           string            `json:"rawPrivateKey"`
-	RawByteCode             string            `json:"rawByteCode"`
-	RawAmount               string            `json:"rawAmount"`
-	RawGasLimit             uint              `json:"rawGasLimit"`
-	RawGasPrice             string            `json:"rawGasPrice"`
-	Failed                  bool              `json:"failed"`
-	RawReturnValue          string            `json:"rawReturnValue"`
-	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
-	ExpectedStatus          uint64            `json:"expectedStatus"`
-	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
-	ExpectedLogs            []Log             `json:"expectedLogs"`
-	ExpectedErrorMsg        string            `json:"expectedErrorMsg"`
 }
 
 func (cfg *ExecutionConfig) PrivateKey() crypto.PrivateKey {
@@ -258,7 +267,7 @@ func runExecutions(
 	ap actpool.ActPool,
 	ecfgs []*ExecutionConfig,
 	contractAddrs []string,
-) ([]*action.Receipt, error) {
+) ([]*action.Receipt, *ExpectedBlockInfo, error) {
 	nonces := map[string]uint64{}
 	hashes := []hash.Hash256{}
 	for i, ecfg := range ecfgs {
@@ -269,7 +278,7 @@ func runExecutions(
 		if nonce, ok = nonces[executor]; !ok {
 			state, err := accountutil.AccountState(sf, executor)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			nonce = state.Nonce
 		}
@@ -284,7 +293,7 @@ func runExecutions(
 			ecfg.ByteCode(),
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		builder := &action.EnvelopeBuilder{}
 		elp := builder.SetAction(exec).
@@ -294,34 +303,41 @@ func runExecutions(
 			Build()
 		selp, err := action.Sign(elp, ecfg.PrivateKey())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := ap.Add(context.Background(), selp); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		selpHash, err := selp.Hash()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		hashes = append(hashes, selpHash)
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	if err := bc.CommitBlock(blk); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	receipts := []*action.Receipt{}
 	for _, hash := range hashes {
 		receipt, err := dao.GetReceiptByActionHash(hash, blk.Height())
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		receipts = append(receipts, receipt)
 	}
+	stateRootHash, txRootHash, receiptRootHash := blk.DeltaStateDigest(), blk.TxRoot(), blk.ReceiptRoot()
+	blkInfo := &ExpectedBlockInfo{
+		hex.EncodeToString(txRootHash[:]),
+		hex.EncodeToString(stateRootHash[:]),
+		hex.EncodeToString(receiptRootHash[:]),
+	}
 
-	return receipts, nil
+	return receipts, blkInfo, nil
 }
 
 func (sct *SmartContractTest) prepareBlockchain(
@@ -354,6 +370,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.FairbankBlockHeight = 0
 		cfg.Genesis.GreenlandBlockHeight = 0
 		cfg.Genesis.IcelandBlockHeight = 0
+		cfg.Genesis.JutlandBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -392,7 +409,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	reward := rewarding.NewProtocol(0, 0)
+	reward := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
@@ -414,7 +431,7 @@ func (sct *SmartContractTest) deployContracts(
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		receipts, err := runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&contract}, []string{action.EmptyAddress})
+		receipts, _, err := runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&contract}, []string{action.EmptyAddress})
 		r.NoError(err)
 		r.Equal(1, len(receipts))
 		receipt := receipts[0]
@@ -455,6 +472,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(28).HexString()
 	cfg.Chain.EnableTrielessStateDB = false
 	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
 	defer func() {
@@ -475,6 +493,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		}
 		var retval []byte
 		var receipt *action.Receipt
+		var blkInfo *ExpectedBlockInfo
 		var err error
 		if exec.ReadOnly {
 			retval, receipt, err = readExecution(bc, sf, dao, ap, &exec, contractAddr)
@@ -486,7 +505,8 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 				r.Equal(expected, retval)
 			}
 		} else {
-			receipts, err := runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&exec}, []string{contractAddr})
+			var receipts []*action.Receipt
+			receipts, blkInfo, err = runExecutions(bc, sf, dao, ap, []*ExecutionConfig{&exec}, []string{contractAddr})
 			r.NoError(err)
 			r.Equal(1, len(receipts))
 			receipt = receipts[0]
@@ -505,6 +525,11 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		}
 		if exec.ExpectedGasConsumed() != 0 {
 			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed, i)
+		}
+		if exec.ExpectedBlockInfos != (ExpectedBlockInfo{}) {
+			r.Equal(exec.ExpectedBlockInfos.ReceiptRootHash, blkInfo.ReceiptRootHash)
+			r.Equal(exec.ExpectedBlockInfos.TxRootHash, blkInfo.TxRootHash)
+			r.Equal(exec.ExpectedBlockInfos.StateRootHash, blkInfo.StateRootHash)
 		}
 		for _, expectedBalance := range exec.ExpectedBalances {
 			account := expectedBalance.Account
@@ -872,6 +897,15 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("self-destruct", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/self-destruct.json")
 	})
+	// datacopy
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/datacopy.json")
+	})
+	// this test replay CVE-2021-39137 attack, see attack details
+	// at https://github.com/ethereum/go-ethereum/blob/master/docs/postmortems/2021-08-22-split-postmortem.md
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
 }
 
 func TestMaxTime(t *testing.T) {
@@ -956,6 +990,12 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("self-destruct", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/self-destruct.json")
 	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
 }
 
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
@@ -996,7 +1036,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	contractAddr := contractAddresses[0]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		receipts, err := runExecutions(
+		receipts, _, err := runExecutions(
 			bc, sf, dao, ap, []*ExecutionConfig{
 				{
 					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -1027,7 +1067,7 @@ func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 			})
 			contractAddrs = append(contractAddrs, contractAddr)
 		}
-		receipts, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		receipts, _, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
 		r.NoError(err)
 		for _, receipt := range receipts {
 			r.Equal(uint64(1), receipt.Status)
@@ -1073,7 +1113,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 	contractAddr := contractAddresses[0]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		receipts, err := runExecutions(
+		receipts, _, err := runExecutions(
 			bc, sf, dao, ap, []*ExecutionConfig{
 				{
 					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -1104,7 +1144,7 @@ func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
 			})
 			contractAddrs = append(contractAddrs, contractAddr)
 		}
-		receipts, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		receipts, _, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
 		r.NoError(err)
 		for _, receipt := range receipts {
 			r.Equal(uint64(1), receipt.Status)

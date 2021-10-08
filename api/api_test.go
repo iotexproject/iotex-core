@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -2078,6 +2077,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			}).AnyTimes()
 			svr.bc = mbc
 		}
+		svr.readCache.Clear()
 		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
@@ -2605,7 +2605,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(0, 0)
+	r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
@@ -2689,19 +2689,11 @@ func createServer(cfg config.Config, needActPool bool) (*Server, string, error) 
 		}
 	}
 
-	svr := &Server{
-		bc:             bc,
-		sf:             sf,
-		dao:            dao,
-		indexer:        indexer,
-		bfIndexer:      bfIndexer,
-		ap:             ap,
-		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
-		registry:       registry,
-		hasActionIndex: true,
+	svr, err := NewServer(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
+	if err != nil {
+		return nil, "", err
 	}
-
+	svr.hasActionIndex = true
 	return svr, bfIndexFile, nil
 }
 
@@ -2764,4 +2756,38 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.NoError(err)
 	_, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
+}
+
+func TestServer_GetEstimateGasSpecial(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServer(cfg, true)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	// deploy self-desturct contract
+	contractCode := "608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610196806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c80632e64cec11461004657806343d726d6146100645780636057361d1461006e575b600080fd5b61004e61008a565b60405161005b9190610124565b60405180910390f35b61006c610094565b005b610088600480360381019061008391906100ec565b6100cd565b005b6000600154905090565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b8060018190555050565b6000813590506100e681610149565b92915050565b6000602082840312156100fe57600080fd5b600061010c848285016100d7565b91505092915050565b61011e8161013f565b82525050565b60006020820190506101396000830184610115565b92915050565b6000819050919050565b6101528161013f565b811461015d57600080fd5b5056fea264697066735822122060e7a28baea4232a95074b94b50009d1d7b99302ef6556a1f3ce7f46a49f8cc064736f6c63430008000033"
+	contract, err := deployContract(svr, identityset.PrivateKey(13), 1, svr.bc.TipHeight(), contractCode)
+
+	require.NoError(err)
+	require.True(len(contract) > 0)
+
+	// call self-destuct func, which will invoke gas refund policy
+	data := "43d726d6"
+	byteCodes, err := hex.DecodeString(data)
+	require.NoError(err)
+	execution, err := action.NewExecution(contract, 2, big.NewInt(0), 0, big.NewInt(0), byteCodes)
+	require.NoError(err)
+	request := &iotexapi.EstimateActionGasConsumptionRequest{
+		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
+			Execution: execution.Proto(),
+		},
+		CallerAddress: identityset.Address(13).String(),
+	}
+	res, err := svr.EstimateActionGasConsumption(context.Background(), request)
+	require.NoError(err)
+	require.Equal(uint64(10777), res.Gas)
 }

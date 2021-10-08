@@ -107,6 +107,7 @@ func TestProtocol(t *testing.T) {
 
 	// load candidates from stateDB and verify
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)
@@ -194,6 +195,7 @@ func TestCreatePreStates(t *testing.T) {
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	require.NoError(sm.WriteView(protocolID, v))
@@ -259,6 +261,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 			BlockHeight: genesis.Default.GreenlandBlockHeight,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	require.NoError(sm.WriteView(protocolID, v))
@@ -354,6 +357,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	for _, test := range testBootstrapCandidates {
 		cfg.BootstrapCandidates = test.BootstrapCandidate
 		p, err := NewProtocol(nil, cfg, nil, genesis.Default.GreenlandBlockHeight)

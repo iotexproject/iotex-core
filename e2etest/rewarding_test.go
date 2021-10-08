@@ -112,6 +112,7 @@ func TestBlockReward(t *testing.T) {
 		},
 	)
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)

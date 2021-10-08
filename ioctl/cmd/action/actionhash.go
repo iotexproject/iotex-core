@@ -36,11 +36,11 @@ import (
 var (
 	hashCmdShorts = map[config.Language]string{
 		config.English: "Get action by hash",
-		config.Chinese: "依据哈希值，获取行动",
+		config.Chinese: "依据哈希值，获取交易",
 	}
 	hashCmdUses = map[config.Language]string{
 		config.English: "hash ACTION_HASH",
-		config.Chinese: "hash 行动_哈希", // this translation
+		config.Chinese: "hash 交易哈希",
 	}
 )
 
@@ -169,21 +169,22 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 	//ioctl action should display IOTX unit instead Raul
-	gasPriceUnitIOTX, err := util.StringToIOTX(action.Core.GasPrice)
+	core := action.Core
+	gasPriceUnitIOTX, err := util.StringToIOTX(core.GasPrice)
 	if err != nil {
 		return "", output.NewError(output.ConfigError, "failed to convert string to IOTX", err)
 	}
-	result := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-		fmt.Sprintf("gasPrice: %s IOTX\n", gasPriceUnitIOTX) +
+	result := fmt.Sprintf("\nversion: %d  ", core.GetVersion()) +
+		fmt.Sprintf("nonce: %d  ", core.GetNonce()) +
+		fmt.Sprintf("gasLimit: %d  ", core.GasLimit) +
+		fmt.Sprintf("gasPrice: %s IOTX  ", gasPriceUnitIOTX) +
+		fmt.Sprintf("chainID: %d  ", core.GetChainID()) +
+		fmt.Sprintf("encoding: %d\n", action.GetEncoding()) +
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
 			Match(senderAddress.String(), "address"))
 	switch {
-	default:
-		result += protoV1.MarshalTextString(action.Core)
-	case action.Core.GetTransfer() != nil:
-		transfer := action.Core.GetTransfer()
+	case core.GetTransfer() != nil:
+		transfer := core.GetTransfer()
 		amount, err := util.StringToIOTX(transfer.Amount)
 		if err != nil {
 			return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
@@ -196,8 +197,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
 		}
 		result += ">\n"
-	case action.Core.GetExecution() != nil:
-		execution := action.Core.GetExecution()
+	case core.GetExecution() != nil:
+		execution := core.GetExecution()
 		result += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				Match(execution.Contract, "address"))
@@ -209,8 +210,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			result += fmt.Sprintf("  amount: %s IOTX\n", amount)
 		}
 		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
-	case action.Core.GetPutPollResult() != nil:
-		putPollResult := action.Core.GetPutPollResult()
+	case core.GetPutPollResult() != nil:
+		putPollResult := core.GetPutPollResult()
 		result += "putPollResult: <\n" +
 			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
 			"  candidates: <\n"
@@ -224,6 +225,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		}
 		result += "  >\n" +
 			">\n"
+	default:
+		result += protoV1.MarshalTextString(core)
 	}
 	result += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)
