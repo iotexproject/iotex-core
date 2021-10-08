@@ -10,5 +10,5 @@ func TestTracer(t *testing.T) {
 	require := require.New(t)
 	prv, err := NewProvider()
 	require.NoError(err)
-	require.NotNil(prv)
+	require.Nil(prv)
 }
