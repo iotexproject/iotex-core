@@ -1,13 +1,14 @@
 package tracer
 
 import (
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -66,7 +67,7 @@ func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 	}
 	kv := []attribute.KeyValue{
 		semconv.ServiceVersionKey.String(version.PackageVersion),
-		semconv.ServiceNameKey.String(service),
+		semconv.ServiceNameKey.String(_service),
 	}
 	if ops.instanceID != "" {
 		kv = append(kv, semconv.ServiceInstanceIDKey.String(ops.instanceID))
