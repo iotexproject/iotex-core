@@ -63,7 +63,9 @@ func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 	if ops.endpoint != "" {
 		jaegerCollectorEndpointOption = append(jaegerCollectorEndpointOption, jaeger.WithEndpoint(ops.endpoint))
 	} else {
-		trackerTracerProviderOption = append(trackerTracerProviderOption, tracesdk.WithSampler(tracesdk.ParentBased(tracesdk.TraceIDRatioBased(-1))))
+		//skipped tracing when endpoint no set
+		return nil, nil
+		//trackerTracerProviderOption = append(trackerTracerProviderOption, tracesdk.WithSampler(tracesdk.ParentBased(tracesdk.TraceIDRatioBased(-1))))
 	}
 	kv := []attribute.KeyValue{
 		semconv.ServiceVersionKey.String(version.PackageVersion),

@@ -22,6 +22,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
@@ -55,6 +56,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -115,6 +117,7 @@ type Server struct {
 	hasActionIndex    bool
 	electionCommittee committee.Committee
 	readCache         *ReadCache
+	tp                *trace.TracerProvider
 }
 
 // NewServer creates a new server
@@ -145,7 +148,13 @@ func NewServer(
 	if cfg.API.RangeQueryLimit < uint64(cfg.API.TpsWindow) {
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
-
+	tp, err := tracer.NewProvider(
+		tracer.WithEndpoint(cfg.API.Tracer.EndPoint),
+		tracer.WithInstanceID(cfg.API.Tracer.InstanceID),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot config tracer provider")
+	}
 	svr := &Server{
 		bc:                chain,
 		bs:                bs,
@@ -161,6 +170,7 @@ func NewServer(
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
+		tp:                tp,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
