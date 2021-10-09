@@ -300,7 +300,14 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 		return api.getBlockMetas(request.Start, request.Count)
 	case in.GetByHash() != nil:
 		request := in.GetByHash()
-		return api.getBlockMetaByHash(request.BlkHash)
+		ret, err := api.getBlockMetaByHash(request.BlkHash)
+		if err != nil {
+			return nil, err
+		}
+		return &iotexapi.GetBlockMetasResponse{
+			Total:    1,
+			BlkMetas: ret,
+		}, nil
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -502,53 +509,51 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
-	if d, ok := api.readCache.Get(key); ok {
-		res := iotexapi.ReadContractResponse{}
-		if err := proto.Unmarshal(d, &res); err == nil {
-			return &res, nil
-		}
-	}
 
-	if in.CallerAddress == action.EmptyAddress {
-		in.CallerAddress = address.ZeroAddress
-	}
-	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	callerAddr, _ := address.FromString(in.CallerAddress)
-	ctx, err = api.bc.Context(ctx)
+	retval, receipt, err := api.readContract(in.CallerAddress, sc.Contract(), sc.Amount(), in.GasLimit, sc.Data())
 	if err != nil {
 		return nil, err
 	}
+	return &iotexapi.ReadContractResponse{
+		Data:    hex.EncodeToString(retval),
+		Receipt: receipt.ConvertToReceiptPb(),
+	}, nil
+}
+
+func (api *Server) readContract(txFrom string, txTo string, value *big.Int, txGasLimit uint64, data []byte) ([]byte, *action.Receipt, error) {
+	if txFrom == action.EmptyAddress {
+		txFrom = address.ZeroAddress
+	}
+	state, err := accountutil.AccountState(api.sf, txFrom)
+	if err != nil {
+		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	callerAddr, _ := address.FromString(txFrom)
+
+	ctx, err := api.bc.Context(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
 
 	gasLimit := api.cfg.Genesis.BlockGasLimit
-	if in.GasLimit != 0 && in.GasLimit < gasLimit {
-		gasLimit = in.GasLimit
+	if txGasLimit != 0 && txGasLimit < gasLimit {
+		gasLimit = txGasLimit
 	}
-	sc, _ = action.NewExecution(
-		sc.Contract(),
+	exec, _ := action.NewExecution(
+		txTo,
 		state.Nonce+1,
-		sc.Amount(),
+		value,
 		gasLimit,
 		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
-		sc.Data(),
+		data,
 	)
-	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, exec, api.dao.GetBlockHash)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	res := iotexapi.ReadContractResponse{
-		Data:    hex.EncodeToString(retval),
-		Receipt: receipt.ConvertToReceiptPb(),
-	}
-	if d, err := proto.Marshal(&res); err == nil {
-		api.readCache.Put(key, d)
-	}
-	return &res, nil
+	return retval, receipt, nil
 }
 
 // ReadState reads state on blockchain
@@ -1356,7 +1361,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 }
 
 // getBlockMeta returns blockmetas response by block hash
-func (api *Server) getBlockMetaByHash(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
+func (api *Server) getBlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1372,10 +1377,7 @@ func (api *Server) getBlockMetaByHash(blkHash string) (*iotexapi.GetBlockMetasRe
 	if err != nil {
 		return nil, err
 	}
-	return &iotexapi.GetBlockMetasResponse{
-		Total:    1,
-		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
-	}, nil
+	return []*iotextypes.BlockMeta{blockMeta}, nil
 }
 
 // getBlockMetaByHeight gets BlockMeta by height
