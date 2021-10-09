@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -27,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
 var (
@@ -187,8 +187,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("actPool Add")
+	ctx, span := tracer.NewSpan(ctx, "actPool.Add")
 	defer span.End()
 
 	// Reject action if pool space is full
@@ -324,8 +323,8 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("actPool validate")
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("actPool.validate")
 	defer span.End()
 
 	caller := selp.SrcPubkey().Address()

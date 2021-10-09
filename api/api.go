@@ -22,6 +22,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -256,19 +257,19 @@ func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsReques
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
-		return api.getActions(request.Start, request.Count)
+		return api.getActions(ctx, request.Start, request.Count)
 	case in.GetByHash() != nil:
 		request := in.GetByHash()
-		return api.getSingleAction(request.ActionHash, request.CheckPending)
+		return api.getSingleAction(ctx, request.ActionHash, request.CheckPending)
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
-		return api.getActionsByAddress(request.Address, request.Start, request.Count)
+		return api.getActionsByAddress(ctx, request.Address, request.Start, request.Count)
 	case in.GetUnconfirmedByAddr() != nil:
 		request := in.GetUnconfirmedByAddr()
-		return api.getUnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
+		return api.getUnconfirmedActionsByAddress(ctx, request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
 		request := in.GetByBlk()
-		return api.getActionsByBlock(request.BlkHash, request.Start, request.Count)
+		return api.getActionsByBlock(ctx, request.BlkHash, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
@@ -380,6 +381,9 @@ func (api *Server) GetServerMeta(ctx context.Context,
 
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (*iotexapi.SendActionResponse, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.Action.Core.Action)))
+	defer span.End()
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
 	var err error
@@ -1004,6 +1008,11 @@ func (api *Server) Stop() error {
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
+	if api.tp != nil {
+		if err := api.tp.Shutdown(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to shutdown api tracer")
+		}
+	}
 	return api.chainListener.Stop()
 }
 
@@ -1083,7 +1092,7 @@ func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iote
 }
 
 // GetActions returns actions within the range
-func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getActions(ctx context.Context, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1139,7 +1148,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 }
 
 // getSingleAction returns action by action hash
-func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getSingleAction(ctx context.Context, actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1155,7 +1164,7 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 }
 
 // getActionsByAddress returns all actions associated with an address
-func (api *Server) getActionsByAddress(addrStr string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getActionsByAddress(ctx context.Context, addrStr string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1213,7 +1222,7 @@ func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
-func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getUnconfirmedActionsByAddress(ctx context.Context, address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1244,7 +1253,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 }
 
 // getActionsByBlock returns all actions in a block
-func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getActionsByBlock(ctx context.Context, blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
