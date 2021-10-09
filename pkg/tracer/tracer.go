@@ -17,6 +17,8 @@ const (
 
 // Config is the config for tracer
 type Config struct {
+	// ServiceName customize service name
+	ServiceName string `yaml:"serviceName"`
 	// EndPoint the jaeger endpoint
 	EndPoint string `yaml:"endpoint"`
 	// InstanceID MUST be unique for each instance of the same
@@ -27,8 +29,17 @@ type Config struct {
 type Option func(ops *optionParams) error
 
 type optionParams struct {
-	endpoint   string //the jaeger endpoint
-	instanceID string //Note: MUST be unique for each instance of the same
+	serviceName string
+	endpoint    string //the jaeger endpoint
+	instanceID  string //Note: MUST be unique for each instance of the same
+}
+
+// WithServiceName defines service name
+func WithServiceName(name string) Option {
+	return func(ops *optionParams) error {
+		ops.serviceName = name
+		return nil
+	}
 }
 
 // WithEndpoint defines the full URL to the Jaeger HTTP Thrift collector
@@ -67,9 +78,12 @@ func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 		return nil, nil
 		//trackerTracerProviderOption = append(trackerTracerProviderOption, tracesdk.WithSampler(tracesdk.ParentBased(tracesdk.TraceIDRatioBased(-1))))
 	}
+	if ops.serviceName == "" {
+		ops.serviceName = _service
+	}
 	kv := []attribute.KeyValue{
 		semconv.ServiceVersionKey.String(version.PackageVersion),
-		semconv.ServiceNameKey.String(_service),
+		semconv.ServiceNameKey.String(ops.serviceName),
 	}
 	if ops.instanceID != "" {
 		kv = append(kv, semconv.ServiceInstanceIDKey.String(ops.instanceID))

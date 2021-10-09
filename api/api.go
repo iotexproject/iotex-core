@@ -149,6 +149,7 @@ func NewServer(
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
 	tp, err := tracer.NewProvider(
+		tracer.WithServiceName(cfg.API.Tracer.ServiceName),
 		tracer.WithEndpoint(cfg.API.Tracer.EndPoint),
 		tracer.WithInstanceID(cfg.API.Tracer.InstanceID),
 	)
