@@ -324,6 +324,10 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("actPool validate")
+	defer span.End()
+
 	caller := selp.SrcPubkey().Address()
 	if caller == nil {
 		return errors.New("failed to get address")
