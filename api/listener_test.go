@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -47,14 +46,13 @@ func TestChainListener(t *testing.T) {
 	err = listener.ReceiveBlock(block)
 	require.NoError(t, err)
 
-	expectedError := errors.New("Error when streaming the block")
-	responder.EXPECT().Respond(gomock.Any()).Return(expectedError).Times(1)
+	responder.EXPECT().Respond(gomock.Any()).Return(errorKeyIsNotResponder).Times(1)
 	err = listener.ReceiveBlock(block)
 	require.NoError(t, err)
 
 	responder.EXPECT().Exit().Return().Times(1)
 	err = listener.AddResponder(responder)
-	require.NoError(t, err)
+	require.Equal(t, errorResponderAdded, err)
 	err = listener.Stop()
 	require.NoError(t, err)
 }
