@@ -18,6 +18,8 @@ jobs:
     name: Prepare CI environment
     # runs-on: ubuntu-latest
     runs-on: [self-hosted]
+    docker:
+      - image: circleci/golang:1.17
     steps:
       - name: Checkout Project
         uses: actions/checkout@v2
