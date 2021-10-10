@@ -6,18 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
-	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 type (
@@ -30,48 +26,31 @@ type (
 		Data     string `json:"data,omitempty"`
 	}
 
-	blockObject struct {
-		Number           string        `json:"number,omitempty"`
-		Hash             string        `json:"hash,omitempty"`
-		ParentHash       string        `json:"parentHash,omitempty"`
-		Sha3Uncles       string        `json:"sha3Uncles,omitempty"`
-		LogsBloom        string        `json:"logsBloom,omitempty"`
-		TransactionsRoot string        `json:"transactionsRoot,omitempty"`
-		StateRoot        string        `json:"stateRoot,omitempty"`
-		ReceiptsRoot     string        `json:"receiptsRoot,omitempty"`
-		Miner            string        `json:"miner,omitempty"`
-		Difficulty       string        `json:"difficulty,omitempty"`
-		TotalDifficulty  string        `json:"totalDifficulty,omitempty"`
-		ExtraData        string        `json:"extraData,omitempty"`
-		Size             string        `json:"size,omitempty"`
-		GasLimit         string        `json:"gasLimit,omitempty"`
-		GasUsed          string        `json:"gasUsed,omitempty"`
-		Timestamp        string        `json:"timestamp,omitempty"`
-		Transactions     []interface{} `json:"transactions,omitempty"`
-		Uncles           []string      `json:"uncles,omitempty"`
+	LogsRequest struct {
+		Address   string   `json:"address,omitempty"`
+		FromBlock string   `json:"fromBlock,omitempty"`
+		ToBlock   string   `json:"toBlock,omitempty"`
+		Topics    []string `json:"topics,omitempty"`
+		Blockhash string   `json:"blockhash,omitempty"`
 	}
 
-	transactionObject struct {
-		Hash             *string `json:"hash,omitempty"`
-		Nonce            *string `json:"nonce,omitempty"`
-		BlockHash        *string `json:"blockHash,omitempty"`
-		BlockNumber      *string `json:"blockNumber,omitempty"`
-		TransactionIndex *string `json:"transactionIndex,omitempty"`
-		From             *string `json:"from,omitempty"`
-		To               *string `json:"to,omitempty"`
-		Value            *string `json:"value,omitempty"`
-		GasPrice         *string `json:"gasPrice,omitempty"`
-		Gas              *string `json:"gas,omitempty"`
-		Input            *string `json:"input,omitempty"`
-		R                *string `json:"r,omitempty"`
-		S                *string `json:"s,omitempty"`
-		V                *string `json:"v,omitempty"`
+	LogsObject struct {
+		Removed          bool     `json:"removed,omitempty"`
+		LogIndex         string   `json:"logIndex,omitempty"`
+		TransactionIndex string   `json:"transactionIndex,omitempty"`
+		TransactionHash  string   `json:"transactionHash,omitempty"`
+		BlockHash        string   `json:"blockHash,omitempty"`
+		BlockNumber      string   `json:"blockNumber,omitempty"`
+		Address          string   `json:"address,omitempty"`
+		Data             string   `json:"data,omitempty"`
+		Topics           []string `json:"topics,omitempty"`
 	}
 )
 
 var (
 	apiMap = map[string]func(*Server, interface{}) (interface{}, error){
 		"eth_gasPrice":                       gasPrice,
+		"eth_getBlockByHash":                 getBlockByHash,
 		"eth_chainId":                        getChainId,
 		"eth_blockNumber":                    getBlockNumber,
 		"eth_getBalance":                     getBalance,
@@ -84,22 +63,25 @@ var (
 		"net_peerCount":                      getPeerCount,
 		"net_listening":                      isListening,
 		"eth_syncing":                        isSyncing,
-		"eth_coinbase":                       unimplemented,
 		"eth_mining":                         isMining,
 		"eth_hashrate":                       getHashrate,
-		"eth_accounts":                       unimplemented,
-		"eth_getStorageAt":                   unimplemented,
+		"eth_getLogs":                        getLogs,
 		"eth_getBlockTransactionCountByHash": getBlockTransactionCountByHash,
-		"eth_getUncleCountByBlockHash":       unimplemented,
-		"eth_getUncleCountByBlockNumber":     unimplemented,
-		"eth_sign":                           unimplemented,
-		"eth_signTransaction":                unimplemented,
-		"eth_sendTransaction":                unimplemented,
-		"eth_getBlockByHash":                 getBlockByHash,
+		"eth_getBlockByNumber":               getBlockByNumber,
+		// func not implemented
+		"eth_coinbase":                      unimplemented,
+		"eth_accounts":                      unimplemented,
+		"eth_getStorageAt":                  unimplemented,
+		"eth_getUncleCountByBlockHash":      unimplemented,
+		"eth_getUncleCountByBlockNumber":    unimplemented,
+		"eth_sign":                          unimplemented,
+		"eth_signTransaction":               unimplemented,
+		"eth_sendTransaction":               unimplemented,
+		"eth_getUncleByBlockHashAndIndex":   unimplemented,
+		"eth_getUncleByBlockNumberAndIndex": unimplemented,
 	}
 
-	TYPE_ERROR          = errors.New("wrong type of params")
-	UNIMPLEMENTED_ERROR = status.Error(codes.Unimplemented, "function not implemented")
+	ErrUnkownType = errors.New("wrong type of params")
 )
 
 func gasPrice(svr *Server, in interface{}) (interface{}, error) {
@@ -119,15 +101,32 @@ func getBlockNumber(svr *Server, in interface{}) (interface{}, error) {
 	return uint64ToHex(svr.bc.TipHeight()), nil
 }
 
-// TODO:
 func getBlockByNumber(svr *Server, in interface{}) (interface{}, error) {
-	return nil, nil
+	blkNum, err := getStringFromArray(in)
+	if err != nil {
+		return nil, err
+	}
+	num, err := parseBlockNumber(svr, blkNum)
+	if err != nil {
+		return nil, err
+	}
+	isDetailed := in.([]interface{})[1].(bool)
+
+	blkMeta, err := svr.getBlockMetas(num, 1)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := getBlockWithTransactions(svr, blkMeta.BlkMetas[0], isDetailed)
+	if err != nil {
+		return nil, err
+	}
+	return *blk, nil
 }
 
 func getBalance(svr *Server, in interface{}) (interface{}, error) {
 	addr, ok := in.(string)
 	if !ok {
-		return nil, TYPE_ERROR
+		return nil, ErrUnkownType
 	}
 	ioAddr, err := ethAddrToIoAddr(addr)
 	if err != nil {
@@ -137,13 +136,14 @@ func getBalance(svr *Server, in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return accountMeta.Balance, nil
+
+	return intStrToHex(accountMeta.Balance)
 }
 
 func getTransactionCount(svr *Server, in interface{}) (interface{}, error) {
 	addr, ok := in.(string)
 	if !ok {
-		return nil, TYPE_ERROR
+		return nil, ErrUnkownType
 	}
 	ioAddr, err := ethAddrToIoAddr(addr)
 	if err != nil {
@@ -157,17 +157,12 @@ func getTransactionCount(svr *Server, in interface{}) (interface{}, error) {
 }
 
 func call(svr *Server, in interface{}) (interface{}, error) {
-	params, ok := in.([]interface{})
-	if !ok {
-		return nil, TYPE_ERROR
+	jsonMarshaled, err := getJSONFromArray(in)
+	if err != nil {
+		return nil, err
 	}
-	params0, ok := params[0].(map[string]interface{})
-	if !ok {
-		return nil, TYPE_ERROR
-	}
-	jsonString, _ := json.Marshal(params0)
 	var callObject CallObject
-	err := json.Unmarshal(jsonString, &callObject)
+	err = json.Unmarshal(jsonMarshaled, &callObject)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +177,7 @@ func call(svr *Server, in interface{}) (interface{}, error) {
 	value, err := hexStringToNumber(callObject.Value)
 	gasLimit, err := hexStringToNumber(callObject.Gas)
 	if err != nil {
-		return nil, TYPE_ERROR
+		return nil, ErrUnkownType
 	}
 
 	ret, _, err := svr.readContract(from,
@@ -258,7 +253,7 @@ func getBlockTransactionCountByHash(svr *Server, in interface{}) (interface{}, e
 	}
 	ret, err := svr.getBlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return uint64ToHex(uint64(ret[0].NumActions)), nil
 }
@@ -269,199 +264,101 @@ func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	isDetailed := in.([]interface{})[1].(bool)
-	ret, err := svr.getBlockMetaByHash(removeHexPrefix(h))
+	blkMeta, err := svr.getBlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	blk := getBlockWithTransactions(svr, ret[0], isDetailed)
-	return blk, nil
+
+	blk, err := getBlockWithTransactions(svr, blkMeta[0], isDetailed)
+	if err != nil {
+		return nil, err
+	}
+	return *blk, nil
 }
 
-func unimplemented(svr *Server, in interface{}) (interface{}, error) {
-	return nil, UNIMPLEMENTED_ERROR
-}
-
-// func getLogs(svr *Server, in interface{}) (interface{}, error) {
-
+// func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
+// 	h, err := getStringFromArray(in)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	ret, err := svr.getSingleAction(h, true)
+// 	// TODO:
+// 	return nil, nil
 // }
 
-// util functions
-func hexStringToNumber(hexStr string) (uint64, error) {
-	output, err := strconv.ParseUint(removeHexPrefix(hexStr), 16, 64)
+func getLogs(svr *Server, in interface{}) (interface{}, error) {
+	req, err := getJSONFromArray(in)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return output, nil
-}
-
-func ethAddrToIoAddr(ethAddr string) (string, error) {
-	if ok := common.IsHexAddress(ethAddr); !ok {
-		return "", TYPE_ERROR
-	}
-	ethAddress := common.HexToAddress(ethAddr)
-	ioAddress, err := address.FromBytes(ethAddress.Bytes())
+	var logReq LogsRequest
+	err = json.Unmarshal(req, &logReq)
 	if err != nil {
-		return "", TYPE_ERROR
+		return nil, err
 	}
-	return ioAddress.String(), nil
-}
 
-func ioAddrToEthAddr(ioAddr string) (string, error) {
-	addr, err := util.IoAddrToEvmAddr(ioAddr)
+	// construct block range(from, to)
+	tipHeight := svr.bc.TipHeight()
+	from, err := parseBlockNumber(svr, logReq.FromBlock)
+	to, err := parseBlockNumber(svr, logReq.ToBlock)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return addr.String(), nil
-}
 
-func uint64ToHex(val uint64) string {
-	return "0x" + strconv.FormatUint(val, 16)
-}
-
-func getStringFromArray(in interface{}) (string, error) {
-	params, ok := in.([]interface{})
-	if !ok {
-		return "", TYPE_ERROR
+	if from > tipHeight {
+		return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 	}
-	ret, ok := params[0].(string)
-	if !ok {
-		return "", TYPE_ERROR
+	if to > tipHeight {
+		to = tipHeight
+	}
+
+	// construct filter topics and addresses
+	var filter iotexapi.LogsFilter
+	if len(logReq.Address) > 0 {
+		addr, err := ethAddrToIoAddr(logReq.Address)
+		if err != nil {
+			return nil, err
+		}
+		filter.Address = append(filter.Address, addr)
+	}
+	for _, val := range logReq.Topics {
+		b, err := hex.DecodeString(val)
+		if err != nil {
+			return nil, err
+		}
+		filter.Topics = append(filter.Topics, &iotexapi.Topics{
+			Topic: [][]byte{b},
+		})
+	}
+
+	logs, err := svr.getLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 1000)
+	if err != nil {
+		return nil, err
+	}
+	// parse log results
+	var ret []LogsObject
+	for _, l := range logs {
+		if len(l.Topics) > 0 {
+			addr, _ := ioAddrToEthAddr(l.ContractAddress)
+			var topics []string
+			for _, val := range l.Topics {
+				topics = append(topics, "0x"+hex.EncodeToString(val))
+			}
+			ret = append(ret, LogsObject{
+				BlockHash:        "0x" + hex.EncodeToString(l.BlkHash),
+				TransactionHash:  "0x" + hex.EncodeToString(l.ActHash),
+				LogIndex:         uint64ToHex(uint64(l.Index)),
+				BlockNumber:      uint64ToHex(l.BlkHeight),
+				TransactionIndex: "0x1",
+				Address:          addr,
+				Data:             "0x" + hex.EncodeToString(l.Data),
+				Topics:           topics,
+			})
+		}
 	}
 	return ret, nil
 }
 
-func removeHexPrefix(hexStr string) string {
-	ret := strings.Replace(hexStr, "0x", "", -1)
-	ret = strings.Replace(ret, "0X", "", -1)
-	return ret
-}
-
-func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDetailed bool) blockObject {
-	transactionsRoot := "0x"
-	transactionsRoot = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
-	transactions := []interface{}{}
-	if blkMeta.Height > 0 {
-		ret, err := svr.getActionsByBlock(blkMeta.Hash, 0, 1000)
-		if err != nil {
-			panic(err)
-		}
-
-		acts := ret.ActionInfo
-
-		// transactions := []string{}
-		for _, v := range acts {
-			if isDetailed {
-				tx := getTransactionFromActionInfo(v)
-				if tx != nil {
-					transactions = append(transactions, *tx)
-				}
-			} else {
-				transactions = append(transactions, "0x"+v.ActHash)
-			}
-		}
-
-		if len(transactions) == 0 {
-			transactionsRoot = "0x" + blkMeta.TxRoot
-		}
-	}
-
-	bloom := "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-	if len(blkMeta.LogsBloom) == 0 {
-		bloom = blkMeta.LogsBloom
-	}
-	miner, _ := ioAddrToEthAddr(blkMeta.ProducerAddress)
-	return blockObject{
-		Number:           uint64ToHex(blkMeta.Height),
-		Hash:             "0x" + blkMeta.Hash,
-		ParentHash:       "0x" + blkMeta.PreviousBlockHash,
-		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-		LogsBloom:        "0x" + bloom,
-		TransactionsRoot: transactionsRoot,
-		StateRoot:        "0x" + blkMeta.DeltaStateDigest,
-		ReceiptsRoot:     "0x" + blkMeta.TxRoot,
-		Miner:            miner,
-		Difficulty:       "0xfffffffffffffffffffffffffffffffe",
-		TotalDifficulty:  "0xff14700000000000000000000000486001d72",
-		ExtraData:        "0x",
-		Size:             uint64ToHex(uint64(blkMeta.NumActions)),
-		GasLimit:         uint64ToHex(blkMeta.GasLimit),
-		GasUsed:          uint64ToHex(blkMeta.GasUsed),
-		Timestamp:        uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
-		Transactions:     transactions,
-		Uncles:           []string{},
-	}
-}
-
-func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObject {
-	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
-		return nil
-	}
-	value := "0x0"
-	to := ""
-	data := ""
-	switch act := actInfo.Action.Core.Action.(type) {
-	case *iotextypes.ActionCore_Transfer:
-		amount, err := strconv.ParseInt(act.Transfer.GetAmount(), 10, 64)
-		value = uint64ToHex(uint64(amount))
-		to, err = ioAddrToEthAddr(act.Transfer.GetRecipient())
-		if err != nil {
-			return nil
-		}
-	case *iotextypes.ActionCore_Execution:
-		amount, err := strconv.ParseInt(act.Execution.GetAmount(), 10, 64)
-		value = uint64ToHex(uint64(amount))
-		if len(act.Execution.GetContract()) > 0 {
-			to, err = ioAddrToEthAddr(act.Execution.GetContract())
-		}
-		data = "0x" + hex.EncodeToString(act.Execution.GetData())
-		if err != nil {
-			return nil
-		}
-	// support other types of action
-	default:
-		return nil
-	}
-
-	r := "0x" + hex.EncodeToString(actInfo.Action.Signature[:32])
-	s := "0x" + hex.EncodeToString(actInfo.Action.Signature[32:64])
-	v_val := uint64(actInfo.Action.Signature[64])
-	if v_val < 27 {
-		v_val += 27
-	}
-
-	v := uint64ToHex(v_val)
-	var blockHash, blockNumber *string
-	if actInfo.BlkHeight > 0 {
-		h := "0x" + actInfo.BlkHash
-		num := uint64ToHex(actInfo.BlkHeight)
-		blockHash, blockNumber = &h, &num
-	}
-
-	hash := "0x" + actInfo.ActHash
-	nonce := uint64ToHex(actInfo.Action.Core.Nonce)
-	transactionIndex := uint64ToHex(uint64(actInfo.Index))
-	from, err := ethAddrToIoAddr(actInfo.Sender)
-	_gasPrice, err := strconv.ParseInt(actInfo.Action.Core.GasPrice, 10, 64)
-	gasPrice := uint64ToHex(uint64(_gasPrice))
-	gasLimit := uint64ToHex(actInfo.Action.Core.GasLimit)
-	if err != nil {
-		return nil
-	}
-	return &transactionObject{
-		Hash:             &hash,
-		Nonce:            &nonce,
-		BlockHash:        blockHash,
-		BlockNumber:      blockNumber,
-		TransactionIndex: &transactionIndex,
-		From:             &from,
-		To:               &to,
-		Value:            &value,
-		GasPrice:         &gasPrice,
-		Gas:              &gasLimit,
-		Input:            &data,
-		R:                &r,
-		S:                &s,
-		V:                &v,
-	}
-
+func unimplemented(svr *Server, in interface{}) (interface{}, error) {
+	return nil, status.Error(codes.Unimplemented, "function not implemented")
 }
