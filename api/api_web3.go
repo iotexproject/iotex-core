@@ -12,10 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 type (
@@ -29,25 +31,41 @@ type (
 	}
 
 	blockObject struct {
-		Number           string   `json:"number,omitempty"`
-		Hash             string   `json:"hash,omitempty"`
-		ParentHash       string   `json:"parentHash,omitempty"`
-		Nonce            string   `json:"nonce,omitempty"`
-		Sha3Uncles       string   `json:"sha3Uncles,omitempty"`
-		LogsBloom        string   `json:"logsBloom,omitempty"`
-		TransactionsRoot string   `json:"transactionsRoot,omitempty"`
-		StateRoot        string   `json:"stateRoot,omitempty"`
-		ReceiptsRoot     string   `json:"receiptsRoot,omitempty"`
-		Miner            string   `json:"miner,omitempty"`
-		Difficulty       string   `json:"difficulty,omitempty"`
-		TotalDifficulty  string   `json:"totalDifficulty,omitempty"`
-		ExtraData        string   `json:"extraData,omitempty"`
-		Size             string   `json:"size,omitempty"`
-		GasLimit         string   `json:"gasLimit,omitempty"`
-		GasUsed          string   `json:"gasUsed,omitempty"`
-		Timestamp        string   `json:"timestamp,omitempty"`
-		Transactions     []string `json:"transactions,omitempty"`
-		Uncles           []string `json:"uncles,omitempty"`
+		Number           string        `json:"number,omitempty"`
+		Hash             string        `json:"hash,omitempty"`
+		ParentHash       string        `json:"parentHash,omitempty"`
+		Sha3Uncles       string        `json:"sha3Uncles,omitempty"`
+		LogsBloom        string        `json:"logsBloom,omitempty"`
+		TransactionsRoot string        `json:"transactionsRoot,omitempty"`
+		StateRoot        string        `json:"stateRoot,omitempty"`
+		ReceiptsRoot     string        `json:"receiptsRoot,omitempty"`
+		Miner            string        `json:"miner,omitempty"`
+		Difficulty       string        `json:"difficulty,omitempty"`
+		TotalDifficulty  string        `json:"totalDifficulty,omitempty"`
+		ExtraData        string        `json:"extraData,omitempty"`
+		Size             string        `json:"size,omitempty"`
+		GasLimit         string        `json:"gasLimit,omitempty"`
+		GasUsed          string        `json:"gasUsed,omitempty"`
+		Timestamp        string        `json:"timestamp,omitempty"`
+		Transactions     []interface{} `json:"transactions,omitempty"`
+		Uncles           []string      `json:"uncles,omitempty"`
+	}
+
+	transactionObject struct {
+		Hash             *string `json:"hash,omitempty"`
+		Nonce            *string `json:"nonce,omitempty"`
+		BlockHash        *string `json:"blockHash,omitempty"`
+		BlockNumber      *string `json:"blockNumber,omitempty"`
+		TransactionIndex *string `json:"transactionIndex,omitempty"`
+		From             *string `json:"from,omitempty"`
+		To               *string `json:"to,omitempty"`
+		Value            *string `json:"value,omitempty"`
+		GasPrice         *string `json:"gasPrice,omitempty"`
+		Gas              *string `json:"gas,omitempty"`
+		Input            *string `json:"input,omitempty"`
+		R                *string `json:"r,omitempty"`
+		S                *string `json:"s,omitempty"`
+		V                *string `json:"v,omitempty"`
 	}
 )
 
@@ -77,6 +95,7 @@ var (
 		"eth_sign":                           unimplemented,
 		"eth_signTransaction":                unimplemented,
 		"eth_sendTransaction":                unimplemented,
+		"eth_getBlockByHash":                 getBlockByHash,
 	}
 
 	TYPE_ERROR          = errors.New("wrong type of params")
@@ -244,9 +263,19 @@ func getBlockTransactionCountByHash(svr *Server, in interface{}) (interface{}, e
 	return uint64ToHex(uint64(ret[0].NumActions)), nil
 }
 
-// func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
-
-// }
+func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in)
+	if err != nil {
+		return nil, err
+	}
+	isDetailed := in.([]interface{})[1].(bool)
+	ret, err := svr.getBlockMetaByHash(removeHexPrefix(h))
+	if err != nil {
+		panic(err)
+	}
+	blk := getBlockWithTransactions(svr, ret[0], isDetailed)
+	return blk, nil
+}
 
 func unimplemented(svr *Server, in interface{}) (interface{}, error) {
 	return nil, UNIMPLEMENTED_ERROR
@@ -277,6 +306,14 @@ func ethAddrToIoAddr(ethAddr string) (string, error) {
 	return ioAddress.String(), nil
 }
 
+func ioAddrToEthAddr(ioAddr string) (string, error) {
+	addr, err := util.IoAddrToEvmAddr(ioAddr)
+	if err != nil {
+		return "", err
+	}
+	return addr.String(), nil
+}
+
 func uint64ToHex(val uint64) string {
 	return "0x" + strconv.FormatUint(val, 16)
 }
@@ -299,30 +336,132 @@ func removeHexPrefix(hexStr string) string {
 	return ret
 }
 
-// func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDetailed bool) {
-// 	transactionsRoot := "0x"
-// 	if blkMeta.Height > 0 {
-// 		ret, err := svr.getActionsByBlock(blkMeta.Hash, 0, 1000)
-// 		if err != nil {
-// 			panic(err)
-// 		}
+func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDetailed bool) blockObject {
+	transactionsRoot := "0x"
+	transactionsRoot = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+	transactions := []interface{}{}
+	if blkMeta.Height > 0 {
+		ret, err := svr.getActionsByBlock(blkMeta.Hash, 0, 1000)
+		if err != nil {
+			panic(err)
+		}
 
-// 		acts := ret.ActionInfo
+		acts := ret.ActionInfo
 
-// 		transactions := []string{}
-// 		for _, v := range acts {
-// 			if isDetailed {
+		// transactions := []string{}
+		for _, v := range acts {
+			if isDetailed {
+				tx := getTransactionFromActionInfo(v)
+				if tx != nil {
+					transactions = append(transactions, *tx)
+				}
+			} else {
+				transactions = append(transactions, "0x"+v.ActHash)
+			}
+		}
 
-// 			} else {
-// 				transactions = append(transactions, "0x"+v.ActHash)
-// 			}
-// 		}
+		if len(transactions) == 0 {
+			transactionsRoot = "0x" + blkMeta.TxRoot
+		}
+	}
 
-// 		transactionsRoot = "0x" + blkMeta.TxRoot
-// 	}
+	bloom := "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	if len(blkMeta.LogsBloom) == 0 {
+		bloom = blkMeta.LogsBloom
+	}
+	miner, _ := ioAddrToEthAddr(blkMeta.ProducerAddress)
+	return blockObject{
+		Number:           uint64ToHex(blkMeta.Height),
+		Hash:             "0x" + blkMeta.Hash,
+		ParentHash:       "0x" + blkMeta.PreviousBlockHash,
+		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+		LogsBloom:        "0x" + bloom,
+		TransactionsRoot: transactionsRoot,
+		StateRoot:        "0x" + blkMeta.DeltaStateDigest,
+		ReceiptsRoot:     "0x" + blkMeta.TxRoot,
+		Miner:            miner,
+		Difficulty:       "0xfffffffffffffffffffffffffffffffe",
+		TotalDifficulty:  "0xff14700000000000000000000000486001d72",
+		ExtraData:        "0x",
+		Size:             uint64ToHex(uint64(blkMeta.NumActions)),
+		GasLimit:         uint64ToHex(blkMeta.GasLimit),
+		GasUsed:          uint64ToHex(blkMeta.GasUsed),
+		Timestamp:        uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
+		Transactions:     transactions,
+		Uncles:           []string{},
+	}
+}
 
-// }
+func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObject {
+	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
+		return nil
+	}
+	value := "0x0"
+	to := ""
+	data := ""
+	switch act := actInfo.Action.Core.Action.(type) {
+	case *iotextypes.ActionCore_Transfer:
+		amount, err := strconv.ParseInt(act.Transfer.GetAmount(), 10, 64)
+		value = uint64ToHex(uint64(amount))
+		to, err = ioAddrToEthAddr(act.Transfer.GetRecipient())
+		if err != nil {
+			return nil
+		}
+	case *iotextypes.ActionCore_Execution:
+		amount, err := strconv.ParseInt(act.Execution.GetAmount(), 10, 64)
+		value = uint64ToHex(uint64(amount))
+		if len(act.Execution.GetContract()) > 0 {
+			to, err = ioAddrToEthAddr(act.Execution.GetContract())
+		}
+		data = "0x" + hex.EncodeToString(act.Execution.GetData())
+		if err != nil {
+			return nil
+		}
+	// support other types of action
+	default:
+		return nil
+	}
 
-func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) {
+	r := "0x" + hex.EncodeToString(actInfo.Action.Signature[:32])
+	s := "0x" + hex.EncodeToString(actInfo.Action.Signature[32:64])
+	v_val := uint64(actInfo.Action.Signature[64])
+	if v_val < 27 {
+		v_val += 27
+	}
+
+	v := uint64ToHex(v_val)
+	var blockHash, blockNumber *string
+	if actInfo.BlkHeight > 0 {
+		h := "0x" + actInfo.BlkHash
+		num := uint64ToHex(actInfo.BlkHeight)
+		blockHash, blockNumber = &h, &num
+	}
+
+	hash := "0x" + actInfo.ActHash
+	nonce := uint64ToHex(actInfo.Action.Core.Nonce)
+	transactionIndex := uint64ToHex(uint64(actInfo.Index))
+	from, err := ethAddrToIoAddr(actInfo.Sender)
+	_gasPrice, err := strconv.ParseInt(actInfo.Action.Core.GasPrice, 10, 64)
+	gasPrice := uint64ToHex(uint64(_gasPrice))
+	gasLimit := uint64ToHex(actInfo.Action.Core.GasLimit)
+	if err != nil {
+		return nil
+	}
+	return &transactionObject{
+		Hash:             &hash,
+		Nonce:            &nonce,
+		BlockHash:        blockHash,
+		BlockNumber:      blockNumber,
+		TransactionIndex: &transactionIndex,
+		From:             &from,
+		To:               &to,
+		Value:            &value,
+		GasPrice:         &gasPrice,
+		Gas:              &gasLimit,
+		Input:            &data,
+		R:                &r,
+		S:                &s,
+		V:                &v,
+	}
 
 }
