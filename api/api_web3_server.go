@@ -14,7 +14,7 @@ import (
 
 type (
 	web3Req struct {
-		Jsonrpc string      `json:"jsonrpc"`
+		Jsonrpc string      `json:"jsonrpc,omitempty"`
 		ID      int         `json:"id"`
 		Method  string      `json:"method"`
 		Params  interface{} `json:"params"`

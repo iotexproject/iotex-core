@@ -132,6 +132,7 @@ func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDeta
 	transactionsRoot := "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 	transactions := []interface{}{}
 	if blkMeta.Height > 0 {
+		// get Actions by blk number, more efficient
 		ret, err := svr.getActionsByBlock(blkMeta.Hash, 0, 1000)
 		if err != nil {
 			return nil, err
