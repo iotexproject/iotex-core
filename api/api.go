@@ -1274,7 +1274,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 		count--
 	}
 	return &iotexapi.GetBlockMetasResponse{
-		Total:    tipHeight,
+		Total:    uint64(len(res)),
 		BlkMetas: res,
 	}, nil
 }
