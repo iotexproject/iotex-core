@@ -58,22 +58,26 @@ func TestNoncePriorityQueue(t *testing.T) {
 func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue(nil, "").(*actQueue)
-	tsf1, err := action.SignedTransfer(addr2, priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(addr2, priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf1))
 	require.Equal(uint64(2), q.index[0].nonce)
 	require.NotNil(q.items[tsf1.Nonce()])
-	tsf2, err := action.SignedTransfer(addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf2))
 	require.Equal(uint64(1), heap.Pop(&q.index).(nonceWithTTL).nonce)
 	require.Equal(tsf2, q.items[uint64(1)])
 	require.Equal(uint64(2), heap.Pop(&q.index).(nonceWithTTL).nonce)
 	require.Equal(tsf1, q.items[uint64(2)])
-	// tsf3 is a replacement transfer
+	// tsf3 is a act which fails to cut in line
 	tsf3, err := action.SignedTransfer(addr2, priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	require.Error(q.Put(tsf3))
+	// tsf4 is a act which succeeds in cutting in line
+	tsf4, err := action.SignedTransfer(addr2, priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(2))
+	require.NoError(err)
+	require.NoError(q.Put(tsf4))
 }
 
 func TestActQueueFilterNonce(t *testing.T) {

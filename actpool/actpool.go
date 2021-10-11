@@ -371,11 +371,6 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 		}
 		queue.SetPendingBalance(state.Balance)
 	}
-	if queue.Overlaps(act) {
-		// Nonce already exists
-		actpoolMtc.WithLabelValues("nonceUsed").Inc()
-		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", actHash)
-	}
 
 	if actNonce-confirmedNonce-1 >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
