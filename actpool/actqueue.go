@@ -115,6 +115,7 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 		for i, x := range q.index {
 			if x.nonce == nonce {
 				q.index[i].deadline = q.clock.Now().Add(q.ttl)
+				break
 			}
 		}
 		return nil
