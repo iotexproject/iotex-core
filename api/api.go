@@ -112,6 +112,7 @@ type Server struct {
 	grpcServer        *grpc.Server
 	hasActionIndex    bool
 	electionCommittee committee.Committee
+	readCache         *ReadCache
 }
 
 // NewServer creates a new server
@@ -157,6 +158,7 @@ func NewServer(
 		chainListener:     NewChainListener(),
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
+		readCache:         NewReadCache(),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
@@ -169,6 +171,9 @@ func NewServer(
 	grpc_prometheus.Register(svr.grpcServer)
 	reflection.Register(svr.grpcServer)
 
+	if err := svr.chainListener.AddResponder(svr.readCache); err != nil {
+		return nil, err
+	}
 	return svr, nil
 }
 
@@ -456,6 +461,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
+	if d, ok := api.readCache.Get(key); ok {
+		res := iotexapi.ReadContractResponse{}
+		if err := proto.Unmarshal(d, &res); err == nil {
+			return &res, nil
+		}
+	}
+
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
@@ -487,10 +500,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	return &iotexapi.ReadContractResponse{
+	res := iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
-	}, nil
+	}
+	if d, err := proto.Marshal(&res); err == nil {
+		api.readCache.Put(key, d)
+	}
+	return &res, nil
 }
 
 // ReadState reads state on blockchain
@@ -738,6 +755,9 @@ func (api *Server) GetLogs(
 		if paginationSize == 0 {
 			paginationSize = 1000
 		}
+		if paginationSize > 5000 {
+			paginationSize = 5000
+		}
 		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
@@ -969,6 +989,20 @@ func (api *Server) Stop() error {
 }
 
 func (api *Server) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, uint64, error) {
+	key := ReadKey{
+		Name:   p.Name(),
+		Height: height,
+		Method: methodName,
+		Args:   arguments,
+	}
+	if d, ok := api.readCache.Get(key.Hash()); ok {
+		var h uint64
+		if height != "" {
+			h, _ = strconv.ParseUint(height, 0, 64)
+		}
+		return d, h, nil
+	}
+
 	// TODO: need to complete the context
 	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -994,12 +1028,20 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 		inputEpochNum := rp.GetEpochNum(inputHeight)
 		if inputEpochNum < tipEpochNum {
 			// old data, wrap to history state reader
-			return p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			if err == nil {
+				api.readCache.Put(key.Hash(), d)
+			}
+			return d, h, err
 		}
 	}
 
 	// TODO: need to distinguish user error and system error
-	return p.ReadState(ctx, api.sf, methodName, arguments...)
+	d, h, err := p.ReadState(ctx, api.sf, methodName, arguments...)
+	if err == nil {
+		api.readCache.Put(key.Hash(), d)
+	}
+	return d, h, err
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
@@ -1232,7 +1274,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 		count--
 	}
 	return &iotexapi.GetBlockMetasResponse{
-		Total:    tipHeight,
+		Total:    uint64(len(res)),
 		BlkMetas: res,
 	}, nil
 }
