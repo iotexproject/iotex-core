@@ -13,7 +13,9 @@ ignore:
   - "test/mock/**/*"
   - "consensus/scheme/rolldpos/endorsementpb"
   - "action/protocol/rewarding/rewardingpb"
-  - "ction/protocol/account/accountpb"
+  - "action/protocol/account/accountpb"
+  - "action/protocol/poll/consortiummanagement.abi.go"
   - "db/trie/triepb"
   - "blockindex/indexpb"
-  - "tools/executiontester/blockchain"
+  - "tools/
+  - "e2etest/"
