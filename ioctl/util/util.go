@@ -108,9 +108,6 @@ func RauToString(amount *big.Int, numDecimals int) string {
 
 // IoAddrToEvmAddr converts IoTeX address into evm address
 func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
-	if err := validator.ValidateAddress(ioAddr); err != nil {
-		return common.Address{}, output.NewError(output.ValidationError, "", err)
-	}
 	address, err := address.FromString(ioAddr)
 	if err != nil {
 		return common.Address{}, output.NewError(output.ConvertError, "", err)
