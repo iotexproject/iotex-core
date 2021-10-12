@@ -581,6 +581,9 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 
 // EstimateActionGasConsumption estimate gas consume for action without signature
 func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (respone *iotexapi.EstimateActionGasConsumptionResponse, err error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("Server.EstimateActionGasConsumption")
+	defer span.End()
 	respone = &iotexapi.EstimateActionGasConsumptionResponse{}
 	switch {
 	case in.GetExecution() != nil:
