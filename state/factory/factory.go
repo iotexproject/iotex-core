@@ -508,7 +508,7 @@ func (sf *factory) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
-	_, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
+	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
 	defer span.End()
 
 	sf.mutex.Lock()

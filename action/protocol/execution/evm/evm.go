@@ -180,7 +180,7 @@ func ExecuteContract(
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGas,
 ) ([]byte, *action.Receipt, error) {
-	_, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
+	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
 	defer span.End()
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -434,7 +434,7 @@ func SimulateExecution(
 	ex *action.Execution,
 	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
-	_, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
+	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
 	defer span.End()
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
