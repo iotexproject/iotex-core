@@ -382,6 +382,7 @@ func (api *Server) GetServerMeta(ctx context.Context,
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (*iotexapi.SendActionResponse, error) {
 	span := tracer.SpanFromContext(ctx)
+	//tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
 	log.L().Debug("receive send action request")
@@ -584,7 +585,7 @@ func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexap
 	switch {
 	case in.GetExecution() != nil:
 		request := in.GetExecution()
-		return api.estimateActionGasConsumptionForExecution(request, in.GetCallerAddress())
+		return api.estimateActionGasConsumptionForExecution(ctx, request, in.GetCallerAddress())
 	case in.GetTransfer() != nil:
 		respone.Gas = uint64(len(in.GetTransfer().Payload))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	case in.GetStakeCreate() != nil:
@@ -1607,7 +1608,10 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	return logs, nil
 }
 
-func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+func (api *Server) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("Server.estimateActionGasConsumptionForExecution")
+	defer span.End()
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1623,7 +1627,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	enough, receipt, err := api.isGasLimitEnough(callerAddr, sc, nonce, api.cfg.Genesis.BlockGasLimit)
+	enough, receipt, err := api.isGasLimitEnough(ctx, callerAddr, sc, nonce, api.cfg.Genesis.BlockGasLimit)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1634,7 +1638,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
+	enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
 	if err != nil && err != action.ErrOutOfGas {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1643,7 +1647,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
+			enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
 			if err != nil && err != action.ErrOutOfGas {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
@@ -1662,11 +1666,15 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 }
 
 func (api *Server) isGasLimitEnough(
+	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
 	nonce uint64,
 	gasLimit uint64,
 ) (bool, *action.Receipt, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("Server.isGasLimitEnough")
+	defer span.End()
 	sc, _ = action.NewExecution(
 		sc.Contract(),
 		nonce,
@@ -1675,7 +1683,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	ctx, err := api.bc.Context(context.Background())
+	ctx, err := api.bc.Context(ctx)
 	if err != nil {
 		return false, nil, err
 	}
