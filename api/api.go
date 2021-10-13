@@ -581,9 +581,6 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 
 // EstimateActionGasConsumption estimate gas consume for action without signature
 func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (respone *iotexapi.EstimateActionGasConsumptionResponse, err error) {
-	span := tracer.SpanFromContext(ctx)
-	span.AddEvent("Server.EstimateActionGasConsumption")
-	defer span.End()
 	respone = &iotexapi.EstimateActionGasConsumptionResponse{}
 	switch {
 	case in.GetExecution() != nil:
@@ -1612,9 +1609,6 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 }
 
 func (api *Server) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
-	span := tracer.SpanFromContext(ctx)
-	span.AddEvent("Server.estimateActionGasConsumptionForExecution")
-	defer span.End()
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1675,8 +1669,7 @@ func (api *Server) isGasLimitEnough(
 	nonce uint64,
 	gasLimit uint64,
 ) (bool, *action.Receipt, error) {
-	span := tracer.SpanFromContext(ctx)
-	span.AddEvent("Server.isGasLimitEnough")
+	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
 	sc, _ = action.NewExecution(
 		sc.Contract(),
