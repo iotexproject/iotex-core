@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -256,57 +254,9 @@ func SendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 
-// PrivateKeyFromSigner returns private key from signer
-func PrivateKeyFromSigner(signer string) (crypto.PrivateKey, error) {
-	var prvKey crypto.PrivateKey
-	var err error
-
-	if account.IsSignerExist(signer) || util.AliasIsHdwalletKey(signer) {
-		// Get signer's password
-		password := passwordFlag.Value().(string)
-		if password == "" {
-			output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
-			password, err = util.ReadSecretFromStdin()
-			if err != nil {
-				return nil, output.NewError(output.InputError, "failed to get password", err)
-			}
-		}
-
-		if util.AliasIsHdwalletKey(signer) {
-			account, change, index, err := util.ParseHdwPath(signer)
-			if err != nil {
-				return nil, output.NewError(output.InputError, "invalid hdwallet key format", err)
-			}
-			_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
-			if err != nil {
-				return nil, output.NewError(output.InputError, "failed to derive key from HDWallet", err)
-			}
-		} else {
-			prvKey, err = account.LocalAccountToPrivateKey(signer, password)
-			if err != nil {
-				return nil, output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
-			}
-		}
-		return prvKey, nil
-	}
-
-	// Get private key
-	output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
-	prvKeyString, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return nil, output.NewError(output.InputError, "failed to get private key", err)
-	}
-
-	prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
-	if err != nil {
-		return nil, output.NewError(output.InputError, "failed to create private key from HexString input", err)
-	}
-	return prvKey, nil
-}
-
 // SendAction sends signed action to blockchain
 func SendAction(elp action.Envelope, signer string) error {
-	prvKey, err := PrivateKeyFromSigner(signer)
+	prvKey, err := account.PrivateKeyFromSigner(signer, passwordFlag.Value().(string))
 	if err != nil {
 		return err
 	}

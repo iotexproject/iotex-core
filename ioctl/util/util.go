@@ -172,7 +172,7 @@ func GetAddress(in string) (string, error) {
 func Address(in string) (string, error) {
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
-			return "", output.NewError(output.ValidationError, "", err)
+			return "", output.NewError(output.ValidationError, in, err)
 		}
 		return in, nil
 	}
@@ -180,7 +180,7 @@ func Address(in string) (string, error) {
 	if ok {
 		return addr, nil
 	}
-	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+	return "", output.NewError(output.ConfigError, "cannot find address for alias "+in, nil)
 }
 
 // JwtAuth used for ioctl set auth and send for every grpc request

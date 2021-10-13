@@ -68,7 +68,7 @@ func generate() error {
 }
 
 func generateFromSigner(signer, password string) (generatedMessage string, err error) {
-	pri, err := account.LocalAccountToPrivateKey(signer, password)
+	pri, err := account.PrivateKeyFromSigner(signer, password)
 	if err != nil {
 		return
 	}
