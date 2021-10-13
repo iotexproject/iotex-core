@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
 var (
@@ -186,6 +187,9 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
+	ctx, span := tracer.NewSpan(ctx, "actPool.Add")
+	defer span.End()
+
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
@@ -316,6 +320,10 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("actPool.validate")
+	defer span.End()
+
 	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
 		return err

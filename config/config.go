@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -325,11 +326,12 @@ type (
 
 	// API is the api service config
 	API struct {
-		UseRDS          bool       `yaml:"useRDS"`
-		Port            int        `yaml:"port"`
-		TpsWindow       int        `yaml:"tpsWindow"`
-		GasStation      GasStation `yaml:"gasStation"`
-		RangeQueryLimit uint64     `yaml:"rangeQueryLimit"`
+		UseRDS          bool          `yaml:"useRDS"`
+		Port            int           `yaml:"port"`
+		TpsWindow       int           `yaml:"tpsWindow"`
+		GasStation      GasStation    `yaml:"gasStation"`
+		RangeQueryLimit uint64        `yaml:"rangeQueryLimit"`
+		Tracer          tracer.Config `yaml:"tracer"`
 	}
 
 	// GasStation is the gas station config
