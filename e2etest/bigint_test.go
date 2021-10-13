@@ -136,7 +136,7 @@ func prepare(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, e
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
 	r.NoError(ap.Add(context.Background(), selp))
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	r.NoError(err)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil
 	blk.Receipts = nil

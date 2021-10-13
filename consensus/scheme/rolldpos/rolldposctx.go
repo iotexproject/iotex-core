@@ -586,8 +586,9 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	var err error
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
+		fullness := 255 / (ctx.round.roundNum + 1)
 		// in case that there is no cached block in eManagerDB, it mints a new block.
-		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime())
+		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime(), uint8(fullness))
 		if err != nil {
 			return nil, err
 		}

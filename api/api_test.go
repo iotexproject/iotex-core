@@ -2351,7 +2351,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, testTransfer1); err != nil {
 		return err
 	}
-	blk, err := bc.MintNewBlock(blk1Time)
+	blk, err := bc.MintNewBlock(blk1Time, 255)
 	if err != nil {
 		return err
 	}
@@ -2396,7 +2396,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, testExecution1); err != nil {
 		return err
 	}
-	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
+	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second), 255); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -2408,7 +2408,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 
 	// Add block 3
 	// Empty actions
-	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 2)); err != nil {
+	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second*2), 255); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -2474,7 +2474,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, testExecution3); err != nil {
 		return err
 	}
-	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
+	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second*3), 255); err != nil {
 		return err
 	}
 	h = blk.HashBlock()
@@ -2491,7 +2491,7 @@ func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, co
 	if err := svr.ap.Add(context.Background(), ex1); err != nil {
 		return "", err
 	}
-	blk, err := svr.bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := svr.bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return "", err
 	}

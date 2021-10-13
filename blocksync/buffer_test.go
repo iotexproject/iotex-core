@@ -69,7 +69,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockQueues: make(map[uint64]*uniQueue),
 		bufferSize:  16,
 	}
-	blk, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 
 	pid := "peer1"
@@ -251,7 +251,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 1), 2)
 
-	blk, err = chain.MintNewBlock(testutil.TimestampNow())
+	blk, err = chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	// There should always have at least 1 interval range to sync

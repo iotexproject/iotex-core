@@ -147,7 +147,7 @@ func NewConsensus(
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:
 		mintBlockCB := func() (*block.Block, error) {
-			blk, err := bc.MintNewBlock(clock.Now())
+			blk, err := bc.MintNewBlock(clock.Now(), 255)
 			if err != nil {
 				log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
 				return nil, err

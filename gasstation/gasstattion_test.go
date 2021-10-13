@@ -94,7 +94,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 
 		require.NoError(t, ap.Add(context.Background(), selp1))
 
-		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(blk.Actions))
 		require.Equal(t, 2, len(blk.Receipts))
@@ -151,7 +151,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	}()
 
 	for i := 0; i < 30; i++ {
-		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(blk.Actions))
 		require.Equal(t, 1, len(blk.Receipts))

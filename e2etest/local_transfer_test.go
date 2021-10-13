@@ -668,7 +668,7 @@ func TestChainIDWithKamchatkaHeight(t *testing.T) {
 
 		err = ap.Add(context.Background(), selp1)
 		require.NoError(t, err)
-		blk, err := bc.MintNewBlock(testutil.TimestampNow())
+		blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 		require.NoError(t, err)
 		err = bc.CommitBlock(blk)
 		require.NoError(t, err)

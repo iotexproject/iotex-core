@@ -403,7 +403,9 @@ func (ws *workingSet) pickAndRunActions(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
-		for {
+		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
+		// than certain threshold
+		for blkCtx.GasLimit >= allowedBlockGasResidue {
 			nextAction, ok := actionIterator.Next()
 			if !ok {
 				break
@@ -452,12 +454,6 @@ func (ws *workingSet) pickAndRunActions(
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, nextAction)
-
-			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
-			// than certain threshold
-			if blkCtx.GasLimit < allowedBlockGasResidue {
-				break
-			}
 		}
 	}
 

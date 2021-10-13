@@ -183,18 +183,18 @@ func (mr *MockBlockchainMockRecorder) Context(arg0 interface{}) *gomock.Call {
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(timestamp time.Time, fullness uint8) (*block.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MintNewBlock", timestamp)
+	ret := m.ctrl.Call(m, "MintNewBlock", timestamp, fullness)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(timestamp interface{}) *gomock.Call {
+func (mr *MockBlockchainMockRecorder) MintNewBlock(timestamp, fullness interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), timestamp, fullness)
 }
 
 // CommitBlock mocks base method

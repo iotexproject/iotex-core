@@ -204,7 +204,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk)
 	require.NoError(err)
 	ctx, err = chain.Context(ctx)
@@ -295,15 +295,15 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	peer := "peer1"
 
-	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
+	blk1, err := chain1.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
-	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
+	blk2, err := chain1.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
-	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
+	blk3, err := chain1.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
@@ -389,15 +389,15 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	peer := "peer1"
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
+	blk1, err := chain1.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
-	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
+	blk2, err := chain1.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
-	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
+	blk3, err := chain1.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
@@ -456,12 +456,12 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	peer := "peer1"
 
-	blk, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk)
 	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 
-	blk, err = chain.MintNewBlock(testutil.TimestampNow())
+	blk, err = chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk)
 	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, peer, blk))
@@ -532,7 +532,7 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(err)
 
 	h := chain.TipHeight()
-	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk1, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk1)
 	require.NoError(err)
 
@@ -551,7 +551,7 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
-	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk3, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk3)
 	require.NoError(err)
 
@@ -560,7 +560,7 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	h3 := chain.TipHeight()
 	assert.Equal(t, h2, h3)
 
-	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk4, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NotNil(blk4)
 	require.NoError(err)
 

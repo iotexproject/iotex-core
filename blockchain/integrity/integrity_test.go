@@ -89,7 +89,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 		return err
 	}
 	blockTime := time.Unix(1546329600, 0)
-	blk, err := bc.MintNewBlock(blockTime)
+	blk, err := bc.MintNewBlock(blockTime, 255)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 		if err := ap.Add(context.Background(), ex1); err != nil {
 			return hash.ZeroHash256, err
 		}
-		blk, err = bc.MintNewBlock(blockTime)
+		blk, err = bc.MintNewBlock(blockTime, 255)
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -254,7 +254,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), tsf0); err != nil {
 		return err
 	}
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -332,7 +332,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -447,7 +447,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -513,7 +513,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), tsf8); err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -641,7 +641,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 	require.NoError(ap.Add(context.Background(), ex1))
 	deployHash, err = ex1.Hash()
 	require.NoError(err)
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 
@@ -663,7 +663,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		if err := ap.Add(context.Background(), ex1); err != nil {
 			return hash.ZeroHash256, err
 		}
-		blk, err = bc.MintNewBlock(blockTime)
+		blk, err = bc.MintNewBlock(blockTime, 255)
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -795,7 +795,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(context.Background(), selp2))
 
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(blk.Actions))
 	require.Equal(t, 2, len(blk.Receipts))
@@ -860,7 +860,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(context.Background(), transfer1))
 
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(t, err)
 	require.NotNil(t, blk)
 	require.Equal(t, 183, len(blk.Actions))
@@ -1512,7 +1512,7 @@ func TestBlocks(t *testing.T) {
 			require.NoError(err)
 			require.NoError(ap.Add(context.Background(), tsf))
 		}
-		blk, _ := bc.MintNewBlock(testutil.TimestampNow())
+		blk, _ := bc.MintNewBlock(testutil.TimestampNow(), 255)
 		require.NoError(bc.CommitBlock(blk))
 	}
 }
@@ -1587,7 +1587,7 @@ func TestActions(t *testing.T) {
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), tsf2))
 	}
-	blk, _ := bc.MintNewBlock(testutil.TimestampNow())
+	blk, _ := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
@@ -1666,7 +1666,7 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	tsf, err := action.SignedTransfer(b, priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), tsf))
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
@@ -1756,7 +1756,7 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 
 	require.NoError(ap.Add(context.Background(), selp))
 
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	selpHash, err := selp.Hash()
@@ -1873,7 +1873,7 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), tsf))
 	require.NoError(ap.Add(context.Background(), tsf2))
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	return bc, sf, kv, dao, ap
@@ -1895,7 +1895,7 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 	selp, err := action.Sign(elp, genesisPriKey)
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), selp))
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	return blk

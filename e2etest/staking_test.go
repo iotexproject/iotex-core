@@ -72,7 +72,7 @@ func TestStakingContract(t *testing.T) {
 		deployHash, err := ex.Hash()
 		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ex))
-		blk, err := bc.MintNewBlock(fixedTime)
+		blk, err := bc.MintNewBlock(fixedTime, 255)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		r, err := dao.GetReceiptByActionHash(deployHash, 1)
@@ -96,7 +96,7 @@ func TestStakingContract(t *testing.T) {
 				require.NoError(err)
 				require.NoError(ap.Add(context.Background(), ex))
 			}
-			blk, err = bc.MintNewBlock(fixedTime)
+			blk, err = bc.MintNewBlock(fixedTime, 255)
 			require.NoError(err)
 			require.NoError(bc.CommitBlock(blk))
 

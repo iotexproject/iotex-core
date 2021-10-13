@@ -208,7 +208,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
-		blk, err := chain.MintNewBlock(time.Unix(cfg.Genesis.Timestamp+int64(i), 0))
+		blk, err := chain.MintNewBlock(time.Unix(cfg.Genesis.Timestamp+int64(i), 0), 255)
 		require.NoError(blk.Finalize(nil, time.Unix(cfg.Genesis.Timestamp+int64(i), 0)))
 		require.NoError(err)
 		require.NoError(chain.CommitBlock(blk))

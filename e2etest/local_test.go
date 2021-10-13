@@ -233,7 +233,7 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.NoError(err)
 
-	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk1, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk1))
 
@@ -244,7 +244,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf2))
-	blk2, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk2, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk2))
 	// broadcast to P2P
@@ -265,7 +265,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf3))
-	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk3, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk3))
 	// broadcast to P2P
@@ -286,7 +286,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf4))
-	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
+	blk4, err := chain.MintNewBlock(testutil.TimestampNow(), 255)
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk4))
 	// broadcast to P2P

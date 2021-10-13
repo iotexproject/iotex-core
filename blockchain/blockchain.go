@@ -83,7 +83,7 @@ type (
 		// For block operations
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		MintNewBlock(timestamp time.Time, fullness uint8) (*block.Block, error)
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -336,14 +336,14 @@ func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
 	return bc.context(ctx, true)
 }
 
-func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
+func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time, fullness uint8) context.Context {
 	return protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
-			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			GasLimit:       bc.config.Genesis.BlockGasLimit * uint64(fullness) / 255,
 		})
 }
 
@@ -370,7 +370,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
-func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+func (bc *blockchain) MintNewBlock(timestamp time.Time, fullness uint8) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
@@ -384,7 +384,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp, fullness)
 	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()

@@ -489,7 +489,7 @@ func checkAccountState(
 }
 
 func createAndCommitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) error {
-	blk, err := bc.MintNewBlock(blkTime)
+	blk, err := bc.MintNewBlock(blkTime, 255)
 	if err != nil {
 		return err
 	}

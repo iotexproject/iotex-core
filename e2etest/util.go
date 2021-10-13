@@ -43,7 +43,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(context.Background(), selp); err != nil {
 		return err
 	}
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(context.Background(), tsf5); err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	blk, err = bc.MintNewBlock(testutil.TimestampNow(), 255)
 	if err != nil {
 		return err
 	}
