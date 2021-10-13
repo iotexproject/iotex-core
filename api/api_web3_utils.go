@@ -3,10 +3,14 @@ package api
 import (
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -51,10 +55,18 @@ type (
 		R                *string `json:"r,omitempty"`
 		S                *string `json:"s,omitempty"`
 		V                *string `json:"v,omitempty"`
+		StandardV        *string `json:"standardV,omitempty"`
+		Condition        *string `json:"condition,omitempty"`
+		Creates          *string `json:"creates,omitempty"`
+		ChainId          *string `json:"chainId,omitempty"`
+		PublicKey        *string `json:"publicKey,omitempty"`
 	}
 )
 
 func hexStringToNumber(hexStr string) (uint64, error) {
+	if hexStr == "" {
+		return 0, nil
+	}
 	num, err := strconv.ParseUint(removeHexPrefix(hexStr), 16, 64)
 	if err != nil {
 		return 0, err
@@ -142,7 +154,7 @@ func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDeta
 
 		for _, v := range acts {
 			if isDetailed {
-				tx := getTransactionFromActionInfo(v)
+				tx := getTransactionFromActionInfo(v, svr.bc.ChainID())
 				if tx != nil {
 					transactions = append(transactions, *tx)
 				}
@@ -186,12 +198,12 @@ func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDeta
 	}, nil
 }
 
-func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObject {
+func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) *transactionObject {
 	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
 		return nil
 	}
+	var blockHash, blockNumber, to *string
 	value := "0x0"
-	to := ""
 	data := ""
 	var err error
 	switch act := actInfo.Action.Core.Action.(type) {
@@ -200,20 +212,22 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObje
 		if err != nil {
 			return nil
 		}
-		to, err = ioAddrToEthAddr(act.Transfer.GetRecipient())
+		_to, err := ioAddrToEthAddr(act.Transfer.GetRecipient())
 		if err != nil {
 			return nil
 		}
+		to = &_to
 	case *iotextypes.ActionCore_Execution:
 		value, err = intStrToHex(act.Execution.GetAmount())
 		if err != nil {
 			return nil
 		}
 		if len(act.Execution.GetContract()) > 0 {
-			to, err = ioAddrToEthAddr(act.Execution.GetContract())
+			_to, err := ioAddrToEthAddr(act.Execution.GetContract())
 			if err != nil {
 				return nil
 			}
+			to = &_to
 		}
 		data = "0x" + hex.EncodeToString(act.Execution.GetData())
 	default:
@@ -228,7 +242,6 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObje
 	}
 	v := uint64ToHex(v_val)
 
-	var blockHash, blockNumber *string
 	if actInfo.BlkHeight > 0 {
 		h := "0x" + actInfo.BlkHash
 		num := uint64ToHex(actInfo.BlkHeight)
@@ -242,6 +255,8 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObje
 	_gasPrice, err := strconv.ParseInt(actInfo.Action.Core.GasPrice, 10, 64)
 	gasPrice := uint64ToHex(uint64(_gasPrice))
 	gasLimit := uint64ToHex(actInfo.Action.Core.GasLimit)
+	chainIdHex := uint64ToHex(uint64(chainId))
+	pubkey := hex.EncodeToString(actInfo.Action.SenderPubKey)
 	if err != nil {
 		return nil
 	}
@@ -252,7 +267,7 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObje
 		BlockNumber:      blockNumber,
 		TransactionIndex: &transactionIndex,
 		From:             &from,
-		To:               &to,
+		To:               to,
 		Value:            &value,
 		GasPrice:         &gasPrice,
 		Gas:              &gasLimit,
@@ -260,7 +275,43 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) *transactionObje
 		R:                &r,
 		S:                &s,
 		V:                &v,
+		StandardV:        &v,
+		ChainId:          &chainIdHex,
+		PublicKey:        &pubkey,
 	}
+}
+
+func DecodeRawTx(rawData string, chainId uint32) (*types.Transaction, []byte, []byte, error) {
+	dataInString, err := hex.DecodeString(removeHexPrefix(rawData))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// decode raw data into rlp tx
+	tx := types.Transaction{}
+	err = rlp.DecodeBytes(dataInString, &tx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// extract signature and recover pubkey
+	v, r, s := tx.RawSignatureValues()
+	recID := uint32(v.Int64()) - 2*chainId - 8
+	sig := make([]byte, 64, 65)
+	rSize := len(r.Bytes())
+	copy(sig[32-rSize:32], r.Bytes())
+	sSize := len(s.Bytes())
+	copy(sig[64-sSize:], s.Bytes())
+	sig = append(sig, byte(recID))
+
+	// recover public key
+	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainId))).Hash(&tx)
+	pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return &tx, sig, pubkey.Bytes(), nil
 }
 
 func parseBlockNumber(svr *Server, str string) (uint64, error) {
@@ -278,4 +329,9 @@ func parseBlockNumber(svr *Server, str string) (uint64, error) {
 	}
 
 	return res, nil
+}
+
+func isContractAddr(svr *Server, addr string) bool {
+	accountMeta, _, _ := svr.getAccount(addr)
+	return accountMeta.IsContract
 }
