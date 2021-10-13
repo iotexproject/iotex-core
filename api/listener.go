@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/cache"
 
@@ -10,7 +11,8 @@ import (
 )
 
 var (
-	errorResponderAdded = errors.New("Responder already added")
+	errorResponderAdded    = errors.New("Responder already added")
+	errorKeyIsNotResponder = errors.New("key does not implement Responder interface")
 )
 
 type (
@@ -43,30 +45,32 @@ func (cl *chainListener) Start() error {
 // Stop stops the block chainListener
 func (cl *chainListener) Stop() error {
 	// notify all responders to exit
-	cl.streamMap.Range(func(key cache.Key, _ interface{}) bool {
+	cl.streamMap.RangeEvictOnError(func(key cache.Key, _ interface{}) error {
 		r, ok := key.(Responder)
 		if !ok {
-			log.S().Panic("streamMap stores a key which is not a Responder")
+			log.L().Error("streamMap stores a key which is not a Responder")
+			return errorKeyIsNotResponder
 		}
 		r.Exit()
-		cl.streamMap.Remove(key)
-		return true
+		return nil
 	})
+	cl.streamMap.Clear()
 	return nil
 }
 
 // ReceiveBlock handles the block
 func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	// pass the block to every responder
-	cl.streamMap.Range(func(key cache.Key, _ interface{}) bool {
+	cl.streamMap.RangeEvictOnError(func(key cache.Key, _ interface{}) error {
 		r, ok := key.(Responder)
 		if !ok {
-			log.S().Panic("streamMap stores a key which is not a Responder")
+			log.L().Error("streamMap stores a key which is not a Responder")
+			return errorKeyIsNotResponder
 		}
 		if err := r.Respond(blk); err != nil {
-			cl.streamMap.Remove(key)
+			log.L().Error("responder failed to process block", zap.Error(err))
 		}
-		return true
+		return nil
 	})
 	return nil
 }

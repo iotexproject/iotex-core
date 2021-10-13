@@ -7,8 +7,6 @@
 package account
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -51,20 +49,19 @@ func init() {
 }
 
 func accountSign(msg string) error {
-	addr := signer
-	if !util.AliasIsHdwalletKey(signer) {
-		var err error
-		addr, err = util.GetAddress(signer)
+	var (
+		addr string
+		err  error
+	)
+	if util.AliasIsHdwalletKey(signer) {
+		addr = signer
+	} else {
+		addr, err = util.Address(signer)
 		if err != nil {
-			return output.NewError(output.InputError, "failed to get signer addr", err)
+			return output.NewError(output.AddressError, "failed to get address", err)
 		}
 	}
-	fmt.Printf("Enter password #%s:\n", addr)
-	password, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return output.NewError(output.InputError, "failed to get password", err)
-	}
-	signedMessage, err := Sign(addr, password, msg)
+	signedMessage, err := Sign(addr, "", msg)
 	if err != nil {
 		return output.NewError(output.KeystoreError, "failed to sign message", err)
 	}
