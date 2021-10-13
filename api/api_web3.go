@@ -6,20 +6,24 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
 	CallObject struct {
 		From     string `json:"from,omitempty"`
-		To       string `json:"to,omitempty"`
+		To       string `json:"to"`
 		Gas      string `json:"gas,omitempty"`
 		GasPrice string `json:"gasPrice,omitempty"`
 		Value    string `json:"value,omitempty"`
@@ -68,6 +72,9 @@ var (
 		"eth_getLogs":                        getLogs,
 		"eth_getBlockTransactionCountByHash": getBlockTransactionCountByHash,
 		"eth_getBlockByNumber":               getBlockByNumber,
+		"eth_estimateGas":                    estimateGas,
+		"eth_sendRawTransaction":             sendRawTransaction,
+		"eth_getTransactionByHash":           getTransactionByHash,
 		// func not implemented
 		"eth_coinbase":                      unimplemented,
 		"eth_accounts":                      unimplemented,
@@ -79,6 +86,7 @@ var (
 		"eth_sendTransaction":               unimplemented,
 		"eth_getUncleByBlockHashAndIndex":   unimplemented,
 		"eth_getUncleByBlockNumberAndIndex": unimplemented,
+		"eth_pendingTransactions":           unimplemented,
 	}
 
 	ErrUnkownType = errors.New("wrong type of params")
@@ -191,9 +199,107 @@ func call(svr *Server, in interface{}) (interface{}, error) {
 	return "0x" + hex.EncodeToString(ret), nil
 }
 
-// TODO:
 func estimateGas(svr *Server, in interface{}) (interface{}, error) {
-	return nil, nil
+	jsonMarshaled, err := getJSONFromArray(in)
+	if err != nil {
+		return nil, err
+	}
+	var callObject CallObject
+	err = json.Unmarshal(jsonMarshaled, &callObject)
+	if err != nil {
+		return nil, err
+	}
+
+	to, err := ethAddrToIoAddr(callObject.To)
+	from := "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
+	if len(callObject.From) > 0 {
+		from, err = ethAddrToIoAddr(callObject.From)
+	}
+	data := common.FromHex(callObject.Data)
+	value, err := hexStringToNumber(callObject.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	var estimatedGas uint64
+	if isContractAddr(svr, to) {
+		// transfer
+		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
+	} else {
+		// execution
+		ret, err := svr.estimateActionGasConsumptionForExecution(&iotextypes.Execution{
+			Amount:   strconv.FormatUint(value, 10),
+			Contract: to,
+			Data:     data,
+		}, from)
+		if err != nil {
+			return nil, err
+		}
+		estimatedGas = ret.Gas
+	}
+	if estimatedGas < 21000 {
+		estimatedGas = 21000
+	}
+	return estimatedGas, nil
+}
+
+func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
+	// parse raw data string from json request
+	dataInString, err := getStringFromArray(in)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, sig, pubkey, err := DecodeRawTx(dataInString, svr.bc.ChainID())
+	if err != nil {
+		return nil, err
+	}
+
+	req := &iotexapi.SendActionRequest{
+		Action: &iotextypes.Action{
+			Core: &iotextypes.ActionCore{
+				Version:  0,
+				Nonce:    tx.Nonce(),
+				GasLimit: tx.Gas(),
+				GasPrice: tx.GasPrice().String(),
+				ChainID:  0,
+			},
+			SenderPubKey: pubkey,
+			Signature:    sig,
+			Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
+		},
+	}
+
+	ioAddr, _ := address.FromBytes(tx.To().Bytes())
+	to := ioAddr.String()
+
+	// TODO: process special staking action
+
+	if isContractAddr(svr, to) {
+		// transfer
+		req.Action.Core.Action = &iotextypes.ActionCore_Transfer{
+			Transfer: &iotextypes.Transfer{
+				Recipient: to,
+				Payload:   tx.Data(),
+				Amount:    tx.Value().String(),
+			},
+		}
+	} else {
+		// execution
+		req.Action.Core.Action = &iotextypes.ActionCore_Execution{
+			Execution: &iotextypes.Execution{
+				Contract: to,
+				Data:     tx.Data(),
+				Amount:   tx.Value().String(),
+			},
+		}
+	}
+
+	ret, err := svr.SendAction(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	return "0x" + ret.ActionHash, nil
 }
 
 func getCode(svr *Server, in interface{}) (interface{}, error) {
@@ -276,15 +382,36 @@ func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
 	return *blk, nil
 }
 
-// func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
-// 	h, err := getStringFromArray(in)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	ret, err := svr.getSingleAction(h, true)
-// 	// TODO:
-// 	return nil, nil
-// }
+func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := svr.getSingleAction(h, true)
+	tx := getTransactionFromActionInfo(ret.ActionInfo[0], svr.bc.ChainID())
+	if tx == nil {
+		return nil, ErrUnkownType
+	}
+
+	if tx.To != nil || tx.BlockHash == nil {
+		return tx, nil
+	}
+
+	receipt, err := svr.GetReceiptByAction(context.Background(),
+		&iotexapi.GetReceiptByActionRequest{
+			ActionHash: (*tx.BlockHash)[2:],
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	addr, err := ioAddrToEthAddr(receipt.ReceiptInfo.Receipt.ContractAddress)
+	if err != nil {
+		return nil, err
+	}
+	tx.Creates = &addr
+	return tx, nil
+}
 
 func getLogs(svr *Server, in interface{}) (interface{}, error) {
 	req, err := getJSONFromArray(in)
@@ -358,6 +485,17 @@ func getLogs(svr *Server, in interface{}) (interface{}, error) {
 	}
 	return ret, nil
 }
+
+// // TODO:
+// func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
+// }
+
+// func getBlockTransactionCountByNumbert(svr *Server, in interface{}) (interface{}, error) {
+// }
+
+// func getTransactionByBlockHashAndIndex
+
+// func getTransactionByBlockNumberAndIndex
 
 func unimplemented(svr *Server, in interface{}) (interface{}, error) {
 	return nil, status.Error(codes.Unimplemented, "function not implemented")
