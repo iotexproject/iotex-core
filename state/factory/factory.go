@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -276,6 +277,10 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("factory.newWorkingSet")
+	defer span.End()
+
 	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
@@ -503,6 +508,9 @@ func (sf *factory) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
+	defer span.End()
+
 	sf.mutex.Lock()
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
