@@ -691,78 +691,61 @@ func CheckPendingActionList(
 	var retErr error
 	empty := true
 
-	pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
+	pendingActionMap.RangeEvictOnError(func(selphash cache.Key, vi interface{}) error {
 		empty = false
 		receipt, err := cs.APIServer().GetReceiptByActionHash(selphash.(hash.Hash256))
 		if err == nil {
 			selp, err := cs.APIServer().GetActionByActionHash(selphash.(hash.Hash256))
 			if err != nil {
 				retErr = err
-				return false
+				return nil
+			}
+			executoraddr := selp.SrcPubkey().Address()
+			if executoraddr == nil {
+				retErr = errors.New("failed to get address")
+				return nil
 			}
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-
 				pbAct := selp.Envelope.Proto()
-
 				switch {
 				case pbAct.GetTransfer() != nil:
 					act := &action.Transfer{}
 					if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
 						retErr = err
-						return false
+						return nil
 					}
-					senderaddr := selp.SrcPubkey().Address()
-					if senderaddr == nil {
-						retErr = errors.New("failed to get address")
-						return false
-					}
-
-					updateTransferExpectedBalanceMap(balancemap, senderaddr.String(),
+					updateTransferExpectedBalanceMap(balancemap, executoraddr.String(),
 						act.Recipient(), act.Amount(), act.Payload(), selp.GasLimit(), selp.GasPrice())
 					atomic.AddUint64(&totalTsfSucceeded, 1)
-
 				case pbAct.GetExecution() != nil:
 					act := &action.Execution{}
 					if err := act.LoadProto(pbAct.GetExecution()); err != nil {
 						retErr = err
-						return false
+						return nil
 					}
-					executoraddr := selp.SrcPubkey().Address()
-					if executoraddr == nil {
-						retErr = errors.New("failed to get address")
-						return false
-					}
-
 					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
 				case pbAct.GetStakeCreate() != nil:
 					act := &action.CreateStake{}
 					if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
 						retErr = err
-						return false
-					}
-					executoraddr := selp.SrcPubkey().Address()
-					if executoraddr == nil {
-						retErr = errors.New("failed to get address")
-						return false
+						return nil
 					}
 					cost, err := act.Cost()
 					if err != nil {
 						retErr = err
-						return false
+						return nil
 					}
-					updateStakeExpectedBalanceMap(balancemap,
-						executoraddr.String(),
-						cost)
+					updateStakeExpectedBalanceMap(balancemap,executoraddr.String(),cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
-					return false
+					return nil
 				}
 			} else {
 				atomic.AddUint64(&totalTsfFailed, 1)
 			}
-			pendingActionMap.Remove(selphash)
+			return errors.New("return error so LruCache will remove this key")
 		}
-		return true
+		return nil
 	})
 
 	return empty, retErr

@@ -4,8 +4,8 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-//+build !windows
-//+build !arm,!arm64
+//go:build !windows && !arm && !arm64
+// +build !windows,!arm,!arm64
 
 package log
 
