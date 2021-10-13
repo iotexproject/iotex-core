@@ -135,7 +135,7 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 		AddTransition(
 			sAcceptProposalEndorsement,
 			eReceiveProposalEndorsement,
-			cm.onReceiveProposalEndorsement,
+			cm.onReceiveProposalEndorsementInAcceptProposalEndorsementState,
 			[]fsm.State{
 				sAcceptProposalEndorsement, // not enough endorsements
 				sAcceptLockEndorsement,     // enough endorsements
@@ -143,7 +143,7 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 		AddTransition(
 			sAcceptProposalEndorsement,
 			eReceivePreCommitEndorsement,
-			cm.onReceiveProposalEndorsement,
+			cm.onReceiveProposalEndorsementInAcceptProposalEndorsementState,
 			[]fsm.State{
 				sAcceptProposalEndorsement, // not enough endorsements
 				sAcceptLockEndorsement,     // enough endorsements
@@ -155,6 +155,14 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 			[]fsm.State{
 				sAcceptLockEndorsement, // timeout, jump to next step
 			}).
+		AddTransition(
+			sAcceptLockEndorsement,
+			eReceiveProposalEndorsement,
+			cm.onReceiveProposalEndorsementInAcceptProposalEndorsementState,
+			[]fsm.State{
+				sAcceptLockEndorsement,
+			},
+		).
 		AddTransition(
 			sAcceptLockEndorsement,
 			eReceiveLockEndorsement,
@@ -472,18 +480,26 @@ func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) 
 	return sAcceptProposalEndorsement, nil
 }
 
-func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, error) {
+func (m *ConsensusFSM) onReceiveProposalEndorsementInAcceptLockEndorsementState(evt fsm.Event) (fsm.State, error) {
+	return m.onReceiveProposalEndorsement(evt, sAcceptLockEndorsement)
+}
+
+func (m *ConsensusFSM) onReceiveProposalEndorsementInAcceptProposalEndorsementState(evt fsm.Event) (fsm.State, error) {
+	return m.onReceiveProposalEndorsement(evt, sAcceptProposalEndorsement)
+}
+
+func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event, currentState fsm.State) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		return sAcceptProposalEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+		return currentState, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
 	lockEndorsement, err := m.ctx.NewLockEndorsement(cEvt.Data())
 	if err != nil {
 		m.ctx.Logger().Debug("Failed to add proposal endorsement", zap.Error(err))
-		return sAcceptProposalEndorsement, nil
+		return currentState, nil
 	}
 	if lockEndorsement == nil {
-		return sAcceptProposalEndorsement, nil
+		return currentState, nil
 	}
 	m.ProduceReceiveLockEndorsementEvent(lockEndorsement)
 	m.ctx.Broadcast(lockEndorsement)
