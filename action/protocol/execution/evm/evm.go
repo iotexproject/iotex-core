@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -179,6 +180,8 @@ func ExecuteContract(
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGas,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "evm.ExecuteContract")
+	defer span.End()
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
@@ -431,6 +434,8 @@ func SimulateExecution(
 	ex *action.Execution,
 	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "evm.SimulateExecution")
+	defer span.End()
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithActionCtx(
