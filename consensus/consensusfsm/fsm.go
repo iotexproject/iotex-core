@@ -158,7 +158,7 @@ func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 		AddTransition(
 			sAcceptLockEndorsement,
 			eReceiveProposalEndorsement,
-			cm.onReceiveProposalEndorsementInAcceptProposalEndorsementState,
+			cm.onReceiveProposalEndorsementInAcceptLockEndorsementState,
 			[]fsm.State{
 				sAcceptLockEndorsement,
 			},
