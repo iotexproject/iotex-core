@@ -21,7 +21,7 @@ import (
 )
 
 type (
-	CallObject struct {
+	callObject struct {
 		From     string `json:"from,omitempty"`
 		To       string `json:"to"`
 		Gas      string `json:"gas,omitempty"`
@@ -30,7 +30,7 @@ type (
 		Data     string `json:"data,omitempty"`
 	}
 
-	LogsRequest struct {
+	logsRequest struct {
 		Address   string   `json:"address,omitempty"`
 		FromBlock string   `json:"fromBlock,omitempty"`
 		ToBlock   string   `json:"toBlock,omitempty"`
@@ -38,7 +38,7 @@ type (
 		Blockhash string   `json:"blockhash,omitempty"`
 	}
 
-	LogsObject struct {
+	logsObject struct {
 		Removed          bool     `json:"removed,omitempty"`
 		LogIndex         string   `json:"logIndex,omitempty"`
 		TransactionIndex string   `json:"transactionIndex,omitempty"`
@@ -50,7 +50,7 @@ type (
 		Topics           []string `json:"topics,omitempty"`
 	}
 
-	ReceiptObject struct {
+	receiptObject struct {
 		TransactionIndex  string       `json:"transactionIndex,omitempty"`
 		TransactionHash   string       `json:"transactionHash,omitempty"`
 		BlockHash         string       `json:"blockHash,omitempty"`
@@ -61,7 +61,7 @@ type (
 		GasUsed           string       `json:"gasUsed,omitempty"`
 		ContractAddress   *string      `json:"contractAddress,omitempty"`
 		LogsBloom         string       `json:"logsBloom,omitempty"`
-		Logs              []LogsObject `json:"logs,omitempty"`
+		Logs              []logsObject `json:"logs,omitempty"`
 		Status            string       `json:"status,omitempty"`
 	}
 )
@@ -70,7 +70,7 @@ var (
 	apiMap = map[string]func(*Server, interface{}) (interface{}, error){
 		"eth_gasPrice":                            gasPrice,
 		"eth_getBlockByHash":                      getBlockByHash,
-		"eth_chainId":                             getChainId,
+		"eth_chainId":                             getChainID,
 		"eth_blockNumber":                         getBlockNumber,
 		"eth_getBalance":                          getBalance,
 		"eth_getTransactionCount":                 getTransactionCount,
@@ -107,7 +107,7 @@ var (
 		"eth_pendingTransactions":           unimplemented,
 	}
 
-	ErrUnkownType = errors.New("wrong type of params")
+	errUnkownType = errors.New("wrong type of params")
 )
 
 func gasPrice(svr *Server, in interface{}) (interface{}, error) {
@@ -118,7 +118,7 @@ func gasPrice(svr *Server, in interface{}) (interface{}, error) {
 	return uint64ToHex(val), nil
 }
 
-func getChainId(svr *Server, in interface{}) (interface{}, error) {
+func getChainID(svr *Server, in interface{}) (interface{}, error) {
 	id := config.EVMNetworkID()
 	return uint64ToHex(uint64(id)), nil
 }
@@ -152,7 +152,7 @@ func getBlockByNumber(svr *Server, in interface{}) (interface{}, error) {
 func getBalance(svr *Server, in interface{}) (interface{}, error) {
 	addr, ok := in.(string)
 	if !ok {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	ioAddr, err := ethAddrToIoAddr(addr)
 	if err != nil {
@@ -169,7 +169,7 @@ func getBalance(svr *Server, in interface{}) (interface{}, error) {
 func getTransactionCount(svr *Server, in interface{}) (interface{}, error) {
 	addr, ok := in.(string)
 	if !ok {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	ioAddr, err := ethAddrToIoAddr(addr)
 	if err != nil {
@@ -187,30 +187,30 @@ func call(svr *Server, in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var callObject CallObject
-	err = json.Unmarshal(jsonMarshaled, &callObject)
+	var callObj callObject
+	err = json.Unmarshal(jsonMarshaled, &callObj)
 	if err != nil {
 		return nil, err
 	}
 
 	// token call
-	if callObject.To == "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39" {
+	if callObj.To == "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39" {
 		return nil, nil
 	}
 
-	from, err := ethAddrToIoAddr(callObject.From)
-	to, err := ethAddrToIoAddr(callObject.To)
-	value, err := hexStringToNumber(callObject.Value)
-	gasLimit, err := hexStringToNumber(callObject.Gas)
+	from, err := ethAddrToIoAddr(callObj.From)
+	to, err := ethAddrToIoAddr(callObj.To)
+	value, err := hexStringToNumber(callObj.Value)
+	gasLimit, err := hexStringToNumber(callObj.Gas)
 	if err != nil {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 
 	ret, _, err := svr.readContract(from,
 		to,
 		big.NewInt(int64(value)),
 		gasLimit,
-		common.FromHex(callObject.Data))
+		common.FromHex(callObj.Data))
 	if err != nil {
 		return nil, err
 	}
@@ -222,19 +222,19 @@ func estimateGas(svr *Server, in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var callObject CallObject
-	err = json.Unmarshal(jsonMarshaled, &callObject)
+	var callObj callObject
+	err = json.Unmarshal(jsonMarshaled, &callObj)
 	if err != nil {
 		return nil, err
 	}
 
-	to, err := ethAddrToIoAddr(callObject.To)
+	to, err := ethAddrToIoAddr(callObj.To)
 	from := "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
-	if len(callObject.From) > 0 {
-		from, err = ethAddrToIoAddr(callObject.From)
+	if len(callObj.From) > 0 {
+		from, err = ethAddrToIoAddr(callObj.From)
 	}
-	data := common.FromHex(callObject.Data)
-	value, err := hexStringToNumber(callObject.Value)
+	data := common.FromHex(callObj.Data)
+	value, err := hexStringToNumber(callObj.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +412,7 @@ func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
 
 	tx := getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
 	if tx == nil {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	return *tx, nil
 }
@@ -422,7 +422,7 @@ func getLogs(svr *Server, in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var logReq LogsRequest
+	var logReq logsRequest
 	err = json.Unmarshal(req, &logReq)
 	if err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func getLogs(svr *Server, in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	// parse log results
-	var ret []LogsObject
+	var ret []logsObject
 	for _, l := range logs {
 		if len(l.Topics) > 0 {
 			addr, _ := ioAddrToEthAddr(l.ContractAddress)
@@ -475,7 +475,7 @@ func getLogs(svr *Server, in interface{}) (interface{}, error) {
 			for _, val := range l.Topics {
 				topics = append(topics, "0x"+hex.EncodeToString(val))
 			}
-			ret = append(ret, LogsObject{
+			ret = append(ret, logsObject{
 				BlockHash:        "0x" + hex.EncodeToString(l.BlkHash),
 				TransactionHash:  "0x" + hex.EncodeToString(l.ActHash),
 				LogIndex:         uint64ToHex(uint64(l.Index)),
@@ -519,17 +519,17 @@ func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
 	}
 	tx := getTransactionFromActionInfo(act.ActionInfo[0], svr.bc.ChainID())
 	if tx == nil {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 
-	var logs []LogsObject
+	var logs []logsObject
 	for _, v := range receipt.Logs {
 		addr, _ := ioAddrToEthAddr(v.ContractAddress)
 		var topics []string
 		for _, tp := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tp))
 		}
-		log := LogsObject{
+		log := logsObject{
 			BlockHash:        "0x" + ret.ReceiptInfo.BlkHash,
 			TransactionHash:  h,
 			TransactionIndex: *tx.TransactionIndex,
@@ -542,7 +542,7 @@ func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
 		logs = append(logs, log)
 	}
 
-	return ReceiptObject{
+	return receiptObject{
 		BlockHash:         "0x" + ret.ReceiptInfo.BlkHash,
 		BlockNumber:       uint64ToHex(receipt.BlkHeight),
 		ContractAddress:   contractAddr,
@@ -594,7 +594,7 @@ func getTransactionByBlockHashAndIndex(svr *Server, in interface{}) (interface{}
 	tx := getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
 
 	if tx == nil {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	return *tx, nil
 }
@@ -622,7 +622,7 @@ func getTransactionByBlockNumberAndIndex(svr *Server, in interface{}) (interface
 	tx := getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
 
 	if tx == nil {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	return *tx, nil
 }

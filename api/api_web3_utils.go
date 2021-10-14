@@ -77,12 +77,12 @@ func hexStringToNumber(hexStr string) (uint64, error) {
 
 func ethAddrToIoAddr(ethAddr string) (string, error) {
 	if ok := common.IsHexAddress(ethAddr); !ok {
-		return "", ErrUnkownType
+		return "", errUnkownType
 	}
 	ethAddress := common.HexToAddress(ethAddr)
 	ioAddress, err := address.FromBytes(ethAddress.Bytes())
 	if err != nil {
-		return "", ErrUnkownType
+		return "", errUnkownType
 	}
 	return ioAddress.String(), nil
 }
@@ -110,11 +110,11 @@ func intStrToHex(str string) (string, error) {
 func getStringFromArray(in interface{}, i int) (string, error) {
 	params, ok := in.([]interface{})
 	if !ok || i < 0 {
-		return "", ErrUnkownType
+		return "", errUnkownType
 	}
 	ret, ok := params[i].(string)
 	if !ok {
-		return "", ErrUnkownType
+		return "", errUnkownType
 	}
 	return ret, nil
 }
@@ -122,11 +122,11 @@ func getStringFromArray(in interface{}, i int) (string, error) {
 func getJSONFromArray(in interface{}) ([]byte, error) {
 	params, ok := in.([]interface{})
 	if !ok {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	params0, ok := params[0].(map[string]interface{})
 	if !ok {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	jsonMarshaled, err := json.Marshal(params0)
 	if err != nil {
@@ -175,7 +175,7 @@ func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDeta
 	}
 	miner, err := ioAddrToEthAddr(blkMeta.ProducerAddress)
 	if err != nil {
-		return nil, ErrUnkownType
+		return nil, errUnkownType
 	}
 	return &blockObject{
 		Number:           uint64ToHex(blkMeta.Height),
@@ -237,11 +237,11 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) 
 
 	r := "0x" + hex.EncodeToString(actInfo.Action.Signature[:32])
 	s := "0x" + hex.EncodeToString(actInfo.Action.Signature[32:64])
-	v_val := uint64(actInfo.Action.Signature[64])
-	if v_val < 27 {
-		v_val += 27
+	vVal := uint64(actInfo.Action.Signature[64])
+	if vVal < 27 {
+		vVal += 27
 	}
-	v := uint64ToHex(v_val)
+	v := uint64ToHex(vVal)
 
 	if actInfo.BlkHeight > 0 {
 		h := "0x" + actInfo.BlkHash
@@ -306,6 +306,7 @@ func getTransactionCreateFromActionInfo(svr *Server, actInfo *iotexapi.ActionInf
 	return tx
 }
 
+// DecodeRawTx() decode raw data string into eth tx
 func DecodeRawTx(rawData string, chainId uint32) (*types.Transaction, []byte, []byte, error) {
 	dataInString, err := hex.DecodeString(removeHexPrefix(rawData))
 	if err != nil {
