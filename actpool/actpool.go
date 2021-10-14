@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
 var (
@@ -186,6 +187,9 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
+	ctx, span := tracer.NewSpan(ctx, "actPool.Add")
+	defer span.End()
+
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
@@ -319,6 +323,10 @@ func (ap *actPool) DeleteAction(caller address.Address) {
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("actPool.validate")
+	defer span.End()
+
 	caller := selp.SrcPubkey().Address()
 	if caller == nil {
 		return errors.New("failed to get address")
@@ -370,11 +378,6 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
 		}
 		queue.SetPendingBalance(state.Balance)
-	}
-	if queue.Overlaps(act) {
-		// Nonce already exists
-		actpoolMtc.WithLabelValues("nonceUsed").Inc()
-		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", actHash)
 	}
 
 	if actNonce-confirmedNonce-1 >= ap.cfg.MaxNumActsPerAcct {

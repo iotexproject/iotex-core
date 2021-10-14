@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -343,6 +344,9 @@ func (sdb *stateDB) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
+	defer span.End()
+
 	sdb.mutex.Lock()
 	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()

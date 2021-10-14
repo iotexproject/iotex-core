@@ -18,8 +18,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
@@ -53,6 +57,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -112,6 +117,8 @@ type Server struct {
 	grpcServer        *grpc.Server
 	hasActionIndex    bool
 	electionCommittee committee.Committee
+	readCache         *ReadCache
+	tp                *trace.TracerProvider
 }
 
 // NewServer creates a new server
@@ -142,7 +149,14 @@ func NewServer(
 	if cfg.API.RangeQueryLimit < uint64(cfg.API.TpsWindow) {
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
-
+	tp, err := tracer.NewProvider(
+		tracer.WithServiceName(cfg.API.Tracer.ServiceName),
+		tracer.WithEndpoint(cfg.API.Tracer.EndPoint),
+		tracer.WithInstanceID(cfg.API.Tracer.InstanceID),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot config tracer provider")
+	}
 	svr := &Server{
 		bc:                chain,
 		bs:                bs,
@@ -157,18 +171,29 @@ func NewServer(
 		chainListener:     NewChainListener(),
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
+		readCache:         NewReadCache(),
+		tp:                tp,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
 	}
 	svr.grpcServer = grpc.NewServer(
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			grpc_prometheus.StreamServerInterceptor,
+			otelgrpc.StreamServerInterceptor(),
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_prometheus.UnaryServerInterceptor,
+			otelgrpc.UnaryServerInterceptor(),
+		)),
 	)
 	iotexapi.RegisterAPIServiceServer(svr.grpcServer, svr)
 	grpc_prometheus.Register(svr.grpcServer)
 	reflection.Register(svr.grpcServer)
 
+	if err := svr.chainListener.AddResponder(svr.readCache); err != nil {
+		return nil, err
+	}
 	return svr, nil
 }
 
@@ -232,19 +257,19 @@ func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsReques
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
-		return api.getActions(request.Start, request.Count)
+		return api.getActions(ctx, request.Start, request.Count)
 	case in.GetByHash() != nil:
 		request := in.GetByHash()
-		return api.getSingleAction(request.ActionHash, request.CheckPending)
+		return api.getSingleAction(ctx, request.ActionHash, request.CheckPending)
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
-		return api.getActionsByAddress(request.Address, request.Start, request.Count)
+		return api.getActionsByAddress(ctx, request.Address, request.Start, request.Count)
 	case in.GetUnconfirmedByAddr() != nil:
 		request := in.GetUnconfirmedByAddr()
-		return api.getUnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
+		return api.getUnconfirmedActionsByAddress(ctx, request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
 		request := in.GetByBlk()
-		return api.getActionsByBlock(request.BlkHash, request.Start, request.Count)
+		return api.getActionsByBlock(ctx, request.BlkHash, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
@@ -356,6 +381,10 @@ func (api *Server) GetServerMeta(ctx context.Context,
 
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (*iotexapi.SendActionResponse, error) {
+	span := tracer.SpanFromContext(ctx)
+	//tags output
+	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
+	defer span.End()
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
 	var err error
@@ -417,7 +446,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
+	if err = api.broadcastHandler(ctx, api.bc.ChainID(), in.Action); err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
@@ -456,6 +485,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
+	if d, ok := api.readCache.Get(key); ok {
+		res := iotexapi.ReadContractResponse{}
+		if err := proto.Unmarshal(d, &res); err == nil {
+			return &res, nil
+		}
+	}
+
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
@@ -487,10 +524,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	return &iotexapi.ReadContractResponse{
+	res := iotexapi.ReadContractResponse{
 		Data:    hex.EncodeToString(retval),
 		Receipt: receipt.ConvertToReceiptPb(),
-	}, nil
+	}
+	if d, err := proto.Marshal(&res); err == nil {
+		api.readCache.Put(key, d)
+	}
+	return &res, nil
 }
 
 // ReadState reads state on blockchain
@@ -544,7 +585,7 @@ func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexap
 	switch {
 	case in.GetExecution() != nil:
 		request := in.GetExecution()
-		return api.estimateActionGasConsumptionForExecution(request, in.GetCallerAddress())
+		return api.estimateActionGasConsumptionForExecution(ctx, request, in.GetCallerAddress())
 	case in.GetTransfer() != nil:
 		respone.Gas = uint64(len(in.GetTransfer().Payload))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	case in.GetStakeCreate() != nil:
@@ -737,6 +778,9 @@ func (api *Server) GetLogs(
 		paginationSize := req.GetPaginationSize()
 		if paginationSize == 0 {
 			paginationSize = 1000
+		}
+		if paginationSize > 5000 {
+			paginationSize = 5000
 		}
 		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
 	default:
@@ -965,10 +1009,29 @@ func (api *Server) Stop() error {
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
+	if api.tp != nil {
+		if err := api.tp.Shutdown(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to shutdown api tracer")
+		}
+	}
 	return api.chainListener.Stop()
 }
 
 func (api *Server) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, uint64, error) {
+	key := ReadKey{
+		Name:   p.Name(),
+		Height: height,
+		Method: methodName,
+		Args:   arguments,
+	}
+	if d, ok := api.readCache.Get(key.Hash()); ok {
+		var h uint64
+		if height != "" {
+			h, _ = strconv.ParseUint(height, 0, 64)
+		}
+		return d, h, nil
+	}
+
 	// TODO: need to complete the context
 	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -994,12 +1057,20 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 		inputEpochNum := rp.GetEpochNum(inputHeight)
 		if inputEpochNum < tipEpochNum {
 			// old data, wrap to history state reader
-			return p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			if err == nil {
+				api.readCache.Put(key.Hash(), d)
+			}
+			return d, h, err
 		}
 	}
 
 	// TODO: need to distinguish user error and system error
-	return p.ReadState(ctx, api.sf, methodName, arguments...)
+	d, h, err := p.ReadState(ctx, api.sf, methodName, arguments...)
+	if err == nil {
+		api.readCache.Put(key.Hash(), d)
+	}
+	return d, h, err
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
@@ -1022,7 +1093,7 @@ func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iote
 }
 
 // GetActions returns actions within the range
-func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getActions(ctx context.Context, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1078,7 +1149,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 }
 
 // getSingleAction returns action by action hash
-func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getSingleAction(ctx context.Context, actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1094,7 +1165,7 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 }
 
 // getActionsByAddress returns all actions associated with an address
-func (api *Server) getActionsByAddress(addrStr string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getActionsByAddress(ctx context.Context, addrStr string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1152,7 +1223,7 @@ func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
-func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getUnconfirmedActionsByAddress(ctx context.Context, address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1183,7 +1254,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 }
 
 // getActionsByBlock returns all actions in a block
-func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+func (api *Server) getActionsByBlock(ctx context.Context, blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1232,7 +1303,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 		count--
 	}
 	return &iotexapi.GetBlockMetasResponse{
-		Total:    tipHeight,
+		Total:    uint64(len(res)),
 		BlkMetas: res,
 	}, nil
 }
@@ -1537,7 +1608,7 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	return logs, nil
 }
 
-func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+func (api *Server) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1553,7 +1624,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	enough, receipt, err := api.isGasLimitEnough(callerAddr, sc, nonce, api.cfg.Genesis.BlockGasLimit)
+	enough, receipt, err := api.isGasLimitEnough(ctx, callerAddr, sc, nonce, api.cfg.Genesis.BlockGasLimit)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1564,7 +1635,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
+	enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
 	if err != nil && err != action.ErrOutOfGas {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1573,7 +1644,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
+			enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
 			if err != nil && err != action.ErrOutOfGas {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
@@ -1592,11 +1663,14 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 }
 
 func (api *Server) isGasLimitEnough(
+	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
 	nonce uint64,
 	gasLimit uint64,
 ) (bool, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
+	defer span.End()
 	sc, _ = action.NewExecution(
 		sc.Contract(),
 		nonce,
@@ -1605,7 +1679,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	ctx, err := api.bc.Context(context.Background())
+	ctx, err := api.bc.Context(ctx)
 	if err != nil {
 		return false, nil, err
 	}
