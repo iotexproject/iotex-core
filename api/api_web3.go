@@ -49,32 +49,50 @@ type (
 		Data             string   `json:"data,omitempty"`
 		Topics           []string `json:"topics,omitempty"`
 	}
+
+	ReceiptObject struct {
+		TransactionIndex  string       `json:"transactionIndex,omitempty"`
+		TransactionHash   string       `json:"transactionHash,omitempty"`
+		BlockHash         string       `json:"blockHash,omitempty"`
+		BlockNumber       string       `json:"blockNumber,omitempty"`
+		From              string       `json:"from,omitempty"`
+		To                string       `json:"to,omitempty"`
+		CumulativeGasUsed string       `json:"cumulativeGasUsed,omitempty"`
+		GasUsed           string       `json:"gasUsed,omitempty"`
+		ContractAddress   *string      `json:"contractAddress,omitempty"`
+		LogsBloom         string       `json:"logsBloom,omitempty"`
+		Logs              []LogsObject `json:"logs,omitempty"`
+		Status            string       `json:"status,omitempty"`
+	}
 )
 
 var (
 	apiMap = map[string]func(*Server, interface{}) (interface{}, error){
-		"eth_gasPrice":                       gasPrice,
-		"eth_getBlockByHash":                 getBlockByHash,
-		"eth_chainId":                        getChainId,
-		"eth_blockNumber":                    getBlockNumber,
-		"eth_getBalance":                     getBalance,
-		"eth_getTransactionCount":            getTransactionCount,
-		"eth_call":                           call,
-		"eth_getCode":                        getCode,
-		"eth_protocolVersion":                getProtocolVersion,
-		"web3_clientVersion":                 getNodeInfo,
-		"net_version":                        getNetworkId,
-		"net_peerCount":                      getPeerCount,
-		"net_listening":                      isListening,
-		"eth_syncing":                        isSyncing,
-		"eth_mining":                         isMining,
-		"eth_hashrate":                       getHashrate,
-		"eth_getLogs":                        getLogs,
-		"eth_getBlockTransactionCountByHash": getBlockTransactionCountByHash,
-		"eth_getBlockByNumber":               getBlockByNumber,
-		"eth_estimateGas":                    estimateGas,
-		"eth_sendRawTransaction":             sendRawTransaction,
-		"eth_getTransactionByHash":           getTransactionByHash,
+		"eth_gasPrice":                            gasPrice,
+		"eth_getBlockByHash":                      getBlockByHash,
+		"eth_chainId":                             getChainId,
+		"eth_blockNumber":                         getBlockNumber,
+		"eth_getBalance":                          getBalance,
+		"eth_getTransactionCount":                 getTransactionCount,
+		"eth_call":                                call,
+		"eth_getCode":                             getCode,
+		"eth_protocolVersion":                     getProtocolVersion,
+		"web3_clientVersion":                      getNodeInfo,
+		"net_version":                             getNetworkId,
+		"net_peerCount":                           getPeerCount,
+		"net_listening":                           isListening,
+		"eth_syncing":                             isSyncing,
+		"eth_mining":                              isMining,
+		"eth_hashrate":                            getHashrate,
+		"eth_getLogs":                             getLogs,
+		"eth_getBlockTransactionCountByHash":      getBlockTransactionCountByHash,
+		"eth_getBlockByNumber":                    getBlockByNumber,
+		"eth_estimateGas":                         estimateGas,
+		"eth_sendRawTransaction":                  sendRawTransaction,
+		"eth_getTransactionByHash":                getTransactionByHash,
+		"eth_getTransactionByBlockNumberAndIndex": getTransactionByBlockNumberAndIndex,
+		"eth_getTransactionByBlockHashAndIndex":   getTransactionByBlockHashAndIndex,
+		"eth_getBlockTransactionCountByNumber":    getBlockTransactionCountByNumber,
 		// func not implemented
 		"eth_coinbase":                      unimplemented,
 		"eth_accounts":                      unimplemented,
@@ -110,7 +128,7 @@ func getBlockNumber(svr *Server, in interface{}) (interface{}, error) {
 }
 
 func getBlockByNumber(svr *Server, in interface{}) (interface{}, error) {
-	blkNum, err := getStringFromArray(in)
+	blkNum, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +263,7 @@ func estimateGas(svr *Server, in interface{}) (interface{}, error) {
 
 func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 	// parse raw data string from json request
-	dataInString, err := getStringFromArray(in)
+	dataInString, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +321,7 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 }
 
 func getCode(svr *Server, in interface{}) (interface{}, error) {
-	addr, err := getStringFromArray(in)
+	addr, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +371,7 @@ func getHashrate(svr *Server, in interface{}) (interface{}, error) {
 }
 
 func getBlockTransactionCountByHash(svr *Server, in interface{}) (interface{}, error) {
-	h, err := getStringFromArray(in)
+	h, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +383,7 @@ func getBlockTransactionCountByHash(svr *Server, in interface{}) (interface{}, e
 }
 
 func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
-	h, err := getStringFromArray(in)
+	h, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -383,34 +401,20 @@ func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
 }
 
 func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
-	h, err := getStringFromArray(in)
+	h, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-	ret, err := svr.getSingleAction(h, true)
-	tx := getTransactionFromActionInfo(ret.ActionInfo[0], svr.bc.ChainID())
+	ret, err := svr.getSingleAction(removeHexPrefix(h), true)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
 	if tx == nil {
 		return nil, ErrUnkownType
 	}
-
-	if tx.To != nil || tx.BlockHash == nil {
-		return tx, nil
-	}
-
-	receipt, err := svr.GetReceiptByAction(context.Background(),
-		&iotexapi.GetReceiptByActionRequest{
-			ActionHash: (*tx.BlockHash)[2:],
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	addr, err := ioAddrToEthAddr(receipt.ReceiptInfo.Receipt.ContractAddress)
-	if err != nil {
-		return nil, err
-	}
-	tx.Creates = &addr
-	return tx, nil
+	return *tx, nil
 }
 
 func getLogs(svr *Server, in interface{}) (interface{}, error) {
@@ -486,16 +490,142 @@ func getLogs(svr *Server, in interface{}) (interface{}, error) {
 	return ret, nil
 }
 
-// // TODO:
-// func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
-// }
+func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
 
-// func getBlockTransactionCountByNumbert(svr *Server, in interface{}) (interface{}, error) {
-// }
+	ret, err := svr.GetReceiptByAction(context.Background(),
+		&iotexapi.GetReceiptByActionRequest{
+			ActionHash: removeHexPrefix(h),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
 
-// func getTransactionByBlockHashAndIndex
+	receipt := ret.ReceiptInfo.Receipt
 
-// func getTransactionByBlockNumberAndIndex
+	var contractAddr *string
+	if len(receipt.ContractAddress) > 0 {
+		res, _ := ioAddrToEthAddr(receipt.ContractAddress)
+		contractAddr = &res
+	}
+
+	act, err := svr.getSingleAction(removeHexPrefix(h), true)
+	if err != nil {
+		return nil, err
+	}
+	tx := getTransactionFromActionInfo(act.ActionInfo[0], svr.bc.ChainID())
+	if tx == nil {
+		return nil, ErrUnkownType
+	}
+
+	var logs []LogsObject
+	for _, v := range receipt.Logs {
+		addr, _ := ioAddrToEthAddr(v.ContractAddress)
+		var topics []string
+		for _, tp := range v.Topics {
+			topics = append(topics, "0x"+hex.EncodeToString(tp))
+		}
+		log := LogsObject{
+			BlockHash:        "0x" + ret.ReceiptInfo.BlkHash,
+			TransactionHash:  h,
+			TransactionIndex: *tx.TransactionIndex,
+			LogIndex:         uint64ToHex(uint64(v.Index)),
+			BlockNumber:      uint64ToHex(v.BlkHeight),
+			Address:          addr,
+			Data:             "0x" + hex.EncodeToString(v.Data),
+			Topics:           topics,
+		}
+		logs = append(logs, log)
+	}
+
+	return ReceiptObject{
+		BlockHash:         "0x" + ret.ReceiptInfo.BlkHash,
+		BlockNumber:       uint64ToHex(receipt.BlkHeight),
+		ContractAddress:   contractAddr,
+		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
+		From:              *tx.From,
+		GasUsed:           uint64ToHex(receipt.GasConsumed),
+		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+		Status:            uint64ToHex(receipt.Status),
+		To:                *tx.To,
+		TransactionHash:   h,
+		TransactionIndex:  *tx.TransactionIndex,
+		Logs:              logs,
+	}, nil
+
+}
+
+func getBlockTransactionCountByNumber(svr *Server, in interface{}) (interface{}, error) {
+	blkNum, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	num, err := parseBlockNumber(svr, blkNum)
+	if err != nil {
+		return nil, err
+	}
+
+	blkMeta, err := svr.getBlockMetas(num, 1)
+	if err != nil {
+		return nil, err
+	}
+	return blkMeta.BlkMetas[0].NumActions, nil
+}
+
+func getTransactionByBlockHashAndIndex(svr *Server, in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in, 0)
+	idxStr, err := getStringFromArray(in, 1)
+	if err != nil {
+		return nil, err
+	}
+	idx, err := hexStringToNumber(idxStr)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, err := svr.getActionsByBlock(removeHexPrefix(h), idx, 1)
+	if err != nil {
+		return nil, err
+	}
+	tx := getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
+
+	if tx == nil {
+		return nil, ErrUnkownType
+	}
+	return *tx, nil
+}
+
+func getTransactionByBlockNumberAndIndex(svr *Server, in interface{}) (interface{}, error) {
+	blkNum, err := getStringFromArray(in, 0)
+	idxStr, err := getStringFromArray(in, 1)
+	if err != nil {
+		return nil, err
+	}
+	num, err := parseBlockNumber(svr, blkNum)
+	idx, err := hexStringToNumber(idxStr)
+	if err != nil {
+		return nil, err
+	}
+	blkMeta, err := svr.getBlockMetas(num, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, err := svr.getActionsByBlock(blkMeta.BlkMetas[0].Hash, idx, 1)
+	if err != nil {
+		return nil, err
+	}
+	tx := getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
+
+	if tx == nil {
+		return nil, ErrUnkownType
+	}
+	return *tx, nil
+}
 
 func unimplemented(svr *Server, in interface{}) (interface{}, error) {
 	return nil, status.Error(codes.Unimplemented, "function not implemented")
