@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
@@ -106,12 +107,12 @@ func intStrToHex(str string) (string, error) {
 	return uint64ToHex(uint64(amount)), nil
 }
 
-func getStringFromArray(in interface{}) (string, error) {
+func getStringFromArray(in interface{}, i int) (string, error) {
 	params, ok := in.([]interface{})
-	if !ok {
+	if !ok || i < 0 {
 		return "", ErrUnkownType
 	}
-	ret, ok := params[0].(string)
+	ret, ok := params[i].(string)
 	if !ok {
 		return "", ErrUnkownType
 	}
@@ -279,6 +280,30 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) 
 		ChainId:          &chainIdHex,
 		PublicKey:        &pubkey,
 	}
+}
+
+func getTransactionCreateFromActionInfo(svr *Server, actInfo *iotexapi.ActionInfo, chainId uint32) *transactionObject {
+	tx := getTransactionFromActionInfo(actInfo, chainId)
+	if tx == nil {
+		return nil
+	}
+
+	if tx.To == nil && tx.BlockHash != nil {
+		receipt, err := svr.GetReceiptByAction(context.Background(),
+			&iotexapi.GetReceiptByActionRequest{
+				ActionHash: (*tx.Hash)[2:],
+			},
+		)
+		if err != nil {
+			return nil
+		}
+		addr, err := ioAddrToEthAddr(receipt.ReceiptInfo.Receipt.ContractAddress)
+		if err != nil {
+			return nil
+		}
+		tx.Creates = &addr
+	}
+	return tx
 }
 
 func DecodeRawTx(rawData string, chainId uint32) (*types.Transaction, []byte, []byte, error) {
