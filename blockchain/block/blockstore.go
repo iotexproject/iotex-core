@@ -10,9 +10,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
