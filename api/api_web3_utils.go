@@ -15,7 +15,10 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -230,13 +233,13 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) 
 			}
 			to = &_to
 		}
-		data = "0x" + hex.EncodeToString(act.Execution.GetData())
+		data = byteToHex(act.Execution.GetData())
 	default:
 		return nil
 	}
 
-	r := "0x" + hex.EncodeToString(actInfo.Action.Signature[:32])
-	s := "0x" + hex.EncodeToString(actInfo.Action.Signature[32:64])
+	r := byteToHex(actInfo.Action.Signature[:32])
+	s := byteToHex(actInfo.Action.Signature[32:64])
 	vVal := uint64(actInfo.Action.Signature[64])
 	if vVal < 27 {
 		vVal += 27
@@ -257,7 +260,7 @@ func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) 
 	gasPrice := uint64ToHex(uint64(_gasPrice))
 	gasLimit := uint64ToHex(actInfo.Action.Core.GasLimit)
 	chainIdHex := uint64ToHex(uint64(chainId))
-	pubkey := hex.EncodeToString(actInfo.Action.SenderPubKey)
+	pubkey := byteToHex(actInfo.Action.SenderPubKey)
 	if err != nil {
 		return nil
 	}
@@ -360,4 +363,121 @@ func parseBlockNumber(svr *Server, str string) (uint64, error) {
 func isContractAddr(svr *Server, addr string) bool {
 	accountMeta, _, _ := svr.getAccount(addr)
 	return accountMeta.IsContract
+}
+
+func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []string, topics [][]string) ([]logsObject, error) {
+	// construct block range(from, to)
+	tipHeight := svr.bc.TipHeight()
+	from, err := parseBlockNumber(svr, fromBlock)
+	to, err := parseBlockNumber(svr, toBlock)
+	if err != nil {
+		return nil, err
+	}
+	if from > tipHeight {
+		return nil, status.Error(codes.InvalidArgument, "start block > tip height")
+	}
+	if to > tipHeight {
+		to = tipHeight
+	}
+
+	// construct filter topics and addresses
+	var filter iotexapi.LogsFilter
+	for _, ethAddr := range addrs {
+		ioAddr, err := ethAddrToIoAddr(ethAddr)
+		if err != nil {
+			return nil, err
+		}
+		filter.Address = append(filter.Address, ioAddr)
+	}
+	for _, tp := range topics {
+		var topic [][]byte
+		for _, str := range tp {
+			b, err := hex.DecodeString(str)
+			if err != nil {
+				return nil, err
+			}
+			topic = append(topic, b)
+		}
+		filter.Topics = append(filter.Topics, &iotexapi.Topics{
+			Topic: topic,
+		})
+	}
+
+	logs, err := svr.getLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 1000)
+	if err != nil {
+		return nil, err
+	}
+	// parse log results
+	var ret []logsObject
+	for _, l := range logs {
+		if len(l.Topics) > 0 {
+			addr, _ := ioAddrToEthAddr(l.ContractAddress)
+			var topics []string
+			for _, val := range l.Topics {
+				topics = append(topics, byteToHex(val))
+			}
+			ret = append(ret, logsObject{
+				BlockHash:        byteToHex(l.BlkHash),
+				TransactionHash:  byteToHex(l.ActHash),
+				LogIndex:         uint64ToHex(uint64(l.Index)),
+				BlockNumber:      uint64ToHex(l.BlkHeight),
+				TransactionIndex: "0x1",
+				Address:          addr,
+				Data:             byteToHex(l.Data),
+				Topics:           topics,
+			})
+		}
+	}
+	return ret, nil
+}
+
+func byteToHex(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return "0x" + hex.EncodeToString(b)
+}
+
+func parseLogRequest(in interface{}) (*logsRequest, error) {
+	params, ok := in.([]interface{})
+	if !ok {
+		return nil, errUnkownType
+	}
+	params0, ok := params[0].(map[string]interface{})
+	if !ok {
+		return nil, errUnkownType
+	}
+
+	var logReq logsRequest
+	for k, v := range params0 {
+		switch k {
+		case "fromBlock":
+			logReq.FromBlock = v.(string)
+		case "toBlock":
+			logReq.ToBlock = v.(string)
+		case "address":
+			switch str := v.(type) {
+			case string:
+				logReq.Address = append(logReq.Address, str)
+			case []string:
+				logReq.Address = append(logReq.Address, str...)
+			default:
+				return nil, errUnkownType
+			}
+		case "topics":
+			for _, val := range v.([]interface{}) {
+				switch str := val.(type) {
+				case string:
+					logReq.Topics = append(logReq.Topics, []string{str})
+				case []string:
+					logReq.Topics = append(logReq.Topics, str)
+				default:
+					return nil, errUnkownType
+				}
+			}
+		default:
+			return nil, errUnkownType
+		}
+	}
+	return &logReq, nil
 }

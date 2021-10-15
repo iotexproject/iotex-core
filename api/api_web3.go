@@ -2,19 +2,21 @@ package api
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/wunderlist/ttlcache"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -31,11 +33,10 @@ type (
 	}
 
 	logsRequest struct {
-		Address   string   `json:"address,omitempty"`
-		FromBlock string   `json:"fromBlock,omitempty"`
-		ToBlock   string   `json:"toBlock,omitempty"`
-		Topics    []string `json:"topics,omitempty"`
-		Blockhash string   `json:"blockhash,omitempty"`
+		Address   []string   `json:"address,omitempty"`
+		FromBlock string     `json:"fromBlock,omitempty"`
+		ToBlock   string     `json:"toBlock,omitempty"`
+		Topics    [][]string `json:"topics,omitempty"`
 	}
 
 	logsObject struct {
@@ -63,6 +64,15 @@ type (
 		LogsBloom         string       `json:"logsBloom,omitempty"`
 		Logs              []logsObject `json:"logs,omitempty"`
 		Status            string       `json:"status,omitempty"`
+	}
+
+	filterObject struct {
+		LogHeight  uint64     `json:"logHeight"`
+		FilterType string     `json:"filterType"`
+		FromBlock  string     `json:"fromBlock,omitempty"`
+		ToBlock    string     `json:"toBlock,omitempty"`
+		Address    []string   `json:"address,omitempty"`
+		Topics     [][]string `json:"topics,omitempty"`
 	}
 )
 
@@ -93,6 +103,7 @@ var (
 		"eth_getTransactionByBlockNumberAndIndex": getTransactionByBlockNumberAndIndex,
 		"eth_getTransactionByBlockHashAndIndex":   getTransactionByBlockHashAndIndex,
 		"eth_getBlockTransactionCountByNumber":    getBlockTransactionCountByNumber,
+		"eth_getTransactionReceipt":               getTransactionReceipt,
 		// func not implemented
 		"eth_coinbase":                      unimplemented,
 		"eth_accounts":                      unimplemented,
@@ -108,6 +119,8 @@ var (
 	}
 
 	errUnkownType = errors.New("wrong type of params")
+
+	filterCache = ttlcache.NewCache(15 * time.Minute)
 )
 
 func gasPrice(svr *Server, in interface{}) (interface{}, error) {
@@ -418,76 +431,12 @@ func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
 }
 
 func getLogs(svr *Server, in interface{}) (interface{}, error) {
-	req, err := getJSONFromArray(in)
-	if err != nil {
-		return nil, err
-	}
-	var logReq logsRequest
-	err = json.Unmarshal(req, &logReq)
+	logReq, err := parseLogRequest(in)
 	if err != nil {
 		return nil, err
 	}
 
-	// construct block range(from, to)
-	tipHeight := svr.bc.TipHeight()
-	from, err := parseBlockNumber(svr, logReq.FromBlock)
-	to, err := parseBlockNumber(svr, logReq.ToBlock)
-	if err != nil {
-		return nil, err
-	}
-
-	if from > tipHeight {
-		return nil, status.Error(codes.InvalidArgument, "start block > tip height")
-	}
-	if to > tipHeight {
-		to = tipHeight
-	}
-
-	// construct filter topics and addresses
-	var filter iotexapi.LogsFilter
-	if len(logReq.Address) > 0 {
-		addr, err := ethAddrToIoAddr(logReq.Address)
-		if err != nil {
-			return nil, err
-		}
-		filter.Address = append(filter.Address, addr)
-	}
-	for _, val := range logReq.Topics {
-		b, err := hex.DecodeString(val)
-		if err != nil {
-			return nil, err
-		}
-		filter.Topics = append(filter.Topics, &iotexapi.Topics{
-			Topic: [][]byte{b},
-		})
-	}
-
-	logs, err := svr.getLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 1000)
-	if err != nil {
-		return nil, err
-	}
-	// parse log results
-	var ret []logsObject
-	for _, l := range logs {
-		if len(l.Topics) > 0 {
-			addr, _ := ioAddrToEthAddr(l.ContractAddress)
-			var topics []string
-			for _, val := range l.Topics {
-				topics = append(topics, "0x"+hex.EncodeToString(val))
-			}
-			ret = append(ret, logsObject{
-				BlockHash:        "0x" + hex.EncodeToString(l.BlkHash),
-				TransactionHash:  "0x" + hex.EncodeToString(l.ActHash),
-				LogIndex:         uint64ToHex(uint64(l.Index)),
-				BlockNumber:      uint64ToHex(l.BlkHeight),
-				TransactionIndex: "0x1",
-				Address:          addr,
-				Data:             "0x" + hex.EncodeToString(l.Data),
-				Topics:           topics,
-			})
-		}
-	}
-	return ret, nil
+	return getLogsWithFilter(svr, logReq.FromBlock, logReq.ToBlock, logReq.Address, logReq.Topics)
 }
 
 func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
@@ -625,6 +574,128 @@ func getTransactionByBlockNumberAndIndex(svr *Server, in interface{}) (interface
 		return nil, errUnkownType
 	}
 	return *tx, nil
+}
+
+func newFilter(svr *Server, in interface{}) (interface{}, error) {
+	logReq, err := parseLogRequest(in)
+	if err != nil {
+		return nil, err
+	}
+	filterObj := filterObject{
+		FilterType: "log",
+		FromBlock:  logReq.FromBlock,
+		ToBlock:    logReq.ToBlock,
+		Address:    logReq.Address,
+		Topics:     logReq.Topics,
+	}
+
+	// sha1 hash of data
+	objInByte, _ := json.Marshal(filterObj)
+	h := sha1.New()
+	h.Write(objInByte)
+	filterID := "0x" + hex.EncodeToString(h.Sum(nil))
+
+	filterCache.Set(filterID, string(objInByte))
+	return filterID, nil
+}
+
+func newBlockFilter(svr *Server, in interface{}) (interface{}, error) {
+	var filterObj filterObject
+	filterObj.FilterType = "block"
+	filterObj.LogHeight = svr.bc.TipHeight()
+
+	// sha1 hash of data
+	objInByte, _ := json.Marshal(filterObj)
+	h := sha1.New()
+	h.Write(objInByte)
+	filterID := "0x" + hex.EncodeToString(h.Sum(nil))
+
+	filterCache.Set(filterID, string(objInByte))
+	return filterID, nil
+}
+
+func uninstallFilter(svr *Server, in interface{}) (interface{}, error) {
+	_, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: res := filterCache.Delete(id)
+	res := true
+	return res, nil
+}
+
+func getFilterChanges(svr *Server, in interface{}) (interface{}, error) {
+	filterID, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	data, isFound := filterCache.Get(filterID)
+	if !isFound {
+		return []interface{}{}, nil
+	}
+	var filterObj filterObject
+	err = json.Unmarshal([]byte(data), &filterObj)
+	if err != nil {
+		return nil, err
+	}
+
+	if filterObj.LogHeight > svr.bc.TipHeight() {
+		return []interface{}{}, nil
+	}
+
+	var ret interface{}
+	newLogHeight := svr.bc.TipHeight()
+	switch filterObj.FilterType {
+	case "log":
+		logs, err := getLogsWithFilter(svr, filterObj.FromBlock, filterObj.ToBlock, filterObj.Address, filterObj.Topics)
+		if err != nil {
+			return nil, err
+		}
+		ret = logs
+	case "block":
+		blkMeta, err := svr.getBlockMetas(filterObj.LogHeight, 1000)
+		if err != nil {
+			return nil, err
+		}
+
+		var hashArr []string
+		for _, v := range blkMeta.BlkMetas {
+			hashArr = append(hashArr, "0x"+v.Hash)
+		}
+		if filterObj.LogHeight+1000 > newLogHeight {
+			newLogHeight = filterObj.LogHeight + 1000
+		}
+		ret = hashArr
+	default:
+		return nil, errUnkownType
+	}
+
+	filterObj.LogHeight = newLogHeight
+	objInByte, _ := json.Marshal(filterObj)
+	filterCache.Set(filterID, string(objInByte))
+	return ret, nil
+}
+
+func getFilterLogs(svr *Server, in interface{}) (interface{}, error) {
+	filterID, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	data, isFound := filterCache.Get(filterID)
+	if !isFound {
+		return []interface{}{}, nil
+	}
+	var filterObj filterObject
+	err = json.Unmarshal([]byte(data), &filterObj)
+	if err != nil {
+		return nil, err
+	}
+
+	if filterObj.FilterType != "log" {
+		return nil, status.Error(codes.Internal, "filter not found")
+	}
+
+	return getLogsWithFilter(svr, filterObj.FromBlock, filterObj.ToBlock, filterObj.Address, filterObj.Topics)
 }
 
 func unimplemented(svr *Server, in interface{}) (interface{}, error) {
