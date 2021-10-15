@@ -18,6 +18,7 @@ var (
 	defaultBackupTimeFormat = "20060102"
 )
 
+//RotateFile rotate log to file
 type RotateFile struct {
 	// Filename is the file to write logs to.  Backup log files will be retained in the same directory.
 	// It uses <processname>.log in os.TempDir() if empty.
@@ -102,11 +103,7 @@ func (f *RotateFile) reopenIfNeeded() (bool, error) {
 	if f.currentBackupName == t.Format(f.backupTimeFormat()) {
 		return false, nil
 	}
-	err := f.close()
-	if err != nil {
-		return false, err
-	}
-	return true, f.open()
+	return true, nil
 }
 
 // Write writes data to a file

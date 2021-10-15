@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
+	"time"
 
 	"go.elastic.co/ecszap"
 	"go.uber.org/zap"
@@ -25,6 +27,10 @@ type GlobalConfig struct {
 	StderrRedirectFile *string     `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
 	RedirectStdLog     bool        `json:"stdLogRedirect" yaml:"stdLogRedirect"`
 	EcsIntegration     bool        `json:"ecsIntegration" yaml:"ecsIntegration"`
+	RotateFileName     string      `json:"rotateFileName" yaml:"rotateFileName"`
+	RotateMaxBackups   int         `json:"rotateMaxBackups" yaml:"rotateMaxBackups"`
+	RotateTimeFormat   string      `json:"rotateTimeFormat" yaml:"rotateTimeFormat"`
+	RotateLocalTime    bool        `json:"rotateLocalTime" yaml:"rotateLocalTime"`
 }
 
 var (
@@ -85,7 +91,13 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 		if globalCfg.EcsIntegration {
 			cfg.Zap.EncoderConfig = ecszap.ECSCompatibleEncoderConfig(cfg.Zap.EncoderConfig)
 		}
-		logger, err := cfg.Zap.Build(opts...)
+		var logger *zap.Logger
+		var err error
+		if cfg.RotateFileName != "" {
+			logger, err = buildZap(cfg, opts...)
+		} else {
+			logger, err = cfg.Zap.Build(opts...)
+		}
 		if err != nil {
 			return err
 		}
@@ -113,6 +125,85 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 	}
 
 	return nil
+}
+
+func buildZap(cfg GlobalConfig, opts ...zap.Option) (*zap.Logger, error) {
+	var enc zapcore.Encoder
+	if cfg.Zap.Encoding == "json" {
+		enc = zapcore.NewJSONEncoder(cfg.Zap.EncoderConfig)
+	} else {
+		enc = zapcore.NewConsoleEncoder(cfg.Zap.EncoderConfig)
+	}
+
+	var ws zapcore.WriteSyncer
+	rotateFile := &RotateFile{
+		Filename:         cfg.RotateFileName,
+		MaxBackups:       cfg.RotateMaxBackups,
+		BackupTimeFormat: cfg.RotateTimeFormat,
+	}
+	ws = zapcore.AddSync(rotateFile)
+
+	zapCore := zapcore.NewCore(
+		enc,
+		zapcore.AddSync(ws),
+		cfg.Zap.Level,
+	)
+	log := zap.New(zapCore, buildZapOptions(cfg.Zap, ws)...)
+	if len(opts) > 0 {
+		log = log.WithOptions(opts...)
+	}
+	return log, nil
+}
+
+func buildZapOptions(cfg *zap.Config, errSink zapcore.WriteSyncer) []zap.Option {
+	opts := []zap.Option{zap.ErrorOutput(errSink)}
+
+	if cfg.Development {
+		opts = append(opts, zap.Development())
+	}
+
+	if !cfg.DisableCaller {
+		opts = append(opts, zap.AddCaller())
+	}
+
+	stackLevel := zap.ErrorLevel
+	if cfg.Development {
+		stackLevel = zap.WarnLevel
+	}
+	if !cfg.DisableStacktrace {
+		opts = append(opts, zap.AddStacktrace(stackLevel))
+	}
+
+	if scfg := cfg.Sampling; scfg != nil {
+		opts = append(opts, zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+			var samplerOpts []zapcore.SamplerOption
+			if scfg.Hook != nil {
+				samplerOpts = append(samplerOpts, zapcore.SamplerHook(scfg.Hook))
+			}
+			return zapcore.NewSamplerWithOptions(
+				core,
+				time.Second,
+				cfg.Sampling.Initial,
+				cfg.Sampling.Thereafter,
+				samplerOpts...,
+			)
+		}))
+	}
+
+	if len(cfg.InitialFields) > 0 {
+		fs := make([]zap.Field, 0, len(cfg.InitialFields))
+		keys := make([]string, 0, len(cfg.InitialFields))
+		for k := range cfg.InitialFields {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fs = append(fs, zap.Any(k, cfg.InitialFields[k]))
+		}
+		opts = append(opts, zap.Fields(fs...))
+	}
+
+	return opts
 }
 
 // RegisterLevelConfigMux registers log's level config http mux.
