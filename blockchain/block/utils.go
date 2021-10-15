@@ -19,20 +19,20 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 )
 
-func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
+func calculateTxRoot(acts []action.SealedEnvelope) (hash.Hash256, error) {
 	h := make([]hash.Hash256, 0, len(acts))
 	for _, act := range acts {
 		actHash, err := act.Hash()
 		if err != nil {
 			log.L().Debug("Error in getting hash", zap.Error(err))
-			return hash.ZeroHash256
+			return hash.ZeroHash256, err
 		}
 		h = append(h, actHash)
 	}
 	if len(h) == 0 {
-		return hash.ZeroHash256
+		return hash.ZeroHash256, nil
 	}
-	return crypto.NewMerkleTree(h).HashTree()
+	return crypto.NewMerkleTree(h).HashTree(), nil
 }
 
 // calculateTransferAmount returns the calculated transfer amount
@@ -59,7 +59,11 @@ func VerifyBlock(blk *Block) error {
 	}
 
 	hashExpect := blk.TxRoot()
-	hashActual := blk.CalculateTxRoot()
+	hashActual, err := blk.CalculateTxRoot()
+	if err != nil {
+		log.L().Debug("error in getting hash", zap.Error(err))
+		return err
+	}
 	if !bytes.Equal(hashExpect[:], hashActual[:]) {
 		return errors.Errorf(
 			"wrong tx hash %x, expecting %x",

@@ -62,7 +62,8 @@ func TestMerkle(t *testing.T) {
 		producerPubKey,
 		actions,
 	)
-	hash := block.CalculateTxRoot()
+	hash, err := block.CalculateTxRoot()
+	require.NoError(err)
 	require.Equal("eb5cb75ae199d96de7c1cd726d5e1a3dff15022ed7bdc914a3d8b346f1ef89c9", hex.EncodeToString(hash[:]))
 
 	hashes := block.ActionHashs()
@@ -115,7 +116,10 @@ func TestConvertFromBlockPb(t *testing.T) {
 		},
 	}))
 
-	blk.Header.txRoot = blk.CalculateTxRoot()
+	txHash, err := blk.CalculateTxRoot()
+	require.NoError(t, err)
+
+	blk.Header.txRoot = txHash
 	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
 
 	raw, err := blk.Serialize()
