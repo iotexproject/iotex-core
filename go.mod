@@ -33,6 +33,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tyler-smith/go-bip39 v1.0.2
+	github.com/wunderlist/ttlcache v0.0.0-20180801091818-7dbceb0d5094 // indirect
 	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
