@@ -9,7 +9,6 @@ package actpool
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -1061,7 +1060,6 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	pNonce1, _ := ap.getPendingNonce(addr1)
 	require.Equal(uint64(2), pNonce1)
 	pBalance2, _ := ap.getPendingBalance(addr2)
-	fmt.Println(pBalance2.Uint64())
 	require.Equal(uint64(10000000-5-10000), pBalance2.Uint64())
 	pNonce2, _ := ap.getPendingNonce(addr2)
 	require.Equal(uint64(2), pNonce2)
