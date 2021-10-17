@@ -569,11 +569,10 @@ func TestMigrateValue(t *testing.T) {
 
 		for _, v := range []struct {
 			height, lastEpoch uint64
-			err               error
 		}{
-			{g.GreenlandBlockHeight, 365, nil},
-			{1641601, 365, errInvalidEpoch},
-			{g.KamchatkaBlockHeight, 47796, nil},
+			{g.GreenlandBlockHeight, a1.foundationBonusLastEpoch},
+			{1641601, g.FoundationBonusP2EndEpoch},
+			{g.KamchatkaBlockHeight, 47796},
 		} {
 			fCtx := ctx
 			if v.height == 1641601 {
@@ -586,7 +585,7 @@ func TestMigrateValue(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.BlockHeight = v.height
 			fCtx = protocol.WithFeatureCtx(protocol.WithBlockCtx(fCtx, blkCtx))
-			r.Equal(v.err, p.CreatePreStates(fCtx, sm))
+			r.NoError(p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
 			_, err = p.stateV1(sm, adminKey, &a)
@@ -613,6 +612,8 @@ func TestMigrateValue(t *testing.T) {
 				r.NoError(p.migrateValueGreenland(ctx, sm))
 			default:
 				r.Equal(v.lastEpoch, a.foundationBonusLastEpoch)
+				r.True(a.grantFoundationBonus(v.lastEpoch))
+				r.False(a.grantFoundationBonus(v.lastEpoch + 1))
 				a.foundationBonusLastEpoch = a1.foundationBonusLastEpoch
 				r.Equal(a1, a)
 				a.foundationBonusLastEpoch = v.lastEpoch
@@ -620,24 +621,5 @@ func TestMigrateValue(t *testing.T) {
 				r.NoError(p.migrateValueGreenland(ctx, sm))
 			}
 		}
-
-		// verify grant foundation bonus epoch
-		//for _, v := range []struct {
-		//	epoch uint64
-		//	grant bool
-		//}{
-		//	{8760, true},
-		//	{8761, false},
-		//	{g.Rewarding.FoundationBonusP2StartEpoch - 1, false},
-		//	{g.Rewarding.FoundationBonusP2StartEpoch, true},
-		//	{g.Rewarding.FoundationBonusP2EndEpoch, true},
-		//	{g.Rewarding.FoundationBonusP2EndEpoch + 1, false},
-		//	{g.Rewarding.FoundationBonusExtension[0].Start - 1, false},
-		//	{g.Rewarding.FoundationBonusExtension[0].Start, true},
-		//	{g.Rewarding.FoundationBonusExtension[0].End, true},
-		//	{g.Rewarding.FoundationBonusExtension[0].End + 1, false},
-		//} {
-		//	r.Equal(v.grant, a.grantFoundationBonus(v.epoch))
-		//}
 	}, true)
 }
