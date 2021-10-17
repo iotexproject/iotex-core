@@ -64,7 +64,7 @@ func defaultConfig() Genesis {
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
 			JutlandBlockHeight:      13685401,
-			KamchatkaBlockHeight:    26289321,
+			KamchatkaBlockHeight:    13816441,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -188,7 +188,7 @@ type (
 		// JutlandBlockHeight is the start height to support EVM London + new EVM error codes
 		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
 		// KamchatkaBlockHeight is the start height to
-		// 1. implement IIP-11
+		// 1. fix EVM snapshot order
 		// 2. extend foundation bonus
 		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
 	}
