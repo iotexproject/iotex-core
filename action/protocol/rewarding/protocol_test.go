@@ -568,11 +568,10 @@ func TestMigrateValue(t *testing.T) {
 
 		for _, v := range []struct {
 			height, lastEpoch uint64
-			err               error
 		}{
-			{g.GreenlandBlockHeight, a1.foundationBonusLastEpoch, nil},
-			{1641601, a1.foundationBonusLastEpoch, errInvalidEpoch},
-			{g.KamchatkaBlockHeight, 47796, nil},
+			{g.GreenlandBlockHeight, a1.foundationBonusLastEpoch},
+			{1641601, g.FoundationBonusP2EndEpoch},
+			{g.KamchatkaBlockHeight, 47796},
 		} {
 			fCtx := ctx
 			if v.height == 1641601 {
@@ -585,7 +584,7 @@ func TestMigrateValue(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.BlockHeight = v.height
 			fCtx = protocol.WithBlockCtx(fCtx, blkCtx)
-			r.Equal(v.err, p.CreatePreStates(fCtx, sm))
+			r.NoError(p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
 			_, err = p.stateV1(sm, adminKey, &a)

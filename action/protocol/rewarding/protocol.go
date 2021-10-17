@@ -143,12 +143,7 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	newStartEpoch := rp.GetEpochNum(blkCtx.BlockHeight)
-	newLastEpoch := newStartEpoch + 8760
-
-	if newStartEpoch < p.cfg.FoundationBonusP2StartEpoch {
-		return errInvalidEpoch
-	}
+	newLastEpoch := rp.GetEpochNum(blkCtx.BlockHeight) + 8760
 
 	if a.foundationBonusLastEpoch < p.cfg.FoundationBonusP2EndEpoch {
 		a.foundationBonusLastEpoch = p.cfg.FoundationBonusP2EndEpoch
