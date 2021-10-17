@@ -222,13 +222,7 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Reward additional bootstrap bonus
-	var grantFB bool
-	if a.hasFoundationBonusExtension() {
-		grantFB = a.grantFoundationBonus(epochNum)
-	} else {
-		grantFB = epochNum <= a.foundationBonusLastEpoch || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch)
-	}
-	if grantFB {
+	if a.grantFoundationBonus(epochNum) || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch) {
 		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
 			if _, ok := exemptAddrs[candidates[i].Address]; ok {
 				continue

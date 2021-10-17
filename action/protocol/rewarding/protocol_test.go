@@ -50,16 +50,6 @@ func TestValidateExtension(t *testing.T) {
 	g.FoundationBonusP2EndEpoch = g.FoundationBonusP2StartEpoch - 1
 	r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
 	g.FoundationBonusP2EndEpoch = last
-
-	for i, v := range g.FoundationBonusExtension {
-		g.FoundationBonusExtension[i].Start = last - 1
-		r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
-		g.FoundationBonusExtension[i].Start = v.Start
-		g.FoundationBonusExtension[i].End = v.Start - 1
-		r.Equal(errInvalidEpoch, validateFoundationBonusExtension(g))
-		g.FoundationBonusExtension[i].End = v.End
-		last = v.End
-	}
 }
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
@@ -89,9 +79,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		g.Rewarding.NumDelegatesForEpochReward = 10
 	}
 	rp := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		g.NumCandidateDelegates,
+		g.NumDelegates,
+		g.NumSubEpochs,
+		rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
 	)
 	p := NewProtocol(g.Rewarding)
 	candidates := []*state.Candidate{
@@ -553,7 +544,6 @@ func TestMigrateValue(t *testing.T) {
 		_, err := p.stateV1(sm, adminKey, &a)
 		r.NoError(err)
 		r.Equal(a1, a)
-		r.False(a.hasFoundationBonusExtension())
 
 		f := fund{}
 		_, err = p.stateV1(sm, fundKey, &f)
@@ -565,23 +555,36 @@ func TestMigrateValue(t *testing.T) {
 		r.NoError(err)
 		r.Equal(e1, e)
 
-		for i, v := range []struct {
-			height uint64
-			err    error
+		// use numSubEpochs = 15
+		rp := rolldpos.NewProtocol(
+			g.NumCandidateDelegates,
+			g.NumDelegates,
+			15,
+			rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
+		)
+		reg, ok := protocol.GetRegistry(ctx)
+		r.True(ok)
+		r.NoError(rp.ForceRegister(reg))
+
+		for _, v := range []struct {
+			height, lastEpoch uint64
+			err               error
 		}{
-			{g.GreenlandBlockHeight, nil},
-			{g.KamchatkaBlockHeight, nil},
-			{g.KamchatkaBlockHeight, errInvalidEpoch},
-			{g.KamchatkaBlockHeight, errInvalidEpoch},
+			{g.GreenlandBlockHeight, a1.foundationBonusLastEpoch, nil},
+			{1641601, a1.foundationBonusLastEpoch, errInvalidEpoch},
+			{g.KamchatkaBlockHeight, 47796, nil},
 		} {
-			if i == 3 {
-				// test wrong vale (start < end)
-				p.cfg.FoundationBonusExtension = append(p.cfg.FoundationBonusExtension,
-					genesis.Period{18440, 20000})
+			fCtx := ctx
+			if v.height == 1641601 {
+				// test the case where newStartEpoch < cfg.FoundationBonusP2StartEpoch
+				g1 := g
+				g1.GreenlandBlockHeight = v.height - 720
+				g1.KamchatkaBlockHeight = v.height
+				fCtx = genesis.WithGenesisContext(ctx, g1)
 			}
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.BlockHeight = v.height
-			fCtx := protocol.WithBlockCtx(ctx, blkCtx)
+			fCtx = protocol.WithBlockCtx(fCtx, blkCtx)
 			r.Equal(v.err, p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
@@ -604,41 +607,16 @@ func TestMigrateValue(t *testing.T) {
 
 			switch v.height {
 			case g.GreenlandBlockHeight:
-				r.False(a.hasFoundationBonusExtension())
 				r.Equal(a1, a)
 				// test migrate with no data
 				r.NoError(p.migrateValueGreenland(ctx, sm))
-			case g.KamchatkaBlockHeight:
-				r.True(a.hasFoundationBonusExtension())
-				r.Equal(a.foundationBonusExtension[0].Start, g.FoundationBonusP2StartEpoch)
-				r.Equal(a.foundationBonusExtension[0].End, g.FoundationBonusP2EndEpoch)
-				r.Equal(a.foundationBonusExtension[1:], g.FoundationBonusExtension)
-				a.foundationBonusExtension = nil
+			default:
+				r.Equal(v.lastEpoch, a.foundationBonusLastEpoch)
+				a.foundationBonusLastEpoch = a1.foundationBonusLastEpoch
 				r.Equal(a1, a)
 				// test migrate with no data
 				r.NoError(p.migrateValueGreenland(ctx, sm))
 			}
-		}
-
-		// verify grant foundation bonus epoch
-		_, err = p.stateV2(sm, adminKey, &a)
-		r.NoError(err)
-		for _, v := range []struct {
-			epoch uint64
-			grant bool
-		}{
-			{365, true},
-			{366, false},
-			{g.Rewarding.FoundationBonusP2StartEpoch - 1, false},
-			{g.Rewarding.FoundationBonusP2StartEpoch, true},
-			{g.Rewarding.FoundationBonusP2EndEpoch, true},
-			{g.Rewarding.FoundationBonusP2EndEpoch + 1, false},
-			{g.Rewarding.FoundationBonusExtension[0].Start - 1, false},
-			{g.Rewarding.FoundationBonusExtension[0].Start, true},
-			{g.Rewarding.FoundationBonusExtension[0].End, true},
-			{g.Rewarding.FoundationBonusExtension[0].End + 1, false},
-		} {
-			r.Equal(v.grant, a.grantFoundationBonus(v.epoch))
 		}
 	}, true)
 }
