@@ -572,7 +572,7 @@ func TestMigrateValue(t *testing.T) {
 		}{
 			{g.GreenlandBlockHeight, a1.foundationBonusLastEpoch},
 			{1641601, g.FoundationBonusP2EndEpoch},
-			{g.KamchatkaBlockHeight, 47796},
+			{g.KamchatkaBlockHeight, 30473},
 		} {
 			fCtx := ctx
 			if v.height == 1641601 {
