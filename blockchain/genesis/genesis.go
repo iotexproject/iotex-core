@@ -65,6 +65,7 @@ func defaultConfig() Genesis {
 			IcelandBlockHeight:      12289321,
 			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    13816441,
+			LochnessBlockHeight:     23816441,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -185,12 +186,16 @@ type (
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
 		// IcelandBlockHeight is the start height to support chainID opcode and EVM Istanbul
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
-		// JutlandBlockHeight is the start height to support EVM London + new EVM error codes
+		// JutlandBlockHeight is the start height to
+		// 1. report more EVM error codes
+		// 2. enable the opCall fix
 		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
 		// KamchatkaBlockHeight is the start height to
 		// 1. fix EVM snapshot order
 		// 2. extend foundation bonus
 		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
+		// LochnessBlockHeight is the start height to recover the smart contracts affected by snapshot order
+		LochnessBlockHeight uint64 `yaml:"lochnessHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -481,6 +486,11 @@ func (g *Blockchain) IsJutland(height uint64) bool {
 // IsKamchatka checks whether height is equal to or larger than kamchatka height
 func (g *Blockchain) IsKamchatka(height uint64) bool {
 	return g.isPost(g.KamchatkaBlockHeight, height)
+}
+
+// IsLochness checks whether height is equal to or larger than kamchatka height
+func (g *Blockchain) IsLochness(height uint64) bool {
+	return g.isPost(g.LochnessBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
