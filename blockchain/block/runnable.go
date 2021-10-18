@@ -8,8 +8,10 @@ package block
 
 import (
 	"github.com/iotexproject/go-pkgs/hash"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
@@ -43,6 +45,11 @@ func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *Runn
 
 // Build signs and then builds a block.
 func (b *RunnableActionsBuilder) Build() RunnableActions {
-	b.ra.txHash = calculateTxRoot(b.ra.actions)
+	var err error
+	b.ra.txHash, err = calculateTxRoot(b.ra.actions)
+	if err != nil {
+		log.L().Debug("error in getting hash ", zap.Error(err))
+		return RunnableActions{}
+	}
 	return b.ra
 }

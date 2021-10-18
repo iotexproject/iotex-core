@@ -39,7 +39,8 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 		sevlps = append(sevlps, sevlp)
 	}
 
-	c := calculateTxRoot(sevlps)
+	c, err := calculateTxRoot(sevlps)
+	require.NoError(t, err)
 
 	c2 := []byte{158, 73, 244, 188, 155, 10, 251, 87, 98, 163, 234, 194, 38, 174,
 		215, 255, 8, 148, 44, 204, 10, 56, 102, 180, 99, 188, 79, 146, 66, 219, 41, 30}
