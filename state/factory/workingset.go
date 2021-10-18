@@ -161,7 +161,7 @@ func (ws *workingSet) runAction(
 	// Reject execution of chainID not equal the node's chainID
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsKamchatka(ws.height) {
+	if g.IsToBeEnabled(ws.height) {
 		if elp.ChainID() != blkChainCtx.ChainID {
 			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
 		}
