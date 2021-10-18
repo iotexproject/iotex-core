@@ -236,13 +236,13 @@ func (q *actQueue) Empty() bool {
 // PendingActs creates a consecutive nonce-sorted slice of actions
 func (q *actQueue) PendingActs() []action.SealedEnvelope {
 	if q.Len() == 0 {
-		return []action.SealedEnvelope{}
+		return nil
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
 	addr, err := address.FromString(q.address)
 	if err != nil {
 		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
-		return []action.SealedEnvelope{}
+		return nil
 	}
 	confirmedState, err := accountutil.AccountState(q.ap.sf, addr)
 	if err != nil {
