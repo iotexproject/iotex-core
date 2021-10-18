@@ -8,13 +8,13 @@ package actpool
 
 import (
 	"container/heap"
-	"go.uber.org/zap"
 	"math/big"
 	"sort"
 	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -52,7 +52,6 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // ActQueue is the interface of actQueue
 type ActQueue interface {
-	Overlaps(action.SealedEnvelope) bool
 	Put(action.SealedEnvelope) error
 	FilterNonce(uint64) []action.SealedEnvelope
 	UpdateQueue(uint64) []action.SealedEnvelope
@@ -105,17 +104,23 @@ func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 	return aq
 }
 
-// Overlap returns whether the current queue contains the given nonce
-func (q *actQueue) Overlaps(act action.SealedEnvelope) bool {
-	_, exist := q.items[act.Nonce()]
-	return exist
-}
-
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act action.SealedEnvelope) error {
 	nonce := act.Nonce()
-	if _, exist := q.items[nonce]; exist {
-		return errors.Wrap(action.ErrNonce, "duplicate nonce")
+	if actInPool, exist := q.items[nonce]; exist {
+		// act of higher gas price cut in line
+		if act.GasPrice().Cmp(actInPool.GasPrice()) != 1 {
+			return errors.Wrap(action.ErrNonce, "gas price is smaller than the act of same nonce")
+		}
+		// update action in q.items and q.index
+		q.items[nonce] = act
+		for i, x := range q.index {
+			if x.nonce == nonce {
+				q.index[i].deadline = q.clock.Now().Add(q.ttl)
+				break
+			}
+		}
+		return nil
 	}
 	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
 	q.items[nonce] = act

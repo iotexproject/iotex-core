@@ -66,12 +66,14 @@ func TestLoadProto(t *testing.T) {
 func TestCalculateTxRoot(t *testing.T) {
 	require := require.New(t)
 	body := Body{}
-	h := body.CalculateTxRoot()
+	h, err := body.CalculateTxRoot()
+	require.NoError(err)
 	require.Equal(h, hash.ZeroHash256)
 
-	body, err := makeBody()
+	body, err = makeBody()
 	require.NoError(err)
-	h = body.CalculateTxRoot()
+	h, err = body.CalculateTxRoot()
+	require.NoError(err)
 	require.NotEqual(h, hash.ZeroHash256)
 }
 

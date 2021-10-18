@@ -12,8 +12,10 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -72,12 +74,18 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 
 // SignAndBuild signs and then builds a block.
 func (b *TestingBuilder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
-	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
+	var err error
+	b.blk.Header.txRoot, err = b.blk.CalculateTxRoot()
+	if err != nil {
+		log.L().Debug("error in getting hash", zap.Error(err))
+		return Block{}, errors.New("failed to get hash")
+	}
 	b.blk.Header.pubkey = signerPrvKey.PublicKey()
 	h := b.blk.Header.HashHeaderCore()
 	sig, err := signerPrvKey.Sign(h[:])
 	if err != nil {
-		return Block{}, errors.New("Failed to sign block")
+		log.L().Debug("error in getting hash", zap.Error(err))
+		return Block{}, errors.New("failed to sign block")
 	}
 	b.blk.Header.blockSig = sig
 	return b.blk, nil
@@ -108,6 +116,10 @@ func NewBlockDeprecated(
 		},
 	}
 
-	block.Header.txRoot = block.CalculateTxRoot()
+	var err error
+	block.Header.txRoot, err = block.CalculateTxRoot()
+	if err != nil {
+		return &Block{}
+	}
 	return block
 }
