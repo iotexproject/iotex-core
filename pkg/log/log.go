@@ -142,7 +142,11 @@ func buildZap(cfg GlobalConfig, opts ...zap.Option) (*zap.Logger, error) {
 		BackupTimeFormat: cfg.RotateTimeFormat,
 	}
 	ws = zapcore.AddSync(rotateFile)
-
+	sink, cleanup, err := zap.Open("stdout")
+	if err == nil {
+		defer cleanup()
+	}
+	ws = zap.CombineWriteSyncers(ws, sink)
 	zapCore := zapcore.NewCore(
 		enc,
 		zapcore.AddSync(ws),
