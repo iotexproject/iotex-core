@@ -28,6 +28,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -187,6 +189,9 @@ func NewServer(
 			otelgrpc.UnaryServerInterceptor(),
 		)),
 	)
+	//serviceName: grpc.health.v1.Health
+	grpc_health_v1.RegisterHealthServer(svr.grpcServer, health.NewServer())
+
 	iotexapi.RegisterAPIServiceServer(svr.grpcServer, svr)
 	grpc_prometheus.Register(svr.grpcServer)
 	reflection.Register(svr.grpcServer)
