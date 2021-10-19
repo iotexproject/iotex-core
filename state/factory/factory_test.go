@@ -96,6 +96,7 @@ func TestSDBSnapshot(t *testing.T) {
 	require.NoError(err)
 
 	cfg := config.Default
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
