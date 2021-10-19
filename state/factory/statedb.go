@@ -218,11 +218,22 @@ func (sdb *stateDB) Height() (uint64, error) {
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	return sdb.newWorkingSet2(ctx, height, false)
+}
+
+func (sdb *stateDB) newWorkingSet2(ctx context.Context, height uint64, applyPatch bool) (*workingSet, error) {
 	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
 	}
-	if ps, ok := sdb.patchs[height]; ok {
+	if applyPatch {
+		for _, ps := range sdb.patchs {
+			for _, p := range ps {
+				flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+			}
+		}
+
+	} else if ps, ok := sdb.patchs[height]; ok {
 		for _, p := range ps {
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
@@ -367,7 +378,7 @@ func (sdb *stateDB) SimulateExecution(
 	defer span.End()
 
 	sdb.mutex.Lock()
-	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
+	ws, err := sdb.newWorkingSet2(ctx, sdb.currentChainHeight+1, true)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, nil, err
