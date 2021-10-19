@@ -60,6 +60,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -378,6 +379,7 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -445,6 +447,7 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err = newTestConfig()
 	require.NoError(err)
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -537,6 +540,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

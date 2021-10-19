@@ -47,6 +47,7 @@ type stateDB struct {
 	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
+	patchs                   map[uint64][]*patch
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -72,6 +73,19 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
+
+		return nil
+	}
+}
+
+// DefaultPatchOption loads patchs
+func DefaultPatchOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		patchs, err := loadPatchs(cfg.Chain.TrieDBPatchFile)
+		if err != nil {
+			return err
+		}
+		sdb.patchs = patchs
 
 		return nil
 	}
@@ -207,6 +221,11 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
+	}
+	if ps, ok := sdb.patchs[height]; ok {
+		for _, p := range ps {
+			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+		}
 	}
 
 	return &workingSet{

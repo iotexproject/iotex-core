@@ -103,6 +103,7 @@ type (
 		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
+		patchs                   map[uint64][]*patch
 	}
 )
 
@@ -129,6 +130,18 @@ func DefaultTrieOption() Option {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sf.dao = db.NewBoltDB(cfg.DB)
+		return nil
+	}
+}
+
+// DefaultTriePatchOption loads patchs for db of trie
+func DefaultTriePatchOption() Option {
+	return func(sf *factory, cfg config.Config) (err error) {
+		patchs, err := loadPatchs(cfg.Chain.TrieDBPatchFile)
+		if err != nil {
+			return err
+		}
+		sf.patchs = patchs
 		return nil
 	}
 }
@@ -284,6 +297,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
+	}
+	if ps, ok := sf.patchs[height]; ok {
+		for _, p := range ps {
+			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+		}
 	}
 	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
 	if err != nil {

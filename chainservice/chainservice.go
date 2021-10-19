@@ -121,13 +121,23 @@ func New(
 		}
 	} else {
 		if cfg.Chain.EnableTrielessStateDB {
-			if cfg.Chain.EnableStateDBCaching {
-				sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
-			} else {
-				sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			opts := []factory.StateDBOption{
+				factory.RegistryStateDBOption(registry),
+				factory.DefaultPatchOption(),
 			}
+			if cfg.Chain.EnableStateDBCaching {
+				opts = append(opts, factory.CachedStateDBOption())
+			} else {
+				opts = append(opts, factory.DefaultStateDBOption())
+			}
+			sf, err = factory.NewStateDB(cfg, opts...)
 		} else {
-			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+			sf, err = factory.NewFactory(
+				cfg,
+				factory.DefaultTrieOption(),
+				factory.RegistryOption(registry),
+				factory.DefaultTriePatchOption(),
+			)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
