@@ -378,6 +378,17 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 		}
 
+		// snapshot after revert
+		require.Equal(1, stateDB.Snapshot())
+		if fixSnapshot {
+			require.Equal(1, len(stateDB.contractSnapshot))
+			require.Equal(1, len(stateDB.suicideSnapshot))
+			require.Equal(1, len(stateDB.preimageSnapshot))
+		} else {
+			require.Equal(3, len(stateDB.contractSnapshot))
+			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.preimageSnapshot))
+		}
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
