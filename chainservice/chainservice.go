@@ -525,9 +525,6 @@ func (cs *ChainService) Start(ctx context.Context) error {
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
 	if cs.indexBuilder != nil {
-		if err := cs.chain.RemoveSubscriber(cs.indexBuilder); err != nil {
-			return errors.Wrap(err, "failed to unsubscribe indexBuilder")
-		}
 		if err := cs.indexBuilder.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping index builder")
 		}
