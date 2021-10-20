@@ -8,15 +8,18 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	contentType = "application/json"
 )
 
 type (
 	web3Req struct {
 		Jsonrpc string      `json:"jsonrpc,omitempty"`
-		ID      int         `json:"id"`
-		Method  string      `json:"method"`
+		ID      *int        `json:"id"`
+		Method  *string     `json:"method"`
 		Params  interface{} `json:"params"`
 	}
 
@@ -28,8 +31,8 @@ type (
 	}
 
 	web3Err struct {
-		Code    int    `json:"code,omitempty"`
-		Message string `json:"message,omitempty"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
 	}
 )
 
@@ -38,79 +41,48 @@ func (api *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "POST":
 		api.handlePOSTReq(w, req)
 	default:
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
 func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
-
-	web3Reqs, err := getWeb3Reqs(req)
+	web3Reqs, err := parseWeb3Reqs(req)
+	var web3Resps []web3Resp
+	var httpResp interface{}
 	if err != nil {
-		log.L().Error("Failed to parse web3 requests.", zap.Error(err))
-		return
+
+		goto Respond
 	}
 
-	var web3Resps []web3Resp
 	for _, web3Req := range web3Reqs {
-		if _, ok := apiMap[web3Req.Method]; !ok {
-			log.L().Warn("unsupported web3 method.", zap.String("method", web3Req.Method))
-			return
+		if _, ok := apiMap[*web3Req.Method]; !ok {
+			err := errors.Wrapf(errors.New("content-type is not application/json"), "method: %s\n", *web3Req.Method)
+			httpResp = packAPIResult(nil, err, 0)
+			goto Respond
 		}
 
-		res, err := apiMap[web3Req.Method](api, web3Req.Params)
-		var resp web3Resp
-		if err != nil {
-			s, ok := status.FromError(err)
-			var errCode int
-			var errMsg string
-			if ok {
-				errCode, errMsg = int(s.Code()), s.Message()
-			} else {
-				errCode, errMsg = -1, err.Error()
-			}
-			resp = web3Resp{
-				Jsonrpc: "2.0",
-				ID:      web3Req.ID,
-				Error: &web3Err{
-					Code:    errCode,
-					Message: errMsg,
-				},
-			}
-		} else {
-			resp = web3Resp{
-				Jsonrpc: "2.0",
-				ID:      web3Req.ID,
-				Result:  res,
-			}
-		}
-		web3Resps = append(web3Resps, resp)
+		res, err := apiMap[*web3Req.Method](api, web3Req.Params)
+		web3Resps = append(web3Resps, packAPIResult(res, err, *web3Req.ID))
+	}
+
+	switch {
+	case len(web3Resps) > 1:
+		httpResp = web3Resps
+	case len(web3Resps) == 1:
+		httpResp = web3Resps[0]
 	}
 
 	// write responses
+Respond:
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	if len(web3Resps) > 1 {
-		if err := json.NewEncoder(w).Encode(web3Resps); err != nil {
-			log.L().Warn("fail to respond request.")
-			return
-		}
-	} else {
-		if err := json.NewEncoder(w).Encode(web3Resps[0]); err != nil {
-			log.L().Warn("fail to respond request.")
-			return
-		}
+	if err := json.NewEncoder(w).Encode(httpResp); err != nil {
+		log.L().Warn("fail to respond request.")
 	}
-
 }
 
-func isJSONArray(data []byte) bool {
-	data = bytes.TrimLeft(data, " \t\r\n")
-	return len(data) > 0 && data[0] == '['
-}
-
-func getWeb3Reqs(req *http.Request) ([]web3Req, error) {
-	contentType := req.Header.Get("Content-type")
-	if contentType != "application/json" {
+func parseWeb3Reqs(req *http.Request) ([]web3Req, error) {
+	if req.Header.Get("Content-type") != "application/json" {
 		return nil, errors.New("content-type is not application/json")
 	}
 
@@ -119,18 +91,51 @@ func getWeb3Reqs(req *http.Request) ([]web3Req, error) {
 	if err != nil {
 		return nil, err
 	}
-	if isJSONArray(data) {
-		err := json.Unmarshal(data, &web3Reqs)
-		if err != nil {
+	if d := bytes.TrimLeft(data, " \t\r\n"); len(d) > 0 && (d[0] != '[' || d[len(d)-1] != ']') {
+		data = []byte("[" + string(d) + "]")
+	}
+	err = json.Unmarshal(data, &web3Reqs)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range web3Reqs {
+		if err := v.CheckRequiredField(); err != nil {
 			return nil, err
 		}
-	} else {
-		var web3Req web3Req
-		err := json.Unmarshal(data, &web3Req)
-		if err != nil {
-			return nil, err
-		}
-		web3Reqs = append(web3Reqs, web3Req)
 	}
 	return web3Reqs, nil
+}
+
+func (req *web3Req) CheckRequiredField() error {
+	if req.ID == nil || req.Method == nil || req.Params == nil {
+		return errors.New("request field is incomplete")
+	}
+	return nil
+}
+
+// error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
+func packAPIResult(res interface{}, err error, id int) web3Resp {
+	if err != nil {
+		s, ok := status.FromError(err)
+		var errCode int
+		var errMsg string
+		if ok {
+			errCode, errMsg = int(s.Code()), s.Message()
+		} else {
+			errCode, errMsg = -32603, err.Error()
+		}
+		return web3Resp{
+			Jsonrpc: "2.0",
+			ID:      id,
+			Error: &web3Err{
+				Code:    errCode,
+				Message: errMsg,
+			},
+		}
+	}
+	return web3Resp{
+		Jsonrpc: "2.0",
+		ID:      id,
+		Result:  res,
+	}
 }
