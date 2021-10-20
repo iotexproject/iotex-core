@@ -1010,12 +1010,6 @@ func (api *Server) Start() error {
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcServer.Stop()
-	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe chainListener")
-	}
-	if err := api.bc.RemoveSubscriber(api.readCache); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe readCache")
-	}
 	if api.tp != nil {
 		if err := api.tp.Shutdown(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to shutdown api tracer")

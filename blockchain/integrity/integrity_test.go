@@ -1600,26 +1600,7 @@ func TestActions(t *testing.T) {
 	require.NoError(bc.ValidateBlock(blk))
 }
 
-func TestBlockchain_AddSubscriber(t *testing.T) {
-	req := require.New(t)
-	cfg := config.Default
-	cfg.Genesis.BlockGasLimit = uint64(100000)
-	cfg.Genesis.EnableGravityChainVoting = false
-	// create chain
-	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	req.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
-	req.NoError(err)
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
-	// mock
-	ctrl := gomock.NewController(t)
-	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
-	req.NoError(bc.AddSubscriber(mb))
-	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
-}
-
-func TestBlockchain_RemoveSubscriber(t *testing.T) {
+func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	req := require.New(t)
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
@@ -1636,6 +1617,7 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.Error(bc.RemoveSubscriber(mb))
 	req.NoError(bc.AddSubscriber(mb))
+	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
 	req.NoError(bc.RemoveSubscriber(mb))
 	req.EqualError(bc.RemoveSubscriber(nil), "cannot find subscription")
 }
