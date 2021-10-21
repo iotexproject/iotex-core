@@ -132,12 +132,7 @@ func New(
 			}
 			sf, err = factory.NewStateDB(cfg, opts...)
 		} else {
-			sf, err = factory.NewFactory(
-				cfg,
-				factory.DefaultTrieOption(),
-				factory.RegistryOption(registry),
-				factory.DefaultTriePatchOption(),
-			)
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
