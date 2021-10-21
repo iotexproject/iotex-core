@@ -47,7 +47,7 @@ type stateDB struct {
 	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
-	patchs                   map[uint64][]*patch
+	ps                       *patchStore
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -80,14 +80,9 @@ func DefaultStateDBOption() StateDBOption {
 
 // DefaultPatchOption loads patchs
 func DefaultPatchOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		patchs, err := loadPatchs(cfg.Chain.TrieDBPatchFile)
-		if err != nil {
-			return err
-		}
-		sdb.patchs = patchs
-
-		return nil
+	return func(sdb *stateDB, cfg config.Config) (err error) {
+		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
+		return
 	}
 }
 
@@ -222,8 +217,10 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if err != nil {
 		return nil, err
 	}
-	if ps, ok := sdb.patchs[height]; ok {
-		for _, p := range ps {
+	for _, p := range sdb.ps.Get(height) {
+		if p.Type == _DELETE {
+			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
+		} else {
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
