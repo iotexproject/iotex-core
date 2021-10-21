@@ -170,7 +170,7 @@ func NewServer(
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
 		registry:          registry,
-		chainListener:     NewChainListener(),
+		chainListener:     NewChainListener(500),
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
@@ -195,10 +195,6 @@ func NewServer(
 	iotexapi.RegisterAPIServiceServer(svr.grpcServer, svr)
 	grpc_prometheus.Register(svr.grpcServer)
 	reflection.Register(svr.grpcServer)
-
-	if err := svr.chainListener.AddResponder(svr.readCache); err != nil {
-		return nil, err
-	}
 	return svr, nil
 }
 
@@ -995,8 +991,11 @@ func (api *Server) Start() error {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
+	if err := api.bc.AddSubscriber(api.readCache); err != nil {
+		return errors.Wrap(err, "failed to add readCache")
+	}
 	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
-		return errors.Wrap(err, "failed to subscribe to block creations")
+		return errors.Wrap(err, "failed to add chainListener")
 	}
 	if err := api.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
@@ -1008,7 +1007,10 @@ func (api *Server) Start() error {
 func (api *Server) Stop() error {
 	api.grpcServer.Stop()
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
+		return errors.Wrap(err, "failed to unsubscribe chainListener")
+	}
+	if err := api.bc.RemoveSubscriber(api.readCache); err != nil {
+		return errors.Wrap(err, "failed to unsubscribe readCache")
 	}
 	if api.tp != nil {
 		if err := api.tp.Shutdown(context.Background()); err != nil {
