@@ -55,6 +55,7 @@ func newPatchStore(filepath string) (*patchStore, error) {
 		return nil, errors.Wrapf(err, "failed to open kvstore patch, %s", filepath)
 	}
 	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -78,7 +79,7 @@ func newPatchStore(filepath string) (*patchStore, error) {
 		switch record[1] {
 		case "PUT":
 			t = _PUT
-			if len(record) < 5 {
+			if len(record) != 5 {
 				return nil, errors.Errorf("wrong put format %+v", record)
 			}
 			value, err = hex.DecodeString(record[4])
