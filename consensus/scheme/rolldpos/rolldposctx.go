@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
@@ -596,11 +597,19 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 		}
 	}
 
+	// the cached minted block will be rejected due to wrong proposer
+	// so replace myself as proposer/producer
+	builder := block.NewBuilderFromBlock(blk).SetTimestamp(ctx.round.StartTime())
+	newBlk, err := builder.SignAndBuild(ctx.priKey)
+	if err != nil {
+		return nil, err
+	}
+
 	var proofOfUnlock []*endorsement.Endorsement
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
-	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+	return ctx.endorseBlockProposal(newBlockProposal(&newBlk, proofOfUnlock))
 }
 
 func (ctx *rollDPoSCtx) isDelegate() bool {

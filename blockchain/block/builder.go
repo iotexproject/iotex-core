@@ -21,6 +21,13 @@ import (
 // Builder is used to construct Block.
 type Builder struct{ blk Block }
 
+// NewBuilderFromBlock creates a Builder from an existing block.
+func NewBuilderFromBlock(blk *Block) *Builder {
+	return &Builder{
+		blk: *blk,
+	}
+}
+
 // NewBuilder creates a Builder.
 func NewBuilder(ra RunnableActions) *Builder {
 	return &Builder{

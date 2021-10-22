@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
@@ -71,8 +72,16 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 }
 
 // generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey
-func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
-	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
+func generateWorkingSetCacheKey(blkHeader block.Header, _ string) hash.Hash256 {
+	sum := byteutil.Uint64ToBytesBigEndian(blkHeader.Height())
+	h := blkHeader.PrevHash()
+	sum = append(sum, h[:]...)
+	h = blkHeader.TxRoot()
+	sum = append(sum, h[:]...)
+	h = blkHeader.DeltaStateDigest()
+	sum = append(sum, h[:]...)
+	h = blkHeader.ReceiptRoot()
+	sum = append(sum, h[:]...)
 	return hash.Hash256b(sum)
 }
 
