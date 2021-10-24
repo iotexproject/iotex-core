@@ -196,6 +196,7 @@ func ExecuteContract(
 		featureCtx.NotFixTopicCopyBug,
 		featureCtx.AsyncContractTrie,
 		featureCtx.FixSnapshotOrder,
+		featureCtx.ClearSnapshots,
 		actionCtx.ActionHash,
 		opts...,
 	)
