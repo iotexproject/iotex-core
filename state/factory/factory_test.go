@@ -9,6 +9,7 @@ package factory
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/hex"
 	"math/big"
 	"math/rand"
@@ -1214,6 +1215,130 @@ func TestSTXGetDB(t *testing.T) {
 	kvStore := ws.GetDB()
 	_, ok := kvStore.(db.KVStoreWithBuffer)
 	require.True(ok)
+}
+
+func TestStateDBPatch(t *testing.T) {
+	require := require.New(t)
+	n1 := "n1"
+	n2 := "n2"
+	a1 := "a1"
+	a2 := "a2"
+	b11 := "bb11"
+	b12 := "bb12"
+	b21 := "bb21"
+	b22 := "bb22"
+	ha1, err := hex.DecodeString(a1)
+	require.NoError(err)
+	ha2, err := hex.DecodeString(a2)
+	require.NoError(err)
+	hb11, err := hex.DecodeString(b11)
+	require.NoError(err)
+	hb12, err := hex.DecodeString(b12)
+	require.NoError(err)
+	hb21, err := hex.DecodeString(b21)
+	require.NoError(err)
+	hb22, err := hex.DecodeString(b22)
+	require.NoError(err)
+	patchTest := [][]string{
+		{"1", "PUT", n1, a1, b11},
+		{"1", "PUT", n1, a2, b12},
+		{"1", "PUT", n2, a1, b21},
+		{"2", "DELETE", n1, a1},
+		{"2", "PUT", n2, a2, b22},
+	}
+	patchFile, err := testutil.PathOfTempFile(triePath + ".patch")
+	require.NoError(err)
+	f, err := os.Create(patchFile)
+	require.NoError(err)
+	require.NoError(csv.NewWriter(f).WriteAll(patchTest))
+	require.NoError(f.Close())
+
+	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	require.NoError(err)
+	cfg := config.Default
+	cfg.DB.DbPath = testDBPath
+	cfg.Chain.TrieDBPatchFile = patchFile
+	trieDB := db.NewBoltDB(cfg.DB)
+	sdb, err := NewStateDB(cfg, PrecreatedStateDBOption(trieDB), DefaultPatchOption(), SkipBlockValidationStateDBOption())
+	require.NoError(err)
+	gasLimit := testutil.TestGasLimit
+
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		}), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+	_, err = trieDB.Get(n1, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n1, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n2, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n2, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	blk1, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(sdb.PutBlock(ctx, &blk1))
+	v11, err := trieDB.Get(n1, ha1)
+	require.NoError(err)
+	require.Equal(v11, hb11)
+	v12, err := trieDB.Get(n1, ha2)
+	require.NoError(err)
+	require.Equal(v12, hb12)
+	v21, err := trieDB.Get(n2, ha1)
+	require.NoError(err)
+	require.Equal(v21, hb21)
+	_, err = trieDB.Get(n2, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 2,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		}), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+	blk2, err := block.NewTestingBuilder().
+		SetHeight(2).
+		SetPrevBlockHash(blk1.HashBlock()).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(sdb.PutBlock(ctx, &blk2))
+	v11, err = trieDB.Get(n1, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	v12, err = trieDB.Get(n1, ha2)
+	require.NoError(err)
+	require.Equal(v12, hb12)
+	v21, err = trieDB.Get(n2, ha1)
+	require.NoError(err)
+	require.Equal(v21, hb21)
+	v22, err := trieDB.Get(n2, ha2)
+	require.NoError(err)
+	require.Equal(v22, hb22)
+
+	require.NoError(os.RemoveAll(patchFile))
 }
 
 func TestDeleteAndPutSameKey(t *testing.T) {
