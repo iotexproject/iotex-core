@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	_PUT patchType = iota
-	_DELETE
+	_Put patchType = iota
+	_Delete
 )
 
 type (
@@ -78,7 +78,7 @@ func newPatchStore(filepath string) (*patchStore, error) {
 		var value []byte
 		switch record[1] {
 		case "PUT":
-			t = _PUT
+			t = _Put
 			if len(record) != 5 {
 				return nil, errors.Errorf("wrong put format %+v", record)
 			}
@@ -87,7 +87,7 @@ func newPatchStore(filepath string) (*patchStore, error) {
 				return nil, errors.Wrapf(err, "failed to parse value, %s", record[4])
 			}
 		case "DELETE":
-			t = _DELETE
+			t = _Delete
 		default:
 			return nil, errors.Errorf("invalid patch type, %s", record[1])
 		}

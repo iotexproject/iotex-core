@@ -218,7 +218,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 		return nil, err
 	}
 	for _, p := range sdb.ps.Get(height) {
-		if p.Type == _DELETE {
+		if p.Type == _Delete {
 			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
 		} else {
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
