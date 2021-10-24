@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	_PUT patchType = iota
-	_DELETE
+	_Put patchType = iota
+	_Delete
 )
 
 type (
@@ -55,6 +55,7 @@ func newPatchStore(filepath string) (*patchStore, error) {
 		return nil, errors.Wrapf(err, "failed to open kvstore patch, %s", filepath)
 	}
 	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -77,8 +78,8 @@ func newPatchStore(filepath string) (*patchStore, error) {
 		var value []byte
 		switch record[1] {
 		case "PUT":
-			t = _PUT
-			if len(record) < 5 {
+			t = _Put
+			if len(record) != 5 {
 				return nil, errors.Errorf("wrong put format %+v", record)
 			}
 			value, err = hex.DecodeString(record[4])
@@ -86,7 +87,7 @@ func newPatchStore(filepath string) (*patchStore, error) {
 				return nil, errors.Wrapf(err, "failed to parse value, %s", record[4])
 			}
 		case "DELETE":
-			t = _DELETE
+			t = _Delete
 		default:
 			return nil, errors.Errorf("invalid patch type, %s", record[1])
 		}
