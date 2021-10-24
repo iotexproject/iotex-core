@@ -47,6 +47,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -2689,9 +2690,20 @@ func createServer(cfg config.Config, needActPool bool) (*Server, string, error) 
 		}
 	}
 
-	svr, err := NewServer(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
-	if err != nil {
-		return nil, "", err
+	svr := &Server{
+		bc:             bc,
+		sf:             sf,
+		dao:            dao,
+		indexer:        indexer,
+		bfIndexer:      bfIndexer,
+		ap:             ap,
+		cfg:            cfg,
+		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
+		registry:       registry,
+		hasActionIndex: true,
+		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+			return nil
+		},
 	}
 	svr.hasActionIndex = true
 	return svr, bfIndexFile, nil
