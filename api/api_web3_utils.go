@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -23,6 +25,9 @@ import (
 )
 
 type (
+	web3Utils struct {
+		errMsg error
+	}
 	blockObject struct {
 		Number           string        `json:"number,omitempty"`
 		Hash             string        `json:"hash,omitempty"`
@@ -45,97 +50,136 @@ type (
 	}
 
 	transactionObject struct {
-		Hash             *string `json:"hash,omitempty"`
-		Nonce            *string `json:"nonce,omitempty"`
-		BlockHash        *string `json:"blockHash,omitempty"`
-		BlockNumber      *string `json:"blockNumber,omitempty"`
-		TransactionIndex *string `json:"transactionIndex,omitempty"`
-		From             *string `json:"from,omitempty"`
+		Hash             string  `json:"hash"`
+		Nonce            string  `json:"nonce"`
+		BlockHash        string  `json:"blockHash"`
+		BlockNumber      string  `json:"blockNumber"`
+		TransactionIndex string  `json:"transactionIndex"`
+		From             string  `json:"from"`
 		To               *string `json:"to,omitempty"`
-		Value            *string `json:"value,omitempty"`
-		GasPrice         *string `json:"gasPrice,omitempty"`
-		Gas              *string `json:"gas,omitempty"`
-		Input            *string `json:"input,omitempty"`
-		R                *string `json:"r,omitempty"`
-		S                *string `json:"s,omitempty"`
-		V                *string `json:"v,omitempty"`
-		StandardV        *string `json:"standardV,omitempty"`
-		Condition        *string `json:"condition,omitempty"`
-		Creates          *string `json:"creates,omitempty"`
-		ChainId          *string `json:"chainId,omitempty"`
-		PublicKey        *string `json:"publicKey,omitempty"`
+		Value            string  `json:"value"`
+		GasPrice         string  `json:"gasPrice"`
+		Gas              string  `json:"gas"`
+		Input            string  `json:"input"`
+		R                string  `json:"r"`
+		S                string  `json:"s"`
+		V                string  `json:"v"`
+		StandardV        string  `json:"standardV"`
+		Condition        string  `json:"condition"`
+		Creates          string  `json:"creates"`
+		ChainId          string  `json:"chainId"`
+		PublicKey        string  `json:"publicKey"`
 	}
 )
 
-func hexStringToNumber(hexStr string) (uint64, error) {
+func (h *web3Utils) hexStringToNumber(hexStr string) uint64 {
+	if h.errMsg != nil {
+		return 0
+	}
 	if hexStr == "" {
-		return 0, nil
+		return 0
 	}
-	num, err := strconv.ParseUint(removeHexPrefix(hexStr), 16, 64)
-	if err != nil {
-		return 0, err
-	}
-	return num, nil
+	var num uint64
+	num, h.errMsg = strconv.ParseUint(removeHexPrefix(hexStr), 16, 64)
+	return num
 }
 
-func ethAddrToIoAddr(ethAddr string) (string, error) {
+func (h *web3Utils) ethAddrToIoAddr(ethAddr string) string {
+	if h.errMsg != nil {
+		return ""
+	}
 	if ok := common.IsHexAddress(ethAddr); !ok {
-		return "", errUnkownType
+		h.errMsg = errUnkownType
+		return ""
 	}
 	ethAddress := common.HexToAddress(ethAddr)
-	ioAddress, err := address.FromBytes(ethAddress.Bytes())
-	if err != nil {
-		return "", errUnkownType
-	}
-	return ioAddress.String(), nil
+	var ioAddress address.Address
+	ioAddress, h.errMsg = address.FromBytes(ethAddress.Bytes())
+	return ioAddress.String()
 }
 
-func ioAddrToEthAddr(ioAddr string) (string, error) {
-	addr, err := util.IoAddrToEvmAddr(ioAddr)
-	if err != nil {
-		return "", err
+func (h *web3Utils) ioAddrToEthAddr(ioAddr string) string {
+	if h.errMsg != nil {
+		return ""
 	}
-	return addr.String(), nil
+	var addr common.Address
+	addr, h.errMsg = util.IoAddrToEvmAddr(ioAddr)
+	if h.errMsg != nil {
+		return ""
+	}
+	return addr.String()
 }
 
 func uint64ToHex(val uint64) string {
 	return "0x" + strconv.FormatUint(val, 16)
 }
 
-func intStrToHex(str string) (string, error) {
-	amount, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return "", err
+func (h *web3Utils) intStrToHex(str string) string {
+	if h.errMsg != nil {
+		return ""
 	}
-	return uint64ToHex(uint64(amount)), nil
+	amount, ok := big.NewInt(0).SetString(str, 10)
+	if !ok {
+		h.errMsg = errUnkownType
+		return ""
+	}
+	return "0x" + fmt.Sprintf("%x", amount)
 }
 
-func getStringFromArray(in interface{}, i int) (string, error) {
+func (h *web3Utils) getStringFromArray(in interface{}, i int) string {
+	if h.errMsg != nil {
+		return ""
+	}
 	params, ok := in.([]interface{})
-	if !ok || i < 0 {
-		return "", errUnkownType
+	if !ok || i < 0 || i >= len(params) {
+		h.errMsg = errUnkownType
+		return ""
 	}
 	ret, ok := params[i].(string)
 	if !ok {
-		return "", errUnkownType
+		h.errMsg = errUnkownType
+		return ""
 	}
-	return ret, nil
+	return ret
 }
 
-func getJSONFromArray(in interface{}) ([]byte, error) {
+func (h *web3Utils) getBoolFromArray(in interface{}, i int) bool {
+	if h.errMsg != nil {
+		return false
+	}
+	params, ok := in.([]interface{})
+	if !ok || i < 0 || i >= len(params) {
+		h.errMsg = errUnkownType
+		return false
+	}
+	ret, ok := params[i].(bool)
+	if !ok {
+		h.errMsg = errUnkownType
+		return false
+	}
+	return ret
+}
+
+func (h *web3Utils) getJSONFromArray(in interface{}) []byte {
+	if h.errMsg != nil {
+		return nil
+	}
 	params, ok := in.([]interface{})
 	if !ok {
-		return nil, errUnkownType
+		h.errMsg = errUnkownType
+		return nil
 	}
 	params0, ok := params[0].(map[string]interface{})
 	if !ok {
-		return nil, errUnkownType
+		h.errMsg = errUnkownType
+		return nil
 	}
 	jsonMarshaled, err := json.Marshal(params0)
 	if err != nil {
-		return nil, err
+		h.errMsg = err
+		return nil
 	}
-	return jsonMarshaled, nil
+	return jsonMarshaled
 }
 
 func removeHexPrefix(hexStr string) string {
@@ -144,41 +188,40 @@ func removeHexPrefix(hexStr string) string {
 	return ret
 }
 
-func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDetailed bool) (*blockObject, error) {
-	transactionsRoot := "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
-	transactions := []interface{}{}
+func (h *web3Utils) getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDetailed bool) *blockObject {
+	if h.errMsg != nil {
+		return nil
+	}
+	transactionsRoot := "0x"
+	var transactions []interface{}
 	if blkMeta.Height > 0 {
-		// get Actions by blk number, more efficient
-		ret, err := svr.getActionsByBlock(blkMeta.Hash, 0, 1000)
-		if err != nil {
-			return nil, err
+		var ret *iotexapi.GetActionsResponse
+		ret, h.errMsg = svr.getActionsByBlock(blkMeta.Hash, 0, svr.cfg.API.RangeQueryLimit)
+		if h.errMsg != nil {
+			return nil
 		}
 
-		acts := ret.ActionInfo
-
-		for _, v := range acts {
+		for _, v := range ret.ActionInfo {
 			if isDetailed {
-				tx := getTransactionFromActionInfo(v, svr.bc.ChainID())
-				if tx != nil {
-					transactions = append(transactions, *tx)
-				}
+				tx := h.getTransactionFromActionInfo(v, svr.bc.ChainID())
+				transactions = append(transactions, tx)
 			} else {
 				transactions = append(transactions, "0x"+v.ActHash)
 			}
 		}
-
-		if len(transactions) == 0 {
-			transactionsRoot = "0x" + blkMeta.TxRoot
-		}
+		transactionsRoot = "0x" + blkMeta.TxRoot
 	}
 
+	if len(transactions) == 0 {
+		transactionsRoot = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+	}
 	bloom := "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 	if len(blkMeta.LogsBloom) > 0 {
 		bloom = blkMeta.LogsBloom
 	}
-	miner, err := ioAddrToEthAddr(blkMeta.ProducerAddress)
-	if err != nil {
-		return nil, errUnkownType
+	miner := h.ioAddrToEthAddr(blkMeta.ProducerAddress)
+	if h.errMsg != nil {
+		return nil
 	}
 	return &blockObject{
 		Number:           uint64ToHex(blkMeta.Height),
@@ -199,134 +242,113 @@ func getBlockWithTransactions(svr *Server, blkMeta *iotextypes.BlockMeta, isDeta
 		Timestamp:        uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
 		Transactions:     transactions,
 		Uncles:           []string{},
-	}, nil
+	}
 }
 
-func getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) *transactionObject {
-	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
-		return nil
+func (h *web3Utils) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) transactionObject {
+	if h.errMsg != nil {
+		return transactionObject{}
 	}
-	var blockHash, blockNumber, to *string
+	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
+		return transactionObject{}
+	}
+	var to *string
 	value := "0x0"
 	data := ""
-	var err error
 	switch act := actInfo.Action.Core.Action.(type) {
 	case *iotextypes.ActionCore_Transfer:
-		value, err = intStrToHex(act.Transfer.GetAmount())
-		if err != nil {
-			return nil
-		}
-		_to, err := ioAddrToEthAddr(act.Transfer.GetRecipient())
-		if err != nil {
-			return nil
-		}
-		to = &_to
+		value = h.intStrToHex(act.Transfer.GetAmount())
+		toTmp := h.ioAddrToEthAddr(act.Transfer.GetRecipient())
+		to = &toTmp
 	case *iotextypes.ActionCore_Execution:
-		value, err = intStrToHex(act.Execution.GetAmount())
-		if err != nil {
-			return nil
-		}
+		value = h.intStrToHex(act.Execution.GetAmount())
 		if len(act.Execution.GetContract()) > 0 {
-			_to, err := ioAddrToEthAddr(act.Execution.GetContract())
-			if err != nil {
-				return nil
-			}
-			to = &_to
+			toTmp := h.ioAddrToEthAddr(act.Execution.GetContract())
+			to = &toTmp
 		}
 		data = byteToHex(act.Execution.GetData())
 	default:
-		return nil
+		return transactionObject{}
 	}
 
-	r := byteToHex(actInfo.Action.Signature[:32])
-	s := byteToHex(actInfo.Action.Signature[32:64])
 	vVal := uint64(actInfo.Action.Signature[64])
 	if vVal < 27 {
 		vVal += 27
 	}
-	v := uint64ToHex(vVal)
 
-	if actInfo.BlkHeight > 0 {
-		h := "0x" + actInfo.BlkHash
-		num := uint64ToHex(actInfo.BlkHeight)
-		blockHash, blockNumber = &h, &num
+	from := h.ioAddrToEthAddr(actInfo.Sender)
+	gasPrice := h.intStrToHex(actInfo.Action.Core.GasPrice)
+	if h.errMsg != nil {
+		return transactionObject{}
 	}
-
-	hash := "0x" + actInfo.ActHash
-	nonce := uint64ToHex(actInfo.Action.Core.Nonce)
-	transactionIndex := uint64ToHex(uint64(actInfo.Index))
-	from, err := ethAddrToIoAddr(actInfo.Sender)
-	_gasPrice, err := strconv.ParseInt(actInfo.Action.Core.GasPrice, 10, 64)
-	gasPrice := uint64ToHex(uint64(_gasPrice))
-	gasLimit := uint64ToHex(actInfo.Action.Core.GasLimit)
-	chainIdHex := uint64ToHex(uint64(chainId))
-	pubkey := byteToHex(actInfo.Action.SenderPubKey)
-	if err != nil {
-		return nil
-	}
-	return &transactionObject{
-		Hash:             &hash,
-		Nonce:            &nonce,
-		BlockHash:        blockHash,
-		BlockNumber:      blockNumber,
-		TransactionIndex: &transactionIndex,
-		From:             &from,
+	return transactionObject{
+		Hash:             "0x" + actInfo.ActHash,
+		Nonce:            uint64ToHex(actInfo.Action.Core.Nonce),
+		BlockHash:        "0x" + actInfo.BlkHash,
+		BlockNumber:      uint64ToHex(actInfo.BlkHeight),
+		TransactionIndex: uint64ToHex(uint64(actInfo.Index)),
+		From:             from,
 		To:               to,
-		Value:            &value,
-		GasPrice:         &gasPrice,
-		Gas:              &gasLimit,
-		Input:            &data,
-		R:                &r,
-		S:                &s,
-		V:                &v,
-		StandardV:        &v,
-		ChainId:          &chainIdHex,
-		PublicKey:        &pubkey,
+		Value:            value,
+		GasPrice:         gasPrice,
+		Gas:              uint64ToHex(actInfo.Action.Core.GasLimit),
+		Input:            data,
+		R:                byteToHex(actInfo.Action.Signature[:32]),
+		S:                byteToHex(actInfo.Action.Signature[32:64]),
+		V:                uint64ToHex(vVal),
+		StandardV:        uint64ToHex(vVal),
+		ChainId:          uint64ToHex(uint64(chainId)),
+		PublicKey:        byteToHex(actInfo.Action.SenderPubKey),
 	}
 }
 
-func getTransactionCreateFromActionInfo(svr *Server, actInfo *iotexapi.ActionInfo, chainId uint32) *transactionObject {
-	tx := getTransactionFromActionInfo(actInfo, chainId)
-	if tx == nil {
-		return nil
+func (h *web3Utils) getTransactionCreateFromActionInfo(svr *Server, actInfo *iotexapi.ActionInfo, chainId uint32) transactionObject {
+	if h.errMsg != nil {
+		return transactionObject{}
 	}
-
-	if tx.To == nil && tx.BlockHash != nil {
-		receipt, err := svr.GetReceiptByAction(context.Background(),
+	tx := h.getTransactionFromActionInfo(actInfo, chainId)
+	if h.errMsg != nil {
+		return transactionObject{}
+	}
+	if tx.To == nil {
+		var receipt *iotexapi.GetReceiptByActionResponse
+		receipt, h.errMsg = svr.GetReceiptByAction(context.Background(),
 			&iotexapi.GetReceiptByActionRequest{
-				ActionHash: (*tx.Hash)[2:],
+				ActionHash: (tx.Hash)[2:],
 			},
 		)
-		if err != nil {
-			return nil
+		if h.errMsg != nil {
+			return transactionObject{}
 		}
-		addr, err := ioAddrToEthAddr(receipt.ReceiptInfo.Receipt.ContractAddress)
-		if err != nil {
-			return nil
-		}
-		tx.Creates = &addr
+		addr := h.ioAddrToEthAddr(receipt.ReceiptInfo.Receipt.ContractAddress)
+		tx.Creates = addr
 	}
 	return tx
 }
 
 // DecodeRawTx() decode raw data string into eth tx
-func DecodeRawTx(rawData string, chainId uint32) (*types.Transaction, []byte, []byte, error) {
-	dataInString, err := hex.DecodeString(removeHexPrefix(rawData))
-	if err != nil {
-		return nil, nil, nil, err
+func (h *web3Utils) DecodeRawTx(rawData string, chainId uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey) {
+	if h.errMsg != nil {
+		return
+	}
+
+	var dataInString []byte
+	dataInString, h.errMsg = hex.DecodeString(removeHexPrefix(rawData))
+	if h.errMsg != nil {
+		return
 	}
 
 	// decode raw data into rlp tx
-	tx := types.Transaction{}
-	err = rlp.DecodeBytes(dataInString, &tx)
-	if err != nil {
-		return nil, nil, nil, err
+	tx = &types.Transaction{}
+	h.errMsg = rlp.DecodeBytes(dataInString, tx)
+	if h.errMsg != nil {
+		return
 	}
 
 	// extract signature and recover pubkey
 	v, r, s := tx.RawSignatureValues()
 	recID := uint32(v.Int64()) - 2*chainId - 8
-	sig := make([]byte, 64, 65)
+	sig = make([]byte, 64, 65)
 	rSize := len(r.Bytes())
 	copy(sig[32-rSize:32], r.Bytes())
 	sSize := len(s.Bytes())
@@ -334,44 +356,45 @@ func DecodeRawTx(rawData string, chainId uint32) (*types.Transaction, []byte, []
 	sig = append(sig, byte(recID))
 
 	// recover public key
-	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainId))).Hash(&tx)
-	pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return &tx, sig, pubkey.Bytes(), nil
+	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainId))).Hash(tx)
+	pubkey, h.errMsg = crypto.RecoverPubkey(rawHash[:], sig)
+	return
 }
 
-func parseBlockNumber(svr *Server, str string) (uint64, error) {
-	if str == "earliest" {
-		return 1, nil
+func (h *web3Utils) parseBlockNumber(svr *Server, str string) uint64 {
+	if h.errMsg != nil {
+		return 0
 	}
-
-	if str == "" || str == "pending" || str == "latest" {
-		return svr.bc.TipHeight(), nil
+	switch str {
+	case "earliest":
+		return 1
+	case "", "pending", "latest":
+		return svr.bc.TipHeight()
+	default:
+		return h.hexStringToNumber(str)
 	}
-
-	res, err := hexStringToNumber(str)
-	if err != nil {
-		return 0, err
-	}
-
-	return res, nil
 }
 
-func isContractAddr(svr *Server, addr string) bool {
-	accountMeta, _, _ := svr.getAccount(addr)
+func (h *web3Utils) isContractAddr(svr *Server, addr string) bool {
+	if h.errMsg != nil {
+		return false
+	}
+	var accountMeta *iotextypes.AccountMeta
+	accountMeta, _, h.errMsg = svr.getAccount(addr)
+	if h.errMsg != nil {
+		return false
+	}
 	return accountMeta.IsContract
 }
 
 func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []string, topics [][]string) ([]logsObject, error) {
+	var web3Util web3Utils
 	// construct block range(from, to)
 	tipHeight := svr.bc.TipHeight()
-	from, err := parseBlockNumber(svr, fromBlock)
-	to, err := parseBlockNumber(svr, toBlock)
-	if err != nil {
-		return nil, err
+	from := web3Util.parseBlockNumber(svr, fromBlock)
+	to := web3Util.parseBlockNumber(svr, toBlock)
+	if web3Util.errMsg != nil {
+		return nil, web3Util.errMsg
 	}
 	if from > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start block > tip height")
@@ -383,10 +406,7 @@ func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []st
 	// construct filter topics and addresses
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addrs {
-		ioAddr, err := ethAddrToIoAddr(ethAddr)
-		if err != nil {
-			return nil, err
-		}
+		ioAddr := web3Util.ethAddrToIoAddr(ethAddr)
 		filter.Address = append(filter.Address, ioAddr)
 	}
 	for _, tp := range topics {
@@ -402,7 +422,9 @@ func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []st
 			Topic: topic,
 		})
 	}
-
+	if web3Util.errMsg != nil {
+		return nil, web3Util.errMsg
+	}
 	logs, err := svr.getLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 1000)
 	if err != nil {
 		return nil, err
@@ -410,23 +432,23 @@ func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []st
 	// parse log results
 	var ret []logsObject
 	for _, l := range logs {
-		if len(l.Topics) > 0 {
-			addr, _ := ioAddrToEthAddr(l.ContractAddress)
-			var topics []string
-			for _, val := range l.Topics {
-				topics = append(topics, byteToHex(val))
-			}
-			ret = append(ret, logsObject{
-				BlockHash:        byteToHex(l.BlkHash),
-				TransactionHash:  byteToHex(l.ActHash),
-				LogIndex:         uint64ToHex(uint64(l.Index)),
-				BlockNumber:      uint64ToHex(l.BlkHeight),
-				TransactionIndex: "0x1",
-				Address:          addr,
-				Data:             byteToHex(l.Data),
-				Topics:           topics,
-			})
+		var topics []string
+		for _, val := range l.Topics {
+			topics = append(topics, byteToHex(val))
 		}
+		ret = append(ret, logsObject{
+			BlockHash:        byteToHex(l.BlkHash),
+			TransactionHash:  byteToHex(l.ActHash),
+			LogIndex:         uint64ToHex(uint64(l.Index)),
+			BlockNumber:      uint64ToHex(l.BlkHeight),
+			TransactionIndex: "0x1",
+			Address:          web3Util.ioAddrToEthAddr(l.ContractAddress),
+			Data:             byteToHex(l.Data),
+			Topics:           topics,
+		})
+	}
+	if web3Util.errMsg != nil {
+		return nil, web3Util.errMsg
 	}
 	return ret, nil
 }
@@ -452,9 +474,13 @@ func parseLogRequest(in interface{}) (*logsRequest, error) {
 	for k, v := range params0 {
 		switch k {
 		case "fromBlock":
-			logReq.FromBlock = v.(string)
+			if logReq.FromBlock, ok = v.(string); !ok {
+				return nil, errUnkownType
+			}
 		case "toBlock":
-			logReq.ToBlock = v.(string)
+			if logReq.ToBlock, ok = v.(string); !ok {
+				return nil, errUnkownType
+			}
 		case "address":
 			switch str := v.(type) {
 			case string:
@@ -480,4 +506,41 @@ func parseLogRequest(in interface{}) (*logsRequest, error) {
 		}
 	}
 	return &logReq, nil
+}
+
+func (h *web3Utils) parseCallObject(in []byte) (from string, to string, gasLimit uint64, value *big.Int, data []byte) {
+	if h.errMsg != nil {
+		return
+	}
+	callObj := struct {
+		From     string `json:"from,omitempty"`
+		To       string `json:"to"`
+		Gas      string `json:"gas,omitempty"`
+		GasPrice string `json:"gasPrice,omitempty"`
+		Value    string `json:"value,omitempty"`
+		Data     string `json:"data,omitempty"`
+	}{}
+	h.errMsg = json.Unmarshal(in, &callObj)
+	if h.errMsg != nil {
+		return
+	}
+	if callObj.To == "" {
+		h.errMsg = errors.New("missing 'to' address field")
+		return
+	}
+
+	if callObj.From == "" {
+		callObj.From = "0x0000000000000000000000000000000000000000"
+	}
+
+	from = h.ethAddrToIoAddr(callObj.From)
+	to = h.ethAddrToIoAddr(callObj.To)
+	value, ok := big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
+	if !ok {
+		h.errMsg = errUnkownType
+		return
+	}
+	gasLimit = h.hexStringToNumber(callObj.Gas)
+	data = common.FromHex(callObj.Data)
+	return
 }

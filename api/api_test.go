@@ -2700,6 +2700,9 @@ func createServer(cfg config.Config, needActPool bool) (*Server, string, error) 
 		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
 		registry:       registry,
 		hasActionIndex: true,
+		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+			return nil
+		},
 	}
 
 	return svr, bfIndexFile, nil

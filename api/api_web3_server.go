@@ -50,13 +50,14 @@ func (api *Server) handlePOSTReq(w http.ResponseWriter, req *http.Request) {
 	var web3Resps []web3Resp
 	var httpResp interface{}
 	if err != nil {
-
+		err := errors.Wrap(err, "failed to parse web3 requests.")
+		httpResp = packAPIResult(nil, err, 0)
 		goto Respond
 	}
 
 	for _, web3Req := range web3Reqs {
 		if _, ok := apiMap[*web3Req.Method]; !ok {
-			err := errors.Wrapf(errors.New("content-type is not application/json"), "method: %s\n", *web3Req.Method)
+			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", *web3Req.Method)
 			httpResp = packAPIResult(nil, err, 0)
 			goto Respond
 		}
