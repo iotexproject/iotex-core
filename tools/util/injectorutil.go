@@ -735,7 +735,7 @@ func CheckPendingActionList(
 						retErr = err
 						return nil
 					}
-					updateStakeExpectedBalanceMap(balancemap,executoraddr.String(),cost)
+					updateStakeExpectedBalanceMap(balancemap, executoraddr.String(), cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
 					return nil
