@@ -190,13 +190,21 @@ func ExecuteContract(
 	if featureCtx.UsePendingNonceOption {
 		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
 	}
+	if featureCtx.NotFixTopicCopyBug {
+		opts = append(opts, NotFixTopicCopyBugOption())
+	}
+	if featureCtx.AsyncContractTrie {
+		opts = append(opts, AsyncContractTrieOption())
+	}
+	if featureCtx.FixSnapshotOrder {
+		opts = append(opts, FixSnapshotOrderOption())
+	}
+	if featureCtx.ClearSnapshots {
+		opts = append(opts, ClearSnapshotsOption())
+	}
 	stateDB := NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
-		featureCtx.NotFixTopicCopyBug,
-		featureCtx.AsyncContractTrie,
-		featureCtx.FixSnapshotOrder,
-		featureCtx.ClearSnapshots,
 		actionCtx.ActionHash,
 		opts...,
 	)

@@ -93,8 +93,12 @@ func TestAddBalance(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true,
-		false, true, true, hash.ZeroHash256)
+	opt := []StateDBAdapterOption{
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		ClearSnapshotsOption(),
+	}
+	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)
@@ -110,8 +114,12 @@ func TestRefundAPIs(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(sm, 1, true,
-		false, true, true, hash.ZeroHash256)
+	opt := []StateDBAdapterOption{
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		ClearSnapshotsOption(),
+	}
+	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -125,8 +133,12 @@ func TestEmptyAndCode(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true,
-		false, true, true, hash.ZeroHash256)
+	opt := []StateDBAdapterOption{
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		ClearSnapshotsOption(),
+	}
+	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -142,8 +154,12 @@ func TestForEachStorage(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true,
-		false, true, true, hash.ZeroHash256)
+	opt := []StateDBAdapterOption{
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		ClearSnapshotsOption(),
+	}
+	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -178,8 +194,12 @@ func TestNonce(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(sm, 1, true,
-		false, true, true, hash.ZeroHash256)
+	opt := []StateDBAdapterOption{
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		ClearSnapshotsOption(),
+	}
+	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
@@ -251,8 +271,16 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(sm, 1, true,
-			async, fixSnapshot, false, hash.ZeroHash256)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+		}
+		if async {
+			opt = append(opt, AsyncContractTrieOption())
+		}
+		if fixSnapshot {
+			opt = append(opt, FixSnapshotOrderOption())
+		}
+		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 
 		for i, test := range tests {
 			// add balance
@@ -427,8 +455,17 @@ func TestClearSnapshots(t *testing.T) {
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(sm, 1, true,
-			async, true, clearSnapshots, hash.ZeroHash256)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+		}
+		if async {
+			opt = append(opt, AsyncContractTrieOption())
+		}
+		if clearSnapshots {
+			opt = append(opt, ClearSnapshotsOption())
+		}
+		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 
 		for i, test := range tests {
 			// add balance
@@ -493,8 +530,12 @@ func TestGetCommittedState(t *testing.T) {
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(sm, 1, true,
-			false, true, true, hash.ZeroHash256)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			ClearSnapshotsOption(),
+		}
+		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 
 		stateDB.SetState(c1, k1, v1)
 		// k2 does not exist
@@ -526,8 +567,12 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(sm, 1, true,
-			false, true, true, hash.ZeroHash256)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			ClearSnapshotsOption(),
+		}
+		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -539,8 +584,12 @@ func TestPreimage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(sm, 1, true,
-		false, true, true, hash.ZeroHash256)
+	opt := []StateDBAdapterOption{
+		NotFixTopicCopyBugOption(),
+		FixSnapshotOrderOption(),
+		ClearSnapshotsOption(),
+	}
+	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
@@ -572,8 +621,12 @@ func TestSortMap(t *testing.T) {
 	}
 
 	testFunc := func(t *testing.T, sm *mock_chainmanager.MockStateManager, opts ...StateDBAdapterOption) bool {
-		stateDB := NewStateDBAdapter(sm, 1, true,
-			false, true, true, hash.ZeroHash256, opts...)
+		opts = append(opts,
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			ClearSnapshotsOption(),
+		)
+		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 		size := 10
 
 		for i := 0; i < size; i++ {

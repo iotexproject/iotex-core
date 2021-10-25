@@ -170,10 +170,21 @@ func TestConstantinople(t *testing.T) {
 			nil,
 		)
 		require.NoError(err)
+		opt := []StateDBAdapterOption{}
+		if !g.IsAleutian(e.height) {
+			opt = append(opt, NotFixTopicCopyBugOption())
+		}
+		if g.IsGreenland(e.height) {
+			opt = append(opt, AsyncContractTrieOption())
+		}
+		if g.IsKamchatka(e.height) {
+			opt = append(opt, FixSnapshotOrderOption())
+		}
+		if g.IsLordHowe(e.height) {
+			opt = append(opt, ClearSnapshotsOption())
+		}
+		stateDB := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
 
-		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height),
-			g.IsGreenland(e.height), g.IsKamchatka(e.height),
-			g.IsLordHowe(e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
