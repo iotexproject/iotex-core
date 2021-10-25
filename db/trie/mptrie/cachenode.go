@@ -7,6 +7,8 @@
 package mptrie
 
 import (
+	"fmt"
+
 	"google.golang.org/protobuf/proto"
 )
 
@@ -16,6 +18,11 @@ type cacheNode struct {
 	mpt     *merklePatriciaTrie
 	hashVal []byte
 	ser     []byte
+}
+
+func (cn *cacheNode) Print(indent string) {
+	h, _ := cn.Hash()
+	fmt.Printf("%s%x\n", indent, h)
 }
 
 func (cn *cacheNode) Hash() ([]byte, error) {

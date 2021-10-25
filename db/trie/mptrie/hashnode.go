@@ -6,6 +6,8 @@
 
 package mptrie
 
+import "fmt"
+
 type hashNode struct {
 	node
 	mpt     *merklePatriciaTrie
@@ -49,6 +51,15 @@ func (h *hashNode) Search(key keyType, offset uint8) (node, error) {
 
 func (h *hashNode) LoadNode() (node, error) {
 	return h.loadNode()
+}
+
+func (h *hashNode) Print(indent string) {
+	fmt.Printf("%s%x(hash node)\n", h.hashVal)
+	n, err := h.loadNode()
+	if err != nil {
+		panic("failed to load node")
+	}
+	n.Print(indent)
 }
 
 func (h *hashNode) loadNode() (node, error) {

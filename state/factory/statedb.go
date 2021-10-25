@@ -9,6 +9,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -153,6 +154,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>\nStart SDB\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
@@ -190,8 +192,26 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	default:
 		return err
 	}
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>\nSimulate Execution\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	sc, err := action.NewExecution(
+		"io1zl0el07pek4sly8dmscccnm0etd8xr8j02t4y7",
+		1,
+		big.NewInt(100),
+		10000000000,
+		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
+		nil,
+	)
+	caller, err := address.FromString("io10qth56tn9w53x7vdkkuvl88h65qjsl7vfcjssn")
+	sdb.SimulateExecution(
+		context.Background(),
+		caller,
+		sc,
+		func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+	)
 
-	return nil
+	return errors.New("force quit")
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {

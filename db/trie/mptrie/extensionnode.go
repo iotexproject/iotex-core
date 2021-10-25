@@ -127,6 +127,11 @@ func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
 	return e.child.Search(key, offset+matched)
 }
 
+func (e *extensionNode) Print(indent string) {
+	e.cacheNode.Print(indent)
+	e.child.Print("\t" + indent)
+}
+
 func (e *extensionNode) proto(flush bool) (proto.Message, error) {
 	trieMtc.WithLabelValues("extensionNode", "proto").Inc()
 	if flush {

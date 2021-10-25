@@ -140,6 +140,12 @@ func (mpt *merklePatriciaTrie) Stop(_ context.Context) error {
 	return nil
 }
 
+func (mpt *merklePatriciaTrie) Print() {
+	for _, child := range mpt.root.Children() {
+		child.Print("\t")
+	}
+}
+
 func (mpt *merklePatriciaTrie) RootHash() ([]byte, error) {
 	if mpt.async {
 		if err := mpt.root.Flush(); err != nil {

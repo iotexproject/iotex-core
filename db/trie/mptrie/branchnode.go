@@ -7,6 +7,8 @@
 package mptrie
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -87,6 +89,14 @@ func (b *branchNode) Children() []node {
 	}
 
 	return children
+}
+
+func (b *branchNode) Print(indent string) {
+	h, _ := b.Hash()
+	fmt.Printf("%s%x\n", indent, h)
+	for _, child := range b.children {
+		child.Print("\t" + indent)
+	}
 }
 
 func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {

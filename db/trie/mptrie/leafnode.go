@@ -8,6 +8,7 @@ package mptrie
 
 import (
 	"bytes"
+	"fmt"
 
 	"google.golang.org/protobuf/proto"
 
@@ -115,6 +116,10 @@ func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 	}
 
 	return l, nil
+}
+
+func (l *leafNode) Print(indent string) {
+	fmt.Printf("%s%x:%x\n", indent, l.key, l.value)
 }
 
 func (l *leafNode) proto(_ bool) (proto.Message, error) {

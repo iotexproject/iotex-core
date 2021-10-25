@@ -23,6 +23,7 @@ type (
 		Upsert(keyType, uint8, []byte) (node, error)
 		Hash() ([]byte, error)
 		Flush() error
+		Print(string)
 	}
 
 	serializable interface {

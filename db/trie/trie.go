@@ -47,6 +47,8 @@ type (
 		SetRootHash([]byte) error
 		// IsEmpty returns true is this is an empty trie
 		IsEmpty() bool
+		// Print
+		Print()
 	}
 	// TwoLayerTrie is a trie data structure with two layers
 	TwoLayerTrie interface {
