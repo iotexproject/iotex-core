@@ -89,6 +89,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

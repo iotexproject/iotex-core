@@ -388,6 +388,7 @@ func TestNativeStaking(t *testing.T) {
 	}()
 
 	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

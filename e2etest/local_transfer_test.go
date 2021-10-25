@@ -556,6 +556,7 @@ func newTransferConfig(
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
