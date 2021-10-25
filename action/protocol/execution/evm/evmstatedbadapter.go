@@ -64,9 +64,10 @@ type (
 		preimageSnapshot    map[int]preimageMap
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
-		fixSnapshotOrder    bool
 		sortCachedContracts bool
 		usePendingNonce     bool
+		fixSnapshotOrder    bool
+		clearSnapshots      bool
 	}
 )
 
@@ -96,6 +97,7 @@ func NewStateDBAdapter(
 	notFixTopicCopyBug bool,
 	asyncContractTrie bool,
 	fixSnapshotOrder bool,
+	clearSnapshots bool,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
@@ -114,6 +116,7 @@ func NewStateDBAdapter(
 		notFixTopicCopyBug: notFixTopicCopyBug,
 		asyncContractTrie:  asyncContractTrie,
 		fixSnapshotOrder:   fixSnapshotOrder,
+		clearSnapshots:     clearSnapshots,
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -450,11 +453,21 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	stateDB.suicided = ds
 	if stateDB.fixSnapshotOrder {
 		delete(stateDB.suicideSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.suicideSnapshot[snapshot]; ok {
-				delete(stateDB.suicideSnapshot, i)
-			} else {
-				break
+		if stateDB.clearSnapshots {
+			for i := snapshot + 1; ; i++ {
+				if _, ok := stateDB.suicideSnapshot[i]; ok {
+					delete(stateDB.suicideSnapshot, i)
+				} else {
+					break
+				}
+			}
+		} else {
+			for i := snapshot + 1; ; i++ {
+				if _, ok := stateDB.suicideSnapshot[snapshot]; ok {
+					delete(stateDB.suicideSnapshot, i)
+				} else {
+					break
+				}
 			}
 		}
 	}
@@ -470,11 +483,21 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 	if stateDB.fixSnapshotOrder {
 		delete(stateDB.contractSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.contractSnapshot[snapshot]; ok {
-				delete(stateDB.contractSnapshot, i)
-			} else {
-				break
+		if stateDB.clearSnapshots {
+			for i := snapshot + 1; ; i++ {
+				if _, ok := stateDB.contractSnapshot[i]; ok {
+					delete(stateDB.contractSnapshot, i)
+				} else {
+					break
+				}
+			}
+		} else {
+			for i := snapshot + 1; ; i++ {
+				if _, ok := stateDB.contractSnapshot[snapshot]; ok {
+					delete(stateDB.contractSnapshot, i)
+				} else {
+					break
+				}
 			}
 		}
 	}
@@ -483,11 +506,21 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
 	if stateDB.fixSnapshotOrder {
 		delete(stateDB.preimageSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.preimageSnapshot[snapshot]; ok {
-				delete(stateDB.preimageSnapshot, i)
-			} else {
-				break
+		if stateDB.clearSnapshots {
+			for i := snapshot + 1; ; i++ {
+				if _, ok := stateDB.preimageSnapshot[i]; ok {
+					delete(stateDB.preimageSnapshot, i)
+				} else {
+					break
+				}
+			}
+		} else {
+			for i := snapshot + 1; ; i++ {
+				if _, ok := stateDB.preimageSnapshot[snapshot]; ok {
+					delete(stateDB.preimageSnapshot, i)
+				} else {
+					break
+				}
 			}
 		}
 	}

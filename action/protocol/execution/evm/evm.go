@@ -195,6 +195,7 @@ func ExecuteContract(
 		!g.IsAleutian(blkCtx.BlockHeight),
 		g.IsGreenland(blkCtx.BlockHeight),
 		g.IsKamchatka(blkCtx.BlockHeight),
+		g.IsLordHowe(blkCtx.BlockHeight),
 		actionCtx.ActionHash,
 		opts...,
 	)
