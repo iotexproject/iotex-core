@@ -65,7 +65,7 @@ func defaultConfig() Genesis {
 			IcelandBlockHeight:      12289321,
 			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    13816441,
-			LordHoweBlockHeight:     23816441,
+			LordHoweBlockHeight:     13961881,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
