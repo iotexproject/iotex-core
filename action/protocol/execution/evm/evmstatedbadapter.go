@@ -82,22 +82,6 @@ func SortCachedContractsOption() StateDBAdapterOption {
 	}
 }
 
-// UsePendingNonceOption set usePendingNonce as true
-func UsePendingNonceOption() StateDBAdapterOption {
-	return func(adapter *StateDBAdapter) error {
-		adapter.usePendingNonce = true
-		return nil
-	}
-}
-
-// NotFixTopicCopyBugOption set sort notFixTopicCopyBug as true
-func NotFixTopicCopyBugOption() StateDBAdapterOption {
-	return func(adapter *StateDBAdapter) error {
-		adapter.notFixTopicCopyBug = true
-		return nil
-	}
-}
-
 // AsyncContractTrieOption set asyncContractTrie as true
 func AsyncContractTrieOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
@@ -110,6 +94,22 @@ func AsyncContractTrieOption() StateDBAdapterOption {
 func FixSnapshotOrderOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.fixSnapshotOrder = true
+		return nil
+	}
+}
+
+// UsePendingNonceOption set usePendingNonce as true
+func UsePendingNonceOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.usePendingNonce = true
+		return nil
+	}
+}
+
+// NotFixTopicCopyBugOption set notFixTopicCopyBug as true
+func NotFixTopicCopyBugOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.notFixTopicCopyBug = true
 		return nil
 	}
 }

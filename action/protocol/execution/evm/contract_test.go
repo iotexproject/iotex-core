@@ -66,19 +66,7 @@ func TestCreateContract(t *testing.T) {
 	addr := identityset.Address(28)
 	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
-	opt := []StateDBAdapterOption{}
-	if !cfg.Genesis.IsAleutian(0) {
-		opt = append(opt, NotFixTopicCopyBugOption())
-	}
-	if cfg.Genesis.IsGreenland(0) {
-		opt = append(opt, AsyncContractTrieOption())
-	}
-	if cfg.Genesis.IsKamchatka(0) {
-		opt = append(opt, FixSnapshotOrderOption())
-	}
-	if cfg.Genesis.IsLordHowe(0) {
-		opt = append(opt, ClearSnapshotsOption())
-	}
+	opt := []StateDBAdapterOption{NotFixTopicCopyBugOption()}
 	stateDB := NewStateDBAdapter(sm, 0, hash.ZeroHash256, opt...)
 
 	contract := addr.Bytes()
