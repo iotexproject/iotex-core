@@ -67,7 +67,7 @@ type (
 		StandardV        string  `json:"standardV"`
 		Condition        string  `json:"condition"`
 		Creates          string  `json:"creates"`
-		ChainId          string  `json:"chainId"`
+		ChainID          string  `json:"chainId"`
 		PublicKey        string  `json:"publicKey"`
 	}
 )
@@ -245,7 +245,7 @@ func (h *web3Utils) getBlockWithTransactions(svr *Server, blkMeta *iotextypes.Bl
 	}
 }
 
-func (h *web3Utils) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainId uint32) transactionObject {
+func (h *web3Utils) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, chainID uint32) transactionObject {
 	if h.errMsg != nil {
 		return transactionObject{}
 	}
@@ -297,16 +297,16 @@ func (h *web3Utils) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo, c
 		S:                byteToHex(actInfo.Action.Signature[32:64]),
 		V:                uint64ToHex(vVal),
 		StandardV:        uint64ToHex(vVal),
-		ChainId:          uint64ToHex(uint64(chainId)),
+		ChainID:          uint64ToHex(uint64(chainID)),
 		PublicKey:        byteToHex(actInfo.Action.SenderPubKey),
 	}
 }
 
-func (h *web3Utils) getTransactionCreateFromActionInfo(svr *Server, actInfo *iotexapi.ActionInfo, chainId uint32) transactionObject {
+func (h *web3Utils) getTransactionCreateFromActionInfo(svr *Server, actInfo *iotexapi.ActionInfo, chainID uint32) transactionObject {
 	if h.errMsg != nil {
 		return transactionObject{}
 	}
-	tx := h.getTransactionFromActionInfo(actInfo, chainId)
+	tx := h.getTransactionFromActionInfo(actInfo, chainID)
 	if h.errMsg != nil {
 		return transactionObject{}
 	}
@@ -327,7 +327,7 @@ func (h *web3Utils) getTransactionCreateFromActionInfo(svr *Server, actInfo *iot
 }
 
 // DecodeRawTx() decode raw data string into eth tx
-func (h *web3Utils) DecodeRawTx(rawData string, chainId uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey) {
+func (h *web3Utils) DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey) {
 	if h.errMsg != nil {
 		return
 	}
@@ -347,7 +347,7 @@ func (h *web3Utils) DecodeRawTx(rawData string, chainId uint32) (tx *types.Trans
 
 	// extract signature and recover pubkey
 	v, r, s := tx.RawSignatureValues()
-	recID := uint32(v.Int64()) - 2*chainId - 8
+	recID := uint32(v.Int64()) - 2*chainID - 8
 	sig = make([]byte, 64, 65)
 	rSize := len(r.Bytes())
 	copy(sig[32-rSize:32], r.Bytes())
@@ -356,7 +356,7 @@ func (h *web3Utils) DecodeRawTx(rawData string, chainId uint32) (tx *types.Trans
 	sig = append(sig, byte(recID))
 
 	// recover public key
-	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainId))).Hash(tx)
+	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
 	pubkey, h.errMsg = crypto.RecoverPubkey(rawHash[:], sig)
 	return
 }
