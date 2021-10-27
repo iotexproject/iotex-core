@@ -13,6 +13,7 @@ import (
 var (
 	errorResponderAdded    = errors.New("Responder already added")
 	errorKeyIsNotResponder = errors.New("key does not implement Responder interface")
+	errorCapacityReached   = errors.New("capacity has been reached")
 )
 
 type (
@@ -26,13 +27,15 @@ type (
 
 	// chainListener implements the Listener interface
 	chainListener struct {
+		capacity  int
 		streamMap *cache.ThreadSafeLruCache // all registered <Responder, chan error>
 	}
 )
 
 // NewChainListener returns a new blockchain chainListener
-func NewChainListener() Listener {
+func NewChainListener(c int) Listener {
 	return &chainListener{
+		capacity:  c,
 		streamMap: cache.NewThreadSafeLruCache(0),
 	}
 }
@@ -67,10 +70,12 @@ func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 			log.L().Error("streamMap stores a key which is not a Responder")
 			return errorKeyIsNotResponder
 		}
-		if err := r.Respond(blk); err != nil {
+		err := r.Respond(blk)
+		if err != nil {
 			log.L().Error("responder failed to process block", zap.Error(err))
+
 		}
-		return nil
+		return err
 	})
 	return nil
 }
@@ -80,6 +85,9 @@ func (cl *chainListener) AddResponder(r Responder) error {
 	_, loaded := cl.streamMap.Get(r)
 	if loaded {
 		return errorResponderAdded
+	}
+	if cl.streamMap.Len() >= cl.capacity {
+		return errorCapacityReached
 	}
 	cl.streamMap.Add(r, struct{}{})
 	return nil

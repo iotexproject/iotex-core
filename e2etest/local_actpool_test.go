@@ -183,6 +183,7 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
 
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

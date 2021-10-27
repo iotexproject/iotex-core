@@ -18,23 +18,16 @@ import (
 
 // test for chainListener
 func TestChainListener(t *testing.T) {
+	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
 	responder := mock_apiresponder.NewMockResponder(ctrl)
-	listener := NewChainListener()
+	listener := NewChainListener(1)
+	r.NoError(listener.Start())
+	r.NoError(listener.Stop())
 
-	err := listener.Start()
-	require.NoError(t, err)
-
-	err = listener.Stop()
-	require.NoError(t, err)
-
-	err = listener.AddResponder(responder)
-	require.NoError(t, err)
-
-	err = listener.AddResponder(responder)
-	require.Error(t, err)
-	require.Equal(t, errorResponderAdded, err)
+	r.NoError(listener.AddResponder(responder))
+	r.Equal(errorResponderAdded, listener.AddResponder(responder))
 
 	block := &block.Block{
 		Header: block.Header{},
@@ -42,16 +35,14 @@ func TestChainListener(t *testing.T) {
 		Footer: block.Footer{},
 	}
 	responder.EXPECT().Respond(gomock.Any()).Return(nil).Times(1)
-	err = listener.ReceiveBlock(block)
-	require.NoError(t, err)
+	r.NoError(listener.ReceiveBlock(block))
 
 	responder.EXPECT().Respond(gomock.Any()).Return(errorKeyIsNotResponder).Times(1)
-	err = listener.ReceiveBlock(block)
-	require.NoError(t, err)
+	r.NoError(listener.ReceiveBlock(block))
 
 	responder.EXPECT().Exit().Return().Times(1)
-	err = listener.AddResponder(responder)
-	require.Equal(t, errorResponderAdded, err)
-	err = listener.Stop()
-	require.NoError(t, err)
+	r.NoError(listener.AddResponder(responder))
+	responder1 := mock_apiresponder.NewMockResponder(ctrl)
+	r.Equal(errorCapacityReached, listener.AddResponder(responder1))
+	r.NoError(listener.Stop())
 }

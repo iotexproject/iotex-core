@@ -73,8 +73,8 @@ func (rc *ReadCache) Clear() {
 	rc.lock.Unlock()
 }
 
-// Respond implements the Responder interface
-func (rc *ReadCache) Respond(*block.Block) error {
+// ReceiveBlock receives the new block
+func (rc *ReadCache) ReceiveBlock(*block.Block) error {
 	// invalidate the cache at every new block
 	rc.Clear()
 	return nil
