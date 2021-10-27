@@ -458,7 +458,7 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddr := identityset.Address(i + numNodes)
-		rewardAddrStr := identityset.Address(i + numNodes).String()
+		rewardAddrStr := rewardAddr.String()
 		endState, err := accountutil.AccountState(sfs[0], rewardAddr)
 		require.NoError(t, err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())

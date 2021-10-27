@@ -1708,9 +1708,9 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, ap, t)
 
-	addr, err := address.FromString(contract)
+	contractAddr, err := address.FromString(contract)
 	require.NoError(err)
-	account, err := accountutil.AccountState(sf, addr)
+	account, err := accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the original balance
 	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
@@ -1719,7 +1719,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	require.Equal(expect, balance)
 	// make a transfer for contract
 	makeTransfer(contract, bc, ap, t)
-	account, err = accountutil.AccountState(sf, addr)
+	account, err = accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the balance after transfer
 	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
@@ -1729,10 +1729,10 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 
 	// check the the original balance again
 	if statetx {
-		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), addr)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.True(errors.Cause(err) == factory.ErrNotSupported)
 	} else {
-		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), addr)
+		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.NoError(err)
 		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)

@@ -236,17 +236,17 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
 func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
+	addrStr, err := address.FromString(addr)
+	if err != nil {
+		return 0, err
+	}
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	addr1, err := address.FromString(addr)
-	if err != nil {
-		return 0, err
-	}
-	confirmedState, err := accountutil.AccountState(ap.sf, addr1)
+	confirmedState, err := accountutil.AccountState(ap.sf, addrStr)
 	if err != nil {
 		return 0, err
 	}
