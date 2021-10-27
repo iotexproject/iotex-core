@@ -117,11 +117,11 @@ var (
 )
 
 func gasPrice(svr *Server, in interface{}) (interface{}, error) {
-	val, err := svr.suggestGasPrice()
+	ret, err := svr.SuggestGasPrice(context.Background(), nil)
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(val), nil
+	return uint64ToHex(ret.GasPrice), nil
 }
 
 func getChainID(svr *Server, in interface{}) (interface{}, error) {
@@ -163,12 +163,14 @@ func getBalance(svr *Server, in interface{}) (interface{}, error) {
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	accountMeta, _, err := svr.getAccount(ioAddr)
+	accountMeta, err := svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
+		Address: ioAddr,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return web3Util.intStrToHex(accountMeta.Balance), web3Util.errMsg
+	return web3Util.intStrToHex(accountMeta.AccountMeta.Balance), web3Util.errMsg
 }
 
 func getTransactionCount(svr *Server, in interface{}) (interface{}, error) {
@@ -178,11 +180,13 @@ func getTransactionCount(svr *Server, in interface{}) (interface{}, error) {
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	accountMeta, _, err := svr.getAccount(ioAddr)
+	accountMeta, err := svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
+		Address: ioAddr,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(accountMeta.PendingNonce), nil
+	return uint64ToHex(accountMeta.AccountMeta.PendingNonce), nil
 }
 
 func call(svr *Server, in interface{}) (interface{}, error) {
@@ -195,11 +199,20 @@ func call(svr *Server, in interface{}) (interface{}, error) {
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	ret, _, err := svr.readContract(from, to, value, gasLimit, data)
+	ret, err := svr.ReadContract(context.Background(), &iotexapi.ReadContractRequest{
+		Execution: &iotextypes.Execution{
+			Amount:   value.String(),
+			Contract: to,
+			Data:     data,
+		},
+		CallerAddress: from,
+		GasLimit:      gasLimit,
+		GasPrice:      "",
+	})
 	if err != nil {
 		return nil, err
 	}
-	return "0x" + hex.EncodeToString(ret), nil
+	return "0x" + ret.Data, nil
 }
 
 func estimateGas(svr *Server, in interface{}) (interface{}, error) {
@@ -217,11 +230,12 @@ func estimateGas(svr *Server, in interface{}) (interface{}, error) {
 		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	} else {
 		// execution
-		ret, err := svr.estimateActionGasConsumptionForExecution(&iotextypes.Execution{
-			Amount:   value.String(),
-			Contract: to,
-			Data:     data,
-		}, from)
+		ret, err := svr.estimateActionGasConsumptionForExecution(context.Background(),
+			&iotextypes.Execution{
+				Amount:   value.String(),
+				Contract: to,
+				Data:     data,
+			}, from)
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +256,6 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 		return nil, web3Util.errMsg
 	}
 
-	// TODO: new a proto
 	req := &iotexapi.SendActionRequest{
 		Action: &iotextypes.Action{
 			Core: &iotextypes.ActionCore{
@@ -302,11 +315,13 @@ func getCode(svr *Server, in interface{}) (interface{}, error) {
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	accountMeta, _, err := svr.getAccount(ioAddr)
+	accountMeta, err := svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
+		Address: ioAddr,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
+	return "0x" + hex.EncodeToString(accountMeta.AccountMeta.ContractByteCode), nil
 }
 
 func getNodeInfo(svr *Server, in interface{}) (interface{}, error) {
@@ -352,7 +367,7 @@ func getBlockTransactionCountByHash(svr *Server, in interface{}) (interface{}, e
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(uint64(ret[0].NumActions)), nil
+	return uint64ToHex(uint64(ret.BlkMetas[0].NumActions)), nil
 }
 
 func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
@@ -362,12 +377,12 @@ func getBlockByHash(svr *Server, in interface{}) (interface{}, error) {
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	blkMeta, err := svr.getBlockMetaByHash(removeHexPrefix(h))
+	ret, err := svr.getBlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
 		return nil, err
 	}
 
-	blk := web3Util.getBlockWithTransactions(svr, blkMeta[0], isDetailed)
+	blk := web3Util.getBlockWithTransactions(svr, ret.BlkMetas[0], isDetailed)
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
@@ -380,7 +395,7 @@ func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	ret, err := svr.getSingleAction(removeHexPrefix(h), true)
+	ret, err := svr.getSingleAction(context.Background(), removeHexPrefix(h), true)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +439,7 @@ func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
 		contractAddr = &res
 	}
 
-	act, err := svr.getSingleAction(removeHexPrefix(h), true)
+	act, err := svr.getSingleAction(context.Background(), removeHexPrefix(h), true)
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +504,7 @@ func getTransactionByBlockHashAndIndex(svr *Server, in interface{}) (interface{}
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
-	ret, err := svr.getActionsByBlock(removeHexPrefix(h), idx, 1)
+	ret, err := svr.getActionsByBlock(context.Background(), removeHexPrefix(h), idx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +528,7 @@ func getTransactionByBlockNumberAndIndex(svr *Server, in interface{}) (interface
 	if err != nil {
 		return nil, err
 	}
-	ret, err := svr.getActionsByBlock(blkMeta.BlkMetas[0].Hash, idx, 1)
+	ret, err := svr.getActionsByBlock(context.Background(), blkMeta.BlkMetas[0].Hash, idx, 1)
 	if err != nil {
 		return nil, err
 	}

@@ -196,7 +196,7 @@ func (h *web3Utils) getBlockWithTransactions(svr *Server, blkMeta *iotextypes.Bl
 	var transactions []interface{}
 	if blkMeta.Height > 0 {
 		var ret *iotexapi.GetActionsResponse
-		ret, h.errMsg = svr.getActionsByBlock(blkMeta.Hash, 0, svr.cfg.API.RangeQueryLimit)
+		ret, h.errMsg = svr.getActionsByBlock(context.Background(), blkMeta.Hash, 0, svr.cfg.API.RangeQueryLimit)
 		if h.errMsg != nil {
 			return nil
 		}
@@ -379,12 +379,14 @@ func (h *web3Utils) isContractAddr(svr *Server, addr string) bool {
 	if h.errMsg != nil {
 		return false
 	}
-	var accountMeta *iotextypes.AccountMeta
-	accountMeta, _, h.errMsg = svr.getAccount(addr)
+	var accountMeta *iotexapi.GetAccountResponse
+	accountMeta, h.errMsg = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{
+		Address: addr,
+	})
 	if h.errMsg != nil {
 		return false
 	}
-	return accountMeta.IsContract
+	return accountMeta.AccountMeta.IsContract
 }
 
 func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []string, topics [][]string) ([]logsObject, error) {

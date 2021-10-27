@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -861,13 +860,13 @@ func TestServer_GetAccount(t *testing.T) {
 	require.Error(err)
 
 	// success: reward pool
-	accountMeta2, _, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
 	require.NoError(err)
-	require.Equal(address.RewardingPoolAddr, accountMeta2.Address)
-	require.Equal("200000000000000000000101000", accountMeta2.Balance)
+	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
+	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
 
 	//failure: protocol staking isn't registered
-	_, _, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
 	require.Contains(err.Error(), "protocol staking isn't registered")
 }
 
@@ -1396,6 +1395,7 @@ func TestServer_GetServerMeta(t *testing.T) {
 	}()
 
 	resProto, err := svr.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	require.NoError(err)
 	res := resProto.GetServerMeta()
 	require.Equal(res.BuildTime, version.BuildTime)
 	require.Equal(res.GoVersion, version.GoVersion)
@@ -2690,22 +2690,14 @@ func createServer(cfg config.Config, needActPool bool) (*Server, string, error) 
 		}
 	}
 
-	svr := &Server{
-		bc:             bc,
-		sf:             sf,
-		dao:            dao,
-		indexer:        indexer,
-		bfIndexer:      bfIndexer,
-		ap:             ap,
-		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
-		registry:       registry,
-		hasActionIndex: true,
-		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
-			return nil
-		},
+	svr, err := NewServer(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
+	if err != nil {
+		return nil, "", err
 	}
 	svr.hasActionIndex = true
+	svr.broadcastHandler = func(_ context.Context, _ uint32, _ proto.Message) error {
+		return nil
+	}
 	return svr, bfIndexFile, nil
 }
 

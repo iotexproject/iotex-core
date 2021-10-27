@@ -202,43 +202,31 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	accountMeta, blockIdentifier, err := api.getAccount(in.Address)
+	if in.Address == address.RewardingPoolAddr || in.Address == address.StakingBucketPoolAddr {
+		return api.getProtocolAccount(ctx, in.Address)
+	}
+
+	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	pendingNonce, err := api.ap.GetPendingNonce(in.Address)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if api.indexer == nil {
+		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+	addr, err := address.FromString(in.Address)
 	if err != nil {
 		return nil, err
 	}
-	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta, BlockIdentifier: blockIdentifier}, nil
-}
-
-func (api *Server) getAccount(addrSrr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
-	if addrSrr == address.RewardingPoolAddr || addrSrr == address.StakingBucketPoolAddr {
-		accountMeta, blockIdentifier, err := api.getProtocolAccount(context.Background(), addrSrr)
-		if err != nil {
-			return nil, nil, status.Error(codes.Internal, err.Error())
-		}
-		return accountMeta, blockIdentifier, nil
-	}
-
-	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, addrSrr)
-	if err != nil {
-		return nil, nil, status.Error(codes.NotFound, err.Error())
-	}
-	pendingNonce, err := api.ap.GetPendingNonce(addrSrr)
-	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
-	}
-	if api.indexer == nil {
-		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	addr, err := address.FromString(addrSrr)
-	if err != nil {
-		return nil, nil, err
-	}
 	numActions, err := api.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
-		return nil, nil, status.Error(codes.NotFound, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	accountMeta := &iotextypes.AccountMeta{
-		Address:      addrSrr,
+		Address:      in.Address,
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
@@ -249,21 +237,19 @@ func (api *Server) getAccount(addrSrr string) (*iotextypes.AccountMeta, *iotexty
 		var code evm.SerializableBytes
 		_, err = api.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
-			return nil, nil, status.Error(codes.NotFound, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		accountMeta.ContractByteCode = code
 	}
 	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
-		return nil, nil, status.Error(codes.NotFound, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	hash := header.HashBlock()
-	return accountMeta,
-		&iotextypes.BlockIdentifier{
-			Hash:   hex.EncodeToString(hash[:]),
-			Height: tipHeight,
-		},
-		nil
+	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta, BlockIdentifier: &iotextypes.BlockIdentifier{
+		Hash:   hex.EncodeToString(hash[:]),
+		Height: tipHeight,
+	}}, nil
 }
 
 // GetActions returns actions
@@ -300,14 +286,7 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 		return api.getBlockMetas(request.Start, request.Count)
 	case in.GetByHash() != nil:
 		request := in.GetByHash()
-		ret, err := api.getBlockMetaByHash(request.BlkHash)
-		if err != nil {
-			return nil, err
-		}
-		return &iotexapi.GetBlockMetasResponse{
-			Total:    1,
-			BlkMetas: ret,
-		}, nil
+		return api.getBlockMetaByHash(request.BlkHash)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -509,51 +488,53 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
+	if d, ok := api.readCache.Get(key); ok {
+		res := iotexapi.ReadContractResponse{}
+		if err := proto.Unmarshal(d, &res); err == nil {
+			return &res, nil
+		}
+	}
 
-	retval, receipt, err := api.readContract(in.CallerAddress, sc.Contract(), sc.Amount(), in.GasLimit, sc.Data())
+	if in.CallerAddress == action.EmptyAddress {
+		in.CallerAddress = address.ZeroAddress
+	}
+	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	callerAddr, _ := address.FromString(in.CallerAddress)
+	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &iotexapi.ReadContractResponse{
-		Data:    hex.EncodeToString(retval),
-		Receipt: receipt.ConvertToReceiptPb(),
-	}, nil
-}
-
-func (api *Server) readContract(txFrom string, txTo string, value *big.Int, txGasLimit uint64, data []byte) ([]byte, *action.Receipt, error) {
-	if txFrom == action.EmptyAddress {
-		txFrom = address.ZeroAddress
-	}
-	state, err := accountutil.AccountState(api.sf, txFrom)
-	if err != nil {
-		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	callerAddr, _ := address.FromString(txFrom)
-
-	ctx, err := api.bc.Context(context.Background())
-	if err != nil {
-		return nil, nil, err
-	}
 
 	gasLimit := api.cfg.Genesis.BlockGasLimit
-	if txGasLimit != 0 && txGasLimit < gasLimit {
-		gasLimit = txGasLimit
+	if in.GasLimit != 0 && in.GasLimit < gasLimit {
+		gasLimit = in.GasLimit
 	}
-	exec, _ := action.NewExecution(
-		txTo,
+	sc, _ = action.NewExecution(
+		sc.Contract(),
 		state.Nonce+1,
-		value,
+		sc.Amount(),
 		gasLimit,
 		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
-		data,
+		sc.Data(),
 	)
-	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, exec, api.dao.GetBlockHash)
+	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
-		return nil, nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	// ReadContract() is read-only, if no error returned, we consider it a success
 	receipt.Status = uint64(iotextypes.ReceiptStatus_Success)
-	return retval, receipt, nil
+	res := iotexapi.ReadContractResponse{
+		Data:    hex.EncodeToString(retval),
+		Receipt: receipt.ConvertToReceiptPb(),
+	}
+	if d, err := proto.Marshal(&res); err == nil {
+		api.readCache.Put(key, d)
+	}
+	return &res, nil
 }
 
 // ReadState reads state on blockchain
@@ -585,15 +566,11 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // SuggestGasPrice suggests gas price
 func (api *Server) SuggestGasPrice(ctx context.Context, in *iotexapi.SuggestGasPriceRequest) (*iotexapi.SuggestGasPriceResponse, error) {
-	suggestPrice, err := api.suggestGasPrice()
+	suggestPrice, err := api.gs.SuggestGasPrice()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.SuggestGasPriceResponse{GasPrice: suggestPrice}, nil
-}
-
-func (api *Server) suggestGasPrice() (uint64, error) {
-	return api.gs.SuggestGasPrice()
 }
 
 // EstimateGasForAction estimates gas for action
@@ -1361,7 +1338,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 }
 
 // getBlockMeta returns blockmetas response by block hash
-func (api *Server) getBlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, error) {
+func (api *Server) getBlockMetaByHash(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1377,7 +1354,10 @@ func (api *Server) getBlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, 
 	if err != nil {
 		return nil, err
 	}
-	return []*iotextypes.BlockMeta{blockMeta}, nil
+	return &iotexapi.GetBlockMetasResponse{
+		Total:    1,
+		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
+	}, nil
 }
 
 // getBlockMetaByHeight gets BlockMeta by height
@@ -1760,7 +1740,7 @@ func (api *Server) getProductivityByEpoch(
 	return num, produce, nil
 }
 
-func (api *Server) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (api *Server) getProtocolAccount(ctx context.Context, addr string) (ret *iotexapi.GetAccountResponse, err error) {
 	var req *iotexapi.ReadStateRequest
 	var balance string
 	var out *iotexapi.ReadStateResponse
@@ -1770,13 +1750,14 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (*iotext
 			ProtocolID: []byte("rewarding"),
 			MethodName: []byte("TotalBalance"),
 		}
-		out, err := api.ReadState(ctx, req)
+		out, err = api.ReadState(ctx, req)
 		if err != nil {
-			return nil, nil, err
+			return
 		}
 		val, ok := big.NewInt(0).SetString(string(out.GetData()), 10)
 		if !ok {
-			return nil, nil, errors.New("balance convert error")
+			err = errors.New("balance convert error")
+			return
 		}
 		balance = val.String()
 	case address.StakingBucketPoolAddr:
@@ -1784,7 +1765,7 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (*iotext
 			Method: iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		arg, err := proto.Marshal(&iotexapi.ReadStakingDataRequest{
 			Request: &iotexapi.ReadStakingDataRequest_TotalStakingAmount_{
@@ -1792,7 +1773,7 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (*iotext
 			},
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		req = &iotexapi.ReadStateRequest{
 			ProtocolID: []byte("staking"),
@@ -1801,21 +1782,23 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (*iotext
 		}
 		out, err = api.ReadState(ctx, req)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		acc := iotextypes.AccountMeta{}
 		if err := proto.Unmarshal(out.GetData(), &acc); err != nil {
-			return nil, nil, errors.Wrap(err, "failed to unmarshal account meta")
+			return nil, errors.Wrap(err, "failed to unmarshal account meta")
 		}
 		balance = acc.GetBalance()
 	}
 
-	return &iotextypes.AccountMeta{
+	ret = &iotexapi.GetAccountResponse{
+		AccountMeta: &iotextypes.AccountMeta{
 			Address: addr,
 			Balance: balance,
 		},
-		out.GetBlockIdentifier(),
-		nil
+		BlockIdentifier: out.GetBlockIdentifier(),
+	}
+	return
 }
 
 // GetActPoolActions returns the all Transaction Identifiers in the mempool
