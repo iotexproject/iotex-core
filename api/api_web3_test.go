@@ -411,13 +411,13 @@ func TestGetFilterChanges(t *testing.T) {
 		map[string]interface{}{
 			"fromBlock": "0x1",
 		}}
-	filterId1, _ := newFilter(nil, filterReq)
-	ret, err := getFilterChanges(svr, []interface{}{filterId1})
+	filterID1, _ := newFilter(nil, filterReq)
+	ret, err := getFilterChanges(svr, []interface{}{filterID1})
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)
 
-	filterId2, _ := newBlockFilter(svr, nil)
-	ret2, err := getFilterChanges(svr, []interface{}{filterId2})
+	filterID2, _ := newBlockFilter(svr, nil)
+	ret2, err := getFilterChanges(svr, []interface{}{filterID2})
 	require.NoError(err)
 	require.Equal(len(ret2.([]interface{})), 0)
 }
@@ -435,8 +435,8 @@ func TestGetFilterLogs(t *testing.T) {
 		map[string]interface{}{
 			"fromBlock": "0x1",
 		}}
-	filterId, _ := newFilter(nil, filterReq)
-	testData := []interface{}{filterId}
+	filterID, _ := newFilter(nil, filterReq)
+	testData := []interface{}{filterID}
 	ret, err := getFilterLogs(svr, testData)
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)

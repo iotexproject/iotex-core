@@ -76,7 +76,7 @@ var (
 		"eth_getCode":                             getCode,
 		"eth_protocolVersion":                     getProtocolVersion,
 		"web3_clientVersion":                      getNodeInfo,
-		"net_version":                             getNetworkId,
+		"net_version":                             getNetworkID,
 		"net_peerCount":                           getPeerCount,
 		"net_listening":                           isListening,
 		"eth_syncing":                             isSyncing,
@@ -329,7 +329,7 @@ func getNodeInfo(svr *Server, in interface{}) (interface{}, error) {
 	return ret.ServerMeta.PackageVersion + "/" + ret.ServerMeta.GoVersion, nil
 }
 
-func getNetworkId(svr *Server, in interface{}) (interface{}, error) {
+func getNetworkID(svr *Server, in interface{}) (interface{}, error) {
 	return config.EVMNetworkID(), nil
 }
 
