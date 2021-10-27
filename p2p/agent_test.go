@@ -28,7 +28,7 @@ func TestBroadcast(t *testing.T) {
 
 	ctx := context.Background()
 	n := 10
-	agents := make([]*Agent, 0)
+	agents := make([]Agent, 0)
 	defer func() {
 		var err error
 		for _, agent := range agents {
@@ -108,7 +108,7 @@ func TestUnicast(t *testing.T) {
 
 	ctx := context.Background()
 	n := 10
-	agents := make([]*Agent, 0)
+	agents := make([]Agent, 0)
 	defer func() {
 		var err error
 		for _, agent := range agents {
