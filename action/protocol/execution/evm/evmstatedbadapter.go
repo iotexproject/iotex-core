@@ -82,18 +82,18 @@ func SortCachedContractsOption() StateDBAdapterOption {
 	}
 }
 
-// AsyncContractTrieOption set asyncContractTrie as true
-func AsyncContractTrieOption() StateDBAdapterOption {
+// NotFixTopicCopyBugOption set notFixTopicCopyBug as true
+func NotFixTopicCopyBugOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.asyncContractTrie = true
+		adapter.notFixTopicCopyBug = true
 		return nil
 	}
 }
 
-// FixSnapshotOrderOption set fixSnapshotOrder as true
-func FixSnapshotOrderOption() StateDBAdapterOption {
+// AsyncContractTrieOption set asyncContractTrie as true
+func AsyncContractTrieOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.fixSnapshotOrder = true
+		adapter.asyncContractTrie = true
 		return nil
 	}
 }
@@ -106,10 +106,10 @@ func UsePendingNonceOption() StateDBAdapterOption {
 	}
 }
 
-// NotFixTopicCopyBugOption set notFixTopicCopyBug as true
-func NotFixTopicCopyBugOption() StateDBAdapterOption {
+// FixSnapshotOrderOption set fixSnapshotOrder as true
+func FixSnapshotOrderOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.notFixTopicCopyBug = true
+		adapter.fixSnapshotOrder = true
 		return nil
 	}
 }
