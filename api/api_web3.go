@@ -251,7 +251,7 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 	var web3Util web3Utils
 	// parse raw data string from json request
 	dataInString := web3Util.getStringFromArray(in, 0)
-	tx, sig, pubkey := web3Util.DecodeRawTx(dataInString, svr.bc.ChainID())
+	tx, sig, pubkey := web3Util.DecodeRawTx(dataInString, config.EVMNetworkID())
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
@@ -400,7 +400,7 @@ func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
+	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], config.EVMNetworkID())
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
@@ -443,7 +443,7 @@ func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx := web3Util.getTransactionFromActionInfo(act.ActionInfo[0], svr.bc.ChainID())
+	tx := web3Util.getTransactionFromActionInfo(act.ActionInfo[0], config.EVMNetworkID())
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
@@ -508,7 +508,7 @@ func getTransactionByBlockHashAndIndex(svr *Server, in interface{}) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
+	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], config.EVMNetworkID())
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}
@@ -532,7 +532,7 @@ func getTransactionByBlockNumberAndIndex(svr *Server, in interface{}) (interface
 	if err != nil {
 		return nil, err
 	}
-	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], svr.bc.ChainID())
+	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], config.EVMNetworkID())
 	if web3Util.errMsg != nil {
 		return nil, web3Util.errMsg
 	}

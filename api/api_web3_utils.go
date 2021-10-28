@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -29,24 +30,27 @@ type (
 		errMsg error
 	}
 	blockObject struct {
-		Number           string        `json:"number,omitempty"`
-		Hash             string        `json:"hash,omitempty"`
-		ParentHash       string        `json:"parentHash,omitempty"`
-		Sha3Uncles       string        `json:"sha3Uncles,omitempty"`
-		LogsBloom        string        `json:"logsBloom,omitempty"`
-		TransactionsRoot string        `json:"transactionsRoot,omitempty"`
-		StateRoot        string        `json:"stateRoot,omitempty"`
-		ReceiptsRoot     string        `json:"receiptsRoot,omitempty"`
-		Miner            string        `json:"miner,omitempty"`
-		Difficulty       string        `json:"difficulty,omitempty"`
-		TotalDifficulty  string        `json:"totalDifficulty,omitempty"`
-		ExtraData        string        `json:"extraData,omitempty"`
-		Size             string        `json:"size,omitempty"`
-		GasLimit         string        `json:"gasLimit,omitempty"`
-		GasUsed          string        `json:"gasUsed,omitempty"`
-		Timestamp        string        `json:"timestamp,omitempty"`
-		Transactions     []interface{} `json:"transactions,omitempty"`
-		Uncles           []string      `json:"uncles,omitempty"`
+		Author           string        `json:"author"`
+		Number           string        `json:"number"`
+		Hash             string        `json:"hash"`
+		ParentHash       string        `json:"parentHash"`
+		Sha3Uncles       string        `json:"sha3Uncles"`
+		LogsBloom        string        `json:"logsBloom"`
+		TransactionsRoot string        `json:"transactionsRoot"`
+		StateRoot        string        `json:"stateRoot"`
+		ReceiptsRoot     string        `json:"receiptsRoot"`
+		Miner            string        `json:"miner"`
+		Difficulty       string        `json:"difficulty"`
+		TotalDifficulty  string        `json:"totalDifficulty"`
+		ExtraData        string        `json:"extraData"`
+		Size             string        `json:"size"`
+		GasLimit         string        `json:"gasLimit"`
+		GasUsed          string        `json:"gasUsed"`
+		Timestamp        string        `json:"timestamp"`
+		Transactions     []interface{} `json:"transactions"`
+		Signature        string        `json:"signature"`
+		Step             string        `json:"step"`
+		Uncles           []string      `json:"uncles"`
 	}
 
 	transactionObject struct {
@@ -101,6 +105,9 @@ func (h *web3Utils) ethAddrToIoAddr(ethAddr string) string {
 func (h *web3Utils) ioAddrToEthAddr(ioAddr string) string {
 	if h.errMsg != nil {
 		return ""
+	}
+	if len(ioAddr) == 0 {
+		return "0x0000000000000000000000000000000000000000"
 	}
 	var addr common.Address
 	addr, h.errMsg = util.IoAddrToEvmAddr(ioAddr)
@@ -203,7 +210,7 @@ func (h *web3Utils) getBlockWithTransactions(svr *Server, blkMeta *iotextypes.Bl
 
 		for _, v := range ret.ActionInfo {
 			if isDetailed {
-				tx := h.getTransactionFromActionInfo(v, svr.bc.ChainID())
+				tx := h.getTransactionFromActionInfo(v, config.EVMNetworkID())
 				transactions = append(transactions, tx)
 			} else {
 				transactions = append(transactions, "0x"+v.ActHash)
@@ -220,10 +227,12 @@ func (h *web3Utils) getBlockWithTransactions(svr *Server, blkMeta *iotextypes.Bl
 		bloom = blkMeta.LogsBloom
 	}
 	miner := h.ioAddrToEthAddr(blkMeta.ProducerAddress)
+	author := h.ioAddrToEthAddr(blkMeta.ProducerAddress)
 	if h.errMsg != nil {
 		return nil
 	}
 	return &blockObject{
+		Author:           author,
 		Number:           uint64ToHex(blkMeta.Height),
 		Hash:             "0x" + blkMeta.Hash,
 		ParentHash:       "0x" + blkMeta.PreviousBlockHash,
@@ -241,6 +250,8 @@ func (h *web3Utils) getBlockWithTransactions(svr *Server, blkMeta *iotextypes.Bl
 		GasUsed:          uint64ToHex(blkMeta.GasUsed),
 		Timestamp:        uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
 		Transactions:     transactions,
+		Step:             "373422302",
+		Signature:        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		Uncles:           []string{},
 	}
 }
@@ -456,9 +467,6 @@ func getLogsWithFilter(svr *Server, fromBlock string, toBlock string, addrs []st
 }
 
 func byteToHex(b []byte) string {
-	if len(b) == 0 {
-		return ""
-	}
 	return "0x" + hex.EncodeToString(b)
 }
 
