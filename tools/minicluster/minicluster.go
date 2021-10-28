@@ -102,6 +102,7 @@ func main() {
 		HTTPAdminPort := 9009 + i
 		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
+		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Chain.BloomfilterIndexDBPath = bloomfilterIndexDBPath

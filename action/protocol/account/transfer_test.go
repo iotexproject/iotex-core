@@ -114,9 +114,11 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 		})
 
-		sender, err := accountutil.AccountState(sm, v.caller.String())
+		sender, err := accountutil.AccountState(sm, v.caller)
 		require.NoError(err)
-		recipient, err := accountutil.AccountState(sm, v.recipient)
+		addr, err := address.FromString(v.recipient)
+		require.NoError(err)
+		recipient, err := accountutil.AccountState(sm, addr)
 		require.NoError(err)
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
@@ -126,7 +128,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		if err != nil {
 			require.Nil(receipt)
 			// sender balance/nonce remains the same in case of error
-			newSender, err := accountutil.AccountState(sm, v.caller.String())
+			newSender, err := accountutil.AccountState(sm, v.caller)
 			require.NoError(err)
 			require.Equal(sender.Balance, newSender.Balance)
 			require.Equal(sender.Nonce, newSender.Nonce)
@@ -138,13 +140,15 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) && !v.isContract {
 			gasFee.Add(gasFee, v.amount)
 			// verify recipient
-			newRecipient, err := accountutil.AccountState(sm, v.recipient)
+			addr, err := address.FromString(v.recipient)
+			require.NoError(err)
+			newRecipient, err := accountutil.AccountState(sm, addr)
 			require.NoError(err)
 			recipient.AddBalance(v.amount)
 			require.Equal(recipient.Balance, newRecipient.Balance)
 		}
 		// verify sender balance/nonce
-		newSender, err := accountutil.AccountState(sm, v.caller.String())
+		newSender, err := accountutil.AccountState(sm, v.caller)
 		require.NoError(err)
 		sender.SubBalance(gasFee)
 		require.Equal(sender.Balance, newSender.Balance)

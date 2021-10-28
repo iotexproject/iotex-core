@@ -78,6 +78,7 @@ var (
 		Network: p2p.DefaultConfig,
 		Chain: Chain{
 			ChainDBPath:            "/var/data/chain.db",
+			TrieDBPatchFile:        "/var/data/trie.db.patch",
 			TrieDBPath:             "/var/data/trie.db",
 			IndexDBPath:            "/var/data/index.db",
 			BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
@@ -208,6 +209,7 @@ type (
 	// Chain is the config struct for blockchain package
 	Chain struct {
 		ChainDBPath            string           `yaml:"chainDBPath"`
+		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
 		TrieDBPath             string           `yaml:"trieDBPath"`
 		IndexDBPath            string           `yaml:"indexDBPath"`
 		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
@@ -633,6 +635,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Iceland is heigher than Jutland")
 	case hu.JutlandBlockHeight > hu.KamchatkaBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Jutland is heigher than Kamchatka")
+	case hu.KamchatkaBlockHeight > hu.LordHoweBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Kamchatka is heigher than LordHowe")
 	}
 	return nil
 }

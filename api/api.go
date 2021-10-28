@@ -28,6 +28,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -168,7 +170,7 @@ func NewServer(
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
 		registry:          registry,
-		chainListener:     NewChainListener(),
+		chainListener:     NewChainListener(500),
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
@@ -187,13 +189,12 @@ func NewServer(
 			otelgrpc.UnaryServerInterceptor(),
 		)),
 	)
+	//serviceName: grpc.health.v1.Health
+	grpc_health_v1.RegisterHealthServer(svr.grpcServer, health.NewServer())
+
 	iotexapi.RegisterAPIServiceServer(svr.grpcServer, svr)
 	grpc_prometheus.Register(svr.grpcServer)
 	reflection.Register(svr.grpcServer)
-
-	if err := svr.chainListener.AddResponder(svr.readCache); err != nil {
-		return nil, err
-	}
 	return svr, nil
 }
 
@@ -202,8 +203,11 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if in.Address == address.RewardingPoolAddr || in.Address == address.StakingBucketPoolAddr {
 		return api.getProtocolAccount(ctx, in.Address)
 	}
-
-	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
+	addr, err := address.FromString(in.Address)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -213,10 +217,6 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	}
 	if api.indexer == nil {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	addr, err := address.FromString(in.Address)
-	if err != nil {
-		return nil, err
 	}
 	numActions, err := api.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
@@ -496,7 +496,11 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if in.CallerAddress == action.EmptyAddress {
 		in.CallerAddress = address.ZeroAddress
 	}
-	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
+	addr, err := address.FromString(in.CallerAddress)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	state, err := accountutil.AccountState(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -994,8 +998,11 @@ func (api *Server) Start() error {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
+	if err := api.bc.AddSubscriber(api.readCache); err != nil {
+		return errors.Wrap(err, "failed to add readCache")
+	}
 	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
-		return errors.Wrap(err, "failed to subscribe to block creations")
+		return errors.Wrap(err, "failed to add chainListener")
 	}
 	if err := api.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
@@ -1007,7 +1014,10 @@ func (api *Server) Start() error {
 func (api *Server) Stop() error {
 	api.grpcServer.Stop()
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
+		return errors.Wrap(err, "failed to unsubscribe chainListener")
+	}
+	if err := api.bc.RemoveSubscriber(api.readCache); err != nil {
+		return errors.Wrap(err, "failed to unsubscribe readCache")
 	}
 	if api.tp != nil {
 		if err := api.tp.Shutdown(context.Background()); err != nil {
@@ -1613,7 +1623,11 @@ func (api *Server) estimateActionGasConsumptionForExecution(ctx context.Context,
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	state, err := accountutil.AccountState(api.sf, sender)
+	addr, err := address.FromString(sender)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	state, err := accountutil.AccountState(api.sf, addr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

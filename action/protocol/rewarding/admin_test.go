@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestAdminPb(t *testing.T) {
@@ -37,17 +36,6 @@ func TestAdminPb(t *testing.T) {
 	r.Equal(a.numDelegatesForFoundationBonus, g.NumDelegatesForFoundationBonus)
 	r.Equal(a.foundationBonusLastEpoch, g.FoundationBonusLastEpoch)
 	r.EqualValues(85, a.productivityThreshold)
-	r.False(a.hasFoundationBonusExtension())
-
-	// add foundation bonus extension
-	a.foundationBonusExtension = config.Default.Genesis.Rewarding.FoundationBonusExtension
-	b1, err := a.Serialize()
-	r.NoError(err)
-	r.Equal(b, b1[:len(b)])
-	a1 := admin{}
-	r.NoError(a1.Deserialize(b1))
-	r.True(a1.hasFoundationBonusExtension())
-	r.Equal(a, a1)
 }
 
 func TestProtocol_SetEpochReward(t *testing.T) {

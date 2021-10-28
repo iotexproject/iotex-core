@@ -24,6 +24,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -1089,7 +1091,11 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedState, err := accountutil.AccountState(ap.sf, addr)
+	addr1, err := address.FromString(addr)
+	if err != nil {
+		return 0, err
+	}
+	committedState, err := accountutil.AccountState(ap.sf, addr1)
 	return committedState.Nonce + 1, err
 }
 
@@ -1098,7 +1104,11 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	state, err := accountutil.AccountState(ap.sf, addr)
+	addr1, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+	state, err := accountutil.AccountState(ap.sf, addr1)
 	if err != nil {
 		return nil, err
 	}

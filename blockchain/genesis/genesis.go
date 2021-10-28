@@ -64,7 +64,8 @@ func defaultConfig() Genesis {
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
 			JutlandBlockHeight:      13685401,
-			KamchatkaBlockHeight:    26289321,
+			KamchatkaBlockHeight:    13816441,
+			LordHoweBlockHeight:     13979161,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -90,9 +91,6 @@ func defaultConfig() Genesis {
 			FoundationBonusLastEpoch:       8760,
 			FoundationBonusP2StartEpoch:    9698,
 			FoundationBonusP2EndEpoch:      18458,
-			FoundationBonusExtension: []Period{
-				{28440, 37200},
-			},
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -188,12 +186,18 @@ type (
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
 		// IcelandBlockHeight is the start height to support chainID opcode and EVM Istanbul
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
-		// JutlandBlockHeight is the start height to support EVM London + new EVM error codes
+		// JutlandBlockHeight is the start height to
+		// 1. report more EVM error codes
+		// 2. enable the opCall fix
 		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
 		// KamchatkaBlockHeight is the start height to
-		// 1. implement IIP-11
+		// 1. fix EVM snapshot order
 		// 2. extend foundation bonus
 		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
+		// LordHoweBlockHeight is the start height to
+		// 1. recover the smart contracts affected by snapshot order
+		// 2. clear snapshots in Revert()
+		LordHoweBlockHeight uint64 `yaml:"lordHoweHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -246,11 +250,6 @@ type (
 		// VotesStr is the score for the operator to rank and weight for rewardee to split epoch reward
 		VotesStr string `yaml:"votes"`
 	}
-	// Period consists of the start/end epoch
-	Period struct {
-		Start uint64 `yaml:"start"`
-		End   uint64 `yaml:"end"`
-	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
 		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
@@ -279,8 +278,6 @@ type (
 		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
-		// FoundationBonusExtension is the epoch number of extension foundation bonus after part 2
-		FoundationBonusExtension []Period `yaml:"foundationBonusExtension"`
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
@@ -491,6 +488,11 @@ func (g *Blockchain) IsJutland(height uint64) bool {
 // IsKamchatka checks whether height is equal to or larger than kamchatka height
 func (g *Blockchain) IsKamchatka(height uint64) bool {
 	return g.isPost(g.KamchatkaBlockHeight, height)
+}
+
+// IsLordHowe checks whether height is equal to or larger than lordHowe height
+func (g *Blockchain) IsLordHowe(height uint64) bool {
+	return g.isPost(g.LordHoweBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
