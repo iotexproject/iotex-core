@@ -569,3 +569,14 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	h4 := chain.TipHeight()
 	assert.Equal(t, h2+1, h4)
 }
+
+func TestDummyBlockSync(t *testing.T) {
+	require := require.New(t)
+	bs := NewDummyBlockSyncer()
+	require.NoError(bs.Start(nil))
+	require.NoError(bs.Stop(nil))
+	require.NoError(bs.ProcessBlock(nil, "", nil))
+	require.NoError(bs.ProcessSyncRequest(nil, 0, 0, nil))
+	require.Equal(bs.TargetHeight(), uint64(0))
+	require.Equal(bs.SyncStatus(), "")
+}
