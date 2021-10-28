@@ -11,13 +11,15 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
 	// AccountState defines a function to return the account state of a given address
-	AccountState func(StateReader, string) (*state.Account, error)
+	AccountState func(StateReader, address.Address) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
 		accountState AccountState
@@ -44,7 +46,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 		return errors.New("failed to get address")
 	}
 	// Reject action if nonce is too low
-	confirmedState, err := v.accountState(v.sr, caller.String())
+	confirmedState, err := v.accountState(v.sr, caller)
 	if err != nil {
 		return errors.Wrapf(err, "invalid state of account %s", caller.String())
 	}
