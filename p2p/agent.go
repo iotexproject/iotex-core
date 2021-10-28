@@ -28,6 +28,7 @@ import (
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -96,7 +97,23 @@ type (
 	}
 
 	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
-	Agent struct {
+	Agent interface {
+		lifecycle.StartStopper
+		// BroadcastOutbound sends a broadcast message to the whole network
+		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
+		// UnicastOutbound sends a unicast message to the given address
+		UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error)
+		// Info returns agents' peer info.
+		Info() (peer.AddrInfo, error)
+		// Self returns the self network address
+		Self() ([]multiaddr.Multiaddr, error)
+		// Neighbors returns the neighbors' peer info
+		Neighbors(ctx context.Context) ([]peer.AddrInfo, error)
+	}
+
+	dummyAgent struct{}
+
+	agent struct {
 		ctx                        context.Context
 		cfg                        Network
 		chainID                    uint32
@@ -125,10 +142,43 @@ var DefaultConfig = Network{
 	PrivateNetworkPSK: "",
 }
 
+// NewDummyAgent creates a dummy p2p agent
+func NewDummyAgent() Agent {
+	return &dummyAgent{}
+}
+
+func (*dummyAgent) Start(context.Context) error {
+	return nil
+}
+
+func (*dummyAgent) Stop(context.Context) error {
+	return nil
+}
+
+func (*dummyAgent) BroadcastOutbound(ctx context.Context, msg proto.Message) error {
+	return nil
+}
+
+func (*dummyAgent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) error {
+	return nil
+}
+
+func (*dummyAgent) Info() (peer.AddrInfo, error) {
+	return peer.AddrInfo{}, nil
+}
+
+func (*dummyAgent) Self() ([]multiaddr.Multiaddr, error) {
+	return nil, nil
+}
+
+func (*dummyAgent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
+	return nil, nil
+}
+
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
-	return &Agent{
+	return &agent{
 		cfg:     cfg,
 		chainID: chainID,
 		// Make sure the honest node only care the messages related the chain from the same genesis
@@ -140,8 +190,7 @@ func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHa
 	}
 }
 
-// Start connects into P2P network
-func (p *Agent) Start(ctx context.Context) error {
+func (p *agent) Start(ctx context.Context) error {
 	ready := make(chan interface{})
 	p2p.SetLogger(log.L())
 	opts := []p2p.Option{
@@ -297,8 +346,7 @@ func (p *Agent) Start(ctx context.Context) error {
 	return p.reconnectTask.Start(ctx)
 }
 
-// Stop disconnects from P2P network
-func (p *Agent) Stop(ctx context.Context) error {
+func (p *agent) Stop(ctx context.Context) error {
 	if p.host == nil {
 		return ErrAgentNotStarted
 	}
@@ -312,8 +360,7 @@ func (p *Agent) Stop(ctx context.Context) error {
 	return nil
 }
 
-// BroadcastOutbound sends a broadcast message to the whole network
-func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
+func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
 	_, span := tracer.NewSpan(ctx, "Agent.BroadcastOutbound")
 	defer span.End()
 
@@ -362,8 +409,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	return
 }
 
-// UnicastOutbound sends a unicast message to the given address
-func (p *Agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
+func (p *agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {
 	host := p.host
 	if host == nil {
 		return ErrAgentNotStarted
@@ -408,24 +454,21 @@ func (p *Agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto
 	return
 }
 
-// Info returns agents' peer info.
-func (p *Agent) Info() (peer.AddrInfo, error) {
+func (p *agent) Info() (peer.AddrInfo, error) {
 	if p.host == nil {
 		return peer.AddrInfo{}, ErrAgentNotStarted
 	}
 	return p.host.Info(), nil
 }
 
-// Self returns the self network address
-func (p *Agent) Self() ([]multiaddr.Multiaddr, error) {
+func (p *agent) Self() ([]multiaddr.Multiaddr, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
 	return p.host.Addresses(), nil
 }
 
-// Neighbors returns the neighbors' peer info
-func (p *Agent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
+func (p *agent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
@@ -447,13 +490,8 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
 	return nb, nil
 }
 
-// QosMetrics returns the Qos metrics
-func (p *Agent) QosMetrics() *Qos {
-	return p.qosMetrics
-}
-
 // connect connects to bootstrap nodes
-func (p *Agent) connect(ctx context.Context) error {
+func (p *agent) connect(ctx context.Context) error {
 	if len(p.cfg.BootstrapNodes) == 0 {
 		return nil
 	}
@@ -501,7 +539,7 @@ func (p *Agent) connect(ctx context.Context) error {
 	return nil
 }
 
-func (p *Agent) reconnect() {
+func (p *agent) reconnect() {
 	peers, err := p.Neighbors(context.Background())
 	if err == ErrAgentNotStarted {
 		return

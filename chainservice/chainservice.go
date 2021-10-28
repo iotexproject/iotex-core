@@ -55,7 +55,7 @@ type ChainService struct {
 	chain             blockchain.Blockchain
 	factory           factory.Factory
 	blockdao          blockdao.BlockDAO
-	p2pAgent          *p2p.Agent
+	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api                *api.Server
@@ -93,7 +93,7 @@ func WithSubChain() Option {
 // New creates a ChainService from config and network.Overlay
 func New(
 	cfg config.Config,
-	p2pAgent *p2p.Agent,
+	p2pAgent p2p.Agent,
 	opts ...Option,
 ) (*ChainService, error) {
 	// create indexers
@@ -337,77 +337,83 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-	bs, err := blocksync.NewBlockSyncer(
-		cfg.BlockSync,
-		chain.TipHeight,
-		func(height uint64) (*block.Block, error) {
-			return dao.GetBlockByHeight(height)
-		},
-		func(blk *block.Block) error {
-			if err := consensus.ValidateBlockFooter(blk); err != nil {
-				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
-				return err
-			}
-			retries := 1
-			if !cfg.Genesis.IsHawaii(blk.Height()) {
-				retries = 4
-			}
-			var err error
-			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk); err == nil {
-					if err = chain.CommitBlock(blk); err == nil {
-						break
-					}
-				}
-				switch errors.Cause(err) {
-				case blockchain.ErrInvalidTipHeight:
-					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return nil
-				case block.ErrDeltaStateMismatch:
-					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
-				default:
-					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+	var bs blocksync.BlockSync
+	switch cfg.Consensus.Scheme {
+	case config.StandaloneScheme:
+		bs = blocksync.NewDummyBlockSyncer()
+	default:
+		bs, err = blocksync.NewBlockSyncer(
+			cfg.BlockSync,
+			chain.TipHeight,
+			func(height uint64) (*block.Block, error) {
+				return dao.GetBlockByHeight(height)
+			},
+			func(blk *block.Block) error {
+				if err := consensus.ValidateBlockFooter(blk); err != nil {
+					log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
 					return err
 				}
-			}
-			if err != nil {
-				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-				return err
-			}
-			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
-			consensus.Calibrate(blk.Height())
-
-			return nil
-		},
-		func(ctx context.Context, start uint64, end uint64, repeat int) {
-			peers, err := p2pAgent.Neighbors(ctx)
-			if err != nil {
-				log.L().Error("failed to get neighbours", zap.Error(err))
-				return
-			}
-			if len(peers) == 0 {
-				log.L().Error("no peers")
-			}
-			if repeat < 2 {
-				repeat = 2
-			}
-			if repeat > len(peers) {
-				repeat = len(peers)
-			}
-			for i := 0; i < repeat; i++ {
-				peer := peers[rand.Intn(len(peers)-i)]
-				if err := p2pAgent.UnicastOutbound(
-					ctx,
-					peer,
-					&iotexrpc.BlockSync{Start: start, End: end},
-				); err != nil {
-					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+				retries := 1
+				if !cfg.Genesis.IsHawaii(blk.Height()) {
+					retries = 4
 				}
-			}
-		},
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create blockSyncer")
+				var err error
+				for i := 0; i < retries; i++ {
+					if err = chain.ValidateBlock(blk); err == nil {
+						if err = chain.CommitBlock(blk); err == nil {
+							break
+						}
+					}
+					switch errors.Cause(err) {
+					case blockchain.ErrInvalidTipHeight:
+						log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+						return nil
+					case block.ErrDeltaStateMismatch:
+						log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+					default:
+						log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+						return err
+					}
+				}
+				if err != nil {
+					log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					return err
+				}
+				log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
+				consensus.Calibrate(blk.Height())
+
+				return nil
+			},
+			func(ctx context.Context, start uint64, end uint64, repeat int) {
+				peers, err := p2pAgent.Neighbors(ctx)
+				if err != nil {
+					log.L().Error("failed to get neighbours", zap.Error(err))
+					return
+				}
+				if len(peers) == 0 {
+					log.L().Error("no peers")
+				}
+				if repeat < 2 {
+					repeat = 2
+				}
+				if repeat > len(peers) {
+					repeat = len(peers)
+				}
+				for i := 0; i < repeat; i++ {
+					peer := peers[rand.Intn(len(peers)-i)]
+					if err := p2pAgent.UnicastOutbound(
+						ctx,
+						peer,
+						&iotexrpc.BlockSync{Start: start, End: end},
+					); err != nil {
+						log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+					}
+				}
+			},
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create blockSyncer")
+		}
 	}
 
 	var apiSvr *api.Server
