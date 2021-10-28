@@ -65,7 +65,7 @@ func defaultConfig() Genesis {
 			IcelandBlockHeight:      12289321,
 			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    13816441,
-			LordHoweBlockHeight:     23816441,
+			LordHoweBlockHeight:     13979161,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -194,7 +194,9 @@ type (
 		// 1. fix EVM snapshot order
 		// 2. extend foundation bonus
 		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
-		// LordHoweBlockHeight is the start height to recover the smart contracts affected by snapshot order
+		// LordHoweBlockHeight is the start height to
+		// 1. recover the smart contracts affected by snapshot order
+		// 2. clear snapshots in Revert()
 		LordHoweBlockHeight uint64 `yaml:"lordHoweHeight"`
 	}
 	// Account contains the configs for account protocol
