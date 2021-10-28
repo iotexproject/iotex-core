@@ -8,15 +8,15 @@ import (
 	"errors"
 	"time"
 
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/wunderlist/ttlcache"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
@@ -281,7 +281,7 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 		return nil, web3Util.errMsg
 	}
 
-	if isContract {
+	if !isContract {
 		// transfer
 		req.Action.Core.Action = &iotextypes.ActionCore_Transfer{
 			Transfer: &iotextypes.Transfer{

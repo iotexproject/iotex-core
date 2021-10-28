@@ -1026,11 +1026,11 @@ func (api *Server) Start() error {
 
 // Stop stops the API server
 func (api *Server) Stop() error {
-	api.grpcServer.Stop()
-
 	if err := api.httpServer.Shutdown(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to stop http server")
 	}
+
+	api.grpcServer.Stop()
 
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to unsubscribe chainListener")

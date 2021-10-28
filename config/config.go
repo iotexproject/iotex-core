@@ -155,7 +155,7 @@ var (
 		API: API{
 			UseRDS:    false,
 			Port:      14014,
-			Web3Port:  14024,
+			Web3Port:  14024, // TODO: port 14024 is used for testing
 			TpsWindow: 10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,

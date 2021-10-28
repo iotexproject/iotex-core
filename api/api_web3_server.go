@@ -99,28 +99,22 @@ func parseWeb3Reqs(req *http.Request) ([]web3Req, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range web3Reqs {
-		if err := v.CheckRequiredField(); err != nil {
-			return nil, err
+	for _, req := range web3Reqs {
+		if req.ID == nil || req.Method == nil || req.Params == nil {
+			return nil, errors.New("request field is incomplete")
 		}
 	}
 	return web3Reqs, nil
 }
 
-func (req *web3Req) CheckRequiredField() error {
-	if req.ID == nil || req.Method == nil || req.Params == nil {
-		return errors.New("request field is incomplete")
-	}
-	return nil
-}
-
 // error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
 func packAPIResult(res interface{}, err error, id int) web3Resp {
 	if err != nil {
-		s, ok := status.FromError(err)
-		var errCode int
-		var errMsg string
-		if ok {
+		var (
+			errCode int
+			errMsg  string
+		)
+		if s, ok := status.FromError(err); ok {
 			errCode, errMsg = int(s.Code()), s.Message()
 		} else {
 			errCode, errMsg = -32603, err.Error()
