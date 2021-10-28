@@ -82,10 +82,42 @@ func SortCachedContractsOption() StateDBAdapterOption {
 	}
 }
 
-// UsePendingNonceOption set sort cached contracts as true
+// NotFixTopicCopyBugOption set notFixTopicCopyBug as true
+func NotFixTopicCopyBugOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.notFixTopicCopyBug = true
+		return nil
+	}
+}
+
+// AsyncContractTrieOption set asyncContractTrie as true
+func AsyncContractTrieOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.asyncContractTrie = true
+		return nil
+	}
+}
+
+// UsePendingNonceOption set usePendingNonce as true
 func UsePendingNonceOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.usePendingNonce = true
+		return nil
+	}
+}
+
+// FixSnapshotOrderOption set fixSnapshotOrder as true
+func FixSnapshotOrderOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixSnapshotOrder = true
+		return nil
+	}
+}
+
+// ClearSnapshotsOption set clearSnapshots as true
+func ClearSnapshotsOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.clearSnapshots = true
 		return nil
 	}
 }
@@ -94,29 +126,21 @@ func UsePendingNonceOption() StateDBAdapterOption {
 func NewStateDBAdapter(
 	sm protocol.StateManager,
 	blockHeight uint64,
-	notFixTopicCopyBug bool,
-	asyncContractTrie bool,
-	fixSnapshotOrder bool,
-	clearSnapshots bool,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
 	s := &StateDBAdapter{
-		sm:                 sm,
-		logs:               []*action.Log{},
-		err:                nil,
-		blockHeight:        blockHeight,
-		executionHash:      executionHash,
-		cachedContract:     make(contractMap),
-		contractSnapshot:   make(map[int]contractMap),
-		suicided:           make(deleteAccount),
-		suicideSnapshot:    make(map[int]deleteAccount),
-		preimages:          make(preimageMap),
-		preimageSnapshot:   make(map[int]preimageMap),
-		notFixTopicCopyBug: notFixTopicCopyBug,
-		asyncContractTrie:  asyncContractTrie,
-		fixSnapshotOrder:   fixSnapshotOrder,
-		clearSnapshots:     clearSnapshots,
+		sm:               sm,
+		logs:             []*action.Log{},
+		err:              nil,
+		blockHeight:      blockHeight,
+		executionHash:    executionHash,
+		cachedContract:   make(contractMap),
+		contractSnapshot: make(map[int]contractMap),
+		suicided:         make(deleteAccount),
+		suicideSnapshot:  make(map[int]deleteAccount),
+		preimages:        make(preimageMap),
+		preimageSnapshot: make(map[int]preimageMap),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
