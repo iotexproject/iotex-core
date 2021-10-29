@@ -65,7 +65,7 @@ func WithInstanceID(instanceID string) Option {
 	}
 }
 
-// WithSamplingRatio defines the sampling rate
+// WithSamplingRatio defines the sampling ratio
 func WithSamplingRatio(samplingRatio string) Option {
 	return func(ops *optionParams) error {
 		ops.samplingRatio = samplingRatio
