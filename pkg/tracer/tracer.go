@@ -1,6 +1,8 @@
 package tracer
 
 import (
+	"strconv"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
@@ -23,15 +25,20 @@ type Config struct {
 	EndPoint string `yaml:"endpoint"`
 	// InstanceID MUST be unique for each instance of the same
 	InstanceID string `yaml:"instanceID"`
+	//SamplingRatio customize sampling ratio
+	//ratio >= 1 will always sample (default),< 0 are treated as zero will no sample
+	// if you set this to .5, half of traces will be sampled
+	SamplingRatio string `yaml:"samplingRatio"`
 }
 
 // Option the tracer provider option
 type Option func(ops *optionParams) error
 
 type optionParams struct {
-	serviceName string
-	endpoint    string //the jaeger endpoint
-	instanceID  string //Note: MUST be unique for each instance of the same
+	serviceName   string
+	endpoint      string //the jaeger endpoint
+	instanceID    string //Note: MUST be unique for each instance of the same
+	samplingRatio string
 }
 
 // WithServiceName defines service name
@@ -58,6 +65,14 @@ func WithInstanceID(instanceID string) Option {
 	}
 }
 
+// WithSamplingRatio defines the sampling rate
+func WithSamplingRatio(samplingRatio string) Option {
+	return func(ops *optionParams) error {
+		ops.samplingRatio = samplingRatio
+		return nil
+	}
+}
+
 // NewProvider create an instance of tracer provider
 func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 	var (
@@ -76,10 +91,18 @@ func NewProvider(opts ...Option) (*tracesdk.TracerProvider, error) {
 	} else {
 		//skipped tracing when endpoint no set
 		return nil, nil
-		//trackerTracerProviderOption = append(trackerTracerProviderOption, tracesdk.WithSampler(tracesdk.ParentBased(tracesdk.TraceIDRatioBased(-1))))
 	}
 	if ops.serviceName == "" {
 		ops.serviceName = _service
+	}
+	if ops.samplingRatio != "" {
+		ratio, err := strconv.ParseFloat(ops.samplingRatio, 64)
+		if err != nil {
+			return nil, err
+		}
+		trackerTracerProviderOption = append(trackerTracerProviderOption,
+			tracesdk.WithSampler(tracesdk.ParentBased(tracesdk.TraceIDRatioBased(ratio))),
+		)
 	}
 	kv := []attribute.KeyValue{
 		semconv.ServiceVersionKey.String(version.PackageVersion),
