@@ -26,13 +26,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
+// GrpcServer contains grpc server and the pointer to api coreservice
 type GrpcServer struct {
 	grpcServer  *grpc.Server
 	port        string
-	coreService *CoreService
+	coreService *coreService
 }
 
-func NewGRPCServer(core *CoreService, grpcPort int) *GrpcServer {
+// NewGRPCServer creates a new grpc server
+func NewGRPCServer(core *coreService, grpcPort int) *GrpcServer {
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -57,23 +59,26 @@ func NewGRPCServer(core *CoreService, grpcPort int) *GrpcServer {
 	return svr
 }
 
-func (api *GrpcServer) Start() error {
-	lis, err := net.Listen("tcp", api.port)
+// Start starts the GRPC server
+func (svr *GrpcServer) Start() error {
+	lis, err := net.Listen("tcp", svr.port)
 	if err != nil {
 		log.L().Error("grpc server failed to listen.", zap.Error(err))
 		return errors.Wrap(err, "grpc server failed to listen")
 	}
 	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
-		if err := api.grpcServer.Serve(lis); err != nil {
+		if err := svr.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("grpc failed to serve.", zap.Error(err))
 		}
 	}()
 	return nil
 }
 
-func (api *GrpcServer) Stop() {
-	api.grpcServer.Stop()
+// Stop stops the GRPC server
+func (svr *GrpcServer) Stop() error {
+	svr.grpcServer.Stop()
+	return nil
 }
 
 // SuggestGasPrice suggests gas price
@@ -87,14 +92,13 @@ func (svr *GrpcServer) SuggestGasPrice(ctx context.Context, in *iotexapi.Suggest
 
 // GetAccount returns the metadata of an account
 func (svr *GrpcServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	accountMeta, blockIdentifier, err := svr.coreService.GetAccount(in.Address)
+	accountMeta, blockIdentifier, err := svr.coreService.Account(in.Address)
 	if err != nil {
 		return nil, err
 	}
 	return &iotexapi.GetAccountResponse{
-			AccountMeta:     accountMeta,
-			BlockIdentifier: blockIdentifier},
-		nil
+		AccountMeta:     accountMeta,
+		BlockIdentifier: blockIdentifier}, nil
 }
 
 // GetActions returns actions
@@ -170,7 +174,14 @@ func (svr *GrpcServer) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMe
 
 // GetServerMeta gets the server metadata
 func (svr *GrpcServer) GetServerMeta(ctx context.Context, in *iotexapi.GetServerMetaRequest) (*iotexapi.GetServerMetaResponse, error) {
-	return svr.coreService.GetServerMeta()
+	packageVersion, packageCommitID, gitStatus, goVersion, buildTime := svr.coreService.GetServerMeta()
+	return &iotexapi.GetServerMetaResponse{ServerMeta: &iotextypes.ServerMeta{
+		PackageVersion:  packageVersion,
+		PackageCommitID: packageCommitID,
+		GitStatus:       gitStatus,
+		GoVersion:       goVersion,
+		BuildTime:       buildTime,
+	}}, nil
 }
 
 // SendAction is the API to send an action to blockchain.
@@ -202,7 +213,14 @@ func (svr *GrpcServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 
 // ReadContract reads the state in a contract address specified by the slot
 func (svr *GrpcServer) ReadContract(ctx context.Context, in *iotexapi.ReadContractRequest) (*iotexapi.ReadContractResponse, error) {
-	return svr.coreService.ReadContract(in.Execution, in.CallerAddress, in.GasLimit, ctx)
+	data, receipt, err := svr.coreService.ReadContract(in.Execution, in.CallerAddress, in.GasLimit, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.ReadContractResponse{
+		Data:    data,
+		Receipt: receipt,
+	}, nil
 }
 
 // ReadState reads state on blockchain
@@ -237,7 +255,15 @@ func (svr *GrpcServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 
 // GetEpochMeta gets epoch metadata
 func (svr *GrpcServer) GetEpochMeta(ctx context.Context, in *iotexapi.GetEpochMetaRequest) (*iotexapi.GetEpochMetaResponse, error) {
-	return svr.coreService.GetEpochMeta(in.EpochNumber)
+	epochData, numBlks, blockProducersInfo, err := svr.coreService.GetEpochMeta(in.EpochNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.GetEpochMetaResponse{
+		EpochData:          epochData,
+		TotalBlocks:        numBlks,
+		BlockProducersInfo: blockProducersInfo,
+	}, nil
 }
 
 // GetRawBlocks gets raw block data

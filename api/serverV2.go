@@ -11,12 +11,14 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+// ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
-	core       *CoreService
+	core       *coreService
 	grpcServer *GrpcServer
-	httpServer *HttpServer
+	// httpServer *HttpServer
 }
 
+// NewServerV2 creates a new server with coreService and GRPC Server
 func NewServerV2(
 	cfg config.Config,
 	chain blockchain.Blockchain,
@@ -29,7 +31,7 @@ func NewServerV2(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (*ServerV2, error) {
-	coreAPI, err := NewCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
+	coreAPI, err := newcoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +42,7 @@ func NewServerV2(
 	}, nil
 }
 
+// Start starts the CoreService and the GRPC server
 func (svr *ServerV2) Start() error {
 	if err := svr.core.Start(); err != nil {
 		return err
@@ -47,15 +50,18 @@ func (svr *ServerV2) Start() error {
 	if err := svr.grpcServer.Start(); err != nil {
 		return err
 	}
-	svr.httpServer.Start()
+	// svr.httpServer.Start()
 	return nil
 }
 
+// Stop stops the GRPC server and the CoreService
 func (svr *ServerV2) Stop() error {
-	if err := svr.httpServer.Stop(); err != nil {
+	// if err := svr.httpServer.Stop(); err != nil {
+	// 	return err
+	// }
+	if err := svr.grpcServer.Stop(); err != nil {
 		return err
 	}
-	svr.grpcServer.Stop()
 	if err := svr.core.Stop(); err != nil {
 		return err
 	}

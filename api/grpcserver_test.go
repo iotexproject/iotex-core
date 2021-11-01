@@ -1240,7 +1240,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	broadcastHandlerCount := 0
-	core := &CoreService{
+	core := &coreService{
 		bc: chain,
 		ap: ap,
 		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
