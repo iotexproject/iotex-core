@@ -118,6 +118,7 @@ func NewServer(
 		tracer.WithServiceName(cfg.API.Tracer.ServiceName),
 		tracer.WithEndpoint(cfg.API.Tracer.EndPoint),
 		tracer.WithInstanceID(cfg.API.Tracer.InstanceID),
+		tracer.WithSamplingRatio(cfg.API.Tracer.SamplingRatio),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot config tracer provider")

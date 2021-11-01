@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
@@ -84,12 +85,21 @@ type (
 )
 
 var (
+	web3ServerMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "iotex_web3_api_metrics",
+		Help: "web3 api metrics.",
+	}, []string{"method"})
+
 	errUnkownType     = errors.New("wrong type of params")
 	errNullPointer    = errors.New("null pointer")
 	errInvalidFormat  = errors.New("invalid format of request")
 	errNotImplemented = errors.New("method not implemented")
 	errInvalidFiterID = errors.New("filter not found")
 )
+
+func init() {
+	prometheus.MustRegister(web3ServerMtc)
+}
 
 // NewWeb3Server creates a new web3 server
 func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server {
@@ -150,8 +160,9 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res    interface{}
 			err    error
 			params = web3Req.Get("params").Value()
+			method = web3Req.Get("method").Value()
 		)
-		switch web3Req.Get("method").Value() {
+		switch method {
 		case "eth_gasPrice":
 			res, err = svr.gasPrice()
 		case "eth_getBlockByHash":
@@ -233,6 +244,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			log.L().Error("web3 server err", zap.String("input", fmt.Sprintf("%+v", web3Req)), zap.Error(err))
 		}
 		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
+		web3ServerMtc.WithLabelValues(method.(string)).Inc()
+		web3ServerMtc.WithLabelValues("requests_total").Inc()
 	}
 
 	if len(web3Resps) == 1 {
