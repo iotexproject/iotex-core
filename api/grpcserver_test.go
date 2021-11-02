@@ -2255,7 +2255,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, err := svr.core.GetActionByActionHash(test.h)
+		ret, err := svr.core.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}

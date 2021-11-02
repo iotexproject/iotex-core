@@ -15,7 +15,7 @@ import (
 type ServerV2 struct {
 	core       *coreService
 	grpcServer *GrpcServer
-	// httpServer *HttpServer
+	// web3Server *HttpServer
 }
 
 // NewServerV2 creates a new server with coreService and GRPC Server
@@ -31,7 +31,7 @@ func NewServerV2(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (*ServerV2, error) {
-	coreAPI, err := newcoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
+	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
 	if err != nil {
 		return nil, err
 	}

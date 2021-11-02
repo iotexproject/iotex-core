@@ -111,7 +111,7 @@ type coreService struct {
 }
 
 // newcoreService creates a api server that contains major blockchain components
-func newcoreService(
+func newCoreService(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
@@ -161,26 +161,26 @@ func newcoreService(
 }
 
 // Account returns the metadata of an account
-func (api *coreService) Account(addrStr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) Account(addrStr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
-		return api.getProtocolAccount(context.Background(), addrStr)
+		return core.getProtocolAccount(context.Background(), addrStr)
 	}
 	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
-	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, addr)
+	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
-	pendingNonce, err := api.ap.GetPendingNonce(addrStr)
+	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
-	if api.indexer == nil {
+	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
-	numActions, err := api.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
+	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -194,13 +194,13 @@ func (api *coreService) Account(addrStr string) (*iotextypes.AccountMeta, *iotex
 	}
 	if state.IsContract() {
 		var code evm.SerializableBytes
-		_, err = api.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
+		_, err = core.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
 		}
 		accountMeta.ContractByteCode = code
 	}
-	header, err := api.bc.BlockHeaderByHeight(tipHeight)
+	header, err := core.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -211,31 +211,31 @@ func (api *coreService) Account(addrStr string) (*iotextypes.AccountMeta, *iotex
 	}, nil
 }
 
-// GetChainMeta returns blockchain metadata
-func (api *coreService) GetChainMeta() (*iotextypes.ChainMeta, string, error) {
-	tipHeight := api.bc.TipHeight()
+// ChainMeta returns blockchain metadata
+func (core *coreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
+	tipHeight := core.bc.TipHeight()
 	if tipHeight == 0 {
 		return &iotextypes.ChainMeta{
 			Epoch:   &iotextypes.EpochData{},
-			ChainID: api.bc.ChainID(),
+			ChainID: core.bc.ChainID(),
 		}, "", nil
 	}
 	syncStatus := ""
-	if api.bs != nil {
-		syncStatus = api.bs.SyncStatus()
+	if core.bs != nil {
+		syncStatus = core.bs.SyncStatus()
 	}
 	chainMeta := &iotextypes.ChainMeta{
 		Height:  tipHeight,
-		ChainID: api.bc.ChainID(),
+		ChainID: core.bc.ChainID(),
 	}
-	if api.indexer == nil {
+	if core.indexer == nil {
 		return chainMeta, syncStatus, nil
 	}
-	totalActions, err := api.indexer.GetTotalActions()
+	totalActions, err := core.indexer.GetTotalActions()
 	if err != nil {
 		return nil, "", status.Error(codes.Internal, err.Error())
 	}
-	blockLimit := int64(api.cfg.API.TpsWindow)
+	blockLimit := int64(core.cfg.API.TpsWindow)
 	if blockLimit <= 0 {
 		return nil, "", status.Errorf(codes.Internal, "block limit is %d", blockLimit)
 	}
@@ -244,7 +244,7 @@ func (api *coreService) GetChainMeta() (*iotextypes.ChainMeta, string, error) {
 	if int64(tipHeight) < blockLimit {
 		blockLimit = int64(tipHeight)
 	}
-	blks, err := api.GetBlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
+	blks, err := core.BlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
@@ -268,11 +268,11 @@ func (api *coreService) GetChainMeta() (*iotextypes.ChainMeta, string, error) {
 	chainMeta.Tps = int64(math.Ceil(float64(tps)))
 	chainMeta.TpsFloat = tps
 
-	rp := rolldpos.FindProtocol(api.registry)
+	rp := rolldpos.FindProtocol(core.registry)
 	if rp != nil {
 		epochNum := rp.GetEpochNum(tipHeight)
 		epochHeight := rp.GetEpochHeight(epochNum)
-		gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
+		gravityChainStartHeight, err := core.getGravityChainStartHeight(epochHeight)
 		if err != nil {
 			return nil, "", status.Error(codes.NotFound, err.Error())
 		}
@@ -285,8 +285,8 @@ func (api *coreService) GetChainMeta() (*iotextypes.ChainMeta, string, error) {
 	return chainMeta, syncStatus, nil
 }
 
-// GetServerMeta gets the server metadata
-func (api *coreService) GetServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string) {
+// ServerMeta gets the server metadata
+func (core *coreService) ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string) {
 	packageVersion = version.PackageVersion
 	packageCommitID = version.PackageCommitID
 	gitStatus = version.GitStatus
@@ -296,7 +296,7 @@ func (api *coreService) GetServerMeta() (packageVersion string, packageCommitID 
 }
 
 // SendAction is the API to send an action to blockchain.
-func (api *coreService) SendAction(in *iotextypes.Action, chainID uint32, ctx context.Context) (string, error) {
+func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, chainID uint32) (string, error) {
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
 	if err := selp.LoadProto(in); err != nil {
@@ -304,20 +304,20 @@ func (api *coreService) SendAction(in *iotextypes.Action, chainID uint32, ctx co
 	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
-	if api.cfg.Genesis.Blockchain.IsKamchatka(api.bc.TipHeight()) {
-		if api.bc.ChainID() != chainID {
-			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), chainID)
+	if core.cfg.Genesis.Blockchain.IsKamchatka(core.bc.TipHeight()) {
+		if core.bc.ChainID() != chainID {
+			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 		}
 	}
 
 	// Add to local actpool
-	ctx = protocol.WithRegistry(ctx, api.registry)
+	ctx = protocol.WithRegistry(ctx, core.registry)
 	hash, err := selp.Hash()
 	if err != nil {
 		return "", err
 	}
 	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
-	if err = api.ap.Add(ctx, selp); err != nil {
+	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)
 		if serErr != nil {
 			l.Error("Data corruption", zap.Error(serErr))
@@ -341,7 +341,7 @@ func (api *coreService) SendAction(in *iotextypes.Action, chainID uint32, ctx co
 		default:
 			desc = "Unknown"
 		}
-		errMsg := api.cfg.ProducerAddress().String() + ": " + err.Error()
+		errMsg := core.cfg.ProducerAddress().String() + ": " + err.Error()
 		st := status.New(codes.Internal, errMsg)
 		v := &errdetails.BadRequest_FieldViolation{
 			Field:       "Action rejected",
@@ -357,26 +357,26 @@ func (api *coreService) SendAction(in *iotextypes.Action, chainID uint32, ctx co
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
-	if err = api.broadcastHandler(ctx, api.bc.ChainID(), in); err != nil {
+	if err = core.broadcastHandler(ctx, core.bc.ChainID(), in); err != nil {
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
 }
 
-// GetReceiptByAction gets receipt with corresponding action hash
-func (api *coreService) GetReceiptByAction(h string) (*action.Receipt, string, error) {
-	if !api.hasActionIndex || api.indexer == nil {
+// ReceiptByAction gets receipt with corresponding action hash
+func (core *coreService) ReceiptByAction(h string) (*action.Receipt, string, error) {
+	if !core.hasActionIndex || core.indexer == nil {
 		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 	actHash, err := hash.HexStringToHash256(h)
 	if err != nil {
 		return nil, "", status.Error(codes.InvalidArgument, err.Error())
 	}
-	receipt, err := api.GetReceiptByActionHash(actHash)
+	receipt, err := core.ReceiptByActionHash(actHash)
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
-	blkHash, err := api.getBlockHashByActionHash(actHash)
+	blkHash, err := core.getBlockHashByActionHash(actHash)
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
@@ -384,14 +384,15 @@ func (api *coreService) GetReceiptByAction(h string) (*action.Receipt, string, e
 }
 
 // ReadContract reads the state in a contract address specified by the slot
-func (api *coreService) ReadContract(in *iotextypes.Execution, from string, gasLimit uint64, ctx context.Context) (string, *iotextypes.Receipt, error) {
+func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execution, from string, gasLimit uint64) (string, *iotextypes.Receipt, error) {
 	log.L().Debug("receive read smart contract request")
 	sc := &action.Execution{}
 	if err := sc.LoadProto(in); err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
-	if d, ok := api.readCache.Get(key); ok {
+	// TODO: either moving readcache into the upper layer or change the storage format
+	if d, ok := core.readCache.Get(key); ok {
 		res := iotexapi.ReadContractResponse{}
 		if err := proto.Unmarshal(d, &res); err == nil {
 			return res.Data, res.Receipt, nil
@@ -405,16 +406,16 @@ func (api *coreService) ReadContract(in *iotextypes.Execution, from string, gasL
 	if err != nil {
 		return "", nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
-	state, err := accountutil.AccountState(api.sf, callerAddr)
+	state, err := accountutil.AccountState(core.sf, callerAddr)
 	if err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if ctx, err = api.bc.Context(ctx); err != nil {
+	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
 
-	if gasLimit == 0 || api.cfg.Genesis.BlockGasLimit < gasLimit {
-		gasLimit = api.cfg.Genesis.BlockGasLimit
+	if gasLimit == 0 || core.cfg.Genesis.BlockGasLimit < gasLimit {
+		gasLimit = core.cfg.Genesis.BlockGasLimit
 	}
 	sc, _ = action.NewExecution(
 		sc.Contract(),
@@ -424,7 +425,7 @@ func (api *coreService) ReadContract(in *iotextypes.Execution, from string, gasL
 		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
 		sc.Data(),
 	)
-	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
 	}
@@ -435,22 +436,22 @@ func (api *coreService) ReadContract(in *iotextypes.Execution, from string, gasL
 		Receipt: receipt.ConvertToReceiptPb(),
 	}
 	if d, err := proto.Marshal(&res); err == nil {
-		api.readCache.Put(key, d)
+		core.readCache.Put(key, d)
 	}
 	return res.Data, res.Receipt, nil
 }
 
 // ReadState reads state on blockchain
-func (api *coreService) ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) ([]byte, *iotextypes.BlockIdentifier, error) {
-	p, ok := api.registry.Find(protocolID)
+func (core *coreService) ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) ([]byte, *iotextypes.BlockIdentifier, error) {
+	p, ok := core.registry.Find(protocolID)
 	if !ok {
 		return nil, nil, status.Errorf(codes.Internal, "protocol %s isn't registered", protocolID)
 	}
-	data, readStateHeight, err := api.readState(context.Background(), p, height, methodName, arguments...)
+	data, readStateHeight, err := core.readState(context.Background(), p, height, methodName, arguments...)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
-	blkHash, err := api.dao.GetBlockHash(readStateHeight)
+	blkHash, err := core.dao.GetBlockHash(readStateHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
@@ -464,13 +465,13 @@ func (api *coreService) ReadState(protocolID string, height string, methodName [
 }
 
 // SuggestGasPrice suggests gas price
-func (api *coreService) SuggestGasPrice() (uint64, error) {
-	return api.gs.SuggestGasPrice()
+func (core *coreService) SuggestGasPrice() (uint64, error) {
+	return core.gs.SuggestGasPrice()
 }
 
 // EstimateGasForAction estimates gas for action
-func (api *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
-	estimateGas, err := api.gs.EstimateGasForAction(in)
+func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
+	estimateGas, err := core.gs.EstimateGasForAction(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -478,12 +479,12 @@ func (api *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, err
 }
 
 // EstimateActionGasConsumption estimate gas consume for action without signature
-func (api *coreService) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (uint64, error) {
+func (core *coreService) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (uint64, error) {
 	var ret uint64
 	switch {
 	case in.GetExecution() != nil:
 		request := in.GetExecution()
-		return api.estimateActionGasConsumptionForExecution(ctx, request, in.GetCallerAddress())
+		return core.estimateActionGasConsumptionForExecution(ctx, request, in.GetCallerAddress())
 	case in.GetTransfer() != nil:
 		ret = uint64(len(in.GetTransfer().Payload))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	case in.GetStakeCreate() != nil:
@@ -510,9 +511,9 @@ func (api *coreService) EstimateActionGasConsumption(ctx context.Context, in *io
 	return ret, nil
 }
 
-// GetEpochMeta gets epoch metadata
-func (api *coreService) GetEpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error) {
-	rp := rolldpos.FindProtocol(api.registry)
+// EpochMeta gets epoch metadata
+func (core *coreService) EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error) {
+	rp := rolldpos.FindProtocol(core.registry)
 	if rp == nil {
 		return nil, 0, nil, nil
 	}
@@ -520,7 +521,7 @@ func (api *coreService) GetEpochMeta(epochNum uint64) (*iotextypes.EpochData, ui
 		return nil, 0, nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
 	}
 	epochHeight := rp.GetEpochHeight(epochNum)
-	gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
+	gravityChainStartHeight, err := core.getGravityChainStartHeight(epochHeight)
 	if err != nil {
 		return nil, 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -530,7 +531,7 @@ func (api *coreService) GetEpochMeta(epochNum uint64) (*iotextypes.EpochData, ui
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
 
-	pp := poll.FindProtocol(api.registry)
+	pp := poll.FindProtocol(core.registry)
 	if pp == nil {
 		return nil, 0, nil, status.Error(codes.Internal, "poll protocol is not registered")
 	}
@@ -538,7 +539,7 @@ func (api *coreService) GetEpochMeta(epochNum uint64) (*iotextypes.EpochData, ui
 	methodName := []byte("ActiveBlockProducersByEpoch")
 	arguments := [][]byte{[]byte(strconv.FormatUint(epochNum, 10))}
 	height := strconv.FormatUint(epochHeight, 10)
-	data, _, err := api.readState(context.Background(), pp, height, methodName, arguments...)
+	data, _, err := core.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -548,13 +549,13 @@ func (api *coreService) GetEpochMeta(epochNum uint64) (*iotextypes.EpochData, ui
 		return nil, 0, nil, status.Error(codes.Internal, err.Error())
 	}
 
-	numBlks, produce, err := api.getProductivityByEpoch(rp, epochNum, api.bc.TipHeight(), activeConsensusBlockProducers)
+	numBlks, produce, err := core.getProductivityByEpoch(rp, epochNum, core.bc.TipHeight(), activeConsensusBlockProducers)
 	if err != nil {
 		return nil, 0, nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	methodName = []byte("BlockProducersByEpoch")
-	data, _, err = api.readState(context.Background(), pp, height, methodName, arguments...)
+	data, _, err = core.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -582,13 +583,13 @@ func (api *coreService) GetEpochMeta(epochNum uint64) (*iotextypes.EpochData, ui
 	return epochData, numBlks, blockProducersInfo, nil
 }
 
-// GetRawBlocks gets raw block data
-func (api *coreService) GetRawBlocks(startHeight uint64, count uint64, withReceipts bool, withTransactionLogs bool) ([]*iotexapi.BlockInfo, error) {
-	if count == 0 || count > api.cfg.API.RangeQueryLimit {
+// RawBlocks gets raw block data
+func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipts bool, withTransactionLogs bool) ([]*iotexapi.BlockInfo, error) {
+	if count == 0 || count > core.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	tipHeight := api.bc.TipHeight()
+	tipHeight := core.bc.TipHeight()
 	if startHeight > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
@@ -598,13 +599,13 @@ func (api *coreService) GetRawBlocks(startHeight uint64, count uint64, withRecei
 	}
 	var res []*iotexapi.BlockInfo
 	for height := startHeight; height <= endHeight; height++ {
-		blk, err := api.dao.GetBlockByHeight(height)
+		blk, err := core.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		var receiptsPb []*iotextypes.Receipt
 		if withReceipts && height > 0 {
-			receipts, err := api.dao.GetReceipts(height)
+			receipts, err := core.dao.GetReceipts(height)
 			if err != nil {
 				return nil, status.Error(codes.NotFound, err.Error())
 			}
@@ -614,7 +615,7 @@ func (api *coreService) GetRawBlocks(startHeight uint64, count uint64, withRecei
 		}
 		var transactionLogs *iotextypes.TransactionLogs
 		if withTransactionLogs {
-			if transactionLogs, err = api.dao.TransactionLogs(height); err != nil {
+			if transactionLogs, err = core.dao.TransactionLogs(height); err != nil {
 				return nil, status.Error(codes.NotFound, err.Error())
 			}
 		}
@@ -627,8 +628,8 @@ func (api *coreService) GetRawBlocks(startHeight uint64, count uint64, withRecei
 	return res, nil
 }
 
-// GetLogs get logs filtered by contract address and topics
-func (api *coreService) GetLogs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log, error) {
+// Logs get logs filtered by contract address and topics
+func (core *coreService) Logs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log, error) {
 	if in.GetFilter() == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
@@ -640,23 +641,23 @@ func (api *coreService) GetLogs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log,
 	switch {
 	case in.GetByBlock() != nil:
 		req := in.GetByBlock()
-		startBlock, err := api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
+		startBlock, err := core.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
-		logs, err = api.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
+		logs, err = core.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
 		if err != nil {
 			return nil, err
 		}
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		startBlock := req.GetFromBlock()
-		if startBlock > api.bc.TipHeight() {
+		if startBlock > core.bc.TipHeight() {
 			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 		}
 		endBlock := req.GetToBlock()
-		if endBlock > api.bc.TipHeight() || endBlock == 0 {
-			endBlock = api.bc.TipHeight()
+		if endBlock > core.bc.TipHeight() || endBlock == 0 {
+			endBlock = core.bc.TipHeight()
 		}
 		paginationSize := req.GetPaginationSize()
 		if paginationSize == 0 {
@@ -665,7 +666,7 @@ func (api *coreService) GetLogs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log,
 		if paginationSize > 5000 {
 			paginationSize = 5000
 		}
-		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
+		logs, err = core.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
@@ -674,9 +675,9 @@ func (api *coreService) GetLogs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log,
 }
 
 // StreamBlocks streams blocks
-func (api *coreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error {
+func (core *coreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)
-	if err := api.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
+	if err := core.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -692,13 +693,13 @@ func (api *coreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServ
 }
 
 // StreamLogs streams logs that match the filter condition
-func (api *coreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error {
+func (core *coreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error {
 	if in == nil {
 		return status.Error(codes.InvalidArgument, "empty filter")
 	}
 	errChan := make(chan error)
 	// register the log filter so it will match logs in new blocks
-	if err := api.chainListener.AddResponder(logfilter.NewLogFilter(in, stream, errChan)); err != nil {
+	if err := core.chainListener.AddResponder(logfilter.NewLogFilter(in, stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -713,12 +714,12 @@ func (api *coreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIS
 	}
 }
 
-// GetElectionBuckets returns the native election buckets.
-func (api *coreService) GetElectionBuckets(epochNum uint64) ([]*iotextypes.ElectionBucket, error) {
-	if api.electionCommittee == nil {
+// ElectionBuckets returns the native election buckets.
+func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.ElectionBucket, error) {
+	if core.electionCommittee == nil {
 		return nil, status.Error(codes.Unavailable, "Native election no supported")
 	}
-	buckets, err := api.electionCommittee.NativeBucketsByEpoch(epochNum)
+	buckets, err := core.electionCommittee.NativeBucketsByEpoch(epochNum)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -740,35 +741,35 @@ func (api *coreService) GetElectionBuckets(epochNum uint64) ([]*iotextypes.Elect
 	return re, nil
 }
 
-// GetReceiptByActionHash returns receipt by action hash
-func (api *coreService) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if !api.hasActionIndex || api.indexer == nil {
+// ReceiptByActionHash returns receipt by action hash
+func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
+	if !core.hasActionIndex || core.indexer == nil {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
-	actIndex, err := api.indexer.GetActionIndex(h[:])
+	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return nil, err
 	}
-	return api.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+	return core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
 }
 
-// GetActionByActionHash returns action by action hash
-func (api *coreService) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !api.hasActionIndex || api.indexer == nil {
+// ActionByActionHash returns action by action hash
+func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+	if !core.hasActionIndex || core.indexer == nil {
 		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
-	selp, _, _, _, err := api.getActionByActionHash(h)
+	selp, _, _, _, err := core.getActionByActionHash(h)
 	return selp, err
 }
 
-// GetTransactionLogByActionHash returns transaction log by action hash
-func (api *coreService) GetTransactionLogByActionHash(actHash string) (*iotextypes.TransactionLog, error) {
-	if !api.hasActionIndex || api.indexer == nil {
+// TransactionLogByActionHash returns transaction log by action hash
+func (core *coreService) TransactionLogByActionHash(actHash string) (*iotextypes.TransactionLog, error) {
+	if !core.hasActionIndex || core.indexer == nil {
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
-	if !api.dao.ContainsTransactionLog() {
+	if !core.dao.ContainsTransactionLog() {
 		return nil, status.Error(codes.Unimplemented, filedao.ErrNotSupported.Error())
 	}
 
@@ -777,7 +778,7 @@ func (api *coreService) GetTransactionLogByActionHash(actHash string) (*iotextyp
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	actIndex, err := api.indexer.GetActionIndex(h)
+	actIndex, err := core.indexer.GetActionIndex(h)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -785,7 +786,7 @@ func (api *coreService) GetTransactionLogByActionHash(actHash string) (*iotextyp
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	sysLog, err := api.dao.TransactionLogs(actIndex.BlockHeight())
+	sysLog, err := core.dao.TransactionLogs(actIndex.BlockHeight())
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -801,13 +802,13 @@ func (api *coreService) GetTransactionLogByActionHash(actHash string) (*iotextyp
 	return nil, status.Errorf(codes.NotFound, "transaction log not found for action %s", actHash)
 }
 
-// GetTransactionLogByBlockHeight returns transaction log by block height
-func (api *coreService) GetTransactionLogByBlockHeight(blockHeight uint64) (*iotextypes.BlockIdentifier, *iotextypes.TransactionLogs, error) {
-	if !api.dao.ContainsTransactionLog() {
+// TransactionLogByBlockHeight returns transaction log by block height
+func (core *coreService) TransactionLogByBlockHeight(blockHeight uint64) (*iotextypes.BlockIdentifier, *iotextypes.TransactionLogs, error) {
+	if !core.dao.ContainsTransactionLog() {
 		return nil, nil, status.Error(codes.Unimplemented, filedao.ErrNotSupported.Error())
 	}
 
-	tip, err := api.dao.Height()
+	tip, err := core.dao.Height()
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
@@ -815,7 +816,7 @@ func (api *coreService) GetTransactionLogByBlockHeight(blockHeight uint64) (*iot
 		return nil, nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", blockHeight)
 	}
 
-	h, err := api.dao.GetBlockHash(blockHeight)
+	h, err := core.dao.GetBlockHash(blockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, nil, status.Error(codes.NotFound, err.Error())
@@ -827,7 +828,7 @@ func (api *coreService) GetTransactionLogByBlockHeight(blockHeight uint64) (*iot
 		Hash:   hex.EncodeToString(h[:]),
 		Height: blockHeight,
 	}
-	sysLog, err := api.dao.TransactionLogs(blockHeight)
+	sysLog, err := core.dao.TransactionLogs(blockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			// should return empty, no transaction happened in block
@@ -839,32 +840,32 @@ func (api *coreService) GetTransactionLogByBlockHeight(blockHeight uint64) (*iot
 }
 
 // Start starts the API server
-func (api *coreService) Start() error {
-	if err := api.bc.AddSubscriber(api.readCache); err != nil {
+func (core *coreService) Start() error {
+	if err := core.bc.AddSubscriber(core.readCache); err != nil {
 		return errors.Wrap(err, "failed to add readCache")
 	}
-	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
+	if err := core.bc.AddSubscriber(core.chainListener); err != nil {
 		return errors.Wrap(err, "failed to add chainListener")
 	}
-	if err := api.chainListener.Start(); err != nil {
+	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
 	return nil
 }
 
 // Stop stops the API server
-func (api *coreService) Stop() error {
-	return api.chainListener.Stop()
+func (core *coreService) Stop() error {
+	return core.chainListener.Stop()
 }
 
-func (api *coreService) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, uint64, error) {
+func (core *coreService) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, uint64, error) {
 	key := ReadKey{
 		Name:   p.Name(),
 		Height: height,
 		Method: methodName,
 		Args:   arguments,
 	}
-	if d, ok := api.readCache.Get(key.Hash()); ok {
+	if d, ok := core.readCache.Get(key.Hash()); ok {
 		var h uint64
 		if height != "" {
 			h, _ = strconv.ParseUint(height, 0, 64)
@@ -873,17 +874,17 @@ func (api *coreService) readState(ctx context.Context, p protocol.Protocol, heig
 	}
 
 	// TODO: need to complete the context
-	tipHeight := api.bc.TipHeight()
+	tipHeight := core.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
 	ctx = genesis.WithGenesisContext(
-		protocol.WithRegistry(ctx, api.registry),
-		api.cfg.Genesis,
+		protocol.WithRegistry(ctx, core.registry),
+		core.cfg.Genesis,
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	rp := rolldpos.FindProtocol(api.registry)
+	rp := rolldpos.FindProtocol(core.registry)
 	if rp == nil {
 		return nil, uint64(0), errors.New("rolldpos is not registered")
 	}
@@ -897,30 +898,30 @@ func (api *coreService) readState(ctx context.Context, p protocol.Protocol, heig
 		inputEpochNum := rp.GetEpochNum(inputHeight)
 		if inputEpochNum < tipEpochNum {
 			// old data, wrap to history state reader
-			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
 			if err == nil {
-				api.readCache.Put(key.Hash(), d)
+				core.readCache.Put(key.Hash(), d)
 			}
 			return d, h, err
 		}
 	}
 
 	// TODO: need to distinguish user error and system error
-	d, h, err := p.ReadState(ctx, api.sf, methodName, arguments...)
+	d, h, err := p.ReadState(ctx, core.sf, methodName, arguments...)
 	if err == nil {
-		api.readCache.Put(key.Hash(), d)
+		core.readCache.Put(key.Hash(), d)
 	}
 	return d, h, err
 }
 
-func (api *coreService) getActionsFromIndex(totalActions, start, count uint64) ([]*iotexapi.ActionInfo, error) {
-	hashes, err := api.indexer.GetActionHashFromIndex(start, count)
+func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+	hashes, err := core.indexer.GetActionHashFromIndex(start, count)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 	var actionInfo []*iotexapi.ActionInfo
 	for i := range hashes {
-		act, err := api.getAction(hash.BytesToHash256(hashes[i]), false)
+		act, err := core.getAction(hash.BytesToHash256(hashes[i]), false)
 		if err != nil {
 			return nil, status.Error(codes.Unavailable, err.Error())
 		}
@@ -929,16 +930,16 @@ func (api *coreService) getActionsFromIndex(totalActions, start, count uint64) (
 	return actionInfo, nil
 }
 
-// GetActions returns actions within the range
-func (api *coreService) GetActions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+// Actions returns actions within the range
+func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > core.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	totalActions, err := api.indexer.GetTotalActions()
+	totalActions, err := core.indexer.GetTotalActions()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -951,8 +952,8 @@ func (api *coreService) GetActions(start uint64, count uint64) ([]*iotexapi.Acti
 	if start+count > totalActions {
 		count = totalActions - start
 	}
-	if api.hasActionIndex {
-		return api.getActionsFromIndex(totalActions, start, count)
+	if core.hasActionIndex {
+		return core.getActionsFromIndex(totalActions, start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
@@ -963,8 +964,8 @@ func (api *coreService) GetActions(start uint64, count uint64) ([]*iotexapi.Acti
 
 	var res []*iotexapi.ActionInfo
 	var hit bool
-	for height := api.bc.TipHeight(); height >= 1 && count > 0; height-- {
-		blk, err := api.dao.GetBlockByHeight(height)
+	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
+		blk, err := core.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
@@ -974,7 +975,7 @@ func (api *coreService) GetActions(start uint64, count uint64) ([]*iotexapi.Acti
 		}
 		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
-		act := api.reverseActionsInBlock(blk, reverseStart, count)
+		act := core.reverseActionsInBlock(blk, reverseStart, count)
 		res = append(act, res...)
 		count -= uint64(len(act))
 		reverseStart = 0
@@ -982,25 +983,25 @@ func (api *coreService) GetActions(start uint64, count uint64) ([]*iotexapi.Acti
 	return res, nil
 }
 
-// getSingleAction returns action by action hash
-func (api *coreService) GetSingleAction(actionHash string, checkPending bool) ([]*iotexapi.ActionInfo, error) {
+// Action returns action by action hash
+func (core *coreService) Action(actionHash string, checkPending bool) ([]*iotexapi.ActionInfo, error) {
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	act, err := api.getAction(actHash, checkPending)
+	act, err := core.getAction(actHash, checkPending)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 	return []*iotexapi.ActionInfo{act}, nil
 }
 
-// getActionsByAddress returns all actions associated with an address
-func (api *coreService) GetActionsByAddress(addrStr string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+// ActionsByAddress returns all actions associated with an address
+func (core *coreService) ActionsByAddress(addrStr string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > core.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -1008,7 +1009,7 @@ func (api *coreService) GetActionsByAddress(addrStr string, start uint64, count 
 	if err != nil {
 		return nil, err
 	}
-	actions, err := api.indexer.GetActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
+	actions, err := core.indexer.GetActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
 	if err != nil {
 		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {
 			// no actions associated with address, return nil
@@ -1019,7 +1020,7 @@ func (api *coreService) GetActionsByAddress(addrStr string, start uint64, count 
 
 	var res []*iotexapi.ActionInfo
 	for i := range actions {
-		act, err := api.getAction(hash.BytesToHash256(actions[i]), false)
+		act, err := core.getAction(hash.BytesToHash256(actions[i]), false)
 		if err != nil {
 			continue
 		}
@@ -1029,40 +1030,40 @@ func (api *coreService) GetActionsByAddress(addrStr string, start uint64, count 
 }
 
 // getBlockHashByActionHash returns block hash by action hash
-func (api *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := api.indexer.GetActionIndex(h[:])
+func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
-	return api.dao.GetBlockHash(actIndex.BlockHeight())
+	return core.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
 // getActionByActionHash returns action by action hash
-func (api *coreService) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
-	actIndex, err := api.indexer.GetActionIndex(h[:])
+func (core *coreService) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
-	blk, err := api.dao.GetBlockByHeight(actIndex.BlockHeight())
+	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
-	selp, index, err := api.dao.GetActionByActionHash(h, actIndex.BlockHeight())
+	selp, index, err := core.dao.GetActionByActionHash(h, actIndex.BlockHeight())
 	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, err
 }
 
-// getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
-func (api *coreService) GetUnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
+func (core *coreService) UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > core.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	selps := api.ap.GetUnconfirmedActs(address)
+	selps := core.ap.GetUnconfirmedActs(address)
 	if len(selps) == 0 {
 		return []*iotexapi.ActionInfo{}, nil
 	}
@@ -1072,19 +1073,19 @@ func (api *coreService) GetUnconfirmedActionsByAddress(address string, start uin
 
 	var res []*iotexapi.ActionInfo
 	for i := start; i < uint64(len(selps)) && i < start+count; i++ {
-		if act, err := api.pendingAction(selps[i]); err == nil {
+		if act, err := core.pendingAction(selps[i]); err == nil {
 			res = append(res, act)
 		}
 	}
 	return res, nil
 }
 
-// getActionsByBlock returns all actions in a block
-func (api *coreService) GetActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+// ActionsByBlock returns all actions in a block
+func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
+	if count > core.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -1092,7 +1093,7 @@ func (api *coreService) GetActionsByBlock(blkHash string, start uint64, count ui
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blk, err := api.dao.GetBlock(hash)
+	blk, err := core.dao.GetBlock(hash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -1100,25 +1101,25 @@ func (api *coreService) GetActionsByBlock(blkHash string, start uint64, count ui
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	return api.actionsInBlock(blk, start, count), nil
+	return core.actionsInBlock(blk, start, count), nil
 }
 
-// getBlockMetas returns blockmetas response within the height range
-func (api *coreService) GetBlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error) {
+// BlockMetas returns blockmetas response within the height range
+func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > core.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	tipHeight := api.bc.TipHeight()
+	tipHeight := core.bc.TipHeight()
 	if start > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
 	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blockMeta, err := api.getBlockMetaByHeight(height)
+		blockMeta, err := core.getBlockMetaByHeight(height)
 		if err != nil {
 			return nil, err
 		}
@@ -1128,20 +1129,20 @@ func (api *coreService) GetBlockMetas(start uint64, count uint64) ([]*iotextypes
 	return res, nil
 }
 
-// getBlockMeta returns blockmetas response by block hash
-func (api *coreService) GetBlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, error) {
+// BlockMetaByHash returns blockmetas response by block hash
+func (core *coreService) BlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	height, err := api.dao.GetBlockHeight(hash)
+	height, err := core.dao.GetBlockHeight(hash)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	blockMeta, err := api.getBlockMetaByHeight(height)
+	blockMeta, err := core.getBlockMetaByHeight(height)
 	if err != nil {
 		return nil, err
 	}
@@ -1149,14 +1150,14 @@ func (api *coreService) GetBlockMetaByHash(blkHash string) ([]*iotextypes.BlockM
 }
 
 // getBlockMetaByHeight gets BlockMeta by height
-func (api *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	blk, err := api.dao.GetBlockByHeight(height)
+func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+	blk, err := core.dao.GetBlockByHeight(height)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	// get block's receipt
 	if blk.Height() > 0 {
-		blk.Receipts, err = api.dao.GetReceipts(height)
+		blk.Receipts, err = core.dao.GetReceipts(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
@@ -1215,12 +1216,12 @@ func (api *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMe
 // 	return gasLimit, gasUsed
 // }
 
-func (api *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
+func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
 	gravityChainStartHeight := epochHeight
-	if pp := poll.FindProtocol(api.registry); pp != nil {
+	if pp := poll.FindProtocol(core.registry); pp != nil {
 		methodName := []byte("GetGravityChainStartHeight")
 		arguments := [][]byte{[]byte(strconv.FormatUint(epochHeight, 10))}
-		data, _, err := api.readState(context.Background(), pp, "", methodName, arguments...)
+		data, _, err := core.readState(context.Background(), pp, "", methodName, arguments...)
 		if err != nil {
 			return 0, err
 		}
@@ -1234,17 +1235,17 @@ func (api *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, 
 	return gravityChainStartHeight, nil
 }
 
-func (api *coreService) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (*iotexapi.ActionInfo, error) {
+func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
 	}
-	header, err := api.dao.Header(blkHash)
+	header, err := core.dao.Header(blkHash)
 	if err != nil {
 		return nil, err
 	}
 	sender := selp.SrcPubkey().Address()
-	receipt, err := api.dao.GetReceiptByActionHash(actHash, blkHeight)
+	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -1262,7 +1263,7 @@ func (api *coreService) committedAction(selp action.SealedEnvelope, blkHash hash
 	}, nil
 }
 
-func (api *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
+func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
 	actHash, err := selp.Hash()
 	if err != nil {
 		return nil, err
@@ -1279,10 +1280,10 @@ func (api *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Act
 	}, nil
 }
 
-func (api *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, actIndex, err := api.getActionByActionHash(actHash)
+func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
+	selp, blkHash, blkHeight, actIndex, err := core.getActionByActionHash(actHash)
 	if err == nil {
-		act, err := api.committedAction(selp, blkHash, blkHeight)
+		act, err := core.committedAction(selp, blkHash, blkHeight)
 		if err != nil {
 			return nil, err
 		}
@@ -1291,15 +1292,15 @@ func (api *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iot
 	}
 	// Try to fetch pending action from actpool
 	if checkPending {
-		selp, err = api.ap.GetActionByHash(actHash)
+		selp, err = core.ap.GetActionByHash(actHash)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.pendingAction(selp)
+	return core.pendingAction(selp)
 }
 
-func (api *coreService) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
+func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
 	var res []*iotexapi.ActionInfo
 	if len(blk.Actions) == 0 || start >= uint64(len(blk.Actions)) {
 		return res
@@ -1340,7 +1341,7 @@ func (api *coreService) actionsInBlock(blk *block.Block, start, count uint64) []
 	return res
 }
 
-func (api *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, count uint64) []*iotexapi.ActionInfo {
+func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, count uint64) []*iotexapi.ActionInfo {
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
@@ -1369,8 +1370,8 @@ func (api *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, co
 	return res
 }
 
-func (api *coreService) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	logBloomFilter, err := api.bfIndexer.BlockFilterByHeight(blockNumber)
+func (core *coreService) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1378,12 +1379,12 @@ func (api *coreService) getLogsInBlock(filter *logfilter.LogFilter, blockNumber 
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
 		return nil, nil
 	}
-	receipts, err := api.dao.GetReceipts(blockNumber)
+	receipts, err := core.dao.GetReceipts(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	h, err := api.dao.GetBlockHash(blockNumber)
+	h, err := core.dao.GetBlockHash(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1392,7 +1393,7 @@ func (api *coreService) getLogsInBlock(filter *logfilter.LogFilter, blockNumber 
 }
 
 // TODO: improve using goroutine
-func (api *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
 	if start > end {
 		return nil, errors.New("invalid start and end height")
 	}
@@ -1402,12 +1403,12 @@ func (api *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end, 
 
 	logs := []*iotextypes.Log{}
 	// getLogs via range Blooom filter [start, end]
-	blockNumbers, err := api.bfIndexer.FilterBlocksInRange(filter, start, end)
+	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {
 		return nil, err
 	}
 	for _, i := range blockNumbers {
-		logsInBlock, err := api.getLogsInBlock(filter, i)
+		logsInBlock, err := core.getLogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
 		}
@@ -1422,7 +1423,7 @@ func (api *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end, 
 	return logs, nil
 }
 
-func (api *coreService) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (uint64, error) {
+func (core *coreService) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (uint64, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
@@ -1431,7 +1432,7 @@ func (api *coreService) estimateActionGasConsumptionForExecution(ctx context.Con
 	if err != nil {
 		return 0, status.Error(codes.FailedPrecondition, err.Error())
 	}
-	state, err := accountutil.AccountState(api.sf, addr)
+	state, err := accountutil.AccountState(core.sf, addr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1442,7 +1443,7 @@ func (api *coreService) estimateActionGasConsumptionForExecution(ctx context.Con
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	enough, receipt, err := api.isGasLimitEnough(ctx, callerAddr, sc, nonce, api.cfg.Genesis.BlockGasLimit)
+	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, nonce, core.cfg.Genesis.BlockGasLimit)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1453,16 +1454,16 @@ func (api *coreService) estimateActionGasConsumptionForExecution(ctx context.Con
 		return 0, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
+	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
 	if err != nil && err != action.ErrOutOfGas {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
-		low, high := estimatedGas, api.cfg.Genesis.BlockGasLimit
+		low, high := estimatedGas, core.cfg.Genesis.BlockGasLimit
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
+			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
 			if err != nil && err != action.ErrOutOfGas {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1478,7 +1479,7 @@ func (api *coreService) estimateActionGasConsumptionForExecution(ctx context.Con
 	return estimatedGas, nil
 }
 
-func (api *coreService) isGasLimitEnough(
+func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
@@ -1495,25 +1496,25 @@ func (api *coreService) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	ctx, err := api.bc.Context(ctx)
+	ctx, err := core.bc.Context(ctx)
 	if err != nil {
 		return false, nil, err
 	}
-	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
+	_, receipt, err := core.sf.SimulateExecution(ctx, caller, sc, core.dao.GetBlockHash)
 	if err != nil {
 		return false, nil, err
 	}
 	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), receipt, nil
 }
 
-func (api *coreService) getProductivityByEpoch(
+func (core *coreService) getProductivityByEpoch(
 	rp *rolldpos.Protocol,
 	epochNum uint64,
 	tipHeight uint64,
 	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
 	num, produce, err := rp.ProductivityByEpoch(epochNum, tipHeight, func(start uint64, end uint64) (map[string]uint64, error) {
-		return blockchain.Productivity(api.bc, start, end)
+		return blockchain.Productivity(core.bc, start, end)
 	})
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
@@ -1527,12 +1528,12 @@ func (api *coreService) getProductivityByEpoch(
 	return num, produce, nil
 }
 
-func (api *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	var balance string
 	var out *iotexapi.ReadStateResponse
 	switch addr {
 	case address.RewardingPoolAddr:
-		data, _, err := api.ReadState("rewarding", "", []byte("TotalBalance"), nil)
+		data, _, err := core.ReadState("rewarding", "", []byte("TotalBalance"), nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1556,7 +1557,7 @@ func (api *coreService) getProtocolAccount(ctx context.Context, addr string) (*i
 		if err != nil {
 			return nil, nil, err
 		}
-		data, _, err := api.ReadState("staking", "", methodName, [][]byte{arg})
+		data, _, err := core.ReadState("staking", "", methodName, [][]byte{arg})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1572,11 +1573,11 @@ func (api *coreService) getProtocolAccount(ctx context.Context, addr string) (*i
 	}, out.GetBlockIdentifier(), nil
 }
 
-// GetActPoolActions returns the all Transaction Identifiers in the mempool
-func (api *coreService) GetActPoolActions(actHashes []string) ([]*iotextypes.Action, error) {
+// ActPoolActions returns the all Transaction Identifiers in the mempool
+func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Action, error) {
 	var ret []*iotextypes.Action
 	if len(actHashes) == 0 {
-		for _, sealeds := range api.ap.PendingActionMap() {
+		for _, sealeds := range core.ap.PendingActionMap() {
 			for _, sealed := range sealeds {
 				ret = append(ret, sealed.Proto())
 			}
@@ -1589,7 +1590,7 @@ func (api *coreService) GetActPoolActions(actHashes []string) ([]*iotextypes.Act
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, errors.Wrap(err, "failed to hex string to hash256").Error())
 		}
-		sealed, err := api.ap.GetActionByHash(hs)
+		sealed, err := core.ap.GetActionByHash(hs)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
