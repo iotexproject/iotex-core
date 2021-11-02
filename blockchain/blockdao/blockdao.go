@@ -105,36 +105,39 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	return dao.checkIndexers(ctx)
 }
 
-func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) (context.Context, error) {
-	g, ok := genesis.ExtractGenesisContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to find blockchain ctx")
+func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, chainID uint32, height uint64) (context.Context, error) {
+	bcCtx := protocol.BlockchainCtx{
+		Tip: protocol.TipInfo{
+			Height: height,
+		},
+		ChainID: chainID,
 	}
-	bcCtx := protocol.BlockchainCtx{}
 	if height == 0 {
-		bcCtx.Tip = protocol.TipInfo{
-			Height:    0,
-			Hash:      g.Hash(),
-			Timestamp: time.Unix(g.Timestamp, 0),
+		g, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return nil, errors.New("failed to find blockchain ctx")
 		}
+		bcCtx.Tip.Hash = g.Hash()
+		bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 	} else {
 		header, err := dao.HeaderByHeight(height)
 		if err != nil {
 			return nil, err
 		}
-		bcCtx.Tip = protocol.TipInfo{
-			Height:    height,
-			Hash:      header.HashHeader(),
-			Timestamp: header.Timestamp(),
-		}
+		bcCtx.Tip.Hash = header.HashHeader()
+		bcCtx.Tip.Timestamp = header.Timestamp()
 	}
 	return protocol.WithBlockchainCtx(ctx, bcCtx), nil
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	g, ok := genesis.ExtractGenesisContext(ctx)
+	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
 	if !ok {
 		return errors.New("failed to find blockchain ctx")
+	}
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return errors.New("failed to find genesis ctx")
 	}
 	for ii, indexer := range dao.indexers {
 		tipHeight, err := indexer.Height()
@@ -160,7 +163,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if producer == nil {
 				return errors.New("failed to get address")
 			}
-			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, i-1)
+			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, bcCtx.ChainID, i-1)
 			if err != nil {
 				return err
 			}
@@ -318,11 +321,6 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := dao.timerFactory.NewTimer("put_block")
-	var err error
-	ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
-	if err != nil {
-		return err
-	}
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
 		timer.End()
 		return err
