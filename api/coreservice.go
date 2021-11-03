@@ -1598,3 +1598,8 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 	}
 	return ret, nil
 }
+
+// EVMNetworkID returns the network id of evm
+func (core *coreService) EVMNetworkID() uint32 {
+	return config.EVMNetworkID()
+}
