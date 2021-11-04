@@ -223,8 +223,8 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 
-	caller, err := address.FromBytes(act.SrcPubkey().Hash())
-	if err != nil {
+	caller := act.SrcPubkey().Address()
+	if caller == nil {
 		return action.ErrAddress
 	}
 	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())

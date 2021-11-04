@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -841,11 +842,11 @@ var (
 	}
 )
 
-func TestServer_GetAccount(t *testing.T) {
+func TestGrpcServer_GetAccount(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -853,13 +854,13 @@ func TestServer_GetAccount(t *testing.T) {
 
 	// deploy a contract
 	contractCode := "6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032"
-	contract, err := deployContract(svr, identityset.PrivateKey(13), 1, svr.bc.TipHeight(), contractCode)
+	contract, err := deployContractV2(svr, identityset.PrivateKey(13), 1, svr.core.bc.TipHeight(), contractCode)
 	require.NoError(err)
 	require.True(len(contract) > 0)
 
 	// read contract address
 	request := &iotexapi.GetAccountRequest{Address: contract}
-	res, err := svr.GetAccount(context.Background(), request)
+	res, err := svr.GrpcServer.GetAccount(context.Background(), request)
 	require.NoError(err)
 	accountMeta := res.AccountMeta
 	require.Equal(contract, accountMeta.Address)
@@ -874,7 +875,7 @@ func TestServer_GetAccount(t *testing.T) {
 	// success
 	for _, test := range getAccountTests {
 		request := &iotexapi.GetAccountRequest{Address: test.in}
-		res, err := svr.GetAccount(context.Background(), request)
+		res, err := svr.GrpcServer.GetAccount(context.Background(), request)
 		require.NoError(err)
 		accountMeta := res.AccountMeta
 		require.Equal(test.address, accountMeta.Address)
@@ -884,28 +885,28 @@ func TestServer_GetAccount(t *testing.T) {
 		require.Equal(test.numActions, accountMeta.NumActions)
 	}
 	// failure
-	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
+	_, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
 	// error account
-	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: "io3fn88lge6hyzmruh40cn6l3e49dfkqzqk3lgtq3"})
+	_, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: "io3fn88lge6hyzmruh40cn6l3e49dfkqzqk3lgtq3"})
 	require.Error(err)
 
 	// success: reward pool
-	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	accountMeta2, _, err := svr.core.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
 	require.NoError(err)
-	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
-	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
+	require.Equal(address.RewardingPoolAddr, accountMeta2.Address)
+	require.Equal("200000000000000000000101000", accountMeta2.Balance)
 
 	//failure: protocol staking isn't registered
-	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	_, _, err = svr.core.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
 	require.Contains(err.Error(), "protocol staking isn't registered")
 }
 
-func TestServer_GetActions(t *testing.T) {
+func TestGrpcServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -921,7 +922,7 @@ func TestServer_GetActions(t *testing.T) {
 			},
 		}
 
-		res, err := svr.GetActions(context.Background(), request)
+		res, err := svr.GrpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 		} else {
@@ -930,8 +931,8 @@ func TestServer_GetActions(t *testing.T) {
 		}
 
 		svrDisableIndex := svr
-		svrDisableIndex.hasActionIndex = false
-		res, err = svrDisableIndex.GetActions(context.Background(), request)
+		svrDisableIndex.core.hasActionIndex = false
+		res, err = svrDisableIndex.GrpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 		} else {
@@ -942,11 +943,11 @@ func TestServer_GetActions(t *testing.T) {
 	}
 
 	// failure: empty request
-	_, err = svr.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
+	_, err = svr.GrpcServer.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
 	require.Error(err)
 
 	// failure: range exceed limit
-	_, err = svr.GetActions(context.Background(),
+	_, err = svr.GrpcServer.GetActions(context.Background(),
 		&iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByIndex{
 				ByIndex: &iotexapi.GetActionsByIndexRequest{
@@ -958,7 +959,7 @@ func TestServer_GetActions(t *testing.T) {
 	require.Error(err)
 
 	// failure: start exceed limit
-	_, err = svr.GetActions(context.Background(),
+	_, err = svr.GrpcServer.GetActions(context.Background(),
 		&iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByIndex{
 				ByIndex: &iotexapi.GetActionsByIndexRequest{
@@ -970,11 +971,11 @@ func TestServer_GetActions(t *testing.T) {
 	require.Error(err)
 }
 
-func TestServer_GetAction(t *testing.T) {
+func TestGrpcServer_GetAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -989,14 +990,14 @@ func TestServer_GetAction(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetActions(context.Background(), request)
+		res, err := svr.GrpcServer.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(1, len(res.ActionInfo))
 		act := res.ActionInfo[0]
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := svr.dao.GetBlockByHeight(test.blkNumber)
+			blk, err := svr.core.dao.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -1011,11 +1012,11 @@ func TestServer_GetAction(t *testing.T) {
 	}
 }
 
-func TestServer_GetActionsByAddress(t *testing.T) {
+func TestGrpcServer_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1031,7 +1032,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetActions(context.Background(), request)
+		res, err := svr.GrpcServer.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
 		if test.numActions == 0 {
@@ -1055,18 +1056,18 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 					},
 				},
 			}
-			prevRes, err := svr.GetActions(context.Background(), request)
+			prevRes, err := svr.GrpcServer.GetActions(context.Background(), request)
 			require.NoError(err)
 			require.True(prevRes.ActionInfo[len(prevRes.ActionInfo)-1].Timestamp.GetSeconds() <= res.ActionInfo[0].Timestamp.GetSeconds())
 		}
 	}
 }
 
-func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
+func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1082,7 +1083,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetActions(context.Background(), request)
+		res, err := svr.GrpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 			continue
@@ -1093,11 +1094,11 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	}
 }
 
-func TestServer_GetActionsByBlock(t *testing.T) {
+func TestGrpcServer_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1113,7 +1114,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetActions(context.Background(), request)
+		res, err := svr.GrpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 			continue
@@ -1127,13 +1128,13 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 	}
 }
 
-func TestServer_GetBlockMetas(t *testing.T) {
+func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash(&cfg.Genesis)
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1148,7 +1149,7 @@ func TestServer_GetBlockMetas(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetBlockMetas(context.Background(), request)
+		res, err := svr.GrpcServer.GetBlockMetas(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 			continue
@@ -1172,22 +1173,22 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		}
 	}
 	// failure: empty request
-	_, err = svr.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
 	require.Error(err)
 }
 
-func TestServer_GetBlockMeta(t *testing.T) {
+func TestGrpcServer_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
 	for _, test := range getBlockMetaTests {
-		header, err := svr.bc.BlockHeaderByHeight(test.blkHeight)
+		header, err := svr.core.bc.BlockHeaderByHeight(test.blkHeight)
 		require.NoError(err)
 		blkHash := header.HashBlock()
 		request := &iotexapi.GetBlockMetasRequest{
@@ -1197,7 +1198,7 @@ func TestServer_GetBlockMeta(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetBlockMetas(context.Background(), request)
+		res, err := svr.GrpcServer.GetBlockMetas(context.Background(), request)
 		require.NoError(err)
 		require.Equal(1, len(res.BlkMetas))
 		blkPb := res.BlkMetas[0]
@@ -1209,11 +1210,10 @@ func TestServer_GetBlockMeta(t *testing.T) {
 	}
 }
 
-func TestServer_GetChainMeta(t *testing.T) {
+func TestGrpcServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
@@ -1248,20 +1248,21 @@ func TestServer_GetChainMeta(t *testing.T) {
 		}
 
 		cfg.API.TpsWindow = test.tpsWindow
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		if pol != nil {
-			require.NoError(pol.ForceRegister(svr.registry))
+			require.NoError(pol.ForceRegister(svr.core.registry))
 		}
 		if test.emptyChain {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
-			svr.bc = mbc
+			mbc.EXPECT().ChainID().Return(uint32(1)).Times(1)
+			svr.core.bc = mbc
 		}
-		res, err := svr.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+		res, err := svr.GrpcServer.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
 		chainMetaPb := res.ChainMeta
 		require.Equal(test.height, chainMetaPb.Height)
@@ -1273,23 +1274,26 @@ func TestServer_GetChainMeta(t *testing.T) {
 	}
 }
 
-func TestServer_SendAction(t *testing.T) {
+func TestGrpcServer_SendAction(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	broadcastHandlerCount := 0
-	svr := Server{bc: chain, ap: ap, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
-		broadcastHandlerCount++
-		return nil
-	}}
-
+	core := &coreService{
+		bc: chain,
+		ap: ap,
+		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		},
+	}
+	svr := NewGRPCServer(core, 141014)
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-
 	for i, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := svr.SendAction(context.Background(), request)
@@ -1301,22 +1305,22 @@ func TestServer_SendAction(t *testing.T) {
 	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
-		server func() (*Server, string, error)
+		server func() (*ServerV2, string, error)
 		action *iotextypes.Action
 		err    string
 	}{
 		{
-			func() (*Server, string, error) {
+			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
-				return createServer(cfg, true)
+				return createServerV2(cfg, true)
 			},
 			&iotextypes.Action{},
 			"invalid signature length",
 		},
 		{
-			func() (*Server, string, error) {
+			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
-				return createServer(cfg, true)
+				return createServerV2(cfg, true)
 			},
 			&iotextypes.Action{
 				Signature: action.ValidSig,
@@ -1324,34 +1328,34 @@ func TestServer_SendAction(t *testing.T) {
 			"empty action proto to load",
 		},
 		{
-			func() (*Server, string, error) {
+			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
 				cfg.ActPool.MaxNumActsPerPool = 8
-				return createServer(cfg, true)
+				return createServerV2(cfg, true)
 			},
 			testTransferPb,
 			action.ErrTxPoolOverflow.Error(),
 		},
 		{
-			func() (*Server, string, error) {
+			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
-				return createServer(cfg, true)
+				return createServerV2(cfg, true)
 			},
 			testTransferInvalid1Pb,
 			action.ErrNonceTooLow.Error(),
 		},
 		{
-			func() (*Server, string, error) {
+			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
-				return createServer(cfg, true)
+				return createServerV2(cfg, true)
 			},
 			testTransferInvalid2Pb,
 			action.ErrUnderpriced.Error(),
 		},
 		{
-			func() (*Server, string, error) {
+			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
-				return createServer(cfg, true)
+				return createServerV2(cfg, true)
 			},
 			testTransferInvalid3Pb,
 			action.ErrInsufficientFunds.Error(),
@@ -1366,30 +1370,30 @@ func TestServer_SendAction(t *testing.T) {
 			testutil.CleanupPath(t, file)
 		}()
 
-		_, err = svr.SendAction(ctx, request)
+		_, err = svr.GrpcServer.SendAction(ctx, request)
 		require.Contains(err.Error(), test.err)
 	}
 }
 
-func TestServer_StreamLogs(t *testing.T) {
+func TestGrpcServer_StreamLogs(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	err = svr.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
+	err = svr.GrpcServer.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
 	require.Error(err)
 }
 
-func TestServer_GetReceiptByAction(t *testing.T) {
+func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1397,7 +1401,7 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 
 	for _, test := range getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
-		res, err := svr.GetReceiptByAction(context.Background(), request)
+		res, err := svr.GrpcServer.GetReceiptByAction(context.Background(), request)
 		require.NoError(err)
 		receiptPb := res.ReceiptInfo.Receipt
 		require.Equal(test.status, receiptPb.Status)
@@ -1406,25 +1410,25 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 	}
 
 	// failure: empty request
-	_, err = svr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "0x"})
+	_, err = svr.GrpcServer.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "0x"})
 	require.Error(err)
 	// failure: wrong hash
-	_, err = svr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "b7faffcb8b01fa9f32112155bcb93d714f599eab3178e577e88dafd2140bfc5a"})
+	_, err = svr.GrpcServer.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "b7faffcb8b01fa9f32112155bcb93d714f599eab3178e577e88dafd2140bfc5a"})
 	require.Error(err)
 
 }
 
-func TestServer_GetServerMeta(t *testing.T) {
+func TestGrpcServer_GetServerMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	resProto, err := svr.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	resProto, err := svr.GrpcServer.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
 	res := resProto.GetServerMeta()
 	require.Equal(res.BuildTime, version.BuildTime)
 	require.Equal(res.GoVersion, version.GoVersion)
@@ -1433,11 +1437,11 @@ func TestServer_GetServerMeta(t *testing.T) {
 	require.Equal(res.PackageVersion, version.PackageVersion)
 }
 
-func TestServer_ReadContract(t *testing.T) {
+func TestGrpcServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1446,9 +1450,9 @@ func TestServer_ReadContract(t *testing.T) {
 	for _, test := range readContractTests {
 		hash, err := hash.HexStringToHash256(test.execHash)
 		require.NoError(err)
-		ai, err := svr.indexer.GetActionIndex(hash[:])
+		ai, err := svr.core.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		exec, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		exec, _, err := svr.core.dao.GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
@@ -1457,7 +1461,7 @@ func TestServer_ReadContract(t *testing.T) {
 			GasPrice:      big.NewInt(unit.Qev).String(),
 		}
 
-		res, err := svr.ReadContract(context.Background(), request)
+		res, err := svr.GrpcServer.ReadContract(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.retValue, res.Data)
 		require.EqualValues(1, res.Receipt.Status)
@@ -1466,28 +1470,28 @@ func TestServer_ReadContract(t *testing.T) {
 	}
 }
 
-func TestServer_SuggestGasPrice(t *testing.T) {
+func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	for _, test := range suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
-		res, err := svr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
+		res, err := svr.GrpcServer.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
 		require.NoError(err)
 		require.Equal(test.suggestedGasPrice, res.GasPrice)
 	}
 }
 
-func TestServer_EstimateGasForAction(t *testing.T) {
+func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1496,22 +1500,22 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 	for _, test := range estimateGasForActionTests {
 		hash, err := hash.HexStringToHash256(test.actionHash)
 		require.NoError(err)
-		ai, err := svr.indexer.GetActionIndex(hash[:])
+		ai, err := svr.core.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		act, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		act, _, err := svr.core.dao.GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 
-		res, err := svr.EstimateGasForAction(context.Background(), request)
+		res, err := svr.GrpcServer.EstimateGasForAction(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.estimatedGas, res.Gas)
 	}
 }
 
-func TestServer_EstimateActionGasConsumption(t *testing.T) {
+func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -1529,7 +1533,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err := svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err := svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(286579), res.Gas)
 
@@ -1542,7 +1546,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1568,7 +1572,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1581,7 +1585,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1594,7 +1598,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1607,7 +1611,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1620,7 +1624,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1633,7 +1637,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1646,7 +1650,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1659,7 +1663,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1672,7 +1676,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10000), res.Gas)
 
@@ -1681,22 +1685,22 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		Action:        nil,
 		CallerAddress: identityset.Address(0).String(),
 	}
-	_, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	_, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.Error(err)
 }
 
-func TestServer_ReadUnclaimedBalance(t *testing.T) {
+func TestGrpcServer_ReadUnclaimedBalance(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
 	for _, test := range readUnclaimedBalanceTests {
-		out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(test.addr)},
@@ -1712,17 +1716,17 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	}
 }
 
-func TestServer_TotalBalance(t *testing.T) {
+func TestGrpcServer_TotalBalance(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+	out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("TotalBalance"),
 		Arguments:  nil,
@@ -1733,17 +1737,17 @@ func TestServer_TotalBalance(t *testing.T) {
 	require.Equal(unit.ConvertIotxToRau(200000000), val)
 }
 
-func TestServer_AvailableBalance(t *testing.T) {
+func TestGrpcServer_AvailableBalance(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+	out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
 		Arguments:  nil,
@@ -1754,12 +1758,11 @@ func TestServer_AvailableBalance(t *testing.T) {
 	require.Equal(unit.ConvertIotxToRau(199999936), val)
 }
 
-func TestServer_ReadCandidatesByEpoch(t *testing.T) {
+func TestGrpcServer_ReadCandidatesByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1807,14 +1810,14 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
-		require.NoError(pol.ForceRegister(svr.registry))
+		require.NoError(pol.ForceRegister(svr.core.registry))
 
-		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
@@ -1826,12 +1829,11 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	}
 }
 
-func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
+func TestGrpcServer_ReadBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1880,13 +1882,13 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
-		require.NoError(pol.ForceRegister(svr.registry))
-		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		require.NoError(pol.ForceRegister(svr.core.registry))
+		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
@@ -1898,12 +1900,11 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	}
 }
 
-func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
+func TestGrpcServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1951,14 +1952,14 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
-		require.NoError(pol.ForceRegister(svr.registry))
+		require.NoError(pol.ForceRegister(svr.core.registry))
 
-		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
@@ -1970,17 +1971,17 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	}
 }
 
-func TestServer_ReadRollDPoSMeta(t *testing.T) {
+func TestGrpcServer_ReadRollDPoSMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	for _, test := range readRollDPoSMetaTests {
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
-		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 		})
@@ -1991,17 +1992,17 @@ func TestServer_ReadRollDPoSMeta(t *testing.T) {
 	}
 }
 
-func TestServer_ReadEpochCtx(t *testing.T) {
+func TestGrpcServer_ReadEpochCtx(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	for _, test := range readEpochCtxTests {
-		svr, bfIndexFile, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
-		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.argument, 10))},
@@ -2013,14 +2014,13 @@ func TestServer_ReadEpochCtx(t *testing.T) {
 	}
 }
 
-func TestServer_GetEpochMeta(t *testing.T) {
+func TestGrpcServer_GetEpochMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2028,7 +2028,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	for _, test := range getEpochMetaTests {
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
-			require.NoError(pol.ForceRegister(svr.registry))
+			require.NoError(pol.ForceRegister(svr.core.registry))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
@@ -2089,7 +2089,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
-			require.NoError(pol.ForceRegister(svr.registry))
+			require.NoError(pol.ForceRegister(svr.core.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(4)
@@ -2109,10 +2109,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				}
 				return &block.Header{}, errors.Errorf("invalid block height %d", height)
 			}).AnyTimes()
-			svr.bc = mbc
+			svr.core.bc = mbc
 		}
-		svr.readCache.Clear()
-		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
+		svr.core.readCache.Clear()
+		res, err := svr.GrpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
 		require.Equal(test.epochData.Height, res.EpochData.Height)
@@ -2136,15 +2136,15 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	}
 
 	// failure: epoch number
-	_, err = svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
+	_, err = svr.GrpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
 	require.Error(err)
 }
 
-func TestServer_GetRawBlocks(t *testing.T) {
+func TestGrpcServer_GetRawBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2156,7 +2156,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 			Count:        test.count,
 			WithReceipts: test.withReceipts,
 		}
-		res, err := svr.GetRawBlocks(context.Background(), request)
+		res, err := svr.GrpcServer.GetRawBlocks(context.Background(), request)
 		require.NoError(err)
 		blkInfos := res.Blocks
 		require.Equal(test.numBlks, len(blkInfos))
@@ -2183,7 +2183,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 	}
 
 	// failure: invalid count
-	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+	_, err = svr.GrpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
 		StartHeight:  1,
 		Count:        0,
 		WithReceipts: true,
@@ -2191,7 +2191,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 	require.Error(err)
 
 	// failure: invalid startHeight
-	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+	_, err = svr.GrpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
 		StartHeight:  1000000,
 		Count:        10,
 		WithReceipts: true,
@@ -2199,7 +2199,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 	require.Error(err)
 
 	// failure: invalid endHeight
-	_, err = svr.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+	_, err = svr.GrpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
 		StartHeight:  3,
 		Count:        1000,
 		WithReceipts: true,
@@ -2208,11 +2208,11 @@ func TestServer_GetRawBlocks(t *testing.T) {
 
 }
 
-func TestServer_GetLogs(t *testing.T) {
+func TestGrpcServer_GetLogs(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2231,7 +2231,7 @@ func TestServer_GetLogs(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetLogs(context.Background(), request)
+		res, err := svr.GrpcServer.GetLogs(context.Background(), request)
 		require.NoError(err)
 		logs := res.Logs
 		require.Equal(test.numLogs, len(logs))
@@ -2250,28 +2250,28 @@ func TestServer_GetLogs(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GetLogs(context.Background(), request)
+		res, err := svr.GrpcServer.GetLogs(context.Background(), request)
 		require.NoError(err)
 		logs := res.Logs
 		require.Equal(1, len(logs))
 	}
 
 	// failure: empty request
-	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
+	_, err = svr.GrpcServer.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
 		Filter: &iotexapi.LogsFilter{},
 	})
 	require.Error(err)
 
 	// failure: empty filter
-	_, err = svr.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
+	_, err = svr.GrpcServer.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
 	require.Error(err)
 }
 
-func TestServer_GetElectionBuckets(t *testing.T) {
+func TestGrpcServer_GetElectionBuckets(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2281,32 +2281,32 @@ func TestServer_GetElectionBuckets(t *testing.T) {
 	request := &iotexapi.GetElectionBucketsRequest{
 		EpochNum: 0,
 	}
-	_, err = svr.GetElectionBuckets(context.Background(), request)
+	_, err = svr.GrpcServer.GetElectionBuckets(context.Background(), request)
 	require.Error(err)
 }
 
-func TestServer_GetActionByActionHash(t *testing.T) {
+func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, err := svr.GetActionByActionHash(test.h)
+		ret, err := svr.core.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
 }
 
-func TestServer_GetTransactionLogByActionHash(t *testing.T) {
+func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2315,7 +2315,7 @@ func TestServer_GetTransactionLogByActionHash(t *testing.T) {
 	request := &iotexapi.GetTransactionLogByActionHashRequest{
 		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
 	}
-	_, err = svr.GetTransactionLogByActionHash(context.Background(), request)
+	_, err = svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
 	require.Error(err)
 	sta, ok := status.FromError(err)
 	require.Equal(true, ok)
@@ -2323,22 +2323,22 @@ func TestServer_GetTransactionLogByActionHash(t *testing.T) {
 
 	for h, log := range implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
-		res, err := svr.GetTransactionLogByActionHash(context.Background(), request)
+		res, err := svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
 		require.NoError(err)
 		require.Equal(log.Proto(), res.TransactionLog)
 	}
 
 	// check implicit transfer receiver balance
-	state, err := accountutil.LoadAccount(svr.sf, hash.BytesToHash160(identityset.Address(31).Bytes()))
+	state, err := accountutil.LoadAccount(svr.core.sf, hash.BytesToHash160(identityset.Address(31).Bytes()))
 	require.NoError(err)
 	require.Equal(big.NewInt(5), state.Balance)
 }
 
-func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
+func TestGrpcServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2347,7 +2347,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
 	for _, test := range getImplicitLogByBlockHeightTest {
 		request.BlockHeight = test.height
-		res, err := svr.GetTransactionLogByBlockHeight(context.Background(), request)
+		res, err := svr.GrpcServer.GetTransactionLogByBlockHeight(context.Background(), request)
 		if test.code != codes.OK {
 			require.Error(err)
 			sta, ok := status.FromError(err)
@@ -2409,7 +2409,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		if err := ap.Add(ctx, selp); err != nil {
 			return err
 		}
-		implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+		selpHash := selp.Hash()
+		implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
 	}
@@ -2457,7 +2458,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf1.Hash()] = block.NewTransactionLog(tsf1.Hash(),
+	tsf1Hash := tsf1.Hash()
+	implicitLogs[tsf1Hash] = block.NewTransactionLog(tsf1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
 	)
 	if err := ap.Add(ctx, tsf1); err != nil {
@@ -2467,7 +2469,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf2.Hash()] = block.NewTransactionLog(tsf2.Hash(),
+	tsf2Hash := tsf2.Hash()
+	implicitLogs[tsf2Hash] = block.NewTransactionLog(tsf2Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
 	)
 	if err := ap.Add(ctx, tsf2); err != nil {
@@ -2478,8 +2481,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
-		execution1.Hash(),
+	execution1Hash := execution1.Hash()
+	implicitLogs[execution1Hash] = block.NewTransactionLog(
+		execution1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
 	if err := ap.Add(ctx, execution1); err != nil {
@@ -2500,27 +2504,27 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	return bc.CommitBlock(blk)
 }
 
-func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
+func deployContractV2(svr *ServerV2, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
 	data, _ := hex.DecodeString(code)
 	ex1, err := action.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return "", err
 	}
-	if err := svr.ap.Add(context.Background(), ex1); err != nil {
+	if err := svr.core.ap.Add(context.Background(), ex1); err != nil {
 		return "", err
 	}
-	blk, err := svr.bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := svr.core.bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return "", err
 	}
-	if err := svr.bc.CommitBlock(blk); err != nil {
+	if err := svr.core.bc.CommitBlock(blk); err != nil {
 		return "", err
 	}
-	svr.ap.Reset()
+	svr.core.ap.Reset()
 	// get deployed contract address
 	var contract string
-	if svr.dao != nil {
-		r, err := svr.dao.GetReceiptByActionHash(ex1.Hash(), height+1)
+	if svr.core.dao != nil {
+		r, err := svr.core.dao.GetReceiptByActionHash(ex1.Hash(), height+1)
 		if err != nil {
 			return "", err
 		}
@@ -2677,7 +2681,7 @@ func newConfig(t *testing.T) config.Config {
 	return cfg
 }
 
-func createServer(cfg config.Config, needActPool bool) (*Server, string, error) {
+func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, string, error) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -2702,29 +2706,31 @@ func createServer(cfg config.Config, needActPool bool) (*Server, string, error) 
 			return nil, "", err
 		}
 	}
-
-	svr, err := NewServer(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
+	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry,
+		WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return nil
+		}))
 	if err != nil {
 		return nil, "", err
 	}
-	svr.hasActionIndex = true
+	svr.core.hasActionIndex = true
 	return svr, bfIndexFile, nil
 }
 
-func TestServer_GetActPoolActions(t *testing.T) {
+func TestGrpcServer_GetActPoolActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	ctx := context.Background()
 
-	svr, bfIndexFile, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	res, err := svr.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
+	res, err := svr.GrpcServer.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
 	require.NoError(err)
-	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
+	require.Equal(len(svr.core.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
 
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -2739,41 +2745,41 @@ func TestServer_GetActPoolActions(t *testing.T) {
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	require.NoError(err)
 
-	err = svr.ap.Add(ctx, tsf1)
+	err = svr.core.ap.Add(ctx, tsf1)
 	require.NoError(err)
-	err = svr.ap.Add(ctx, tsf2)
+	err = svr.core.ap.Add(ctx, tsf2)
 	require.NoError(err)
-	err = svr.ap.Add(ctx, execution1)
+	err = svr.core.ap.Add(ctx, execution1)
 	require.NoError(err)
 
 	var requests []string
 	h1 := tsf1.Hash()
 	requests = append(requests, hex.EncodeToString(h1[:]))
 
-	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{})
+	res, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{})
 	require.NoError(err)
-	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
+	require.Equal(len(svr.core.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
 
-	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
+	res, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
 	require.NoError(err)
 	require.Equal(1, len(res.Actions))
 
 	h2 := tsf2.Hash()
 	requests = append(requests, hex.EncodeToString(h2[:]))
-	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
+	res, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
 	require.NoError(err)
 	require.Equal(2, len(res.Actions))
 
 	h3 := tsf3.Hash()
-	_, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
+	_, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
 }
 
-func TestServer_GetEstimateGasSpecial(t *testing.T) {
+func TestGrpcServer_GetEstimateGasSpecial(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bfIndexFile, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -2781,7 +2787,7 @@ func TestServer_GetEstimateGasSpecial(t *testing.T) {
 
 	// deploy self-desturct contract
 	contractCode := "608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610196806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c80632e64cec11461004657806343d726d6146100645780636057361d1461006e575b600080fd5b61004e61008a565b60405161005b9190610124565b60405180910390f35b61006c610094565b005b610088600480360381019061008391906100ec565b6100cd565b005b6000600154905090565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b8060018190555050565b6000813590506100e681610149565b92915050565b6000602082840312156100fe57600080fd5b600061010c848285016100d7565b91505092915050565b61011e8161013f565b82525050565b60006020820190506101396000830184610115565b92915050565b6000819050919050565b6101528161013f565b811461015d57600080fd5b5056fea264697066735822122060e7a28baea4232a95074b94b50009d1d7b99302ef6556a1f3ce7f46a49f8cc064736f6c63430008000033"
-	contract, err := deployContract(svr, identityset.PrivateKey(13), 1, svr.bc.TipHeight(), contractCode)
+	contract, err := deployContractV2(svr, identityset.PrivateKey(13), 1, svr.core.bc.TipHeight(), contractCode)
 
 	require.NoError(err)
 	require.True(len(contract) > 0)
@@ -2798,7 +2804,123 @@ func TestServer_GetEstimateGasSpecial(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(13).String(),
 	}
-	res, err := svr.EstimateActionGasConsumption(context.Background(), request)
+	res, err := svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10777), res.Gas)
+}
+
+func TestChainlinkErrTest(t *testing.T) {
+	require := require.New(t)
+
+	gethFatal := regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+
+	tests := []struct {
+		testName string
+		server   func() (*ServerV2, string, error)
+		actions  []*iotextypes.Action
+		errRegex *regexp.Regexp
+	}{
+		{
+			"NonceTooLow",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid1Pb},
+			regexp.MustCompile(`(: |^)nonce too low$`),
+		},
+		{
+			"TerminallyUnderpriced",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid2Pb},
+			regexp.MustCompile(`(: |^)transaction underpriced$`),
+		},
+		{
+			"InsufficientEth",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid3Pb},
+			regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+		},
+
+		{
+			"NonceTooHigh",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid4Pb},
+			gethFatal,
+		},
+		{
+			"TransactionAlreadyInMempool",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferPb, testTransferPb},
+			regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
+		},
+		{
+			"ReplacementTransactionUnderpriced",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferPb, testTransferInvalid5Pb},
+			regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
+		},
+		{
+			"IntrinsicGasTooLow",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid6Pb},
+			gethFatal,
+		},
+		{
+			"NegativeValue",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid7Pb},
+			gethFatal,
+		},
+		{
+			"ExceedsBlockGasLimit",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid8Pb},
+			gethFatal,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			svr, file, err := test.server()
+			require.NoError(err)
+			defer func() {
+				testutil.CleanupPath(t, file)
+			}()
+
+			for _, action := range test.actions {
+				_, err = svr.GrpcServer.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: action})
+				if err != nil {
+					break
+				}
+			}
+			s, ok := status.FromError(err)
+			require.True(ok)
+			require.True(test.errRegex.MatchString(s.Message()))
+		})
+	}
 }

@@ -81,7 +81,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
 	require.NoError(err)
-	apiServer, err := api.NewServer(cfg, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
+	apiServer, err := api.NewServerV2(cfg, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

@@ -27,9 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -38,6 +38,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 type claimTestCaseID int
@@ -241,7 +242,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
-	apis := make([]*api.Server, numNodes)
+	apis := make([]chainservice.APIServer, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -524,32 +525,31 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api *api.Server,
+	api chainservice.APIServer,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := api.GetReceiptByActionHash(selpHash)
-
+		receipt, err := util.GetReceiptByAction(api, selpHash)
 		if err == nil {
-			selp, err := api.GetActionByActionHash(selpHash)
+			actInfo, err := util.GetActionByActionHash(api, selpHash)
 			require.NoError(t, err)
-			addr, err := address.FromBytes(selp.SrcPubkey().Hash())
-			require.NoError(t, err)
+			addr := actInfo.GetSender()
+			require.NotNil(t, addr)
 
 			act := &action.ClaimFromRewardingFund{}
-			err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())
+			err = act.LoadProto(actInfo.GetAction().Core.GetClaimFromRewardingFund())
 			require.NoError(t, err)
 			amount := act.Amount()
 
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
-				exptUnclaimed[addr.String()] = newExpectUnclaimed
+				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr], amount)
+				exptUnclaimed[addr] = newExpectUnclaimed
 
-				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr.String()], amount)
-				claimedAmount[addr.String()] = newClaimedAmount
+				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr], amount)
+				claimedAmount[addr] = newClaimedAmount
 				updated = true
 
 				//An test case expected to fail should never success

@@ -65,43 +65,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-var (
-	// ErrInternalServer indicates the internal server error
-	ErrInternalServer = errors.New("internal server error")
-	// ErrReceipt indicates the error of receipt
-	ErrReceipt = errors.New("invalid receipt")
-	// ErrAction indicates the error of action
-	ErrAction = errors.New("invalid action")
-)
-
-// BroadcastOutbound sends a broadcast message to the whole network
-type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-
-// Config represents the config to setup api
-type Config struct {
-	broadcastHandler  BroadcastOutbound
-	electionCommittee committee.Committee
-}
-
-// Option is the option to override the api config
-type Option func(cfg *Config) error
-
-// WithBroadcastOutbound is the option to broadcast msg outbound
-func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
-	return func(cfg *Config) error {
-		cfg.broadcastHandler = broadcastHandler
-		return nil
-	}
-}
-
-// WithNativeElection is the option to return native election data through API.
-func WithNativeElection(committee committee.Committee) Option {
-	return func(cfg *Config) error {
-		cfg.electionCommittee = committee
-		return nil
-	}
-}
-
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
@@ -1349,57 +1312,6 @@ func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, e
 		}
 	}
 	return generateBlockMeta(blk), nil
-}
-
-// generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
-	header := blk.Header
-	height := header.Height()
-	ts, _ := ptypes.TimestampProto(header.Timestamp())
-	var (
-		producerAddress string
-		h               hash.Hash256
-	)
-	if blk.Height() > 0 {
-		producerAddress = header.ProducerAddress()
-		h = header.HashBlock()
-	} else {
-		h = block.GenesisHash()
-	}
-	txRoot := header.TxRoot()
-	receiptRoot := header.ReceiptRoot()
-	deltaStateDigest := header.DeltaStateDigest()
-	prevHash := header.PrevHash()
-
-	blockMeta := iotextypes.BlockMeta{
-		Hash:              hex.EncodeToString(h[:]),
-		Height:            height,
-		Timestamp:         ts,
-		ProducerAddress:   producerAddress,
-		TxRoot:            hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
-		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
-	}
-	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
-		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
-	}
-	blockMeta.NumActions = int64(len(blk.Actions))
-	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
-	return &blockMeta
-}
-
-// GasLimitAndUsed returns the gas limit and used in a block
-func gasLimitAndUsed(b *block.Block) (uint64, uint64) {
-	var gasLimit, gasUsed uint64
-	for _, tx := range b.Actions {
-		gasLimit += tx.GasLimit()
-	}
-	for _, r := range b.Receipts {
-		gasUsed += r.GasConsumed
-	}
-	return gasLimit, gasUsed
 }
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {

@@ -95,7 +95,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), action.ErrIntrinsicGas.Error()))
+		require.Contains(err.Error(), action.ErrIntrinsicGas.Error())
 	})
 	t.Run("state error", func(t *testing.T) {
 		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
