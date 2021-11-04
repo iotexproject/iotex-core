@@ -611,7 +611,7 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 	return l
 }
 
-func TestChainIDWithKamchatkaHeight(t *testing.T) {
+func TestEnforceChainID(t *testing.T) {
 
 	testCase := []struct {
 		chainID uint32
@@ -637,7 +637,7 @@ func TestChainIDWithKamchatkaHeight(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
-	cfg.Genesis.KamchatkaBlockHeight = uint64(3)
+	cfg.Genesis.ToBeEnabledBlockHeight = uint64(3)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
@@ -684,5 +684,4 @@ func TestChainIDWithKamchatkaHeight(t *testing.T) {
 		require.Equal(t, c.success, len(blk.Actions) == 1)
 		require.Equal(t, c.success, len(blk.Receipts) == 1)
 	}
-
 }

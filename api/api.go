@@ -393,8 +393,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// reject action if chainID is not matched at KamchatkaHeight
-	if api.cfg.Genesis.Blockchain.IsKamchatka(api.bc.TipHeight()) {
+	// reject action if chainID is not matched
+	if api.cfg.Genesis.Blockchain.IsToBeEnabled(api.bc.TipHeight()) {
 		if api.bc.ChainID() != in.GetAction().Core.GetChainID() {
 			return nil, status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), in.GetAction().Core.GetChainID())
 		}

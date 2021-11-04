@@ -1240,14 +1240,14 @@ func TestServer_SendAction(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	broadcastHandlerCount := 0
-	svr := Server{bc: chain, ap: ap, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
-		broadcastHandlerCount++
-		return nil
-	}}
+	svr := Server{bc: chain, ap: ap, cfg: config.Default,
+		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
-	svr.cfg.Genesis.KamchatkaBlockHeight = 10
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	for i, test := range sendActionTests {
