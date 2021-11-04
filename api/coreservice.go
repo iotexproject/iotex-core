@@ -54,43 +54,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// var (
-// 	// ErrInternalServer indicates the internal server error
-// 	ErrInternalServer = errors.New("internal server error")
-// 	// ErrReceipt indicates the error of receipt
-// 	ErrReceipt = errors.New("invalid receipt")
-// 	// ErrAction indicates the error of action
-// 	ErrAction = errors.New("invalid action")
-// )
-
-// // BroadcastOutbound sends a broadcast message to the whole network
-// type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-
-// // Config represents the config to setup api
-// type Config struct {
-// 	broadcastHandler  BroadcastOutbound
-// 	electionCommittee committee.Committee
-// }
-
-// // Option is the option to override the api config
-// type Option func(cfg *Config) error
-
-// // WithBroadcastOutbound is the option to broadcast msg outbound
-// func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
-// 	return func(cfg *Config) error {
-// 		cfg.broadcastHandler = broadcastHandler
-// 		return nil
-// 	}
-// }
-
-// // WithNativeElection is the option to return native election data through API.
-// func WithNativeElection(committee committee.Committee) Option {
-// 	return func(cfg *Config) error {
-// 		cfg.electionCommittee = committee
-// 		return nil
-// 	}
-// }
-
 // coreService provides api for user to interact with blockchain data
 type coreService struct {
 	bc                blockchain.Blockchain
