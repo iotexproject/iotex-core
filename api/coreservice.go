@@ -296,7 +296,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 }
 
 // SendAction is the API to send an action to blockchain.
-func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, chainID uint32) (string, error) {
+func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
 	if err := selp.LoadProto(in); err != nil {
@@ -305,8 +305,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 
 	// reject action if chainID is not matched at KamchatkaHeight
 	if core.cfg.Genesis.Blockchain.IsKamchatka(core.bc.TipHeight()) {
-		if core.bc.ChainID() != chainID {
-			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+		if core.bc.ChainID() != in.GetCore().GetChainID() {
+			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), in.GetCore().GetChainID())
 		}
 	}
 
@@ -364,7 +364,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 }
 
 // ReceiptByAction gets receipt with corresponding action hash
-func (core *coreService) ReceiptByAction(h string) (*action.Receipt, string, error) {
+func (core *coreService) ReceiptByAction(h string) (*iotextypes.Receipt, string, error) {
 	if !core.hasActionIndex || core.indexer == nil {
 		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
@@ -380,7 +380,7 @@ func (core *coreService) ReceiptByAction(h string) (*action.Receipt, string, err
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
-	return receipt, hex.EncodeToString(blkHash[:]), nil
+	return receipt.ConvertToReceiptPb(), hex.EncodeToString(blkHash[:]), nil
 }
 
 // ReadContract reads the state in a contract address specified by the slot

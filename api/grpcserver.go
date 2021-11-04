@@ -191,7 +191,7 @@ func (svr *GrpcServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
-	actHash, err := svr.coreService.SendAction(context.Background(), in.GetAction(), in.GetAction().Core.GetChainID())
+	actHash, err := svr.coreService.SendAction(context.Background(), in.GetAction())
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (svr *GrpcServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 	}
 	return &iotexapi.GetReceiptByActionResponse{
 		ReceiptInfo: &iotexapi.ReceiptInfo{
-			Receipt: receipt.ConvertToReceiptPb(),
+			Receipt: receipt,
 			BlkHash: blkHash,
 		},
 	}, nil

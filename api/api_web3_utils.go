@@ -281,22 +281,23 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.ActionInfo) (*transactionObject, error) {
+func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
 	tx, err := svr.getTransactionFromActionInfo(actInfo)
 	if err != nil {
-		return nil, err
+		return transactionObject{}, err
 	}
+
 	if tx.To == nil {
 		receipt, _, err := svr.coreService.ReceiptByAction((tx.Hash)[2:])
 		if err != nil {
-			return nil, err
+			return transactionObject{}, err
 		}
 		tx.Creates, err = ioAddrToEthAddr(receipt.ContractAddress)
 		if err != nil {
-			return nil, err
+			return transactionObject{}, err
 		}
 	}
-	return tx, nil
+	return *tx, nil
 }
 
 // DecodeRawTx() decode raw data string into eth tx

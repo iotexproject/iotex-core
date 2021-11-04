@@ -12,16 +12,15 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/wunderlist/ttlcache"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const (
@@ -55,6 +54,9 @@ type (
 )
 
 type (
+
+	// TODO: opt with https://github.com/tidwall/gjson
+
 	// TODO: all required?
 	logsRequest struct {
 		Address   []string
@@ -158,7 +160,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		)
 		switch *web3Req.Method {
 		case "eth_gasPrice":
-			res, err = svr.suggestGasPrice()
+			res, err = svr.gasPrice()
 		case "eth_getBlockByHash":
 			res, err = svr.getBlockByHash(web3Req.Params)
 		case "eth_chainId":
@@ -195,6 +197,32 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.getBlockTransactionCountByHash(web3Req.Params)
 		case "eth_getBlockByNumber":
 			res, err = svr.getBlockByNumber(web3Req.Params)
+		case "eth_estimateGas":
+			res, err = svr.estimateGas(web3Req.Params)
+		case "eth_sendRawTransaction":
+			res, err = svr.sendRawTransaction(web3Req.Params)
+		case "eth_getTransactionByHash":
+			res, err = svr.getTransactionByHash(web3Req.Params)
+		case "eth_getTransactionByBlockNumberAndIndex":
+			res, err = svr.getTransactionByBlockNumberAndIndex(web3Req.Params)
+		case "eth_getTransactionByBlockHashAndIndex":
+			res, err = svr.getTransactionByBlockHashAndIndex(web3Req.Params)
+		case "eth_getBlockTransactionCountByNumber":
+			res, err = svr.getBlockTransactionCountByNumber(web3Req.Params)
+		case "eth_getTransactionReceipt":
+			res, err = svr.getTransactionReceipt(web3Req.Params)
+		case "eth_getFilterLogs":
+			res, err = svr.getFilterLogs(web3Req.Params)
+		case "eth_getFilterChanges":
+			res, err = svr.getFilterChanges(web3Req.Params)
+		case "eth_uninstallFilter":
+			res, err = svr.uninstallFilter(web3Req.Params)
+		case "eth_newFilter":
+			res, err = svr.newFilter(web3Req.Params)
+		case "eth_newBlockFilter":
+			res, err = svr.newBlockFilter(web3Req.Params)
+		case "eth_coinbase", "eth_accounts", "eth_getStorageAt", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
+			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", *web3Req.Method)
 			return packAPIResult(nil, err, 0)
@@ -261,7 +289,7 @@ func packAPIResult(res interface{}, err error, id int) web3Resp {
 	}
 }
 
-func (svr *Web3Server) suggestGasPrice() (interface{}, error) {
+func (svr *Web3Server) gasPrice() (interface{}, error) {
 	ret, err := svr.coreService.SuggestGasPrice()
 	if err != nil {
 		return nil, err
@@ -270,46 +298,10 @@ func (svr *Web3Server) suggestGasPrice() (interface{}, error) {
 }
 
 var (
-	apiMap = map[string]func(*Server, interface{}) (interface{}, error){
-		"eth_getBlockByNumber":                    getBlockByNumber,
-		"eth_estimateGas":                         estimateGas,
-		"eth_sendRawTransaction":                  sendRawTransaction,
-		"eth_getTransactionByHash":                getTransactionByHash,
-		"eth_getTransactionByBlockNumberAndIndex": getTransactionByBlockNumberAndIndex,
-		"eth_getTransactionByBlockHashAndIndex":   getTransactionByBlockHashAndIndex,
-		"eth_getBlockTransactionCountByNumber":    getBlockTransactionCountByNumber,
-		"eth_getTransactionReceipt":               getTransactionReceipt,
-		"eth_getFilterLogs":                       getFilterLogs,
-		"eth_getFilterChanges":                    getFilterChanges,
-		"eth_uninstallFilter":                     uninstallFilter,
-		"eth_newFilter":                           newFilter,
-		"eth_newBlockFilter":                      newBlockFilter,
-		// func not implemented
-		"eth_coinbase":                      unimplemented,
-		"eth_accounts":                      unimplemented,
-		"eth_getStorageAt":                  unimplemented,
-		"eth_getUncleCountByBlockHash":      unimplemented,
-		"eth_getUncleCountByBlockNumber":    unimplemented,
-		"eth_sign":                          unimplemented,
-		"eth_signTransaction":               unimplemented,
-		"eth_sendTransaction":               unimplemented,
-		"eth_getUncleByBlockHashAndIndex":   unimplemented,
-		"eth_getUncleByBlockNumberAndIndex": unimplemented,
-		"eth_pendingTransactions":           unimplemented,
-	}
-
 	errUnkownType = errors.New("wrong type of params")
 
 	filterCache = ttlcache.NewCache(15 * time.Minute)
 )
-
-func gasPrice(svr *Server, in interface{}) (interface{}, error) {
-	ret, err := svr.SuggestGasPrice(context.Background(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return uint64ToHex(ret.GasPrice), nil
-}
 
 func (svr *Web3Server) getChainID() (interface{}, error) {
 	return uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
@@ -337,9 +329,9 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 		}
 		return nil, err
 	}
-	blk := web3Util.getBlockWithTransactions(svr, blkMeta.BlkMetas[0], isDetailed)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	blk, err := svr.getBlockWithTransactions(blkMetas[0], isDetailed)
+	if err != nil {
+		return nil, err
 	}
 	return *blk, nil
 }
@@ -410,15 +402,12 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	}
 
 	var estimatedGas uint64
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
 	if isContract, _ := svr.isContractAddr(to); !isContract {
 		// transfer
 		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	} else {
 		// execution
-		ret, err := svr.estimateActionGasConsumptionForExecution(context.Background(),
+		ret, err := svr.coreService.estimateActionGasConsumptionForExecution(context.Background(),
 			&iotextypes.Execution{
 				Amount:   value.String(),
 				Contract: to,
@@ -427,7 +416,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		estimatedGas = ret.Gas
+		estimatedGas = ret
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
@@ -435,28 +424,28 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	return uint64ToHex(estimatedGas), nil
 }
 
-func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
+func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	// parse raw data string from json request
-	dataInString := web3Util.getStringFromArray(in, 0)
-	tx, sig, pubkey := web3Util.DecodeRawTx(dataInString, config.EVMNetworkID())
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	dataInString, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	tx, sig, pubkey, err := DecodeRawTx(dataInString, svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
 	}
 
-	req := &iotexapi.SendActionRequest{
-		Action: &iotextypes.Action{
-			Core: &iotextypes.ActionCore{
-				Version:  0,
-				Nonce:    tx.Nonce(),
-				GasLimit: tx.Gas(),
-				GasPrice: tx.GasPrice().String(),
-				ChainID:  0,
-			},
-			SenderPubKey: pubkey.Bytes(),
-			Signature:    sig,
-			Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
+	req := &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			Version:  0,
+			Nonce:    tx.Nonce(),
+			GasLimit: tx.Gas(),
+			GasPrice: tx.GasPrice().String(),
+			ChainID:  0,
 		},
+		SenderPubKey: pubkey.Bytes(),
+		Signature:    sig,
+		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
 
 	ioAddr, _ := address.FromBytes(tx.To().Bytes())
@@ -464,13 +453,9 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 
 	// TODO: process special staking action
 
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
-
 	if isContract, _ := svr.isContractAddr(to); !isContract {
 		// transfer
-		req.Action.Core.Action = &iotextypes.ActionCore_Transfer{
+		req.Core.Action = &iotextypes.ActionCore_Transfer{
 			Transfer: &iotextypes.Transfer{
 				Recipient: to,
 				Payload:   tx.Data(),
@@ -479,7 +464,7 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 		}
 	} else {
 		// execution
-		req.Action.Core.Action = &iotextypes.ActionCore_Execution{
+		req.Core.Action = &iotextypes.ActionCore_Execution{
 			Execution: &iotextypes.Execution{
 				Contract: to,
 				Data:     tx.Data(),
@@ -488,11 +473,11 @@ func sendRawTransaction(svr *Server, in interface{}) (interface{}, error) {
 		}
 	}
 
-	ret, err := svr.SendAction(context.Background(), req)
+	actionHash, err := svr.coreService.SendAction(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
-	return "0x" + ret.ActionHash, nil
+	return "0x" + actionHash, nil
 }
 
 func (svr *Web3Server) getCode(in interface{}) (interface{}, error) {
@@ -573,22 +558,16 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	return *blk, nil
 }
 
-func getTransactionByHash(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	h := web3Util.getStringFromArray(in, 0)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
-	ret, err := svr.getSingleAction(context.Background(), removeHexPrefix(h), true)
+func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], config.EVMNetworkID())
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	actionInfos, err := svr.coreService.Action(removeHexPrefix(h), true)
+	if err != nil {
+		return nil, err
 	}
-	return tx, nil
+	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 
 func (svr *Web3Server) getLogs(in interface{}) (interface{}, error) {
@@ -600,57 +579,57 @@ func (svr *Web3Server) getLogs(in interface{}) (interface{}, error) {
 	return svr.getLogsWithFilter(logReq.FromBlock, logReq.ToBlock, logReq.Address, logReq.Topics)
 }
 
-func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	h := web3Util.getStringFromArray(in, 0)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
-	ret, err := svr.GetReceiptByAction(context.Background(),
-		&iotexapi.GetReceiptByActionRequest{
-			ActionHash: removeHexPrefix(h),
-		},
-	)
+func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	receipt := ret.ReceiptInfo.Receipt
+	receipt, blkHash, err := svr.coreService.ReceiptByAction(removeHexPrefix(h))
+	if err != nil {
+		return nil, err
+	}
 
 	var contractAddr *string
 	if len(receipt.ContractAddress) > 0 {
-		res := web3Util.ioAddrToEthAddr(receipt.ContractAddress)
+		res, err := ioAddrToEthAddr(receipt.ContractAddress)
+		if err != nil {
+			return nil, err
+		}
 		contractAddr = &res
 	}
 
-	act, err := svr.getSingleAction(context.Background(), removeHexPrefix(h), true)
+	actionInfos, err := svr.coreService.Action(removeHexPrefix(h), true)
 	if err != nil {
 		return nil, err
 	}
-	tx := web3Util.getTransactionFromActionInfo(act.ActionInfo[0], config.EVMNetworkID())
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	tx, err := svr.getTransactionFromActionInfo(actionInfos[0])
+	if err != nil {
+		return nil, err
 	}
 	var logs []logsObject
 	for _, v := range receipt.Logs {
 		var topics []string
-		for _, tp := range v.Topics {
-			topics = append(topics, "0x"+hex.EncodeToString(tp))
+		for _, tpc := range v.Topics {
+			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
+		}
+		contractAddress, err := ioAddrToEthAddr(receipt.ContractAddress)
+		if err != nil {
+			return nil, err
 		}
 		log := logsObject{
-			BlockHash:        "0x" + ret.ReceiptInfo.BlkHash,
+			BlockHash:        "0x" + blkHash,
 			TransactionHash:  h,
 			TransactionIndex: tx.TransactionIndex,
 			LogIndex:         uint64ToHex(uint64(v.Index)),
 			BlockNumber:      uint64ToHex(v.BlkHeight),
-			Address:          web3Util.ioAddrToEthAddr(v.ContractAddress),
+			Address:          contractAddress,
 			Data:             "0x" + hex.EncodeToString(v.Data),
 			Topics:           topics,
 		}
 		logs = append(logs, log)
 	}
 	return receiptObject{
-		BlockHash:         "0x" + ret.ReceiptInfo.BlkHash,
+		BlockHash:         "0x" + blkHash,
 		BlockNumber:       uint64ToHex(receipt.BlkHeight),
 		ContractAddress:   contractAddr,
 		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
@@ -666,64 +645,72 @@ func getTransactionReceipt(svr *Server, in interface{}) (interface{}, error) {
 
 }
 
-func getBlockTransactionCountByNumber(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	blkNum := web3Util.getStringFromArray(in, 0)
-	num := web3Util.parseBlockNumber(svr, blkNum)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
-	blkMeta, err := svr.getBlockMetas(num, 1)
+func (svr *Web3Server) getBlockTransactionCountByNumber(in interface{}) (interface{}, error) {
+	blkNum, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-	return blkMeta.BlkMetas[0].NumActions, nil
+	num, err := svr.parseBlockNumber(blkNum)
+	if err != nil {
+		return nil, err
+	}
+	blkMetas, err := svr.coreService.BlockMetas(num, 1)
+	if err != nil {
+		return nil, err
+	}
+	return blkMetas[0].NumActions, nil
 }
 
-func getTransactionByBlockHashAndIndex(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	h := web3Util.getStringFromArray(in, 0)
-	idxStr := web3Util.getStringFromArray(in, 1)
-	idx := web3Util.hexStringToNumber(idxStr)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
-	ret, err := svr.getActionsByBlock(context.Background(), removeHexPrefix(h), idx, 1)
+func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], config.EVMNetworkID())
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	idxStr, err := getStringFromArray(in, 1)
+	if err != nil {
+		return nil, err
 	}
-	return tx, nil
+	idx, err := hexStringToNumber(idxStr)
+	if err != nil {
+		return nil, err
+	}
+
+	actionInfos, err := svr.coreService.ActionsByBlock(removeHexPrefix(h), idx, 1)
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 
-func getTransactionByBlockNumberAndIndex(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	blkNum := web3Util.getStringFromArray(in, 0)
-	idxStr := web3Util.getStringFromArray(in, 1)
-	num := web3Util.parseBlockNumber(svr, blkNum)
-	idx := web3Util.hexStringToNumber(idxStr)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
-	}
-	blkMeta, err := svr.getBlockMetas(num, 1)
+func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (interface{}, error) {
+	blkNum, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-	ret, err := svr.getActionsByBlock(context.Background(), blkMeta.BlkMetas[0].Hash, idx, 1)
+	idxStr, err := getStringFromArray(in, 1)
 	if err != nil {
 		return nil, err
 	}
-	tx := web3Util.getTransactionCreateFromActionInfo(svr, ret.ActionInfo[0], config.EVMNetworkID())
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	num, err := svr.parseBlockNumber(blkNum)
+	if err != nil {
+		return nil, err
 	}
-	return tx, nil
+	idx, err := hexStringToNumber(idxStr)
+	if err != nil {
+		return nil, err
+	}
+	blkMetas, err := svr.coreService.BlockMetas(num, 1)
+	if err != nil {
+		return nil, err
+	}
+	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 
-func newFilter(svr *Server, in interface{}) (interface{}, error) {
+func (svr *Web3Server) newFilter(in interface{}) (interface{}, error) {
 	logReq, err := parseLogRequest(in)
 	if err != nil {
 		return nil, err
@@ -746,10 +733,10 @@ func newFilter(svr *Server, in interface{}) (interface{}, error) {
 	return filterID, nil
 }
 
-func newBlockFilter(svr *Server, in interface{}) (interface{}, error) {
+func (svr *Web3Server) newBlockFilter(in interface{}) (interface{}, error) {
 	var filterObj filterObject
 	filterObj.FilterType = "block"
-	filterObj.LogHeight = svr.bc.TipHeight()
+	filterObj.LogHeight = svr.coreService.bc.TipHeight()
 
 	// sha1 hash of data
 	objInByte, _ := json.Marshal(filterObj)
@@ -761,22 +748,20 @@ func newBlockFilter(svr *Server, in interface{}) (interface{}, error) {
 	return filterID, nil
 }
 
-func uninstallFilter(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	_ = web3Util.getStringFromArray(in, 0)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+func (svr *Web3Server) uninstallFilter(in interface{}) (interface{}, error) {
+	_, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
 	}
 	// TODO: res := filterCache.Delete(id)
 	res := true
 	return res, nil
 }
 
-func getFilterChanges(svr *Server, in interface{}) (interface{}, error) {
-	var web3Util web3Utils
-	filterID := web3Util.getStringFromArray(in, 0)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
+	filterID, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
 	}
 
 	data, isFound := filterCache.Get(filterID)
@@ -787,27 +772,27 @@ func getFilterChanges(svr *Server, in interface{}) (interface{}, error) {
 	if err := json.Unmarshal([]byte(data), &filterObj); err != nil {
 		return nil, err
 	}
-	if filterObj.LogHeight >= svr.bc.TipHeight() {
+	if filterObj.LogHeight >= svr.coreService.bc.TipHeight() {
 		return []interface{}{}, nil
 	}
 
 	var ret interface{}
-	newLogHeight := svr.bc.TipHeight()
+	newLogHeight := svr.coreService.bc.TipHeight()
 	switch filterObj.FilterType {
 	case "log":
-		logs, err := getLogsWithFilter(svr, filterObj.FromBlock, filterObj.ToBlock, filterObj.Address, filterObj.Topics)
+		logs, err := svr.getLogsWithFilter(filterObj.FromBlock, filterObj.ToBlock, filterObj.Address, filterObj.Topics)
 		if err != nil {
 			return nil, err
 		}
 		ret = logs
 	case "block":
-		blkMeta, err := svr.getBlockMetas(filterObj.LogHeight, svr.cfg.API.RangeQueryLimit)
+		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, svr.coreService.cfg.API.RangeQueryLimit)
 		if err != nil {
 			return nil, err
 		}
 
 		var hashArr []string
-		for _, v := range blkMeta.BlkMetas {
+		for _, v := range blkMetas {
 			hashArr = append(hashArr, "0x"+v.Hash)
 		}
 		if filterObj.LogHeight+1000 > newLogHeight {
@@ -824,12 +809,11 @@ func getFilterChanges(svr *Server, in interface{}) (interface{}, error) {
 	return ret, nil
 }
 
-func getFilterLogs(svr *Server, in interface{}) (interface{}, error) {
+func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 	// get filter from cache by id
-	var web3Util web3Utils
-	filterID := web3Util.getStringFromArray(in, 0)
-	if web3Util.errMsg != nil {
-		return nil, web3Util.errMsg
+	filterID, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
 	}
 	data, isFound := filterCache.Get(filterID)
 	if !isFound {
@@ -842,9 +826,9 @@ func getFilterLogs(svr *Server, in interface{}) (interface{}, error) {
 	if filterObj.FilterType != "log" {
 		return nil, status.Error(codes.Internal, "filter not found")
 	}
-	return getLogsWithFilter(svr, filterObj.FromBlock, filterObj.ToBlock, filterObj.Address, filterObj.Topics)
+	return svr.getLogsWithFilter(filterObj.FromBlock, filterObj.ToBlock, filterObj.Address, filterObj.Topics)
 }
 
-func unimplemented(svr *Server, in interface{}) (interface{}, error) {
+func (svr *Web3Server) unimplemented() (interface{}, error) {
 	return nil, status.Error(codes.Unimplemented, "method not implemented")
 }

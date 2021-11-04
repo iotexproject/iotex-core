@@ -33,6 +33,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tyler-smith/go-bip39 v1.0.2
+	github.com/wunderlist/ttlcache v0.0.0-20180801091818-7dbceb0d5094
 	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.25.0
@@ -155,6 +156,9 @@ require (
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/tidwall/gjson v1.11.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/tklauser/numcpus v0.2.2 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
