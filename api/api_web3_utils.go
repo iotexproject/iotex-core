@@ -142,18 +142,6 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 	return
 }
 
-func getJSONFromArray(in interface{}) ([]byte, error) {
-	params, ok := in.([]interface{})
-	if !ok {
-		return nil, errUnkownType
-	}
-	params0, ok := params[0].(map[string]interface{})
-	if !ok {
-		return nil, errUnkownType
-	}
-	return json.Marshal(params0)
-}
-
 func removeHexPrefix(hexStr string) string {
 	ret := strings.Replace(hexStr, "0x", "", -1)
 	ret = strings.Replace(ret, "0X", "", -1)
@@ -219,6 +207,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}, nil
 }
 
+// TODO: remove svr dependency
 func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) (*transactionObject, error) {
 	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
 		return nil, errUnkownType
@@ -434,6 +423,7 @@ func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
 }
 
+// TODO: replace logsRequest
 func parseLogRequest(in interface{}) (*logsRequest, error) {
 	params, ok := in.([]interface{})
 	if !ok {
@@ -482,7 +472,21 @@ func parseLogRequest(in interface{}) (*logsRequest, error) {
 	return &logReq, nil
 }
 
-func parseCallObject(in []byte) (from string, to string, gasLimit uint64, value *big.Int, data []byte, err error) {
+func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, value *big.Int, data []byte, err error) {
+	params, ok := in.([]interface{})
+	if !ok {
+		err = errUnkownType
+		return
+	}
+	params0, ok := params[0].(map[string]interface{})
+	if !ok {
+		err = errUnkownType
+		return
+	}
+	req, err := json.Marshal(params0)
+	if err != nil {
+		return
+	}
 	callObj := struct {
 		From     string `json:"from,omitempty"`
 		To       string `json:"to"`
@@ -491,7 +495,7 @@ func parseCallObject(in []byte) (from string, to string, gasLimit uint64, value 
 		Value    string `json:"value,omitempty"`
 		Data     string `json:"data,omitempty"`
 	}{}
-	err = json.Unmarshal(in, &callObj)
+	err = json.Unmarshal(req, &callObj)
 	if err != nil {
 		return
 	}
@@ -512,7 +516,7 @@ func parseCallObject(in []byte) (from string, to string, gasLimit uint64, value 
 	if err != nil {
 		return
 	}
-	value, ok := big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
+	value, ok = big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
 	if !ok {
 		err = errUnkownType
 		return
