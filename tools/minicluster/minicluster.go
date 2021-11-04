@@ -205,7 +205,7 @@ func main() {
 		// Wait until the smart contract is successfully deployed
 		var receipt *action.Receipt
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = svrs[0].ChainService(uint32(1)).APIServer().GetReceiptByActionHash(eHash)
+			receipt, err = svrs[0].ChainService(uint32(1)).APIServer().ReceiptByActionHash(eHash)
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))

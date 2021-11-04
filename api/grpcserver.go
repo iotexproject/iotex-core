@@ -30,11 +30,11 @@ import (
 type GrpcServer struct {
 	grpcServer  *grpc.Server
 	port        string
-	coreService *coreService
+	coreService *CoreService
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core *coreService, grpcPort int) *GrpcServer {
+func NewGRPCServer(core *CoreService, grpcPort int) *GrpcServer {
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,

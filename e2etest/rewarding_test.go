@@ -241,7 +241,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
-	apis := make([]*api.Server, numNodes)
+	apis := make([]*api.CoreService, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -532,17 +532,17 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api *api.Server,
+	api *api.CoreService,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := api.GetReceiptByActionHash(selpHash)
+		receipt, err := api.ReceiptByActionHash(selpHash)
 
 		if err == nil {
-			selp, err := api.GetActionByActionHash(selpHash)
+			selp, err := api.ActionByActionHash(selpHash)
 			require.NoError(t, err)
 			addr := selp.SrcPubkey().Address()
 			require.NotNil(t, addr)

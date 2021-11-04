@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"math"
 	"math/big"
 	"strconv"
 	"testing"
@@ -33,782 +32,773 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-const lld = "lifeLongDelegates"
+// const lld = "lifeLongDelegates"
 
-var (
-	testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
-		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPriceInt64))
+// var (
+// 	testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
+// 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+// 		big.NewInt(testutil.TestGasPriceInt64))
 
-	testTransferHash, _ = testTransfer.Hash()
-	testTransferPb      = testTransfer.Proto()
+// 	testTransferHash, _ = testTransfer.Hash()
+// 	testTransferPb      = testTransfer.Proto()
 
-	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
-		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+// 	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
+// 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+// 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
-	testExecutionHash, _ = testExecution.Hash()
-	testExecutionPb      = testExecution.Proto()
+// 	testExecutionHash, _ = testExecution.Hash()
+// 	testExecutionPb      = testExecution.Proto()
 
-	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
-		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1, _ = testTransfer1.Hash()
-	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
-		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash2, _ = testTransfer2.Hash()
+// 	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
+// 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	transferHash1, _ = testTransfer1.Hash()
+// 	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
+// 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	transferHash2, _ = testTransfer2.Hash()
 
-	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash1, _ = testExecution1.Hash()
-	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash3, _ = testExecution3.Hash()
+// 	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
+// 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+// 	executionHash1, _ = testExecution1.Hash()
+// 	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
+// 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+// 	executionHash3, _ = testExecution3.Hash()
 
-	// invalid nounce
-	testTransferInvalid1, _ = action.SignedTransfer(identityset.Address(28).String(),
-		identityset.PrivateKey(28), 2, big.NewInt(10), []byte{}, testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid1Pb = testTransferInvalid1.Proto()
+// 	// invalid nounce
+// 	testTransferInvalid1, _ = action.SignedTransfer(identityset.Address(28).String(),
+// 		identityset.PrivateKey(28), 2, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+// 		big.NewInt(testutil.TestGasPriceInt64))
+// 	testTransferInvalid1Pb = testTransferInvalid1.Proto()
 
-	// invalid gas price
-	testTransferInvalid2, _ = action.SignedTransfer(identityset.Address(28).String(),
-		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
-		big.NewInt(-1))
-	testTransferInvalid2Pb = testTransferInvalid2.Proto()
+// 	// invalid gas price
+// 	testTransferInvalid2, _ = action.SignedTransfer(identityset.Address(28).String(),
+// 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+// 		big.NewInt(-1))
+// 	testTransferInvalid2Pb = testTransferInvalid2.Proto()
 
-	// invalid balance
-	testTransferInvalid3, _ = action.SignedTransfer(identityset.Address(29).String(),
-		identityset.PrivateKey(29), 3, big.NewInt(29), []byte{}, testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid3Pb = testTransferInvalid3.Proto()
+// 	// invalid balance
+// 	testTransferInvalid3, _ = action.SignedTransfer(identityset.Address(29).String(),
+// 		identityset.PrivateKey(29), 3, big.NewInt(29), []byte{}, testutil.TestGasLimit,
+// 		big.NewInt(testutil.TestGasPriceInt64))
+// 	testTransferInvalid3Pb = testTransferInvalid3.Proto()
 
-	blkHash      = map[uint64]string{}
-	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
-)
+// 	blkHash      = map[uint64]string{}
+// 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
+// )
 
-var (
-	delegates = []genesis.Delegate{
-		{
-			OperatorAddrStr: identityset.Address(0).String(),
-			VotesStr:        "10",
-		},
-		{
-			OperatorAddrStr: identityset.Address(1).String(),
-			VotesStr:        "10",
-		},
-		{
-			OperatorAddrStr: identityset.Address(2).String(),
-			VotesStr:        "10",
-		},
-	}
-)
+// var (
+// 	delegates = []genesis.Delegate{
+// 		{
+// 			OperatorAddrStr: identityset.Address(0).String(),
+// 			VotesStr:        "10",
+// 		},
+// 		{
+// 			OperatorAddrStr: identityset.Address(1).String(),
+// 			VotesStr:        "10",
+// 		},
+// 		{
+// 			OperatorAddrStr: identityset.Address(2).String(),
+// 			VotesStr:        "10",
+// 		},
+// 	}
+// )
 
-var (
-	getAccountTests = []struct {
-		in           string
-		address      string
-		balance      string
-		nonce        uint64
-		pendingNonce uint64
-		numActions   uint64
-	}{
-		{identityset.Address(30).String(),
-			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
-			"3",
-			8,
-			9,
-			9,
-		},
-		{
-			identityset.Address(27).String(),
-			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-			"9999999999999999999999898950",
-			5,
-			6,
-			6,
-		},
-	}
+// var (
+// 	getAccountTests = []struct {
+// 		in           string
+// 		address      string
+// 		balance      string
+// 		nonce        uint64
+// 		pendingNonce uint64
+// 		numActions   uint64
+// 	}{
+// 		{identityset.Address(30).String(),
+// 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
+// 			"3",
+// 			8,
+// 			9,
+// 			9,
+// 		},
+// 		{
+// 			identityset.Address(27).String(),
+// 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+// 			"9999999999999999999999898950",
+// 			5,
+// 			6,
+// 			6,
+// 		},
+// 	}
 
-	getActionsTests = []struct {
-		start      uint64
-		count      uint64
-		numActions int
-	}{
-		{
-			1,
-			11,
-			11,
-		},
-		{
-			11,
-			5,
-			4,
-		},
-		{
-			1,
-			0,
-			0,
-		},
-	}
+// 	getActionsTests = []struct {
+// 		start      uint64
+// 		count      uint64
+// 		numActions int
+// 	}{
+// 		{
+// 			1,
+// 			11,
+// 			11,
+// 		},
+// 		{
+// 			11,
+// 			5,
+// 			4,
+// 		},
+// 		{
+// 			1,
+// 			0,
+// 			0,
+// 		},
+// 	}
 
-	getActionTests = []struct {
-		// Arguments
-		checkPending bool
-		in           string
-		// Expected Values
-		nonce        uint64
-		senderPubKey string
-		blkNumber    uint64
-	}{
-		{
-			checkPending: false,
-			in:           hex.EncodeToString(transferHash1[:]),
-			nonce:        1,
-			senderPubKey: testTransfer1.SrcPubkey().HexString(),
-			blkNumber:    1,
-		},
-		{
-			checkPending: false,
-			in:           hex.EncodeToString(transferHash2[:]),
-			nonce:        5,
-			senderPubKey: testTransfer2.SrcPubkey().HexString(),
-			blkNumber:    2,
-		},
-		{
-			checkPending: false,
-			in:           hex.EncodeToString(executionHash1[:]),
-			nonce:        6,
-			senderPubKey: testExecution1.SrcPubkey().HexString(),
-			blkNumber:    2,
-		},
-	}
+// 	getActionTests = []struct {
+// 		// Arguments
+// 		checkPending bool
+// 		in           string
+// 		// Expected Values
+// 		nonce        uint64
+// 		senderPubKey string
+// 		blkNumber    uint64
+// 	}{
+// 		{
+// 			checkPending: false,
+// 			in:           hex.EncodeToString(transferHash1[:]),
+// 			nonce:        1,
+// 			senderPubKey: testTransfer1.SrcPubkey().HexString(),
+// 			blkNumber:    1,
+// 		},
+// 		{
+// 			checkPending: false,
+// 			in:           hex.EncodeToString(transferHash2[:]),
+// 			nonce:        5,
+// 			senderPubKey: testTransfer2.SrcPubkey().HexString(),
+// 			blkNumber:    2,
+// 		},
+// 		{
+// 			checkPending: false,
+// 			in:           hex.EncodeToString(executionHash1[:]),
+// 			nonce:        6,
+// 			senderPubKey: testExecution1.SrcPubkey().HexString(),
+// 			blkNumber:    2,
+// 		},
+// 	}
 
-	getActionsByAddressTests = []struct {
-		address    string
-		start      uint64
-		count      uint64
-		numActions int
-	}{
-		{
-			identityset.Address(27).String(),
-			0,
-			3,
-			2,
-		},
-		{
-			identityset.Address(30).String(),
-			1,
-			8,
-			8,
-		},
-		{
-			identityset.Address(33).String(),
-			2,
-			1,
-			0,
-		},
-	}
+// 	getActionsByAddressTests = []struct {
+// 		address    string
+// 		start      uint64
+// 		count      uint64
+// 		numActions int
+// 	}{
+// 		{
+// 			identityset.Address(27).String(),
+// 			0,
+// 			3,
+// 			2,
+// 		},
+// 		{
+// 			identityset.Address(30).String(),
+// 			1,
+// 			8,
+// 			8,
+// 		},
+// 		{
+// 			identityset.Address(33).String(),
+// 			2,
+// 			1,
+// 			0,
+// 		},
+// 	}
 
-	getUnconfirmedActionsByAddressTests = []struct {
-		address    string
-		start      uint64
-		count      uint64
-		numActions int
-	}{
-		{
-			identityset.Address(27).String(),
-			0,
-			4,
-			4,
-		},
-		{
-			identityset.Address(27).String(),
-			2,
-			0,
-			0,
-		},
-	}
+// 	getUnconfirmedActionsByAddressTests = []struct {
+// 		address    string
+// 		start      uint64
+// 		count      uint64
+// 		numActions int
+// 	}{
+// 		{
+// 			identityset.Address(27).String(),
+// 			0,
+// 			4,
+// 			4,
+// 		},
+// 		{
+// 			identityset.Address(27).String(),
+// 			2,
+// 			0,
+// 			0,
+// 		},
+// 	}
 
-	getActionsByBlockTests = []struct {
-		blkHeight  uint64
-		start      uint64
-		count      uint64
-		numActions int
-	}{
-		{
-			2,
-			0,
-			7,
-			7,
-		},
-		{
-			4,
-			2,
-			5,
-			3,
-		},
-		{
-			3,
-			0,
-			0,
-			0,
-		},
-		{
-			1,
-			0,
-			math.MaxUint64,
-			2,
-		},
-	}
+// 	getActionsByBlockTests = []struct {
+// 		blkHeight  uint64
+// 		start      uint64
+// 		count      uint64
+// 		numActions int
+// 	}{
+// 		{
+// 			2,
+// 			0,
+// 			7,
+// 			7,
+// 		},
+// 		{
+// 			4,
+// 			2,
+// 			5,
+// 			3,
+// 		},
+// 		{
+// 			3,
+// 			0,
+// 			0,
+// 			0,
+// 		},
+// 		{
+// 			1,
+// 			0,
+// 			math.MaxUint64,
+// 			2,
+// 		},
+// 	}
 
-	getBlockMetasTests = []struct {
-		start, count      uint64
-		numBlks           int
-		gasLimit, gasUsed uint64
-	}{
-		{
-			1,
-			4,
-			4,
-			20000,
-			10000,
-		},
-		{
-			2,
-			5,
-			3,
-			120000,
-			60100,
-		},
-		{
-			1,
-			0,
-			0,
-			20000,
-			10000,
-		},
-		// genesis block
-		{
-			0,
-			1,
-			1,
-			0,
-			0,
-		},
-	}
+// 	getBlockMetasTests = []struct {
+// 		start, count      uint64
+// 		numBlks           int
+// 		gasLimit, gasUsed uint64
+// 	}{
+// 		{
+// 			1,
+// 			4,
+// 			4,
+// 			20000,
+// 			10000,
+// 		},
+// 		{
+// 			2,
+// 			5,
+// 			3,
+// 			120000,
+// 			60100,
+// 		},
+// 		{
+// 			1,
+// 			0,
+// 			0,
+// 			20000,
+// 			10000,
+// 		},
+// 		// genesis block
+// 		{
+// 			0,
+// 			1,
+// 			1,
+// 			0,
+// 			0,
+// 		},
+// 	}
 
-	getBlockMetaTests = []struct {
-		blkHeight      uint64
-		numActions     int64
-		transferAmount string
-		logsBloom      string
-	}{
-		{
-			2,
-			7,
-			"6",
-			"",
-		},
-		{
-			4,
-			5,
-			"2",
-			"",
-		},
-	}
+// 	getBlockMetaTests = []struct {
+// 		blkHeight      uint64
+// 		numActions     int64
+// 		transferAmount string
+// 		logsBloom      string
+// 	}{
+// 		{
+// 			2,
+// 			7,
+// 			"6",
+// 			"",
+// 		},
+// 		{
+// 			4,
+// 			5,
+// 			"2",
+// 			"",
+// 		},
+// 	}
 
-	getChainMetaTests = []struct {
-		// Arguments
-		emptyChain       bool
-		tpsWindow        int
-		pollProtocolType string
-		// Expected values
-		height     uint64
-		numActions int64
-		tps        int64
-		tpsFloat   float32
-		epoch      iotextypes.EpochData
-	}{
-		{
-			emptyChain: true,
-		},
+// 	getChainMetaTests = []struct {
+// 		// Arguments
+// 		emptyChain       bool
+// 		tpsWindow        int
+// 		pollProtocolType string
+// 		// Expected values
+// 		height     uint64
+// 		numActions int64
+// 		tps        int64
+// 		tpsFloat   float32
+// 		epoch      iotextypes.EpochData
+// 	}{
+// 		{
+// 			emptyChain: true,
+// 		},
 
-		{
-			false,
-			1,
-			lld,
-			4,
-			15,
-			1,
-			5 / 10.0,
-			iotextypes.EpochData{
-				Num:                     1,
-				Height:                  1,
-				GravityChainStartHeight: 1,
-			},
-		},
-		{
-			false,
-			5,
-			"governanceChainCommittee",
-			4,
-			15,
-			2,
-			15 / 13.0,
-			iotextypes.EpochData{
-				Num:                     1,
-				Height:                  1,
-				GravityChainStartHeight: 100,
-			},
-		},
-	}
+// 		{
+// 			false,
+// 			1,
+// 			lld,
+// 			4,
+// 			15,
+// 			1,
+// 			5 / 10.0,
+// 			iotextypes.EpochData{
+// 				Num:                     1,
+// 				Height:                  1,
+// 				GravityChainStartHeight: 1,
+// 			},
+// 		},
+// 		{
+// 			false,
+// 			5,
+// 			"governanceChainCommittee",
+// 			4,
+// 			15,
+// 			2,
+// 			15 / 13.0,
+// 			iotextypes.EpochData{
+// 				Num:                     1,
+// 				Height:                  1,
+// 				GravityChainStartHeight: 100,
+// 			},
+// 		},
+// 	}
 
-	sendActionTests = []struct {
-		// Arguments
-		actionPb *iotextypes.Action
-		// Expected Values
-		actionHash string
-	}{
-		{
-			testTransferPb,
-			hex.EncodeToString(testTransferHash[:]),
-		},
-		{
-			testExecutionPb,
-			hex.EncodeToString(testExecutionHash[:]),
-		},
-	}
+// 	sendActionTests = []struct {
+// 		// Arguments
+// 		actionPb *iotextypes.Action
+// 		// Expected Values
+// 		actionHash string
+// 	}{
+// 		{
+// 			testTransferPb,
+// 			hex.EncodeToString(testTransferHash[:]),
+// 		},
+// 		{
+// 			testExecutionPb,
+// 			hex.EncodeToString(testExecutionHash[:]),
+// 		},
+// 	}
 
-	getReceiptByActionTests = []struct {
-		in        string
-		status    uint64
-		blkHeight uint64
-	}{
-		{
-			hex.EncodeToString(transferHash1[:]),
-			uint64(iotextypes.ReceiptStatus_Success),
-			1,
-		},
-		{
-			hex.EncodeToString(transferHash2[:]),
-			uint64(iotextypes.ReceiptStatus_Success),
-			2,
-		},
-		{
-			hex.EncodeToString(executionHash1[:]),
-			uint64(iotextypes.ReceiptStatus_Success),
-			2,
-		},
-		{
-			hex.EncodeToString(executionHash3[:]),
-			uint64(iotextypes.ReceiptStatus_Success),
-			4,
-		},
-	}
+// 	getReceiptByActionTests = []struct {
+// 		in        string
+// 		status    uint64
+// 		blkHeight uint64
+// 	}{
+// 		{
+// 			hex.EncodeToString(transferHash1[:]),
+// 			uint64(iotextypes.ReceiptStatus_Success),
+// 			1,
+// 		},
+// 		{
+// 			hex.EncodeToString(transferHash2[:]),
+// 			uint64(iotextypes.ReceiptStatus_Success),
+// 			2,
+// 		},
+// 		{
+// 			hex.EncodeToString(executionHash1[:]),
+// 			uint64(iotextypes.ReceiptStatus_Success),
+// 			2,
+// 		},
+// 		{
+// 			hex.EncodeToString(executionHash3[:]),
+// 			uint64(iotextypes.ReceiptStatus_Success),
+// 			4,
+// 		},
+// 	}
 
-	readContractTests = []struct {
-		execHash    string
-		callerAddr  string
-		actionHash  string
-		retValue    string
-		gasConsumed uint64
-	}{
-		{
-			hex.EncodeToString(executionHash1[:]),
-			"",
-			"08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4",
-			"",
-			10100,
-		},
-	}
+// 	readContractTests = []struct {
+// 		execHash    string
+// 		callerAddr  string
+// 		actionHash  string
+// 		retValue    string
+// 		gasConsumed uint64
+// 	}{
+// 		{
+// 			hex.EncodeToString(executionHash1[:]),
+// 			"",
+// 			"08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4",
+// 			"",
+// 			10100,
+// 		},
+// 	}
 
-	suggestGasPriceTests = []struct {
-		defaultGasPrice   uint64
-		suggestedGasPrice uint64
-	}{
-		{
-			1,
-			1,
-		},
-	}
+// 	suggestGasPriceTests = []struct {
+// 		defaultGasPrice   uint64
+// 		suggestedGasPrice uint64
+// 	}{
+// 		{
+// 			1,
+// 			1,
+// 		},
+// 	}
 
-	estimateGasForActionTests = []struct {
-		actionHash   string
-		estimatedGas uint64
-	}{
-		{
-			hex.EncodeToString(transferHash1[:]),
-			10000,
-		},
-		{
-			hex.EncodeToString(transferHash2[:]),
-			10000,
-		},
-	}
+// 	estimateGasForActionTests = []struct {
+// 		actionHash   string
+// 		estimatedGas uint64
+// 	}{
+// 		{
+// 			hex.EncodeToString(transferHash1[:]),
+// 			10000,
+// 		},
+// 		{
+// 			hex.EncodeToString(transferHash2[:]),
+// 			10000,
+// 		},
+// 	}
 
-	readUnclaimedBalanceTests = []struct {
-		// Arguments
-		protocolID string
-		methodName string
-		addr       string
-		// Expected values
-		returnErr bool
-		balance   *big.Int
-	}{
-		{
-			protocolID: "rewarding",
-			methodName: "UnclaimedBalance",
-			addr:       identityset.Address(0).String(),
-			returnErr:  false,
-			balance:    unit.ConvertIotxToRau(64), // 4 block * 36 IOTX reward by default = 144 IOTX
-		},
-		{
-			protocolID: "rewarding",
-			methodName: "UnclaimedBalance",
-			addr:       identityset.Address(1).String(),
-			returnErr:  false,
-			balance:    unit.ConvertIotxToRau(0), // 4 block * 36 IOTX reward by default = 144 IOTX
-		},
-		{
-			protocolID: "Wrong ID",
-			methodName: "UnclaimedBalance",
-			addr:       identityset.Address(27).String(),
-			returnErr:  true,
-		},
-		{
-			protocolID: "rewarding",
-			methodName: "Wrong Method",
-			addr:       identityset.Address(27).String(),
-			returnErr:  true,
-		},
-	}
+// 	readUnclaimedBalanceTests = []struct {
+// 		// Arguments
+// 		protocolID string
+// 		methodName string
+// 		addr       string
+// 		// Expected values
+// 		returnErr bool
+// 		balance   *big.Int
+// 	}{
+// 		{
+// 			protocolID: "rewarding",
+// 			methodName: "UnclaimedBalance",
+// 			addr:       identityset.Address(0).String(),
+// 			returnErr:  false,
+// 			balance:    unit.ConvertIotxToRau(64), // 4 block * 36 IOTX reward by default = 144 IOTX
+// 		},
+// 		{
+// 			protocolID: "rewarding",
+// 			methodName: "UnclaimedBalance",
+// 			addr:       identityset.Address(1).String(),
+// 			returnErr:  false,
+// 			balance:    unit.ConvertIotxToRau(0), // 4 block * 36 IOTX reward by default = 144 IOTX
+// 		},
+// 		{
+// 			protocolID: "Wrong ID",
+// 			methodName: "UnclaimedBalance",
+// 			addr:       identityset.Address(27).String(),
+// 			returnErr:  true,
+// 		},
+// 		{
+// 			protocolID: "rewarding",
+// 			methodName: "Wrong Method",
+// 			addr:       identityset.Address(27).String(),
+// 			returnErr:  true,
+// 		},
+// 	}
 
-	readCandidatesByEpochTests = []struct {
-		// Arguments
-		protocolID   string
-		protocolType string
-		methodName   string
-		epoch        uint64
-		// Expected Values
-		numDelegates int
-	}{
-		{
-			protocolID:   "poll",
-			protocolType: lld,
-			methodName:   "CandidatesByEpoch",
-			epoch:        1,
-			numDelegates: 3,
-		},
-		{
-			protocolID:   "poll",
-			protocolType: "governanceChainCommittee",
-			methodName:   "CandidatesByEpoch",
-			epoch:        1,
-			numDelegates: 2,
-		},
-	}
+// 	readCandidatesByEpochTests = []struct {
+// 		// Arguments
+// 		protocolID   string
+// 		protocolType string
+// 		methodName   string
+// 		epoch        uint64
+// 		// Expected Values
+// 		numDelegates int
+// 	}{
+// 		{
+// 			protocolID:   "poll",
+// 			protocolType: lld,
+// 			methodName:   "CandidatesByEpoch",
+// 			epoch:        1,
+// 			numDelegates: 3,
+// 		},
+// 		{
+// 			protocolID:   "poll",
+// 			protocolType: "governanceChainCommittee",
+// 			methodName:   "CandidatesByEpoch",
+// 			epoch:        1,
+// 			numDelegates: 2,
+// 		},
+// 	}
 
-	readBlockProducersByEpochTests = []struct {
-		// Arguments
-		protocolID            string
-		protocolType          string
-		methodName            string
-		epoch                 uint64
-		numCandidateDelegates uint64
-		// Expected Values
-		numBlockProducers int
-	}{
-		{
-			protocolID:        "poll",
-			protocolType:      lld,
-			methodName:        "BlockProducersByEpoch",
-			epoch:             1,
-			numBlockProducers: 3,
-		},
-		{
-			protocolID:            "poll",
-			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByEpoch",
-			epoch:                 1,
-			numCandidateDelegates: 2,
-			numBlockProducers:     2,
-		},
-		{
-			protocolID:            "poll",
-			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByEpoch",
-			epoch:                 1,
-			numCandidateDelegates: 1,
-			numBlockProducers:     1,
-		},
-	}
+// 	readBlockProducersByEpochTests = []struct {
+// 		// Arguments
+// 		protocolID            string
+// 		protocolType          string
+// 		methodName            string
+// 		epoch                 uint64
+// 		numCandidateDelegates uint64
+// 		// Expected Values
+// 		numBlockProducers int
+// 	}{
+// 		{
+// 			protocolID:        "poll",
+// 			protocolType:      lld,
+// 			methodName:        "BlockProducersByEpoch",
+// 			epoch:             1,
+// 			numBlockProducers: 3,
+// 		},
+// 		{
+// 			protocolID:            "poll",
+// 			protocolType:          "governanceChainCommittee",
+// 			methodName:            "BlockProducersByEpoch",
+// 			epoch:                 1,
+// 			numCandidateDelegates: 2,
+// 			numBlockProducers:     2,
+// 		},
+// 		{
+// 			protocolID:            "poll",
+// 			protocolType:          "governanceChainCommittee",
+// 			methodName:            "BlockProducersByEpoch",
+// 			epoch:                 1,
+// 			numCandidateDelegates: 1,
+// 			numBlockProducers:     1,
+// 		},
+// 	}
 
-	readActiveBlockProducersByEpochTests = []struct {
-		// Arguments
-		protocolID   string
-		protocolType string
-		methodName   string
-		epoch        uint64
-		numDelegates uint64
-		// Expected Values
-		numActiveBlockProducers int
-	}{
-		{
-			protocolID:              "poll",
-			protocolType:            lld,
-			methodName:              "ActiveBlockProducersByEpoch",
-			epoch:                   1,
-			numActiveBlockProducers: 3,
-		},
-		{
-			protocolID:              "poll",
-			protocolType:            "governanceChainCommittee",
-			methodName:              "ActiveBlockProducersByEpoch",
-			epoch:                   1,
-			numDelegates:            2,
-			numActiveBlockProducers: 2,
-		},
-		{
-			protocolID:              "poll",
-			protocolType:            "governanceChainCommittee",
-			methodName:              "ActiveBlockProducersByEpoch",
-			epoch:                   1,
-			numDelegates:            1,
-			numActiveBlockProducers: 1,
-		},
-	}
+// 	readActiveBlockProducersByEpochTests = []struct {
+// 		// Arguments
+// 		protocolID   string
+// 		protocolType string
+// 		methodName   string
+// 		epoch        uint64
+// 		numDelegates uint64
+// 		// Expected Values
+// 		numActiveBlockProducers int
+// 	}{
+// 		{
+// 			protocolID:              "poll",
+// 			protocolType:            lld,
+// 			methodName:              "ActiveBlockProducersByEpoch",
+// 			epoch:                   1,
+// 			numActiveBlockProducers: 3,
+// 		},
+// 		{
+// 			protocolID:              "poll",
+// 			protocolType:            "governanceChainCommittee",
+// 			methodName:              "ActiveBlockProducersByEpoch",
+// 			epoch:                   1,
+// 			numDelegates:            2,
+// 			numActiveBlockProducers: 2,
+// 		},
+// 		{
+// 			protocolID:              "poll",
+// 			protocolType:            "governanceChainCommittee",
+// 			methodName:              "ActiveBlockProducersByEpoch",
+// 			epoch:                   1,
+// 			numDelegates:            1,
+// 			numActiveBlockProducers: 1,
+// 		},
+// 	}
 
-	readRollDPoSMetaTests = []struct {
-		// Arguments
-		protocolID string
-		methodName string
-		height     uint64
-		// Expected Values
-		result uint64
-	}{
-		{
-			protocolID: "rolldpos",
-			methodName: "NumCandidateDelegates",
-			result:     36,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "NumDelegates",
-			result:     24,
-		},
-	}
+// 	readRollDPoSMetaTests = []struct {
+// 		// Arguments
+// 		protocolID string
+// 		methodName string
+// 		height     uint64
+// 		// Expected Values
+// 		result uint64
+// 	}{
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "NumCandidateDelegates",
+// 			result:     36,
+// 		},
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "NumDelegates",
+// 			result:     24,
+// 		},
+// 	}
 
-	readEpochCtxTests = []struct {
-		// Arguments
-		protocolID string
-		methodName string
-		argument   uint64
-		// Expected Values
-		result uint64
-	}{
-		{
-			protocolID: "rolldpos",
-			methodName: "NumSubEpochs",
-			argument:   1,
-			result:     2,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "NumSubEpochs",
-			argument:   1816201,
-			result:     30,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "EpochNumber",
-			argument:   100,
-			result:     3,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "EpochHeight",
-			argument:   5,
-			result:     193,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "EpochLastHeight",
-			argument:   1000,
-			result:     48000,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "SubEpochNumber",
-			argument:   121,
-			result:     1,
-		},
-	}
+// 	readEpochCtxTests = []struct {
+// 		// Arguments
+// 		protocolID string
+// 		methodName string
+// 		argument   uint64
+// 		// Expected Values
+// 		result uint64
+// 	}{
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "NumSubEpochs",
+// 			argument:   1,
+// 			result:     2,
+// 		},
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "NumSubEpochs",
+// 			argument:   1816201,
+// 			result:     30,
+// 		},
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "EpochNumber",
+// 			argument:   100,
+// 			result:     3,
+// 		},
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "EpochHeight",
+// 			argument:   5,
+// 			result:     193,
+// 		},
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "EpochLastHeight",
+// 			argument:   1000,
+// 			result:     48000,
+// 		},
+// 		{
+// 			protocolID: "rolldpos",
+// 			methodName: "SubEpochNumber",
+// 			argument:   121,
+// 			result:     1,
+// 		},
+// 	}
 
-	getEpochMetaTests = []struct {
-		// Arguments
-		EpochNumber      uint64
-		pollProtocolType string
-		// Expected Values
-		epochData                     iotextypes.EpochData
-		numBlksInEpoch                int
-		numConsenusBlockProducers     int
-		numActiveCensusBlockProducers int
-	}{
-		{
-			1,
-			lld,
-			iotextypes.EpochData{
-				Num:                     1,
-				Height:                  1,
-				GravityChainStartHeight: 1,
-			},
-			4,
-			24,
-			24,
-		},
-		{
-			1,
-			"governanceChainCommittee",
-			iotextypes.EpochData{
-				Num:                     1,
-				Height:                  1,
-				GravityChainStartHeight: 100,
-			},
-			4,
-			6,
-			6,
-		},
-	}
+// 	getEpochMetaTests = []struct {
+// 		// Arguments
+// 		EpochNumber      uint64
+// 		pollProtocolType string
+// 		// Expected Values
+// 		epochData                     iotextypes.EpochData
+// 		numBlksInEpoch                int
+// 		numConsenusBlockProducers     int
+// 		numActiveCensusBlockProducers int
+// 	}{
+// 		{
+// 			1,
+// 			lld,
+// 			iotextypes.EpochData{
+// 				Num:                     1,
+// 				Height:                  1,
+// 				GravityChainStartHeight: 1,
+// 			},
+// 			4,
+// 			24,
+// 			24,
+// 		},
+// 		{
+// 			1,
+// 			"governanceChainCommittee",
+// 			iotextypes.EpochData{
+// 				Num:                     1,
+// 				Height:                  1,
+// 				GravityChainStartHeight: 100,
+// 			},
+// 			4,
+// 			6,
+// 			6,
+// 		},
+// 	}
 
-	getRawBlocksTest = []struct {
-		// Arguments
-		startHeight  uint64
-		count        uint64
-		withReceipts bool
-		// Expected Values
-		numBlks     int
-		numActions  int
-		numReceipts int
-	}{
-		{
-			1,
-			1,
-			false,
-			1,
-			2,
-			0,
-		},
-		{
-			1,
-			2,
-			true,
-			2,
-			9,
-			9,
-		},
-		// genesis block
-		{
-			0,
-			1,
-			true,
-			1,
-			0,
-			0,
-		},
-	}
+// 	getRawBlocksTest = []struct {
+// 		// Arguments
+// 		startHeight  uint64
+// 		count        uint64
+// 		withReceipts bool
+// 		// Expected Values
+// 		numBlks     int
+// 		numActions  int
+// 		numReceipts int
+// 	}{
+// 		{
+// 			1,
+// 			1,
+// 			false,
+// 			1,
+// 			2,
+// 			0,
+// 		},
+// 		{
+// 			1,
+// 			2,
+// 			true,
+// 			2,
+// 			9,
+// 			9,
+// 		},
+// 		// genesis block
+// 		{
+// 			0,
+// 			1,
+// 			true,
+// 			1,
+// 			0,
+// 			0,
+// 		},
+// 	}
 
-	getLogsByRangeTest = []struct {
-		// Arguments
-		address   []string
-		topics    []*iotexapi.Topics
-		fromBlock uint64
-		count     uint64
-		// Expected Values
-		numLogs int
-	}{
-		{
-			address:   []string{},
-			topics:    []*iotexapi.Topics{},
-			fromBlock: 1,
-			count:     100,
-			numLogs:   4,
-		},
-		{
-			address:   []string{},
-			topics:    []*iotexapi.Topics{},
-			fromBlock: 1,
-			count:     100,
-			numLogs:   4,
-		},
-	}
+// 	getLogsByRangeTest = []struct {
+// 		// Arguments
+// 		address   []string
+// 		topics    []*iotexapi.Topics
+// 		fromBlock uint64
+// 		count     uint64
+// 		// Expected Values
+// 		numLogs int
+// 	}{
+// 		{
+// 			address:   []string{},
+// 			topics:    []*iotexapi.Topics{},
+// 			fromBlock: 1,
+// 			count:     100,
+// 			numLogs:   4,
+// 		},
+// 		{
+// 			address:   []string{},
+// 			topics:    []*iotexapi.Topics{},
+// 			fromBlock: 1,
+// 			count:     100,
+// 			numLogs:   4,
+// 		},
+// 	}
 
-	getImplicitLogByBlockHeightTest = []struct {
-		height uint64
-		code   codes.Code
-	}{
-		{
-			1, codes.OK,
-		},
-		{
-			2, codes.OK,
-		},
-		{
-			3, codes.OK,
-		},
-		{
-			4, codes.OK,
-		},
-		{
-			5, codes.InvalidArgument,
-		},
-	}
+// 	getImplicitLogByBlockHeightTest = []struct {
+// 		height uint64
+// 		code   codes.Code
+// 	}{
+// 		{
+// 			1, codes.OK,
+// 		},
+// 		{
+// 			2, codes.OK,
+// 		},
+// 		{
+// 			3, codes.OK,
+// 		},
+// 		{
+// 			4, codes.OK,
+// 		},
+// 		{
+// 			5, codes.InvalidArgument,
+// 		},
+// 	}
 
-	getActionByActionHashTest = []struct {
-		h              hash.Hash256
-		expectedNounce uint64
-	}{
-		{
-			transferHash1,
-			1,
-		},
-		{
-			transferHash2,
-			5,
-		},
-		{
-			executionHash1,
-			6,
-		},
-		{
-			executionHash3,
-			2,
-		},
-	}
-)
+// 	getActionByActionHashTest = []struct {
+// 		h              hash.Hash256
+// 		expectedNounce uint64
+// 	}{
+// 		{
+// 			transferHash1,
+// 			1,
+// 		},
+// 		{
+// 			transferHash2,
+// 			5,
+// 		},
+// 		{
+// 			executionHash1,
+// 			6,
+// 		},
+// 		{
+// 			executionHash3,
+// 			2,
+// 		},
+// 	}
+// )
 
 func TestServer_GetAccount(t *testing.T) {
 	require := require.New(t)
@@ -2333,154 +2323,154 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	}
 }
 
-func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
-	ctx := context.Background()
-	addr0 := identityset.Address(27).String()
-	addr1 := identityset.Address(28).String()
-	addr2 := identityset.Address(29).String()
-	addr3 := identityset.Address(30).String()
-	priKey3 := identityset.PrivateKey(30)
-	addr4 := identityset.Address(31).String()
-	// Add block 1
-	// Producer transfer--> C
-	implicitLogs[transferHash1] = block.NewTransactionLog(transferHash1,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
-	)
+// func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
+// 	ctx := context.Background()
+// 	addr0 := identityset.Address(27).String()
+// 	addr1 := identityset.Address(28).String()
+// 	addr2 := identityset.Address(29).String()
+// 	addr3 := identityset.Address(30).String()
+// 	priKey3 := identityset.PrivateKey(30)
+// 	addr4 := identityset.Address(31).String()
+// 	// Add block 1
+// 	// Producer transfer--> C
+// 	implicitLogs[transferHash1] = block.NewTransactionLog(transferHash1,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
+// 	)
 
-	blk1Time := testutil.TimestampNow()
-	if err := ap.Add(ctx, testTransfer1); err != nil {
-		return err
-	}
-	blk, err := bc.MintNewBlock(blk1Time)
-	if err != nil {
-		return err
-	}
-	if err := bc.CommitBlock(blk); err != nil {
-		return err
-	}
-	ap.Reset()
-	h := blk.HashBlock()
-	blkHash[1] = hex.EncodeToString(h[:])
+// 	blk1Time := testutil.TimestampNow()
+// 	if err := ap.Add(ctx, testTransfer1); err != nil {
+// 		return err
+// 	}
+// 	blk, err := bc.MintNewBlock(blk1Time)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := bc.CommitBlock(blk); err != nil {
+// 		return err
+// 	}
+// 	ap.Reset()
+// 	h := blk.HashBlock()
+// 	blkHash[1] = hex.EncodeToString(h[:])
 
-	// Add block 2
-	// Charlie transfer--> A, B, D, P
-	// Charlie transfer--> C
-	// Charlie exec--> D
-	recipients := []string{addr1, addr2, addr4, addr0}
-	for i, recipient := range recipients {
-		selp, err := action.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-		if err != nil {
-			return err
-		}
-		if err := ap.Add(ctx, selp); err != nil {
-			return err
-		}
-		selpHash, err := selp.Hash()
-		if err != nil {
-			return err
-		}
-		implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
-			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
-		)
-	}
-	implicitLogs[transferHash2] = block.NewTransactionLog(transferHash2,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
-	)
-	if err := ap.Add(ctx, testTransfer2); err != nil {
-		return err
-	}
-	implicitLogs[executionHash1] = block.NewTransactionLog(
-		executionHash1,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
-	)
-	if err := ap.Add(ctx, testExecution1); err != nil {
-		return err
-	}
-	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
-		return err
-	}
-	if err := bc.CommitBlock(blk); err != nil {
-		return err
-	}
-	ap.Reset()
-	h = blk.HashBlock()
-	blkHash[2] = hex.EncodeToString(h[:])
+// 	// Add block 2
+// 	// Charlie transfer--> A, B, D, P
+// 	// Charlie transfer--> C
+// 	// Charlie exec--> D
+// 	recipients := []string{addr1, addr2, addr4, addr0}
+// 	for i, recipient := range recipients {
+// 		selp, err := action.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if err := ap.Add(ctx, selp); err != nil {
+// 			return err
+// 		}
+// 		selpHash, err := selp.Hash()
+// 		if err != nil {
+// 			return err
+// 		}
+// 		implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
+// 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
+// 		)
+// 	}
+// 	implicitLogs[transferHash2] = block.NewTransactionLog(transferHash2,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
+// 	)
+// 	if err := ap.Add(ctx, testTransfer2); err != nil {
+// 		return err
+// 	}
+// 	implicitLogs[executionHash1] = block.NewTransactionLog(
+// 		executionHash1,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
+// 	)
+// 	if err := ap.Add(ctx, testExecution1); err != nil {
+// 		return err
+// 	}
+// 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
+// 		return err
+// 	}
+// 	if err := bc.CommitBlock(blk); err != nil {
+// 		return err
+// 	}
+// 	ap.Reset()
+// 	h = blk.HashBlock()
+// 	blkHash[2] = hex.EncodeToString(h[:])
 
-	// Add block 3
-	// Empty actions
-	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 2)); err != nil {
-		return err
-	}
-	if err := bc.CommitBlock(blk); err != nil {
-		return err
-	}
-	ap.Reset()
-	h = blk.HashBlock()
-	blkHash[3] = hex.EncodeToString(h[:])
+// 	// Add block 3
+// 	// Empty actions
+// 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 2)); err != nil {
+// 		return err
+// 	}
+// 	if err := bc.CommitBlock(blk); err != nil {
+// 		return err
+// 	}
+// 	ap.Reset()
+// 	h = blk.HashBlock()
+// 	blkHash[3] = hex.EncodeToString(h[:])
 
-	// Add block 4
-	// Charlie transfer--> C
-	// Alfa transfer--> A
-	// Charlie exec--> D
-	// Alfa exec--> D
-	tsf1, err := action.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	tsf1Hash, err := tsf1.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[tsf1Hash] = block.NewTransactionLog(tsf1Hash,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
-	)
-	if err := ap.Add(ctx, tsf1); err != nil {
-		return err
-	}
-	tsf2, err := action.SignedTransfer(addr1, identityset.PrivateKey(28), uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	tsf2Hash, err := tsf2.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[tsf2Hash] = block.NewTransactionLog(tsf2Hash,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
-	)
-	if err := ap.Add(ctx, tsf2); err != nil {
-		return err
-	}
-	execution1, err := action.SignedExecution(addr4, priKey3, 8,
-		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	if err != nil {
-		return err
-	}
-	execution1Hash, err := execution1.Hash()
-	if err != nil {
-		return err
-	}
-	implicitLogs[execution1Hash] = block.NewTransactionLog(
-		execution1Hash,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
-	)
-	if err := ap.Add(ctx, execution1); err != nil {
-		return err
-	}
-	implicitLogs[executionHash3] = block.NewTransactionLog(
-		executionHash3,
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
-	)
-	if err := ap.Add(ctx, testExecution3); err != nil {
-		return err
-	}
-	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
-		return err
-	}
-	h = blk.HashBlock()
-	blkHash[4] = hex.EncodeToString(h[:])
-	return bc.CommitBlock(blk)
-}
+// 	// Add block 4
+// 	// Charlie transfer--> C
+// 	// Alfa transfer--> A
+// 	// Charlie exec--> D
+// 	// Alfa exec--> D
+// 	tsf1, err := action.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	tsf1Hash, err := tsf1.Hash()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	implicitLogs[tsf1Hash] = block.NewTransactionLog(tsf1Hash,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
+// 	)
+// 	if err := ap.Add(ctx, tsf1); err != nil {
+// 		return err
+// 	}
+// 	tsf2, err := action.SignedTransfer(addr1, identityset.PrivateKey(28), uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	tsf2Hash, err := tsf2.Hash()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	implicitLogs[tsf2Hash] = block.NewTransactionLog(tsf2Hash,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
+// 	)
+// 	if err := ap.Add(ctx, tsf2); err != nil {
+// 		return err
+// 	}
+// 	execution1, err := action.SignedExecution(addr4, priKey3, 8,
+// 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+// 	if err != nil {
+// 		return err
+// 	}
+// 	execution1Hash, err := execution1.Hash()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	implicitLogs[execution1Hash] = block.NewTransactionLog(
+// 		execution1Hash,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
+// 	)
+// 	if err := ap.Add(ctx, execution1); err != nil {
+// 		return err
+// 	}
+// 	implicitLogs[executionHash3] = block.NewTransactionLog(
+// 		executionHash3,
+// 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
+// 	)
+// 	if err := ap.Add(ctx, testExecution3); err != nil {
+// 		return err
+// 	}
+// 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
+// 		return err
+// 	}
+// 	h = blk.HashBlock()
+// 	blkHash[4] = hex.EncodeToString(h[:])
+// 	return bc.CommitBlock(blk)
+// }
 
 func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
 	data, _ := hex.DecodeString(code)
@@ -2515,153 +2505,153 @@ func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, co
 	return contract, nil
 }
 
-func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
-	// Producer transfer--> A
-	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	// Producer transfer--> P
-	tsf2, err := action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	// Producer transfer--> B
-	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	// Producer exec--> D
-	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
-	if err != nil {
-		return err
-	}
+// func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
+// 	// Producer transfer--> A
+// 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// Producer transfer--> P
+// 	tsf2, err := action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// Producer transfer--> B
+// 	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// Producer exec--> D
+// 	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
+// 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if err := ap.Add(ctx, tsf1); err != nil {
-		return err
-	}
-	if err := ap.Add(ctx, tsf2); err != nil {
-		return err
-	}
-	if err := ap.Add(ctx, tsf3); err != nil {
-		return err
-	}
-	return ap.Add(ctx, execution1)
-}
+// 	if err := ap.Add(ctx, tsf1); err != nil {
+// 		return err
+// 	}
+// 	if err := ap.Add(ctx, tsf2); err != nil {
+// 		return err
+// 	}
+// 	if err := ap.Add(ctx, tsf3); err != nil {
+// 		return err
+// 	}
+// 	return ap.Add(ctx, execution1)
+// }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
-	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	ap, err := setupActPool(sf, cfg.ActPool)
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
-	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
-	// create indexer
-	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create indexer")
-	}
-	testPath, _ := testutil.PathOfTempFile("bloomfilter")
-	cfg.DB.DbPath = testPath
-	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
-	}
-	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
-	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
-	}
-	// create chain
-	bc := blockchain.NewBlockchain(
-		cfg,
-		dao,
-		factory.NewMinter(sf, ap),
-		blockchain.BlockValidatorOption(block.NewValidator(
-			sf,
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
-		)),
-	)
-	if bc == nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
-	}
-	defer func() {
-		delete(cfg.Plugins, config.GatewayPlugin)
-	}()
+// func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
+// 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
+// 	registry := protocol.NewRegistry()
+// 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+// 	if err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
+// 	ap, err := setupActPool(sf, cfg.ActPool)
+// 	if err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
+// 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
+// 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
+// 	// create indexer
+// 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+// 	if err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create indexer")
+// 	}
+// 	testPath, _ := testutil.PathOfTempFile("bloomfilter")
+// 	cfg.DB.DbPath = testPath
+// 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
+// 	if err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
+// 	}
+// 	// create BlockDAO
+// 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
+// 	if dao == nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
+// 	}
+// 	// create chain
+// 	bc := blockchain.NewBlockchain(
+// 		cfg,
+// 		dao,
+// 		factory.NewMinter(sf, ap),
+// 		blockchain.BlockValidatorOption(block.NewValidator(
+// 			sf,
+// 			protocol.NewGenericValidator(sf, accountutil.AccountState),
+// 		)),
+// 	)
+// 	if bc == nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
+// 	}
+// 	defer func() {
+// 		delete(cfg.Plugins, config.GatewayPlugin)
+// 	}()
 
-	acc := account.NewProtocol(rewarding.DepositGas)
-	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
-	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
-	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
-	)
-	r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+// 	acc := account.NewProtocol(rewarding.DepositGas)
+// 	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+// 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+// 	rolldposProtocol := rolldpos.NewProtocol(
+// 		genesis.Default.NumCandidateDelegates,
+// 		genesis.Default.NumDelegates,
+// 		genesis.Default.NumSubEpochs,
+// 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+// 	)
+// 	r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 
-	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
+// 	if err := rolldposProtocol.Register(registry); err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
+// 	if err := acc.Register(registry); err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
+// 	if err := evm.Register(registry); err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
+// 	if err := r.Register(registry); err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
+// 	if err := p.Register(registry); err != nil {
+// 		return nil, nil, nil, nil, nil, nil, nil, "", err
+// 	}
 
-	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
-}
+// 	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
+// }
 
-func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
-	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
-	if err != nil {
-		return nil, err
-	}
+// func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
+// 	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+// 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	return ap, nil
-}
+// 	return ap, nil
+// }
 
-func newConfig(t *testing.T) config.Config {
-	r := require.New(t)
-	cfg := config.Default
+// func newConfig(t *testing.T) config.Config {
+// 	r := require.New(t)
+// 	cfg := config.Default
 
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	r.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile("db")
-	r.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile("index")
-	r.NoError(err)
-	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
-	r.NoError(err)
+// 	testTriePath, err := testutil.PathOfTempFile("trie")
+// 	r.NoError(err)
+// 	testDBPath, err := testutil.PathOfTempFile("db")
+// 	r.NoError(err)
+// 	testIndexPath, err := testutil.PathOfTempFile("index")
+// 	r.NoError(err)
+// 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+// 	r.NoError(err)
 
-	cfg.Plugins[config.GatewayPlugin] = true
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.System.SystemLogDBPath = testSystemLogPath
-	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Genesis.EnableGravityChainVoting = true
-	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.API.RangeQueryLimit = 100
+// 	cfg.Plugins[config.GatewayPlugin] = true
+// 	cfg.Chain.TrieDBPath = testTriePath
+// 	cfg.Chain.ChainDBPath = testDBPath
+// 	cfg.Chain.IndexDBPath = testIndexPath
+// 	cfg.System.SystemLogDBPath = testSystemLogPath
+// 	cfg.Chain.EnableAsyncIndexWrite = false
+// 	cfg.Genesis.EnableGravityChainVoting = true
+// 	cfg.ActPool.MinGasPriceStr = "0"
+// 	cfg.API.RangeQueryLimit = 100
 
-	return cfg
-}
+// 	return cfg
+// }
 
 func createServer(cfg config.Config, needActPool bool) (*Server, string, error) {
 	// TODO (zhi): revise
