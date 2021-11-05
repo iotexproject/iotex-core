@@ -1311,7 +1311,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			"invalid nonce",
+			"nonce too low",
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1319,7 +1319,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			"invalid gas price",
+			"lower than minimal gas price",
 		},
 		{
 			func() (*ServerV2, string, error) {

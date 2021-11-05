@@ -202,7 +202,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	}
 	if ap.gasInPool+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
 		actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
-		return errors.Wrap(action.ErrActPool, "insufficient gas space for action")
+		return errors.Wrap(action.ErrHitGasLimit, "insufficient gas space for action")
 	}
 	hash, err := act.Hash()
 	if err != nil {
@@ -211,13 +211,13 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	// Reject action if it already exists in pool
 	if _, exist := ap.allActions[hash]; exist {
 		actpoolMtc.WithLabelValues("existedAction").Inc()
-		return errors.Errorf("reject existed action: %x", hash)
+		return errors.Wrapf(action.ErrExistedInPool, "reject existed action: %x", hash)
 	}
 	// Reject action if the gas price is lower than the threshold
 	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		return errors.Wrapf(
-			action.ErrGasPrice,
+			action.ErrUnderpriced,
 			"reject the action %x whose gas price %s is lower than minimal gas price threshold",
 			hash,
 			act.GasPrice(),
@@ -229,7 +229,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 
 	caller := act.SrcPubkey().Address()
 	if caller == nil {
-		return errors.New("failed to get address")
+		return errors.Wrapf(action.ErrAddress, "failed to get address")
 	}
 	return ap.enqueueAction(caller, act, hash, act.Nonce())
 }
@@ -340,9 +340,9 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 	// if already validated
-	selpHash, err1 := selp.Hash()
-	if err1 != nil {
-		return err1
+	selpHash, err := selp.Hash()
+	if err != nil {
+		return err
 	}
 	if _, ok := ap.allActions[selpHash]; ok {
 		return nil
@@ -366,8 +366,10 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
 	confirmedNonce := confirmedState.Nonce
+	if actNonce <= confirmedNonce {
+		return errors.Wrapf(action.ErrNonceTooLow, "nonce too small, actNonce : %x", actNonce)
+	}
 	sender := addr.String()
-
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
@@ -385,14 +387,14 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 		queue.SetPendingBalance(state.Balance)
 	}
 
-	if actNonce-confirmedNonce-1 >= ap.cfg.MaxNumActsPerAcct {
+	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {
 		// Nonce exceeds current range
 		log.L().Debug("Rejecting action because nonce is too large.",
 			log.Hex("hash", actHash[:]),
 			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
 		actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
-		return errors.Wrapf(action.ErrNonce, "nonce too large ,actNonce : %x", actNonce)
+		return errors.Wrapf(action.ErrNonce, "nonce too large, actNonce : %x", actNonce)
 	}
 
 	cost, err := act.Cost()
