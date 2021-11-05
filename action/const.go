@@ -35,4 +35,20 @@ var (
 	ErrNotFound = errors.New("action not found")
 	// ErrChainID indicates the error of chainID
 	ErrChainID = errors.New("invalid chainID")
+	// ErrGasTooExpensive indicates there is no insufficient gas space for action
+	ErrGasTooExpensive = errors.New("insufficient gas space")
+	// ErrExistedInPool indicates the action already exists in the actpool
+	ErrExistedInPool = errors.New("already exist in the actpool")
+	// ErrReplaceUnderpriced is returned if a transaction is attempted to be replaced
+	// with a different one without the required price bump.
+	ErrReplaceUnderpriced = errors.New("replacement transaction underpriced")
+	// ErrNonceTooLow indicates if the nonce of a transaction is lower than the
+	// one present in the local chain.
+	ErrNonceTooLow = errors.New("nonce too low")
+	// ErrUnderpriced is returned if a transaction's gas price is below the minimum
+	// configured for the transaction pool.
+	ErrUnderpriced = errors.New("transaction underpriced")
+	// ErrNegativeValue is a sanity error to ensure no one is able to specify a
+	// transaction with a negative value.
+	ErrNegativeValue = errors.New("negative value")
 )

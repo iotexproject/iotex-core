@@ -289,18 +289,33 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 		}
 		var desc string
 		switch errors.Cause(err) {
-		case action.ErrBalance:
-			desc = "Invalid balance"
 		case action.ErrInsufficientBalanceForGas:
 			desc = "Insufficient balance for gas"
-		case action.ErrNonce:
-			desc = "Invalid nonce"
-		case action.ErrAddress:
-			desc = "Blacklisted address"
 		case action.ErrActPool:
 			desc = "Invalid actpool"
 		case action.ErrGasPrice:
 			desc = "Invalid gas price"
+		// Below errors are hardcoded for Chainlink Oracle
+		case action.ErrGasTooExpensive:
+			desc = `tx fee (0.1 ether) exceeds the configured cap (1.0 ether)`
+		case action.ErrExistedInPool:
+			desc = "known transaction"
+		case action.ErrReplaceUnderpriced:
+			desc = "replacement transaction underpriced"
+		case action.ErrNonceTooLow:
+			desc = "nonce too low"
+		case action.ErrUnderpriced:
+			desc = "transaction underpriced"
+		case action.ErrBalance:
+			desc = "insufficient balance for transfer"
+		case action.ErrNonce:
+			desc = "nonce too high"
+		case action.ErrAddress:
+			desc = "invalid sender"
+		case action.ErrHitGasLimit:
+			desc = "exceeds block gas limit"
+		case action.ErrNegativeValue:
+			desc = "negative value"
 		default:
 			desc = "Unknown"
 		}

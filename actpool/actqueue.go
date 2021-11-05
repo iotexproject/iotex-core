@@ -110,7 +110,7 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 	if actInPool, exist := q.items[nonce]; exist {
 		// act of higher gas price cut in line
 		if act.GasPrice().Cmp(actInPool.GasPrice()) != 1 {
-			return errors.Wrap(action.ErrNonce, "gas price is smaller than the act of same nonce")
+			return errors.Wrap(action.ErrReplaceUnderpriced, "gas price is smaller than the act of same nonce")
 		}
 		// update action in q.items and q.index
 		q.items[nonce] = act

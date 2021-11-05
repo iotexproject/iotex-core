@@ -243,7 +243,7 @@ func TestActPool_AddActs(t *testing.T) {
 	replaceTsf, err := action.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), addr2, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -256,7 +256,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	// Case V: Nonce is too large
 	outOfBoundsTsf, err := action.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
