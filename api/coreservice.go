@@ -267,7 +267,7 @@ func (core *CoreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
-	if core.cfg.Genesis.Blockchain.IsKamchatka(core.bc.TipHeight()) {
+	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) {
 		if core.bc.ChainID() != chainID {
 			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 		}
