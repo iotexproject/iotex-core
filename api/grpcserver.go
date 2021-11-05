@@ -35,7 +35,7 @@ type GrpcServer struct {
 	coreService *coreService
 }
 
-// NewGrpcServer creates a new grpc server
+// NewGRPCServer creates a new grpc server
 func NewGRPCServer(core *coreService, grpcPort int) *GrpcServer {
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
