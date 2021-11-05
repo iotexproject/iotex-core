@@ -540,12 +540,10 @@ func updateExpectationWithPendingClaimList(
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := api.GRPCServer().GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
-			ActionHash: hex.EncodeToString(selpHash[:]),
-		})
+		receipt, _, err := api.GetReceiptByAction(hex.EncodeToString(selpHash[:]))
 
 		if err == nil {
-			selp, err := api.GRPCServer().GetActionByActionHash(selpHash)
+			selp, err := api.GetActionByActionHash(selpHash)
 			require.NoError(t, err)
 			addr := selp.SrcPubkey().Address()
 			require.NotNil(t, addr)
@@ -555,7 +553,7 @@ func updateExpectationWithPendingClaimList(
 			require.NoError(t, err)
 			amount := act.Amount()
 
-			if receipt.ReceiptInfo.Receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
+			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
 				exptUnclaimed[addr.String()] = newExpectUnclaimed
 

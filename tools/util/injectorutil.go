@@ -694,11 +694,9 @@ func CheckPendingActionList(
 	pendingActionMap.RangeEvictOnError(func(selphash cache.Key, vi interface{}) error {
 		empty = false
 		sh, _ := selphash.(hash.Hash256)
-		receipt, err := cs.APIServer().GRPCServer().GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
-			ActionHash: hex.EncodeToString(sh[:]),
-		})
+		receipt, _, err := cs.APIServer().GetReceiptByAction(hex.EncodeToString(sh[:]))
 		if err == nil {
-			selp, err := cs.APIServer().GRPCServer().GetActionByActionHash(selphash.(hash.Hash256))
+			selp, err := cs.APIServer().GetActionByActionHash(selphash.(hash.Hash256))
 			if err != nil {
 				retErr = err
 				return nil
@@ -708,7 +706,7 @@ func CheckPendingActionList(
 				retErr = errors.New("failed to get address")
 				return nil
 			}
-			if receipt.ReceiptInfo.Receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
+			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				pbAct := selp.Envelope.Proto()
 				switch {
 				case pbAct.GetTransfer() != nil:
