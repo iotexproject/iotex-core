@@ -424,7 +424,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 			desc = "Invalid gas price"
 		// Below errors are hardcoded for Chainlink Oracle
 		case action.ErrGasTooExpensive:
-			desc = `tx fee (0.1 ether) exceeds the configured cap (1.0 ether)`
+			desc = `tx fee (2.0 ether) exceeds the configured cap (1.0 ether)`
 		case action.ErrExistedInPool:
 			desc = "known transaction"
 		case action.ErrReplaceUnderpriced:
