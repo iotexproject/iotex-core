@@ -2,6 +2,7 @@ package e2etest
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -241,7 +242,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
-	apis := make([]*api.CoreService, numNodes)
+	apis := make([]*api.ServerV2, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -532,17 +533,19 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api *api.CoreService,
+	api *api.ServerV2,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := api.ReceiptByActionHash(selpHash)
+		receipt, err := api.GRPCServer().GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
+			ActionHash: hex.EncodeToString(selpHash[:]),
+		})
 
 		if err == nil {
-			selp, err := api.ActionByActionHash(selpHash)
+			selp, err := api.GRPCServer().GetActionByActionHash(selpHash)
 			require.NoError(t, err)
 			addr := selp.SrcPubkey().Address()
 			require.NotNil(t, addr)
@@ -552,7 +555,7 @@ func updateExpectationWithPendingClaimList(
 			require.NoError(t, err)
 			amount := act.Amount()
 
-			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
+			if receipt.ReceiptInfo.Receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
 				exptUnclaimed[addr.String()] = newExpectUnclaimed
 

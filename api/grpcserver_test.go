@@ -900,7 +900,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 		svrDisableIndex := svr
 		svrDisableIndex.core.hasActionIndex = false
-		res, err = svrDisableIndex.grpcServer.GetActions(context.Background(), request)
+		res, err = svrDisableIndex.GRPCServer().GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 		} else {
@@ -1250,7 +1250,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	broadcastHandlerCount := 0
-	core := &CoreService{
+	core := &coreService{
 		bc: chain,
 		ap: ap,
 		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
@@ -2265,7 +2265,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, err := svr.core.ActionByActionHash(test.h)
+		ret, err := svr.grpcServer.GetActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}

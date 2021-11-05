@@ -630,8 +630,8 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 }
 
 // APIServer returns the API server
-func (cs *ChainService) APIServer() *api.CoreService {
-	return cs.api.CoreService()
+func (cs *ChainService) APIServer() *api.ServerV2 {
+	return cs.api
 }
 
 // Consensus returns the consensus instance

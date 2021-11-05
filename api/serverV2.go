@@ -18,7 +18,7 @@ import (
 
 // ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
-	core       *CoreService
+	core       *coreService
 	grpcServer *GrpcServer
 }
 
@@ -95,6 +95,7 @@ func (svr *ServerV2) Stop() error {
 	return nil
 }
 
-func (svr *ServerV2) CoreService() *CoreService {
-	return svr.core
+// GRPCServer returns the GRPC server
+func (svr *ServerV2) GRPCServer() *GrpcServer {
+	return svr.grpcServer
 }
