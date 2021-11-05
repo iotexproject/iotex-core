@@ -408,7 +408,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = api.ap.Add(ctx, selp); err != nil {
-		txBytes, serErr := proto.Marshal(in)
+		txBytes, serErr := proto.Marshal(in.Action)
 		if serErr != nil {
 			l.Error("Data corruption", zap.Error(serErr))
 		} else {
