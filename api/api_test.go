@@ -1308,7 +1308,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			"invalid nonce",
+			"nonce too low",
 		},
 		{
 			func() (*Server, string, error) {
@@ -1316,7 +1316,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			"invalid gas price",
+			"lower than minimal gas price",
 		},
 		{
 			func() (*Server, string, error) {
