@@ -900,7 +900,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 		svrDisableIndex := svr
 		svrDisableIndex.core.hasActionIndex = false
-		res, err = svrDisableIndex.GRPCServer().GetActions(context.Background(), request)
+		res, err = svrDisableIndex.grpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 		} else {
@@ -2265,7 +2265,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, err := svr.grpcServer.GetActionByActionHash(test.h)
+		ret, err := svr.GetActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}

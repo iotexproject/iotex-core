@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -203,16 +204,14 @@ func main() {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
 		// Wait until the smart contract is successfully deployed
-		var receipt *iotexapi.GetReceiptByActionResponse
+		var receipt *action.Receipt
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = svrs[0].ChainService(uint32(1)).APIServer().GRPCServer().GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
-				ActionHash: hex.EncodeToString(eHash[:]),
-			})
+			receipt, _, err = svrs[0].ChainService(uint32(1)).APIServer().GetReceiptByAction(hex.EncodeToString(eHash[:]))
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
 		}
-		contract := receipt.ReceiptInfo.Receipt.ContractAddress
+		contract := receipt.ContractAddress
 
 		var fpToken bc.FpToken
 		var fpContract string

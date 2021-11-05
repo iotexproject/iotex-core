@@ -8,7 +8,6 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -22,7 +21,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -348,16 +346,4 @@ func (svr *GrpcServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 		return nil, err
 	}
 	return &iotexapi.GetLogsResponse{Logs: ret}, err
-}
-
-// TODO: remove internal call GetActionByActionHash()
-
-// GetActionByActionHash returns action by action hash
-func (svr *GrpcServer) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !svr.coreService.hasActionIndex || svr.coreService.indexer == nil {
-		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-
-	selp, _, _, _, err := svr.coreService.getActionByActionHash(h)
-	return selp, err
 }
