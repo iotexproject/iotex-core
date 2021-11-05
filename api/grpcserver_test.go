@@ -1258,7 +1258,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 			return nil
 		},
 	}
-	core.cfg.Genesis.KamchatkaBlockHeight = 10
+	core.cfg.Genesis.ToBeEnabledBlockHeight = 10
 	svr := NewGRPCServer(core, 141014)
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
