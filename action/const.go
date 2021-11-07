@@ -56,9 +56,9 @@ var (
 
 func LoadErrorDescription(err error) string {
 	switch errors.Cause(err) {
-	default:
-		return "Unknown"
 	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNonceTooHigh, ErrAddress, ErrNegativeValue:
 		return err.Error()
+	default:
+		return "Unknown"
 	}
 }

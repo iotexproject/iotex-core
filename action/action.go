@@ -11,10 +11,10 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -95,7 +95,7 @@ func Verify(sealed SealedEnvelope) error {
 	}
 	if !sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
 		log.L().Info("failed to verify action hash",
-			zap.String("act hash", hex.EncodeToString(h[:])),
+			zap.String("hash", hex.EncodeToString(h[:])),
 			zap.String("signature", hex.EncodeToString(sealed.Signature())))
 		return ErrInvalidSender
 	}

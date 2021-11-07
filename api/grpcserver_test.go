@@ -1267,7 +1267,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	tests := []struct {
 		server func() (*ServerV2, string, error)
 		action *iotextypes.Action
-		err    error
+		err    string
 	}{
 		{
 			func() (*ServerV2, string, error) {
@@ -1275,7 +1275,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			&iotextypes.Action{},
-			errors.New("invalid signature length"),
+			"invalid signature length",
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1285,7 +1285,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 			&iotextypes.Action{
 				Signature: action.ValidSig,
 			},
-			errors.New("empty action proto to load"),
+			"empty action proto to load",
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1294,7 +1294,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferPb,
-			action.ErrTxPoolOverflow,
+			action.ErrTxPoolOverflow.Error(),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1302,7 +1302,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			action.ErrNonceTooLow,
+			action.ErrNonceTooLow.Error(),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1310,7 +1310,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			action.ErrUnderpriced,
+			action.ErrUnderpriced.Error(),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1318,7 +1318,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid3Pb,
-			action.ErrInsufficientFunds,
+			action.ErrInsufficientFunds.Error(),
 		},
 	}
 
@@ -1331,7 +1331,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 		}()
 
 		_, err = svr.grpcServer.SendAction(ctx, request)
-		require.Contains(err.Error(), test.err.Error())
+		require.Contains(err.Error(), test.err)
 	}
 }
 
@@ -2793,8 +2793,6 @@ func TestChainlinkErrTest(t *testing.T) {
 
 	gethFatal := regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
 
-	// 3 failure cases
-	ctx := context.Background()
 	tests := []struct {
 		testName string
 		server   func() (*ServerV2, string, error)
@@ -2848,13 +2846,40 @@ func TestChainlinkErrTest(t *testing.T) {
 			regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 		},
 		{
-			"TransactionAlreadyInMempool",
+			"ReplacementTransactionUnderpriced",
 			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
 				return createServerV2(cfg, true)
 			},
 			[]*iotextypes.Action{testTransferPb, testTransferInvalid5Pb},
 			regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
+		},
+		{
+			"IntrinsicGasTooLow",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid6Pb},
+			gethFatal,
+		},
+		{
+			"NegativeValue",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid7Pb},
+			gethFatal,
+		},
+		{
+			"ExceedsBlockGasLimit",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid8Pb},
+			gethFatal,
 		},
 	}
 
@@ -2867,7 +2892,7 @@ func TestChainlinkErrTest(t *testing.T) {
 			}()
 
 			for _, action := range test.actions {
-				_, err = svr.grpcServer.SendAction(ctx, &iotexapi.SendActionRequest{Action: action})
+				_, err = svr.grpcServer.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: action})
 				if err != nil {
 					break
 				}

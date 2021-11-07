@@ -118,6 +118,25 @@ var (
 		big.NewInt(testutil.TestGasPriceInt64))
 	testTransferInvalid5Pb = testTransferInvalid5.Proto()
 
+	// gas is too low
+	testTransferInvalid6, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, 100,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid6Pb = testTransferInvalid6.Proto()
+
+	// negative transfer amout
+	testTransferInvalid7, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(-10), []byte{}, 10000,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid7Pb = testTransferInvalid7.Proto()
+
+	// gas is too large
+	largeData               = make([]byte, 1e7)
+	testTransferInvalid8, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), largeData, 10000,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid8Pb = testTransferInvalid8.Proto()
+
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
@@ -1285,7 +1304,7 @@ func TestServer_SendAction(t *testing.T) {
 	tests := []struct {
 		server func() (*Server, string, error)
 		action *iotextypes.Action
-		err    error
+		err    string
 	}{
 		{
 			func() (*Server, string, error) {
@@ -1293,7 +1312,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{},
-			errors.New("invalid signature length"),
+			"invalid signature length",
 		},
 		{
 			func() (*Server, string, error) {
@@ -1303,7 +1322,7 @@ func TestServer_SendAction(t *testing.T) {
 			&iotextypes.Action{
 				Signature: action.ValidSig,
 			},
-			errors.New("empty action proto to load"),
+			"empty action proto to load",
 		},
 		{
 			func() (*Server, string, error) {
@@ -1312,7 +1331,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferPb,
-			action.ErrTxPoolOverflow,
+			action.ErrTxPoolOverflow.Error(),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1320,7 +1339,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			action.ErrNonceTooLow,
+			action.ErrNonceTooLow.Error(),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1328,7 +1347,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			action.ErrUnderpriced,
+			action.ErrUnderpriced.Error(),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1336,7 +1355,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid3Pb,
-			action.ErrInsufficientFunds,
+			action.ErrInsufficientFunds.Error(),
 		},
 	}
 
@@ -1349,7 +1368,7 @@ func TestServer_SendAction(t *testing.T) {
 		}()
 
 		_, err = svr.SendAction(ctx, request)
-		require.Contains(err.Error(), test.err.Error())
+		require.Contains(err.Error(), test.err)
 	}
 }
 
