@@ -156,7 +156,7 @@ func (ws *workingSet) runAction(
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
-		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
@@ -331,7 +331,7 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 		for i, nonce := range receivedNonces {
 			if nonce != confirmedState.Nonce+uint64(i+1) {
 				return errors.Wrapf(
-					action.ErrNonce,
+					action.ErrNonceTooHigh,
 					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
 					i,
 					nonce,
@@ -439,7 +439,7 @@ func (ws *workingSet) pickAndRunActions(
 				// do nothing
 			case action.ErrChainID:
 				continue
-			case action.ErrHitGasLimit:
+			case action.ErrGasLimit:
 				actionIterator.PopAccount()
 				continue
 			default:

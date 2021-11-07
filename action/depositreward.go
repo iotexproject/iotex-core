@@ -80,7 +80,7 @@ func (d *DepositToRewardingFund) Cost() (*big.Int, error) {
 // SanityCheck validates the variables in the action
 func (d *DepositToRewardingFund) SanityCheck() error {
 	if d.Amount().Sign() < 0 {
-		return errors.Wrap(ErrBalance, "negative value")
+		return ErrNegativeValue
 	}
 
 	return d.AbstractAction.SanityCheck()

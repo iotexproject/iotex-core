@@ -7,12 +7,15 @@
 package action
 
 import (
+	"encoding/hex"
 	"math"
 	"math/big"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
@@ -45,7 +48,7 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 	}
 	sig, err := sk.Sign(h[:])
 	if err != nil {
-		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", h)
+		return sealed, ErrInvalidSender
 	}
 	sealed.signature = sig
 	act.Action().SetEnvelopeContext(sealed)
@@ -83,22 +86,20 @@ func Verify(sealed SealedEnvelope) error {
 	// Reject action with insufficient gas limit
 	intrinsicGas, err := sealed.IntrinsicGas()
 	if intrinsicGas > sealed.GasLimit() || err != nil {
-		return errors.Wrap(ErrInsufficientBalanceForGas, "insufficient gas")
+		return ErrIntrinsicGas
 	}
 
 	h, err := sealed.envelopeHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to generate envelope hash")
 	}
-	if sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
-		return nil
+	if !sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
+		log.L().Info("failed to verify action hash",
+			zap.String("hash", hex.EncodeToString(h[:])),
+			zap.String("signature", hex.EncodeToString(sealed.Signature())))
+		return ErrInvalidSender
 	}
-	return errors.Wrapf(
-		ErrAction,
-		"failed to verify action hash = %x and signature = %x",
-		h,
-		sealed.Signature(),
-	)
+	return nil
 }
 
 // ClassifyActions classfies actions
@@ -118,9 +119,8 @@ func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
 }
 
 func calculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
-	if (math.MaxUint64-baseIntrinsicGas)/payloadGas < payloadSize {
-		return 0, ErrOutOfGas
+	if payloadGas == 0 || (math.MaxUint64-baseIntrinsicGas)/payloadGas < payloadSize {
+		return 0, ErrInsufficientFunds
 	}
-
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
 }

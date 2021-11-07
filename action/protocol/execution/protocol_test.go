@@ -567,7 +567,7 @@ func TestProtocol_Validate(t *testing.T) {
 
 	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
 	require.NoError(err)
-	require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), ex, nil)))
+	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
 
 func TestProtocol_Handle(t *testing.T) {

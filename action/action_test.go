@@ -65,7 +65,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 
-		require.Equal(ErrInsufficientBalanceForGas, errors.Cause(Verify(selp)))
+		require.Equal(ErrIntrinsicGas, errors.Cause(Verify(selp)))
 	})
 	t.Run("invalid signature", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
@@ -76,7 +76,6 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		selp.signature = []byte("invalid signature")
-
-		require.Contains(Verify(selp).Error(), "failed to verify action hash")
+		require.Equal(ErrInvalidSender, errors.Cause(Verify(selp)))
 	})
 }

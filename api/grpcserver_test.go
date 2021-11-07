@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -1274,7 +1275,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			&iotextypes.Action{},
-			"invalid signature length =",
+			"invalid signature length",
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1293,7 +1294,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferPb,
-			"insufficient space for action: invalid actpool",
+			action.ErrTxPoolOverflow.Error(),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1301,7 +1302,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			"invalid nonce",
+			action.ErrNonceTooLow.Error(),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1309,7 +1310,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			"invalid gas price",
+			action.ErrUnderpriced.Error(),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1317,7 +1318,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid3Pb,
-			"invalid balance",
+			action.ErrInsufficientFunds.Error(),
 		},
 	}
 
@@ -2681,8 +2682,10 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, string, err
 			return nil, "", err
 		}
 	}
-
-	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
+	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry,
+		WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return nil
+		}))
 	if err != nil {
 		return nil, "", err
 	}
@@ -2783,4 +2786,120 @@ func TestGrpcServer_GetEstimateGasSpecial(t *testing.T) {
 	res, err := svr.grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10777), res.Gas)
+}
+
+func TestChainlinkErrTest(t *testing.T) {
+	require := require.New(t)
+
+	gethFatal := regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+
+	tests := []struct {
+		testName string
+		server   func() (*ServerV2, string, error)
+		actions  []*iotextypes.Action
+		errRegex *regexp.Regexp
+	}{
+		{
+			"NonceTooLow",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid1Pb},
+			regexp.MustCompile(`(: |^)nonce too low$`),
+		},
+		{
+			"TerminallyUnderpriced",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid2Pb},
+			regexp.MustCompile(`(: |^)transaction underpriced$`),
+		},
+		{
+			"InsufficientEth",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid3Pb},
+			regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+		},
+
+		{
+			"NonceTooHigh",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid4Pb},
+			gethFatal,
+		},
+		{
+			"TransactionAlreadyInMempool",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferPb, testTransferPb},
+			regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
+		},
+		{
+			"ReplacementTransactionUnderpriced",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferPb, testTransferInvalid5Pb},
+			regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
+		},
+		{
+			"IntrinsicGasTooLow",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid6Pb},
+			gethFatal,
+		},
+		{
+			"NegativeValue",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid7Pb},
+			gethFatal,
+		},
+		{
+			"ExceedsBlockGasLimit",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid8Pb},
+			gethFatal,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			svr, file, err := test.server()
+			require.NoError(err)
+			defer func() {
+				testutil.CleanupPath(t, file)
+			}()
+
+			for _, action := range test.actions {
+				_, err = svr.grpcServer.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: action})
+				if err != nil {
+					break
+				}
+			}
+			s, ok := status.FromError(err)
+			require.True(ok)
+			require.True(test.errRegex.MatchString(s.Message()))
+		})
+	}
 }

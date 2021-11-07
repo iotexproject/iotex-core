@@ -171,7 +171,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
 	require.NoError(ap.Add(ctx, tsf4))
-	require.Equal(action.ErrBalance, errors.Cause(ap.Add(ctx, tsf5)))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(ctx, tsf5)))
 	require.NoError(ap.Add(ctx, tsf6))
 	require.NoError(ap.Add(ctx, tsf7))
 	require.NoError(ap.Add(ctx, tsf8))
@@ -215,9 +215,9 @@ func TestActPool_AddActs(t *testing.T) {
 		ap2.allActions[nTsfHash] = nTsf
 	}
 	err = ap2.Add(ctx, tsf1)
-	require.Equal(action.ErrActPool, errors.Cause(err))
+	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
 	err = ap2.Add(ctx, tsf4)
-	require.Equal(action.ErrActPool, errors.Cause(err))
+	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
 
 	Ap3, err := NewActPool(sf, apConfig)
 	require.NoError(err)
@@ -236,13 +236,13 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf10, err := action.SignedTransfer(addr2, priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	err = ap3.Add(ctx, tsf10)
-	require.Contains(err.Error(), "insufficient gas space for action")
+	require.Equal(action.ErrGasLimit, errors.Cause(err))
 
 	// Case IV: Nonce already exists
 	replaceTsf, err := action.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), addr2, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -255,17 +255,17 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	// Case V: Nonce is too large
 	outOfBoundsTsf, err := action.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, outOfBoundsTsf)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrNonceTooHigh, errors.Cause(err))
 	// Case VI: Insufficient balance
 	overBalTsf, err := action.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, overBalTsf)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
 	creationExecution, err := action.NewExecution(
@@ -287,7 +287,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
-	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
+	require.Equal(action.ErrIntrinsicGas, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
@@ -342,7 +342,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), tsf2))
 		require.NoError(ap.Add(context.Background(), tsf3))
 		require.NoError(ap.Add(context.Background(), tsf4))
-		require.Equal(action.ErrBalance, errors.Cause(ap.Add(context.Background(), tsf5)))
+		require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(context.Background(), tsf5)))
 		require.Error(ap.Add(context.Background(), tsf6))
 
 		require.Error(ap.Add(context.Background(), tsf7))
@@ -495,11 +495,11 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap1.Add(ctx, tsf1))
 	require.NoError(ap1.Add(ctx, tsf2))
 	err = ap1.Add(ctx, tsf3)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	require.NoError(ap1.Add(ctx, tsf4))
 	require.NoError(ap1.Add(ctx, tsf5))
 	err = ap1.Add(ctx, tsf6)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	require.NoError(ap1.Add(ctx, tsf7))
 	require.NoError(ap1.Add(ctx, tsf8))
 	require.NoError(ap1.Add(ctx, tsf9))
@@ -519,13 +519,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap2.Add(ctx, tsf2))
 	require.NoError(ap2.Add(ctx, tsf10))
 	err = ap2.Add(ctx, tsf11)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	require.NoError(ap2.Add(ctx, tsf4))
 	require.NoError(ap2.Add(ctx, tsf12))
 	require.NoError(ap2.Add(ctx, tsf13))
 	require.NoError(ap2.Add(ctx, tsf14))
 	err = ap2.Add(ctx, tsf9)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
@@ -623,9 +623,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap2.Add(ctx, tsf17))
 	require.NoError(ap2.Add(ctx, tsf18))
 	err = ap2.Add(ctx, tsf19)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	err = ap2.Add(ctx, tsf20)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1

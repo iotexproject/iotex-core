@@ -99,7 +99,7 @@ func TestTransfer(t *testing.T) {
 		tsf, err := NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
 			uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		require.Equal(ErrBalance, errors.Cause(tsf.SanityCheck()))
+		require.Equal(ErrNegativeValue, errors.Cause(tsf.SanityCheck()))
 	})
 	t.Run("Invalid recipient address", func(t *testing.T) {
 		tsf, err := NewTransfer(
@@ -119,6 +119,6 @@ func TestTransfer(t *testing.T) {
 		tsf, err := NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
 			uint64(100000), big.NewInt(-1))
 		require.NoError(err)
-		require.Equal(ErrGasPrice, errors.Cause(tsf.SanityCheck()))
+		require.Equal(ErrNegativeValue, errors.Cause(tsf.SanityCheck()))
 	})
 }
