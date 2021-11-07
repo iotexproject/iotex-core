@@ -105,31 +105,6 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	return dao.checkIndexers(ctx)
 }
 
-func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, chainID uint32, height uint64) (context.Context, error) {
-	bcCtx := protocol.BlockchainCtx{
-		Tip: protocol.TipInfo{
-			Height: height,
-		},
-		ChainID: chainID,
-	}
-	if height == 0 {
-		g, ok := genesis.ExtractGenesisContext(ctx)
-		if !ok {
-			return nil, errors.New("failed to find blockchain ctx")
-		}
-		bcCtx.Tip.Hash = g.Hash()
-		bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
-	} else {
-		header, err := dao.HeaderByHeight(height)
-		if err != nil {
-			return nil, err
-		}
-		bcCtx.Tip.Hash = header.HashHeader()
-		bcCtx.Tip.Timestamp = header.Timestamp()
-	}
-	return protocol.WithBlockchainCtx(ctx, bcCtx), nil
-}
-
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
 	if !ok {
@@ -148,6 +123,10 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			// TODO: delete block
 			return errors.New("indexer tip height cannot by higher than dao tip height")
 		}
+		tipBlk, err := dao.GetBlockByHeight(tipHeight)
+		if err != nil {
+			return err
+		}
 		for i := tipHeight + 1; i <= dao.tipHeight; i++ {
 			blk, err := dao.GetBlockByHeight(i)
 			if err != nil {
@@ -163,12 +142,15 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if producer == nil {
 				return errors.New("failed to get address")
 			}
-			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, bcCtx.ChainID, i-1)
-			if err != nil {
-				return err
+			if bcCtx.Tip.Height = tipBlk.Height(); bcCtx.Tip.Height > 0 {
+				bcCtx.Tip.Hash = tipBlk.HashHeader()
+				bcCtx.Tip.Timestamp = tipBlk.Timestamp()
+			} else {
+				bcCtx.Tip.Hash = g.Hash()
+				bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 			}
 			if err := indexer.PutBlock(protocol.WithBlockCtx(
-				ctxWithTip,
+				protocol.WithBlockchainCtx(ctx, bcCtx),
 				protocol.BlockCtx{
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
@@ -185,6 +167,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 					zap.Uint64("height", i),
 				)
 			}
+			tipBlk = blk
 		}
 		log.L().Info(
 			"indexer is up to date.",
