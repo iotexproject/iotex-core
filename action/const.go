@@ -54,6 +54,7 @@ var (
 	ErrOversizedData = errors.New("oversized data")
 )
 
+// LoadErrorDescription loads corresponding description related to the error
 func LoadErrorDescription(err error) string {
 	switch errors.Cause(err) {
 	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNonceTooHigh, ErrAddress, ErrNegativeValue:
