@@ -9,36 +9,16 @@ package action
 import "github.com/pkg/errors"
 
 var (
-	// ErrAction indicates error for an action
-	ErrAction = errors.New("invalid action")
 	// ErrAddress indicates error of address
 	ErrAddress = errors.New("invalid address")
-	// ErrActPool indicates the error of actpool
-	ErrActPool = errors.New("invalid actpool")
-	// ErrHitGasLimit is the error when hit gas limit
-	ErrHitGasLimit = errors.New("Hit gas limit")
-	// ErrInsufficientBalanceForGas is the error that the balance in executor account is lower than gas
-	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
-	// ErrOutOfGas is the error when running out of gas
-	ErrOutOfGas = errors.New("Out of gas")
-	// ErrTransfer indicates the error of transfer
-	ErrTransfer = errors.New("invalid transfer")
-	// ErrNonce indicates the error of nonce
-	ErrNonce = errors.New("invalid nonce")
-	// ErrBalance indicates the error of balance
-	ErrBalance = errors.New("invalid balance")
-	// ErrGasPrice indicates the error of gas price
-	ErrGasPrice = errors.New("invalid gas price")
 	// ErrVotee indicates the error of votee
 	ErrVotee = errors.New("votee is not a candidate")
 	// ErrNotFound indicates the nonexistence of action
 	ErrNotFound = errors.New("action not found")
 	// ErrChainID indicates the error of chainID
 	ErrChainID = errors.New("invalid chainID")
-	// ErrGasTooExpensive indicates there is no insufficient gas space for action
-	ErrGasTooExpensive = errors.New("insufficient gas space")
 	// ErrExistedInPool indicates the action already exists in the actpool
-	ErrExistedInPool = errors.New("already exist in the actpool")
+	ErrExistedInPool = errors.New("known transaction")
 	// ErrReplaceUnderpriced is returned if a transaction is attempted to be replaced
 	// with a different one without the required price bump.
 	ErrReplaceUnderpriced = errors.New("replacement transaction underpriced")
@@ -51,4 +31,34 @@ var (
 	// ErrNegativeValue is a sanity error to ensure no one is able to specify a
 	// transaction with a negative value.
 	ErrNegativeValue = errors.New("negative value")
+	// ErrIntrinsicGas is returned if the transaction is specified to use less gas
+	// than required to start the invocation.
+	ErrIntrinsicGas = errors.New("intrinsic gas too low")
+	// ErrInsufficientFunds is returned if the total cost of executing a transaction
+	// is higher than the balance of the user's account.
+	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
+	// ErrNonceTooHigh is returned if the nonce of a transaction is higher than the
+	// next one expected based on the local chain.
+	ErrNonceTooHigh = errors.New("nonce too high")
+	// ErrInvalidSender is returned if the transaction contains an invalid signature.
+	ErrInvalidSender = errors.New("invalid sender")
+	// ErrTxPoolOverflow is returned if the transaction pool is full and can't accpet
+	// another remote transaction.
+	ErrTxPoolOverflow = errors.New("txpool is full")
+	// ErrGasLimit is returned if a transaction's requested gas limit exceeds the
+	// maximum allowance of the current block.
+	ErrGasLimit = errors.New("exceeds block gas limit")
+	// ErrOversizedData is returned if the input data of a transaction is greater
+	// than some meaningful limit a user might use. This is not a consensus error
+	// making the transaction invalid, rather a DOS protection.
+	ErrOversizedData = errors.New("oversized data")
 )
+
+func LoadErrorDescription(err error) string {
+	switch errors.Cause(err) {
+	default:
+		return "Unknown"
+	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNonceTooHigh, ErrAddress, ErrNegativeValue:
+		return err.Error()
+	}
+}

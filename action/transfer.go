@@ -137,7 +137,7 @@ func (tsf *Transfer) Cost() (*big.Int, error) {
 func (tsf *Transfer) SanityCheck() error {
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
-		return errors.Wrap(ErrNegativeValue, "negative value")
+		return ErrNegativeValue
 	}
 	// check if recipient's address is valid
 	if _, err := address.FromString(tsf.Recipient()); err != nil {

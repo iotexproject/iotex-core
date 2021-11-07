@@ -1273,7 +1273,7 @@ func TestServer_SendAction(t *testing.T) {
 	tests := []struct {
 		server func() (*Server, string, error)
 		action *iotextypes.Action
-		err    string
+		err    error
 	}{
 		{
 			func() (*Server, string, error) {
@@ -1281,7 +1281,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{},
-			"invalid signature length =",
+			errors.New("invalid signature length"),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1291,7 +1291,7 @@ func TestServer_SendAction(t *testing.T) {
 			&iotextypes.Action{
 				Signature: action.ValidSig,
 			},
-			"empty action proto to load",
+			errors.New("empty action proto to load"),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1300,7 +1300,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferPb,
-			"insufficient space for action: invalid actpool",
+			action.ErrTxPoolOverflow,
 		},
 		{
 			func() (*Server, string, error) {
@@ -1308,7 +1308,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			"nonce too low",
+			action.ErrNonceTooLow,
 		},
 		{
 			func() (*Server, string, error) {
@@ -1316,7 +1316,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			"lower than minimal gas price",
+			action.ErrUnderpriced,
 		},
 		{
 			func() (*Server, string, error) {
@@ -1324,7 +1324,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid3Pb,
-			"invalid balance",
+			action.ErrInsufficientFunds,
 		},
 	}
 
@@ -1337,7 +1337,7 @@ func TestServer_SendAction(t *testing.T) {
 		}()
 
 		_, err = svr.SendAction(ctx, request)
-		require.Contains(err.Error(), test.err)
+		require.Contains(err.Error(), test.err.Error())
 	}
 }
 

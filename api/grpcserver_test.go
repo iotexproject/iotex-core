@@ -1266,7 +1266,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	tests := []struct {
 		server func() (*ServerV2, string, error)
 		action *iotextypes.Action
-		err    string
+		err    error
 	}{
 		{
 			func() (*ServerV2, string, error) {
@@ -1274,7 +1274,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			&iotextypes.Action{},
-			"invalid signature length =",
+			errors.New("invalid signature length"),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1284,7 +1284,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 			&iotextypes.Action{
 				Signature: action.ValidSig,
 			},
-			"empty action proto to load",
+			errors.New("empty action proto to load"),
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1293,7 +1293,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferPb,
-			"insufficient space for action: invalid actpool",
+			action.ErrTxPoolOverflow,
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1301,7 +1301,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			"nonce too low",
+			action.ErrNonceTooLow,
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1309,7 +1309,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			"lower than minimal gas price",
+			action.ErrUnderpriced,
 		},
 		{
 			func() (*ServerV2, string, error) {
@@ -1317,7 +1317,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 				return createServerV2(cfg, true)
 			},
 			testTransferInvalid3Pb,
-			"invalid balance",
+			action.ErrInsufficientFunds,
 		},
 	}
 
@@ -1330,7 +1330,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 		}()
 
 		_, err = svr.grpcServer.SendAction(ctx, request)
-		require.Contains(err.Error(), test.err)
+		require.Contains(err.Error(), test.err.Error())
 	}
 }
 
@@ -2783,4 +2783,80 @@ func TestGrpcServer_GetEstimateGasSpecial(t *testing.T) {
 	res, err := svr.grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10777), res.Gas)
+}
+
+func TestChainlinkErrTest(t *testing.T) {
+	require := require.New(t)
+
+	// 3 failure cases
+	ctx := context.Background()
+	tests := []struct {
+		server func() (*ServerV2, string, error)
+		action *iotextypes.Action
+		err    error
+	}{
+		{
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			&iotextypes.Action{},
+			errors.New("invalid signature length"),
+		},
+		{
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			&iotextypes.Action{
+				Signature: action.ValidSig,
+			},
+			errors.New("empty action proto to load"),
+		},
+		{
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				cfg.ActPool.MaxNumActsPerPool = 8
+				return createServerV2(cfg, true)
+			},
+			testTransferPb,
+			action.ErrTxPoolOverflow,
+		},
+		{
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			testTransferInvalid1Pb,
+			action.ErrNonceTooLow,
+		},
+		{
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			testTransferInvalid2Pb,
+			action.ErrUnderpriced,
+		},
+		{
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			testTransferInvalid3Pb,
+			action.ErrInsufficientFunds,
+		},
+	}
+
+	for _, test := range tests {
+		request := &iotexapi.SendActionRequest{Action: test.action}
+		svr, file, err := test.server()
+		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, file)
+		}()
+
+		_, err = svr.grpcServer.SendAction(ctx, request)
+		require.Contains(err.Error(), test.err.Error())
+	}
 }

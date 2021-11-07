@@ -287,46 +287,16 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 		} else {
 			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
 		}
-		var desc string
-		switch errors.Cause(err) {
-		case action.ErrInsufficientBalanceForGas:
-			desc = "Insufficient balance for gas"
-		case action.ErrActPool:
-			desc = "Invalid actpool"
-		case action.ErrGasPrice:
-			desc = "Invalid gas price"
-		// Below errors are hardcoded for Chainlink Oracle
-		case action.ErrGasTooExpensive:
-			desc = `tx fee (0.1 ether) exceeds the configured cap (1.0 ether)`
-		case action.ErrExistedInPool:
-			desc = "known transaction"
-		case action.ErrReplaceUnderpriced:
-			desc = "replacement transaction underpriced"
-		case action.ErrNonceTooLow:
-			desc = "nonce too low"
-		case action.ErrUnderpriced:
-			desc = "transaction underpriced"
-		case action.ErrBalance:
-			desc = "insufficient balance for transfer"
-		case action.ErrNonce:
-			desc = "nonce too high"
-		case action.ErrAddress:
-			desc = "invalid sender"
-		case action.ErrHitGasLimit:
-			desc = "exceeds block gas limit"
-		case action.ErrNegativeValue:
-			desc = "negative value"
-		default:
-			desc = "Unknown"
-		}
 		errMsg := core.cfg.ProducerAddress().String() + ": " + err.Error()
 		st := status.New(codes.Internal, errMsg)
-		v := &errdetails.BadRequest_FieldViolation{
-			Field:       "Action rejected",
-			Description: desc,
+		br := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "Action rejected",
+					Description: action.LoadErrorDescription(err),
+				},
+			},
 		}
-		br := &errdetails.BadRequest{}
-		br.FieldViolations = append(br.FieldViolations, v)
 		st, err := st.WithDetails(br)
 		if err != nil {
 			log.S().Panicf("Unexpected error attaching metadata: %v", err)
@@ -1433,7 +1403,7 @@ func (core *coreService) estimateActionGasConsumptionForExecution(ctx context.Co
 	}
 	estimatedGas := receipt.GasConsumed
 	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
-	if err != nil && err != action.ErrOutOfGas {
+	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1442,7 +1412,7 @@ func (core *coreService) estimateActionGasConsumptionForExecution(ctx context.Co
 		for low <= high {
 			mid := (low + high) / 2
 			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
-			if err != nil && err != action.ErrOutOfGas {
+			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
 			if enough {

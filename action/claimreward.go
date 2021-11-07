@@ -80,7 +80,7 @@ func (c *ClaimFromRewardingFund) Cost() (*big.Int, error) {
 // SanityCheck validates the variables in the action
 func (c *ClaimFromRewardingFund) SanityCheck() error {
 	if c.Amount().Sign() < 0 {
-		return errors.Wrap(ErrNegativeValue, "negative value")
+		return ErrNegativeValue
 	}
 
 	return c.AbstractAction.SanityCheck()

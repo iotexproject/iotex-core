@@ -207,7 +207,7 @@ var (
 			1, big.NewInt(100), // nonce, amount
 			make([]byte, 100),             //payload
 			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-			TsfFail, "insufficient balance for transfer",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Normal transfer from an address not created on block chain",
 		},
 		{
@@ -216,7 +216,7 @@ var (
 			1, big.NewInt(222222),
 			make([]byte, 0),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "insufficient balance for transfer",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Transfer with not enough balance",
 		},
 		{
@@ -225,7 +225,7 @@ var (
 			1, big.NewInt(222222),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "insufficient balance for transfer",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Transfer with not enough balance with payload",
 		},
 		{
@@ -243,7 +243,7 @@ var (
 			1, big.NewInt(100),
 			make([]byte, 0),
 			uint64(1000), big.NewInt(1),
-			TsfFail, "Insufficient balance for gas",
+			TsfFail, action.ErrIntrinsicGas.Error(),
 			"Transfer with not enough gas limit",
 		},
 		{
