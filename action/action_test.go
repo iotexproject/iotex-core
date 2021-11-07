@@ -9,7 +9,6 @@ package action
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -78,6 +77,6 @@ func TestActionProtoAndVerify(t *testing.T) {
 		require.NoError(err)
 		selp.signature = []byte("invalid signature")
 
-		require.True(strings.Contains(Verify(selp).Error(), "failed to verify action hash"))
+		require.Contains(Verify(selp).Error(), "failed to verify action hash")
 	})
 }
