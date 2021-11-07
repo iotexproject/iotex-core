@@ -106,6 +106,18 @@ var (
 		big.NewInt(testutil.TestGasPriceInt64))
 	testTransferInvalid3Pb = testTransferInvalid3.Proto()
 
+	// nonce is too high
+	testTransferInvalid4, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), config.Default.ActPool.MaxNumActsPerAcct+10, big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(0))
+	testTransferInvalid4Pb = testTransferInvalid4.Proto()
+
+	// replace act with lower gas
+	testTransferInvalid5, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, 10000,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid5Pb = testTransferInvalid5.Proto()
+
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )

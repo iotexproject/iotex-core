@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -2681,8 +2682,10 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, string, err
 			return nil, "", err
 		}
 	}
-
-	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry)
+	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry,
+		WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return nil
+		}))
 	if err != nil {
 		return nil, "", err
 	}
@@ -2788,75 +2791,90 @@ func TestGrpcServer_GetEstimateGasSpecial(t *testing.T) {
 func TestChainlinkErrTest(t *testing.T) {
 	require := require.New(t)
 
+	gethFatal := regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+
 	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
-		server func() (*ServerV2, string, error)
-		action *iotextypes.Action
-		err    error
+		testName string
+		server   func() (*ServerV2, string, error)
+		actions  []*iotextypes.Action
+		errRegex *regexp.Regexp
 	}{
 		{
+			"NonceTooLow",
 			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
 				return createServerV2(cfg, true)
 			},
-			&iotextypes.Action{},
-			errors.New("invalid signature length"),
+			[]*iotextypes.Action{testTransferInvalid1Pb},
+			regexp.MustCompile(`(: |^)nonce too low$`),
 		},
 		{
+			"TerminallyUnderpriced",
 			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
 				return createServerV2(cfg, true)
 			},
-			&iotextypes.Action{
-				Signature: action.ValidSig,
-			},
-			errors.New("empty action proto to load"),
+			[]*iotextypes.Action{testTransferInvalid2Pb},
+			regexp.MustCompile(`(: |^)transaction underpriced$`),
 		},
 		{
+			"InsufficientEth",
 			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
-				cfg.ActPool.MaxNumActsPerPool = 8
 				return createServerV2(cfg, true)
 			},
-			testTransferPb,
-			action.ErrTxPoolOverflow,
+			[]*iotextypes.Action{testTransferInvalid3Pb},
+			regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+		},
+
+		{
+			"NonceTooHigh",
+			func() (*ServerV2, string, error) {
+				cfg := newConfig(t)
+				return createServerV2(cfg, true)
+			},
+			[]*iotextypes.Action{testTransferInvalid4Pb},
+			gethFatal,
 		},
 		{
+			"TransactionAlreadyInMempool",
 			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
 				return createServerV2(cfg, true)
 			},
-			testTransferInvalid1Pb,
-			action.ErrNonceTooLow,
+			[]*iotextypes.Action{testTransferPb, testTransferPb},
+			regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 		},
 		{
+			"TransactionAlreadyInMempool",
 			func() (*ServerV2, string, error) {
 				cfg := newConfig(t)
 				return createServerV2(cfg, true)
 			},
-			testTransferInvalid2Pb,
-			action.ErrUnderpriced,
-		},
-		{
-			func() (*ServerV2, string, error) {
-				cfg := newConfig(t)
-				return createServerV2(cfg, true)
-			},
-			testTransferInvalid3Pb,
-			action.ErrInsufficientFunds,
+			[]*iotextypes.Action{testTransferPb, testTransferInvalid5Pb},
+			regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
 		},
 	}
 
-	for _, test := range tests {
-		request := &iotexapi.SendActionRequest{Action: test.action}
-		svr, file, err := test.server()
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(t, file)
-		}()
+	for i, test := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			svr, file, err := test.server()
+			require.NoError(err)
+			defer func() {
+				testutil.CleanupPath(t, file)
+			}()
 
-		_, err = svr.grpcServer.SendAction(ctx, request)
-		require.Contains(err.Error(), test.err.Error())
+			for _, action := range test.actions {
+				_, err = svr.grpcServer.SendAction(ctx, &iotexapi.SendActionRequest{Action: action})
+				if err != nil {
+					break
+				}
+			}
+			s, ok := status.FromError(err)
+			require.True(ok)
+			require.True(test.errRegex.MatchString(s.Message()))
+		})
 	}
 }
