@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -199,7 +198,7 @@ func TestActPool_AddActs(t *testing.T) {
 	bannedTsf, err := action.SignedTransfer(addr6, priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, bannedTsf)
-	require.True(strings.Contains(err.Error(), "action source address is blacklisted"))
+	require.Contains(err.Error(), "action source address is blacklisted")
 	// Case II: Action already exists in pool
 	require.Error(ap.Add(ctx, tsf1))
 	require.Error(ap.Add(ctx, tsf4))

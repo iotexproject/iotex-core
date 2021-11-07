@@ -110,7 +110,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), "invalid state of account"))
+		require.Contains(err.Error(), "invalid state of account")
 	})
 	t.Run("nonce too low", func(t *testing.T) {
 		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)

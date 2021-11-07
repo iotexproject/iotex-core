@@ -8,7 +8,6 @@ package action
 
 import (
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -114,7 +113,7 @@ func TestTransfer(t *testing.T) {
 		require.NoError(err)
 		err = tsf.SanityCheck()
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
+		require.Contains(err.Error(), "error when validating recipient's address")
 	})
 	t.Run("Negative gas fee", func(t *testing.T) {
 		tsf, err := NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
