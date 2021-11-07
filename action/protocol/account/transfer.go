@@ -153,7 +153,7 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 	}
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
-		return errors.Wrap(action.ErrActPool, "oversized data")
+		return action.ErrOversizedData
 	}
 
 	return nil

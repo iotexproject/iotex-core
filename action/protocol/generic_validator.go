@@ -38,7 +38,7 @@ func NewGenericValidator(sr StateReader, accountState AccountState) *GenericVali
 func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
 	// Verify action using action sender's public key
 	if err := action.Verify(selp); err != nil {
-		return errors.Wrap(err, "failed to verify action signature")
+		return err
 	}
 	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
@@ -52,7 +52,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 
 	pendingNonce := confirmedState.Nonce + 1
 	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
-		return errors.Wrap(action.ErrNonce, "nonce is too low")
+		return action.ErrNonceTooLow
 	}
 	return selp.Action().SanityCheck()
 }

@@ -50,7 +50,7 @@ func TestChangeCandidate(t *testing.T) {
 	t.Run("Invalid Gas Price", func(t *testing.T) {
 		cc, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, new(big.Int).Mul(gasprice, big.NewInt(-1)))
 		require.NoError(err)
-		require.Equal(ErrGasPrice, errors.Cause(cc.SanityCheck()))
+		require.Equal(ErrNegativeValue, errors.Cause(cc.SanityCheck()))
 	})
 }
 

@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/pkg/errors"
 )
 
 // AbstractAction is an abstract implementation of Action interface
@@ -70,7 +69,7 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
 	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(ErrGasPrice, "negative value")
+		return ErrNegativeValue
 	}
 	return nil
 }
