@@ -1536,3 +1536,13 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 	}
 	return ret, nil
 }
+
+// GetActionByActionHash returns action by action hash
+func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
+	if !core.hasActionIndex || core.indexer == nil {
+		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+
+	selp, _, _, _, err := core.getActionByActionHash(h)
+	return selp, err
+}
