@@ -494,3 +494,23 @@ func (mr *MockServiceClientMockRecorder) GetActPoolActions(ctx, in interface{}, 
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActPoolActions", reflect.TypeOf((*MockServiceClient)(nil).GetActPoolActions), varargs...)
 }
+
+// ReadContractStorage mocks base method
+func (m *MockServiceClient) ReadContractStorage(ctx context.Context, in *iotexapi.ReadContractStorageRequest, opts ...grpc.CallOption) (*iotexapi.ReadContractStorageResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReadContractStorage", varargs...)
+	ret0, _ := ret[0].(*iotexapi.ReadContractStorageResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadContractStorage indicates an expected call of ReadContractStorage
+func (mr *MockServiceClientMockRecorder) ReadContractStorage(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorage", reflect.TypeOf((*MockServiceClient)(nil).ReadContractStorage), varargs...)
+}

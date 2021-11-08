@@ -443,8 +443,9 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.5.1/go.mod h1:8pDZcM45M0gY6jm3PoM
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/j1xCAC9YiG/8UKqYvycS/v3ddVsb1G7AMyLXOjeYI0=
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
-github.com/iotexproject/iotex-proto v0.5.2 h1:egf/TJ25xva2/02w+lyFE4Sgs8tsQrxjDRpOYh2fJ34=
 github.com/iotexproject/iotex-proto v0.5.2/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
+github.com/iotexproject/iotex-proto v0.5.4 h1:kBv33vlsuXru8CnUsbG3ByS4r0frbJP4jsRspn+42Pk=
+github.com/iotexproject/iotex-proto v0.5.4/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

@@ -8,6 +8,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -276,6 +277,15 @@ func (svr *GrpcServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 	return &iotexapi.GetRawBlocksResponse{Blocks: ret}, nil
 }
 
+// GetLogs get logs filtered by contract address and topics
+func (svr *GrpcServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
+	ret, err := svr.coreService.Logs(in)
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.GetLogsResponse{Logs: ret}, err
+}
+
 // StreamBlocks streams blocks
 func (svr *GrpcServer) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
 	return svr.coreService.StreamBlocks(stream)
@@ -339,11 +349,15 @@ func (svr *GrpcServer) GetActPoolActions(ctx context.Context, in *iotexapi.GetAc
 	}, nil
 }
 
-// GetLogs get logs filtered by contract address and topics
-func (svr *GrpcServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
-	ret, err := svr.coreService.Logs(in)
+// ReadContractStorage reads contract's storage
+func (svr *GrpcServer) ReadContractStorage(ctx context.Context, in *iotexapi.ReadContractStorageRequest) (*iotexapi.ReadContractStorageResponse, error) {
+	addr, err := address.FromString(in.GetContract())
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	return &iotexapi.GetLogsResponse{Logs: ret}, err
+	b, err := svr.coreService.ReadContractStorage(ctx, addr, in.GetKey())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &iotexapi.ReadContractStorageResponse{Data: b}, nil
 }

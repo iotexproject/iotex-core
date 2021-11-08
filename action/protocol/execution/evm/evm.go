@@ -272,6 +272,46 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
+// ReadContractStorage reads contract's storage
+func ReadContractStorage(
+	ctx context.Context,
+	sm protocol.StateManager,
+	contract address.Address,
+	key []byte,
+) ([]byte, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: bcCtx.Tip.Height + 1,
+		},
+	))
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	opts := []StateDBAdapterOption{}
+	if featureCtx.UsePendingNonceOption {
+		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
+	}
+	if featureCtx.NotFixTopicCopyBug {
+		opts = append(opts, NotFixTopicCopyBugOption())
+	}
+	if featureCtx.AsyncContractTrie {
+		opts = append(opts, AsyncContractTrieOption())
+	}
+	if featureCtx.FixSnapshotOrder {
+		opts = append(opts, FixSnapshotOrderOption())
+	}
+	if featureCtx.ClearSnapshots {
+		opts = append(opts, ClearSnapshotsOption())
+	}
+	stateDB := NewStateDBAdapter(
+		sm,
+		bcCtx.Tip.Height+1,
+		hash.ZeroHash256,
+		opts...,
+	)
+	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
+	return res[:], nil
+}
+
 func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
