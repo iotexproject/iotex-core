@@ -393,8 +393,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// reject action if chainID is not matched at KamchatkaHeight
-	if api.cfg.Genesis.Blockchain.IsKamchatka(api.bc.TipHeight()) {
+	// reject action if chainID is not matched
+	if api.cfg.Genesis.Blockchain.IsToBeEnabled(api.bc.TipHeight()) {
 		if api.bc.ChainID() != in.GetAction().Core.GetChainID() {
 			return nil, status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), in.GetAction().Core.GetChainID())
 		}
@@ -414,31 +414,16 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		} else {
 			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
 		}
-		var desc string
-		switch errors.Cause(err) {
-		case action.ErrBalance:
-			desc = "Invalid balance"
-		case action.ErrInsufficientBalanceForGas:
-			desc = "Insufficient balance for gas"
-		case action.ErrNonce:
-			desc = "Invalid nonce"
-		case action.ErrAddress:
-			desc = "Blacklisted address"
-		case action.ErrActPool:
-			desc = "Invalid actpool"
-		case action.ErrGasPrice:
-			desc = "Invalid gas price"
-		default:
-			desc = "Unknown"
-		}
 		errMsg := api.cfg.ProducerAddress().String() + ": " + err.Error()
 		st := status.New(codes.Internal, errMsg)
-		v := &errdetails.BadRequest_FieldViolation{
-			Field:       "Action rejected",
-			Description: desc,
+		br := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{
+				{
+					Field:       "Action rejected",
+					Description: action.LoadErrorDescription(err),
+				},
+			},
 		}
-		br := &errdetails.BadRequest{}
-		br.FieldViolations = append(br.FieldViolations, v)
 		st, err := st.WithDetails(br)
 		if err != nil {
 			log.S().Panicf("Unexpected error attaching metadata: %v", err)
@@ -1645,7 +1630,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(ctx context.Context,
 	}
 	estimatedGas := receipt.GasConsumed
 	enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
-	if err != nil && err != action.ErrOutOfGas {
+	if err != nil && err != action.ErrInsufficientFunds {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if !enough {
@@ -1654,7 +1639,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(ctx context.Context,
 		for low <= high {
 			mid := (low + high) / 2
 			enough, _, err = api.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
-			if err != nil && err != action.ErrOutOfGas {
+			if err != nil && err != action.ErrInsufficientFunds {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {

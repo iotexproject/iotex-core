@@ -9,7 +9,6 @@ package action
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -66,12 +65,12 @@ func TestExecutionSignVerify(t *testing.T) {
 			[]byte{},
 		)
 		require.NoError(err)
-		require.True(strings.Contains(ex.SanityCheck().Error(), "error when validating contract's address"))
+		require.Contains(ex.SanityCheck().Error(), "error when validating contract's address")
 	})
 
 	t.Run("Negative gas price", func(t *testing.T) {
 		ex, err := NewExecution(identityset.Address(29).String(), uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
 		require.NoError(err)
-		require.Equal(ErrGasPrice, errors.Cause(ex.SanityCheck()))
+		require.Equal(ErrNegativeValue, errors.Cause(ex.SanityCheck()))
 	})
 }

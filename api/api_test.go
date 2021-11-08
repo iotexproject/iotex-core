@@ -106,6 +106,37 @@ var (
 		big.NewInt(testutil.TestGasPriceInt64))
 	testTransferInvalid3Pb = testTransferInvalid3.Proto()
 
+	// nonce is too high
+	testTransferInvalid4, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), config.Default.ActPool.MaxNumActsPerAcct+10, big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(0))
+	testTransferInvalid4Pb = testTransferInvalid4.Proto()
+
+	// replace act with lower gas
+	testTransferInvalid5, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, 10000,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid5Pb = testTransferInvalid5.Proto()
+
+	// gas is too low
+	testTransferInvalid6, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, 100,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid6Pb = testTransferInvalid6.Proto()
+
+	// negative transfer amout
+	testTransferInvalid7, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(-10), []byte{}, 10000,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid7Pb = testTransferInvalid7.Proto()
+
+	// gas is too large
+	largeData               = make([]byte, 1e7)
+	testTransferInvalid8, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), largeData, 10000,
+		big.NewInt(testutil.TestGasPriceInt64))
+	testTransferInvalid8Pb = testTransferInvalid8.Proto()
+
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
@@ -1250,14 +1281,14 @@ func TestServer_SendAction(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	broadcastHandlerCount := 0
-	svr := Server{bc: chain, ap: ap, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
-		broadcastHandlerCount++
-		return nil
-	}}
+	svr := Server{bc: chain, ap: ap, cfg: config.Default,
+		broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
-	svr.cfg.Genesis.KamchatkaBlockHeight = 10
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	for i, test := range sendActionTests {
@@ -1281,7 +1312,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{},
-			"invalid signature length =",
+			"invalid signature length",
 		},
 		{
 			func() (*Server, string, error) {
@@ -1300,7 +1331,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferPb,
-			"insufficient space for action: invalid actpool",
+			action.ErrTxPoolOverflow.Error(),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1308,7 +1339,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid1Pb,
-			"invalid nonce",
+			action.ErrNonceTooLow.Error(),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1316,7 +1347,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid2Pb,
-			"invalid gas price",
+			action.ErrUnderpriced.Error(),
 		},
 		{
 			func() (*Server, string, error) {
@@ -1324,7 +1355,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			testTransferInvalid3Pb,
-			"invalid balance",
+			action.ErrInsufficientFunds.Error(),
 		},
 	}
 
