@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -629,9 +630,15 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
+// APIServer defines the interface of core service of the server
+type APIServer interface {
+	ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
+	ReceiptByAction(h string) (*action.Receipt, string, error)
+}
+
 // APIServer returns the API server
-func (cs *ChainService) APIServer() *api.ServerV2 {
-	return cs.api
+func (cs *ChainService) APIServer() APIServer {
+	return cs.api.Core
 }
 
 // Consensus returns the consensus instance

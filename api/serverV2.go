@@ -2,15 +2,10 @@ package api
 
 import (
 	"context"
-	"encoding/hex"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/committee"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -23,7 +18,7 @@ import (
 
 // ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
-	core       *coreService
+	Core       *coreService
 	grpcServer *GrpcServer
 }
 
@@ -73,14 +68,14 @@ func NewServerV2(
 		return nil, err
 	}
 	return &ServerV2{
-		core:       coreAPI,
+		Core:       coreAPI,
 		grpcServer: NewGRPCServer(coreAPI, cfg.API.Port),
 	}, nil
 }
 
 // Start starts the CoreService and the GRPC server
 func (svr *ServerV2) Start() error {
-	if err := svr.core.Start(); err != nil {
+	if err := svr.Core.Start(); err != nil {
 		return err
 	}
 	if err := svr.grpcServer.Start(); err != nil {
@@ -94,40 +89,8 @@ func (svr *ServerV2) Stop() error {
 	if err := svr.grpcServer.Stop(); err != nil {
 		return err
 	}
-	if err := svr.core.Stop(); err != nil {
+	if err := svr.Core.Stop(); err != nil {
 		return err
 	}
 	return nil
-}
-
-// TODO: remove internal call GetActionByActionHash() and GetReceiptByAction()
-
-// GetActionByActionHash returns action by action hash
-func (svr *ServerV2) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !svr.core.hasActionIndex || svr.core.indexer == nil {
-		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-
-	selp, _, _, _, err := svr.core.getActionByActionHash(h)
-	return selp, err
-}
-
-// GetReceiptByAction gets receipt with corresponding action hash
-func (svr *ServerV2) GetReceiptByAction(h string) (*action.Receipt, string, error) {
-	if !svr.core.hasActionIndex || svr.core.indexer == nil {
-		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	actHash, err := hash.HexStringToHash256(h)
-	if err != nil {
-		return nil, "", status.Error(codes.InvalidArgument, err.Error())
-	}
-	receipt, err := svr.core.ReceiptByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	blkHash, err := svr.core.getBlockHashByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	return receipt, hex.EncodeToString(blkHash[:]), nil
 }
