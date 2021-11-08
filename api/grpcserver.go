@@ -8,6 +8,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -200,7 +201,11 @@ func (svr *GrpcServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 
 // GetReceiptByAction gets receipt with corresponding action hash
 func (svr *GrpcServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error) {
-	receipt, blkHash, err := svr.coreService.ReceiptByAction(in.ActionHash)
+	actHash, err := hash.HexStringToHash256(in.ActionHash)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
 	if err != nil {
 		return nil, err
 	}

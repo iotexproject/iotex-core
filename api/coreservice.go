@@ -312,13 +312,9 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 }
 
 // ReceiptByAction gets receipt with corresponding action hash
-func (core *coreService) ReceiptByAction(h string) (*action.Receipt, string, error) {
+func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
 	if !core.hasActionIndex || core.indexer == nil {
 		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	actHash, err := hash.HexStringToHash256(h)
-	if err != nil {
-		return nil, "", status.Error(codes.InvalidArgument, err.Error())
 	}
 	receipt, err := core.ReceiptByActionHash(actHash)
 	if err != nil {

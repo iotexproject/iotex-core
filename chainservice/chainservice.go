@@ -633,7 +633,7 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 // APIServer defines the interface of core service of the server
 type APIServer interface {
 	ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
-	ReceiptByAction(h string) (*action.Receipt, string, error)
+	ReceiptByAction(h hash.Hash256) (*action.Receipt, string, error)
 }
 
 // APIServer returns the API server

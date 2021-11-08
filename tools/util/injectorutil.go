@@ -694,7 +694,7 @@ func CheckPendingActionList(
 	pendingActionMap.RangeEvictOnError(func(selphash cache.Key, vi interface{}) error {
 		empty = false
 		sh, _ := selphash.(hash.Hash256)
-		receipt, _, err := cs.APIServer().ReceiptByAction(hex.EncodeToString(sh[:]))
+		receipt, _, err := cs.APIServer().ReceiptByAction(sh)
 		if err == nil {
 			selp, err := cs.APIServer().ActionByActionHash(selphash.(hash.Hash256))
 			if err != nil {

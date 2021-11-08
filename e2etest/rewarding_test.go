@@ -2,7 +2,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -540,7 +539,7 @@ func updateExpectationWithPendingClaimList(
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, _, err := api.ReceiptByAction(hex.EncodeToString(selpHash[:]))
+		receipt, _, err := api.ReceiptByAction(selpHash)
 
 		if err == nil {
 			selp, err := api.ActionByActionHash(selpHash)
