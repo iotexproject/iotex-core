@@ -18,8 +18,8 @@ import (
 
 // ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
-	Core       *coreService
-	grpcServer *GrpcServer
+	core       *coreService
+	GrpcServer *GRPCServer
 }
 
 // Config represents the config to setup api
@@ -68,17 +68,17 @@ func NewServerV2(
 		return nil, err
 	}
 	return &ServerV2{
-		Core:       coreAPI,
-		grpcServer: NewGRPCServer(coreAPI, cfg.API.Port),
+		core:       coreAPI,
+		GrpcServer: NewGRPCServer(coreAPI, cfg.API.Port),
 	}, nil
 }
 
 // Start starts the CoreService and the GRPC server
 func (svr *ServerV2) Start() error {
-	if err := svr.Core.Start(); err != nil {
+	if err := svr.core.Start(); err != nil {
 		return err
 	}
-	if err := svr.grpcServer.Start(); err != nil {
+	if err := svr.GrpcServer.Start(); err != nil {
 		return err
 	}
 	return nil
@@ -86,10 +86,10 @@ func (svr *ServerV2) Start() error {
 
 // Stop stops the GRPC server and the CoreService
 func (svr *ServerV2) Stop() error {
-	if err := svr.grpcServer.Stop(); err != nil {
+	if err := svr.GrpcServer.Stop(); err != nil {
 		return err
 	}
-	if err := svr.Core.Stop(); err != nil {
+	if err := svr.core.Stop(); err != nil {
 		return err
 	}
 	return nil

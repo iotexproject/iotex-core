@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 type TransferState int
@@ -399,22 +400,22 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			// Wait long enough for a block to be minted, and check the balance of both
 			// sender and receiver.
-			var selp action.SealedEnvelope
+			var actInfo *iotexapi.ActionInfo
 			err := backoff.Retry(func() error {
 				var err error
 				tsfHash, err1 := tsf.Hash()
 				if err1 != nil {
 					return err1
 				}
-				selp, err = as.ActionByActionHash(tsfHash)
+				actInfo, err = util.GetActionByActionHash(as, tsfHash)
 				if err != nil {
 					return err
 				}
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
-			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
-			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
+			require.Equal(tsfTest.nonce, actInfo.GetAction().GetCore().GetNonce(), tsfTest.message)
+			require.Equal(senderPriKey.PublicKey().Bytes(), actInfo.GetAction().SenderPubKey, tsfTest.message)
 
 			senderAddr1, err := address.FromString(senderAddr)
 			require.NoError(err)
@@ -471,7 +472,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = as.ActionByActionHash(tsfHash)
+			_, err = util.GetActionByActionHash(as, tsfHash)
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -496,7 +497,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = as.ActionByActionHash(tsfHash)
+			_, err = util.GetActionByActionHash(as, tsfHash)
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)

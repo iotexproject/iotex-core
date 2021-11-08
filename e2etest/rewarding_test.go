@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 type claimTestCaseID int
@@ -539,25 +540,24 @@ func updateExpectationWithPendingClaimList(
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, _, err := api.ReceiptByAction(selpHash)
-
+		receipt, err := util.GetReceiptByAction(api, selpHash)
 		if err == nil {
-			selp, err := api.ActionByActionHash(selpHash)
+			actInfo, err := util.GetActionByActionHash(api, selpHash)
 			require.NoError(t, err)
-			addr := selp.SrcPubkey().Address()
+			addr := actInfo.GetSender()
 			require.NotNil(t, addr)
 
 			act := &action.ClaimFromRewardingFund{}
-			err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())
+			err = act.LoadProto(actInfo.GetAction().Core.GetClaimFromRewardingFund())
 			require.NoError(t, err)
 			amount := act.Amount()
 
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
-				exptUnclaimed[addr.String()] = newExpectUnclaimed
+				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr], amount)
+				exptUnclaimed[addr] = newExpectUnclaimed
 
-				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr.String()], amount)
-				claimedAmount[addr.String()] = newClaimedAmount
+				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr], amount)
+				claimedAmount[addr] = newClaimedAmount
 				updated = true
 
 				//An test case expected to fail should never success
