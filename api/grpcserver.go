@@ -8,6 +8,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -214,7 +216,15 @@ func (svr *GrpcServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 
 // ReadContract reads the state in a contract address specified by the slot
 func (svr *GrpcServer) ReadContract(ctx context.Context, in *iotexapi.ReadContractRequest) (*iotexapi.ReadContractResponse, error) {
-	data, receipt, err := svr.coreService.ReadContract(ctx, in.Execution, in.CallerAddress, in.GasLimit)
+	from := in.CallerAddress
+	if from == action.EmptyAddress {
+		from = address.ZeroAddress
+	}
+	callerAddr, err := address.FromString(from)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	data, receipt, err := svr.coreService.ReadContract(ctx, in.Execution, callerAddr, in.GasLimit)
 	if err != nil {
 		return nil, err
 	}
