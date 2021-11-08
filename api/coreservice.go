@@ -328,7 +328,7 @@ func (core *coreService) ReceiptByAction(h string) (*action.Receipt, string, err
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
-	return receipt.ConvertToReceiptPb(), hex.EncodeToString(blkHash[:]), nil
+	return receipt, hex.EncodeToString(blkHash[:]), nil
 }
 
 // ReadContract reads the state in a contract address specified by the slot

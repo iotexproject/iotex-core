@@ -808,6 +808,7 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -868,6 +869,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -978,6 +980,7 @@ func TestGrpcServer_GetActionsByAddress(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1060,6 +1063,7 @@ func TestGrpcServer_GetActionsByBlock(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1096,6 +1100,7 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1143,6 +1148,7 @@ func TestGrpcServer_GetBlockMeta(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1210,6 +1216,7 @@ func TestGrpcServer_GetChainMeta(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		if pol != nil {
@@ -1356,6 +1363,7 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1385,6 +1393,7 @@ func TestGrpcServer_GetServerMeta(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1404,6 +1413,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1439,6 +1449,7 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		res, err := svr.grpcServer.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
@@ -1454,6 +1465,7 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1478,6 +1490,7 @@ func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1656,6 +1669,7 @@ func TestGrpcServer_ReadUnclaimedBalance(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1683,6 +1697,7 @@ func TestGrpcServer_TotalBalance(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1704,6 +1719,7 @@ func TestGrpcServer_AvailableBalance(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -1773,6 +1789,7 @@ func TestGrpcServer_ReadCandidatesByEpoch(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		require.NoError(pol.ForceRegister(svr.core.registry))
@@ -1845,6 +1862,7 @@ func TestGrpcServer_ReadBlockProducersByEpoch(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		require.NoError(pol.ForceRegister(svr.core.registry))
@@ -1915,6 +1933,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		require.NoError(pol.ForceRegister(svr.core.registry))
@@ -1939,6 +1958,7 @@ func TestGrpcServer_ReadRollDPoSMeta(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		res, err := svr.grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1960,6 +1980,7 @@ func TestGrpcServer_ReadEpochCtx(t *testing.T) {
 		svr, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
+			svr.Stop()
 			testutil.CleanupPath(t, bfIndexFile)
 		}()
 		res, err := svr.grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1983,6 +2004,7 @@ func TestGrpcServer_GetEpochMeta(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 	for _, test := range getEpochMetaTests {
@@ -2107,6 +2129,7 @@ func TestGrpcServer_GetRawBlocks(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -2175,6 +2198,7 @@ func TestGrpcServer_GetLogs(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -2234,6 +2258,7 @@ func TestGrpcServer_GetElectionBuckets(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -2252,6 +2277,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -2269,6 +2295,7 @@ func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -2301,6 +2328,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
@@ -2701,6 +2729,7 @@ func TestGrpcServer_GetActPoolActions(t *testing.T) {
 	svr, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
+		svr.Stop()
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 

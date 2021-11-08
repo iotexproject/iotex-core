@@ -607,7 +607,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		return nil, err
 	}
 	var logs []logsObject
-	for _, v := range receipt.Logs {
+	for _, v := range receipt.Logs() {
 		var topics []string
 		for _, tpc := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
@@ -621,7 +621,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 			TransactionHash:  h,
 			TransactionIndex: tx.TransactionIndex,
 			LogIndex:         uint64ToHex(uint64(v.Index)),
-			BlockNumber:      uint64ToHex(v.BlkHeight),
+			BlockNumber:      uint64ToHex(v.BlockHeight),
 			Address:          contractAddress,
 			Data:             "0x" + hex.EncodeToString(v.Data),
 			Topics:           topics,
@@ -630,7 +630,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 	return receiptObject{
 		BlockHash:         "0x" + blkHash,
-		BlockNumber:       uint64ToHex(receipt.BlkHeight),
+		BlockNumber:       uint64ToHex(receipt.BlockHeight),
 		ContractAddress:   contractAddr,
 		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
 		From:              tx.From,

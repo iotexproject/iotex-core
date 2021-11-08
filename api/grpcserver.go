@@ -206,7 +206,7 @@ func (svr *GrpcServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 	}
 	return &iotexapi.GetReceiptByActionResponse{
 		ReceiptInfo: &iotexapi.ReceiptInfo{
-			Receipt: receipt,
+			Receipt: receipt.ConvertToReceiptPb(),
 			BlkHash: blkHash,
 		},
 	}, nil
