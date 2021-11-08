@@ -207,7 +207,7 @@ var (
 			1, big.NewInt(100), // nonce, amount
 			make([]byte, 100),             //payload
 			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-			TsfFail, "Invalid balance",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Normal transfer from an address not created on block chain",
 		},
 		{
@@ -216,7 +216,7 @@ var (
 			1, big.NewInt(222222),
 			make([]byte, 0),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid balance",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Transfer with not enough balance",
 		},
 		{
@@ -225,7 +225,7 @@ var (
 			1, big.NewInt(222222),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid balance",
+			TsfFail, action.ErrInsufficientFunds.Error(),
 			"Transfer with not enough balance with payload",
 		},
 		{
@@ -234,7 +234,7 @@ var (
 			1, big.NewInt(-100),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid balance",
+			TsfFail, "negative value",
 			"Transfer with negative amount",
 		},
 		{
@@ -243,7 +243,7 @@ var (
 			1, big.NewInt(100),
 			make([]byte, 0),
 			uint64(1000), big.NewInt(1),
-			TsfFail, "Insufficient balance for gas",
+			TsfFail, action.ErrIntrinsicGas.Error(),
 			"Transfer with not enough gas limit",
 		},
 		{
@@ -252,7 +252,7 @@ var (
 			0, big.NewInt(0),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid nonce",
+			TsfFail, "nonce too low",
 			"Transfer with nonce 0",
 		},
 		{
@@ -261,7 +261,7 @@ var (
 			1, big.NewInt(100),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Invalid nonce",
+			TsfFail, "nonce too low",
 			"Transfer with same nonce from a single sender 2",
 		},
 		{
@@ -454,7 +454,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(len(detail.FieldViolations), 1, tsfTest.message)
 
 			violation := detail.FieldViolations[0]
-			require.Equal(violation.Description, tsfTest.expectedDesc, tsfTest.message)
+			require.Equal(tsfTest.expectedDesc, violation.Description, tsfTest.message)
 			require.Equal(violation.Field, "Action rejected", tsfTest.message)
 
 			//The transfer should be rejected right after we inject it

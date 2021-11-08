@@ -192,7 +192,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			{makeBlock(t, 1, hash.ZeroHash256, digestHash), nil},
 			{
 				makeBlock(t, 3, hash.ZeroHash256, digestHash),
-				action.ErrNonce,
+				action.ErrNonceTooHigh,
 			},
 			{
 				makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash),

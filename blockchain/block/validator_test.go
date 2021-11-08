@@ -59,6 +59,6 @@ func TestValidator(t *testing.T) {
 	require.NoError(err)
 
 	v = NewValidator(nil, valid)
-	require.True(strings.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error"))
+	require.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error")
 
 }

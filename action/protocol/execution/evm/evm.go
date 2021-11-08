@@ -162,13 +162,13 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 		// return ErrInconsistentNonce
 	}
 	if gasLimit < ps.gas {
-		return action.ErrHitGasLimit
+		return action.ErrGasLimit
 	}
-	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
-	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(maxGasValue) < 0 {
-		return action.ErrInsufficientBalanceForGas
+	gasConsumed := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.txCtx.GasPrice)
+	if stateDB.GetBalance(ps.txCtx.Origin).Cmp(gasConsumed) < 0 {
+		return action.ErrInsufficientFunds
 	}
-	stateDB.SubBalance(ps.txCtx.Origin, maxGasValue)
+	stateDB.SubBalance(ps.txCtx.Origin, gasConsumed)
 	return nil
 }
 
@@ -302,7 +302,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrInsufficientFunds
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
@@ -425,8 +425,8 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (e
 // intrinsicGas returns the intrinsic gas of an execution
 func intrinsicGas(data []byte) (uint64, error) {
 	dataSize := uint64(len(data))
-	if (math.MaxInt64-action.ExecutionBaseIntrinsicGas)/action.ExecutionDataGas < dataSize {
-		return 0, action.ErrOutOfGas
+	if action.ExecutionDataGas == 0 || (math.MaxInt64-action.ExecutionBaseIntrinsicGas)/action.ExecutionDataGas < dataSize {
+		return 0, action.ErrInsufficientFunds
 	}
 
 	return dataSize*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas, nil

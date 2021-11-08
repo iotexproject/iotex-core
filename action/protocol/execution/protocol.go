@@ -83,7 +83,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.Sta
 	}
 	// Reject oversize execution
 	if exec.TotalSize() > ExecutionSizeLimit {
-		return errors.Wrap(action.ErrActPool, "oversized data")
+		return action.ErrOversizedData
 	}
 	return nil
 }
