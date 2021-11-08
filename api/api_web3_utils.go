@@ -300,7 +300,7 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 	return *tx, nil
 }
 
-// DecodeRawTx() decode raw data string into eth tx
+// DecodeRawTx decodes raw data string into eth tx
 func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey, err error) {
 	var dataInString []byte
 	dataInString, err = hex.DecodeString(removeHexPrefix(rawData))

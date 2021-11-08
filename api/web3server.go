@@ -28,6 +28,7 @@ const (
 )
 
 type (
+	// Web3Server contains web3 server and the pointer to api coreservice
 	Web3Server struct {
 		web3Server  *http.Server
 		coreService *coreService
@@ -102,6 +103,7 @@ type (
 	}
 )
 
+// NewWeb3Server creates a new web3 server
 func NewWeb3Server(core *coreService, httpPort int) *Web3Server {
 	svr := &Web3Server{
 		web3Server: &http.Server{
@@ -109,7 +111,10 @@ func NewWeb3Server(core *coreService, httpPort int) *Web3Server {
 		},
 		coreService: core,
 	}
-	http.Handle("/", svr)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", svr)
+	svr.web3Server.Handler = mux
 	return svr
 }
 
