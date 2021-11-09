@@ -932,6 +932,23 @@ func (api *Server) GetTransactionLogByBlockHeight(
 	return res, nil
 }
 
+// ReadContractStorage reads contract's storage
+func (api *Server) ReadContractStorage(ctx context.Context, in *iotexapi.ReadContractStorageRequest) (*iotexapi.ReadContractStorageResponse, error) {
+	ctx, err := api.bc.Context(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	addr, err := address.FromString(in.GetContract())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	b, err := api.sf.ReadContractStorage(ctx, addr, in.GetKey())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &iotexapi.ReadContractStorageResponse{Data: b}, nil
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.API.Port)

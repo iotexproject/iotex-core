@@ -1542,3 +1542,12 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 	selp, _, _, _, err := core.getActionByActionHash(h)
 	return selp, err
 }
+
+// ReadContractStorage reads contract's storage
+func (core *coreService) ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error) {
+	ctx, err := core.bc.Context(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return core.sf.ReadContractStorage(ctx, addr, key)
+}
