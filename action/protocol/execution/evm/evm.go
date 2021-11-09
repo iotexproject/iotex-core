@@ -446,8 +446,11 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (e
 
 // intrinsicGas returns the intrinsic gas of an execution
 func intrinsicGas(data []byte) (uint64, error) {
+	if action.ExecutionDataGas == 0 {
+		panic("payload gas price cannot be zero")
+	}
 	dataSize := uint64(len(data))
-	if action.ExecutionDataGas == 0 || (math.MaxInt64-action.ExecutionBaseIntrinsicGas)/action.ExecutionDataGas < dataSize {
+	if (math.MaxInt64-action.ExecutionBaseIntrinsicGas)/action.ExecutionDataGas < dataSize {
 		return 0, action.ErrInsufficientFunds
 	}
 
