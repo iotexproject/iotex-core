@@ -373,6 +373,17 @@ func (sdb *stateDB) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
+// ReadContractStorage reads contract's storage
+func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+	sdb.mutex.Lock()
+	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
+	sdb.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state db")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
+}
+
 // PutBlock persists all changes in RunActions() into the DB
 func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
