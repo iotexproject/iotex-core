@@ -405,7 +405,7 @@ func TestGetLogs(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := &logsRequest{
+	testData := &filterObject{
 		FromBlock: "0x1",
 	}
 	ret, err := svr.web3Server.getLogs(testData)
@@ -488,12 +488,12 @@ func TestNewfilter(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := &logsRequest{
+	testData := &filterObject{
 		FromBlock: "0x1",
 	}
 	ret, err := svr.web3Server.newFilter(testData)
 	require.NoError(err)
-	require.Equal("e10f7dd489b75a36de8e246eb974827fe86a02ed19d9b475a1600cf4f935feff", ret)
+	require.Equal("0xe10f7dd489b75a36de8e246eb974827fe86a02ed19d9b475a1600cf4f935feff", ret)
 }
 
 func TestNewBlockFilter(t *testing.T) {
@@ -507,7 +507,7 @@ func TestNewBlockFilter(t *testing.T) {
 
 	ret, err := svr.web3Server.newBlockFilter()
 	require.NoError(err)
-	require.Equal("71371f8dbaefc4c96d2534163a1b461951c88520cd32bc03b5bfdfe7340bc187", ret)
+	require.Equal("0x71371f8dbaefc4c96d2534163a1b461951c88520cd32bc03b5bfdfe7340bc187", ret)
 }
 
 func TestGetFilterChanges(t *testing.T) {
@@ -519,7 +519,7 @@ func TestGetFilterChanges(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	filterReq := &logsRequest{
+	filterReq := &filterObject{
 		FromBlock: "0x1",
 	}
 	filterID1, _ := svr.web3Server.newFilter(filterReq)
@@ -542,7 +542,7 @@ func TestGetFilterLogs(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	filterReq := &logsRequest{
+	filterReq := &filterObject{
 		FromBlock: "0x1",
 	}
 	filterID, _ := svr.web3Server.newFilter(filterReq)

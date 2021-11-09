@@ -92,6 +92,11 @@ type (
 	}
 )
 
+var (
+	errUnkownType  = errors.New("wrong type of params")
+	filterCache, _ = ttl.NewCache(ttl.AutoExpireOption(15 * time.Minute))
+)
+
 // NewWeb3Server creates a new web3 server
 func NewWeb3Server(core *coreService, httpPort int) *Web3Server {
 	svr := &Web3Server{
@@ -187,8 +192,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		case "eth_hashrate":
 			res, err = svr.getHashrate()
 		case "eth_getLogs":
-			if logreq, err := parseLogRequest(web3Req.Get("params")); err == nil {
-				res, err = svr.getLogs(logreq)
+			if filter, err := parseLogRequest(web3Req.Get("params")); err == nil {
+				res, err = svr.getLogs(filter)
 			}
 		case "eth_getBlockTransactionCountByHash":
 			res, err = svr.getBlockTransactionCountByHash(params)
@@ -215,8 +220,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		case "eth_uninstallFilter":
 			res, err = svr.uninstallFilter(params)
 		case "eth_newFilter":
-			if logreq, err := parseLogRequest(web3Req.Get("params")); err == nil {
-				res, err = svr.newFilter(logreq)
+			if filter, err := parseLogRequest(web3Req.Get("params")); err == nil {
+				res, err = svr.newFilter(filter)
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
@@ -224,6 +229,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
+			// should directly return?
 			return packAPIResult(nil, err, 0)
 		}
 		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
@@ -243,8 +249,7 @@ func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
 	if !gjson.Valid(string(data)) {
 		return nil, errors.New("request json format is not valid")
 	}
-	parsedReq := gjson.Parse(string(data))
-	parsedReqs := parsedReq.Array()
+	parsedReqs := gjson.Parse(string(data)).Array()
 	// check rquired field
 	for _, req := range parsedReqs {
 		id := req.Get("id")
@@ -293,12 +298,6 @@ func (svr *Web3Server) gasPrice() (interface{}, error) {
 	return uint64ToHex(ret), nil
 }
 
-var (
-	errUnkownType = errors.New("wrong type of params")
-
-	filterCache, _ = ttl.NewCache(ttl.AutoExpireOption(15 * time.Minute))
-)
-
 func (svr *Web3Server) getChainID() (interface{}, error) {
 	return uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
 }
@@ -324,11 +323,7 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 		}
 		return nil, err
 	}
-	blk, err := svr.getBlockWithTransactions(blkMetas[0], isDetailed)
-	if err != nil {
-		return nil, err
-	}
-	return *blk, nil
+	return svr.getBlockWithTransactions(blkMetas[0], isDetailed)
 }
 
 func (svr *Web3Server) getBalance(in interface{}) (interface{}, error) {
@@ -344,11 +339,7 @@ func (svr *Web3Server) getBalance(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret, err := intStrToHex(accountMeta.Balance)
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
+	return intStrToHex(accountMeta.Balance)
 }
 
 func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) {
@@ -402,7 +393,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	} else {
 		// execution
-		ret, err := svr.coreService.estimateActionGasConsumptionForExecution(context.Background(),
+		estimatedGas, err = svr.coreService.estimateActionGasConsumptionForExecution(context.Background(),
 			&iotextypes.Execution{
 				Amount:   value.String(),
 				Contract: to,
@@ -411,7 +402,6 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		estimatedGas = ret
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
@@ -421,11 +411,11 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 
 func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	// parse raw data string from json request
-	dataInString, err := getStringFromArray(in, 0)
+	dataStr, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
-	tx, sig, pubkey, err := DecodeRawTx(dataInString, svr.coreService.EVMNetworkID())
+	tx, sig, pubkey, err := DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +426,8 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			Nonce:    tx.Nonce(),
 			GasLimit: tx.Gas(),
 			GasPrice: tx.GasPrice().String(),
-			ChainID:  0,
+			// TODO: use which chainid
+			ChainID: 0,
 		},
 		SenderPubKey: pubkey.Bytes(),
 		Signature:    sig,
@@ -533,7 +524,7 @@ func (svr *Web3Server) getBlockTransactionCountByHash(in interface{}) (interface
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(uint64(blkMeta[0].NumActions)), nil
+	return uint64ToHex(uint64(blkMeta.NumActions)), nil
 }
 
 func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
@@ -545,12 +536,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	blk, err := svr.getBlockWithTransactions(blkMeta[0], isDetailed)
-	if err != nil {
-		return nil, err
-	}
-	return *blk, nil
+	return svr.getBlockWithTransactions(blkMeta, isDetailed)
 }
 
 func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error) {
@@ -562,23 +548,27 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
+	return svr.getTransactionCreateFromActionInfo(actionInfos)
 }
 
-func (svr *Web3Server) getLogs(logReq *logsRequest) (interface{}, error) {
-	return svr.getLogsWithFilter(logReq.FromBlock, logReq.ToBlock, logReq.Address, logReq.Topics)
+func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
+	return svr.getLogsWithFilter(filter.FromBlock, filter.ToBlock, filter.Address, filter.Topics)
 }
 
 func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error) {
-	h, err := getStringFromArray(in, 0)
-	if err != nil {
-		return nil, err
-	}
-	receipt, blkHash, err := svr.coreService.ReceiptByAction(removeHexPrefix(h))
+	// parse action hash from request
+	actHash, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
 
+	// acquire action receipt by action hash
+	receipt, blkHash, err := svr.coreService.ReceiptByAction(removeHexPrefix(actHash))
+	if err != nil {
+		return nil, err
+	}
+
+	// read contract address from receipt
 	var contractAddr *string
 	if len(receipt.ContractAddress) > 0 {
 		res, err := ioAddrToEthAddr(receipt.ContractAddress)
@@ -588,31 +578,34 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		contractAddr = &res
 	}
 
-	actionInfos, err := svr.coreService.Action(removeHexPrefix(h), true)
+	// acquire transaction index by action hash
+	actInfo, err := svr.coreService.Action(removeHexPrefix(actHash), true)
 	if err != nil {
 		return nil, err
 	}
-	tx, err := svr.getTransactionFromActionInfo(actionInfos[0])
+	tx, err := svr.getTransactionFromActionInfo(actInfo)
 	if err != nil {
 		return nil, err
 	}
+
+	// parse logs from receipt
 	var logs []logsObject
 	for _, v := range receipt.Logs() {
 		var topics []string
 		for _, tpc := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
 		}
-		contractAddress, err := ioAddrToEthAddr(receipt.ContractAddress)
-		if err != nil {
-			return nil, err
+		addr := ""
+		if contractAddr != nil {
+			addr = *contractAddr
 		}
 		log := logsObject{
 			BlockHash:        "0x" + blkHash,
-			TransactionHash:  h,
+			TransactionHash:  actHash,
 			TransactionIndex: tx.TransactionIndex,
 			LogIndex:         uint64ToHex(uint64(v.Index)),
 			BlockNumber:      uint64ToHex(v.BlockHeight),
-			Address:          contractAddress,
+			Address:          addr,
 			Data:             "0x" + hex.EncodeToString(v.Data),
 			Topics:           topics,
 		}
@@ -628,7 +621,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		Status:            uint64ToHex(receipt.Status),
 		To:                tx.To,
-		TransactionHash:   h,
+		TransactionHash:   actHash,
 		TransactionIndex:  tx.TransactionIndex,
 		Logs:              logs,
 	}, nil
@@ -652,7 +645,7 @@ func (svr *Web3Server) getBlockTransactionCountByNumber(in interface{}) (interfa
 }
 
 func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interface{}, error) {
-	h, err := getStringFromArray(in, 0)
+	blkHash, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -664,8 +657,7 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-
-	actionInfos, err := svr.coreService.ActionsByBlock(removeHexPrefix(h), idx, 1)
+	actionInfos, err := svr.coreService.ActionsByBlock(removeHexPrefix(blkHash), idx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -700,18 +692,12 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 
-func (svr *Web3Server) newFilter(logReq *logsRequest) (interface{}, error) {
-	filterObj := filterObject{
-		FilterType: "log",
-		FromBlock:  logReq.FromBlock,
-		ToBlock:    logReq.ToBlock,
-		Address:    logReq.Address,
-		Topics:     logReq.Topics,
-	}
-	objInByte, _ := json.Marshal(filterObj)
+func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
+	filter.FilterType = "log"
+	objInByte, _ := json.Marshal(*filter)
 	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
-	filterCache.Set(filterID, filterObj)
+	filterID := "0x" + hex.EncodeToString(keyHash[:])
+	filterCache.Set(filterID, *filter)
 	return filterID, nil
 }
 
@@ -722,7 +708,7 @@ func (svr *Web3Server) newBlockFilter() (interface{}, error) {
 	}
 	objInByte, _ := json.Marshal(filterObj)
 	keyHash := hash.Hash256b(objInByte)
-	filterID := hex.EncodeToString(keyHash[:])
+	filterID := "0x" + hex.EncodeToString(keyHash[:])
 	filterCache.Set(filterID, filterObj)
 	return filterID, nil
 }
@@ -743,6 +729,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 
 	data, isFound := filterCache.Get(filterID)
 	if !isFound {
+		// TODO: return err
 		return []interface{}{}, nil
 	}
 	filterObj, ok := data.(filterObject)
@@ -767,7 +754,6 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		var hashArr []string
 		for _, v := range blkMetas {
 			hashArr = append(hashArr, "0x"+v.Hash)

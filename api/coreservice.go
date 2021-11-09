@@ -932,7 +932,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 }
 
 // Action returns action by action hash
-func (core *coreService) Action(actionHash string, checkPending bool) ([]*iotexapi.ActionInfo, error) {
+func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error) {
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -941,7 +941,7 @@ func (core *coreService) Action(actionHash string, checkPending bool) ([]*iotexa
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
-	return []*iotexapi.ActionInfo{act}, nil
+	return act, nil
 }
 
 // ActionsByAddress returns all actions associated with an address
@@ -1077,8 +1077,8 @@ func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.B
 	return res, nil
 }
 
-// BlockMetaByHash returns blockmetas response by block hash
-func (core *coreService) BlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, error) {
+// BlockMetaByHash returns blockmeta response by block hash
+func (core *coreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1090,11 +1090,7 @@ func (core *coreService) BlockMetaByHash(blkHash string) ([]*iotextypes.BlockMet
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	blockMeta, err := core.getBlockMetaByHeight(height)
-	if err != nil {
-		return nil, err
-	}
-	return []*iotextypes.BlockMeta{blockMeta}, nil
+	return core.getBlockMetaByHeight(height)
 }
 
 // getBlockMetaByHeight gets BlockMeta by height

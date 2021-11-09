@@ -149,13 +149,13 @@ func removeHexPrefix(hexStr string) string {
 	return ret
 }
 
-func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*blockObject, error) {
+func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactionsRoot := "0x"
 	var transactions []interface{}
 	if blkMeta.Height > 0 {
 		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
 		if err != nil {
-			return nil, err
+			return blockObject{}, err
 		}
 		for _, info := range actionInfos {
 			if isDetailed {
@@ -181,9 +181,9 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}
 	producerAddr, err := ioAddrToEthAddr(blkMeta.ProducerAddress)
 	if err != nil {
-		return nil, err
+		return blockObject{}, err
 	}
-	return &blockObject{
+	return blockObject{
 		Author:           producerAddr,
 		Number:           uint64ToHex(blkMeta.Height),
 		Hash:             "0x" + blkMeta.Hash,
@@ -425,12 +425,12 @@ func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
 }
 
-func parseLogRequest(in gjson.Result) (*logsRequest, error) {
+func parseLogRequest(in gjson.Result) (*filterObject, error) {
 	if len(in.Array()) != 1 {
 		return nil, errUnkownType
 	}
 	req := in.Array()[0]
-	var logReq logsRequest
+	var logReq filterObject
 	logReq.FromBlock = req.Get("fromBlock").String()
 	logReq.ToBlock = req.Get("toBlock").String()
 	for _, addr := range req.Get("address").Array() {

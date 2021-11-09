@@ -116,8 +116,10 @@ func (svr *GrpcServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		request := in.GetByIndex()
 		ret, err = svr.coreService.Actions(request.Start, request.Count)
 	case in.GetByHash() != nil:
+		var act *iotexapi.ActionInfo
 		request := in.GetByHash()
-		ret, err = svr.coreService.Action(request.ActionHash, request.CheckPending)
+		act, err = svr.coreService.Action(request.ActionHash, request.CheckPending)
+		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
 		ret, err = svr.coreService.ActionsByAddress(request.Address, request.Start, request.Count)
@@ -150,8 +152,10 @@ func (svr *GrpcServer) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockM
 		request := in.GetByIndex()
 		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
 	case in.GetByHash() != nil:
+		var blkMeta *iotextypes.BlockMeta
 		request := in.GetByHash()
-		ret, err = svr.coreService.BlockMetaByHash(request.BlkHash)
+		blkMeta, err = svr.coreService.BlockMetaByHash(request.BlkHash)
+		ret = []*iotextypes.BlockMeta{blkMeta}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
