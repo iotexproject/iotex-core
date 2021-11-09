@@ -186,28 +186,7 @@ func ExecuteContract(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	opts := []StateDBAdapterOption{}
-	if featureCtx.UsePendingNonceOption {
-		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
-	}
-	if featureCtx.NotFixTopicCopyBug {
-		opts = append(opts, NotFixTopicCopyBugOption())
-	}
-	if featureCtx.AsyncContractTrie {
-		opts = append(opts, AsyncContractTrieOption())
-	}
-	if featureCtx.FixSnapshotOrder {
-		opts = append(opts, FixSnapshotOrderOption())
-	}
-	if featureCtx.ClearSnapshots {
-		opts = append(opts, ClearSnapshotsOption())
-	}
-	stateDB := NewStateDBAdapter(
-		sm,
-		blkCtx.BlockHeight,
-		actionCtx.ActionHash,
-		opts...,
-	)
+	stateDB := prepareStateDB(ctx, sm)
 	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err
@@ -280,11 +259,22 @@ func ReadContractStorage(
 	key []byte,
 ) ([]byte, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
+	ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			ActionHash: hash.ZeroHash256,
+		}),
 		protocol.BlockCtx{
 			BlockHeight: bcCtx.Tip.Height + 1,
 		},
 	))
+	stateDB := prepareStateDB(ctx, sm)
+	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
+	return res[:], nil
+}
+
+func prepareStateDB(ctx context.Context, sm protocol.StateManager) *StateDBAdapter {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	opts := []StateDBAdapterOption{}
 	if featureCtx.UsePendingNonceOption {
@@ -302,14 +292,12 @@ func ReadContractStorage(
 	if featureCtx.ClearSnapshots {
 		opts = append(opts, ClearSnapshotsOption())
 	}
-	stateDB := NewStateDBAdapter(
+	return NewStateDBAdapter(
 		sm,
-		bcCtx.Tip.Height+1,
-		hash.ZeroHash256,
+		blkCtx.BlockHeight,
+		actionCtx.ActionHash,
 		opts...,
 	)
-	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
-	return res[:], nil
 }
 
 func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
