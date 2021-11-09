@@ -1538,3 +1538,11 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 	}
 	return ret, nil
 }
+
+func (core *coreService) ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error) {
+	ctx, err := core.bc.Context(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return core.sf.ReadContractStorage(ctx, addr, key)
+}

@@ -64,4 +64,6 @@ type ServiceClient interface {
 	GetElectionBuckets(ctx context.Context, in *iotexapi.GetElectionBucketsRequest, opts ...grpc.CallOption) (*iotexapi.GetElectionBucketsResponse, error)
 	// get actions from act pool
 	GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest, opts ...grpc.CallOption) (*iotexapi.GetActPoolActionsResponse, error)
+	// read contract storage
+	ReadContractStorage(ctx context.Context, in *iotexapi.ReadContractStorageRequest, opts ...grpc.CallOption) (*iotexapi.ReadContractStorageResponse, error)
 }
