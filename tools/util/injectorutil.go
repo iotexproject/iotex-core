@@ -693,20 +693,19 @@ func CheckPendingActionList(
 
 	pendingActionMap.RangeEvictOnError(func(selphash cache.Key, vi interface{}) error {
 		empty = false
-		receipt, err := cs.APIServer().GetReceiptByActionHash(selphash.(hash.Hash256))
+		sh, _ := selphash.(hash.Hash256)
+		receipt, err := GetReceiptByAction(cs.APIServer(), sh)
 		if err == nil {
-			selp, err := cs.APIServer().GetActionByActionHash(selphash.(hash.Hash256))
+			actInfo, err := GetActionByActionHash(cs.APIServer(), selphash.(hash.Hash256))
 			if err != nil {
 				retErr = err
 				return nil
 			}
-			executoraddr := selp.SrcPubkey().Address()
-			if executoraddr == nil {
-				retErr = errors.New("failed to get address")
-				return nil
-			}
+			executoraddr := actInfo.GetSender()
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-				pbAct := selp.Envelope.Proto()
+				pbAct := actInfo.GetAction().GetCore()
+				gasLimit := actInfo.GetAction().Core.GetGasLimit()
+				gasPrice, _ := new(big.Int).SetString(actInfo.GetAction().Core.GetGasPrice(), 10)
 				switch {
 				case pbAct.GetTransfer() != nil:
 					act := &action.Transfer{}
@@ -714,8 +713,8 @@ func CheckPendingActionList(
 						retErr = err
 						return nil
 					}
-					updateTransferExpectedBalanceMap(balancemap, executoraddr.String(),
-						act.Recipient(), act.Amount(), act.Payload(), selp.GasLimit(), selp.GasPrice())
+					updateTransferExpectedBalanceMap(balancemap, executoraddr,
+						act.Recipient(), act.Amount(), act.Payload(), gasLimit, gasPrice)
 					atomic.AddUint64(&totalTsfSucceeded, 1)
 				case pbAct.GetExecution() != nil:
 					act := &action.Execution{}
@@ -723,7 +722,7 @@ func CheckPendingActionList(
 						retErr = err
 						return nil
 					}
-					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
+					updateExecutionExpectedBalanceMap(balancemap, executoraddr, gasLimit, gasPrice)
 				case pbAct.GetStakeCreate() != nil:
 					act := &action.CreateStake{}
 					if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
@@ -735,7 +734,7 @@ func CheckPendingActionList(
 						retErr = err
 						return nil
 					}
-					updateStakeExpectedBalanceMap(balancemap, executoraddr.String(), cost)
+					updateStakeExpectedBalanceMap(balancemap, executoraddr, cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
 					return nil
@@ -826,4 +825,27 @@ func updateStakeExpectedBalanceMap(
 		log.L().Fatal("Not enough balance")
 	}
 	(*balancemap)[candidateAddr].Sub(senderBalance, cost)
+}
+
+// GetActionByActionHash acquires action by sending api request to api grpc server
+func GetActionByActionHash(api chainservice.APIServer, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
+	ret, err := api.GetActions(context.Background(), &iotexapi.GetActionsRequest{
+		Lookup: &iotexapi.GetActionsRequest_ByHash{
+			ByHash: &iotexapi.GetActionByHashRequest{
+				ActionHash: hex.EncodeToString(actHash[:]),
+			}}})
+	if err != nil || len(ret.ActionInfo) != 1 {
+		return nil, err
+	}
+	return ret.ActionInfo[0], nil
+}
+
+// GetReceiptByAction acquires receipt by sending api request to api grpc server
+func GetReceiptByAction(api chainservice.APIServer, actHash hash.Hash256) (*iotextypes.Receipt, error) {
+	ret, err := api.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
+		ActionHash: hex.EncodeToString(actHash[:])})
+	if err != nil {
+		return nil, err
+	}
+	return ret.ReceiptInfo.Receipt, nil
 }
