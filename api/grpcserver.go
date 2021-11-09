@@ -283,7 +283,7 @@ func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 }
 
 // GetLogs get logs filtered by contract address and topics
-func (svr *GrpcServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
+func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
 	ret, err := svr.coreService.Logs(in)
 	if err != nil {
 		return nil, err
@@ -352,15 +352,6 @@ func (svr *GRPCServer) GetActPoolActions(ctx context.Context, in *iotexapi.GetAc
 	return &iotexapi.GetActPoolActionsResponse{
 		Actions: ret,
 	}, nil
-}
-
-// GetLogs get logs filtered by contract address and topics
-func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
-	ret, err := svr.coreService.Logs(in)
-	if err != nil {
-		return nil, err
-	}
-	return &iotexapi.GetLogsResponse{Logs: ret}, err
 }
 
 // ReadContractStorage reads contract's storage
