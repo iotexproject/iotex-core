@@ -8,6 +8,7 @@ package evm
 
 import (
 	"bytes"
+	"context"
 	"math/big"
 	"testing"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -138,6 +140,20 @@ func TestEmptyAndCode(t *testing.T) {
 	require.False(stateDB.Empty(addr))
 }
 
+var kvs = map[common.Hash]common.Hash{
+	common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
+	common.HexToHash("0123456701234567012345670123456701234567012345670123456701234561"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234561"),
+	common.HexToHash("0123456701234567012345670123456701234567012345670123456701234562"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234562"),
+	common.HexToHash("0123456701234567012345670123456701234567012345670123456701234563"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234563"),
+	common.HexToHash("2345670123456701234567012345670123456701234567012345670123456301"): common.HexToHash("2345670123456701234567012345670123456701234567012345670123456301"),
+	common.HexToHash("4567012345670123456701234567012345670123456701234567012345630123"): common.HexToHash("4567012345670123456701234567012345670123456701234567012345630123"),
+	common.HexToHash("6701234567012345670123456701234567012345670123456701234563012345"): common.HexToHash("6701234567012345670123456701234567012345670123456701234563012345"),
+	common.HexToHash("0123456701234567012345670123456701234567012345670123456301234567"): common.HexToHash("0123456701234567012345670123456701234567012345670123456301234567"),
+	common.HexToHash("ab45670123456701234567012345670123456701234567012345630123456701"): common.HexToHash("ab45670123456701234567012345670123456701234567012345630123456701"),
+	common.HexToHash("cd67012345670123456701234567012345670123456701234563012345670123"): common.HexToHash("cd67012345670123456701234567012345670123456701234563012345670123"),
+	common.HexToHash("ef01234567012345670123456701234567012345670123456301234567012345"): common.HexToHash("ef01234567012345670123456701234567012345670123456301234567012345"),
+}
+
 func TestForEachStorage(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -148,6 +164,29 @@ func TestForEachStorage(t *testing.T) {
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(sm, 1, true,
 		false, true, true, hash.ZeroHash256)
+	stateDB.CreateAccount(addr)
+	for k, v := range kvs {
+		stateDB.SetState(addr, k, v)
+	}
+	require.NoError(
+		stateDB.ForEachStorage(addr, func(k common.Hash, v common.Hash) bool {
+			require.Equal(k, v)
+			delete(kvs, k)
+			return true
+		}),
+	)
+	require.Equal(0, len(kvs))
+}
+
+func TestReadContractStorage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	stateDB := NewStateDBAdapter(sm, 1,
+		false, true, true, true, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -165,14 +204,16 @@ func TestForEachStorage(t *testing.T) {
 	for k, v := range kvs {
 		stateDB.SetState(addr, k, v)
 	}
-	require.NoError(
-		stateDB.ForEachStorage(addr, func(k common.Hash, v common.Hash) bool {
-			require.Equal(k, v)
-			delete(kvs, k)
-			return true
-		}),
-	)
-	require.Equal(0, len(kvs))
+	stateDB.CommitContracts()
+
+	ctx := protocol.WithBlockchainCtx(genesis.WithGenesisContext(
+		context.Background(), genesis.Default),
+		protocol.BlockchainCtx{})
+	for k, v := range kvs {
+		b, err := ReadContractStorage(ctx, sm, addr, k[:])
+		require.NoError(err)
+		require.Equal(v[:], b)
+	}
 }
 
 func TestNonce(t *testing.T) {
