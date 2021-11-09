@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -424,50 +425,26 @@ func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
 }
 
-// TODO: replace logsRequest
-func parseLogRequest(in interface{}) (*logsRequest, error) {
-	params, ok := in.([]interface{})
-	if !ok {
+func parseLogRequest(in gjson.Result) (*logsRequest, error) {
+	if len(in.Array()) != 1 {
 		return nil, errUnkownType
 	}
-	params0, ok := params[0].(map[string]interface{})
-	if !ok {
-		return nil, errUnkownType
-	}
-
+	req := in.Array()[0]
 	var logReq logsRequest
-	for k, v := range params0 {
-		switch k {
-		case "fromBlock":
-			if logReq.FromBlock, ok = v.(string); !ok {
-				return nil, errUnkownType
+	logReq.FromBlock = req.Get("fromBlock").String()
+	logReq.ToBlock = req.Get("toBlock").String()
+	for _, addr := range req.Get("address").Array() {
+		logReq.Address = append(logReq.Address, addr.String())
+	}
+	for _, topics := range req.Get("topics").Array() {
+		if topics.IsArray() {
+			var topicArr []string
+			for _, topic := range topics.Array() {
+				topicArr = append(topicArr, topic.String())
 			}
-		case "toBlock":
-			if logReq.ToBlock, ok = v.(string); !ok {
-				return nil, errUnkownType
-			}
-		case "address":
-			switch str := v.(type) {
-			case string:
-				logReq.Address = append(logReq.Address, str)
-			case []string:
-				logReq.Address = append(logReq.Address, str...)
-			default:
-				return nil, errUnkownType
-			}
-		case "topics":
-			for _, val := range v.([]interface{}) {
-				switch str := val.(type) {
-				case string:
-					logReq.Topics = append(logReq.Topics, []string{str})
-				case []string:
-					logReq.Topics = append(logReq.Topics, str)
-				default:
-					return nil, errUnkownType
-				}
-			}
-		default:
-			return nil, errUnkownType
+			logReq.Topics = append(logReq.Topics, topicArr)
+		} else {
+			logReq.Topics = append(logReq.Topics, []string{topics.String()})
 		}
 	}
 	return &logReq, nil
