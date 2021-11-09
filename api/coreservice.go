@@ -318,7 +318,7 @@ func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt,
 }
 
 // ReadContract reads the state in a contract address specified by the slot
-func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execution, from string, gasLimit uint64) (string, *iotextypes.Receipt, error) {
+func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execution, callerAddr address.Address, gasLimit uint64) (string, *iotextypes.Receipt, error) {
 	log.L().Debug("receive read smart contract request")
 	sc := &action.Execution{}
 	if err := sc.LoadProto(in); err != nil {
@@ -332,15 +332,7 @@ func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execut
 			return res.Data, res.Receipt, nil
 		}
 	}
-
-	if from == action.EmptyAddress {
-		from = address.ZeroAddress
-	}
-	callerAddr, err := address.FromString(from)
-	if err != nil {
-		return "", nil, status.Error(codes.FailedPrecondition, err.Error())
-	}
-	state, err := accountutil.AccountState(core.sf, from)
+	state, err := accountutil.AccountState(core.sf, callerAddr.String())
 	if err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
