@@ -222,7 +222,7 @@ func (svr *GrpcServer) ReadContract(ctx context.Context, in *iotexapi.ReadContra
 	}
 	callerAddr, err := address.FromString(from)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	data, receipt, err := svr.coreService.ReadContract(ctx, in.Execution, callerAddr, in.GasLimit)
 	if err != nil {
