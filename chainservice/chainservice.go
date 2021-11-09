@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -58,7 +59,7 @@ type ChainService struct {
 	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	api                *api.Server
+	api                *api.ServerV2
 	indexBuilder       *blockindex.IndexBuilder
 	bfIndexer          blockindex.BloomFilterIndexer
 	candidateIndexer   *poll.CandidateIndexer
@@ -416,8 +417,7 @@ func New(
 		}
 	}
 
-	var apiSvr *api.Server
-	apiSvr, err = api.NewServer(
+	apiSvr, err := api.NewServerV2(
 		cfg,
 		chain,
 		bs,
@@ -630,9 +630,15 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
+// APIServer defines the interface of core service of the server
+type APIServer interface {
+	GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error)
+	GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error)
+}
+
 // APIServer returns the API server
-func (cs *ChainService) APIServer() *api.Server {
-	return cs.api
+func (cs *ChainService) APIServer() APIServer {
+	return cs.api.GrpcServer
 }
 
 // Consensus returns the consensus instance
