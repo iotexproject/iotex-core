@@ -366,13 +366,17 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 	if to == "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr" {
 		return nil, nil
 	}
+	callerAddr, err := address.FromString(from)
+	if err != nil {
+		return nil, errUnkownType
+	}
 	ret, _, err := svr.coreService.ReadContract(context.Background(),
 		&iotextypes.Execution{
 			Amount:   value.String(),
 			Contract: to,
 			Data:     data,
 		},
-		from,
+		callerAddr,
 		gasLimit,
 	)
 	if err != nil {
@@ -557,13 +561,17 @@ func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
 
 func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error) {
 	// parse action hash from request
-	actHash, err := getStringFromArray(in, 0)
+	actHashStr, err := getStringFromArray(in, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	// acquire action receipt by action hash
-	receipt, blkHash, err := svr.coreService.ReceiptByAction(removeHexPrefix(actHash))
+	actHash, err := hash.HexStringToHash256(removeHexPrefix(actHashStr))
+	if err != nil {
+		return nil, errUnkownType
+	}
+	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
 	if err != nil {
 		return nil, err
 	}
@@ -579,7 +587,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// acquire transaction index by action hash
-	actInfo, err := svr.coreService.Action(removeHexPrefix(actHash), true)
+	actInfo, err := svr.coreService.Action(removeHexPrefix(actHashStr), true)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +609,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		}
 		log := logsObject{
 			BlockHash:        "0x" + blkHash,
-			TransactionHash:  actHash,
+			TransactionHash:  actHashStr,
 			TransactionIndex: tx.TransactionIndex,
 			LogIndex:         uint64ToHex(uint64(v.Index)),
 			BlockNumber:      uint64ToHex(v.BlockHeight),
@@ -621,7 +629,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		Status:            uint64ToHex(receipt.Status),
 		To:                tx.To,
-		TransactionHash:   actHash,
+		TransactionHash:   actHashStr,
 		TransactionIndex:  tx.TransactionIndex,
 		Logs:              logs,
 	}, nil

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -289,7 +290,11 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 	}
 
 	if tx.To == nil {
-		receipt, _, err := svr.coreService.ReceiptByAction((tx.Hash)[2:])
+		actHash, err := hash.HexStringToHash256((tx.Hash)[2:])
+		if err != nil {
+			return transactionObject{}, errUnkownType
+		}
+		receipt, _, err := svr.coreService.ReceiptByAction(actHash)
 		if err != nil {
 			return transactionObject{}, err
 		}
