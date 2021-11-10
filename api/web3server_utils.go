@@ -246,7 +246,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		data = byteToHex(act.Execution.GetData())
 	// TODO: support other type actions
 	default:
-		return nil, errors.Errorf("the type of action(hash: %x) is not supported  ")
+		return nil, errors.Errorf("the type of action(hash: %s) is not supported", actInfo.ActHash)
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
