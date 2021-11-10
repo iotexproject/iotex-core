@@ -367,6 +367,11 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockcha
 	errCode := uint64(iotextypes.ReceiptStatus_Success)
 	if evmErr != nil {
 		errCode = evmErrToErrStatusCode(evmErr, g, blockHeight)
+		if errCode == uint64(iotextypes.ReceiptStatus_ErrUnknown) {
+			log.L().Warn("evm internal error", zap.Error(evmErr),
+				log.Hex("contract", (*evmParams.contract)[:]),
+				log.Hex("calldata", evmParams.data))
+		}
 	}
 	return ret, evmParams.gas, remainingGas, contractRawAddress, errCode, nil
 }
@@ -403,7 +408,6 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (e
 			case "no compatible interpreter":
 				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
 			default:
-				log.L().Error("evm internal error", zap.Error(evmErr))
 				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
 			}
 		}
