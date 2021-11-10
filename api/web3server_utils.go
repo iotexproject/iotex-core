@@ -165,7 +165,10 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
 					continue
 				}
-				transactions = append(transactions, *tx)
+				// other types of actions aren't included in the response
+				if tx != nil {
+					transactions = append(transactions, *tx)
+				}
 			} else {
 				transactions = append(transactions, "0x"+info.ActHash)
 			}

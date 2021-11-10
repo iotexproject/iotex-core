@@ -164,9 +164,14 @@ func TestGetBlockByNumber(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := []interface{}{"1", false}
+	testData := []interface{}{"1", true}
 	ret, _ := svr.web3Server.getBlockByNumber(testData)
 	v, _ := ret.(blockObject)
+	require.Equal(len(v.Transactions), 1)
+
+	testData2 := []interface{}{"1", false}
+	ret, _ = svr.web3Server.getBlockByNumber(testData2)
+	v, _ = ret.(blockObject)
 	require.Equal(len(v.Transactions), 2)
 }
 
