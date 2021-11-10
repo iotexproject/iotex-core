@@ -870,7 +870,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if start >= totalActions {
-		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the total actions in the block")
 	}
 	if totalActions == uint64(0) || count == 0 {
 		return []*iotexapi.ActionInfo{}, nil
@@ -1014,7 +1014,6 @@ func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint
 	if count > core.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
-
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())

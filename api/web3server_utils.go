@@ -68,8 +68,8 @@ type (
 		S                string  `json:"s"`
 		V                string  `json:"v"`
 		StandardV        string  `json:"standardV"`
-		Condition        string  `json:"condition"`
-		Creates          string  `json:"creates"`
+		Condition        *string `json:"condition"`
+		Creates          *string `json:"creates"`
 		ChainID          string  `json:"chainId"`
 		PublicKey        string  `json:"publicKey"`
 	}
@@ -165,10 +165,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
 					continue
 				}
-				// other types of actions aren't included in the response
-				if tx != nil {
-					transactions = append(transactions, *tx)
-				}
+				transactions = append(transactions, *tx)
 			} else {
 				transactions = append(transactions, "0x"+info.ActHash)
 			}
@@ -220,7 +217,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 	var (
 		to    *string
 		value = "0x0"
-		data  = ""
+		data  = "0x"
 		err   error
 	)
 	switch act := actInfo.Action.Core.Action.(type) {
@@ -249,7 +246,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		data = byteToHex(act.Execution.GetData())
 	// TODO: support other type actions
 	default:
-		return nil, nil
+		return nil, errors.Errorf("the type of action(hash: %x) is not supported  ")
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
@@ -301,10 +298,11 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 		if err != nil {
 			return transactionObject{}, err
 		}
-		tx.Creates, err = ioAddrToEthAddr(receipt.ContractAddress)
+		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
 		if err != nil {
 			return transactionObject{}, err
 		}
+		tx.Creates = &addr
 	}
 	return *tx, nil
 }
@@ -416,10 +414,11 @@ func (svr *Web3Server) getLogsWithFilter(fromBlock string, toBlock string, addrs
 			return nil, err
 		}
 		ret = append(ret, logsObject{
-			BlockHash:        byteToHex(l.BlkHash),
-			TransactionHash:  byteToHex(l.ActHash),
-			LogIndex:         uint64ToHex(uint64(l.Index)),
-			BlockNumber:      uint64ToHex(l.BlkHeight),
+			BlockHash:       byteToHex(l.BlkHash),
+			TransactionHash: byteToHex(l.ActHash),
+			LogIndex:        uint64ToHex(uint64(l.Index)),
+			BlockNumber:     uint64ToHex(l.BlkHeight),
+			// TransactionIndex bug will be fixed in the next
 			TransactionIndex: "0x1",
 			Address:          contractAddr,
 			Data:             byteToHex(l.Data),

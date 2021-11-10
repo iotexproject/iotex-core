@@ -159,51 +159,51 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			params = web3Req.Get("params").Value()
 		)
 		switch web3Req.Get("method").Value() {
-		case "eth_gasPrice":
+		case "eth_gasPrice": //###
 			res, err = svr.gasPrice()
-		case "eth_getBlockByHash":
+		case "eth_getBlockByHash": //#half
 			res, err = svr.getBlockByHash(params)
-		case "eth_chainId":
+		case "eth_chainId": //###
 			res, err = svr.getChainID()
-		case "eth_blockNumber":
+		case "eth_blockNumber": //###
 			res, err = svr.getBlockNumber()
-		case "eth_getBalance":
+		case "eth_getBalance": //###
 			res, err = svr.getBalance(params)
-		case "eth_getTransactionCount":
+		case "eth_getTransactionCount": //###
 			res, err = svr.getTransactionCount(params)
 		case "eth_call":
 			res, err = svr.call(params)
 		case "eth_getCode":
 			res, err = svr.getCode(params)
-		case "eth_protocolVersion":
+		case "eth_protocolVersion": //###
 			res, err = svr.getProtocolVersion()
-		case "web3_clientVersion":
+		case "web3_clientVersion": //###
 			res, err = svr.getNodeInfo()
-		case "net_version":
+		case "net_version": //###
 			res, err = svr.getNetworkID()
-		case "net_peerCount":
+		case "net_peerCount": //###
 			res, err = svr.getPeerCount()
-		case "net_listening":
+		case "net_listening": //###
 			res, err = svr.isListening()
-		case "eth_syncing":
+		case "eth_syncing": //###
 			res, err = svr.isSyncing()
-		case "eth_mining":
+		case "eth_mining": //###
 			res, err = svr.isMining()
-		case "eth_hashrate":
+		case "eth_hashrate": //###
 			res, err = svr.getHashrate()
 		case "eth_getLogs":
 			if filter, err := parseLogRequest(web3Req.Get("params")); err == nil {
 				res, err = svr.getLogs(filter)
 			}
-		case "eth_getBlockTransactionCountByHash":
+		case "eth_getBlockTransactionCountByHash": //###
 			res, err = svr.getBlockTransactionCountByHash(params)
-		case "eth_getBlockByNumber":
+		case "eth_getBlockByNumber": //###
 			res, err = svr.getBlockByNumber(params)
 		case "eth_estimateGas":
 			res, err = svr.estimateGas(params)
 		case "eth_sendRawTransaction":
 			res, err = svr.sendRawTransaction(params)
-		case "eth_getTransactionByHash":
+		case "eth_getTransactionByHash": //###
 			res, err = svr.getTransactionByHash(params)
 		case "eth_getTransactionByBlockNumberAndIndex":
 			res, err = svr.getTransactionByBlockNumberAndIndex(params)
@@ -526,6 +526,7 @@ func (svr *Web3Server) getBlockTransactionCountByHash(in interface{}) (interface
 	}
 	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
+		// wrap err not found
 		return nil, err
 	}
 	return uint64ToHex(uint64(blkMeta.NumActions)), nil
@@ -538,6 +539,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	}
 	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
+		// wrap err not found
 		return nil, err
 	}
 	return svr.getBlockWithTransactions(blkMeta, isDetailed)
@@ -646,7 +648,10 @@ func (svr *Web3Server) getBlockTransactionCountByNumber(in interface{}) (interfa
 		return nil, err
 	}
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil {
+	if err != nil || blkMetas == nil || len(blkMetas) == 0 {
+		if err == nil {
+			err = errors.New("invalid block")
+		}
 		return nil, err
 	}
 	return blkMetas[0].NumActions, nil
@@ -689,14 +694,20 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	if err != nil {
 		return nil, err
 	}
+	log.L().Error("acquire block meta")
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil {
+	if err != nil || blkMetas == nil || len(blkMetas) == 0 {
+		if err == nil {
+			err = errors.New("invalid block")
+		}
 		return nil, err
 	}
 	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
-	if err != nil {
+	if err != nil || len(actionInfos) == 0 {
+		log.L().Error("index err", zap.Error(err), zap.Int("actLen", len(actionInfos)))
 		return nil, err
 	}
+	log.L().Error("extract action info")
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 
@@ -759,7 +770,10 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 		ret = logs
 	case "block":
 		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, svr.coreService.cfg.API.RangeQueryLimit)
-		if err != nil {
+		if err != nil || blkMetas == nil || len(blkMetas) == 0 {
+			if err == nil {
+				err = errors.New("invalid block")
+			}
 			return nil, err
 		}
 		var hashArr []string
