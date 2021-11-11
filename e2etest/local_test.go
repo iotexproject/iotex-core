@@ -75,10 +75,10 @@ func TestLocalCommit(t *testing.T) {
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
-	chainID := cfg.Chain.ID
-	bc := svr.ChainService(chainID).Blockchain()
-	sf := svr.ChainService(chainID).StateFactory()
-	ap := svr.ChainService(chainID).ActionPool()
+	cs := svr.ChainService(cfg.Chain.ID)
+	bc := cs.Blockchain()
+	sf := cs.StateFactory()
+	ap := cs.ActionPool()
 	require.NotNil(bc)
 	require.NotNil(sf)
 	require.NotNil(ap)
@@ -86,7 +86,6 @@ func TestLocalCommit(t *testing.T) {
 	i27State, err := accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc, ap))
-	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2PAgent())
 
 	// create client
@@ -229,7 +228,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act1); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 1, nil
 	})
 	require.NoError(err)
@@ -254,7 +253,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act2); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 2, nil
 	})
 	require.NoError(err)
@@ -275,7 +274,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act3); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 3, nil
 	})
 	require.NoError(err)
@@ -296,7 +295,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act4); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 4, nil
 	})
 	require.NoError(err)
@@ -552,15 +551,13 @@ func TestStartExistingBlockchain(t *testing.T) {
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
-	chainID := cfg.Chain.ID
-	bc := svr.ChainService(chainID).Blockchain()
-	sf := svr.ChainService(chainID).StateFactory()
-	ap := svr.ChainService(chainID).ActionPool()
-	dao := svr.ChainService(chainID).BlockDAO()
+	cs := svr.ChainService(cfg.Chain.ID)
+	bc := cs.Blockchain()
+	ap := cs.ActionPool()
 	require.NotNil(bc)
-	require.NotNil(sf)
+	require.NotNil(cs.StateFactory())
 	require.NotNil(ap)
-	require.NotNil(dao)
+	require.NotNil(cs.BlockDAO())
 
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
@@ -575,17 +572,21 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
 
-	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
-	height, _ := svr.ChainService(cfg.Chain.ID).StateFactory().Height()
+	require.NoError(cs.Blockchain().Start(ctx))
+	height, _ := cs.StateFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(5), height)
-	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Stop(ctx))
+	require.NoError(cs.Blockchain().Stop(ctx))
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
+	dao := blockdao.NewBlockDAO(nil, cfg.DB)
+	require.NoError(dao.Start(protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{
+			ChainID: cfg.Chain.ID,
+		})))
 	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(dao.Stop(ctx))
 
@@ -594,11 +595,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
-	bc = svr.ChainService(chainID).Blockchain()
-	sf = svr.ChainService(chainID).StateFactory()
-	dao = svr.ChainService(chainID).BlockDAO()
-	height, _ = sf.Height()
-	require.Equal(bc.TipHeight(), height)
+	cs = svr.ChainService(cfg.Chain.ID)
+	height, _ = cs.StateFactory().Height()
+	require.Equal(cs.Blockchain().TipHeight(), height)
 	require.Equal(uint64(3), height)
 
 	// Recover to height 2 from an existing state DB with Height 3
@@ -606,7 +605,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
+	require.NoError(dao.Start(protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{
+			ChainID: cfg.Chain.ID,
+		})))
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
@@ -614,10 +617,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	// Build states from height 1 to 2
 	require.NoError(svr.Start(ctx))
-	bc = svr.ChainService(chainID).Blockchain()
-	sf = svr.ChainService(chainID).StateFactory()
-	height, _ = sf.Height()
-	require.Equal(bc.TipHeight(), height)
+	cs = svr.ChainService(cfg.Chain.ID)
+	height, _ = cs.StateFactory().Height()
+	require.Equal(cs.Blockchain().TipHeight(), height)
 	require.Equal(uint64(2), height)
 	require.NoError(svr.Stop(ctx))
 }
