@@ -62,7 +62,7 @@ func TestIndexBuilder(t *testing.T) {
 
 	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
 				ChainID: config.Default.Chain.ID,
 			})

@@ -142,7 +142,8 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if producer == nil {
 				return errors.New("failed to get address")
 			}
-			if bcCtx.Tip.Height = tipBlk.Height(); bcCtx.Tip.Height > 0 {
+			bcCtx.Tip.Height = tipBlk.Height()
+			if bcCtx.Tip.Height > 0 {
 				bcCtx.Tip.Hash = tipBlk.HashHeader()
 				bcCtx.Tip.Timestamp = tipBlk.Timestamp()
 			} else {
