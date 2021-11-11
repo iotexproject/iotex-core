@@ -1525,6 +1525,11 @@ func (core *coreService) EVMNetworkID() uint32 {
 	return config.EVMNetworkID()
 }
 
+// ChainID returns the chain id of evm
+func (core *coreService) ChainID() uint32 {
+	return core.bc.ChainID()
+}
+
 // GetActionByActionHash returns action by action hash
 func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
 	if !core.hasActionIndex || core.indexer == nil {

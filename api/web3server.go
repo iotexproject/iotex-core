@@ -161,7 +161,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		switch web3Req.Get("method").Value() {
 		case "eth_gasPrice": //###
 			res, err = svr.gasPrice()
-		case "eth_getBlockByHash": //#half
+		case "eth_getBlockByHash": //###
 			res, err = svr.getBlockByHash(params)
 		case "eth_chainId": //###
 			res, err = svr.getChainID()
@@ -205,13 +205,13 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.sendRawTransaction(params)
 		case "eth_getTransactionByHash": //###
 			res, err = svr.getTransactionByHash(params)
-		case "eth_getTransactionByBlockNumberAndIndex":
+		case "eth_getTransactionByBlockNumberAndIndex": //###
 			res, err = svr.getTransactionByBlockNumberAndIndex(params)
-		case "eth_getTransactionByBlockHashAndIndex":
+		case "eth_getTransactionByBlockHashAndIndex": //###
 			res, err = svr.getTransactionByBlockHashAndIndex(params)
-		case "eth_getBlockTransactionCountByNumber":
+		case "eth_getBlockTransactionCountByNumber": //DEBUGING
 			res, err = svr.getBlockTransactionCountByNumber(params)
-		case "eth_getTransactionReceipt":
+		case "eth_getTransactionReceipt": //DEBUGING
 			res, err = svr.getTransactionReceipt(params)
 		case "eth_getFilterLogs":
 			res, err = svr.getFilterLogs(params)
@@ -430,8 +430,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			Nonce:    tx.Nonce(),
 			GasLimit: tx.Gas(),
 			GasPrice: tx.GasPrice().String(),
-			// TODO: use which chainid
-			ChainID: 0,
+			ChainID:  svr.coreService.ChainID(),
 		},
 		SenderPubKey: pubkey.Bytes(),
 		Signature:    sig,
@@ -654,7 +653,7 @@ func (svr *Web3Server) getBlockTransactionCountByNumber(in interface{}) (interfa
 		}
 		return nil, err
 	}
-	return blkMetas[0].NumActions, nil
+	return uint64ToHex(uint64(blkMetas[0].NumActions)), nil
 }
 
 func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interface{}, error) {
