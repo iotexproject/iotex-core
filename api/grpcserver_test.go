@@ -2698,42 +2698,6 @@ func newConfig(t *testing.T) config.Config {
 	return cfg
 }
 
-func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, string, error) {
-	// TODO (zhi): revise
-	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
-	if err != nil {
-		return nil, "", err
-	}
-
-	ctx := context.Background()
-
-	// Start blockchain
-	if err := bc.Start(ctx); err != nil {
-		return nil, "", err
-	}
-	// Add testing blocks
-	if err := addTestingBlocks(bc, ap); err != nil {
-		return nil, "", err
-	}
-
-	if needActPool {
-		// Add actions to actpool
-		ctx = protocol.WithRegistry(ctx, registry)
-		if err := addActsToActPool(ctx, ap); err != nil {
-			return nil, "", err
-		}
-	}
-	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry,
-		WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return nil
-		}))
-	if err != nil {
-		return nil, "", err
-	}
-	svr.core.hasActionIndex = true
-	return svr, bfIndexFile, nil
-}
-
 func TestGrpcServer_GetActPoolActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
