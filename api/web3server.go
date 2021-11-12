@@ -427,21 +427,31 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
+	// load the value of gasPrice, value, to
+	gasPrice, value, to := "0", "0", ""
+	if tx.GasPrice() != nil {
+		gasPrice = tx.GasPrice().String()
+	}
+	if tx.Value() != nil {
+		value = tx.Value().String()
+	}
+	if tx.To() != nil {
+		ioAddr, _ := address.FromBytes(tx.To().Bytes())
+		to = ioAddr.String()
+	}
+
 	req := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Version:  0,
 			Nonce:    tx.Nonce(),
 			GasLimit: tx.Gas(),
-			GasPrice: tx.GasPrice().String(),
+			GasPrice: gasPrice,
 			ChainID:  svr.coreService.ChainID(),
 		},
 		SenderPubKey: pubkey.Bytes(),
 		Signature:    sig,
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
-
-	ioAddr, _ := address.FromBytes(tx.To().Bytes())
-	to := ioAddr.String()
 
 	// TODO: process special staking action
 
@@ -451,7 +461,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			Transfer: &iotextypes.Transfer{
 				Recipient: to,
 				Payload:   tx.Data(),
-				Amount:    tx.Value().String(),
+				Amount:    value,
 			},
 		}
 	} else {
@@ -460,7 +470,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			Execution: &iotextypes.Execution{
 				Contract: to,
 				Data:     tx.Data(),
-				Amount:   tx.Value().String(),
+				Amount:   value,
 			},
 		}
 	}
