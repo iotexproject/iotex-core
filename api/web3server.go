@@ -171,9 +171,9 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.getBalance(params)
 		case "eth_getTransactionCount": //###
 			res, err = svr.getTransactionCount(params)
-		case "eth_call":
+		case "eth_call": //DEBUGING
 			res, err = svr.call(params)
-		case "eth_getCode":
+		case "eth_getCode": //###
 			res, err = svr.getCode(params)
 		case "eth_protocolVersion": //###
 			res, err = svr.getProtocolVersion()
@@ -209,7 +209,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.getTransactionByBlockNumberAndIndex(params)
 		case "eth_getTransactionByBlockHashAndIndex": //###
 			res, err = svr.getTransactionByBlockHashAndIndex(params)
-		case "eth_getBlockTransactionCountByNumber": //DEBUGING
+		case "eth_getBlockTransactionCountByNumber": //###
 			res, err = svr.getBlockTransactionCountByNumber(params)
 		case "eth_getTransactionReceipt": //DEBUGING
 			res, err = svr.getTransactionReceipt(params)
@@ -392,10 +392,10 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	}
 
 	var estimatedGas uint64
-	if isContract, _ := svr.isContractAddr(to); !isContract {
-		// transfer
-		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
-	} else {
+	isContract, _ := svr.isContractAddr(to)
+	// TODO: support more types of actions
+	switch isContract {
+	case true:
 		// execution
 		estimatedGas, err = svr.coreService.estimateActionGasConsumptionForExecution(context.Background(),
 			&iotextypes.Execution{
@@ -406,6 +406,9 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+	case false:
+		// transfer
+		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
@@ -482,6 +485,7 @@ func (svr *Web3Server) getCode(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO: do something if accountMeta.ContractByteCode == ""
 	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
 }
 
@@ -711,6 +715,27 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 }
 
 func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
+	//check the validity of filter before caching
+	if _, err := svr.parseBlockNumber(filter.FromBlock); err != nil {
+		return nil, errUnkownType
+	}
+	if _, err := svr.parseBlockNumber(filter.ToBlock); err != nil {
+		return nil, errUnkownType
+	}
+	for _, ethAddr := range filter.Address {
+		if _, err := ethAddrToIoAddr(ethAddr); err != nil {
+			return nil, err
+		}
+	}
+	for _, tp := range filter.Topics {
+		for _, str := range tp {
+			if _, err := hex.DecodeString(str); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// save it into json string
 	filter.FilterType = "log"
 	objInByte, _ := json.Marshal(*filter)
 	keyHash := hash.Hash256b(objInByte)

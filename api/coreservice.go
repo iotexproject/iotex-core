@@ -417,6 +417,7 @@ func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, er
 // EstimateActionGasConsumption estimate gas consume for action without signature
 func (core *coreService) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (uint64, error) {
 	var ret uint64
+	// TODO: refactor gas estimation code out of core service
 	switch {
 	case in.GetExecution() != nil:
 		request := in.GetExecution()

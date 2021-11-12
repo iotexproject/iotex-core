@@ -350,6 +350,9 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 }
 
 func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
+	if addr == "" {
+		return true, nil
+	}
 	accountMeta, _, err := svr.coreService.Account(addr)
 	if err != nil {
 		return false, err
@@ -474,7 +477,7 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 	}
 	callObj := struct {
 		From     string `json:"from,omitempty"`
-		To       string `json:"to"`
+		To       string `json:"to,omitempty"`
 		Gas      string `json:"gas,omitempty"`
 		GasPrice string `json:"gasPrice,omitempty"`
 		Value    string `json:"value,omitempty"`
@@ -484,31 +487,33 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 	if err != nil {
 		return
 	}
-	if callObj.To == "" {
-		err = errors.New("missing 'to' address field")
-		return
+	if callObj.To != "" {
+		to, err = ethAddrToIoAddr(callObj.To)
+		if err != nil {
+			return
+		}
 	}
-
 	if callObj.From == "" {
 		callObj.From = "0x0000000000000000000000000000000000000000"
 	}
-
 	from, err = ethAddrToIoAddr(callObj.From)
 	if err != nil {
 		return
 	}
-	to, err = ethAddrToIoAddr(callObj.To)
-	if err != nil {
-		return
+	if callObj.Value != "" {
+		value, ok = big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
+		if !ok {
+			err = errUnkownType
+			return
+		}
+	} else {
+		value = big.NewInt(0)
 	}
-	value, ok = big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
-	if !ok {
-		err = errUnkownType
-		return
-	}
-	gasLimit, err = hexStringToNumber(callObj.Gas)
-	if err != nil {
-		return
+	if callObj.Gas != "" {
+		gasLimit, err = hexStringToNumber(callObj.Gas)
+		if err != nil {
+			return
+		}
 	}
 	data = common.FromHex(callObj.Data)
 	return
