@@ -83,10 +83,10 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 // LoadProto loads from proto scheme.
 func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrEmptyActionPool
 	}
 	if sealed == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	sigSize := len(pbAct.GetSignature())
 	if sigSize != 65 {
