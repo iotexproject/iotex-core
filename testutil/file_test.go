@@ -7,6 +7,7 @@
 package testutil
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,8 @@ import (
 func TestFile(t *testing.T) {
 	assert := assert.New(t)
 	tmpPath, err := PathOfTempFile("iotx")
+	assert.NoError(err)
+	_, err = os.Stat(tmpPath)
 	assert.NoError(err)
 	defer CleanupPath(t, tmpPath)
 }

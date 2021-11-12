@@ -83,24 +83,16 @@ func TestActionProtoAndVerify(t *testing.T) {
 
 func TestActionClassifyActions(t *testing.T) {
 	require := require.New(t)
-	producerAddr := identityset.Address(27).String()
-	producerPriKey := identityset.PrivateKey(27)
-	amount := big.NewInt(0)
-	selp0, err := SignedTransfer(producerAddr, producerPriKey, 1, amount, nil, 100, big.NewInt(0))
-	require.NoError(err)
-
-	selp1, err := SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
-	require.NoError(err)
-
-	selp2, err := SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
-	require.NoError(err)
-
-	selp3, err := SignedExecution(producerAddr, producerPriKey, uint64(1), amount, uint64(100000), big.NewInt(10), []byte{})
-	require.NoError(err)
-
-	selp4, err := SignedExecution(producerAddr, producerPriKey, uint64(2), amount, uint64(100000), big.NewInt(10), []byte{})
-	require.NoError(err)
-
+	var (
+		producerAddr   = identityset.Address(27).String()
+		producerPriKey = identityset.PrivateKey(27)
+		amount         = big.NewInt(0)
+		selp0, _       = SignedTransfer(producerAddr, producerPriKey, 1, amount, nil, 100, big.NewInt(0))
+		selp1, _       = SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
+		selp2, _       = SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
+		selp3, _       = SignedExecution(producerAddr, producerPriKey, uint64(1), amount, uint64(100000), big.NewInt(10), []byte{})
+		selp4, _       = SignedExecution(producerAddr, producerPriKey, uint64(2), amount, uint64(100000), big.NewInt(10), []byte{})
+	)
 	actions := []SealedEnvelope{selp0, selp1, selp2, selp3, selp4}
 	tsfs, exes := ClassifyActions(actions)
 	require.Equal(len(tsfs), 3)

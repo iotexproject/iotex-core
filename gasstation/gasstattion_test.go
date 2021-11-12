@@ -213,21 +213,21 @@ func TestIsSystemAction(t *testing.T) {
 	require.NotNil(gs)
 	builder := action.EnvelopeBuilder{}
 	cf := action.ClaimFromRewardingFundBuilder{}
-	cfb := cf.Build()
-	act := builder.SetAction(&cfb).Build()
+	actClaimFromRewarding := cf.Build()
+	act := builder.SetAction(&actClaimFromRewarding).Build()
 	sel, err := action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.False(gs.IsSystemAction(sel))
 
 	gb := action.GrantRewardBuilder{}
-	grant := gb.Build()
-	act = builder.SetAction(&grant).Build()
+	actGrantReward := gb.Build()
+	act = builder.SetAction(&actGrantReward).Build()
 	sel, err = action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(gs.IsSystemAction(sel))
 
-	act2 := action.NewPutPollResult(1, 1, nil)
-	act = builder.SetAction(act2).Build()
+	actPollResult := action.NewPutPollResult(1, 1, nil)
+	act = builder.SetAction(actPollResult).Build()
 	sel, err = action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(gs.IsSystemAction(sel))
