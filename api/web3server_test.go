@@ -570,13 +570,13 @@ func TestAPICache(t *testing.T) {
 	testKey, testData := strconv.Itoa(rand.Int()), strconv.Itoa(rand.Int())
 	// local cache
 	cacheLocal := newAPIiCache(1*time.Second, "")
-	_, exist, _ := cacheLocal.Get(testKey)
+	_, exist := cacheLocal.Get(testKey)
 	require.False(exist)
 	err := cacheLocal.Set(testKey, testData)
 	require.NoError(err)
-	data, _, _ := cacheLocal.Get(testKey)
+	data, _ := cacheLocal.Get(testKey)
 	require.Equal(data, testData)
 	cacheLocal.Del(testKey)
-	_, exist, _ = cacheLocal.Get(testKey)
+	_, exist = cacheLocal.Get(testKey)
 	require.False(exist)
 }

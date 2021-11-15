@@ -544,8 +544,8 @@ func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64)
 }
 
 func loadFilterFromCache(c apiCache, filterID string) (filterObject, error) {
-	dataStr, isFound, err := c.Get(filterID)
-	if err != nil || !isFound {
+	dataStr, isFound := c.Get(filterID)
+	if !isFound {
 		return filterObject{}, errInvalidFiterID
 	}
 	var filterObj filterObject
@@ -578,7 +578,7 @@ func newAPIiCache(expireTime time.Duration, remoteURL string) apiCache {
 type apiCache interface {
 	Set(key string, data string) error
 	Del(key string) bool
-	Get(key string) (string, bool, error)
+	Get(key string) (string, bool)
 }
 
 type localCache struct {
@@ -600,12 +600,15 @@ func (c *localCache) Del(key string) bool {
 	return c.ttlCache.Delete(key)
 }
 
-func (c *localCache) Get(key string) (string, bool, error) {
+func (c *localCache) Get(key string) (string, bool) {
 	if c.ttlCache == nil {
-		return "", false, errNullPointer
+		return "", false
 	}
 	ret, exist := c.ttlCache.Get(key)
-	return ret.(string), exist, nil
+	if _, ok := ret.(string); !ok || !exist {
+		return "", false
+	}
+	return ret.(string), true
 }
 
 type remoteCache struct {
@@ -628,16 +631,16 @@ func (c *remoteCache) Del(key string) bool {
 	return err == nil
 }
 
-func (c *remoteCache) Get(key string) (string, bool, error) {
+func (c *remoteCache) Get(key string) (string, bool) {
 	if c.redisCache == nil {
-		return "", false, errNullPointer
+		return "", false
 	}
 	ret, err := c.redisCache.Get(context.Background(), key).Result()
 	if err == redis.Nil {
-		return "", false, nil
+		return "", false
 	} else if err != nil {
-		return "", false, err
+		return "", false
 	}
 	c.redisCache.Expire(context.Background(), key, c.expireTime)
-	return ret, true, nil
+	return ret, true
 }
