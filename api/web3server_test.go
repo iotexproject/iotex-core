@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -498,7 +501,7 @@ func TestNewfilter(t *testing.T) {
 	}
 	ret, err := svr.web3Server.newFilter(testData)
 	require.NoError(err)
-	require.Equal("0xe10f7dd489b75a36de8e246eb974827fe86a02ed19d9b475a1600cf4f935feff", ret)
+	require.Equal(ret, "0xe10f7dd489b75a36de8e246eb974827fe86a02ed19d9b475a1600cf4f935feff")
 }
 
 func TestNewBlockFilter(t *testing.T) {
@@ -531,11 +534,15 @@ func TestGetFilterChanges(t *testing.T) {
 	ret, err := svr.web3Server.getFilterChanges([]interface{}{filterID1})
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)
+	// request again after last rolling
+	ret, err = svr.web3Server.getFilterChanges([]interface{}{filterID1})
+	require.NoError(err)
+	require.Equal(len(ret.([]interface{})), 0)
 
 	filterID2, _ := svr.web3Server.newBlockFilter()
 	ret2, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
 	require.NoError(err)
-	require.Equal(len(ret2.([]interface{})), 0)
+	require.Equal(1, len(ret2.([]string)))
 }
 
 func TestGetFilterLogs(t *testing.T) {
@@ -555,4 +562,21 @@ func TestGetFilterLogs(t *testing.T) {
 	ret, err := svr.web3Server.getFilterLogs(testData)
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)
+}
+
+func TestAPICache(t *testing.T) {
+	require := require.New(t)
+
+	testKey, testData := strconv.Itoa(rand.Int()), strconv.Itoa(rand.Int())
+	// local cache
+	cacheLocal := newAPIiCache(1*time.Second, "")
+	_, exist, _ := cacheLocal.Get(testKey)
+	require.False(exist)
+	err := cacheLocal.Set(testKey, testData)
+	require.NoError(err)
+	data, _, _ := cacheLocal.Get(testKey)
+	require.Equal(data, testData)
+	cacheLocal.Del(testKey)
+	_, exist, _ = cacheLocal.Get(testKey)
+	require.False(exist)
 }

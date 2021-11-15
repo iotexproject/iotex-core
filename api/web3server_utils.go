@@ -1,16 +1,20 @@
 package api
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/go-redis/redis/v8"
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -59,7 +63,7 @@ type (
 		BlockNumber      string  `json:"blockNumber"`
 		TransactionIndex string  `json:"transactionIndex"`
 		From             string  `json:"from"`
-		To               *string `json:"to,omitempty"`
+		To               *string `json:"to"`
 		Value            string  `json:"value"`
 		GasPrice         string  `json:"gasPrice"`
 		Gas              string  `json:"gas"`
@@ -81,7 +85,7 @@ func hexStringToNumber(hexStr string) (uint64, error) {
 
 func ethAddrToIoAddr(ethAddr string) (string, error) {
 	if ok := common.IsHexAddress(ethAddr); !ok {
-		return "", errUnkownType
+		return "", errors.Wrapf(errUnkownType, "ethAddr: %s", ethAddr)
 	}
 	ioAddress, err := address.FromBytes(common.HexToAddress(ethAddr).Bytes())
 	if err != nil {
@@ -108,7 +112,7 @@ func uint64ToHex(val uint64) string {
 func intStrToHex(str string) (string, error) {
 	amount, ok := big.NewInt(0).SetString(str, 10)
 	if !ok {
-		return "", errUnkownType
+		return "", errors.Wrapf(errUnkownType, "int: %s", str)
 	}
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
@@ -116,7 +120,7 @@ func intStrToHex(str string) (string, error) {
 func getStringFromArray(in interface{}, i int) (string, error) {
 	params, ok := in.([]interface{})
 	if !ok || i < 0 || i >= len(params) {
-		return "", errUnkownType
+		return "", errInvalidFormat
 	}
 	ret, ok := params[i].(string)
 	if !ok {
@@ -128,7 +132,7 @@ func getStringFromArray(in interface{}, i int) (string, error) {
 func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 	params, ok := in.([]interface{})
 	if !ok || len(params) != 2 {
-		err = errUnkownType
+		err = errInvalidFormat
 		return
 	}
 	str, ok = params[0].(string)
@@ -209,10 +213,9 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}, nil
 }
 
-// TODO: remove svr dependency
 func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) (*transactionObject, error) {
 	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
-		return nil, errUnkownType
+		return nil, errNullPointer
 	}
 	var (
 		to    *string
@@ -292,7 +295,7 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 	if tx.To == nil {
 		actHash, err := hash.HexStringToHash256((tx.Hash)[2:])
 		if err != nil {
-			return transactionObject{}, errUnkownType
+			return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", tx.Hash)
 		}
 		receipt, _, err := svr.coreService.ReceiptByAction(actHash)
 		if err != nil {
@@ -349,6 +352,26 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	}
 }
 
+func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
+	from, err = svr.parseBlockNumber(fromStr)
+	if err != nil {
+		return
+	}
+	to, err = svr.parseBlockNumber(toStr)
+	if err != nil {
+		return
+	}
+	tipHeight := svr.coreService.bc.TipHeight()
+	if from > tipHeight {
+		err = status.Error(codes.InvalidArgument, "start block > tip height")
+		return
+	}
+	if to > tipHeight {
+		to = tipHeight
+	}
+	return
+}
+
 func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 	if addr == "" {
 		return true, nil
@@ -360,24 +383,7 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 	return accountMeta.IsContract, nil
 }
 
-func (svr *Web3Server) getLogsWithFilter(fromBlock string, toBlock string, addrs []string, topics [][]string) ([]logsObject, error) {
-	// construct block range(from, to)
-	from, err := svr.parseBlockNumber(fromBlock)
-	if err != nil {
-		return nil, err
-	}
-	to, err := svr.parseBlockNumber(toBlock)
-	if err != nil {
-		return nil, err
-	}
-	tipHeight := svr.coreService.bc.TipHeight()
-	if from > tipHeight {
-		return nil, status.Error(codes.InvalidArgument, "start block > tip height")
-	}
-	if to > tipHeight {
-		to = tipHeight
-	}
-
+func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {
 	// construct filter topics and addresses
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addrs {
@@ -437,7 +443,7 @@ func byteToHex(b []byte) string {
 
 func parseLogRequest(in gjson.Result) (*filterObject, error) {
 	if len(in.Array()) != 1 {
-		return nil, errUnkownType
+		return nil, errInvalidFormat
 	}
 	req := in.Array()[0]
 	var logReq filterObject
@@ -463,12 +469,12 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, value *big.Int, data []byte, err error) {
 	params, ok := in.([]interface{})
 	if !ok {
-		err = errUnkownType
+		err = errInvalidFormat
 		return
 	}
 	params0, ok := params[0].(map[string]interface{})
 	if !ok {
-		err = errUnkownType
+		err = errInvalidFormat
 		return
 	}
 	req, err := json.Marshal(params0)
@@ -503,7 +509,7 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 	if callObj.Value != "" {
 		value, ok = big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
 		if !ok {
-			err = errUnkownType
+			err = errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
 			return
 		}
 	} else {
@@ -517,4 +523,121 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 	}
 	data = common.FromHex(callObj.Data)
 	return
+}
+
+func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
+	if from, to, err = svr.parseBlockRange(fromStr, toStr); err != nil {
+		return
+	}
+	switch {
+	case logHeight < from:
+		hasNewLogs = true
+		return
+	case logHeight > to:
+		hasNewLogs = false
+		return
+	default:
+		from = logHeight
+		hasNewLogs = true
+		return
+	}
+}
+
+func loadFilterFromCache(c apiCache, filterID string) (filterObject, error) {
+	dataStr, isFound, err := c.Get(filterID)
+	if err != nil || !isFound {
+		return filterObject{}, errInvalidFiterID
+	}
+	var filterObj filterObject
+	if err := json.Unmarshal([]byte(dataStr), &filterObj); err != nil {
+		return filterObject{}, err
+	}
+	return filterObj, nil
+}
+
+func newAPIiCache(expireTime time.Duration, remoteURL string) apiCache {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     remoteURL,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	if redisClient.Ping(context.Background()).Err() != nil {
+		log.L().Info("local cache is used as API cache")
+		filterCache, _ := ttl.NewCache(ttl.AutoExpireOption(expireTime))
+		return &localCache{
+			ttlCache: filterCache,
+		}
+	}
+	log.L().Info("remote cache is used as API cache")
+	return &remoteCache{
+		redisCache: redisClient,
+		expireTime: expireTime,
+	}
+}
+
+type apiCache interface {
+	Set(key string, data string) error
+	Del(key string) bool
+	Get(key string) (string, bool, error)
+}
+
+type localCache struct {
+	ttlCache *ttl.Cache
+}
+
+func (c *localCache) Set(key string, data string) error {
+	if c.ttlCache == nil {
+		return errNullPointer
+	}
+	c.ttlCache.Set(key, data)
+	return nil
+}
+
+func (c *localCache) Del(key string) bool {
+	if c.ttlCache == nil {
+		return false
+	}
+	return c.ttlCache.Delete(key)
+}
+
+func (c *localCache) Get(key string) (string, bool, error) {
+	if c.ttlCache == nil {
+		return "", false, errNullPointer
+	}
+	ret, exist := c.ttlCache.Get(key)
+	return ret.(string), exist, nil
+}
+
+type remoteCache struct {
+	redisCache *redis.Client
+	expireTime time.Duration
+}
+
+func (c *remoteCache) Set(key string, data string) error {
+	if c.redisCache == nil {
+		return errNullPointer
+	}
+	return c.redisCache.Set(context.Background(), key, data, c.expireTime).Err()
+}
+
+func (c *remoteCache) Del(key string) bool {
+	if c.redisCache == nil {
+		return false
+	}
+	err := c.redisCache.Unlink(context.Background(), key).Err()
+	return err == nil
+}
+
+func (c *remoteCache) Get(key string) (string, bool, error) {
+	if c.redisCache == nil {
+		return "", false, errNullPointer
+	}
+	ret, err := c.redisCache.Get(context.Background(), key).Result()
+	if err == redis.Nil {
+		return "", false, nil
+	} else if err != nil {
+		return "", false, err
+	}
+	c.redisCache.Expire(context.Background(), key, c.expireTime)
+	return ret, true, nil
 }
