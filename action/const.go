@@ -52,6 +52,10 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
+	// ErrEmptyActionPool indicates the error of empty action proto
+	ErrEmptyActionPool = errors.New("empty action proto to load")
+	// ErrNilAction indicates the error of nil action
+	ErrNilAction = errors.New("nil action to load proto")
 )
 
 // LoadErrorDescription loads corresponding description related to the error
