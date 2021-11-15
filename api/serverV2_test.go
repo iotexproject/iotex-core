@@ -28,8 +28,11 @@ func TestNewServerV2(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 	require.NoError(svr.Start())
-	time.Sleep(5 * time.Second) //let server have enough time to start.
-	require.NoError(svr.Stop())
+	time.Sleep(5 * time.Second)
+	require.NoError(testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return true, svr.Stop()
+	})) //let server have enough time to start.
+
 }
 
 func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, string, error) {
