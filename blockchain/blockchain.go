@@ -466,7 +466,7 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
-	ctx, err := bc.context(context.Background(), false)
+	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
 	}
