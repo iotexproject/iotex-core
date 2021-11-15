@@ -101,7 +101,6 @@ func TestAddBalance(t *testing.T) {
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
@@ -124,7 +123,6 @@ func TestRefundAPIs(t *testing.T) {
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
@@ -145,7 +143,6 @@ func TestEmptyAndCode(t *testing.T) {
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
@@ -182,7 +179,6 @@ func TestForEachStorage(t *testing.T) {
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	)
 	stateDB.CreateAccount(addr)
 	for k, v := range kvs {
@@ -213,7 +209,6 @@ func TestReadContractStorage(t *testing.T) {
 		SortCachedContractsOption(),
 		UsePendingNonceOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
@@ -255,7 +250,6 @@ func TestNonce(t *testing.T) {
 	opt := []StateDBAdapterOption{
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	}
 	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
@@ -507,7 +501,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(_ config.Config, t *testing.T, async, clearSnapshots bool) {
+	testClearSnapshots := func(_ config.Config, t *testing.T, async, fixSnapshotOrder bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -515,13 +509,12 @@ func TestClearSnapshots(t *testing.T) {
 		require.NoError(err)
 		opts := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
-			FixSnapshotOrderOption(),
 		}
 		if async {
 			opts = append(opts, AsyncContractTrieOption())
 		}
-		if clearSnapshots {
-			opts = append(opts, ClearSnapshotsOption())
+		if fixSnapshotOrder {
+			opts = append(opts, FixSnapshotOrderOption())
 		}
 		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 
@@ -555,20 +548,26 @@ func TestClearSnapshots(t *testing.T) {
 		// revert to snapshot 1
 		stateDB.RevertToSnapshot(1)
 
-		if stateDB.clearSnapshots {
+		if stateDB.fixSnapshotOrder {
 			// snapshot 1, 2 cleared, only 0 left in map
 			require.Equal(1, len(stateDB.suicideSnapshot))
 			require.Equal(1, len(stateDB.contractSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
 			require.Equal(2, stateDB.Snapshot())
-		} else {
-			// only snapshot 1 cleared, 0 and 2 left in map
+			// now there are 2 snapshots: 0 and the newly added one
 			require.Equal(2, len(stateDB.suicideSnapshot))
 			require.Equal(2, len(stateDB.contractSnapshot))
 			require.Equal(2, len(stateDB.preimageSnapshot))
-			require.Panics(func() {
-				stateDB.Snapshot()
-			})
+		} else {
+			// snapshot not cleared
+			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.contractSnapshot))
+			require.Equal(3, len(stateDB.preimageSnapshot))
+			require.Equal(2, stateDB.Snapshot())
+			// still 3 old snapshots
+			require.Equal(3, len(stateDB.suicideSnapshot))
+			require.Equal(3, len(stateDB.contractSnapshot))
+			require.Equal(3, len(stateDB.preimageSnapshot))
 		}
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
@@ -594,7 +593,6 @@ func TestGetCommittedState(t *testing.T) {
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
-			ClearSnapshotsOption(),
 		)
 
 		stateDB.SetState(c1, k1, v1)
@@ -633,7 +631,6 @@ func TestGetBalanceOnError(t *testing.T) {
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
-			ClearSnapshotsOption(),
 		)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
@@ -652,7 +649,6 @@ func TestPreimage(t *testing.T) {
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		ClearSnapshotsOption(),
 	)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
@@ -688,7 +684,6 @@ func TestSortMap(t *testing.T) {
 		opts = append(opts,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
-			ClearSnapshotsOption(),
 		)
 		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
 		size := 10
