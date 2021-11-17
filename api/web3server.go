@@ -45,7 +45,6 @@ type (
 		Message string `json:"message"`
 	}
 
-	// structs below is aim for json unmarshal and marshal
 	logsObject struct {
 		Removed          bool     `json:"removed"`
 		LogIndex         string   `json:"logIndex"`
@@ -103,7 +102,7 @@ func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server
 	mux := http.NewServeMux()
 	mux.Handle("/", svr)
 	svr.web3Server.Handler = mux
-	svr.cache = newAPIiCache(15*time.Minute, cacheURL)
+	svr.cache = newAPICache(15*time.Minute, cacheURL)
 	return svr
 }
 
@@ -129,7 +128,6 @@ func (svr *Web3Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// write results into http reponse
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(httpResp); err != nil {
 			log.L().Warn("fail to respond request.")
 		}
@@ -421,7 +419,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx, sig, pubkey, err := DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
+	tx, sig, pubkey, err := action.DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
 	if err != nil {
 		return nil, err
 	}
@@ -745,7 +743,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 	}
 	for _, tp := range filter.Topics {
 		for _, str := range tp {
-			if _, err := hex.DecodeString(str); err != nil {
+			if _, err := hex.DecodeString(removeHexPrefix(str)); err != nil {
 				return nil, err
 			}
 		}
@@ -756,7 +754,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 	objInByte, _ := json.Marshal(*filter)
 	keyHash := hash.Hash256b(objInByte)
 	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, string(objInByte))
+	err := svr.cache.Set(filterID, objInByte)
 	if err != nil {
 		return nil, err
 	}
@@ -771,7 +769,7 @@ func (svr *Web3Server) newBlockFilter() (interface{}, error) {
 	objInByte, _ := json.Marshal(filterObj)
 	keyHash := hash.Hash256b(objInByte)
 	filterID := hex.EncodeToString(keyHash[:])
-	err := svr.cache.Set(filterID, string(objInByte))
+	err := svr.cache.Set(filterID, objInByte)
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +837,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	// update the logHeight of filter cache
 	filterObj.LogHeight = newLogHeight
 	objInByte, _ := json.Marshal(filterObj)
-	if err = svr.cache.Set(filterID, string(objInByte)); err != nil {
+	if err = svr.cache.Set(filterID, objInByte); err != nil {
 		return nil, err
 	}
 	return ret, nil

@@ -11,11 +11,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -177,6 +174,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 		transactionsRoot = "0x" + blkMeta.TxRoot
 	}
 
+	// TODO: the value is the same as Babel's. It will be corrected in next pr
 	if len(transactions) == 0 {
 		transactionsRoot = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 	}
@@ -188,6 +186,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	if err != nil {
 		return blockObject{}, err
 	}
+	// TODO: the value is the same as Babel's. It will be corrected in next pr
 	return blockObject{
 		Author:           producerAddr,
 		Number:           uint64ToHex(blkMeta.Height),
@@ -249,7 +248,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		data = byteToHex(act.Execution.GetData())
 	// TODO: support other type actions
 	default:
-		return nil, errors.Errorf("the type of action(hash: %s) is not supported", actInfo.ActHash)
+		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
@@ -280,9 +279,10 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		R:                byteToHex(actInfo.Action.Signature[:32]),
 		S:                byteToHex(actInfo.Action.Signature[32:64]),
 		V:                uint64ToHex(vVal),
-		StandardV:        uint64ToHex(vVal),
-		ChainID:          uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
-		PublicKey:        byteToHex(actInfo.Action.SenderPubKey),
+		// TODO: the value is the same as Babel's. It will be corrected in next pr
+		StandardV: uint64ToHex(vVal),
+		ChainID:   uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
+		PublicKey: byteToHex(actInfo.Action.SenderPubKey),
 	}, nil
 }
 
@@ -293,7 +293,7 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 	}
 
 	if tx.To == nil {
-		actHash, err := hash.HexStringToHash256((tx.Hash)[2:])
+		actHash, err := hash.HexStringToHash256(removeHexPrefix(tx.Hash))
 		if err != nil {
 			return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", tx.Hash)
 		}
@@ -308,37 +308,6 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 		tx.Creates = &addr
 	}
 	return *tx, nil
-}
-
-// DecodeRawTx decodes raw data string into eth tx
-func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey, err error) {
-	var dataInString []byte
-	dataInString, err = hex.DecodeString(removeHexPrefix(rawData))
-	if err != nil {
-		return
-	}
-
-	// decode raw data into rlp tx
-	tx = &types.Transaction{}
-	err = rlp.DecodeBytes(dataInString, tx)
-	if err != nil {
-		return
-	}
-
-	// extract signature and recover pubkey
-	v, r, s := tx.RawSignatureValues()
-	recID := uint32(v.Int64()) - 2*chainID - 8
-	sig = make([]byte, 64, 65)
-	rSize := len(r.Bytes())
-	copy(sig[32-rSize:32], r.Bytes())
-	sSize := len(s.Bytes())
-	copy(sig[64-sSize:], s.Bytes())
-	sig = append(sig, byte(recID))
-
-	// recover public key
-	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
-	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
-	return
 }
 
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
@@ -554,7 +523,7 @@ func loadFilterFromCache(c apiCache, filterID string) (filterObject, error) {
 	return filterObj, nil
 }
 
-func newAPIiCache(expireTime time.Duration, remoteURL string) apiCache {
+func newAPICache(expireTime time.Duration, remoteURL string) apiCache {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     remoteURL,
 		Password: "", // no password set
@@ -575,16 +544,16 @@ func newAPIiCache(expireTime time.Duration, remoteURL string) apiCache {
 }
 
 type apiCache interface {
-	Set(key string, data string) error
+	Set(key string, data []byte) error
 	Del(key string) bool
-	Get(key string) (string, bool)
+	Get(key string) ([]byte, bool)
 }
 
 type localCache struct {
 	ttlCache *ttl.Cache
 }
 
-func (c *localCache) Set(key string, data string) error {
+func (c *localCache) Set(key string, data []byte) error {
 	if c.ttlCache == nil {
 		return errNullPointer
 	}
@@ -599,15 +568,16 @@ func (c *localCache) Del(key string) bool {
 	return c.ttlCache.Delete(key)
 }
 
-func (c *localCache) Get(key string) (string, bool) {
+func (c *localCache) Get(key string) (ret []byte, exist bool) {
 	if c.ttlCache == nil {
-		return "", false
+		return nil, false
 	}
-	ret, exist := c.ttlCache.Get(key)
-	if _, ok := ret.(string); !ok || !exist {
-		return "", false
+	res, exist := c.ttlCache.Get(key)
+	if !exist {
+		return
 	}
-	return ret.(string), true
+	ret, exist = res.([]byte)
+	return
 }
 
 type remoteCache struct {
@@ -615,7 +585,7 @@ type remoteCache struct {
 	expireTime time.Duration
 }
 
-func (c *remoteCache) Set(key string, data string) error {
+func (c *remoteCache) Set(key string, data []byte) error {
 	if c.redisCache == nil {
 		return errNullPointer
 	}
@@ -630,15 +600,15 @@ func (c *remoteCache) Del(key string) bool {
 	return err == nil
 }
 
-func (c *remoteCache) Get(key string) (string, bool) {
+func (c *remoteCache) Get(key string) ([]byte, bool) {
 	if c.redisCache == nil {
-		return "", false
+		return nil, false
 	}
-	ret, err := c.redisCache.Get(context.Background(), key).Result()
+	ret, err := c.redisCache.Get(context.Background(), key).Bytes()
 	if err == redis.Nil {
-		return "", false
+		return nil, false
 	} else if err != nil {
-		return "", false
+		return nil, false
 	}
 	c.redisCache.Expire(context.Background(), key, c.expireTime)
 	return ret, true

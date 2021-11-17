@@ -599,6 +599,7 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Port = apiPort
+	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil

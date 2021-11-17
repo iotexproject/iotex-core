@@ -567,9 +567,9 @@ func TestGetFilterLogs(t *testing.T) {
 func TestAPICache(t *testing.T) {
 	require := require.New(t)
 
-	testKey, testData := strconv.Itoa(rand.Int()), strconv.Itoa(rand.Int())
+	testKey, testData := strconv.Itoa(rand.Int()), []byte(strconv.Itoa(rand.Int()))
 	// local cache
-	cacheLocal := newAPIiCache(1*time.Second, "")
+	cacheLocal := newAPICache(1*time.Second, "")
 	_, exist := cacheLocal.Get(testKey)
 	require.False(exist)
 	err := cacheLocal.Set(testKey, testData)
