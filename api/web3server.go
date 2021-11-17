@@ -186,7 +186,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		case "eth_hashrate":
 			res, err = svr.getHashrate()
 		case "eth_getLogs":
-			if filter, err := parseLogRequest(web3Req.Get("params")); err == nil {
+			var filter *filterObject
+			if filter, err = parseLogRequest(web3Req.Get("params")); err == nil {
 				res, err = svr.getLogs(filter)
 			}
 		case "eth_getBlockTransactionCountByHash":
@@ -214,7 +215,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		case "eth_uninstallFilter":
 			res, err = svr.uninstallFilter(params)
 		case "eth_newFilter":
-			if filter, err := parseLogRequest(web3Req.Get("params")); err == nil {
+			var filter *filterObject
+			if filter, err = parseLogRequest(web3Req.Get("params")); err == nil {
 				res, err = svr.newFilter(filter)
 			}
 		case "eth_newBlockFilter":
@@ -338,6 +340,7 @@ func (svr *Web3Server) getBalance(in interface{}) (interface{}, error) {
 	return intStrToHex(accountMeta.Balance)
 }
 
+//TODO: GetTransactionCount returns the number of transactions the given address has sent for the given block number
 func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) {
 	addr, err := getStringFromArray(in, 0)
 	if err != nil {

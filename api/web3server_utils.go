@@ -442,25 +442,24 @@ func byteToHex(b []byte) string {
 }
 
 func parseLogRequest(in gjson.Result) (*filterObject, error) {
-	if len(in.Array()) != 1 {
-		return nil, errInvalidFormat
-	}
-	req := in.Array()[0]
 	var logReq filterObject
-	logReq.FromBlock = req.Get("fromBlock").String()
-	logReq.ToBlock = req.Get("toBlock").String()
-	for _, addr := range req.Get("address").Array() {
-		logReq.Address = append(logReq.Address, addr.String())
-	}
-	for _, topics := range req.Get("topics").Array() {
-		if topics.IsArray() {
-			var topicArr []string
-			for _, topic := range topics.Array() {
-				topicArr = append(topicArr, topic.String())
+	if len(in.Array()) > 0 {
+		req := in.Array()[0]
+		logReq.FromBlock = req.Get("fromBlock").String()
+		logReq.ToBlock = req.Get("toBlock").String()
+		for _, addr := range req.Get("address").Array() {
+			logReq.Address = append(logReq.Address, addr.String())
+		}
+		for _, topics := range req.Get("topics").Array() {
+			if topics.IsArray() {
+				var topicArr []string
+				for _, topic := range topics.Array() {
+					topicArr = append(topicArr, removeHexPrefix(topic.String()))
+				}
+				logReq.Topics = append(logReq.Topics, topicArr)
+			} else {
+				logReq.Topics = append(logReq.Topics, []string{removeHexPrefix(topics.String())})
 			}
-			logReq.Topics = append(logReq.Topics, topicArr)
-		} else {
-			logReq.Topics = append(logReq.Topics, []string{topics.String()})
 		}
 	}
 	return &logReq, nil
