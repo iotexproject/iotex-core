@@ -180,9 +180,6 @@ func TestConstantinople(t *testing.T) {
 		if g.IsKamchatka(e.height) {
 			opt = append(opt, FixSnapshotOrderOption())
 		}
-		if g.IsLordHowe(e.height) {
-			opt = append(opt, ClearSnapshotsOption())
-		}
 		stateDB := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
 
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
