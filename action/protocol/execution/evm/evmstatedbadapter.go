@@ -67,7 +67,6 @@ type (
 		sortCachedContracts bool
 		usePendingNonce     bool
 		fixSnapshotOrder    bool
-		clearSnapshots      bool
 	}
 )
 
@@ -110,14 +109,6 @@ func UsePendingNonceOption() StateDBAdapterOption {
 func FixSnapshotOrderOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.fixSnapshotOrder = true
-		return nil
-	}
-}
-
-// ClearSnapshotsOption set clearSnapshots as true
-func ClearSnapshotsOption() StateDBAdapterOption {
-	return func(adapter *StateDBAdapter) error {
-		adapter.clearSnapshots = true
 		return nil
 	}
 }
@@ -475,21 +466,11 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	stateDB.suicided = ds
 	if stateDB.fixSnapshotOrder {
 		delete(stateDB.suicideSnapshot, snapshot)
-		if stateDB.clearSnapshots {
-			for i := snapshot + 1; ; i++ {
-				if _, ok := stateDB.suicideSnapshot[i]; ok {
-					delete(stateDB.suicideSnapshot, i)
-				} else {
-					break
-				}
-			}
-		} else {
-			for i := snapshot + 1; ; i++ {
-				if _, ok := stateDB.suicideSnapshot[snapshot]; ok {
-					delete(stateDB.suicideSnapshot, i)
-				} else {
-					break
-				}
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.suicideSnapshot[i]; ok {
+				delete(stateDB.suicideSnapshot, i)
+			} else {
+				break
 			}
 		}
 	}
@@ -505,21 +486,11 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 	if stateDB.fixSnapshotOrder {
 		delete(stateDB.contractSnapshot, snapshot)
-		if stateDB.clearSnapshots {
-			for i := snapshot + 1; ; i++ {
-				if _, ok := stateDB.contractSnapshot[i]; ok {
-					delete(stateDB.contractSnapshot, i)
-				} else {
-					break
-				}
-			}
-		} else {
-			for i := snapshot + 1; ; i++ {
-				if _, ok := stateDB.contractSnapshot[snapshot]; ok {
-					delete(stateDB.contractSnapshot, i)
-				} else {
-					break
-				}
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.contractSnapshot[i]; ok {
+				delete(stateDB.contractSnapshot, i)
+			} else {
+				break
 			}
 		}
 	}
@@ -528,21 +499,11 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
 	if stateDB.fixSnapshotOrder {
 		delete(stateDB.preimageSnapshot, snapshot)
-		if stateDB.clearSnapshots {
-			for i := snapshot + 1; ; i++ {
-				if _, ok := stateDB.preimageSnapshot[i]; ok {
-					delete(stateDB.preimageSnapshot, i)
-				} else {
-					break
-				}
-			}
-		} else {
-			for i := snapshot + 1; ; i++ {
-				if _, ok := stateDB.preimageSnapshot[snapshot]; ok {
-					delete(stateDB.preimageSnapshot, i)
-				} else {
-					break
-				}
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.preimageSnapshot[i]; ok {
+				delete(stateDB.preimageSnapshot, i)
+			} else {
+				break
 			}
 		}
 	}
