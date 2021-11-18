@@ -37,6 +37,7 @@ func TestClient(t *testing.T) {
 
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
+	cfg.API.Web3Port = testutil.RandomPort()
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)

@@ -20,6 +20,7 @@ import (
 type ServerV2 struct {
 	core       *coreService
 	GrpcServer *GRPCServer
+	web3Server *Web3Server
 }
 
 // Config represents the config to setup api
@@ -70,6 +71,7 @@ func NewServerV2(
 	return &ServerV2{
 		core:       coreAPI,
 		GrpcServer: NewGRPCServer(coreAPI, cfg.API.Port),
+		web3Server: NewWeb3Server(coreAPI, cfg.API.Web3Port, cfg.API.RedisCacheURL),
 	}, nil
 }
 
@@ -81,11 +83,15 @@ func (svr *ServerV2) Start() error {
 	if err := svr.GrpcServer.Start(); err != nil {
 		return err
 	}
+	svr.web3Server.Start()
 	return nil
 }
 
 // Stop stops the GRPC server and the CoreService
 func (svr *ServerV2) Stop() error {
+	if err := svr.web3Server.Stop(); err != nil {
+		return err
+	}
 	if err := svr.GrpcServer.Stop(); err != nil {
 		return err
 	}

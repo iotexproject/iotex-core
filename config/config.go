@@ -159,6 +159,7 @@ var (
 		API: API{
 			UseRDS:    false,
 			Port:      14014,
+			Web3Port:  15014,
 			TpsWindow: 10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
@@ -318,6 +319,8 @@ type (
 	API struct {
 		UseRDS          bool          `yaml:"useRDS"`
 		Port            int           `yaml:"port"`
+		Web3Port        int           `yaml:"web3port"`
+		RedisCacheURL   string        `yaml:"redisCacheURL"`
 		TpsWindow       int           `yaml:"tpsWindow"`
 		GasStation      GasStation    `yaml:"gasStation"`
 		RangeQueryLimit uint64        `yaml:"rangeQueryLimit"`

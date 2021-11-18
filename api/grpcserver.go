@@ -119,8 +119,10 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		request := in.GetByIndex()
 		ret, err = svr.coreService.Actions(request.Start, request.Count)
 	case in.GetByHash() != nil:
+		var act *iotexapi.ActionInfo
 		request := in.GetByHash()
-		ret, err = svr.coreService.Action(request.ActionHash, request.CheckPending)
+		act, err = svr.coreService.Action(request.ActionHash, request.CheckPending)
+		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
 		ret, err = svr.coreService.ActionsByAddress(request.Address, request.Start, request.Count)
@@ -153,8 +155,10 @@ func (svr *GRPCServer) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockM
 		request := in.GetByIndex()
 		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
 	case in.GetByHash() != nil:
+		var blkMeta *iotextypes.BlockMeta
 		request := in.GetByHash()
-		ret, err = svr.coreService.BlockMetaByHash(request.BlkHash)
+		blkMeta, err = svr.coreService.BlockMetaByHash(request.BlkHash)
+		ret = []*iotextypes.BlockMeta{blkMeta}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -194,7 +198,7 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
-	actHash, err := svr.coreService.SendAction(context.Background(), in.GetAction(), in.GetAction().Core.GetChainID())
+	actHash, err := svr.coreService.SendAction(context.Background(), in.GetAction())
 	if err != nil {
 		return nil, err
 	}
