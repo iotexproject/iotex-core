@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -223,8 +224,11 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
-			// should directly return?
 			return packAPIResult(nil, err, 0)
+		}
+		if err != nil {
+			// temporally used for monitor and debug
+			log.L().Error("web3 server err", zap.String("input", fmt.Sprintf("%+v", web3Req)), zap.Error(err))
 		}
 		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
 	}
@@ -268,8 +272,6 @@ func packAPIResult(res interface{}, err error, id int) web3Resp {
 		} else {
 			errCode, errMsg = -32603, err.Error()
 		}
-		// temporally used for monitor and debug
-		log.L().Error("web3 server err", zap.Error(err))
 		return web3Resp{
 			Jsonrpc: "2.0",
 			ID:      id,
@@ -536,8 +538,7 @@ func (svr *Web3Server) getBlockTransactionCountByHash(in interface{}) (interface
 	}
 	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
-		// wrap err not found
-		return nil, err
+		return nil, errors.Wrap(err, "the block is not found")
 	}
 	return uint64ToHex(uint64(blkMeta.NumActions)), nil
 }
@@ -549,8 +550,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	}
 	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
 	if err != nil {
-		// wrap err not found
-		return nil, err
+		return nil, errors.Wrap(err, "the block is not found")
 	}
 	return svr.getBlockWithTransactions(blkMeta, isDetailed)
 }
