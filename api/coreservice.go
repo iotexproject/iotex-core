@@ -259,7 +259,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 }
 
 // SendAction is the API to send an action to blockchain.
-func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, chainID uint32) (string, error) {
+func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
 	if err := selp.LoadProto(in); err != nil {
@@ -268,8 +268,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action, 
 
 	// reject action if chainID is not matched at KamchatkaHeight
 	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) {
-		if core.bc.ChainID() != chainID {
-			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+		if core.bc.ChainID() != in.GetCore().GetChainID() {
+			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), in.GetCore().GetChainID())
 		}
 	}
 
@@ -417,6 +417,7 @@ func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, er
 // EstimateActionGasConsumption estimate gas consume for action without signature
 func (core *coreService) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (uint64, error) {
 	var ret uint64
+	// TODO: refactor gas estimation code out of core service
 	switch {
 	case in.GetExecution() != nil:
 		request := in.GetExecution()
@@ -870,7 +871,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if start >= totalActions {
-		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the total actions in the block")
 	}
 	if totalActions == uint64(0) || count == 0 {
 		return []*iotexapi.ActionInfo{}, nil
@@ -910,7 +911,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 }
 
 // Action returns action by action hash
-func (core *coreService) Action(actionHash string, checkPending bool) ([]*iotexapi.ActionInfo, error) {
+func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error) {
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -919,7 +920,7 @@ func (core *coreService) Action(actionHash string, checkPending bool) ([]*iotexa
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
-	return []*iotexapi.ActionInfo{act}, nil
+	return act, nil
 }
 
 // ActionsByAddress returns all actions associated with an address
@@ -1014,7 +1015,6 @@ func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint
 	if count > core.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
-
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1055,8 +1055,8 @@ func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.B
 	return res, nil
 }
 
-// BlockMetaByHash returns blockmetas response by block hash
-func (core *coreService) BlockMetaByHash(blkHash string) ([]*iotextypes.BlockMeta, error) {
+// BlockMetaByHash returns blockmeta response by block hash
+func (core *coreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1068,11 +1068,7 @@ func (core *coreService) BlockMetaByHash(blkHash string) ([]*iotextypes.BlockMet
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	blockMeta, err := core.getBlockMetaByHeight(height)
-	if err != nil {
-		return nil, err
-	}
-	return []*iotextypes.BlockMeta{blockMeta}, nil
+	return core.getBlockMetaByHeight(height)
 }
 
 // getBlockMetaByHeight gets BlockMeta by height
@@ -1523,6 +1519,16 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 		ret = append(ret, sealed.Proto())
 	}
 	return ret, nil
+}
+
+// EVMNetworkID returns the network id of evm
+func (core *coreService) EVMNetworkID() uint32 {
+	return config.EVMNetworkID()
+}
+
+// ChainID returns the chain id of evm
+func (core *coreService) ChainID() uint32 {
+	return core.bc.ChainID()
 }
 
 // GetActionByActionHash returns action by action hash

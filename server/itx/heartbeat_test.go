@@ -33,6 +33,7 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	}()
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
+	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""

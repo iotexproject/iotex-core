@@ -1,11 +1,14 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -76,4 +79,38 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 		return nil, err
 	}
 	return signedTx, nil
+}
+
+// DecodeRawTx decodes raw data string into eth tx
+func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey, err error) {
+	//remove Hex prefix and decode string to byte
+	rawData = strings.Replace(rawData, "0x", "", -1)
+	rawData = strings.Replace(rawData, "0X", "", -1)
+	var dataInString []byte
+	dataInString, err = hex.DecodeString(rawData)
+	if err != nil {
+		return
+	}
+
+	// decode raw data into rlp tx
+	tx = &types.Transaction{}
+	err = rlp.DecodeBytes(dataInString, tx)
+	if err != nil {
+		return
+	}
+
+	// extract signature and recover pubkey
+	v, r, s := tx.RawSignatureValues()
+	recID := uint32(v.Int64()) - 2*chainID - 8
+	sig = make([]byte, 64, 65)
+	rSize := len(r.Bytes())
+	copy(sig[32-rSize:32], r.Bytes())
+	sSize := len(s.Bytes())
+	copy(sig[64-sSize:], s.Bytes())
+	sig = append(sig, byte(recID))
+
+	// recover public key
+	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
+	return
 }
