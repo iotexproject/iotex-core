@@ -218,8 +218,8 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		log.L().Info("action rejected due to low gas price",
-			zap.String("act hash", hex.EncodeToString(hash[:])),
-			zap.String("gas price", act.GasPrice().String()))
+			zap.String("actionHash", hex.EncodeToString(hash[:])),
+			zap.String("gasPrice", act.GasPrice().String()))
 		return action.ErrUnderpriced
 	}
 	if err := ap.validate(ctx, act); err != nil {
@@ -405,9 +405,9 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 		// Pending balance is insufficient
 		actpoolMtc.WithLabelValues("insufficientBalance").Inc()
 		log.L().Info("insufficient balance for action",
-			zap.String("act hash", hex.EncodeToString(actHash[:])),
+			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.String("cost", cost.String()),
-			zap.String("pending balance", queue.PendingBalance().String()),
+			zap.String("pendingBalance", queue.PendingBalance().String()),
 			zap.String("sender", sender),
 		)
 		return action.ErrInsufficientFunds
@@ -416,7 +416,7 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 	if err := queue.Put(act); err != nil {
 		actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
 		log.L().Info("failed put action into ActQueue",
-			zap.String("act hash", hex.EncodeToString(actHash[:])))
+			zap.String("actionHash", hex.EncodeToString(actHash[:])))
 		return err
 	}
 	ap.allActions[actHash] = act
