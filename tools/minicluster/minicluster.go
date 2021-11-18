@@ -19,13 +19,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -264,7 +264,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
-		pendingActionMap := cache.NewThreadSafeLruCache(0)
+		pendingActionMap, _ := ttl.NewCache(ttl.EvictOnErrorOption())
 
 		log.L().Info("Start action injections.")
 
@@ -289,9 +289,9 @@ func main() {
 		})
 
 		totalPendingActions := 0
-		pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
+		pendingActionMap.Range(func(selphash, vi interface{}) error {
 			totalPendingActions++
-			return true
+			return nil
 		})
 
 		if err != nil {
