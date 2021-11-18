@@ -568,16 +568,16 @@ func (c *localCache) Del(key string) bool {
 	return c.ttlCache.Delete(key)
 }
 
-func (c *localCache) Get(key string) (ret []byte, exist bool) {
+func (c *localCache) Get(key string) ([]byte, bool) {
 	if c.ttlCache == nil {
 		return nil, false
 	}
-	res, exist := c.ttlCache.Get(key)
+	val, exist := c.ttlCache.Get(key)
 	if !exist {
-		return
+		return nil, false
 	}
-	ret, exist = res.([]byte)
-	return
+	ret, ok := val.([]byte)
+	return ret, ok
 }
 
 type remoteCache struct {
