@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -28,15 +28,16 @@ type (
 	// chainListener implements the Listener interface
 	chainListener struct {
 		capacity  int
-		streamMap *cache.ThreadSafeLruCache // all registered <Responder, chan error>
+		streamMap *ttl.Cache // all registered <Responder, chan error>
 	}
 )
 
 // NewChainListener returns a new blockchain chainListener
 func NewChainListener(c int) Listener {
+	s, _ := ttl.NewCache(ttl.EvictOnErrorOption())
 	return &chainListener{
 		capacity:  c,
-		streamMap: cache.NewThreadSafeLruCache(0),
+		streamMap: s,
 	}
 }
 
@@ -48,7 +49,7 @@ func (cl *chainListener) Start() error {
 // Stop stops the block chainListener
 func (cl *chainListener) Stop() error {
 	// notify all responders to exit
-	cl.streamMap.RangeEvictOnError(func(key cache.Key, _ interface{}) error {
+	cl.streamMap.Range(func(key, _ interface{}) error {
 		r, ok := key.(Responder)
 		if !ok {
 			log.L().Error("streamMap stores a key which is not a Responder")
@@ -57,14 +58,14 @@ func (cl *chainListener) Stop() error {
 		r.Exit()
 		return nil
 	})
-	cl.streamMap.Clear()
+	cl.streamMap.Reset()
 	return nil
 }
 
 // ReceiveBlock handles the block
 func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	// pass the block to every responder
-	cl.streamMap.RangeEvictOnError(func(key cache.Key, _ interface{}) error {
+	cl.streamMap.Range(func(key, _ interface{}) error {
 		r, ok := key.(Responder)
 		if !ok {
 			log.L().Error("streamMap stores a key which is not a Responder")
@@ -86,9 +87,9 @@ func (cl *chainListener) AddResponder(r Responder) error {
 	if loaded {
 		return errorResponderAdded
 	}
-	if cl.streamMap.Len() >= cl.capacity {
+	if cl.streamMap.Count() >= cl.capacity {
 		return errorCapacityReached
 	}
-	cl.streamMap.Add(r, struct{}{})
+	cl.streamMap.Set(r, struct{}{})
 	return nil
 }
