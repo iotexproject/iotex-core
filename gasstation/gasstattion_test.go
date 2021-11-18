@@ -201,6 +201,36 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.NoError(err)
 	// base intrinsic gas 10000,plus data size*ExecutionDataGas
 	require.Equal(uint64(10000)+10*action.ExecutionDataGas, ret)
+
+	ret, err = gs.EstimateGasForAction(nil)
+	require.ErrorIs(err, action.ErrEmptyActionPool)
+	require.Equal(ret, uint64(0))
+}
+
+func TestIsSystemAction(t *testing.T) {
+	require := require.New(t)
+	gs := NewGasStation(nil, nil, nil, config.Default.API)
+	require.NotNil(gs)
+	builder := action.EnvelopeBuilder{}
+	cf := action.ClaimFromRewardingFundBuilder{}
+	actClaimFromRewarding := cf.Build()
+	act := builder.SetAction(&actClaimFromRewarding).Build()
+	sel, err := action.Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.False(gs.IsSystemAction(sel))
+
+	gb := action.GrantRewardBuilder{}
+	actGrantReward := gb.Build()
+	act = builder.SetAction(&actGrantReward).Build()
+	sel, err = action.Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.True(gs.IsSystemAction(sel))
+
+	actPollResult := action.NewPutPollResult(1, 1, nil)
+	act = builder.SetAction(actPollResult).Build()
+	sel, err = action.Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.True(gs.IsSystemAction(sel))
 }
 
 func getAction() (act *iotextypes.Action) {

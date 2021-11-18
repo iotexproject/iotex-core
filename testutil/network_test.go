@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2021 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,10 +7,13 @@
 package testutil
 
 import (
-	"time"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-// TimestampNow returns current time from new clock
-func TimestampNow() time.Time {
-	return time.Now()
+func TestRandomPort(t *testing.T) {
+	assert := assert.New(t)
+	rndPort := RandomPort()
+	assert.Greater(rndPort, 2000)
 }
