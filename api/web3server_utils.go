@@ -365,7 +365,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	for _, tp := range topics {
 		var topic [][]byte
 		for _, str := range tp {
-			b, err := hex.DecodeString(str)
+			b, err := hexToByte(str)
 			if err != nil {
 				return nil, err
 			}
@@ -408,6 +408,14 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 
 func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
+}
+
+func hexToByte(str string) ([]byte, error) {
+	str = removeHexPrefix(str)
+	if len(str)%2 == 1 {
+		str = "0" + str
+	}
+	return hex.DecodeString(str)
 }
 
 func parseLogRequest(in gjson.Result) (*filterObject, error) {

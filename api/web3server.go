@@ -743,7 +743,7 @@ func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	pos, err := hex.DecodeString(removeHexPrefix(storagePos))
+	pos, err := hexToByte(storagePos)
 	if err != nil {
 		return nil, err
 	}
@@ -772,7 +772,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 	}
 	for _, tp := range filter.Topics {
 		for _, str := range tp {
-			if _, err := hex.DecodeString(removeHexPrefix(str)); err != nil {
+			if _, err := hexToByte(str); err != nil {
 				return nil, err
 			}
 		}
