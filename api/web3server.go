@@ -496,6 +496,7 @@ func (svr *Web3Server) getCode(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO: do something if accountMeta.ContractByteCode == ""
 	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
 }
 
@@ -735,15 +736,11 @@ func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	ioAddr, err := ethAddrToIoAddr(ethAddr)
+	contractAddr, err := address.FromHex(ethAddr)
 	if err != nil {
 		return nil, err
 	}
-	contractAddr, err := address.FromString(ioAddr)
-	if err != nil {
-		return nil, err
-	}
-	pos, err := hexToByte(storagePos)
+	pos, err := hexToBytes(storagePos)
 	if err != nil {
 		return nil, err
 	}
@@ -772,7 +769,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 	}
 	for _, tp := range filter.Topics {
 		for _, str := range tp {
-			if _, err := hexToByte(str); err != nil {
+			if _, err := hexToBytes(str); err != nil {
 				return nil, err
 			}
 		}

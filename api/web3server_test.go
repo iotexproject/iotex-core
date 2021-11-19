@@ -599,4 +599,13 @@ func TestGetStorageAt(t *testing.T) {
 	require.NoError(err)
 	// the value of any contract at pos0 is be "0x0000000000000000000000000000000000000000000000000000000000000000"
 	require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", ret)
+
+	failData := [][]interface{}{
+		[]interface{}{1},
+		[]interface{}{"TEST", "TEST"},
+	}
+	for _, v := range failData {
+		_, err := svr.web3Server.getStorageAt(v)
+		require.Error(err)
+	}
 }

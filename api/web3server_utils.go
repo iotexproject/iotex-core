@@ -365,7 +365,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	for _, tp := range topics {
 		var topic [][]byte
 		for _, str := range tp {
-			b, err := hexToByte(str)
+			b, err := hexToBytes(str)
 			if err != nil {
 				return nil, err
 			}
@@ -410,7 +410,7 @@ func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
 }
 
-func hexToByte(str string) ([]byte, error) {
+func hexToBytes(str string) ([]byte, error) {
 	str = removeHexPrefix(str)
 	if len(str)%2 == 1 {
 		str = "0" + str
