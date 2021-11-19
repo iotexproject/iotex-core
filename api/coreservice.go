@@ -414,38 +414,9 @@ func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, er
 	return estimateGas, nil
 }
 
-// EstimateActionGasConsumption estimate gas consume for action without signature
-func (core *coreService) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (uint64, error) {
-	var ret uint64
-	// TODO: refactor gas estimation code out of core service
-	switch {
-	case in.GetExecution() != nil:
-		request := in.GetExecution()
-		return core.estimateActionGasConsumptionForExecution(ctx, request, in.GetCallerAddress())
-	case in.GetTransfer() != nil:
-		ret = uint64(len(in.GetTransfer().Payload))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
-	case in.GetStakeCreate() != nil:
-		ret = uint64(len(in.GetStakeCreate().Payload))*action.CreateStakePayloadGas + action.CreateStakeBaseIntrinsicGas
-	case in.GetStakeUnstake() != nil:
-		ret = uint64(len(in.GetStakeUnstake().Payload))*action.ReclaimStakePayloadGas + action.ReclaimStakeBaseIntrinsicGas
-	case in.GetStakeWithdraw() != nil:
-		ret = uint64(len(in.GetStakeWithdraw().Payload))*action.ReclaimStakePayloadGas + action.ReclaimStakeBaseIntrinsicGas
-	case in.GetStakeAddDeposit() != nil:
-		ret = uint64(len(in.GetStakeAddDeposit().Payload))*action.DepositToStakePayloadGas + action.DepositToStakeBaseIntrinsicGas
-	case in.GetStakeRestake() != nil:
-		ret = uint64(len(in.GetStakeRestake().Payload))*action.RestakePayloadGas + action.RestakeBaseIntrinsicGas
-	case in.GetStakeChangeCandidate() != nil:
-		ret = uint64(len(in.GetStakeChangeCandidate().Payload))*action.MoveStakePayloadGas + action.MoveStakeBaseIntrinsicGas
-	case in.GetStakeTransferOwnership() != nil:
-		ret = uint64(len(in.GetStakeTransferOwnership().Payload))*action.MoveStakePayloadGas + action.MoveStakeBaseIntrinsicGas
-	case in.GetCandidateRegister() != nil:
-		ret = uint64(len(in.GetCandidateRegister().Payload))*action.CandidateRegisterPayloadGas + action.CandidateRegisterBaseIntrinsicGas
-	case in.GetCandidateUpdate() != nil:
-		ret = action.CandidateUpdateBaseIntrinsicGas
-	default:
-		return 0, status.Error(codes.InvalidArgument, "invalid argument")
-	}
-	return ret, nil
+// EstimateActionGasConsumptionForNonExecution estimate gas consumption for actions except execution
+func (core *coreService) EstimateActionGasConsumptionForNonExecution(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
+	return payloadGas*payloadSize + intrinsicGas
 }
 
 // EpochMeta gets epoch metadata
@@ -1345,7 +1316,8 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 	return logs, nil
 }
 
-func (core *coreService) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (uint64, error) {
+// EstimateActionGasConsumptionForExecution estimate gas consumption for execution action
+func (core *coreService) EstimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (uint64, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())

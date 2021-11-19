@@ -396,7 +396,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	switch isContract {
 	case true:
 		// execution
-		estimatedGas, err = svr.coreService.estimateActionGasConsumptionForExecution(context.Background(),
+		estimatedGas, err = svr.coreService.EstimateActionGasConsumptionForExecution(context.Background(),
 			&iotextypes.Execution{
 				Amount:   value.String(),
 				Contract: to,
@@ -407,7 +407,8 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		}
 	case false:
 		// transfer
-		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
+		estimatedGas = svr.coreService.EstimateActionGasConsumptionForNonExecution(action.TransferBaseIntrinsicGas,
+			action.TransferPayloadGas, uint64(len(data)))
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
