@@ -207,6 +207,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.getBlockTransactionCountByNumber(params)
 		case "eth_getTransactionReceipt":
 			res, err = svr.getTransactionReceipt(params)
+		case "eth_getStorageAt":
+			res, err = svr.getStorageAt(params)
 		case "eth_getFilterLogs":
 			res, err = svr.getFilterLogs(params)
 		case "eth_getFilterChanges":
@@ -220,7 +222,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
-		case "eth_coinbase", "eth_accounts", "eth_getStorageAt", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
+		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
@@ -494,7 +496,6 @@ func (svr *Web3Server) getCode(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: do something if accountMeta.ContractByteCode == ""
 	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
 }
 
@@ -723,6 +724,34 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	}
 	log.L().Error("extract action info")
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
+}
+
+func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {
+	ethAddr, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	storagePos, err := getStringFromArray(in, 1)
+	if err != nil {
+		return nil, err
+	}
+	ioAddr, err := ethAddrToIoAddr(ethAddr)
+	if err != nil {
+		return nil, err
+	}
+	contractAddr, err := address.FromString(ioAddr)
+	if err != nil {
+		return nil, err
+	}
+	pos, err := hex.DecodeString(removeHexPrefix(storagePos))
+	if err != nil {
+		return nil, err
+	}
+	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	if err != nil {
+		return nil, err
+	}
+	return "0x" + hex.EncodeToString(val), nil
 }
 
 func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
