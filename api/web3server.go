@@ -207,6 +207,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			res, err = svr.getBlockTransactionCountByNumber(params)
 		case "eth_getTransactionReceipt":
 			res, err = svr.getTransactionReceipt(params)
+		case "eth_getStorageAt":
+			res, err = svr.getStorageAt(params)
 		case "eth_getFilterLogs":
 			res, err = svr.getFilterLogs(params)
 		case "eth_getFilterChanges":
@@ -220,7 +222,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
-		case "eth_coinbase", "eth_accounts", "eth_getStorageAt", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
+		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
@@ -725,6 +727,30 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 
+func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {
+	ethAddr, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	storagePos, err := getStringFromArray(in, 1)
+	if err != nil {
+		return nil, err
+	}
+	contractAddr, err := address.FromHex(ethAddr)
+	if err != nil {
+		return nil, err
+	}
+	pos, err := hexToBytes(storagePos)
+	if err != nil {
+		return nil, err
+	}
+	val, err := svr.coreService.ReadContractStorage(context.Background(), contractAddr, pos)
+	if err != nil {
+		return nil, err
+	}
+	return "0x" + hex.EncodeToString(val), nil
+}
+
 func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 	//check the validity of filter before caching
 	if filter == nil {
@@ -743,7 +769,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 	}
 	for _, tp := range filter.Topics {
 		for _, str := range tp {
-			if _, err := hex.DecodeString(removeHexPrefix(str)); err != nil {
+			if _, err := hexToBytes(str); err != nil {
 				return nil, err
 			}
 		}
