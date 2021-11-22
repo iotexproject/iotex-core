@@ -49,6 +49,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -1408,8 +1409,8 @@ func (core *coreService) isGasLimitEnough(
 	nonce uint64,
 	gasLimit uint64,
 ) (bool, *action.Receipt, error) {
-	// ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
-	// defer span.End()
+	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
+	defer span.End()
 	sc, _ = action.NewExecution(
 		sc.Contract(),
 		nonce,
