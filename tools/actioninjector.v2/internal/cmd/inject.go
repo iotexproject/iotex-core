@@ -35,7 +35,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -58,7 +58,7 @@ type AddressKey struct {
 
 type injectProcessor struct {
 	api      iotexapi.APIServiceClient
-	nonces   *cache.ThreadSafeLruCache
+	nonces   *ttl.Cache
 	accounts []*AddressKey
 }
 
@@ -66,6 +66,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	var conn *grpc.ClientConn
 	var err error
 	grpcctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	log.L().Info("Server Addr", zap.String("endpoint", injectCfg.serverAddr))
 	if injectCfg.insecure {
 		log.L().Info("insecure connection")
 		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
@@ -77,18 +78,20 @@ func newInjectionProcessor() (*injectProcessor, error) {
 		return nil, err
 	}
 	api := iotexapi.NewAPIServiceClient(conn)
+	nonceCache, err := ttl.NewCache()
+	if err != nil {
+		return nil, err
+	}
 	p := &injectProcessor{
 		api:    api,
-		nonces: cache.NewThreadSafeLruCache(0),
+		nonces: nonceCache,
 	}
 	p.randAccounts(injectCfg.randAccounts)
-
-	if injectCfg.loadTokenAmount.Uint64() != 0 {
+	if injectCfg.loadTokenAmount.BitLen() != 0 {
 		if err := p.loadAccounts(injectCfg.configPath); err != nil {
 			return p, err
 		}
 	}
-
 	p.syncNonces(context.Background())
 	return p, nil
 }
@@ -101,7 +104,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 			return err
 		}
 		a, _ := account.PrivateKeyToAccount(private)
-		p.nonces.Add(a.Address().String(), 1)
+		p.nonces.Set(a.Address().String(), 1)
 		addrKeys = append(addrKeys, &AddressKey{PriKey: private, EncodedAddr: a.Address().String()})
 	}
 	p.accounts = addrKeys
@@ -129,11 +132,12 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to decode private key")
 		}
-		addr, err := address.FromBytes(pk.Hash())
-		if err != nil {
-			return err
+		addr := pk.Address()
+		if addr == nil {
+			return errors.New("failed to get address")
 		}
-		p.nonces.Add(addr.String(), 0)
+		log.L().Info("loaded account", zap.String("addr", addr.String()))
+		p.nonces.Set(addr.String(), 0)
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 
@@ -143,7 +147,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 
 		recipient, _ := address.FromString(r.EncodedAddr)
-
+		log.L().Info("generated account", zap.String("addr", recipient.String()))
 		c := iotex.NewAuthedClient(p.api, operatorAccount)
 		caller := c.Transfer(recipient, injectCfg.loadTokenAmount).SetGasPrice(injectCfg.transferGasPrice).SetGasLimit(injectCfg.transferGasLimit)
 		if _, err := caller.Call(context.Background()); err != nil {
@@ -169,14 +173,17 @@ func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
 }
 
 func (p *injectProcessor) syncNonces(ctx context.Context) {
-	p.nonces.Range(func(key cache.Key, value interface{}) bool {
-		addr := key.(string)
+	var addrPool []string
+	for _, v := range p.nonces.Keys() {
+		addrPool = append(addrPool, v.(string))
+	}
+	for _, addr := range addrPool {
 		err := backoff.Retry(func() error {
 			resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 			if err != nil {
 				return err
 			}
-			p.nonces.Add(addr, resp.GetAccountMeta().GetPendingNonce())
+			p.nonces.Set(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -185,8 +192,7 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 				zap.String("addr", addr))
 		}
 		time.Sleep(10 * time.Millisecond)
-		return true
-	})
+	}
 }
 
 func (p *injectProcessor) injectProcess(ctx context.Context) {
@@ -271,11 +277,10 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
-	val, ok := p.nonces.Get(sender.EncodedAddr)
-	if ok {
+	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
 		nonce = val.(uint64)
 	}
-	p.nonces.Add(sender.EncodedAddr, nonce+1)
+	p.nonces.Set(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, operatorAccount)
@@ -300,22 +305,19 @@ func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
-	val, ok := p.nonces.Get(sender.EncodedAddr)
-	if ok {
+	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
 		nonce = val.(uint64)
 	}
-	p.nonces.Add(sender.EncodedAddr, nonce+1)
+	p.nonces.Set(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, operatorAccount)
 
 	recipient, _ := address.FromString(p.accounts[rand.Intn(len(p.accounts))].EncodedAddr)
-
 	data := rand.Int63()
 	var dataBuf = make([]byte, 8)
 	binary.BigEndian.PutUint64(dataBuf, uint64(data))
 	dataHash := sha256.Sum256(dataBuf)
-
 	caller := c.Transfer(recipient, injectCfg.transferAmount).
 		SetPayload(dataHash[:]).
 		SetNonce(nonce).
@@ -357,7 +359,7 @@ var rawInjectCfg = struct {
 	insecure      bool
 
 	randAccounts    int
-	loadTokenAmount int64
+	loadTokenAmount string
 }{}
 
 var injectCfg = struct {
@@ -390,7 +392,7 @@ func inject(_ []string) string {
 	transferGasPrice := big.NewInt(rawInjectCfg.transferGasPrice)
 	executionGasPrice := big.NewInt(rawInjectCfg.executionGasPrice)
 	executionAmount := big.NewInt(rawInjectCfg.executionAmount)
-	loadTokenAmount := big.NewInt(rawInjectCfg.loadTokenAmount)
+	loadTokenAmount, _ := big.NewInt(0).SetString(rawInjectCfg.loadTokenAmount, 10)
 
 	injectCfg.configPath = rawInjectCfg.configPath
 	injectCfg.serverAddr = rawInjectCfg.serverAddr
@@ -400,7 +402,7 @@ func inject(_ []string) string {
 
 	injectCfg.contract = rawInjectCfg.contract
 	injectCfg.executionAmount = executionAmount
-	injectCfg.executionGasLimit = rawInjectCfg.transferGasLimit
+	injectCfg.executionGasLimit = rawInjectCfg.executionGasLimit
 	injectCfg.executionGasPrice = executionGasPrice
 
 	injectCfg.actionType = rawInjectCfg.actionType
@@ -435,21 +437,21 @@ func init() {
 	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "127.0.0.1:14014", "target ip:port for grpc connection")
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
-	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 0, "transfer gas price")
+	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 1000000000000, "transfer gas price")
 	flag.StringVar(&rawInjectCfg.contract, "contract", "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq", "smart contract address")
 	flag.Int64Var(&rawInjectCfg.executionAmount, "execution-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.executionGasLimit, "execution-gas-limit", 100000, "execution gas limit")
-	flag.Int64Var(&rawInjectCfg.executionGasPrice, "execution-gas-price", 0, "execution gas price")
+	flag.Int64Var(&rawInjectCfg.executionGasPrice, "execution-gas-price", 1000000000000, "execution gas price")
 	flag.StringVar(&rawInjectCfg.actionType, "action-type", "transfer", "action type to inject")
 	flag.Uint64Var(&rawInjectCfg.retryNum, "retry-num", 5, "maximum number of rpc retries")
 	flag.DurationVar(&rawInjectCfg.retryInterval, "retry-interval", 1*time.Second, "sleep interval between two consecutive rpc retries")
 	flag.DurationVar(&rawInjectCfg.duration, "duration", 60*time.Hour, "duration when the injection will run")
 	flag.DurationVar(&rawInjectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
 	flag.IntVar(&rawInjectCfg.aps, "aps", 30, "actions to be injected per second")
-	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 3000, "number of accounst to use")
+	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 20, "number of accounst to use")
 	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
 	flag.BoolVar(&rawInjectCfg.checkReceipt, "check-recipt", false, "check recept")
-	flag.Int64Var(&rawInjectCfg.loadTokenAmount, "load-token-amount", 0, "init load how much token to inject accounts")
+	flag.StringVar(&rawInjectCfg.loadTokenAmount, "load-token-amount", "0", "init load how much token to inject accounts")
 	rootCmd.AddCommand(injectCmd)
 }
