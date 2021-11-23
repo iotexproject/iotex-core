@@ -412,8 +412,8 @@ func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, er
 	return estimateGas, nil
 }
 
-// EstimateActionGasConsumptionForNonExecution estimate gas consumption for actions except execution
-func (core *coreService) EstimateActionGasConsumptionForNonExecution(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
+// CalculateGasConsumption estimate gas consumption for actions except execution
+func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
 	return payloadGas*payloadSize + intrinsicGas
 }
 
@@ -1310,27 +1310,17 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 	return logs, nil
 }
 
-// EstimateActionGasConsumptionForExecution estimate gas consumption for execution action
-func (core *coreService) EstimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (uint64, error) {
+// EstimateExecutionGasConsumption estimate gas consumption for execution action
+func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, exec *iotextypes.Execution, callerAddr address.Address) (uint64, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	addr, err := address.FromString(sender)
-	if err != nil {
-		return 0, status.Error(codes.FailedPrecondition, err.Error())
-	}
-	state, err := accountutil.AccountState(core.sf, addr)
+	state, err := accountutil.AccountState(core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
 	nonce := state.Nonce + 1
-
-	callerAddr, err := address.FromString(sender)
-	if err != nil {
-		return 0, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, nonce, core.cfg.Genesis.BlockGasLimit)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())

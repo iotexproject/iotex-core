@@ -373,16 +373,12 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 }
 
 func (svr *Web3Server) call(in interface{}) (interface{}, error) {
-	from, to, gasLimit, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
 	if to == "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr" {
 		return nil, nil
-	}
-	callerAddr, err := address.FromString(from)
-	if err != nil {
-		return nil, errors.Wrapf(errUnkownType, "from: %s", from)
 	}
 	ret, _, err := svr.coreService.ReadContract(context.Background(),
 		&iotextypes.Execution{
@@ -411,7 +407,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	switch isContract {
 	case true:
 		// execution
-		estimatedGas, err = svr.coreService.EstimateActionGasConsumptionForExecution(context.Background(),
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(),
 			&iotextypes.Execution{
 				Amount:   value.String(),
 				Contract: to,
@@ -422,7 +418,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		}
 	case false:
 		// transfer
-		estimatedGas = svr.coreService.EstimateActionGasConsumptionForNonExecution(action.TransferBaseIntrinsicGas,
+		estimatedGas = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas,
 			action.TransferPayloadGas, uint64(len(data)))
 	}
 	if estimatedGas < 21000 {
