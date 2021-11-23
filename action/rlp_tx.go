@@ -26,7 +26,7 @@ type rlpTransaction interface {
 }
 
 func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
-	rawTx, err := RlpToEthTx(tx)
+	rawTx, err := rlpToEthTx(tx)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
@@ -44,7 +44,7 @@ func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256,
 	return hash.BytesToHash256(h.Sum(nil)), nil
 }
 
-func RlpToEthTx(act rlpTransaction) (*types.Transaction, error) {
+func rlpToEthTx(act rlpTransaction) (*types.Transaction, error) {
 	if act == nil {
 		return nil, errors.New("nil action to generate RLP tx")
 	}
@@ -71,7 +71,7 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 		sc[64] -= 27
 	}
 
-	rawTx, err := RlpToEthTx(tx)
+	rawTx, err := rlpToEthTx(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (rawData str
 	if err != nil {
 		return
 	}
-	rawTx, err := RlpToEthTx(rlpAct)
+	rawTx, err := rlpToEthTx(rlpAct)
 	if err != nil {
 		return
 	}
