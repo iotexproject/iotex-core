@@ -31,8 +31,8 @@ import (
 
 // GRPCServer contains grpc server and the pointer to api coreservice
 type GRPCServer struct {
-	grpcServer  *grpc.Server
 	port        string
+	grpcServer  *grpc.Server
 	coreService *coreService
 }
 
@@ -49,9 +49,9 @@ func NewGRPCServer(core *coreService, grpcPort int) *GRPCServer {
 		)),
 	)
 	svr := &GRPCServer{
+		port:        ":" + strconv.Itoa(grpcPort),
 		grpcServer:  gSvr,
 		coreService: core,
-		port:        ":" + strconv.Itoa(grpcPort),
 	}
 
 	//serviceName: grpc.health.v1.Health
@@ -198,7 +198,7 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
-	actHash, err := svr.coreService.SendAction(context.Background(), in.GetAction())
+	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
 		return nil, err
 	}
