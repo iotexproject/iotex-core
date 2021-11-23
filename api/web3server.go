@@ -437,7 +437,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	chainiD, err := handleChainID(dataStr, svr.coreService.EVMNetworkID())
+	chainiD, err := action.HandleChainID(dataStr, svr.coreService.EVMNetworkID())
 	if err != nil {
 		return nil, err
 	}

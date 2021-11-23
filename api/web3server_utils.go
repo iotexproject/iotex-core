@@ -11,12 +11,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -353,27 +350,6 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 		return false, err
 	}
 	return accountMeta.IsContract, nil
-}
-
-func handleChainID(rawData string, chainID uint32) (uint32, error) {
-	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
-	if err != nil {
-		return 0, err
-	}
-
-	tx := &types.Transaction{}
-	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
-		return 0, err
-	}
-
-	v, _, _ := tx.RawSignatureValues()
-	recID := uint32(v.Int64()) - 2*chainID - 8
-
-	// tx from ledger is signed with chainID 999999
-	if recID != 27 && recID != 28 {
-		return 999999, nil
-	}
-	return chainID, nil
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {

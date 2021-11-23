@@ -138,6 +138,28 @@ func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, err
 	return hex.EncodeToString(encodedTx[:]), nil
 }
 
+// HandleChainID handles special tx from web3 which signed by ledger with chainID 999999
+func HandleChainID(rawData string, chainID uint32) (uint32, error) {
+	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
+	if err != nil {
+		return 0, err
+	}
+
+	tx := &types.Transaction{}
+	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
+		return 0, err
+	}
+
+	v, _, _ := tx.RawSignatureValues()
+	recID := uint32(v.Int64()) - 2*chainID - 8
+
+	// tx from ledger is signed with chainID 999999
+	if recID != 27 && recID != 28 {
+		return 999999, nil
+	}
+	return chainID, nil
+}
+
 func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error) {
 	if tx == nil {
 		return nil, errors.New("pointer is nil")
