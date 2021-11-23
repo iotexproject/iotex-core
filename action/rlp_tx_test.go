@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -273,35 +272,17 @@ func TestRlpDecodeVerify(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		encoded, err := hex.DecodeString(v.raw)
-		require.NoError(err)
-
-		// decode received RLP tx
-		tx := types.Transaction{}
-		require.NoError(rlp.DecodeBytes(encoded, &tx))
-
-		// extract signature and recover pubkey
-		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
-		sig := make([]byte, 64, 65)
-		rSize := len(r.Bytes())
-		copy(sig[32-rSize:32], r.Bytes())
-		sSize := len(s.Bytes())
-		copy(sig[64-sSize:], s.Bytes())
-		sig = append(sig, byte(recID))
-
-		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(&tx)
-		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
+		tx, sig, pubkey, err := DecodeRawTx(v.raw, config.EVMNetworkID())
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(tx)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
-		// convert to our Execution
+		// convert to native Execution
 		pb := &iotextypes.Action{
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
-		pb.Core = convertToNativeProto(&tx, v.isTsf)
+		pb.Core = convertToNativeProto(tx, v.isTsf)
 		pb.SenderPubKey = pubkey.Bytes()
 		pb.Signature = sig
 

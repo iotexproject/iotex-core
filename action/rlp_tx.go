@@ -83,58 +83,59 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 }
 
 // DecodeRawTx decodes raw data string into eth tx
-func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []byte, pubkey crypto.PublicKey, err error) {
+func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, []byte, crypto.PublicKey, error) {
 	//remove Hex prefix and decode string to byte
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 
 	// decode raw data into rlp tx
-	tx = &types.Transaction{}
+	tx := &types.Transaction{}
 	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
-		return
+		return nil, nil, nil, err
 	}
 
 	// extract signature
-	sig, err = getSignatureFromRLPTX(tx, chainID)
+	sig, err := getSignatureFromRLPTX(tx, chainID)
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 
 	// recover public key
 	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
-	pubkey, err = crypto.RecoverPubkey(rawHash[:], sig)
-	return
+	pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return tx, sig, pubkey, nil
 }
 
 // EncodeRawTx encodes action into the data string of eth tx
-func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (rawData string, err error) {
+func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, error) {
 	rlpAct, err := actionToRLP(act)
 	if err != nil {
-		return
+		return "", err
 	}
 	rawTx, err := rlpToEthTx(rlpAct)
 	if err != nil {
-		return
+		return "", err
 	}
 	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
 	if !ok {
-		err = errors.New("private key is invalid")
-		return
+		return "", errors.New("private key is invalid")
 	}
 
 	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
 	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
 	if err != nil {
-		return
+		return "", err
 	}
 	encodedTx, err := rlp.EncodeToBytes(signedTx)
 	if err != nil {
-		return
+		return "", err
 	}
-	rawData = hex.EncodeToString(encodedTx[:])
-	return
+	return hex.EncodeToString(encodedTx[:]), nil
 }
 
 func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error) {

@@ -355,20 +355,25 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 	return accountMeta.IsContract, nil
 }
 
-func isSpecialTx(rawData string, chainID uint32) bool {
+func handleChainID(rawData string, chainID uint32) (uint32, error) {
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return false
+		return 0, err
 	}
 
 	tx := &types.Transaction{}
 	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
-		return false
+		return 0, err
 	}
 
 	v, _, _ := tx.RawSignatureValues()
 	recID := uint32(v.Int64()) - 2*chainID - 8
-	return recID != 27 && recID != 28
+
+	// tx from ledger is signed with chainID 999999
+	if recID != 27 && recID != 28 {
+		return 999999, nil
+	}
+	return chainID, nil
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {
