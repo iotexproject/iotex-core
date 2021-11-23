@@ -71,7 +71,7 @@ func TestGenerateRlp(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		_, err := generateRlpTx(v.act)
+		_, err := RlpToEthTx(v.act)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -333,6 +333,67 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(Verify(selp))
+	}
+}
+
+func TestEncodeDecodeRawTx(t *testing.T) {
+	require := require.New(t)
+	pvk, _ := crypto.GenerateKey()
+	var testGasLimit, testGasPrice, testAmount, testNonce uint64 = 100000, 1000000, 100, 2
+	toAddr := "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070"
+	ab := AbstractAction{
+		version:   1,
+		nonce:     testNonce,
+		gasLimit:  testGasLimit,
+		gasPrice:  big.NewInt(int64(testGasPrice)),
+		srcPubkey: pvk.PublicKey(),
+	}
+	testData := []struct {
+		act     Action
+		chainID uint32
+	}{
+		{
+			&Transfer{
+				AbstractAction: ab,
+				amount:         big.NewInt(int64(testAmount)),
+				payload:        signByte,
+				recipient:      toAddr,
+			},
+			4689,
+		},
+		{
+			&Execution{
+				AbstractAction: ab,
+				amount:         big.NewInt(int64(testAmount)),
+				data:           signByte,
+				contract:       toAddr,
+			},
+			4690,
+		},
+		{
+			&Execution{
+				AbstractAction: ab,
+				amount:         big.NewInt(int64(testAmount)),
+				data:           signByte,
+				contract:       toAddr,
+			},
+			999999,
+		},
+	}
+
+	for _, v := range testData {
+		txStr, err := EncodeRawTx(v.act, pvk, v.chainID)
+		require.NoError(err)
+
+		tx, _, _, err := DecodeRawTx(txStr, v.chainID)
+		require.NoError(err)
+		require.Equal(testAmount, tx.Value().Uint64())
+		require.Equal(testGasLimit, tx.Gas())
+		require.Equal(testGasPrice, tx.GasPrice().Uint64())
+		require.Equal(testNonce, tx.Nonce())
+		addr2, _ := address.FromBytes(tx.To().Bytes())
+		addr1, _ := address.FromString(toAddr)
+		require.Equal(addr1, addr2)
 	}
 }
 

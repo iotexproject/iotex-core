@@ -11,9 +11,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -24,7 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	ioctlUtil "github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -95,7 +98,7 @@ func ioAddrToEthAddr(ioAddr string) (string, error) {
 	if len(ioAddr) == 0 {
 		return "0x0000000000000000000000000000000000000000", nil
 	}
-	addr, err := util.IoAddrToEvmAddr(ioAddr)
+	addr, err := ioctlUtil.IoAddrToEvmAddr(ioAddr)
 	if err != nil {
 		return "", err
 	}
@@ -350,6 +353,22 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 		return false, err
 	}
 	return accountMeta.IsContract, nil
+}
+
+func isSpecialTx(rawData string, chainID uint32) bool {
+	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
+	if err != nil {
+		return false
+	}
+
+	tx := &types.Transaction{}
+	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
+		return false
+	}
+
+	v, _, _ := tx.RawSignatureValues()
+	recID := uint32(v.Int64()) - 2*chainID - 8
+	return recID != 27 && recID != 28
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {

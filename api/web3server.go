@@ -423,7 +423,13 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx, sig, pubkey, err := action.DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
+
+	chainiD := svr.coreService.EVMNetworkID()
+	// tx from ledger is signed with chainID 999999
+	if isSpecialTx(dataStr, chainiD) {
+		chainiD = 999999
+	}
+	tx, sig, pubkey, err := action.DecodeRawTx(dataStr, chainiD)
 	if err != nil {
 		return nil, err
 	}
