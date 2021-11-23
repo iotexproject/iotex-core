@@ -71,7 +71,7 @@ func TestGenerateRlp(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		_, err := RlpToEthTx(v.act)
+		_, err := rlpToEthTx(v.act)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
