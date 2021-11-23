@@ -125,13 +125,10 @@ func newCoreService(
 }
 
 // Account returns the metadata of an account
-func (core *coreService) Account(addrStr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.getProtocolAccount(context.Background(), addrStr)
-	}
-	addr, err := address.FromString(addrStr)
-	if err != nil {
-		return nil, nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addrStr)
 	if err != nil {
@@ -914,7 +911,7 @@ func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi
 }
 
 // ActionsByAddress returns all actions associated with an address
-func (core *coreService) ActionsByAddress(addrStr string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+func (core *coreService) ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -922,10 +919,6 @@ func (core *coreService) ActionsByAddress(addrStr string, start uint64, count ui
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	addr, err := address.FromString(addrStr)
-	if err != nil {
-		return nil, err
-	}
 	actions, err := core.indexer.GetActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
 	if err != nil {
 		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {

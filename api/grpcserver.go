@@ -95,7 +95,11 @@ func (svr *GRPCServer) SuggestGasPrice(ctx context.Context, in *iotexapi.Suggest
 
 // GetAccount returns the metadata of an account
 func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	accountMeta, blockIdentifier, err := svr.coreService.Account(in.Address)
+	addr, err := address.FromString(in.Address)
+	if err != nil {
+		return nil, err
+	}
+	accountMeta, blockIdentifier, err := svr.coreService.Account(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +129,11 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
-		ret, err = svr.coreService.ActionsByAddress(request.Address, request.Start, request.Count)
+		addr, err := address.FromString(request.Address)
+		if err != nil {
+			return nil, err
+		}
+		ret, err = svr.coreService.ActionsByAddress(addr, request.Start, request.Count)
 	case in.GetUnconfirmedByAddr() != nil:
 		request := in.GetUnconfirmedByAddr()
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
