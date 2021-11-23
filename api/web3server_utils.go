@@ -80,15 +80,11 @@ func hexStringToNumber(hexStr string) (uint64, error) {
 	return strconv.ParseUint(removeHexPrefix(hexStr), 16, 64)
 }
 
-func ethAddrToIoAddr(ethAddr string) (string, error) {
+func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 	if ok := common.IsHexAddress(ethAddr); !ok {
-		return "", errors.Wrapf(errUnkownType, "ethAddr: %s", ethAddr)
+		return nil, errors.Wrapf(errUnkownType, "ethAddr: %s", ethAddr)
 	}
-	ioAddress, err := address.FromBytes(common.HexToAddress(ethAddr).Bytes())
-	if err != nil {
-		return "", err
-	}
-	return ioAddress.String(), nil
+	return address.FromHex(ethAddr)
 }
 
 func ioAddrToEthAddr(ioAddr string) (string, error) {
@@ -345,7 +341,11 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 	if addr == "" {
 		return true, nil
 	}
-	accountMeta, _, err := svr.coreService.Account(addr)
+	ioAddr, err := address.FromString(addr)
+	if err != nil {
+		return false, err
+	}
+	accountMeta, _, err := svr.coreService.Account(ioAddr)
 	if err != nil {
 		return false, err
 	}
@@ -360,7 +360,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		if err != nil {
 			return nil, err
 		}
-		filter.Address = append(filter.Address, ioAddr)
+		filter.Address = append(filter.Address, ioAddr.String())
 	}
 	for _, tp := range topics {
 		var topic [][]byte
@@ -469,19 +469,20 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 	if err != nil {
 		return
 	}
+	var ioAddr address.Address
 	if callObj.To != "" {
-		to, err = ethAddrToIoAddr(callObj.To)
-		if err != nil {
+		if ioAddr, err = ethAddrToIoAddr(callObj.To); err != nil {
 			return
 		}
+		to = ioAddr.String()
 	}
 	if callObj.From == "" {
 		callObj.From = "0x0000000000000000000000000000000000000000"
 	}
-	from, err = ethAddrToIoAddr(callObj.From)
-	if err != nil {
+	if ioAddr, err = ethAddrToIoAddr(callObj.From); err != nil {
 		return
 	}
+	from = ioAddr.String()
 	if callObj.Value != "" {
 		value, ok = big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
 		if !ok {
