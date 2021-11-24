@@ -355,10 +355,35 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	actionIndexes := map[hash.Hash256]uint32{}
+	for i, action := range blk.Actions {
+		actHash, err := action.Hash()
+		if err != nil {
+			return err
+		}
+		actionIndexes[actHash] = uint32(i) // or +1?
+	}
+	actionLogIndexOffsets := make([]int, len(blk.Actions))
 	// write receipts
 	if blk.Receipts != nil {
 		receipts := iotextypes.Receipts{}
 		for _, r := range blk.Receipts {
+			actionLogIndexOffsets[actionIndexes[r.ActionHash]] = len(r.Logs()) // include transaction logs or not?
+		}
+		offset := 0
+		if len(blk.Actions) > 0 {
+			offset = actionLogIndexOffsets[0]
+			actionLogIndexOffsets[0] = 0
+			for i := 1; i < len(blk.Actions); i++ {
+				actionLogIndexOffsets[i], offset = offset, offset+actionLogIndexOffsets[i]
+			}
+		}
+		for _, r := range blk.Receipts {
+			txIndex := actionIndexes[r.ActionHash]
+			for i, l := range r.Logs() {
+				// l.txIndex = txIndex
+				l.Index = uint(actionLogIndexOffsets[txIndex] + i)
+			}
 			receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
 		}
 		if receiptsBytes, err := proto.Marshal(&receipts); err == nil {
