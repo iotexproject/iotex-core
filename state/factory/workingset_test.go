@@ -189,17 +189,17 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			block *block.Block
 			err   error
 		}{
-			{makeBlock(t, 1, hash.ZeroHash256, digestHash), nil},
+			{makeBlock(require, 1, hash.ZeroHash256, digestHash), nil},
 			{
-				makeBlock(t, 3, hash.ZeroHash256, digestHash),
+				makeBlock(require, 3, hash.ZeroHash256, digestHash),
 				action.ErrNonceTooHigh,
 			},
 			{
-				makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash),
+				makeBlock(require, 1, hash.Hash256b([]byte("test")), digestHash),
 				block.ErrReceiptRootMismatch,
 			},
 			{
-				makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte("test"))),
+				makeBlock(require, 1, hash.ZeroHash256, hash.Hash256b([]byte("test"))),
 				block.ErrDeltaStateMismatch,
 			},
 		}
@@ -222,7 +222,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 	}
 }
 
-func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
+func makeBlock(require *require.Assertions, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
 	rand.Seed(time.Now().Unix())
 	var sevlps []action.SealedEnvelope
 	r := rand.Int()
@@ -234,7 +234,7 @@ func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Ha
 		20000+uint64(r),
 		unit.ConvertIotxToRau(1+int64(r)),
 	)
-	require.NoError(t, err)
+	require.NoError(err)
 	eb := action.EnvelopeBuilder{}
 	evlp := eb.
 		SetAction(tsf).
@@ -244,7 +244,7 @@ func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Ha
 		SetVersion(1).
 		Build()
 	sevlp, err := action.Sign(evlp, identityset.PrivateKey((r+1)%identityset.Size()))
-	require.NoError(t, err)
+	require.NoError(err)
 	sevlps = append(sevlps, sevlp)
 	rap := block.RunnableActionsBuilder{}
 	ra := rap.AddActions(sevlps...).Build()
@@ -256,6 +256,80 @@ func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Ha
 		SetDeltaStateDigest(digest).
 		SetPrevBlockHash(hash.Hash256b([]byte("test"))).
 		SignAndBuild(identityset.PrivateKey(0))
-	require.NoError(t, err)
+	require.NoError(err)
 	return &blk
+}
+
+// TODO: test the benchmark with flag -benchtime=10s
+func BenchmarkValidateBlock(b *testing.B) {
+	require := require.New(b)
+	stateDBV2, _ := NewStateDB(config.Default, InMemStateDBOption())
+	digestHash := hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
+		101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})
+	testBlk, err := makeBlockWithTransfer(hash.ZeroHash256, digestHash, 5000)
+	require.NoError(err)
+	zctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit * 100000,
+		})
+	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+	zctx = protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+
+	for n := 0; n < b.N; n++ {
+		err := stateDBV2.Validate(zctx, testBlk)
+		require.NoError(err)
+	}
+}
+
+func makeBlockWithTransfer(rootHash hash.Hash256, digest hash.Hash256, num int) (*block.Block, error) {
+	rand.Seed(time.Now().Unix())
+	var sevlps []action.SealedEnvelope
+	nonceMap := make(map[string]uint64)
+	for i := 1; i <= num; i++ {
+		r := rand.Int()
+		senderAddr := identityset.Address((r + 1) % identityset.Size()).String()
+		nonceMap[senderAddr]++
+		tsf, err := action.NewTransfer(
+			uint64(r),
+			unit.ConvertIotxToRau(1000+int64(r)),
+			identityset.Address(r%identityset.Size()).String(),
+			nil,
+			20000+uint64(r),
+			unit.ConvertIotxToRau(1+int64(r)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		eb := action.EnvelopeBuilder{}
+		evlp := eb.
+			SetAction(tsf).
+			SetGasLimit(tsf.GasLimit()).
+			SetGasPrice(tsf.GasPrice()).
+			SetNonce(uint64(nonceMap[senderAddr])).
+			SetVersion(1).
+			Build()
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((r+1)%identityset.Size()))
+		if err != nil {
+			return nil, err
+		}
+		sevlps = append(sevlps, sevlp)
+	}
+	rap := block.RunnableActionsBuilder{}
+	ra := rap.AddActions(sevlps...).Build()
+	blk, err := block.NewBuilder(ra).
+		SetHeight(1).
+		SetTimestamp(time.Now()).
+		SetVersion(1).
+		SetReceiptRoot(rootHash).
+		SetDeltaStateDigest(digest).
+		SetPrevBlockHash(hash.Hash256b([]byte("test"))).
+		SignAndBuild(identityset.PrivateKey(0))
+	if err != nil {
+		return nil, err
+	}
+	return &blk, nil
 }
