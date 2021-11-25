@@ -609,3 +609,15 @@ func TestGetStorageAt(t *testing.T) {
 		require.Error(err)
 	}
 }
+
+func TestGetNetworkID(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+	config.SetEVMNetworkID(1)
+	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+	res, _ := svr.web3Server.getNetworkID()
+	require.Equal("1", res)
+}

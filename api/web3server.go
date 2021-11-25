@@ -519,7 +519,7 @@ func (svr *Web3Server) getNodeInfo() (interface{}, error) {
 }
 
 func (svr *Web3Server) getNetworkID() (interface{}, error) {
-	return svr.coreService.EVMNetworkID(), nil
+	return strconv.Itoa(int(svr.coreService.EVMNetworkID())), nil
 }
 
 func (svr *Web3Server) getPeerCount() (interface{}, error) {
