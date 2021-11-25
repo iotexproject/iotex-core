@@ -19,6 +19,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -44,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -1913,7 +1915,7 @@ func BenchmarkTTest(b *testing.B) {
 	// require.NoError(ap.Add(context.Background(), tsf2))
 
 	nonceMap := make(map[string]uint64)
-	total := 500
+	total := 1000
 	for i := 0; i < total; i++ {
 		nonceMap[userA.String()]++
 		tsf1, err := action.SignedTransfer(userB.String(), priKeyA, nonceMap[userA.String()], big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -1926,16 +1928,18 @@ func BenchmarkTTest(b *testing.B) {
 	}
 
 	for n := 0; n < b.N; n++ {
-		// t1 := time.Now()
+		t1 := time.Now()
 		blk, err := bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		err = bc.ValidateBlock(blk)
 		require.NoError(err)
-		// t2 := time.Since(t1)
-		require.Equal(total*2, len(blk.Body.Actions))
-		// log.L().Error("assd", zap.String("time", t2.String()), zap.Int("blk size", len(blk.Body.Actions)))
+
+		// require.Equal(total*2, len(blk.Body.Actions))
+
 		// err = bc.CommitBlock(blk)
 		// require.NoError(err)
+		t2 := time.Since(t1)
+		log.L().Error("assd", zap.String("time", t2.String()), zap.Int("blk size", len(blk.Body.Actions)))
 	}
 }
 
@@ -1949,7 +1953,8 @@ func newChainV2(require *require.Assertions, stateTX bool) (blockchain.Blockchai
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
 
-	cfg.Chain.TrieDBPath = testTriePath
+	// cfg.Chain.TrieDBPath = testTriePath
+	cfg.DB.DbPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableArchiveMode = true
@@ -1959,7 +1964,7 @@ func newChainV2(require *require.Assertions, stateTX bool) (blockchain.Blockchai
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
-	kv := db.NewMemKVStore()
+	kv := db.NewBoltDB(cfg.DB)
 	if stateTX {
 		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
 		require.NoError(err)

@@ -213,7 +213,7 @@ loop:
 				log.L().Error(err.Error())
 			}
 		rerand:
-			switch rand.Intn(3) {
+			switch rand.Intn(1) {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				atomic.AddUint64(&totalTsfCreated, 1)

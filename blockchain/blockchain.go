@@ -488,6 +488,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
+	log.L().Info("blk size", zap.Int("size", len(blk.Body.Actions)))
 	return nil
 }
 
