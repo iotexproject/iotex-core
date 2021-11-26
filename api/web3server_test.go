@@ -413,12 +413,29 @@ func TestGetLogs(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := &filterObject{
-		FromBlock: "0x1",
+	testData := []struct {
+		data   *filterObject
+		logLen int
+	}{
+		{
+			&filterObject{
+				FromBlock: "0x1",
+			},
+			4,
+		},
+		{
+			// empty log
+			&filterObject{
+				Address: []string{"0x8ce313ab12bf7aed8136ab36c623ff98c8eaad34"},
+			},
+			0,
+		},
 	}
-	ret, err := svr.web3Server.getLogs(testData)
-	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 4)
+	for _, v := range testData {
+		ret, err := svr.web3Server.getLogs(v.data)
+		require.NoError(err)
+		require.Equal(len(ret.([]logsObject)), v.logLen)
+	}
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
@@ -537,12 +554,16 @@ func TestGetFilterChanges(t *testing.T) {
 	// request again after last rolling
 	ret, err = svr.web3Server.getFilterChanges([]interface{}{filterID1})
 	require.NoError(err)
-	require.Equal(len(ret.([]interface{})), 0)
+	require.Equal(len(ret.([]logsObject)), 0)
 
 	filterID2, _ := svr.web3Server.newBlockFilter()
 	ret2, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
 	require.NoError(err)
 	require.Equal(1, len(ret2.([]string)))
+	ret3, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
+	require.NoError(err)
+	require.Equal(0, len(ret3.([]string)))
+
 }
 
 func TestGetFilterLogs(t *testing.T) {
@@ -601,8 +622,8 @@ func TestGetStorageAt(t *testing.T) {
 	require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", ret)
 
 	failData := [][]interface{}{
-		[]interface{}{1},
-		[]interface{}{"TEST", "TEST"},
+		{1},
+		{"TEST", "TEST"},
 	}
 	for _, v := range failData {
 		_, err := svr.web3Server.getStorageAt(v)

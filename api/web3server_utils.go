@@ -284,7 +284,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 
 func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
 	tx, err := svr.getTransactionFromActionInfo(actInfo)
-	if err != nil {
+	if err != nil || tx == nil {
 		return transactionObject{}, err
 	}
 
@@ -381,7 +381,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	}
 
 	// parse log results
-	var ret []logsObject
+	ret := make([]logsObject, 0)
 	for _, l := range logs {
 		var topics []string
 		for _, val := range l.Topics {
