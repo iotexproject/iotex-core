@@ -158,7 +158,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 		for _, info := range actionInfos {
 			if isDetailed {
 				tx, err := svr.getTransactionFromActionInfo(info)
-				if err != nil {
+				if err != nil || tx == nil {
 					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
 					continue
 				}
@@ -404,6 +404,18 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		})
 	}
 	return ret, nil
+}
+
+func isResultValid(in web3Resp) bool {
+	objInByte, err := json.Marshal(in)
+	if err != nil || !gjson.Valid(string(objInByte)) {
+		return false
+	}
+	parsedReqs := gjson.Parse(string(objInByte))
+	if !parsedReqs.Get("error").Exists() && !parsedReqs.Get("result").Exists() {
+		return false
+	}
+	return true
 }
 
 func byteToHex(b []byte) string {

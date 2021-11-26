@@ -239,11 +239,12 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 			return packAPIResult(nil, err, 0)
 		}
-		if err != nil {
+		resp := packAPIResult(res, err, int(web3Req.Get("id").Int()))
+		if err != nil || !isResultValid(resp) {
 			// temporally used for monitor and debug
 			log.L().Error("web3 server err", zap.String("input", fmt.Sprintf("%+v", web3Req)), zap.Error(err))
 		}
-		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
+		web3Resps = append(web3Resps, resp)
 		web3ServerMtc.WithLabelValues(method.(string)).Inc()
 		web3ServerMtc.WithLabelValues("requests_total").Inc()
 	}
@@ -622,7 +623,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		return nil, err
 	}
 	tx, err := svr.getTransactionFromActionInfo(actInfo)
-	if err != nil {
+	if err != nil || tx == nil {
 		return nil, err
 	}
 
@@ -845,7 +846,8 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 		from, to, hasNewLogs, err := svr.getLogQueryRange(filterObj.FromBlock, filterObj.ToBlock, filterObj.LogHeight)
 		if err != nil {
 			return nil, err
-		} else if !hasNewLogs {
+		}
+		if !hasNewLogs {
 			return []logsObject{}, nil
 		}
 		logs, err := svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)

@@ -642,3 +642,47 @@ func TestGetNetworkID(t *testing.T) {
 	res, _ := svr.web3Server.getNetworkID()
 	require.Equal("1", res)
 }
+
+func TestIsResultValid(t *testing.T) {
+	require := require.New(t)
+	testData := []struct {
+		data    web3Resp
+		isValid bool
+	}{
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+				Result:  []string{},
+			},
+			isValid: true,
+		},
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+			},
+			isValid: false,
+		},
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+				Result:  nil,
+			},
+			isValid: false,
+		},
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+				Error:   &web3Err{},
+			},
+			isValid: true,
+		},
+	}
+
+	for _, v := range testData {
+		require.Equal(v.isValid, isResultValid(v.data))
+	}
+}
