@@ -419,6 +419,14 @@ func TestGetLogs(t *testing.T) {
 	ret, err := svr.web3Server.getLogs(testData)
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)
+
+	testData2 := &filterObject{
+		Address: []string{"0x8A68E01add9aDc8b887025dC54C36CFa91432F58"},
+	}
+	ret, err = svr.web3Server.getLogs(testData2)
+	require.NoError(err)
+	require.Equal(len(ret.([]logsObject)), 0)
+
 }
 
 func TestGetTransactionReceipt(t *testing.T) {

@@ -349,6 +349,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
 	sdb.putIntoWorkingSets(key, ws)
+	log.L().Info("actpool size", zap.Uint64("size", ap.GetSize()))
 	return blkBuilder, nil
 }
 

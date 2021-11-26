@@ -402,7 +402,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-
+	log.L().Info("minted blk size", zap.Int("size", len(blk.Body.Actions)))
 	return &blk, nil
 }
 
@@ -488,7 +488,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
-	log.L().Info("blk size", zap.Int("size", len(blk.Body.Actions)))
+	log.L().Info("commit blk size", zap.Int("size", len(blk.Body.Actions)))
 	return nil
 }
 

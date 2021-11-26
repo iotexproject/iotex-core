@@ -161,10 +161,10 @@ func InjectByAps(
 	pendingActionMap *ttl.Cache,
 ) {
 	timeout := time.After(duration)
-	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
+	// tick := time.NewTicker(time.Duration(time.Second / 500))
 	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
-
+	// cntAddtx := 0
 loop:
 	for {
 		select {
@@ -203,7 +203,11 @@ loop:
 						zap.String("addr", delegate.EncodedAddr))
 				}
 			}
-		case <-tick.C:
+		default:
+			// if cntAddtx > 5000 {
+			// 	continue
+			// }
+			// cntAddtx++
 			wg.Add(1)
 			// TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
 			if _, err := CheckPendingActionList(cs,
@@ -212,24 +216,132 @@ loop:
 			); err != nil {
 				log.L().Error(err.Error())
 			}
-		rerand:
-			switch rand.Intn(1) {
-			case 0:
-				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
-				atomic.AddUint64(&totalTsfCreated, 1)
-				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
-			case 1:
-				if fpToken == nil {
-					goto rerand
+			// rerand:
+			// 	switch rand.Intn(1) {
+			// 	case 0:
+			sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
+			// atomic.AddUint64(&totalTsfCreated, 1)
+			injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
+				big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
+			// case 1:
+			// 	if fpToken == nil {
+			// 		goto rerand
+			// 	}
+			// 	go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
+			// case 2:
+			// 	executor, nonce := createExecutionInjection(counter, delegates)
+			// 	go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+			// 		uint64(executionGasLimit), big.NewInt(executionGasPrice),
+			// 		executionData, retryNum, retryInterval, pendingActionMap)
+			// }
+		}
+	}
+}
+
+// InjectByAps injects Actions in APS Mode
+func InjectByApsV2(
+	wg *sync.WaitGroup,
+	aps float64,
+	counter map[string]uint64,
+	transferGasLimit int,
+	transferGasPrice int64,
+	transferPayload string,
+	voteGasLimit int,
+	voteGasPrice int64,
+	contract string,
+	executionAmount int,
+	executionGasLimit int,
+	executionGasPrice int64,
+	executionData string,
+	fpToken blockchain.FpToken,
+	fpContract string,
+	debtor *AddressKey,
+	creditor *AddressKey,
+	client iotexapi.APIServiceClient,
+	admins []*AddressKey,
+	delegates []*AddressKey,
+	duration time.Duration,
+	retryNum int,
+	retryInterval int,
+	resetInterval int,
+	expectedBalances *map[string]*big.Int,
+	cs *chainservice.ChainService,
+	pendingActionMap *ttl.Cache,
+) {
+	timeout := time.After(duration)
+	// tick := time.NewTicker(time.Duration(time.Second / 500))
+	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
+	rand.Seed(time.Now().UnixNano())
+	// cntAddtx := 0
+loop:
+	for {
+		select {
+		case <-timeout:
+			break loop
+		case <-reset.C:
+			for _, admin := range admins {
+				addr := admin.EncodedAddr
+				err := backoff.Retry(func() error {
+					acctDetails, err := client.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: addr})
+					if err != nil {
+						return err
+					}
+					counter[addr] = acctDetails.GetAccountMeta().PendingNonce
+					return nil
+				}, backoff.NewExponentialBackOff())
+				if err != nil {
+					log.L().Fatal("Failed to inject actions by APS",
+						zap.Error(err),
+						zap.String("addr", admin.EncodedAddr))
 				}
-				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
-			case 2:
-				executor, nonce := createExecutionInjection(counter, delegates)
-				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-					uint64(executionGasLimit), big.NewInt(executionGasPrice),
-					executionData, retryNum, retryInterval, pendingActionMap)
 			}
+			for _, delegate := range delegates {
+				addr := delegate.EncodedAddr
+				err := backoff.Retry(func() error {
+					acctDetails, err := client.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: addr})
+					if err != nil {
+						return err
+					}
+					counter[addr] = acctDetails.GetAccountMeta().PendingNonce
+					return nil
+				}, backoff.NewExponentialBackOff())
+				if err != nil {
+					log.L().Fatal("Failed to inject actions by APS",
+						zap.Error(err),
+						zap.String("addr", delegate.EncodedAddr))
+				}
+			}
+		default:
+			// if cntAddtx > 5000 {
+			// 	continue
+			// }
+			// cntAddtx++
+			wg.Add(1)
+			// TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
+			if _, err := CheckPendingActionList(cs,
+				pendingActionMap,
+				expectedBalances,
+			); err != nil {
+				log.L().Error(err.Error())
+			}
+			// rerand:
+			// 	switch rand.Intn(1) {
+			// 	case 0:
+			sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
+			// atomic.AddUint64(&totalTsfCreated, 1)
+			injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
+				big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
+			// case 1:
+			// 	if fpToken == nil {
+			// 		goto rerand
+			// 	}
+			// 	go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
+			// case 2:
+			// 	executor, nonce := createExecutionInjection(counter, delegates)
+			// 	go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+			// 		uint64(executionGasLimit), big.NewInt(executionGasPrice),
+			// 		executionData, retryNum, retryInterval, pendingActionMap)
+			// }
 		}
 	}
 }
@@ -377,7 +489,7 @@ func injectTransfer(
 		log.L().Fatal("Failed to inject transfer", zap.Error(err))
 	}
 
-	log.L().Info("Created signed transfer")
+	// log.L().Info("Created signed transfer")
 
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
 	if err := backoff.Retry(func() error {
@@ -393,7 +505,7 @@ func injectTransfer(
 		pendingActionMap.Set(selpHash, 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
-
+	// log.L().Info("injector tx", zap.Uint64("size", totalTsfSentToAPI))
 	if wg != nil {
 		wg.Done()
 	}
@@ -514,13 +626,11 @@ func createTransferInjection(
 	counter map[string]uint64,
 	addrs []*AddressKey,
 ) (*AddressKey, *AddressKey, uint64, int64) {
-	sender := addrs[rand.Intn(len(addrs))]
-	recipient := addrs[rand.Intn(len(addrs))]
+	randNum := rand.Intn(len(addrs))
+	sender := addrs[randNum]
+	recipient := addrs[(randNum+1)%len(addrs)]
 	nonce := counter[sender.EncodedAddr]
-	amount := int64(0)
-	for amount == int64(0) {
-		amount = int64(rand.Intn(5))
-	}
+	amount := int64(rand.Intn(5))
 	counter[sender.EncodedAddr]++
 	return sender, recipient, nonce, amount
 }
