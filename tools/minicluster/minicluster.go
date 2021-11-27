@@ -438,7 +438,7 @@ func newConfig(
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
 	// unlimit tx
-	cfg.Genesis.BlockGasLimit *= 100
+	cfg.Genesis.BlockGasLimit *= 1
 	cfg.Network.EnableRateLimit = false
 	return cfg
 }

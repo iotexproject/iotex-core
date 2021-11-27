@@ -270,78 +270,27 @@ func InjectByApsV2(
 ) {
 	timeout := time.After(duration)
 	// tick := time.NewTicker(time.Duration(time.Second / 500))
-	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
+	idx := 0
+
+	txs, err := TxGenerator(20000, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), transferPayload)
+	if err != nil {
+		panic(err)
+	}
 	// cntAddtx := 0
 loop:
 	for {
 		select {
 		case <-timeout:
 			break loop
-		case <-reset.C:
-			for _, admin := range admins {
-				addr := admin.EncodedAddr
-				err := backoff.Retry(func() error {
-					acctDetails, err := client.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: addr})
-					if err != nil {
-						return err
-					}
-					counter[addr] = acctDetails.GetAccountMeta().PendingNonce
-					return nil
-				}, backoff.NewExponentialBackOff())
-				if err != nil {
-					log.L().Fatal("Failed to inject actions by APS",
-						zap.Error(err),
-						zap.String("addr", admin.EncodedAddr))
-				}
-			}
-			for _, delegate := range delegates {
-				addr := delegate.EncodedAddr
-				err := backoff.Retry(func() error {
-					acctDetails, err := client.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: addr})
-					if err != nil {
-						return err
-					}
-					counter[addr] = acctDetails.GetAccountMeta().PendingNonce
-					return nil
-				}, backoff.NewExponentialBackOff())
-				if err != nil {
-					log.L().Fatal("Failed to inject actions by APS",
-						zap.Error(err),
-						zap.String("addr", delegate.EncodedAddr))
-				}
-			}
 		default:
-			// if cntAddtx > 5000 {
-			// 	continue
-			// }
-			// cntAddtx++
-			wg.Add(1)
-			// TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
-			if _, err := CheckPendingActionList(cs,
-				pendingActionMap,
-				expectedBalances,
-			); err != nil {
-				log.L().Error(err.Error())
+			if idx >= len(txs) {
+				continue
 			}
-			// rerand:
-			// 	switch rand.Intn(1) {
-			// 	case 0:
-			sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
-			// atomic.AddUint64(&totalTsfCreated, 1)
-			injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-				big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
-			// case 1:
-			// 	if fpToken == nil {
-			// 		goto rerand
-			// 	}
-			// 	go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
-			// case 2:
-			// 	executor, nonce := createExecutionInjection(counter, delegates)
-			// 	go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-			// 		uint64(executionGasLimit), big.NewInt(executionGasPrice),
-			// 		executionData, retryNum, retryInterval, pendingActionMap)
-			// }
+			wg.Add(1)
+			selp := txs[idx]
+			idx++
+			injectTransferV2(wg, client, selp, retryNum, retryInterval, pendingActionMap)
 		}
 	}
 }
@@ -490,6 +439,35 @@ func injectTransfer(
 	}
 
 	// log.L().Info("Created signed transfer")
+
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+	if err := backoff.Retry(func() error {
+		_, err := c.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		return err
+	}, bo); err != nil {
+		log.L().Error("Failed to inject transfer", zap.Error(err))
+	} else if pendingActionMap != nil {
+		selpHash, err := selp.Hash()
+		if err != nil {
+			log.L().Fatal("Failed to get hash", zap.Error(err))
+		}
+		pendingActionMap.Set(selpHash, 1)
+		atomic.AddUint64(&totalTsfSentToAPI, 1)
+	}
+	// log.L().Info("injector tx", zap.Uint64("size", totalTsfSentToAPI))
+	if wg != nil {
+		wg.Done()
+	}
+}
+
+func injectTransferV2(
+	wg *sync.WaitGroup,
+	c iotexapi.APIServiceClient,
+	selp action.SealedEnvelope,
+	retryNum int,
+	retryInterval int,
+	pendingActionMap *ttl.Cache,
+) {
 
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
 	if err := backoff.Retry(func() error {

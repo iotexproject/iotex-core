@@ -18,6 +18,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -36,7 +37,9 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -50,16 +53,12 @@ type KeyPair struct {
 	SK string `yaml:"priKey"`
 }
 
-// AddressKey contains the encoded address and private key of an account
-type AddressKey struct {
-	EncodedAddr string
-	PriKey      crypto.PrivateKey
-}
-
 type injectProcessor struct {
 	api      iotexapi.APIServiceClient
 	nonces   *ttl.Cache
-	accounts []*AddressKey
+	accounts []*util.AddressKey
+	tx       []action.SealedEnvelope
+	txIdx    uint64
 }
 
 func newInjectionProcessor() (*injectProcessor, error) {
@@ -77,6 +76,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.L().Info("server connected")
 	api := iotexapi.NewAPIServiceClient(conn)
 	nonceCache, err := ttl.NewCache()
 	if err != nil {
@@ -92,12 +92,13 @@ func newInjectionProcessor() (*injectProcessor, error) {
 			return p, err
 		}
 	}
+	log.L().Info("acc loaded")
 	p.syncNonces(context.Background())
 	return p, nil
 }
 
 func (p *injectProcessor) randAccounts(num int) error {
-	addrKeys := make([]*AddressKey, 0, num)
+	addrKeys := make([]*util.AddressKey, 0, num)
 	for i := 0; i < num; i++ {
 		private, err := crypto.GenerateKey()
 		if err != nil {
@@ -105,7 +106,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 		}
 		a, _ := account.PrivateKeyToAccount(private)
 		p.nonces.Set(a.Address().String(), 1)
-		addrKeys = append(addrKeys, &AddressKey{PriKey: private, EncodedAddr: a.Address().String()})
+		addrKeys = append(addrKeys, &util.AddressKey{PriKey: private, EncodedAddr: a.Address().String()})
 	}
 	p.accounts = addrKeys
 	return nil
@@ -122,7 +123,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 	}
 
 	// Construct iotex addresses from loaded key pairs
-	addrKeys := make([]*AddressKey, 0)
+	addrKeys := make([]*util.AddressKey, 0)
 	for _, pair := range keypairs.Pairs {
 		pk, err := crypto.HexStringToPublicKey(pair.PK)
 		if err != nil {
@@ -138,7 +139,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 			return errors.New("failed to get address")
 		}
 		p.nonces.Set(addr.String(), 0)
-		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
+		addrKeys = append(addrKeys, &util.AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 
 	// send tokens
@@ -157,6 +158,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 			time.Sleep(10 * time.Second)
 		}
 	}
+	time.Sleep(10 * time.Second)
 	return nil
 }
 
@@ -222,6 +224,26 @@ func (p *injectProcessor) injectProcess(ctx context.Context) {
 	}
 }
 
+func (p *injectProcessor) injectProcessV2(ctx context.Context) {
+	txs, err := util.TxGenerator(100, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, "")
+	if err != nil {
+		return
+	}
+	p.tx = txs
+	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(injectCfg.aps)))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// fmt.Println("Tick at")
+			go p.injectV2()
+		}
+	}
+
+}
+
 func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	defer workers.Done()
 	for range ticks {
@@ -258,6 +280,20 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	}
 }
 
+func (p *injectProcessor) injectV2() {
+	selp, err := p.pickActionV2()
+	if err != nil {
+		return
+	}
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(injectCfg.retryInterval), injectCfg.retryNum)
+	if rerr := backoff.Retry(func() error {
+		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		return err
+	}, bo); rerr != nil {
+		log.L().Error("Failed to inject.", zap.Error(rerr))
+	}
+}
+
 func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 	switch injectCfg.actionType {
 	case "transfer":
@@ -272,6 +308,15 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 	default:
 		return p.transferCaller()
 	}
+}
+
+func (p *injectProcessor) pickActionV2() (action.SealedEnvelope, error) {
+	if p.txIdx >= uint64(len(p.tx)) {
+		return action.SealedEnvelope{}, errors.New("no tx")
+	}
+	selp := p.tx[p.txIdx]
+	atomic.AddUint64(&p.txIdx, 1)
+	return selp, nil
 }
 
 func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
@@ -424,7 +469,7 @@ func inject(_ []string) string {
 
 	ctx, cancel := context.WithTimeout(context.Background(), injectCfg.duration)
 	defer cancel()
-	go p.injectProcess(ctx)
+	go p.injectProcessV2(ctx)
 	go p.syncNoncesProcess(ctx)
 	<-ctx.Done()
 	return ""
@@ -434,7 +479,7 @@ func init() {
 	flag := injectCmd.Flags()
 	flag.StringVar(&rawInjectCfg.configPath, "injector-config-path", "./tools/actioninjector.v2/gentsfaddrs.yaml",
 		"path of config file of genesis transfer addresses")
-	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "127.0.0.1:14014", "target ip:port for grpc connection")
+	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "api.nightly-cluster-2.iotex.one:443", "target ip:port for grpc connection")
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
 	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 1000000000000, "transfer gas price")
@@ -447,8 +492,8 @@ func init() {
 	flag.DurationVar(&rawInjectCfg.retryInterval, "retry-interval", 1*time.Second, "sleep interval between two consecutive rpc retries")
 	flag.DurationVar(&rawInjectCfg.duration, "duration", 60*time.Hour, "duration when the injection will run")
 	flag.DurationVar(&rawInjectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
-	flag.IntVar(&rawInjectCfg.aps, "aps", 30, "actions to be injected per second")
-	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 20, "number of accounst to use")
+	flag.IntVar(&rawInjectCfg.aps, "aps", 10, "actions to be injected per second")
+	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 5, "number of accounst to use")
 	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
 	flag.BoolVar(&rawInjectCfg.checkReceipt, "check-recipt", false, "check recept")
