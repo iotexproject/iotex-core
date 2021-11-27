@@ -9,7 +9,6 @@ package util
 import (
 	"context"
 	"math/big"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 
@@ -88,7 +87,7 @@ func TxGenerator(
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			randNum := rand.Intn(len(delegates))
+			randNum := i % len(delegates)
 			sender, recipient := delegates[randNum], delegates[(randNum+1)%len(delegates)]
 			// amount := int64(rand.Intn(5))
 			amount := int64(0)

@@ -225,11 +225,21 @@ func (p *injectProcessor) injectProcess(ctx context.Context) {
 }
 
 func (p *injectProcessor) injectProcessV2(ctx context.Context) {
-	txs, err := util.TxGenerator(100, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, "")
+	var numTx uint64 = 10000
+	txs, err := util.TxGenerator(numTx, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, "")
 	if err != nil {
+		log.L().Error("no act", zap.Error(err))
 		return
 	}
 	p.tx = txs
+
+	for i := 0; i < len(p.accounts); i++ {
+		p.injectV2()
+		time.Sleep(1 * time.Second)
+	}
+
+	time.Sleep(15 * time.Second)
+	log.L().Info("begin inject")
 	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(injectCfg.aps)))
 	defer ticker.Stop()
 	for {
@@ -283,11 +293,17 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 func (p *injectProcessor) injectV2() {
 	selp, err := p.pickActionV2()
 	if err != nil {
+		log.L().Error("no act", zap.Error(err))
 		return
 	}
+	actHash, _ := selp.Hash()
+	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])))
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(injectCfg.retryInterval), injectCfg.retryNum)
 	if rerr := backoff.Retry(func() error {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		if err != nil {
+			log.L().Error("Failed to inject.", zap.Error(err))
+		}
 		return err
 	}, bo); rerr != nil {
 		log.L().Error("Failed to inject.", zap.Error(rerr))
