@@ -623,7 +623,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		return nil, err
 	}
 	tx, err := svr.getTransactionFromActionInfo(actInfo)
-	if err != nil || tx == nil {
+	if err != nil {
 		return nil, err
 	}
 

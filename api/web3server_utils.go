@@ -158,7 +158,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 		for _, info := range actionInfos {
 			if isDetailed {
 				tx, err := svr.getTransactionFromActionInfo(info)
-				if err != nil || tx == nil {
+				if err != nil {
 					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
 					continue
 				}
@@ -284,7 +284,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 
 func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
 	tx, err := svr.getTransactionFromActionInfo(actInfo)
-	if err != nil || tx == nil {
+	if err != nil {
 		return transactionObject{}, err
 	}
 
