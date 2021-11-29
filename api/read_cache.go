@@ -2,8 +2,8 @@ package api
 
 import (
 	"encoding/json"
-	"sync"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
 	"go.uber.org/zap"
 
@@ -23,8 +23,7 @@ type (
 	// ReadCache stores read results
 	ReadCache struct {
 		total, hit int
-		lock       sync.RWMutex
-		bins       map[hash.Hash160][]byte
+		c          *ttl.Cache
 	}
 )
 
@@ -36,18 +35,16 @@ func (k *ReadKey) Hash() hash.Hash160 {
 
 // NewReadCache returns a new read cache
 func NewReadCache() *ReadCache {
+	c, _ := ttl.NewCache()
 	return &ReadCache{
-		bins: make(map[hash.Hash160][]byte),
+		c: c,
 	}
 }
 
 // Get reads according to key
 func (rc *ReadCache) Get(key hash.Hash160) ([]byte, bool) {
-	rc.lock.RLock()
-	defer rc.lock.RUnlock()
-
 	rc.total++
-	d, ok := rc.bins[key]
+	d, ok := rc.c.Get(key)
 	if !ok {
 		return nil, false
 	}
@@ -55,32 +52,27 @@ func (rc *ReadCache) Get(key hash.Hash160) ([]byte, bool) {
 	if rc.hit%100 == 0 {
 		log.L().Info("API cache hit", zap.Int("total", rc.total), zap.Int("hit", rc.hit))
 	}
-	return d, true
+	return d.([]byte), true
 }
 
 // Put writes according to key
 func (rc *ReadCache) Put(key hash.Hash160, value []byte) {
-	rc.lock.Lock()
-	rc.bins[key] = value
-	rc.lock.Unlock()
+	rc.c.Set(key, value)
 }
 
 // Clear clears the cache
 func (rc *ReadCache) Clear() {
-	rc.lock.Lock()
-	rc.bins = nil
-	rc.bins = make(map[hash.Hash160][]byte)
-	rc.lock.Unlock()
+	rc.c.Reset()
 }
 
 // ReceiveBlock receives the new block
 func (rc *ReadCache) ReceiveBlock(*block.Block) error {
 	// invalidate the cache at every new block
-	rc.Clear()
+	rc.c.Reset()
 	return nil
 }
 
 // Exit implements the Responder interface
 func (rc *ReadCache) Exit() {
-	rc.Clear()
+	rc.c.Reset()
 }

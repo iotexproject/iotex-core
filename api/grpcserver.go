@@ -31,8 +31,8 @@ import (
 
 // GRPCServer contains grpc server and the pointer to api coreservice
 type GRPCServer struct {
-	grpcServer  *grpc.Server
 	port        string
+	grpcServer  *grpc.Server
 	coreService *coreService
 }
 
@@ -49,9 +49,9 @@ func NewGRPCServer(core *coreService, grpcPort int) *GRPCServer {
 		)),
 	)
 	svr := &GRPCServer{
+		port:        ":" + strconv.Itoa(grpcPort),
 		grpcServer:  gSvr,
 		coreService: core,
-		port:        ":" + strconv.Itoa(grpcPort),
 	}
 
 	//serviceName: grpc.health.v1.Health
@@ -95,7 +95,11 @@ func (svr *GRPCServer) SuggestGasPrice(ctx context.Context, in *iotexapi.Suggest
 
 // GetAccount returns the metadata of an account
 func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	accountMeta, blockIdentifier, err := svr.coreService.Account(in.Address)
+	addr, err := address.FromString(in.Address)
+	if err != nil {
+		return nil, err
+	}
+	accountMeta, blockIdentifier, err := svr.coreService.Account(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +123,17 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		request := in.GetByIndex()
 		ret, err = svr.coreService.Actions(request.Start, request.Count)
 	case in.GetByHash() != nil:
+		var act *iotexapi.ActionInfo
 		request := in.GetByHash()
-		ret, err = svr.coreService.Action(request.ActionHash, request.CheckPending)
+		act, err = svr.coreService.Action(request.ActionHash, request.CheckPending)
+		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
-		ret, err = svr.coreService.ActionsByAddress(request.Address, request.Start, request.Count)
+		addr, err := address.FromString(request.Address)
+		if err != nil {
+			return nil, err
+		}
+		ret, err = svr.coreService.ActionsByAddress(addr, request.Start, request.Count)
 	case in.GetUnconfirmedByAddr() != nil:
 		request := in.GetUnconfirmedByAddr()
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
@@ -153,8 +163,10 @@ func (svr *GRPCServer) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockM
 		request := in.GetByIndex()
 		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
 	case in.GetByHash() != nil:
+		var blkMeta *iotextypes.BlockMeta
 		request := in.GetByHash()
-		ret, err = svr.coreService.BlockMetaByHash(request.BlkHash)
+		blkMeta, err = svr.coreService.BlockMetaByHash(request.BlkHash)
+		ret = []*iotextypes.BlockMeta{blkMeta}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -194,7 +206,7 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
-	actHash, err := svr.coreService.SendAction(context.Background(), in.GetAction(), in.GetAction().Core.GetChainID())
+	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
 		return nil, err
 	}

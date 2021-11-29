@@ -632,6 +632,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
+	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
 	sk, err := crypto.GenerateKey()
 

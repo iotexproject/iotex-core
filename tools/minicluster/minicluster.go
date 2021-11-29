@@ -19,13 +19,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -97,10 +97,11 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
-		networkPort := 4689 + i
-		apiPort := 14014 + i
-		HTTPAdminPort := 9009 + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort)
+		networkPort := config.Default.Network.Port + i
+		apiPort := config.Default.API.Port + i
+		web3APIPort := config.Default.API.Web3Port + i
+		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
@@ -263,7 +264,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
-		pendingActionMap := cache.NewThreadSafeLruCache(0)
+		pendingActionMap, _ := ttl.NewCache(ttl.EvictOnErrorOption())
 
 		log.L().Info("Start action injections.")
 
@@ -288,9 +289,9 @@ func main() {
 		})
 
 		totalPendingActions := 0
-		pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
+		pendingActionMap.Range(func(selphash, vi interface{}) error {
 			totalPendingActions++
-			return true
+			return nil
 		})
 
 		if err != nil {
@@ -395,6 +396,7 @@ func newConfig(
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
+	web3APIPort int,
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
@@ -423,6 +425,7 @@ func newConfig(
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
 	cfg.API.Port = apiPort
+	cfg.API.Web3Port = web3APIPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2

@@ -61,7 +61,7 @@ var (
 // LoadErrorDescription loads corresponding description related to the error
 func LoadErrorDescription(err error) string {
 	switch errors.Cause(err) {
-	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNonceTooHigh, ErrAddress, ErrNegativeValue:
+	case ErrOversizedData, ErrTxPoolOverflow, ErrInvalidSender, ErrNonceTooHigh, ErrInsufficientFunds, ErrIntrinsicGas, ErrChainID, ErrNotFound, ErrVotee, ErrAddress, ErrExistedInPool, ErrReplaceUnderpriced, ErrNonceTooLow, ErrUnderpriced, ErrNegativeValue:
 		return err.Error()
 	default:
 		return "Unknown"

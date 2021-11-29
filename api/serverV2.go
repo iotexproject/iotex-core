@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -13,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -20,6 +23,8 @@ import (
 type ServerV2 struct {
 	core       *coreService
 	GrpcServer *GRPCServer
+	web3Server *Web3Server
+	tracer     *tracesdk.TracerProvider
 }
 
 // Config represents the config to setup api
@@ -67,9 +72,20 @@ func NewServerV2(
 	if err != nil {
 		return nil, err
 	}
+	tp, err := tracer.NewProvider(
+		tracer.WithServiceName(cfg.API.Tracer.ServiceName),
+		tracer.WithEndpoint(cfg.API.Tracer.EndPoint),
+		tracer.WithInstanceID(cfg.API.Tracer.InstanceID),
+		tracer.WithSamplingRatio(cfg.API.Tracer.SamplingRatio),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot config tracer provider")
+	}
 	return &ServerV2{
 		core:       coreAPI,
 		GrpcServer: NewGRPCServer(coreAPI, cfg.API.Port),
+		web3Server: NewWeb3Server(coreAPI, cfg.API.Web3Port, cfg.API.RedisCacheURL),
+		tracer:     tp,
 	}, nil
 }
 
@@ -81,11 +97,20 @@ func (svr *ServerV2) Start() error {
 	if err := svr.GrpcServer.Start(); err != nil {
 		return err
 	}
+	svr.web3Server.Start()
 	return nil
 }
 
 // Stop stops the GRPC server and the CoreService
 func (svr *ServerV2) Stop() error {
+	if svr.tracer != nil {
+		if err := svr.tracer.Shutdown(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to shutdown api tracer")
+		}
+	}
+	if err := svr.web3Server.Stop(); err != nil {
+		return err
+	}
 	if err := svr.GrpcServer.Stop(); err != nil {
 		return err
 	}
