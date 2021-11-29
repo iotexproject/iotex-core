@@ -253,14 +253,7 @@ func (svr *GRPCServer) ReadContract(ctx context.Context, in *iotexapi.ReadContra
 
 // ReadState reads state on blockchain
 func (svr *GRPCServer) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
-	data, blockIdentifier, err := svr.coreService.ReadState(string(in.ProtocolID), in.GetHeight(), in.MethodName, in.Arguments)
-	if err != nil {
-		return nil, err
-	}
-	return &iotexapi.ReadStateResponse{
-		Data:            data,
-		BlockIdentifier: blockIdentifier,
-	}, nil
+	return svr.coreService.ReadState(string(in.ProtocolID), in.GetHeight(), in.MethodName, in.Arguments)
 }
 
 // EstimateGasForAction estimates gas for action
