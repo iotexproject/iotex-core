@@ -315,9 +315,16 @@ func TestSendRawTransaction(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := []interface{}{"f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"}
-	res, _ := svr.web3Server.sendRawTransaction(testData)
-	require.Equal(res, "0x778fd5a054e74e9055bf68ef5f9d559fa306e8ba7dee608d0a3624cca0b63b3e")
+	// testData := []interface{}{"f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"}
+	// res, err := svr.web3Server.sendRawTransaction(testData)
+	// require.NoError(err)
+	// require.Equal("0x778fd5a054e74e9055bf68ef5f9d559fa306e8ba7dee608d0a3624cca0b63b3e", res)
+
+	testData2 := []interface{}{"f870818885e8d4a5100082271094173553c179bbf5af39d8db41f0b60e4fc631066a880de0b6b3a764000080831e84a1a001efa9397bb036bb65ed309c8d300530a505c146477e906ecd672de94f1e269ca00cdcdc5bde6dad628a7bc6800b91c4d1d05879be30822cde2044e7a95dc9ac29"}
+	res2, err := svr.web3Server.sendRawTransaction(testData2)
+	require.NoError(err)
+	require.Equal(res2, "0x778fd5a054e74e9055bf68ef5f9d559fa306e8ba7dee608d0a3624cca0b63b3e")
+
 }
 
 func TestGetCode(t *testing.T) {

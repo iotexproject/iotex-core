@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	ioctlUtil "github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -91,7 +91,7 @@ func ioAddrToEthAddr(ioAddr string) (string, error) {
 	if len(ioAddr) == 0 {
 		return "0x0000000000000000000000000000000000000000", nil
 	}
-	addr, err := ioctlUtil.IoAddrToEvmAddr(ioAddr)
+	addr, err := util.IoAddrToEvmAddr(ioAddr)
 	if err != nil {
 		return "", err
 	}

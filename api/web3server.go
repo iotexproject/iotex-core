@@ -436,12 +436,11 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	chainiD, err := action.HandleChainID(dataStr, svr.coreService.EVMNetworkID())
+	chainiD, err := action.DecodeChainID(dataStr, svr.coreService.EVMNetworkID())
 	if err != nil {
 		return nil, err
 	}
-	tx, sig, pubkey, err := action.DecodeRawTx(dataStr, chainiD)
+	tx, err := action.DecodeRawTx(dataStr, chainiD)
 	if err != nil {
 		return nil, err
 	}
@@ -461,15 +460,15 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 
 	req := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
-			Version:  0,
+			Version:  1,
 			Nonce:    tx.Nonce(),
 			GasLimit: tx.Gas(),
 			GasPrice: gasPrice,
-			ChainID:  svr.coreService.ChainID(),
+			// TODO: change the chainid to svr.coreService.ChainID()
+			ChainID: 0,
 		},
-		SenderPubKey: pubkey.Bytes(),
-		Signature:    sig,
-		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
+		// Encoding: iotextypes.Encoding_ETHEREUM_RLP,
+		Encoding: iotextypes.Encoding_IOTEX_PROTOBUF,
 	}
 
 	// TODO: process special staking action
@@ -493,6 +492,11 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			},
 		}
 	}
+	sig, pubkey, err := action.ExtractSignatureAndPubkey(tx, req.Core, chainiD)
+	if err != nil {
+		return nil, err
+	}
+	req.Signature, req.SenderPubKey = sig, pubkey.Bytes()
 
 	actionHash, err := svr.coreService.SendAction(context.Background(), req)
 	if err != nil {

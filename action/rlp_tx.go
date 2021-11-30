@@ -12,8 +12,12 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type rlpTransaction interface {
@@ -83,32 +87,19 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 }
 
 // DecodeRawTx decodes raw data string into eth tx
-func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, []byte, crypto.PublicKey, error) {
+func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, error) {
 	//remove Hex prefix and decode string to byte
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// decode raw data into rlp tx
 	tx := &types.Transaction{}
 	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-
-	// extract signature
-	sig, err := getSignatureFromRLPTX(tx, chainID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// recover public key
-	rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
-	pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return tx, sig, pubkey, nil
+	return tx, nil
 }
 
 // EncodeRawTx encodes action into the data string of eth tx
@@ -138,8 +129,8 @@ func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, err
 	return hex.EncodeToString(encodedTx[:]), nil
 }
 
-// HandleChainID handles special tx from web3 which signed by ledger with chainID 999999
-func HandleChainID(rawData string, chainID uint32) (uint32, error) {
+// DecodeChainID handles special tx from web3 which signed by ledger with chainID 999999
+func DecodeChainID(rawData string, chainID uint32) (uint32, error) {
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
 		return 0, err
@@ -160,6 +151,40 @@ func HandleChainID(rawData string, chainID uint32) (uint32, error) {
 	return chainID, nil
 }
 
+func ExtractSignatureAndPubkey(tx *types.Transaction, pbAct *iotextypes.ActionCore, chainID uint32) ([]byte, crypto.PublicKey, error) {
+	// extract signature and hash
+	var (
+		sig     []byte
+		rawHash []byte
+		err     error
+	)
+	if isNativeTx(chainID) {
+		sig, err = getSignatureFromRLPTX(tx, chainID)
+		if err != nil {
+			return nil, nil, err
+		}
+		h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+		rawHash = h[:]
+	} else {
+		sig, err = getSignatureFromRLPTX(tx, chainID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if sig[len(sig)-1] >= 27 {
+			sig[len(sig)-1] -= 27
+		}
+		h := hash.Hash256b(byteutil.Must(proto.Marshal(pbAct)))
+		rawHash = h[:]
+	}
+
+	// recover public key
+	pubkey, err := crypto.RecoverPubkey(rawHash, sig)
+	if err != nil {
+		return nil, nil, err
+	}
+	return sig, pubkey, nil
+}
+
 func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error) {
 	if tx == nil {
 		return nil, errors.New("pointer is nil")
@@ -174,4 +199,8 @@ func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error
 	copy(sig[64-sSize:], s.Bytes())
 	sig = append(sig, byte(recID))
 	return sig, nil
+}
+
+func isNativeTx(chainID uint32) bool {
+	return chainID != 999999
 }

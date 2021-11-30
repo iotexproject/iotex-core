@@ -272,17 +272,20 @@ func TestRlpDecodeVerify(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		tx, sig, pubkey, err := DecodeRawTx(v.raw, config.EVMNetworkID())
+		tx, err := DecodeRawTx(v.raw, config.EVMNetworkID())
 		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(tx)
 		require.NoError(err)
-		require.Equal(v.pubkey, pubkey.HexString())
-		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
 		// convert to native Execution
 		pb := &iotextypes.Action{
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
 		pb.Core = convertToNativeProto(tx, v.isTsf)
+		sig, pubkey, err := ExtractSignatureAndPubkey(tx, pb.Core, config.EVMNetworkID())
+		require.NoError(err)
+		require.Equal(v.pubkey, pubkey.HexString())
+		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
+
 		pb.SenderPubKey = pubkey.Bytes()
 		pb.Signature = sig
 
@@ -365,8 +368,7 @@ func TestEncodeDecodeRawTx(t *testing.T) {
 	for _, v := range testData {
 		txStr, err := EncodeRawTx(v.act, pvk, v.chainID)
 		require.NoError(err)
-
-		tx, _, _, err := DecodeRawTx(txStr, v.chainID)
+		tx, err := DecodeRawTx(txStr, v.chainID)
 		require.NoError(err)
 		require.Equal(testAmount, tx.Value().Uint64())
 		require.Equal(testGasLimit, tx.Gas())
