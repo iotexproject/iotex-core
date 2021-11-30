@@ -2,13 +2,16 @@ package action
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -32,6 +35,77 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 	req.Equal(publicKey, se.SrcPubkey().HexString())
 	req.Equal(signByte, se.Signature())
 	req.Zero(se.Encoding())
+
+}
+
+func TestSealedEnvelope_InvalidType(t *testing.T) {
+	require := require.New(t)
+	candidates := state.CandidateList{}
+	r := NewPutPollResult(1, 10001, candidates)
+
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetAction(r).
+		SetGasLimit(100000).Build()
+	selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
+	selp.encoding = iotextypes.Encoding_ETHEREUM_RLP
+	hash1, err := selp.envelopeHash()
+	require.Equal(hash1, hash.ZeroHash256)
+	require.Contains(err.Error(), "invalid action type")
+}
+
+func TestSealedEnvelope_Actions(t *testing.T) {
+	require := require.New(t)
+
+	createStake, err := NewCreateStake(uint64(10), addr2, "100", uint32(10000), true, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	changeCandidate, err := NewChangeCandidate(1, candidate1Name, 2, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	unstake, err := NewUnstake(nonce, 2, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	withdrawStake, err := NewWithdrawStake(nonce, 2, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	restake, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	transferStake, err := NewTransferStake(nonce, cand1Addr, 2, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	candidateRegister, err := NewCandidateRegister(nonce, candidate1Name, cand1Addr, cand1Addr, cand1Addr, big.NewInt(10).String(), 91, true, payload, gasLimit, gasPrice)
+	require.NoError(err)
+
+	candidateUpdate, err := NewCandidateUpdate(nonce, candidate1Name, cand1Addr, cand1Addr, gasLimit, gasPrice)
+	require.NoError(err)
+
+	tests := []actionPayload{
+		createStake,
+		depositToStake,
+		changeCandidate,
+		unstake,
+		withdrawStake,
+		restake,
+		transferStake,
+		candidateRegister,
+		candidateUpdate,
+	}
+
+	for _, test := range tests {
+		bd := &EnvelopeBuilder{}
+		elp := bd.SetNonce(1).
+			SetAction(test).
+			SetGasLimit(100000).Build()
+		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
+		_, err = actionToRLP(selp.Action())
+
+		require.NoError(err)
+	}
 }
 
 func TestSealedEnvelope_Proto(t *testing.T) {
