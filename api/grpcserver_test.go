@@ -883,6 +883,8 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 		require.Equal(test.nonce, accountMeta.Nonce)
 		require.Equal(test.pendingNonce, accountMeta.PendingNonce)
 		require.Equal(test.numActions, accountMeta.NumActions)
+		require.EqualValues(5, res.BlockIdentifier.Height)
+		require.NotZero(res.BlockIdentifier.Hash)
 	}
 	// failure
 	_, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
@@ -892,13 +894,15 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	require.Error(err)
 
 	// success: reward pool
-	accountMeta2, _, err := svr.core.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	res, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: address.RewardingPoolAddr})
 	require.NoError(err)
-	require.Equal(address.RewardingPoolAddr, accountMeta2.Address)
-	require.Equal("200000000000000000000101000", accountMeta2.Balance)
+	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
+	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
+	require.EqualValues(5, res.BlockIdentifier.Height)
+	require.NotZero(res.BlockIdentifier.Hash)
 
 	//failure: protocol staking isn't registered
-	_, _, err = svr.core.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	res, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: address.StakingBucketPoolAddr})
 	require.Contains(err.Error(), "protocol staking isn't registered")
 }
 
