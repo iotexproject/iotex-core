@@ -16,6 +16,17 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
+	r := require.New(t)
+
+	cfg := DefaultConfig
+	kv := NewBoltDB(cfg)
+	_, err := kv.Get("namespace", []byte("test"))
+	r.Errorf(err, "db hasn't started")
+
+	r.Errorf(kv.Delete("test", []byte("delete_test")), "db hasn't started")
+}
+
 func TestBucketExists(t *testing.T) {
 	r := require.New(t)
 	testPath, err := testutil.PathOfTempFile("test-bucket")
