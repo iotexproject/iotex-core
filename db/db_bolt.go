@@ -9,12 +9,12 @@ package db
 import (
 	"bytes"
 	"context"
-	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
