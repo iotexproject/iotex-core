@@ -33,6 +33,8 @@ func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
 	r.Errorf(kv.Put("test", []byte("key"), []byte("value")), "db hasn't started")
 	r.Errorf(kv.Insert([]byte("name"), 123, []byte("value")), "db hasn't started")
 	r.Errorf(kv.Remove([]byte("name"), 123), "db hasn't started")
+
+	r.Equal(kv.BucketExists("namespace"), false)
 }
 
 func TestBucketExists(t *testing.T) {
