@@ -222,6 +222,10 @@ func (b *BoltDB) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
 
 // GetKeyByPrefix retrieves all keys those with const prefix
 func (b *BoltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
+	if b.db == nil {
+		return nil, errors.New("db hasn't started")
+	}
+
 	allKey := make([][]byte, 0)
 	err := b.db.View(func(tx *bolt.Tx) error {
 		buck := tx.Bucket(namespace)

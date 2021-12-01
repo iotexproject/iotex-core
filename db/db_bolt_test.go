@@ -21,10 +21,15 @@ func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
 
 	cfg := DefaultConfig
 	kv := NewBoltDB(cfg)
+
 	_, err := kv.Get("namespace", []byte("test"))
 	r.Errorf(err, "db hasn't started")
 
-	r.Errorf(kv.Delete("test", []byte("delete_test")), "db hasn't started")
+	r.Errorf(kv.Delete("test", []byte("key")), "db hasn't started")
+	r.Errorf(kv.Purge([]byte("name"), 123), "db hasn't started")
+	r.Errorf(kv.Put("test", []byte("key"), []byte("value")), "db hasn't started")
+	r.Errorf(kv.Insert([]byte("name"), 123, []byte("value")), "db hasn't started")
+	r.Errorf(kv.Remove([]byte("name"), 123), "db hasn't started")
 }
 
 func TestBucketExists(t *testing.T) {
