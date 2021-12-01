@@ -149,7 +149,7 @@ func removeHexPrefix(hexStr string) string {
 
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactionsRoot := "0x"
-	var transactions []interface{}
+	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
 		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
 		if err != nil {
@@ -383,7 +383,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	// parse log results
 	ret := make([]logsObject, 0)
 	for _, l := range logs {
-		var topics []string
+		topics := make([]string, 0)
 		for _, val := range l.Topics {
 			topics = append(topics, byteToHex(val))
 		}
