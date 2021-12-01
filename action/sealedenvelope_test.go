@@ -102,9 +102,13 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 			SetAction(test).
 			SetGasLimit(100000).Build()
 		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
-		_, err = actionToRLP(selp.Action())
+		rlp, err := actionToRLP(selp.Action())
 
 		require.NoError(err)
+
+		require.Equal(elp.Nonce(), rlp.Nonce())
+		require.Equal(elp.GasPrice(), rlp.GasPrice())
+		require.Equal(elp.GasLimit(), rlp.GasLimit())
 	}
 }
 

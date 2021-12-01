@@ -33,9 +33,9 @@ func TestEnvelope_Basic(t *testing.T) {
 	req.Equal(tsf, tsf2)
 
 	evlp.SetNonce(nonce)
-	req.Equal(evlp.Nonce(), nonce)
+	req.Equal(nonce, evlp.Nonce())
 	evlp.SetChainID(tsf.chainID)
-	req.Equal(evlp.ChainID(), tsf.chainID)
+	req.Equal(tsf.chainID, evlp.ChainID())
 }
 
 func TestEnvelope_Proto(t *testing.T) {
@@ -130,8 +130,12 @@ func TestEnvelope_Actions(t *testing.T) {
 		err = evlp.LoadProto(evlp.Proto())
 
 		require.NoError(err)
+		require.Equal(elp.Version(), evlp.Version())
+		require.Equal(elp.Nonce(), evlp.Nonce())
+		require.Equal(elp.ChainID(), evlp.ChainID())
+		require.Equal(elp.GasPrice(), evlp.GasPrice())
+		require.Equal(elp.GasLimit(), evlp.GasLimit())
 	}
-
 }
 
 func createEnvelope() (Envelope, *Transfer) {
