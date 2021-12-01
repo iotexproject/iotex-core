@@ -25,6 +25,9 @@ func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
 	_, err := kv.Get("namespace", []byte("test"))
 	r.Errorf(err, "db hasn't started")
 
+	_, err = kv.GetBucketByPrefix([]byte("namespace"))
+	r.Errorf(err, "db hasn't started")
+
 	r.Errorf(kv.Delete("test", []byte("key")), "db hasn't started")
 	r.Errorf(kv.Purge([]byte("name"), 123), "db hasn't started")
 	r.Errorf(kv.Put("test", []byte("key"), []byte("value")), "db hasn't started")
