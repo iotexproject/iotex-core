@@ -142,12 +142,6 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 	return
 }
 
-func util.Remove0xPrefix(hexStr string) string {
-	ret := strings.Replace(hexStr, "0x", "", -1)
-	ret = strings.Replace(ret, "0X", "", -1)
-	return ret
-}
-
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactionsRoot := "0x"
 	transactions := make([]interface{}, 0)
