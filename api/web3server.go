@@ -154,7 +154,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		return packAPIResult(nil, err, 0)
 	}
 
-	var web3Resps []web3Resp
+	web3Resps := make([]web3Resp, 0)
 	for _, web3Req := range web3Reqs {
 		var (
 			res    interface{}
@@ -628,9 +628,9 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// parse logs from receipt
-	var logs []logsObject
+	logs := make([]logsObject, 0)
 	for _, v := range receipt.Logs() {
-		var topics []string
+		topics := make([]string, 0)
 		for _, tpc := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
 		}
@@ -893,7 +893,7 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 	filterID = removeHexPrefix(filterID)
 	filterObj, err := loadFilterFromCache(svr.cache, filterID)
 	if err != nil {
-		return []interface{}{}, err
+		return nil, err
 	}
 	if filterObj.FilterType != "log" {
 		return nil, errInvalidFiterID
