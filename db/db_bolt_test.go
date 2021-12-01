@@ -8,6 +8,7 @@ package db
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"math/rand"
 	"testing"
 
@@ -22,19 +23,37 @@ func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
 	cfg := DefaultConfig
 	kv := NewBoltDB(cfg)
 
-	_, err := kv.Get("namespace", []byte("test"))
+	// ensure all methods return the error instead of panicking if the db is nil.
+	r.Equal(kv.BucketExists("namespace"), false)
+
+	_, _, err := kv.Filter("namespace", func(k, v []byte) bool {
+		return true
+	}, []byte("minKey"), []byte("maxKey"))
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.Get("namespace", []byte("test"))
 	r.Errorf(err, "db hasn't started")
 
 	_, err = kv.GetBucketByPrefix([]byte("namespace"))
 	r.Errorf(err, "db hasn't started")
+	_, err = kv.GetKeyByPrefix([]byte("namespace"), []byte("prefix"))
+	r.Errorf(err, "db hasn't started")
 
 	r.Errorf(kv.Delete("test", []byte("key")), "db hasn't started")
 	r.Errorf(kv.Purge([]byte("name"), 123), "db hasn't started")
-	r.Errorf(kv.Put("test", []byte("key"), []byte("value")), "db hasn't started")
 	r.Errorf(kv.Insert([]byte("name"), 123, []byte("value")), "db hasn't started")
+	r.Errorf(kv.Put("test", []byte("key"), []byte("value")), "db hasn't started")
 	r.Errorf(kv.Remove([]byte("name"), 123), "db hasn't started")
+	r.Errorf(kv.WriteBatch(batch.NewBatch()), "db hasn't started")
 
-	r.Equal(kv.BucketExists("namespace"), false)
+	_, err = kv.Range("namespace", []byte("key"), 0)
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.SeekNext([]byte("key"), 12)
+	r.Errorf(err, "db hasn't started")
+
+	_, err = kv.SeekPrev([]byte("key"), 12)
+	r.Errorf(err, "db hasn't started")
 }
 
 func TestBucketExists(t *testing.T) {
