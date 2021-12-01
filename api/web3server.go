@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
-  "github.com/iotexproject/go-pkgs/util"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"

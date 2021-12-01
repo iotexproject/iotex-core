@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-  "github.com/iotexproject/go-pkgs/util"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
