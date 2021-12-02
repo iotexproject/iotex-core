@@ -88,6 +88,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	}
 	p.randAccounts(injectCfg.randAccounts)
 	if injectCfg.loadTokenAmount.BitLen() != 0 {
+
 		if err := p.loadAccounts(injectCfg.configPath); err != nil {
 			return p, err
 		}
@@ -225,14 +226,14 @@ func (p *injectProcessor) injectProcess(ctx context.Context) {
 }
 
 func (p *injectProcessor) injectProcessV2(ctx context.Context) {
-	var numTx uint64 = 10000
-	txs, err := util.TxGenerator(numTx, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, "")
+	var numTx uint64 = 15000
+	txs, err := util.TxGenerator(numTx, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, 1)
 	if err != nil {
 		log.L().Error("no act", zap.Error(err))
 		return
 	}
 	p.tx = txs
-
+	fmt.Println(len(txs))
 	for i := 0; i < len(p.accounts); i++ {
 		p.injectV2()
 		time.Sleep(1 * time.Second)
@@ -479,12 +480,14 @@ func inject(_ []string) string {
 	injectCfg.loadTokenAmount = loadTokenAmount
 
 	p, err := newInjectionProcessor()
+	fmt.Println(p.accounts)
 	if err != nil {
 		return fmt.Sprintf("failed to create injector processor: %v.", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), injectCfg.duration)
 	defer cancel()
+
 	go p.injectProcessV2(ctx)
 	go p.syncNoncesProcess(ctx)
 	<-ctx.Done()
@@ -508,11 +511,11 @@ func init() {
 	flag.DurationVar(&rawInjectCfg.retryInterval, "retry-interval", 1*time.Second, "sleep interval between two consecutive rpc retries")
 	flag.DurationVar(&rawInjectCfg.duration, "duration", 60*time.Hour, "duration when the injection will run")
 	flag.DurationVar(&rawInjectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
-	flag.IntVar(&rawInjectCfg.aps, "aps", 10, "actions to be injected per second")
+	flag.IntVar(&rawInjectCfg.aps, "aps", 1, "actions to be injected per second")
 	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 5, "number of accounst to use")
 	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
 	flag.BoolVar(&rawInjectCfg.checkReceipt, "check-recipt", false, "check recept")
-	flag.StringVar(&rawInjectCfg.loadTokenAmount, "load-token-amount", "0", "init load how much token to inject accounts")
+	flag.StringVar(&rawInjectCfg.loadTokenAmount, "load-token-amount", "1000000000000000000", "init load how much token to inject accounts")
 	rootCmd.AddCommand(injectCmd)
 }

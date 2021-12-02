@@ -19,7 +19,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -45,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -1885,140 +1883,4 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	return blk
-}
-
-// TODO: add func TestValidateBlock()
-
-func BenchmarkTTest(b *testing.B) {
-	require := require.New(b)
-	bc, _, _, _, ap := newChainV2(require, true)
-	userA := identityset.Address(28)
-	priKeyA := identityset.PrivateKey(28)
-	userB := identityset.Address(29)
-	priKeyB := identityset.PrivateKey(29)
-
-	// // check the original balance a and b before transfer
-	// AccountA, err := accountutil.AccountState(sf, userA)
-	// require.NoError(err)
-	// AccountB, err := accountutil.AccountState(sf, userB)
-	// require.NoError(err)
-	// require.Equal(big.NewInt(100), AccountA.Balance)
-	// require.Equal(big.NewInt(100), AccountB.Balance)
-
-	// make a transfer from a to b
-	// tsf, err := action.SignedTransfer(d.String(), priKeyA, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	// require.NoError(err)
-	// require.NoError(ap.Add(context.Background(), tsf))
-
-	// tsf2, err := action.SignedTransfer(a.String(), priKeyD, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	// require.NoError(err)
-	// require.NoError(ap.Add(context.Background(), tsf2))
-
-	nonceMap := make(map[string]uint64)
-	total := 1000
-	for i := 0; i < total; i++ {
-		nonceMap[userA.String()]++
-		tsf1, err := action.SignedTransfer(userB.String(), priKeyA, nonceMap[userA.String()], big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), tsf1))
-		nonceMap[userB.String()]++
-		tsf2, err := action.SignedTransfer(userA.String(), priKeyB, nonceMap[userB.String()], big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), tsf2))
-	}
-
-	for n := 0; n < b.N; n++ {
-		t1 := time.Now()
-		blk, err := bc.MintNewBlock(testutil.TimestampNow())
-		require.NoError(err)
-		err = bc.ValidateBlock(blk)
-		require.NoError(err)
-
-		// require.Equal(total*2, len(blk.Body.Actions))
-
-		// err = bc.CommitBlock(blk)
-		// require.NoError(err)
-		t2 := time.Since(t1)
-		log.L().Error("assd", zap.String("time", t2.String()), zap.Int("blk size", len(blk.Body.Actions)))
-	}
-}
-
-func newChainV2(require *require.Assertions, stateTX bool) (blockchain.Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO, actpool.ActPool) {
-	cfg := config.Default
-
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile("db")
-	require.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile("index")
-	require.NoError(err)
-
-	// cfg.Chain.TrieDBPath = testTriePath
-	cfg.DB.DbPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EnableArchiveMode = true
-	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Genesis.BlockGasLimit = config.Default.Genesis.BlockGasLimit * 10
-	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.NewRegistry()
-	var sf factory.Factory
-	kv := db.NewBoltDB(cfg.DB)
-	if stateTX {
-		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
-		require.NoError(err)
-	} else {
-		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv), factory.RegistryOption(registry))
-		require.NoError(err)
-	}
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
-	require.NoError(err)
-	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(acc.Register(registry))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(rp.Register(registry))
-	var indexer blockindex.Indexer
-	indexers := []blockdao.BlockIndexer{sf}
-	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		// create indexer
-		cfg.DB.DbPath = cfg.Chain.IndexDBPath
-		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
-		require.NoError(err)
-		indexers = append(indexers, indexer)
-	}
-	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000000).String()
-	// create BlockDAO
-	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
-	require.NotNil(dao)
-	bc := blockchain.NewBlockchain(
-		cfg,
-		dao,
-		factory.NewMinter(sf, ap),
-		blockchain.BlockValidatorOption(block.NewValidator(
-			sf,
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
-		)),
-	)
-	require.NotNil(bc)
-	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
-	require.NoError(ep.Register(registry))
-	require.NoError(bc.Start(context.Background()))
-
-	genesisPriKey := identityset.PrivateKey(27)
-	a := identityset.Address(28).String()
-	b := identityset.Address(29).String()
-	// make a transfer from genesisAccount to a and b,because stateTX cannot store data in height 0
-	tsf, err := action.SignedTransfer(a, genesisPriKey, 1, big.NewInt(10000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	require.NoError(err)
-	tsf2, err := action.SignedTransfer(b, genesisPriKey, 2, big.NewInt(10000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	require.NoError(err)
-	require.NoError(ap.Add(context.Background(), tsf))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
-	require.NoError(err)
-	require.NoError(bc.CommitBlock(blk))
-	return bc, sf, kv, dao, ap
 }

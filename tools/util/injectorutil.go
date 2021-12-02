@@ -273,7 +273,7 @@ func InjectByApsV2(
 	rand.Seed(time.Now().UnixNano())
 	idx := 0
 
-	txs, err := TxGenerator(20000, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), transferPayload)
+	txs, err := TxGenerator(20000, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), 1)
 	if err != nil {
 		panic(err)
 	}

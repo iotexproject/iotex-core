@@ -54,7 +54,7 @@ func TxGenerator(
 	delegates []*AddressKey,
 	gasLimit uint64,
 	gasPrice *big.Int,
-	payload string,
+	actionType int,
 ) ([]action.SealedEnvelope, error) {
 
 	accountManager := NewAccountManager()
@@ -79,7 +79,6 @@ func TxGenerator(
 	}
 
 	// TODO: load balance
-
 	ret := make([]action.SealedEnvelope, txTotal)
 	var wg sync.WaitGroup
 	var txGenerated uint64
@@ -93,11 +92,23 @@ func TxGenerator(
 			amount := int64(0)
 			nonce := accountManager.getAndInc(sender.EncodedAddr)
 
-			selp, _, err := createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
-				gasPrice, payload)
+			actionType = 1
+			var (
+				selp action.SealedEnvelope
+				err  error
+			)
+			switch actionType {
+			case 1:
+				selp, _, err = createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
+					gasPrice, "")
+				// case 2:
+				// 	selp, _, err = createSignedExecution(sender, recipient, nonce, unit.ConvertIotxToRau(amount), gasLimit,
+				// 		gasPrice, "")
+			}
 			if err != nil {
 				log.L().Fatal("Failed to inject transfer", zap.Error(err))
 			}
+
 			ret[i] = selp
 			atomic.AddUint64(&txGenerated, 1)
 			// TODO: collect balance info

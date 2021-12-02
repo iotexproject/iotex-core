@@ -11,6 +11,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
@@ -27,5 +28,12 @@ func PathOfTempFile(dirName string) (string, error) {
 func CleanupPath(t *testing.T, path string) {
 	if fileutil.FileExists(path) && os.RemoveAll(path) != nil {
 		t.Error("Fail to remove testDB file")
+	}
+}
+
+// CleanupPath detects the existence of test DB file and removes it if found
+func CleanupPathV2(path string) {
+	if fileutil.FileExists(path) && os.RemoveAll(path) != nil {
+		log.L().Error("Fail to remove testDB file")
 	}
 }
