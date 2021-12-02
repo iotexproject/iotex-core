@@ -273,7 +273,7 @@ func InjectByApsV2(
 	rand.Seed(time.Now().UnixNano())
 	idx := 0
 
-	txs, err := TxGenerator(20000, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), 1)
+	txs, err := TxGenerator(100, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), 1)
 	if err != nil {
 		panic(err)
 	}
@@ -290,7 +290,7 @@ loop:
 			wg.Add(1)
 			selp := txs[idx]
 			idx++
-			injectTransferV2(wg, client, selp, retryNum, retryInterval, pendingActionMap)
+			injectActionV2(wg, client, selp, retryNum, retryInterval, pendingActionMap)
 		}
 	}
 }
@@ -460,7 +460,7 @@ func injectTransfer(
 	}
 }
 
-func injectTransferV2(
+func injectActionV2(
 	wg *sync.WaitGroup,
 	c iotexapi.APIServiceClient,
 	selp action.SealedEnvelope,
@@ -468,7 +468,6 @@ func injectTransferV2(
 	retryInterval int,
 	pendingActionMap *ttl.Cache,
 ) {
-
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
 	if err := backoff.Retry(func() error {
 		_, err := c.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})

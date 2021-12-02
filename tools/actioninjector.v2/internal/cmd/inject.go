@@ -255,6 +255,75 @@ func (p *injectProcessor) injectProcessV2(ctx context.Context) {
 
 }
 
+// func (p *injectProcessor) injectProcessV3(ctx context.Context) {
+// 	var numTx uint64 = 15000
+
+// 	bufferedTxs := make(chan action.SealedEnvelope, numTx)
+
+// 	go txGenerate(bufferedTxs)
+
+// 	go InjectV3(bufferedTxs)
+
+// 	txs, err := util.TxGenerator(numTx, p.api, p.accounts, injectCfg.transferGasLimit, injectCfg.transferGasPrice, 1)
+// 	if err != nil {
+// 		log.L().Error("no act", zap.Error(err))
+// 		return
+// 	}
+// 	p.tx = txs
+// 	fmt.Println(len(txs))
+// 	for i := 0; i < len(p.accounts); i++ {
+// 		p.injectV2()
+// 		time.Sleep(1 * time.Second)
+// 	}
+
+// 	time.Sleep(15 * time.Second)
+// 	log.L().Info("begin inject")
+// 	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(injectCfg.aps)))
+// 	defer ticker.Stop()
+// 	for {
+// 		select {
+// 		case <-ctx.Done():
+// 			return
+// 		case <-ticker.C:
+// 			// fmt.Println("Tick at")
+// 			go p.injectV2()
+// 		}
+// 	}
+// }
+
+// func txGenerate(ctx context.Context, ch chan action.SealedEnvelope) {
+// 	for {
+// 		tx := tsf()
+// 		select {
+// 		case ch <- tx:
+// 			continue
+
+// 		case <-ctx.Done():
+// 			return
+// 		}
+// 	}
+
+// }
+
+func (p *injectProcessor) InjectV3(ctx context.Context, ch chan action.SealedEnvelope) {
+	for i := 0; i < len(p.accounts); i++ {
+		p.injectV3(<-ch)
+		time.Sleep(1 * time.Second)
+	}
+	time.Sleep(15 * time.Second)
+	log.L().Info("begin inject")
+	ticker := time.NewTicker(time.Duration(time.Second.Nanoseconds() / int64(injectCfg.aps)))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			go p.injectV3(<-ch)
+		}
+	}
+}
+
 func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	defer workers.Done()
 	for range ticks {
@@ -307,6 +376,22 @@ func (p *injectProcessor) injectV2() {
 		}
 		return err
 	}, bo); rerr != nil {
+		log.L().Error("Failed to inject.", zap.Error(rerr))
+	}
+}
+
+func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
+	actHash, _ := selp.Hash()
+	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])))
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(injectCfg.retryInterval), injectCfg.retryNum)
+	rerr := backoff.Retry(func() error {
+		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		if err != nil {
+			log.L().Error("Failed to inject.", zap.Error(err))
+		}
+		return err
+	}, bo)
+	if rerr != nil {
 		log.L().Error("Failed to inject.", zap.Error(rerr))
 	}
 }
@@ -485,8 +570,7 @@ func inject(_ []string) string {
 		return fmt.Sprintf("failed to create injector processor: %v.", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), injectCfg.duration)
-	defer cancel()
+	ctx, _ := context.WithTimeout(context.Background(), injectCfg.duration)
 
 	go p.injectProcessV2(ctx)
 	go p.syncNoncesProcess(ctx)
