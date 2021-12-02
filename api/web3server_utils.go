@@ -87,7 +87,7 @@ func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 	return address.FromHex(ethAddr)
 }
 
-func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
+func ioAddrToEvmAddr(ioAddr string) (common.Address, error) {
 	address, err := address.FromString(ioAddr)
 	if err != nil {
 		return common.Address{}, output.NewError(output.ConvertError, "", err)
@@ -99,7 +99,7 @@ func ioAddrToEthAddr(ioAddr string) (string, error) {
 	if len(ioAddr) == 0 {
 		return "0x0000000000000000000000000000000000000000", nil
 	}
-	addr, err := IoAddrToEvmAddr(ioAddr)
+	addr, err := ioAddrToEvmAddr(ioAddr)
 	if err != nil {
 		return "", err
 	}
