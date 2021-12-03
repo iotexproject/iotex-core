@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -551,7 +552,7 @@ func (svr *Web3Server) getBlockTransactionCountByHash(in interface{}) (interface
 	if err != nil {
 		return nil, err
 	}
-	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
+	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(h))
 	if err != nil {
 		return nil, errors.Wrap(err, "the block is not found")
 	}
@@ -563,7 +564,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
+	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(h))
 	if err != nil {
 		return nil, errors.Wrap(err, "the block is not found")
 	}
@@ -575,7 +576,7 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.Action(removeHexPrefix(h), true)
+	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), true)
 	if err != nil {
 		return nil, err
 	}
@@ -598,7 +599,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// acquire action receipt by action hash
-	actHash, err := hash.HexStringToHash256(removeHexPrefix(actHashStr))
+	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(actHashStr))
 	if err != nil {
 		return nil, errors.Wrapf(errUnkownType, "actHash: %s", actHashStr)
 	}
@@ -618,7 +619,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// acquire transaction index by action hash
-	actInfo, err := svr.coreService.Action(removeHexPrefix(actHashStr), true)
+	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(actHashStr), true)
 	if err != nil {
 		return nil, err
 	}
@@ -699,7 +700,7 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.ActionsByBlock(removeHexPrefix(blkHash), idx, 1)
+	actionInfos, err := svr.coreService.ActionsByBlock(util.Remove0xPrefix(blkHash), idx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -820,7 +821,7 @@ func (svr *Web3Server) uninstallFilter(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return svr.cache.Del(removeHexPrefix(id)), nil
+	return svr.cache.Del(util.Remove0xPrefix(id)), nil
 }
 
 func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
@@ -828,7 +829,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	filterID = removeHexPrefix(filterID)
+	filterID = util.Remove0xPrefix(filterID)
 	filterObj, err := loadFilterFromCache(svr.cache, filterID)
 	if err != nil {
 		return nil, err
@@ -890,7 +891,7 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	filterID = removeHexPrefix(filterID)
+	filterID = util.Remove0xPrefix(filterID)
 	filterObj, err := loadFilterFromCache(svr.cache, filterID)
 	if err != nil {
 		return nil, err
