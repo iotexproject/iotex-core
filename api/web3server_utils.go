@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -90,7 +89,7 @@ func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 func ioAddrToEvmAddr(ioAddr string) (common.Address, error) {
 	address, err := address.FromString(ioAddr)
 	if err != nil {
-		return common.Address{}, output.NewError(output.ConvertError, "", err)
+		return common.Address{}, errInvalidFormat
 	}
 	return common.BytesToAddress(address.Bytes()), nil
 }
