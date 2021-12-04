@@ -799,7 +799,7 @@ func updateExecutionExpectedBalanceMap(
 ) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
-	// NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
+	// NOTE: This hard-coded gas consumption value is precalculated on mini cluster deployed test contract only
 	gasUnitConsumed := new(big.Int).SetUint64(12014)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
