@@ -131,35 +131,7 @@ func InitCounter(client iotexapi.APIServiceClient, addrKeys []*AddressKey) (map[
 }
 
 // InjectByAps injects Actions in APS Mode
-func InjectByAps(
-	wg *sync.WaitGroup,
-	aps float64,
-	counter map[string]uint64,
-	transferGasLimit int,
-	transferGasPrice int64,
-	transferPayload string,
-	voteGasLimit int,
-	voteGasPrice int64,
-	contract string,
-	executionAmount int,
-	executionGasLimit int,
-	executionGasPrice int64,
-	executionData string,
-	fpToken blockchain.FpToken,
-	fpContract string,
-	debtor *AddressKey,
-	creditor *AddressKey,
-	client iotexapi.APIServiceClient,
-	admins []*AddressKey,
-	delegates []*AddressKey,
-	duration time.Duration,
-	retryNum int,
-	retryInterval int,
-	resetInterval int,
-	expectedBalances *map[string]*big.Int,
-	cs *chainservice.ChainService,
-	pendingActionMap *ttl.Cache,
-) {
+func InjectByAps(wg *sync.WaitGroup, aps float64, counter map[string]uint64, transferGasLimit int, transferGasPrice int64, transferPayload string, voteGasLimit int, voteGasPrice int64, contract string, executionAmount int, executionGasLimit int, executionGasPrice int64, executionData string, fpToken blockchain.FpToken, fpContract string, debtor *AddressKey, creditor *AddressKey, client iotexapi.APIServiceClient, admins []*AddressKey, delegates []*AddressKey, duration time.Duration, retryNum int, retryInterval int, resetInterval int, expectedBalances map[string]*big.Int, cs *chainservice.ChainService, pendingActionMap *ttl.Cache) {
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
 	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
