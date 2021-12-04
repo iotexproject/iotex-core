@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -335,7 +336,7 @@ func TestGetCode(t *testing.T) {
 	contractAddr, _ := ioAddrToEthAddr(contract)
 	testData := []interface{}{contractAddr, 1}
 	ret, _ := svr.web3Server.getCode(testData)
-	require.Contains(contractCode, removeHexPrefix(ret.(string)))
+	require.Contains(contractCode, util.Remove0xPrefix(ret.(string)))
 }
 
 func TestGetNodeInfo(t *testing.T) {
