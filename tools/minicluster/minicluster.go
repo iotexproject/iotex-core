@@ -272,14 +272,14 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			&expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
+			expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			empty, err := util.CheckPendingActionList(
 				svrs[0].ChainService(1),
 				pendingActionMap,
-				&expectedBalancesMap,
+				expectedBalancesMap,
 			)
 			if err != nil {
 				log.L().Error(err.Error())
