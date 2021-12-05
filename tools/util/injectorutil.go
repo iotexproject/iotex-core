@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
@@ -229,7 +230,7 @@ loop:
 			// 	}
 			// 	go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
 			// case 2:
-			// 	executor, nonce := createExecutionInjection(counter, delegates)
+			// 	executor, nonce := CreateExecutionInjection(counter, delegates)
 			// 	go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 			// 		uint64(executionGasLimit), big.NewInt(executionGasPrice),
 			// 		executionData, retryNum, retryInterval, pendingActionMap)
@@ -273,7 +274,8 @@ func InjectByApsV2(
 	rand.Seed(time.Now().UnixNano())
 	idx := 0
 
-	txs, err := TxGenerator(100, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), 1)
+	// txs, err := TxGenerator(100, client, delegates, uint64(transferGasLimit), big.NewInt(transferGasPrice), 1, "")
+	txs, err := TxGenerator(10000, client, delegates, uint64(30000), big.NewInt(executionGasPrice), 2, contract)
 	if err != nil {
 		panic(err)
 	}
@@ -325,7 +327,7 @@ func InjectByInterval(
 			big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval, nil)
 		time.Sleep(time.Second * time.Duration(interval))
 
-		executor, nonce := createExecutionInjection(counter, delegates)
+		executor, nonce := CreateExecutionInjection(counter, delegates)
 		injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 			uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 		time.Sleep(time.Second * time.Duration(interval))
@@ -352,7 +354,7 @@ func InjectByInterval(
 				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
-			executor, nonce := createExecutionInjection(counter, delegates)
+			executor, nonce := CreateExecutionInjection(counter, delegates)
 			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
@@ -362,7 +364,7 @@ func InjectByInterval(
 		}
 	case voteNum > 0 && executionNum > 0:
 		for voteNum > 0 && executionNum > 0 {
-			executor, nonce := createExecutionInjection(counter, delegates)
+			executor, nonce := CreateExecutionInjection(counter, delegates)
 			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
@@ -382,7 +384,7 @@ func InjectByInterval(
 		}
 	case executionNum > 0:
 		for executionNum > 0 {
-			executor, nonce := createExecutionInjection(counter, delegates)
+			executor, nonce := CreateExecutionInjection(counter, delegates)
 			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
@@ -394,28 +396,44 @@ func InjectByInterval(
 // DeployContract deploys a smart contract before starting action injections
 func DeployContract(
 	client iotexapi.APIServiceClient,
-	counter map[string]uint64,
-	delegates []*AddressKey,
+	executor *AddressKey,
+	nonce uint64,
 	executionGasLimit int,
 	executionGasPrice int64,
 	executionData string,
 	retryNum int,
 	retryInterval int,
-) (hash.Hash256, error) {
-	executor, nonce := createExecutionInjection(counter, delegates)
-	selp, execution, err := createSignedExecution(executor, action.EmptyAddress, nonce, big.NewInt(0),
-		uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData)
+) (string, error) {
+	selp, execution, err := createSignedExecution(
+		executor,
+		action.EmptyAddress,
+		nonce,
+		big.NewInt(0),
+		uint64(executionGasLimit),
+		big.NewInt(int64(executionGasPrice)),
+		executionData)
 	if err != nil {
-		return hash.ZeroHash256, errors.Wrap(err, "failed to create signed execution")
+		return "", errors.Wrap(err, "failed to create signed execution")
 	}
-	log.L().Info("Created signed execution")
-
 	injectExecution(selp, execution, client, retryNum, retryInterval)
 	selpHash, err := selp.Hash()
 	if err != nil {
-		return hash.ZeroHash256, errors.Wrap(err, "failed to get hash")
+		return "", errors.Wrap(err, "failed to get hash")
 	}
-	return selpHash, nil
+	// Wait until the smart contract is successfully deployed
+	var receipt *iotextypes.Receipt
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		ret, err := client.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
+			ActionHash: hex.EncodeToString(selpHash[:])})
+		if err == nil && ret != nil {
+			receipt = ret.ReceiptInfo.GetReceipt()
+		}
+		return receipt != nil, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return receipt.ContractAddress, nil
 }
 
 func injectTransfer(
@@ -626,7 +644,7 @@ func createVoteInjection(
 }
 
 // Helper function to get the executor and nonce of next injected execution
-func createExecutionInjection(
+func CreateExecutionInjection(
 	counter map[string]uint64,
 	addrs []*AddressKey,
 ) (*AddressKey, uint64) {

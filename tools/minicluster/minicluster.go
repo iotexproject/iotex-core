@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -62,7 +61,7 @@ func main() {
 
 	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
 	flag.Float64Var(&aps, "aps", 1500, "actions to be injected per second")
-	flag.StringVar(&deployExecData, "deploy-data", "60806040526101f4600055603260015534801561001b57600080fd5b506102558061002b6000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806358931c461461003b5780637f353d5514610045575b600080fd5b61004361004f565b005b61004d610097565b005b60006001905060005b6000548110156100935760028261006f9190610114565b915060028261007e91906100e3565b9150808061008b90610178565b915050610058565b5050565b60005b6001548110156100e057600281908060018154018082558091505060019003906000526020600020016000909190919091505580806100d890610178565b91505061009a565b50565b60006100ee8261016e565b91506100f98361016e565b925082610109576101086101f0565b5b828204905092915050565b600061011f8261016e565b915061012a8361016e565b9250817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610163576101626101c1565b5b828202905092915050565b6000819050919050565b60006101838261016e565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8214156101b6576101b56101c1565b5b600182019050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fdfea2646970667358221220cb9cada3f1d447c978af17aa3529d6fe4f25f9c5a174085443e371b6940ae99b64736f6c63430008070033",
+	flag.StringVar(&deployExecData, "deploy-data", "60806040526005600055600560015534801561001a57600080fd5b506102558061002a6000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806358931c461461003b5780637f353d5514610045575b600080fd5b61004361004f565b005b61004d610097565b005b60006001905060005b6000548110156100935760028261006f9190610114565b915060028261007e91906100e3565b9150808061008b90610178565b915050610058565b5050565b60005b6001548110156100e057600281908060018154018082558091505060019003906000526020600020016000909190919091505580806100d890610178565b91505061009a565b50565b60006100ee8261016e565b91506100f98361016e565b925082610109576101086101f0565b5b828204905092915050565b600061011f8261016e565b915061012a8361016e565b9250817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610163576101626101c1565b5b828202905092915050565b6000819050919050565b60006101838261016e565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8214156101b6576101b56101c1565b5b600182019050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fdfea26469706673582212207db3d448bded0c08719540b308d7e6bab7d999edbac77e578522d01aad800e7064736f6c63430008070033",
 		"smart contract deployment data")
 	flag.StringVar(&interactExecData, "interact-data", "d0e30db0", "smart contract interaction data")
 	flag.BoolVar(&testFpToken, "fp-token", false, "switch of fp token smart contract test")
@@ -184,7 +183,7 @@ func main() {
 		// execution amount. Default is 0
 		executionAmount := 0
 		// execution gas limit. Default is 1200000
-		executionGasLimit := 1200000
+		executionGasLimit := 200000
 		// execution gas price. Default is 10
 		executionGasPrice := unit.Qev
 		// maximum number of rpc retries. Default is 5
@@ -201,20 +200,12 @@ func main() {
 		d := time.Duration(timeout) * time.Second
 
 		// First deploy a user specified smart contract which can be interacted by injected executions
-		eHash, err := util.DeployContract(client, counter, delegates, executionGasLimit, executionGasPrice,
+		executor, nonce := util.CreateExecutionInjection(counter, delegates)
+		contract, err := util.DeployContract(client, executor, nonce, executionGasLimit, executionGasPrice,
 			deployExecData, retryNum, retryInterval)
 		if err != nil {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
-		// Wait until the smart contract is successfully deployed
-		var receipt *iotextypes.Receipt
-		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = util.GetReceiptByAction(svrs[0].ChainService(uint32(1)).APIServer(), eHash)
-			return receipt != nil, nil
-		}); err != nil {
-			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
-		}
-		contract := receipt.ContractAddress
 
 		var fpToken bc.FpToken
 		var fpContract string
