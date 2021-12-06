@@ -376,25 +376,28 @@ func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execut
 }
 
 // ReadState reads state on blockchain
-func (core *coreService) ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) ([]byte, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error) {
 	p, ok := core.registry.Find(protocolID)
 	if !ok {
-		return nil, nil, status.Errorf(codes.Internal, "protocol %s isn't registered", protocolID)
+		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", protocolID)
 	}
 	data, readStateHeight, err := core.readState(context.Background(), p, height, methodName, arguments...)
 	if err != nil {
-		return nil, nil, status.Error(codes.NotFound, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	blkHash, err := core.dao.GetBlockHash(readStateHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return nil, nil, status.Error(codes.NotFound, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		return nil, nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return data, &iotextypes.BlockIdentifier{
-		Height: readStateHeight,
-		Hash:   hex.EncodeToString(blkHash[:]),
+	return &iotexapi.ReadStateResponse{
+		Data: data,
+		BlockIdentifier: &iotextypes.BlockIdentifier{
+			Height: readStateHeight,
+			Hash:   hex.EncodeToString(blkHash[:]),
+		},
 	}, nil
 }
 
@@ -1407,15 +1410,17 @@ func (core *coreService) getProductivityByEpoch(
 }
 
 func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
-	var balance string
-	var out *iotexapi.ReadStateResponse
+	var (
+		balance string
+		out     *iotexapi.ReadStateResponse
+		err     error
+	)
 	switch addr {
 	case address.RewardingPoolAddr:
-		data, _, err := core.ReadState("rewarding", "", []byte("TotalBalance"), nil)
-		if err != nil {
+		if out, err = core.ReadState("rewarding", "", []byte("TotalBalance"), nil); err != nil {
 			return nil, nil, err
 		}
-		val, ok := big.NewInt(0).SetString(string(data), 10)
+		val, ok := big.NewInt(0).SetString(string(out.GetData()), 10)
 		if !ok {
 			return nil, nil, errors.New("balance convert error")
 		}
@@ -1435,15 +1440,16 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 		if err != nil {
 			return nil, nil, err
 		}
-		data, _, err := core.ReadState("staking", "", methodName, [][]byte{arg})
-		if err != nil {
+		if out, err = core.ReadState("staking", "", methodName, [][]byte{arg}); err != nil {
 			return nil, nil, err
 		}
 		acc := iotextypes.AccountMeta{}
-		if err := proto.Unmarshal(data, &acc); err != nil {
+		if err := proto.Unmarshal(out.GetData(), &acc); err != nil {
 			return nil, nil, errors.Wrap(err, "failed to unmarshal account meta")
 		}
 		balance = acc.GetBalance()
+	default:
+		return nil, nil, errors.Errorf("invalid address %s", addr)
 	}
 	return &iotextypes.AccountMeta{
 		Address: addr,
