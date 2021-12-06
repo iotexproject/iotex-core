@@ -377,6 +377,7 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	// the special balance checker contract is checked by metamask periodically
 	if to == "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr" {
 		return nil, nil
 	}
