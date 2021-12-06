@@ -144,6 +144,89 @@ func Test2Roots(t *testing.T) {
 	require.NoError(tr2.Stop(context.Background()))
 }
 
+func TestSameKV(t *testing.T) {
+	require := require.New(t)
+
+	// first trie
+	trieDB := trie.NewMemKVStore()
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
+	require.NoError(err)
+	ctx := context.Background()
+	require.NoError(tr.Start(ctx))
+	defer tr.Stop(ctx)
+	require.NoError(tr.Upsert(cat, testV[2]))
+	v, err := tr.Get(cat)
+	require.NoError(err)
+	require.Equal(testV[2], v)
+	root, err := tr.RootHash()
+	require.NoError(err)
+
+	// second trie
+	tr1, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
+	require.NoError(err)
+	require.NoError(tr1.Start(context.Background()))
+	defer tr1.Stop(ctx)
+	require.NoError(tr1.Upsert(cat, testV[2]))
+	v, err = tr1.Get(cat)
+	require.NoError(err)
+	require.Equal(testV[2], v)
+	require.NoError(tr1.Upsert(dog, testV[3]))
+	v, err = tr1.Get(dog)
+	require.NoError(err)
+	require.Equal(testV[3], v)
+	root1, err := tr1.RootHash()
+	require.NoError(err)
+	require.NotEqual(root, root1)
+
+	// delete cat in first trie
+	require.NoError(tr.Delete(cat))
+	// causing 2nd trie cannot read it
+	_, err = tr1.Get(cat)
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
+}
+
+func TestSameKDiffV(t *testing.T) {
+	require := require.New(t)
+
+	// first trie
+	trieDB := trie.NewMemKVStore()
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
+	require.NoError(err)
+	ctx := context.Background()
+	require.NoError(tr.Start(ctx))
+	defer tr.Stop(ctx)
+	require.NoError(tr.Upsert(cat, testV[2]))
+	v, err := tr.Get(cat)
+	require.NoError(err)
+	require.Equal(testV[2], v)
+	root, err := tr.RootHash()
+	require.NoError(err)
+
+	// second trie
+	tr1, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
+	require.NoError(err)
+	require.NoError(tr1.Start(context.Background()))
+	defer tr1.Stop(ctx)
+	require.NoError(tr1.Upsert(cat, testV[1]))
+	v, err = tr1.Get(cat)
+	require.NoError(err)
+	require.Equal(testV[1], v)
+	require.NoError(tr1.Upsert(dog, testV[3]))
+	v, err = tr1.Get(dog)
+	require.NoError(err)
+	require.Equal(testV[3], v)
+	root1, err := tr1.RootHash()
+	require.NoError(err)
+	require.NotEqual(root, root1)
+
+	// delete cat in first trie
+	require.NoError(tr.Delete(cat))
+	// 2nd trie can still read it
+	v, err = tr1.Get(cat)
+	require.NoError(err)
+	require.Equal(testV[1], v)
+}
+
 func TestInsert(t *testing.T) {
 	require := require.New(t)
 
