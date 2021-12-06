@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -55,6 +54,12 @@ type (
 		accountManager *util.AccountManager
 		// tx             []action.SealedEnvelope
 		// txIdx          uint64
+	}
+
+	txElement struct {
+		actionType int
+		sender     string
+		recepient  string
 	}
 )
 
@@ -101,7 +106,9 @@ func newInjectionProcessor() (*injectProcessor, error) {
 			return p, err
 		}
 	}
-	p.syncNonces(context.Background())
+	if err := p.syncNonces(context.Background()); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -183,7 +190,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.I
 // 	}
 // }
 
-func (p *injectProcessor) syncNonces(ctx context.Context) {
+func (p *injectProcessor) syncNonces(ctx context.Context) error {
 	for _, addr := range p.accountManager.GetAllAddr() {
 		err := backoff.Retry(func() error {
 			resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
@@ -194,12 +201,11 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
-			log.L().Fatal("Failed to inject actions by APS",
-				zap.Error(err),
-				zap.String("addr", addr))
+			return err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	return nil
 }
 
 // func (p *injectProcessor) injectProcess(ctx context.Context) {
@@ -261,30 +267,24 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 
 func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	var (
-		numTx    uint64 = 200
-		gaslimit uint64
-		payLoad  string
-		contract string
+		bufferSize uint64 = 200
+		gaslimit   uint64
+		payLoad    string = opMul
+		contract   string
 	)
 
-	bufferedTxs := make(chan action.SealedEnvelope, numTx)
+	bufferedTxs := make(chan action.SealedEnvelope, bufferSize)
 
 	// query gasPrice
 	apiRet2, _ := p.api.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
 	gasPrice := new(big.Int).SetUint64(apiRet2.GasPrice)
 
 	// estimate execution gaslimit
-	switch actionType {
-	case actionTypeTransfer:
-		var err error
-		gaslimit, err = p.estimateGasLimitForAction(actionType, "", gasPrice, "")
-		if err != nil {
-			panic(err)
-		}
-		payLoad = ""
-	case actionTypeExecution:
+	if actionType == actionTypeTransfer {
+		gaslimit = 10000
+	} else {
 		//deploy contract
-		contractGas, err := p.estimateGasLimitForAction(actionType, action.EmptyAddress, gasPrice, contractByteCode)
+		contractGas, err := p.estimateGasLimitForExecution(actionType, action.EmptyAddress, gasPrice, contractByteCode)
 		if err != nil {
 			panic(err)
 		}
@@ -295,14 +295,13 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 		if err != nil {
 			panic(err)
 		}
-		payLoad = opMul
-		gaslimit, err = p.estimateGasLimitForAction(actionType, contract, gasPrice, payLoad)
+		gaslimit, err = p.estimateGasLimitForExecution(actionType, contract, gasPrice, payLoad)
 		if err != nil {
 			panic(err)
 		}
 	}
 	log.L().Info("info", zap.String("contract addr", contract), zap.Uint64("gas limit", gaslimit))
-	go p.txGenerate(ctx, bufferedTxs, 1, gaslimit, gasPrice, payLoad, contract)
+	go p.txGenerate(ctx, bufferedTxs, actionType, gaslimit, gasPrice, payLoad, contract)
 	go p.InjectionV3(ctx, bufferedTxs)
 }
 
@@ -327,49 +326,24 @@ func (p *injectProcessor) txGenerate(
 
 }
 
-func (p *injectProcessor) estimateGasLimitForAction(actionType int, contractAddr string, gasPrice *big.Int, data string) (uint64, error) {
+func (p *injectProcessor) estimateGasLimitForExecution(actionType int, contractAddr string, gasPrice *big.Int, data string) (uint64, error) {
 	var (
 		acc = p.accountManager.AccountList[rand.Intn(len(p.accountManager.AccountList))]
-		ret uint64
 	)
-	switch actionType {
-	case actionTypeTransfer:
-		tx, err := action.NewTransfer(
-			p.accountManager.Get(acc.EncodedAddr),
-			big.NewInt(0),
-			"",
-			byteutil.Must(hex.DecodeString(data)), 0,
-			gasPrice)
-		if err != nil {
-			return 0, err
-		}
-		gas, err := p.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
-			Action: &iotexapi.EstimateActionGasConsumptionRequest_Transfer{
-				Transfer: tx.Proto(),
-			},
-			CallerAddress: acc.EncodedAddr,
-		})
-		if err != nil {
-			return 0, err
-		}
-		ret = gas.GetGas()
-	case actionTypeExecution:
-		tx, err := action.NewExecution(contractAddr, p.accountManager.Get(acc.EncodedAddr), big.NewInt(0), 0, gasPrice, byteutil.Must(hex.DecodeString(data)))
-		if err != nil {
-			return 0, err
-		}
-		gas, err := p.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
-			Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
-				Execution: tx.Proto(),
-			},
-			CallerAddress: acc.EncodedAddr,
-		})
-		if err != nil {
-			return 0, err
-		}
-		ret = gas.GetGas()
+	tx, err := action.NewExecution(contractAddr, p.accountManager.Get(acc.EncodedAddr), big.NewInt(0), 0, gasPrice, byteutil.Must(hex.DecodeString(data)))
+	if err != nil {
+		return 0, err
 	}
-	return ret, nil
+	gas, err := p.api.EstimateActionGasConsumption(context.Background(), &iotexapi.EstimateActionGasConsumptionRequest{
+		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
+			Execution: tx.Proto(),
+		},
+		CallerAddress: acc.EncodedAddr,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return gas.GetGas(), nil
 }
 
 func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.SealedEnvelope) {
@@ -550,7 +524,24 @@ var injectCmd = &cobra.Command{
 	Short: "inject actions [options : -m] (default:random)",
 	Long:  `inject actions [options : -m] (default:random).`,
 	Run: func(cmd *cobra.Command, args []string) {
-		inject(args)
+		p, err := newInjectionProcessor()
+		if err != nil {
+			panic(err)
+		}
+		ctx, _ := context.WithTimeout(context.Background(), rawInjectCfg.duration)
+		var actiontype int
+		switch rawInjectCfg.actionType {
+		case "transfer":
+			actiontype = actionTypeExecution
+		case "execution":
+			actiontype = actionTypeExecution
+		case "mixed":
+			actiontype = actionTypeMixed
+		default:
+			actiontype = actionTypeTransfer
+		}
+		go p.injectProcessV3(ctx, actiontype)
+		<-ctx.Done()
 	},
 }
 
@@ -605,57 +596,38 @@ var rawInjectCfg = struct {
 // 	loadTokenAmount *big.Int
 // }{}
 
-func inject(_ []string) {
-	// transferAmount := big.NewInt(rawInjectCfg.transferAmount)
-	// transferGasPrice := big.NewInt(rawInjectCfg.transferGasPrice)
-	// executionGasPrice := big.NewInt(rawInjectCfg.executionGasPrice)
-	// executionAmount := big.NewInt(rawInjectCfg.executionAmount)
-	// loadTokenAmount, _ := big.NewInt(0).SetString(rawInjectCfg.loadTokenAmount, 10)
+// func inject(_ []string) {
+// 	// transferAmount := big.NewInt(rawInjectCfg.transferAmount)
+// 	// transferGasPrice := big.NewInt(rawInjectCfg.transferGasPrice)
+// 	// executionGasPrice := big.NewInt(rawInjectCfg.executionGasPrice)
+// 	// executionAmount := big.NewInt(rawInjectCfg.executionAmount)
+// 	// loadTokenAmount, _ := big.NewInt(0).SetString(rawInjectCfg.loadTokenAmount, 10)
 
-	// injectCfg.configPath = rawInjectCfg.configPath
-	// rawInjectCfg.serverAddr = rawrawInjectCfg.serverAddr
-	// injectCfg.transferGasLimit = rawInjectCfg.transferGasLimit
-	// injectCfg.transferGasPrice = transferGasPrice
-	// injectCfg.transferAmount = transferAmount
+// 	// injectCfg.configPath = rawInjectCfg.configPath
+// 	// rawInjectCfg.serverAddr = rawrawInjectCfg.serverAddr
+// 	// injectCfg.transferGasLimit = rawInjectCfg.transferGasLimit
+// 	// injectCfg.transferGasPrice = transferGasPrice
+// 	// injectCfg.transferAmount = transferAmount
 
-	// injectCfg.contract = rawInjectCfg.contract
-	// injectCfg.executionAmount = executionAmount
-	// injectCfg.executionGasLimit = rawInjectCfg.executionGasLimit
-	// injectCfg.executionGasPrice = executionGasPrice
+// 	// injectCfg.contract = rawInjectCfg.contract
+// 	// injectCfg.executionAmount = executionAmount
+// 	// injectCfg.executionGasLimit = rawInjectCfg.executionGasLimit
+// 	// injectCfg.executionGasPrice = executionGasPrice
 
-	// injectCfg.actionType = rawInjectCfg.actionType
-	// injectCfg.retryNum = rawInjectCfg.retryNum
-	// injectCfg.retryInterval = rawInjectCfg.retryInterval
-	// injectCfg.duration = rawInjectCfg.duration
-	// injectCfg.resetInterval = rawInjectCfg.resetInterval
-	// injectCfg.aps = rawInjectCfg.aps
-	// injectCfg.workers = rawInjectCfg.workers
-	// injectCfg.checkReceipt = rawInjectCfg.checkReceipt
-	// injectCfg.insecure = rawInjectCfg.insecure
-	// injectCfg.randAccounts = rawInjectCfg.randAccounts
-	// injectCfg.loadTokenAmount = loadTokenAmount
+// 	// injectCfg.actionType = rawInjectCfg.actionType
+// 	// injectCfg.retryNum = rawInjectCfg.retryNum
+// 	// injectCfg.retryInterval = rawInjectCfg.retryInterval
+// 	// injectCfg.duration = rawInjectCfg.duration
+// 	// injectCfg.resetInterval = rawInjectCfg.resetInterval
+// 	// injectCfg.aps = rawInjectCfg.aps
+// 	// injectCfg.workers = rawInjectCfg.workers
+// 	// injectCfg.checkReceipt = rawInjectCfg.checkReceipt
+// 	// injectCfg.insecure = rawInjectCfg.insecure
+// 	// injectCfg.randAccounts = rawInjectCfg.randAccounts
+// 	// injectCfg.loadTokenAmount = loadTokenAmount
 
-	p, err := newInjectionProcessor()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	ctx, _ := context.WithTimeout(context.Background(), rawInjectCfg.duration)
-	var actiontype int
-	switch rawInjectCfg.actionType {
-	case "transfer":
-		actiontype = actionTypeExecution
-	case "execution":
-		actiontype = actionTypeExecution
-	case "mixed":
-		actiontype = actionTypeMixed
-	default:
-		actiontype = actionTypeTransfer
-	}
-	go p.injectProcessV3(ctx, actiontype)
-	<-ctx.Done()
-	return
-}
+// 	return
+// }
 
 func init() {
 	flag := injectCmd.Flags()
