@@ -633,7 +633,7 @@ func init() {
 	flag := injectCmd.Flags()
 	flag.StringVar(&rawInjectCfg.configPath, "injector-config-path", "./tools/actioninjector.v2/gentsfaddrs.yaml",
 		"path of config file of genesis transfer addresses")
-	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "api.nightly-cluster-2.iotex.one:443", "target ip:port for grpc connection")
+	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "127.0.0.1:14014", "target ip:port for grpc connection")
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
 	flag.Int64Var(&rawInjectCfg.transferGasPrice, "transfer-gas-price", 1000000000000, "transfer gas price")
@@ -649,7 +649,7 @@ func init() {
 	flag.IntVar(&rawInjectCfg.aps, "aps", 200, "actions to be injected per second")
 	flag.IntVar(&rawInjectCfg.randAccounts, "rand-accounts", 20, "number of accounst to use")
 	flag.Uint64Var(&rawInjectCfg.workers, "workers", 10, "number of workers")
-	flag.BoolVar(&rawInjectCfg.insecure, "insecure", false, "insecure network")
+	flag.BoolVar(&rawInjectCfg.insecure, "insecure", true, "insecure network")
 	flag.BoolVar(&rawInjectCfg.checkReceipt, "check-recipt", false, "check recept")
 	flag.StringVar(&rawInjectCfg.loadTokenAmount, "load-token-amount", "50000000000000000000", "init load how much token to inject accounts")
 	rootCmd.AddCommand(injectCmd)
