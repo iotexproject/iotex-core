@@ -239,7 +239,7 @@ loop:
 	}
 }
 
-// InjectByAps injects Actions in APS Mode
+// InjectByApsV2 injects Actions in APS Mode
 func InjectByApsV2(
 	wg *sync.WaitGroup,
 	aps float64,
@@ -643,7 +643,7 @@ func createVoteInjection(
 	return sender, recipient, nonce
 }
 
-// Helper function to get the executor and nonce of next injected execution
+// CreateExecutionInjection get the executor and nonce of next injected execution
 func CreateExecutionInjection(
 	counter map[string]uint64,
 	addrs []*AddressKey,

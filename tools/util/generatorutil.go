@@ -26,11 +26,13 @@ type nounceManager struct {
 	pendingNonce map[string]uint64
 }
 
+// AccountManager is tbd
 type AccountManager struct {
 	AccountList []*AddressKey
 	nonceMng    nounceManager
 }
 
+// NewAccountManager is tbd
 func NewAccountManager(accounts []*AddressKey) *AccountManager {
 	return &AccountManager{
 		AccountList: accounts,
@@ -40,12 +42,14 @@ func NewAccountManager(accounts []*AddressKey) *AccountManager {
 	}
 }
 
+// Get is tbd
 func (ac *AccountManager) Get(addr string) uint64 {
 	ac.nonceMng.mu.RLock()
 	defer ac.nonceMng.mu.RUnlock()
 	return ac.nonceMng.pendingNonce[addr]
 }
 
+// GetAndInc is tbd
 func (ac *AccountManager) GetAndInc(addr string) uint64 {
 	var ret uint64
 	ac.nonceMng.mu.Lock()
@@ -55,6 +59,7 @@ func (ac *AccountManager) GetAndInc(addr string) uint64 {
 	return ret
 }
 
+// GetAllAddr is tbd
 func (ac *AccountManager) GetAllAddr() []string {
 	var ret []string
 	for _, v := range ac.AccountList {
@@ -63,12 +68,14 @@ func (ac *AccountManager) GetAllAddr() []string {
 	return ret
 }
 
+// Set is tbd
 func (ac *AccountManager) Set(addr string, val uint64) {
 	ac.nonceMng.mu.Lock()
 	defer ac.nonceMng.mu.Unlock()
 	ac.nonceMng.pendingNonce[addr] = val
 }
 
+// UpdateNonce is tbd
 func (ac *AccountManager) UpdateNonce(client iotexapi.APIServiceClient) error {
 	// load the nonce and balance of addr
 	for _, account := range ac.AccountList {
@@ -91,7 +98,7 @@ func (ac *AccountManager) UpdateNonce(client iotexapi.APIServiceClient) error {
 	return nil
 }
 
-// InjectByAps injects Actions in APS Mode
+// TxGenerator injects Actions in APS Mode
 func TxGenerator(
 	txTotal uint64,
 	client iotexapi.APIServiceClient,
@@ -133,6 +140,7 @@ func TxGenerator(
 	return ret, nil
 }
 
+// ActionGenerator is tbd
 func ActionGenerator(
 	actionType int,
 	accountManager *AccountManager,

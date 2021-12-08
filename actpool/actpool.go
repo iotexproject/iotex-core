@@ -335,10 +335,10 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
-	// if _, ok := ap.senderBlackList[caller.String()]; ok {
-	// 	actpoolMtc.WithLabelValues("blacklisted").Inc()
-	// 	return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
-	// }
+	if _, ok := ap.senderBlackList[caller.String()]; ok {
+		actpoolMtc.WithLabelValues("blacklisted").Inc()
+		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
+	}
 	// if already validated
 	selpHash, err := selp.Hash()
 	if err != nil {

@@ -31,7 +31,7 @@ func CleanupPath(t *testing.T, path string) {
 	}
 }
 
-// CleanupPath detects the existence of test DB file and removes it if found
+// CleanupPathV2 detects the existence of test DB file and removes it if found
 func CleanupPathV2(path string) {
 	if fileutil.FileExists(path) && os.RemoveAll(path) != nil {
 		log.L().Error("Fail to remove testDB file")
