@@ -436,11 +436,11 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainiD, err := action.DecodeChainID(dataStr, svr.coreService.EVMNetworkID())
+	chainiD := svr.coreService.EVMNetworkID()
 	if err != nil {
 		return nil, err
 	}
-	tx, err := action.DecodeRawTx(dataStr, chainiD)
+	tx, isEthEncoding, err := action.DecodeRawTx(dataStr, chainiD)
 	if err != nil {
 		return nil, err
 	}
@@ -467,8 +467,12 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			// TODO: change the chainid to svr.coreService.ChainID()
 			ChainID: 0,
 		},
-		// Encoding: iotextypes.Encoding_ETHEREUM_RLP,
-		Encoding: iotextypes.Encoding_IOTEX_PROTOBUF,
+	}
+
+	if isEthEncoding {
+		req.Encoding = iotextypes.Encoding_ETHEREUM_RLP
+	} else {
+		req.Encoding = iotextypes.Encoding_IOTEX_PROTOBUF
 	}
 
 	// TODO: process special staking action
@@ -492,7 +496,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			},
 		}
 	}
-	sig, pubkey, err := action.ExtractSignatureAndPubkey(tx, req.Core, chainiD)
+	sig, pubkey, err := action.ExtractSignatureAndPubkey(tx, req.Core, chainiD, isEthEncoding)
 	if err != nil {
 		return nil, err
 	}

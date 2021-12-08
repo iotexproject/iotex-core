@@ -272,7 +272,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		tx, err := DecodeRawTx(v.raw, config.EVMNetworkID())
+		tx, isEthSigned, err := DecodeRawTx(v.raw, config.EVMNetworkID())
 		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(tx)
 		require.NoError(err)
 
@@ -281,7 +281,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
 		pb.Core = convertToNativeProto(tx, v.isTsf)
-		sig, pubkey, err := ExtractSignatureAndPubkey(tx, pb.Core, config.EVMNetworkID())
+		sig, pubkey, err := ExtractSignatureAndPubkey(tx, pb.Core, config.EVMNetworkID(), isEthSigned)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
@@ -368,7 +368,7 @@ func TestEncodeDecodeRawTx(t *testing.T) {
 	for _, v := range testData {
 		txStr, err := EncodeRawTx(v.act, pvk, v.chainID)
 		require.NoError(err)
-		tx, err := DecodeRawTx(txStr, v.chainID)
+		tx, _, err := DecodeRawTx(txStr, v.chainID)
 		require.NoError(err)
 		require.Equal(testAmount, tx.Value().Uint64())
 		require.Equal(testGasLimit, tx.Gas())
@@ -378,6 +378,22 @@ func TestEncodeDecodeRawTx(t *testing.T) {
 		addr1, _ := address.FromString(toAddr)
 		require.Equal(addr1, addr2)
 	}
+}
+
+func TestDecodeTxFromLedger(t *testing.T) {
+	require := require.New(t)
+	chainID := uint32(4689)
+	txStr := "f870819185e8d4a5100082271094173553c179bbf5af39d8db41f0b60e4fc631066a880de0b6b3a7640000808224c6a0f4e0e8eaea379de2eea23fc0f42c753b06a587b621e377d568826b9bea5ee9afa0535a409481ab0202e0e1584fe9e36bc33963aa50e10b7fbeb6eb58df187490ed01"
+	tx, isEthEncoding, err := DecodeRawTx(txStr, chainID)
+	require.NoError(err)
+	require.False(isEthEncoding)
+	require.Equal("1000000000000000000", tx.Value().String())
+	require.Equal(uint64(10000), tx.Gas())
+	require.Equal("1000000000000", tx.GasPrice().String())
+	require.Equal(uint64(145), tx.Nonce())
+	addr2, _ := address.FromBytes(tx.To().Bytes())
+	addr1, _ := address.FromString("io1zu648steh0667wwcmdqlpdswflrrzpn2c3cu00")
+	require.Equal(addr1, addr2)
 }
 
 func convertToNativeProto(tx *types.Transaction, isTsf bool) *iotextypes.ActionCore {

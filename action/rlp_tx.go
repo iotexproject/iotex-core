@@ -87,19 +87,19 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 }
 
 // DecodeRawTx decodes raw data string into eth tx
-func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, error) {
+func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, bool, error) {
 	//remove Hex prefix and decode string to byte
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// decode raw data into rlp tx
-	tx := &types.Transaction{}
-	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
-		return nil, err
+	unwrapper := &transactionUnwrapper{}
+	if err = rlp.DecodeBytes(dataInString, unwrapper); err != nil {
+		return nil, false, err
 	}
-	return tx, nil
+	return unwrapper.tx, unwrapper.isEthEncoding, nil
 }
 
 // EncodeRawTx encodes action into the data string of eth tx
@@ -129,50 +129,22 @@ func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, err
 	return hex.EncodeToString(encodedTx[:]), nil
 }
 
-// DecodeChainID handles special tx from web3 which signed by ledger with chainID 999999
-func DecodeChainID(rawData string, chainID uint32) (uint32, error) {
-	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
-	if err != nil {
-		return 0, err
-	}
-
-	tx := &types.Transaction{}
-	if err = rlp.DecodeBytes(dataInString, tx); err != nil {
-		return 0, err
-	}
-
-	v, _, _ := tx.RawSignatureValues()
-	recID := uint32(v.Int64()) - 2*chainID - 8
-
-	// tx from ledger is signed with chainID 999999
-	if recID != 27 && recID != 28 {
-		return 999999, nil
-	}
-	return chainID, nil
-}
-
-func ExtractSignatureAndPubkey(tx *types.Transaction, pbAct *iotextypes.ActionCore, chainID uint32) ([]byte, crypto.PublicKey, error) {
+// ExtractSignatureAndPubkey calculates signature and pubkey from tx
+func ExtractSignatureAndPubkey(tx *types.Transaction, pbAct *iotextypes.ActionCore, chainID uint32, isEthEncoding bool) ([]byte, crypto.PublicKey, error) {
 	// extract signature and hash
 	var (
 		sig     []byte
 		rawHash []byte
 		err     error
 	)
-	if isNativeTx(chainID) {
-		sig, err = getSignatureFromRLPTX(tx, chainID)
-		if err != nil {
-			return nil, nil, err
-		}
+	sig, err = getSignatureFromRLPTX(tx, chainID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if isEthEncoding {
 		h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
 		rawHash = h[:]
 	} else {
-		sig, err = getSignatureFromRLPTX(tx, chainID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if sig[len(sig)-1] >= 27 {
-			sig[len(sig)-1] -= 27
-		}
 		h := hash.Hash256b(byteutil.Must(proto.Marshal(pbAct)))
 		rawHash = h[:]
 	}
@@ -201,6 +173,64 @@ func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error
 	return sig, nil
 }
 
-func isNativeTx(chainID uint32) bool {
-	return chainID != 999999
+type (
+	// TransactionUnwrapper is a unwrapper for the Ethereum transaction.
+	transactionUnwrapper struct {
+		tx            *types.Transaction
+		isEthEncoding bool
+	}
+
+	legacyTxWithEncodingType struct {
+		// data fields of legacy transaction.
+		Nonce    uint64
+		GasPrice *big.Int
+		Gas      uint64
+		To       *common.Address `rlp:"nil"`
+		Value    *big.Int
+		Data     []byte
+		V, R, S  *big.Int
+		// extra field to identify tx signed from ledgers which use native signing method
+		EncodingType []byte `rlp:"optional"`
+	}
+)
+
+// DecodeRLP implements eth.rlp.Decoder
+func (unwrapper *transactionUnwrapper) DecodeRLP(s *rlp.Stream) error {
+	kind, _, err := s.Kind()
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case rlp.List:
+		outter := legacyTxWithEncodingType{}
+		if err := s.Decode(&outter); err != nil {
+			return err
+		}
+		unwrapper.tx = types.NewTx(outter.exportLegacyTx())
+		unwrapper.isEthEncoding = outter.isEthEncoding()
+		return nil
+	default:
+		return rlp.ErrExpectedList
+	}
+}
+
+func (tx *legacyTxWithEncodingType) exportLegacyTx() *types.LegacyTx {
+	return &types.LegacyTx{
+		Nonce:    tx.Nonce,
+		GasPrice: tx.GasPrice,
+		Gas:      tx.Gas,
+		To:       tx.To,
+		Value:    tx.Value,
+		Data:     tx.Data,
+		V:        tx.V,
+		R:        tx.R,
+		S:        tx.S,
+	}
+}
+
+func (tx *legacyTxWithEncodingType) isEthEncoding() bool {
+	if len(tx.EncodingType) > 0 && hex.EncodeToString(tx.EncodingType) == "01" {
+		return false
+	}
+	return true
 }
