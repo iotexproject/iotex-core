@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/hex"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"time"
@@ -26,7 +25,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -129,14 +127,38 @@ func (p *injectProcessor) randAccounts(num int) error {
 }
 
 func (p *injectProcessor) loadAccounts(keypairsPath string, transferValue *big.Int) error {
-	keyPairBytes, err := ioutil.ReadFile(keypairsPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to read key pairs file")
+	// keyPairBytes, err := ioutil.ReadFile(keypairsPath)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to read key pairs file")
+	// }
+	// for Testing
+	keypairs := KeyPairs{
+		Pairs: []KeyPair{
+			{
+				PK: "046791faf87db669c1e67e6b338fcb41d02b80336da4ac17a57d83453b4ec439c2fb3c86a25d745dabd37ecc9f5f5ac1371c9f20e8ea0ae1e4feeacf47ffaca469",
+				SK: "414efa99dfac6f4095d6954713fb0085268d400d6a05a8ae8a69b5b1c10b4bed",
+			},
+			{
+				PK: "046fb0d32e8a6da2faa91b99ba3bf2dd064d9eb81ba52f864be72064612bc5fc228385ab5cea565a1a709942a4a28f8b70ef5644b903c4ef57fbef41e1746cc910",
+				SK: "d1acb5110e20becd3f1e2575e5c67f7befac58cd925767601a5f26223dddd1c8",
+			},
+			{
+				PK: "04b0a3be78f1f30258c8615303d3cdf64faa3aa32e8f9714b16eea614d7c2d9f4824717aebf682d3eb12b4af343fbfab14a351b8f64e59b28a3aa36f9ad57b8983",
+				SK: "3aa779c846a62a62217f7481b9c3265f1b7fbc8e3217b7dd192d75a65da8a162",
+			},
+			{
+				PK: "0471165608ad2cfaeea72acc829a9497f1dc08113086846dde8bb31aa3d9a43458df2a9b609f47ecd04f3f951b1acface05c547790cc9702c0864cc8333d1e5464",
+				SK: "c9b58691ee786b92980ab1d273254acaa0b31ab49e39e24b809dd6c36a2c165a",
+			},
+			{
+				PK: "04484b6c274699bd0d8d968b773830930528bbcaaa53d13b9aae7146f397efc8b8f6bac4ac751e9332a88f46f10acea24dee68efd1489cae00cf80f1f8baff00e2",
+				SK: "9a3296d4237fd5bd2aacc68c09eea1f6b2c225fff46098597889fec8bd703ac1",
+			},
+		},
 	}
-	var keypairs KeyPairs
-	if err := yaml.Unmarshal(keyPairBytes, &keypairs); err != nil {
-		return errors.Wrap(err, "failed to unmarshal key pairs bytes")
-	}
+	// if err := yaml.Unmarshal(keyPairBytes, &keypairs); err != nil {
+	// 	return errors.Wrap(err, "failed to unmarshal key pairs bytes")
+	// }
 
 	// Construct iotex addresses from loaded key pairs
 	var addrKeys []*util.AddressKey
@@ -282,7 +304,9 @@ func (p *injectProcessor) injectProcessV3(ctx context.Context, actionType int) {
 	// estimate execution gaslimit
 	if actionType == actionTypeTransfer {
 		gaslimit = 10000
+		payLoad = ""
 	} else {
+		payLoad = opMul
 		//deploy contract
 		contractGas, err := p.estimateGasLimitForExecution(actionType, action.EmptyAddress, gasPrice, contractByteCode)
 		if err != nil {
@@ -431,9 +455,9 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
 	rerr := backoff.Retry(func() error {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
-		// if err != nil {
-		// 	log.L().Error("Failed to inject.", zap.Error(err))
-		// }
+		if err != nil {
+			log.L().Error("Failed to inject.", zap.Error(err))
+		}
 		return err
 	}, bo)
 	if rerr != nil {
@@ -532,7 +556,7 @@ var injectCmd = &cobra.Command{
 		var actiontype int
 		switch rawInjectCfg.actionType {
 		case "transfer":
-			actiontype = actionTypeExecution
+			actiontype = actionTypeTransfer
 		case "execution":
 			actiontype = actionTypeExecution
 		case "mixed":
