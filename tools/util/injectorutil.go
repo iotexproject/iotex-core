@@ -157,7 +157,7 @@ func InjectByAps(
 	retryNum int,
 	retryInterval int,
 	resetInterval int,
-	expectedBalances *map[string]*big.Int,
+	expectedBalances map[string]*big.Int,
 	cs *chainservice.ChainService,
 	pendingActionMap *ttl.Cache,
 ) {
@@ -791,7 +791,7 @@ func GetAllBalanceMap(
 func CheckPendingActionList(
 	cs *chainservice.ChainService,
 	pendingActionMap *ttl.Cache,
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 ) (bool, error) {
 	var retErr error
 	empty := true
@@ -856,7 +856,7 @@ func CheckPendingActionList(
 }
 
 func updateTransferExpectedBalanceMap(
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 	senderAddr string,
 	recipientAddr string,
 	amount *big.Int,
@@ -885,26 +885,26 @@ func updateTransferExpectedBalanceMap(
 	totalUsed := new(big.Int).Add(gasConsumed, amount)
 
 	// update sender balance
-	senderBalance := (*balancemap)[senderAddr]
+	senderBalance := balancemap[senderAddr]
 	if senderBalance.Cmp(totalUsed) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[senderAddr].Sub(senderBalance, totalUsed)
+	balancemap[senderAddr].Sub(senderBalance, totalUsed)
 
 	// update recipient balance
-	recipientBalance := (*balancemap)[recipientAddr]
-	(*balancemap)[recipientAddr].Add(recipientBalance, amount)
+	recipientBalance := balancemap[recipientAddr]
+	balancemap[recipientAddr].Add(recipientBalance, amount)
 }
 
 func updateExecutionExpectedBalanceMap(
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 	executor string,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
-	// NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
+	// NOTE: This hard-coded gas consumption value is precalculated on minicluster deployed test contract only
 	gasUnitConsumed := new(big.Int).SetUint64(12014)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
@@ -912,24 +912,24 @@ func updateExecutionExpectedBalanceMap(
 	}
 	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
-	executorBalance := (*balancemap)[executor]
+	executorBalance := balancemap[executor]
 	if executorBalance.Cmp(gasConsumed) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[executor].Sub(executorBalance, gasConsumed)
+	balancemap[executor].Sub(executorBalance, gasConsumed)
 }
 
 func updateStakeExpectedBalanceMap(
-	balancemap *map[string]*big.Int,
+	balancemap map[string]*big.Int,
 	candidateAddr string,
 	cost *big.Int,
 ) {
 	// update sender balance
-	senderBalance := (*balancemap)[candidateAddr]
+	senderBalance := balancemap[candidateAddr]
 	if senderBalance.Cmp(cost) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[candidateAddr].Sub(senderBalance, cost)
+	balancemap[candidateAddr].Sub(senderBalance, cost)
 }
 
 // GetActionByActionHash acquires action by sending api request to api grpc server

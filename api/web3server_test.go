@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -335,7 +336,7 @@ func TestGetCode(t *testing.T) {
 	contractAddr, _ := ioAddrToEthAddr(contract)
 	testData := []interface{}{contractAddr, 1}
 	ret, _ := svr.web3Server.getCode(testData)
-	require.Contains(contractCode, removeHexPrefix(ret.(string)))
+	require.Contains(contractCode, util.Remove0xPrefix(ret.(string)))
 }
 
 func TestGetNodeInfo(t *testing.T) {
@@ -413,20 +414,29 @@ func TestGetLogs(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := &filterObject{
-		FromBlock: "0x1",
+	testData := []struct {
+		data   *filterObject
+		logLen int
+	}{
+		{
+			&filterObject{
+				FromBlock: "0x1",
+			},
+			4,
+		},
+		{
+			// empty log
+			&filterObject{
+				Address: []string{"0x8ce313ab12bf7aed8136ab36c623ff98c8eaad34"},
+			},
+			0,
+		},
 	}
-	ret, err := svr.web3Server.getLogs(testData)
-	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 4)
-
-	testData2 := &filterObject{
-		Address: []string{"0x8A68E01add9aDc8b887025dC54C36CFa91432F58"},
+	for _, v := range testData {
+		ret, err := svr.web3Server.getLogs(v.data)
+		require.NoError(err)
+		require.Equal(len(ret.([]logsObject)), v.logLen)
 	}
-	ret, err = svr.web3Server.getLogs(testData2)
-	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 0)
-
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
@@ -545,12 +555,16 @@ func TestGetFilterChanges(t *testing.T) {
 	// request again after last rolling
 	ret, err = svr.web3Server.getFilterChanges([]interface{}{filterID1})
 	require.NoError(err)
-	require.Equal(len(ret.([]interface{})), 0)
+	require.Equal(len(ret.([]logsObject)), 0)
 
 	filterID2, _ := svr.web3Server.newBlockFilter()
 	ret2, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
 	require.NoError(err)
 	require.Equal(1, len(ret2.([]string)))
+	ret3, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
+	require.NoError(err)
+	require.Equal(0, len(ret3.([]string)))
+
 }
 
 func TestGetFilterLogs(t *testing.T) {
@@ -609,11 +623,67 @@ func TestGetStorageAt(t *testing.T) {
 	require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", ret)
 
 	failData := [][]interface{}{
-		[]interface{}{1},
-		[]interface{}{"TEST", "TEST"},
+		{1},
+		{"TEST", "TEST"},
 	}
 	for _, v := range failData {
 		_, err := svr.web3Server.getStorageAt(v)
 		require.Error(err)
+	}
+}
+
+func TestGetNetworkID(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+	config.SetEVMNetworkID(1)
+	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+	res, _ := svr.web3Server.getNetworkID()
+	require.Equal("1", res)
+}
+
+func TestIsResultValid(t *testing.T) {
+	require := require.New(t)
+	testData := []struct {
+		data    web3Resp
+		isValid bool
+	}{
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+				Result:  []string{},
+			},
+			isValid: true,
+		},
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+			},
+			isValid: false,
+		},
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+				Result:  nil,
+			},
+			isValid: false,
+		},
+		{
+			data: web3Resp{
+				ID:      1,
+				Jsonrpc: "2.0",
+				Error:   &web3Err{},
+			},
+			isValid: true,
+		},
+	}
+
+	for _, v := range testData {
+		require.Equal(v.isValid, isResultValid(v.data))
 	}
 }
