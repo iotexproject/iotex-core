@@ -1039,6 +1039,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ap := mock_actpool.NewMockActPool(ctrl)
 	ap.EXPECT().PendingActionMap().Return(accMap).Times(1)
+	ap.EXPECT().GetSize().Return(uint64(1))
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{

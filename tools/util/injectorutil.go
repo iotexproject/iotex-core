@@ -265,7 +265,7 @@ func InjectByApsV2(
 	retryNum int,
 	retryInterval int,
 	resetInterval int,
-	expectedBalances *map[string]*big.Int,
+	expectedBalances map[string]*big.Int,
 	cs *chainservice.ChainService,
 	pendingActionMap *ttl.Cache,
 ) {

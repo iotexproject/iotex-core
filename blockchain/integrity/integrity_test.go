@@ -1630,7 +1630,7 @@ func TestHistoryForAccount(t *testing.T) {
 
 func testHistoryForAccount(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, _, _, ap := newChain(require, statetx)
+	bc, sf, _, _, ap := newChain(t, statetx)
 	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29)
@@ -1685,7 +1685,7 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, kv, dao, ap := newChain(require, statetx)
+	bc, sf, kv, dao, ap := newChain(t, statetx)
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, ap, t)
@@ -1784,7 +1784,8 @@ func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testin
 	return big.NewInt(0).SetBytes(ret)
 }
 
-func newChain(require *require.Assertions, stateTX bool) (blockchain.Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO, actpool.ActPool) {
+func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO, actpool.ActPool) {
+	require := require.New(t)
 	cfg := config.Default
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -1884,3 +1885,5 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 	require.NoError(bc.CommitBlock(blk))
 	return blk
 }
+
+// TODO: add func TestValidateBlock()
