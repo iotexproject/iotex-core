@@ -332,12 +332,13 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 	}
 
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil || blkMetas == nil || len(blkMetas) == 0 {
-		if err == nil {
-			err = errors.New("invalid block")
-		}
+	if err != nil {
 		return nil, err
 	}
+	if len(blkMetas) == 0 {
+		return nil, errors.New("invalid block")
+	}
+
 	return svr.getBlockWithTransactions(blkMetas[0], isDetailed)
 }
 
@@ -375,11 +376,11 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 		return nil, err
 	}
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil || blkMetas == nil || len(blkMetas) == 0 {
-		if err == nil {
-			err = errors.New("invalid block")
-		}
+	if err != nil {
 		return nil, err
+	}
+	if len(blkMetas) == 0 {
+		return nil, errors.New("invalid block")
 	}
 
 	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
@@ -699,11 +700,11 @@ func (svr *Web3Server) getBlockTransactionCountByNumber(in interface{}) (interfa
 		return nil, err
 	}
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil || blkMetas == nil || len(blkMetas) == 0 {
-		if err == nil {
-			err = errors.New("invalid block")
-		}
+	if err != nil {
 		return nil, err
+	}
+	if len(blkMetas) == 0 {
+		return nil, errors.New("invalid block")
 	}
 	return uint64ToHex(uint64(blkMetas[0].NumActions)), nil
 }
@@ -747,11 +748,11 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	}
 	log.L().Error("acquire block meta")
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil || blkMetas == nil || len(blkMetas) == 0 {
-		if err == nil {
-			err = errors.New("invalid block")
-		}
+	if err != nil {
 		return nil, err
+	}
+	if len(blkMetas) == 0 {
+		return nil, errors.New("invalid block")
 	}
 	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
 	if err != nil || len(actionInfos) == 0 {
