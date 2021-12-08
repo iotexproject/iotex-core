@@ -91,13 +91,13 @@ func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, bool, erro
 	//remove Hex prefix and decode string to byte
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return nil, false, err
+		return nil, true, err
 	}
 
 	// decode raw data into rlp tx
 	unwrapper := &transactionUnwrapper{}
 	if err = rlp.DecodeBytes(dataInString, unwrapper); err != nil {
-		return nil, false, err
+		return nil, true, err
 	}
 	return unwrapper.tx, unwrapper.isEthEncoding, nil
 }
@@ -174,7 +174,7 @@ func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error
 }
 
 type (
-	// TransactionUnwrapper is a unwrapper for the Ethereum transaction.
+	// transactionUnwrapper is a unwrapper for the Ethereum transaction.
 	transactionUnwrapper struct {
 		tx            *types.Transaction
 		isEthEncoding bool

@@ -439,9 +439,6 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	chainiD := svr.coreService.EVMNetworkID()
-	if err != nil {
-		return nil, err
-	}
 	tx, isEthEncoding, err := action.DecodeRawTx(dataStr, chainiD)
 	if err != nil {
 		return nil, err
