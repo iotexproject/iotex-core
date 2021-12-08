@@ -1683,6 +1683,8 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (ret *io
 			return nil, errors.Wrap(err, "failed to unmarshal account meta")
 		}
 		balance = acc.GetBalance()
+	default:
+		return nil, errors.Errorf("invalid address %s", addr)
 	}
 
 	ret = &iotexapi.GetAccountResponse{

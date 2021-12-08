@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -154,7 +155,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		return packAPIResult(nil, err, 0)
 	}
 
-	var web3Resps []web3Resp
+	web3Resps := make([]web3Resp, 0)
 	for _, web3Req := range web3Reqs {
 		var (
 			res    interface{}
@@ -239,11 +240,12 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 			return packAPIResult(nil, err, 0)
 		}
-		if err != nil {
+		resp := packAPIResult(res, err, int(web3Req.Get("id").Int()))
+		if err != nil || !isResultValid(resp) {
 			// temporally used for monitor and debug
 			log.L().Error("web3 server err", zap.String("input", fmt.Sprintf("%+v", web3Req)), zap.Error(err))
 		}
-		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
+		web3Resps = append(web3Resps, resp)
 		web3ServerMtc.WithLabelValues(method.(string)).Inc()
 		web3ServerMtc.WithLabelValues("requests_total").Inc()
 	}
@@ -522,7 +524,6 @@ func (svr *Web3Server) getCode(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: do something if accountMeta.ContractByteCode == ""
 	return "0x" + hex.EncodeToString(accountMeta.ContractByteCode), nil
 }
 
@@ -532,7 +533,7 @@ func (svr *Web3Server) getNodeInfo() (interface{}, error) {
 }
 
 func (svr *Web3Server) getNetworkID() (interface{}, error) {
-	return svr.coreService.EVMNetworkID(), nil
+	return strconv.Itoa(int(svr.coreService.EVMNetworkID())), nil
 }
 
 func (svr *Web3Server) getPeerCount() (interface{}, error) {
@@ -564,7 +565,7 @@ func (svr *Web3Server) getBlockTransactionCountByHash(in interface{}) (interface
 	if err != nil {
 		return nil, err
 	}
-	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
+	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(h))
 	if err != nil {
 		return nil, errors.Wrap(err, "the block is not found")
 	}
@@ -576,7 +577,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	blkMeta, err := svr.coreService.BlockMetaByHash(removeHexPrefix(h))
+	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(h))
 	if err != nil {
 		return nil, errors.Wrap(err, "the block is not found")
 	}
@@ -588,7 +589,7 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.Action(removeHexPrefix(h), true)
+	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), true)
 	if err != nil {
 		return nil, err
 	}
@@ -611,7 +612,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// acquire action receipt by action hash
-	actHash, err := hash.HexStringToHash256(removeHexPrefix(actHashStr))
+	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(actHashStr))
 	if err != nil {
 		return nil, errors.Wrapf(errUnkownType, "actHash: %s", actHashStr)
 	}
@@ -631,7 +632,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// acquire transaction index by action hash
-	actInfo, err := svr.coreService.Action(removeHexPrefix(actHashStr), true)
+	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(actHashStr), true)
 	if err != nil {
 		return nil, err
 	}
@@ -641,9 +642,9 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 
 	// parse logs from receipt
-	var logs []logsObject
+	logs := make([]logsObject, 0)
 	for _, v := range receipt.Logs() {
-		var topics []string
+		topics := make([]string, 0)
 		for _, tpc := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
 		}
@@ -712,7 +713,7 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.ActionsByBlock(removeHexPrefix(blkHash), idx, 1)
+	actionInfos, err := svr.coreService.ActionsByBlock(util.Remove0xPrefix(blkHash), idx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -833,7 +834,7 @@ func (svr *Web3Server) uninstallFilter(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return svr.cache.Del(removeHexPrefix(id)), nil
+	return svr.cache.Del(util.Remove0xPrefix(id)), nil
 }
 
 func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
@@ -841,27 +842,27 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	filterID = removeHexPrefix(filterID)
+	filterID = util.Remove0xPrefix(filterID)
 	filterObj, err := loadFilterFromCache(svr.cache, filterID)
 	if err != nil {
-		return []interface{}{}, err
+		return nil, err
 	}
 	var (
 		ret          interface{}
 		newLogHeight uint64
 		tipHeight    = svr.coreService.bc.TipHeight()
 	)
-	if filterObj.LogHeight > tipHeight {
-		return []interface{}{}, nil
-	}
-
 	switch filterObj.FilterType {
 	case "log":
+		if filterObj.LogHeight > tipHeight {
+			return []logsObject{}, nil
+		}
 		from, to, hasNewLogs, err := svr.getLogQueryRange(filterObj.FromBlock, filterObj.ToBlock, filterObj.LogHeight)
 		if err != nil {
 			return nil, err
-		} else if !hasNewLogs {
-			return []interface{}{}, nil
+		}
+		if !hasNewLogs {
+			return []logsObject{}, nil
 		}
 		logs, err := svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
 		if err != nil {
@@ -869,6 +870,9 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 		}
 		ret, newLogHeight = logs, tipHeight+1
 	case "block":
+		if filterObj.LogHeight > tipHeight {
+			return []string{}, nil
+		}
 		queryCount := tipHeight - filterObj.LogHeight + 1
 		if queryCount > svr.coreService.cfg.API.RangeQueryLimit {
 			queryCount = svr.coreService.cfg.API.RangeQueryLimit
@@ -877,7 +881,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		var hashArr []string
+		hashArr := make([]string, 0)
 		for _, v := range blkMetas {
 			hashArr = append(hashArr, "0x"+v.Hash)
 		}
@@ -900,10 +904,10 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	filterID = removeHexPrefix(filterID)
+	filterID = util.Remove0xPrefix(filterID)
 	filterObj, err := loadFilterFromCache(svr.cache, filterID)
 	if err != nil {
-		return []interface{}{}, err
+		return nil, err
 	}
 	if filterObj.FilterType != "log" {
 		return nil, errInvalidFiterID
