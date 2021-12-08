@@ -183,7 +183,7 @@ reboot:
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	 sudo mkdir -p /var/{data,log}
+	 sudo mkdir -p /var/data /var/log
 	 sudo chown ${USER} /var/data /var/log
 	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway -config-path=./config/standalone-config.yaml -genesis-path=./config/standalone-genesis.yaml
 
