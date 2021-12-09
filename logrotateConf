@@ -1,0 +1,5 @@
+/data/*.log {
+  rotate 30
+  daily
+  nocompress
+}
