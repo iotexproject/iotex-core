@@ -206,6 +206,10 @@ func TestGetTransactionCount(t *testing.T) {
 	testData := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"}
 	ret, _ := svr.web3Server.getTransactionCount(testData)
 	require.Equal(ret, uint64ToHex(1))
+
+	testData2 := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"}
+	ret, _ = svr.web3Server.getTransactionCount(testData2)
+	require.Equal(ret, uint64ToHex(2))
 }
 
 func TestCall(t *testing.T) {
