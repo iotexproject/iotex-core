@@ -363,6 +363,7 @@ func (svr *Web3Server) getBalance(in interface{}) (interface{}, error) {
 	return intStrToHex(accountMeta.Balance)
 }
 
+// getTransactionCount returns the nonce for the given address
 func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) {
 	addr, err := getStringFromArray(in, 0)
 	if err != nil {
@@ -377,35 +378,18 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 		return nil, err
 	}
 	if blkNum == pendingBlockNumber {
-		accountMeta, _, err := svr.coreService.Account(ioAddr)
+		pendingNonce, err := svr.coreService.ap.GetPendingNonce(ioAddr.String())
 		if err != nil {
 			return nil, err
 		}
-		return uint64ToHex(accountMeta.PendingNonce), nil
+		return uint64ToHex(pendingNonce), nil
 	}
-	num, err := svr.parseBlockNumber(blkNum)
+	// TODO: returns the nonce in given block height after archive mode is supported
+	accountMeta, _, err := svr.coreService.Account(ioAddr)
 	if err != nil {
 		return nil, err
 	}
-	blkMetas, err := svr.coreService.BlockMetas(num, 1)
-	if err != nil {
-		return nil, err
-	}
-	if len(blkMetas) == 0 {
-		return nil, errInvalidBlock
-	}
-
-	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
-	if err != nil {
-		return blockObject{}, err
-	}
-	var cnt uint64 = 0
-	for _, info := range actionInfos {
-		if info.Sender == ioAddr.String() {
-			cnt++
-		}
-	}
-	return uint64ToHex(cnt), nil
+	return uint64ToHex(accountMeta.Nonce), nil
 }
 
 func (svr *Web3Server) call(in interface{}) (interface{}, error) {
