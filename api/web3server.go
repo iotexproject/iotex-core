@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -19,9 +22,11 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -438,8 +443,9 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainiD := svr.coreService.EVMNetworkID()
-	tx, isEthEncoding, err := action.DecodeRawTx(dataStr, chainiD)
+
+	chainID := svr.coreService.EVMNetworkID()
+	tx, isEthEncoding, err := action.DecodeRawTx(dataStr, chainID)
 	if err != nil {
 		return nil, err
 	}
@@ -468,12 +474,6 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		},
 	}
 
-	if isEthEncoding {
-		req.Encoding = iotextypes.Encoding_ETHEREUM_RLP
-	} else {
-		req.Encoding = iotextypes.Encoding_IOTEX_PROTOBUF
-	}
-
 	// TODO: process special staking action
 
 	if isContract, _ := svr.isContractAddr(to); !isContract {
@@ -495,11 +495,29 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			},
 		}
 	}
-	sig, pubkey, err := action.ExtractSignatureAndPubkey(tx, req.Core, chainiD, isEthEncoding)
+
+	// extract signature from tx
+	if req.Signature, err = action.GetSignatureFromEthTX(tx, chainID); err != nil {
+		return nil, err
+	}
+
+	var rawHash []byte
+	if isEthEncoding {
+		req.Encoding = iotextypes.Encoding_ETHEREUM_RLP
+		h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+		rawHash = h[:]
+	} else {
+		req.Encoding = iotextypes.Encoding_IOTEX_PROTOBUF
+		h := hash.Hash256b(byteutil.Must(proto.Marshal(req.Core)))
+		rawHash = h[:]
+	}
+
+	// recover public key
+	pubkey, err := crypto.RecoverPubkey(rawHash, req.Signature)
 	if err != nil {
 		return nil, err
 	}
-	req.Signature, req.SenderPubKey = sig, pubkey.Bytes()
+	req.SenderPubKey = pubkey.Bytes()
 
 	actionHash, err := svr.coreService.SendAction(context.Background(), req)
 	if err != nil {

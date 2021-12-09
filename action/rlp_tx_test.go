@@ -2,15 +2,18 @@ package action
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -271,17 +274,21 @@ func TestRlpDecodeVerify(t *testing.T) {
 		},
 	}
 
+	chainID := config.EVMNetworkID()
 	for _, v := range rlpTests {
-		tx, isEthSigned, err := DecodeRawTx(v.raw, config.EVMNetworkID())
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(tx)
+		tx, isEthSigned, err := DecodeRawTx(v.raw, chainID)
 		require.NoError(err)
-
+		require.True(isEthSigned)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+		require.NoError(err)
 		// convert to native Execution
 		pb := &iotextypes.Action{
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
 		pb.Core = convertToNativeProto(tx, v.isTsf)
-		sig, pubkey, err := ExtractSignatureAndPubkey(tx, pb.Core, config.EVMNetworkID(), isEthSigned)
+		sig, err := GetSignatureFromEthTX(tx, chainID)
+		require.NoError(err)
+		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
 		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
@@ -366,7 +373,7 @@ func TestEncodeDecodeRawTx(t *testing.T) {
 	}
 
 	for _, v := range testData {
-		txStr, err := EncodeRawTx(v.act, pvk, v.chainID)
+		txStr, err := encodeRawTx(v.act, pvk, v.chainID)
 		require.NoError(err)
 		tx, _, err := DecodeRawTx(txStr, v.chainID)
 		require.NoError(err)
@@ -434,4 +441,31 @@ func convertToNativeProto(tx *types.Transaction, isTsf bool) *iotextypes.ActionC
 		}
 	}
 	return &pb
+}
+
+// encodeRawTx encodes action into the data string of eth tx
+func encodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, error) {
+	rlpAct, err := actionToRLP(act)
+	if err != nil {
+		return "", err
+	}
+	rawTx, err := rlpToEthTx(rlpAct)
+	if err != nil {
+		return "", err
+	}
+	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	if !ok {
+		return "", errors.New("private key is invalid")
+	}
+
+	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
+	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
+	if err != nil {
+		return "", err
+	}
+	encodedTx, err := rlp.EncodeToBytes(signedTx)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(encodedTx[:]), nil
 }

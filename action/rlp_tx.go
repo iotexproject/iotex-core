@@ -1,23 +1,17 @@
 package action
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type rlpTransaction interface {
@@ -91,78 +85,23 @@ func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, bool, erro
 	//remove Hex prefix and decode string to byte
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return nil, true, err
+		return nil, false, err
 	}
 
 	// decode raw data into rlp tx
 	unwrapper := &transactionUnwrapper{}
 	if err = rlp.DecodeBytes(dataInString, unwrapper); err != nil {
-		return nil, true, err
+		return nil, false, err
 	}
 	return unwrapper.tx, unwrapper.isEthEncoding, nil
 }
 
-// EncodeRawTx encodes action into the data string of eth tx
-func EncodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, error) {
-	rlpAct, err := actionToRLP(act)
-	if err != nil {
-		return "", err
-	}
-	rawTx, err := rlpToEthTx(rlpAct)
-	if err != nil {
-		return "", err
-	}
-	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-	if !ok {
-		return "", errors.New("private key is invalid")
-	}
-
-	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
-	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
-	if err != nil {
-		return "", err
-	}
-	encodedTx, err := rlp.EncodeToBytes(signedTx)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(encodedTx[:]), nil
-}
-
-// ExtractSignatureAndPubkey calculates signature and pubkey from tx
-func ExtractSignatureAndPubkey(tx *types.Transaction, pbAct *iotextypes.ActionCore, chainID uint32, isEthEncoding bool) ([]byte, crypto.PublicKey, error) {
-	// extract signature and hash
-	var (
-		sig     []byte
-		rawHash []byte
-		err     error
-	)
-	sig, err = getSignatureFromRLPTX(tx, chainID)
-	if err != nil {
-		return nil, nil, err
-	}
-	if isEthEncoding {
-		h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
-		rawHash = h[:]
-	} else {
-		h := hash.Hash256b(byteutil.Must(proto.Marshal(pbAct)))
-		rawHash = h[:]
-	}
-
-	// recover public key
-	pubkey, err := crypto.RecoverPubkey(rawHash, sig)
-	if err != nil {
-		return nil, nil, err
-	}
-	return sig, pubkey, nil
-}
-
-func getSignatureFromRLPTX(tx *types.Transaction, chainID uint32) ([]byte, error) {
+// GetSignatureFromEthTX calculates signature from tx
+func GetSignatureFromEthTX(tx *types.Transaction, chainID uint32) ([]byte, error) {
 	if tx == nil {
 		return nil, errors.New("pointer is nil")
 	}
 	v, r, s := tx.RawSignatureValues()
-
 	recID := uint32(v.Int64()) - 2*chainID - 8
 	sig := make([]byte, 64, 65)
 	rSize := len(r.Bytes())
