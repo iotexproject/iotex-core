@@ -309,9 +309,9 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	switch str {
-	case "earliest":
+	case earliestBlockNumber:
 		return 1, nil
-	case "", "pending", "latest":
+	case "", pendingBlockNumber, latestBlockNumber:
 		return svr.coreService.bc.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)

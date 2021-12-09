@@ -97,6 +97,10 @@ var (
 	errNotImplemented = errors.New("method not implemented")
 	errInvalidFiterID = errors.New("filter not found")
 	errInvalidBlock   = errors.New("invalid block")
+
+	pendingBlockNumber  = "pending"
+	latestBlockNumber   = "latest"
+	earliestBlockNumber = "earliest"
 )
 
 func init() {
@@ -371,6 +375,13 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 	blkNum, err := getStringFromArray(in, 1)
 	if err != nil {
 		return nil, err
+	}
+	if blkNum == pendingBlockNumber {
+		accountMeta, _, err := svr.coreService.Account(ioAddr)
+		if err != nil {
+			return nil, err
+		}
+		return uint64ToHex(accountMeta.PendingNonce), nil
 	}
 	num, err := svr.parseBlockNumber(blkNum)
 	if err != nil {
