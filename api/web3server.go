@@ -39,11 +39,15 @@ type (
 	web3Resp struct {
 		Jsonrpc string      `json:"jsonrpc"`
 		ID      int         `json:"id"`
-		Result  interface{} `json:"result,omitempty"`
-		Error   *web3Err    `json:"error,omitempty"`
+		Result  interface{} `json:"result"`
+	}
+	web3Err struct {
+		Jsonrpc string     `json:"jsonrpc"`
+		ID      int        `json:"id"`
+		Error   errMessage `json:"error"`
 	}
 
-	web3Err struct {
+	errMessage struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 	}
@@ -160,13 +164,13 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		return packAPIResult(nil, err, 0)
 	}
 
-	web3Resps := make([]web3Resp, 0)
+	web3Resps := make([]interface{}, 0)
 	for _, web3Req := range web3Reqs {
 		var (
-			res    interface{}
-			err    error
-			params = web3Req.Get("params").Value()
-			method = web3Req.Get("method").Value()
+			res    interface{} = nil
+			err    error       = nil
+			params             = web3Req.Get("params").Value()
+			method             = web3Req.Get("method").Value()
 		)
 		switch method {
 		case "eth_gasPrice":
@@ -245,12 +249,15 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 			return packAPIResult(nil, err, 0)
 		}
-		resp := packAPIResult(res, err, int(web3Req.Get("id").Int()))
-		if err != nil || !isResultValid(resp) {
-			// temporally used for monitor and debug
-			log.L().Error("web3 server err", zap.String("input", fmt.Sprintf("%+v", web3Req)), zap.Error(err))
-		}
-		web3Resps = append(web3Resps, resp)
+		// if err != nil {
+		// temporally used for monitor and debug
+		log.L().Error("web3 server err",
+			zap.String("input", fmt.Sprintf("%+v", web3Req)),
+			zap.Int("inputs len", len(web3Reqs)),
+			zap.String("output", fmt.Sprintf("%+v", res)),
+			zap.Error(err))
+		// }
+		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
 		web3ServerMtc.WithLabelValues(method.(string)).Inc()
 		web3ServerMtc.WithLabelValues("requests_total").Inc()
 	}
@@ -283,7 +290,7 @@ func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
 }
 
 // error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
-func packAPIResult(res interface{}, err error, id int) web3Resp {
+func packAPIResult(res interface{}, err error, id int) interface{} {
 	if err != nil {
 		var (
 			errCode int
@@ -294,10 +301,10 @@ func packAPIResult(res interface{}, err error, id int) web3Resp {
 		} else {
 			errCode, errMsg = -32603, err.Error()
 		}
-		return web3Resp{
+		return web3Err{
 			Jsonrpc: "2.0",
 			ID:      id,
-			Error: &web3Err{
+			Error: errMessage{
 				Code:    errCode,
 				Message: errMsg,
 			},
@@ -633,7 +640,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
 	if err != nil {
-		log.L().Debug("err in getTransactionReceipt", zap.Error(err))
+		log.L().Error("err in getTransactionReceipt", zap.Error(err))
 		return nil, nil
 	}
 
