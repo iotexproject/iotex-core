@@ -101,7 +101,7 @@ var (
 	errNotImplemented       = errors.New("method not implemented")
 	errInvalidFiterID       = errors.New("filter not found")
 	errInvalidBlock         = errors.New("invalid block")
-	errNotFound       error = nil // null is returned when no result was found
+	errEmptyResult    error = nil // null is returned when no result was found
 
 	pendingBlockNumber  = "pending"
 	latestBlockNumber   = "latest"
@@ -168,10 +168,10 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 	web3Resps := make([]interface{}, 0)
 	for _, web3Req := range web3Reqs {
 		var (
-			res    interface{} = nil
-			err    error       = nil
-			params             = web3Req.Get("params").Value()
-			method             = web3Req.Get("method").Value()
+			res    interface{}
+			err    error
+			params = web3Req.Get("params").Value()
+			method = web3Req.Get("method").Value()
 		)
 		switch method {
 		case "eth_gasPrice":
@@ -347,7 +347,7 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 		if err != nil {
 			log.L().Debug("err in getBlockByNumber", zap.Error(err))
 		}
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	return svr.getBlockWithTransactions(blkMetas[0], isDetailed)
 }
@@ -590,7 +590,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(h))
 	if err != nil {
 		log.L().Debug("err in getBlockByHash", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	return svr.getBlockWithTransactions(blkMeta, isDetailed)
 }
@@ -603,12 +603,12 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), true)
 	if err != nil {
 		log.L().Debug("err in getTransactionByHash", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	ret, err := svr.getTransactionCreateFromActionInfo(actionInfos)
 	if err != nil {
 		log.L().Debug("err in getTransactionByHash", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	return ret, nil
 }
@@ -636,7 +636,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
 	if err != nil {
 		log.L().Error("err in getTransactionReceipt", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 
 	// read contract address from receipt
@@ -653,12 +653,12 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(actHashStr), true)
 	if err != nil {
 		log.L().Debug("err in getTransactionReceipt", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	tx, err := svr.getTransactionFromActionInfo(actInfo)
 	if err != nil {
 		log.L().Debug("err in getTransactionReceipt", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 
 	// parse logs from receipt
@@ -736,12 +736,12 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	actionInfos, err := svr.coreService.ActionsByBlock(util.Remove0xPrefix(blkHash), idx, 1)
 	if err != nil {
 		log.L().Debug("err in getTransactionByBlockHashAndIndex", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	ret, err := svr.getTransactionCreateFromActionInfo(actionInfos[0])
 	if err != nil {
 		log.L().Debug("err in getTransactionByBlockHashAndIndex", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	return ret, nil
 }
@@ -768,19 +768,19 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 		if err != nil {
 			log.L().Debug("err in getTransactionByBlockNumberAndIndex", zap.Error(err))
 		}
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
 	if err != nil || len(actionInfos) == 0 {
 		if err != nil {
 			log.L().Debug("err in getTransactionByBlockNumberAndIndex", zap.Error(err))
 		}
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	ret, err := svr.getTransactionCreateFromActionInfo(actionInfos[0])
 	if err != nil {
 		log.L().Debug("err in getTransactionByBlockNumberAndIndex", zap.Error(err))
-		return nil, errNotFound
+		return nil, errEmptyResult
 	}
 	return ret, nil
 }
