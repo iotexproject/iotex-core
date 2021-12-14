@@ -162,6 +162,9 @@ func (svr *GRPCServer) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockM
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
 		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
+		if len(ret) == 0 && err != nil {
+			err = status.Error(codes.NotFound, "get 0 blocks")
+		}
 	case in.GetByHash() != nil:
 		var blkMeta *iotextypes.BlockMeta
 		request := in.GetByHash()
