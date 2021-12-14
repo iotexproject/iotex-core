@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -39,11 +40,15 @@ type (
 	web3Resp struct {
 		Jsonrpc string      `json:"jsonrpc"`
 		ID      int         `json:"id"`
-		Result  interface{} `json:"result,omitempty"`
-		Error   *web3Err    `json:"error,omitempty"`
+		Result  interface{} `json:"result"`
+	}
+	web3Err struct {
+		Jsonrpc string     `json:"jsonrpc"`
+		ID      int        `json:"id"`
+		Error   errMessage `json:"error"`
 	}
 
-	web3Err struct {
+	errMessage struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 	}
@@ -160,7 +165,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		return packAPIResult(nil, err, 0)
 	}
 
-	web3Resps := make([]web3Resp, 0)
+	web3Resps := make([]interface{}, 0)
 	for _, web3Req := range web3Reqs {
 		var (
 			res    interface{}
@@ -245,12 +250,13 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 			return packAPIResult(nil, err, 0)
 		}
-		resp := packAPIResult(res, err, int(web3Req.Get("id").Int()))
-		if err != nil || !isResultValid(resp) {
+		if err != nil {
 			// temporally used for monitor and debug
-			log.L().Error("web3 server err", zap.String("input", fmt.Sprintf("%+v", web3Req)), zap.Error(err))
+			log.L().Error("web3 server err",
+				zap.String("input", fmt.Sprintf("%+v", web3Req)),
+				zap.Error(err))
 		}
-		web3Resps = append(web3Resps, resp)
+		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
 		web3ServerMtc.WithLabelValues(method.(string)).Inc()
 		web3ServerMtc.WithLabelValues("requests_total").Inc()
 	}
@@ -283,7 +289,7 @@ func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
 }
 
 // error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
-func packAPIResult(res interface{}, err error, id int) web3Resp {
+func packAPIResult(res interface{}, err error, id int) interface{} {
 	if err != nil {
 		var (
 			errCode int
@@ -294,10 +300,10 @@ func packAPIResult(res interface{}, err error, id int) web3Resp {
 		} else {
 			errCode, errMsg = -32603, err.Error()
 		}
-		return web3Resp{
+		return web3Err{
 			Jsonrpc: "2.0",
 			ID:      id,
-			Error: &web3Err{
+			Error: errMessage{
 				Code:    errCode,
 				Message: errMsg,
 			},
@@ -341,9 +347,8 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if len(blkMetas) == 0 {
-		return nil, errInvalidBlock
+		return nil, nil
 	}
-
 	return svr.getBlockWithTransactions(blkMetas[0], isDetailed)
 }
 
@@ -584,7 +589,11 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	}
 	blkMeta, err := svr.coreService.BlockMetaByHash(util.Remove0xPrefix(h))
 	if err != nil {
-		return nil, errors.Wrap(err, "the block is not found")
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return svr.getBlockWithTransactions(blkMeta, isDetailed)
 }
@@ -594,8 +603,12 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), true)
+	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), false)
 	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.Unavailable {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos)
@@ -623,6 +636,10 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	}
 	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
 	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -720,7 +737,14 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	}
 	actionInfos, err := svr.coreService.ActionsByBlock(util.Remove0xPrefix(blkHash), idx, 1)
 	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, nil
+		}
 		return nil, err
+	}
+	if len(actionInfos) == 0 {
+		return nil, nil
 	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
@@ -742,20 +766,24 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	if err != nil {
 		return nil, err
 	}
-	log.L().Error("acquire block meta")
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
 	if err != nil {
 		return nil, err
 	}
 	if len(blkMetas) == 0 {
-		return nil, errInvalidBlock
+		return nil, nil
 	}
 	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
-	if err != nil || len(actionInfos) == 0 {
-		log.L().Error("index err", zap.Error(err), zap.Int("actLen", len(actionInfos)))
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
-	log.L().Error("extract action info")
+	if len(actionInfos) == 0 {
+		return nil, nil
+	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
 

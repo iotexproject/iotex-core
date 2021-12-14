@@ -407,18 +407,6 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	return ret, nil
 }
 
-func isResultValid(in web3Resp) bool {
-	objInByte, err := json.Marshal(in)
-	if err != nil || !gjson.Valid(string(objInByte)) {
-		return false
-	}
-	parsedReqs := gjson.Parse(string(objInByte))
-	if !parsedReqs.Get("error").Exists() && !parsedReqs.Get("result").Exists() {
-		return false
-	}
-	return true
-}
-
 func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
 }
