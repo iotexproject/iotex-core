@@ -150,12 +150,12 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 				bcCtx.Tip.Hash = g.Hash()
 				bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 			}
-			repeat := 1
+			retry := 1
 			if i < g.HawaiiBlockHeight {
 				// before Hawaii, attempt multiple time for the sorted map bug
-				repeat = 16
+				retry = 16
 			}
-			for k := 0; k < repeat; k++ {
+			for k := 0; k < retry; k++ {
 				if err = indexer.PutBlock(protocol.WithBlockCtx(
 					protocol.WithBlockchainCtx(ctx, bcCtx),
 					protocol.BlockCtx{
