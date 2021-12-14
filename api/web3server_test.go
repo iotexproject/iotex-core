@@ -168,15 +168,26 @@ func TestGetBlockByNumber(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := []interface{}{"1", true}
-	ret, _ := svr.web3Server.getBlockByNumber(testData)
-	v, _ := ret.(blockObject)
-	require.Equal(len(v.Transactions), 1)
+	testData := []struct {
+		data     []interface{}
+		expected int
+	}{
+		{[]interface{}{"1", true}, 1},
+		{[]interface{}{"1", false}, 2},
+		{[]interface{}{"10", false}, 0},
+	}
 
-	testData2 := []interface{}{"1", false}
-	ret, _ = svr.web3Server.getBlockByNumber(testData2)
-	v, _ = ret.(blockObject)
-	require.Equal(len(v.Transactions), 2)
+	for _, v := range testData {
+		ret, err := svr.web3Server.getBlockByNumber(v.data)
+		require.NoError(err)
+		if v.expected == 0 {
+			require.Nil(ret)
+			continue
+		}
+		blk, ok := ret.(blockObject)
+		require.True(ok)
+		require.Equal(len(blk.Transactions), v.expected)
+	}
 }
 
 func TestGetBalance(t *testing.T) {
@@ -392,6 +403,11 @@ func TestGetBlockByHash(t *testing.T) {
 	ans, _ := ret.(blockObject)
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(blkHash[:]))
 	require.Equal(len(ans.Transactions), 2)
+
+	testData2 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false}
+	ret, err = svr.web3Server.getBlockByHash(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetTransactionByHash(t *testing.T) {
@@ -407,6 +423,11 @@ func TestGetTransactionByHash(t *testing.T) {
 	ret, err := svr.web3Server.getTransactionByHash(testData)
 	require.NoError(err)
 	require.Equal(ret.(transactionObject).Hash, "0x"+hex.EncodeToString(transferHash1[:]))
+
+	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", false}
+	ret, err = svr.web3Server.getTransactionByHash(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetLogs(t *testing.T) {
@@ -461,6 +482,11 @@ func TestGetTransactionReceipt(t *testing.T) {
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
 	require.Equal(ans.From, fromAddr)
 	require.Equal(*ans.To, toAddr)
+
+	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
+	ret, err = svr.web3Server.getTransactionReceipt(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
@@ -486,6 +512,15 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	require.Equal(*ans.To, toAddr)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
+
+	testData2 := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x10"}
+	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
+	require.Error(err)
+
+	testData3 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", "0x0"}
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData3)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
@@ -508,6 +543,15 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	require.Equal(*ans.To, toAddr)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
+
+	testData2 := []interface{}{"0x1", "0x10"}
+	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
+	require.Error(err)
+
+	testData3 := []interface{}{"0x10", "0x0"}
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData3)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestNewfilter(t *testing.T) {
