@@ -167,8 +167,10 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 				), blk); err == nil {
 					break
 				}
-			}
-			if err != nil {
+				if errors.Cause(err) == block.ErrDeltaStateMismatch {
+					log.L().Info("delta state mismatch", zap.Uint64("block", i), zap.Int("retry", retry))
+					continue
+				}
 				return err
 			}
 			if i%5000 == 0 {
