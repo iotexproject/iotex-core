@@ -150,12 +150,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 				bcCtx.Tip.Hash = g.Hash()
 				bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 			}
-			retry := 1
-			if i < g.HawaiiBlockHeight {
-				// before Hawaii, attempt multiple time for the sorted map bug
-				retry = 16
-			}
-			for k := 0; k < retry; k++ {
+			for {
 				if err = indexer.PutBlock(protocol.WithBlockCtx(
 					protocol.WithBlockchainCtx(ctx, bcCtx),
 					protocol.BlockCtx{
@@ -167,8 +162,8 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 				), blk); err == nil {
 					break
 				}
-				if errors.Cause(err) == block.ErrDeltaStateMismatch {
-					log.L().Info("delta state mismatch", zap.Uint64("block", i), zap.Int("retry", retry))
+				if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
+					log.L().Info("delta state mismatch", zap.Uint64("block", i))
 					continue
 				}
 				return err
