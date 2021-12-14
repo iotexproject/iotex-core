@@ -1042,7 +1042,7 @@ func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.B
 	)
 	if start > tipHeight {
 		log.L().Debug("err in BlockMetas()", zap.Error(status.Error(codes.InvalidArgument, "start height should not exceed tip height")))
-		return res, nil
+		return nil, nil
 	}
 	for height := start; height <= tipHeight && count > 0; height++ {
 		blockMeta, err := core.getBlockMetaByHeight(height)

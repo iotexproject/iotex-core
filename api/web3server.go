@@ -103,10 +103,9 @@ var (
 	errInvalidFiterID = errors.New("filter not found")
 	errInvalidBlock   = errors.New("invalid block")
 
-	_emptyResult        *struct{} = nil // null is returned when no result was found
-	pendingBlockNumber            = "pending"
-	latestBlockNumber             = "latest"
-	earliestBlockNumber           = "earliest"
+	pendingBlockNumber  = "pending"
+	latestBlockNumber   = "latest"
+	earliestBlockNumber = "earliest"
 )
 
 func init() {
@@ -348,7 +347,7 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if len(blkMetas) == 0 {
-		return _emptyResult, nil
+		return nil, nil
 	}
 	return svr.getBlockWithTransactions(blkMetas[0], isDetailed)
 }
@@ -592,7 +591,7 @@ func (svr *Web3Server) getBlockByHash(in interface{}) (interface{}, error) {
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.NotFound {
-			return _emptyResult, nil
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -608,7 +607,7 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.Unavailable {
-			return _emptyResult, nil
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -639,7 +638,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.NotFound {
-			return _emptyResult, nil
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -740,12 +739,12 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.NotFound {
-			return _emptyResult, nil
+			return nil, nil
 		}
 		return nil, err
 	}
 	if len(actionInfos) == 0 {
-		return _emptyResult, nil
+		return nil, nil
 	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
@@ -772,18 +771,18 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 		return nil, err
 	}
 	if len(blkMetas) == 0 {
-		return _emptyResult, nil
+		return nil, nil
 	}
 	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
 	if err != nil {
 		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.NotFound {
-			return _emptyResult, nil
+			return nil, nil
 		}
 		return nil, err
 	}
 	if len(actionInfos) == 0 {
-		return _emptyResult, nil
+		return nil, nil
 	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
 }
