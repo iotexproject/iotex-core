@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -82,6 +83,7 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
+		ReadContractStorage(context.Context, address.Address, []byte) ([]byte, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(*block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
@@ -243,6 +245,7 @@ func (sf *factory) Start(ctx context.Context) error {
 				Producer:       sf.cfg.ProducerAddress(),
 				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
 			})
+		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -275,6 +278,10 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	span := tracer.SpanFromContext(ctx)
+	span.AddEvent("factory.newWorkingSet")
+	defer span.End()
+
 	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
@@ -502,6 +509,9 @@ func (sf *factory) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "factory.SimulateExecution")
+	defer span.End()
+
 	sf.mutex.Lock()
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
@@ -510,6 +520,17 @@ func (sf *factory) SimulateExecution(
 	}
 
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
+}
+
+// ReadContractStorage reads contract's storage
+func (sf *factory) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+	sf.mutex.Lock()
+	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state factory")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -532,6 +553,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {

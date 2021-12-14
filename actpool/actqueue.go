@@ -8,13 +8,14 @@ package actpool
 
 import (
 	"container/heap"
-	"go.uber.org/zap"
 	"math/big"
 	"sort"
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -50,7 +51,6 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // ActQueue is the interface of actQueue
 type ActQueue interface {
-	Overlaps(action.SealedEnvelope) bool
 	Put(action.SealedEnvelope) error
 	FilterNonce(uint64) []action.SealedEnvelope
 	UpdateQueue(uint64) []action.SealedEnvelope
@@ -103,17 +103,23 @@ func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 	return aq
 }
 
-// Overlap returns whether the current queue contains the given nonce
-func (q *actQueue) Overlaps(act action.SealedEnvelope) bool {
-	_, exist := q.items[act.Nonce()]
-	return exist
-}
-
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act action.SealedEnvelope) error {
 	nonce := act.Nonce()
-	if _, exist := q.items[nonce]; exist {
-		return errors.Wrap(action.ErrNonce, "duplicate nonce")
+	if actInPool, exist := q.items[nonce]; exist {
+		// act of higher gas price cut in line
+		if act.GasPrice().Cmp(actInPool.GasPrice()) != 1 {
+			return action.ErrReplaceUnderpriced
+		}
+		// update action in q.items and q.index
+		q.items[nonce] = act
+		for i, x := range q.index {
+			if x.nonce == nonce {
+				q.index[i].deadline = q.clock.Now().Add(q.ttl)
+				break
+			}
+		}
+		return nil
 	}
 	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
 	q.items[nonce] = act
@@ -229,10 +235,15 @@ func (q *actQueue) Empty() bool {
 // PendingActs creates a consecutive nonce-sorted slice of actions
 func (q *actQueue) PendingActs() []action.SealedEnvelope {
 	if q.Len() == 0 {
-		return []action.SealedEnvelope{}
+		return nil
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	confirmedState, err := accountutil.AccountState(q.ap.sf, q.address)
+	addr, err := address.FromString(q.address)
+	if err != nil {
+		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
+		return nil
+	}
+	confirmedState, err := accountutil.AccountState(q.ap.sf, addr)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil

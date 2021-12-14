@@ -8,16 +8,9 @@ package testutil
 
 import (
 	"time"
-
-	"github.com/facebookgo/clock"
 )
 
 // TimestampNow returns current time from new clock
 func TimestampNow() time.Time {
-	return TimestampNowFromClock(clock.New())
-}
-
-// TimestampNowFromClock get now time from specific clock
-func TimestampNowFromClock(c clock.Clock) time.Time {
-	return c.Now()
+	return time.Now()
 }

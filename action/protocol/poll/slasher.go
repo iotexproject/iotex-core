@@ -82,19 +82,20 @@ func (sh *Slasher) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 
 // CreatePreStates is to setup probation list
 func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
-	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
-	if g.IsGreenland(blkCtx.BlockHeight) {
+	if featureCtx.UpdateBlockMeta {
 		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
 			return errors.Wrap(err, "faild to update current epoch meta")
 		}
 	}
-	if blkCtx.BlockHeight == epochLastHeight && g.IsEaster(nextEpochStartHeight) {
+	if blkCtx.BlockHeight == epochLastHeight && featureWithHeightCtx.CalculateProbationList(nextEpochStartHeight) {
 		// if the block height is the end of epoch and next epoch is after the Easter height, calculate probation list for probation and write into state DB
 		unqualifiedList, err := sh.CalculateProbationList(ctx, sm, epochNum+1)
 		if err != nil {
@@ -102,7 +103,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 		return setNextEpochProbationList(sm, indexer, nextEpochStartHeight, unqualifiedList)
 	}
-	if blkCtx.BlockHeight == epochStartHeight && g.IsEaster(epochStartHeight) {
+	if blkCtx.BlockHeight == epochStartHeight && featureWithHeightCtx.CalculateProbationList(epochStartHeight) {
 		prevHeight, err := shiftCandidates(sm)
 		if err != nil {
 			return err
@@ -247,7 +248,7 @@ func (sh *Slasher) ReadState(
 // GetCandidates returns filtered candidate list
 func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	targetHeight, err := sr.Height()
 	if err != nil {
 		return nil, uint64(0), err
@@ -258,8 +259,8 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	beforeEaster := !g.IsEaster(targetEpochStartHeight)
-	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, beforeEaster, readFromNext)
+	calculate := !featureWithHeightCtx.CalculateProbationList(targetEpochStartHeight)
+	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, calculate, readFromNext)
 	if err != nil {
 		return nil, uint64(0), errors.Wrapf(err, "failed to get candidates at height %d", targetEpochStartHeight)
 	}
@@ -267,7 +268,7 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 	if rp.GetEpochNum(targetEpochStartHeight) < rp.GetEpochNum(stateHeight) {
 		return nil, uint64(0), errors.Wrap(ErrInconsistentHeight, "state factory epoch number became larger than target epoch number")
 	}
-	if beforeEaster {
+	if calculate {
 		return candidates, stateHeight, nil
 	}
 	// After Easter height, probation unqualified delegates based on productivity
@@ -322,12 +323,12 @@ func (sh *Slasher) GetActiveBlockProducers(ctx context.Context, sr protocol.Stat
 
 // GetCandidatesFromIndexer returns candidate list from indexer
 func (sh *Slasher) GetCandidatesFromIndexer(ctx context.Context, epochStartHeight uint64) (state.CandidateList, error) {
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	candidates, err := sh.indexer.CandidateList(epochStartHeight)
 	if err != nil {
 		return nil, err
 	}
-	if !g.IsEaster(epochStartHeight) {
+	if !featureWithHeightCtx.CalculateProbationList(epochStartHeight) {
 		return candidates, nil
 	}
 	// After Easter height, probation unqualified delegates based on productivity
@@ -360,7 +361,7 @@ func (sh *Slasher) GetABPFromIndexer(ctx context.Context, epochStartHeight uint6
 // GetProbationList returns the probation list at given epoch
 func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader, readFromNext bool) (*vote.ProbationList, uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	targetHeight, err := sr.Height()
 	if err != nil {
 		return nil, uint64(0), err
@@ -371,7 +372,7 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	if !g.IsEaster(targetEpochStartHeight) {
+	if !featureWithHeightCtx.CalculateProbationList(targetEpochStartHeight) {
 		return nil, uint64(0), errors.New("Before Easter, there is no probation list in stateDB")
 	}
 	unqualifiedList, stateHeight, err := sh.getProbationList(sr, readFromNext)
@@ -492,8 +493,8 @@ func (sh *Slasher) CalculateProbationList(
 
 func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	delegates, _, err := sh.GetActiveBlockProducers(ctx, sr, false)
@@ -501,7 +502,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 		return nil, err
 	}
 	productivityFunc := sh.productivity
-	if g.IsGreenland(blkCtx.BlockHeight) {
+	if featureCtx.CurrentEpochProductivity {
 		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
 			return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
 		}

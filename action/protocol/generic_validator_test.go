@@ -59,10 +59,10 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 
 	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
 
-	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
+	valid := NewGenericValidator(nil, func(sr StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
 		eAddr := pk.Address()
-		if strings.EqualFold(eAddr.String(), addr) {
+		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
 		return &state.Account{Nonce: 2}, nil
@@ -95,7 +95,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), "insufficient gas"))
+		require.Contains(err.Error(), action.ErrIntrinsicGas.Error())
 	})
 	t.Run("state error", func(t *testing.T) {
 		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
@@ -110,7 +110,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), "invalid state of account"))
+		require.Contains(err.Error(), "invalid state of account")
 	})
 	t.Run("nonce too low", func(t *testing.T) {
 		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
@@ -126,7 +126,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), "nonce is too low"))
+		require.Equal(action.ErrNonceTooLow, errors.Cause(err))
 	})
 	t.Run("wrong recipient", func(t *testing.T) {
 		v, err := action.NewTransfer(1, big.NewInt(1), "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", []byte{}, uint64(100000), big.NewInt(10))
@@ -148,6 +148,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetAction(unsignedTsf).
 			SetGasLimit(100000).Build()
 		selp := action.FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
-		require.True(strings.Contains(valid.Validate(ctx, selp).Error(), "failed to verify action signature"))
+		err = valid.Validate(ctx, selp)
+		require.Contains(err.Error(), action.ErrInvalidSender.Error())
 	})
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -46,6 +47,7 @@ type stateDB struct {
 	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
+	ps                       *patchStore
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -73,6 +75,14 @@ func DefaultStateDBOption() StateDBOption {
 		sdb.dao = db.NewBoltDB(cfg.DB)
 
 		return nil
+	}
+}
+
+// DefaultPatchOption loads patchs
+func DefaultPatchOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) (err error) {
+		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
+		return
 	}
 }
 
@@ -172,6 +182,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 				Producer:       sdb.cfg.ProducerAddress(),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
 			})
+		ctx = protocol.WithFeatureCtx(ctx)
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
@@ -205,6 +216,13 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
+	}
+	for _, p := range sdb.ps.Get(height) {
+		if p.Type == _Delete {
+			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
+		} else {
+			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+		}
 	}
 
 	return &workingSet{
@@ -342,6 +360,9 @@ func (sdb *stateDB) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
+	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
+	defer span.End()
+
 	sdb.mutex.Lock()
 	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
@@ -350,6 +371,17 @@ func (sdb *stateDB) SimulateExecution(
 	}
 
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
+}
+
+// ReadContractStorage reads contract's storage
+func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+	sdb.mutex.Lock()
+	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
+	sdb.mutex.Unlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate working set from state db")
+	}
+	return evm.ReadContractStorage(ctx, ws, contract, key)
 }
 
 // PutBlock persists all changes in RunActions() into the DB
@@ -372,6 +404,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {

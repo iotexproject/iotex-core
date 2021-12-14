@@ -56,6 +56,7 @@ func TestExecuteContractFailure(t *testing.T) {
 	})
 	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 
+	ctx = protocol.WithFeatureCtx(ctx)
 	retval, receipt, err := ExecuteContract(ctx, sm, e,
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
@@ -169,13 +170,24 @@ func TestConstantinople(t *testing.T) {
 			nil,
 		)
 		require.NoError(err)
+		opt := []StateDBAdapterOption{}
+		if !g.IsAleutian(e.height) {
+			opt = append(opt, NotFixTopicCopyBugOption())
+		}
+		if g.IsGreenland(e.height) {
+			opt = append(opt, AsyncContractTrieOption())
+		}
+		if g.IsKamchatka(e.height) {
+			opt = append(opt, FixSnapshotOrderOption())
+		}
+		stateDB := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
 
-		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		})
+		ctx = protocol.WithFeatureCtx(ctx)
 		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})

@@ -14,10 +14,16 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const fileMode = 0600
+
+var (
+	// ErrDBNotStarted represents the error when a db has not started
+	ErrDBNotStarted = errors.New("db has not started")
+)
 
 // BoltDB is KVStore implementation based bolt DB
 type BoltDB struct {
@@ -57,6 +63,10 @@ func (b *BoltDB) Stop(_ context.Context) error {
 
 // Put inserts a <key, value> record
 func (b *BoltDB) Put(namespace string, key, value []byte) (err error) {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
@@ -76,6 +86,10 @@ func (b *BoltDB) Put(namespace string, key, value []byte) (err error) {
 
 // Get retrieves a record
 func (b *BoltDB) Get(namespace string, key []byte) ([]byte, error) {
+	if b.db == nil {
+		return nil, ErrDBNotStarted
+	}
+
 	var value []byte
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
@@ -102,6 +116,10 @@ func (b *BoltDB) Get(namespace string, key []byte) ([]byte, error) {
 
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (b *BoltDB) Filter(namespace string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
+	if b.db == nil {
+		return nil, nil, ErrDBNotStarted
+	}
+
 	var fk, fv [][]byte
 	if err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
@@ -148,6 +166,10 @@ func (b *BoltDB) Filter(namespace string, cond Condition, minKey, maxKey []byte)
 
 // Range retrieves values for a range of keys
 func (b *BoltDB) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
+	if b.db == nil {
+		return nil, ErrDBNotStarted
+	}
+
 	value := make([][]byte, count)
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
@@ -182,6 +204,10 @@ func (b *BoltDB) Range(namespace string, key []byte, count uint64) ([][]byte, er
 
 // GetBucketByPrefix retrieves all bucket those with const namespace prefix
 func (b *BoltDB) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
+	if b.db == nil {
+		return nil, ErrDBNotStarted
+	}
+
 	allKey := make([][]byte, 0)
 	err := b.db.View(func(tx *bolt.Tx) error {
 		if err := tx.ForEach(func(name []byte, b *bolt.Bucket) error {
@@ -201,6 +227,10 @@ func (b *BoltDB) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
 
 // GetKeyByPrefix retrieves all keys those with const prefix
 func (b *BoltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
+	if b.db == nil {
+		return nil, ErrDBNotStarted
+	}
+
 	allKey := make([][]byte, 0)
 	err := b.db.View(func(tx *bolt.Tx) error {
 		buck := tx.Bucket(namespace)
@@ -220,6 +250,10 @@ func (b *BoltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
 
 // Delete deletes a record,if key is nil,this will delete the whole bucket
 func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
 		if key == nil {
@@ -250,6 +284,10 @@ func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
 
 // WriteBatch commits a batch
 func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	kvsb.Lock()
 	defer kvsb.Unlock()
 
@@ -299,6 +337,11 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 
 // BucketExists returns true if bucket exists
 func (b *BoltDB) BucketExists(namespace string) bool {
+	if b.db == nil {
+		log.L().Debug("db hasn't started, unable to check if bucket exists")
+		return false
+	}
+
 	var exist bool
 	_ = b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
@@ -316,6 +359,10 @@ func (b *BoltDB) BucketExists(namespace string) bool {
 
 // Insert inserts a value into the index
 func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	var err error
 	for i := uint8(0); i < b.config.NumRetries; i++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
@@ -351,6 +398,10 @@ func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
 
 // SeekNext returns value by the key (if key not exist, use next key)
 func (b *BoltDB) SeekNext(name []byte, key uint64) ([]byte, error) {
+	if b.db == nil {
+		return nil, ErrDBNotStarted
+	}
+
 	var value []byte
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(name)
@@ -372,6 +423,10 @@ func (b *BoltDB) SeekNext(name []byte, key uint64) ([]byte, error) {
 
 // SeekPrev returns value by the key (if key not exist, use previous key)
 func (b *BoltDB) SeekPrev(name []byte, key uint64) ([]byte, error) {
+	if b.db == nil {
+		return nil, ErrDBNotStarted
+	}
+
 	var value []byte
 	if err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(name)
@@ -393,6 +448,10 @@ func (b *BoltDB) SeekPrev(name []byte, key uint64) ([]byte, error) {
 
 // Remove removes an existing key
 func (b *BoltDB) Remove(name []byte, key uint64) error {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	var err error
 	for i := uint8(0); i < b.config.NumRetries; i++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
@@ -425,6 +484,10 @@ func (b *BoltDB) Remove(name []byte, key uint64) error {
 
 // Purge deletes an existing key and all keys before it
 func (b *BoltDB) Purge(name []byte, key uint64) error {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	var err error
 	for i := uint8(0); i < b.config.NumRetries; i++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
@@ -458,6 +521,10 @@ func (b *BoltDB) Purge(name []byte, key uint64) error {
 
 // intentionally fail to test DB can successfully rollback
 func (b *BoltDB) batchPutForceFail(namespace string, key [][]byte, value [][]byte) error {
+	if b.db == nil {
+		return ErrDBNotStarted
+	}
+
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 		if err != nil {

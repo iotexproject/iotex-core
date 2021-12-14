@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -141,7 +140,7 @@ func (p *Protocol) GrantEpochReward(
 ) ([]*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -169,7 +168,7 @@ func (p *Protocol) GrantEpochReward(
 	var err error
 	uqdMap := make(map[string]bool)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if !g.IsEaster(epochStartHeight) {
+	if featureWithHeightCtx.GetUnproductiveDelegates(epochStartHeight) {
 		// Get unqualified delegate list
 		uqd, err := pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
@@ -222,7 +221,7 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Reward additional bootstrap bonus
-	if epochNum <= a.foundationBonusLastEpoch || (epochNum >= p.foundationBonusP2StartEpoch && epochNum <= p.foundationBonusP2EndEpoch) {
+	if a.grantFoundationBonus(epochNum) || (epochNum >= p.cfg.FoundationBonusP2StartEpoch && epochNum <= p.cfg.FoundationBonusP2EndEpoch) {
 		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
 			if _, ok := exemptAddrs[candidates[i].Address]; ok {
 				continue

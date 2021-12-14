@@ -7,6 +7,7 @@
 package genesis
 
 import (
+	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -63,8 +64,10 @@ func defaultConfig() Genesis {
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
 			IcelandBlockHeight:      12289321,
-			JutlandBlockHeight:      16289321,
-			KamchatkaBlockHeight:    26289321,
+			JutlandBlockHeight:      13685401,
+			KamchatkaBlockHeight:    13816441,
+			LordHoweBlockHeight:     13979161,
+			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -185,12 +188,21 @@ type (
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
 		// IcelandBlockHeight is the start height to support chainID opcode and EVM Istanbul
 		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
-		// JutlandBlockHeight is the start height to support EVM London + new EVM error codes
+		// JutlandBlockHeight is the start height to
+		// 1. report more EVM error codes
+		// 2. enable the opCall fix
 		JutlandBlockHeight uint64 `yaml:"jutlandHeight"`
 		// KamchatkaBlockHeight is the start height to
-		// 1. implement IIP-11
+		// 1. fix EVM snapshot order
 		// 2. extend foundation bonus
 		KamchatkaBlockHeight uint64 `yaml:"kamchatkaHeight"`
+		// LordHoweBlockHeight is the start height to
+		// 1. recover the smart contracts affected by snapshot order
+		// 2. clear snapshots in Revert()
+		LordHoweBlockHeight uint64 `yaml:"lordHoweHeight"`
+		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
+		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
+		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -481,6 +493,16 @@ func (g *Blockchain) IsJutland(height uint64) bool {
 // IsKamchatka checks whether height is equal to or larger than kamchatka height
 func (g *Blockchain) IsKamchatka(height uint64) bool {
 	return g.isPost(g.KamchatkaBlockHeight, height)
+}
+
+// IsLordHowe checks whether height is equal to or larger than lordHowe height
+func (g *Blockchain) IsLordHowe(height uint64) bool {
+	return g.isPost(g.LordHoweBlockHeight, height)
+}
+
+// IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height
+func (g *Blockchain) IsToBeEnabled(height uint64) bool {
+	return g.isPost(g.ToBeEnabledBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the

@@ -26,9 +26,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 type claimTestCaseID int
@@ -88,6 +89,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
@@ -112,6 +114,7 @@ func TestBlockReward(t *testing.T) {
 		},
 	)
 	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
@@ -239,7 +242,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
-	apis := make([]*api.Server, numNodes)
+	apis := make([]chainservice.APIServer, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -261,14 +264,16 @@ func TestBlockEpochReward(t *testing.T) {
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
 
+		rewardAddr := identityset.Address(i + numNodes)
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initState, err := accountutil.AccountState(sfs[i], rewardAddrStr)
+		initState, err := accountutil.AccountState(sfs[i], rewardAddr)
 		require.NoError(t, err)
 		initBalances[rewardAddrStr] = initState.Balance
 
+		operatorAddr := identityset.Address(i)
 		operatorAddrStr := identityset.Address(i).String()
-		initState, err = accountutil.AccountState(sfs[i], operatorAddrStr)
+		initState, err = accountutil.AccountState(sfs[i], operatorAddr)
 		require.NoError(t, err)
 		initBalances[operatorAddrStr] = initState.Balance
 
@@ -453,8 +458,9 @@ func TestBlockEpochReward(t *testing.T) {
 
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
-		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endState, err := accountutil.AccountState(sfs[0], rewardAddrStr)
+		rewardAddr := identityset.Address(i + numNodes)
+		rewardAddrStr := rewardAddr.String()
+		endState, err := accountutil.AccountState(sfs[0], rewardAddr)
 		require.NoError(t, err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
@@ -462,8 +468,9 @@ func TestBlockEpochReward(t *testing.T) {
 		require.Equal(t, expectBalance.String(), endState.Balance.String())
 
 		//Make sure the non-reward addresses have not received money
+		operatorAddr := identityset.Address(i)
 		operatorAddrStr := identityset.Address(i).String()
-		operatorState, err := accountutil.AccountState(sfs[i], operatorAddrStr)
+		operatorState, err := accountutil.AccountState(sfs[i], operatorAddr)
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
@@ -526,32 +533,31 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api *api.Server,
+	api chainservice.APIServer,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := api.GetReceiptByActionHash(selpHash)
-
+		receipt, err := util.GetReceiptByAction(api, selpHash)
 		if err == nil {
-			selp, err := api.GetActionByActionHash(selpHash)
+			actInfo, err := util.GetActionByActionHash(api, selpHash)
 			require.NoError(t, err)
-			addr := selp.SrcPubkey().Address()
+			addr := actInfo.GetSender()
 			require.NotNil(t, addr)
 
 			act := &action.ClaimFromRewardingFund{}
-			err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())
+			err = act.LoadProto(actInfo.GetAction().Core.GetClaimFromRewardingFund())
 			require.NoError(t, err)
 			amount := act.Amount()
 
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
-				exptUnclaimed[addr.String()] = newExpectUnclaimed
+				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr], amount)
+				exptUnclaimed[addr] = newExpectUnclaimed
 
-				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr.String()], amount)
-				claimedAmount[addr.String()] = newClaimedAmount
+				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr], amount)
+				claimedAmount[addr] = newClaimedAmount
 				updated = true
 
 				//An test case expected to fail should never success

@@ -72,6 +72,10 @@ func (a *admin) Deserialize(data []byte) error {
 	return nil
 }
 
+func (a *admin) grantFoundationBonus(epoch uint64) bool {
+	return epoch <= a.foundationBonusLastEpoch
+}
+
 // exempt stores the addresses that exempt from epoch reward
 type exempt struct {
 	addrs []address.Address
@@ -124,14 +128,6 @@ func (p *Protocol) CreateGenesisStates(
 		return err
 	}
 
-	initBalance := g.InitBalance()
-	numDelegatesForEpochReward := g.NumDelegatesForEpochReward
-	exemptAddrs := g.ExemptAddrsFromEpochReward()
-	foundationBonus := g.FoundationBonus()
-	numDelegatesForFoundationBonus := g.NumDelegatesForFoundationBonus
-	foundationBonusLastEpoch := g.FoundationBonusLastEpoch
-	productivityThreshold := g.ProductivityThreshold
-
 	if err := p.putState(
 		ctx,
 		sm,
@@ -139,15 +135,17 @@ func (p *Protocol) CreateGenesisStates(
 		&admin{
 			blockReward:                    blockReward,
 			epochReward:                    epochReward,
-			numDelegatesForEpochReward:     numDelegatesForEpochReward,
-			foundationBonus:                foundationBonus,
-			numDelegatesForFoundationBonus: numDelegatesForFoundationBonus,
-			foundationBonusLastEpoch:       foundationBonusLastEpoch,
-			productivityThreshold:          productivityThreshold,
+			numDelegatesForEpochReward:     g.NumDelegatesForEpochReward,
+			foundationBonus:                g.FoundationBonus(),
+			numDelegatesForFoundationBonus: g.NumDelegatesForFoundationBonus,
+			foundationBonusLastEpoch:       g.FoundationBonusLastEpoch,
+			productivityThreshold:          g.ProductivityThreshold,
 		},
 	); err != nil {
 		return err
 	}
+
+	initBalance := g.InitBalance()
 	if err := p.putState(
 		ctx,
 		sm,
@@ -164,7 +162,7 @@ func (p *Protocol) CreateGenesisStates(
 		sm,
 		exemptKey,
 		&exempt{
-			addrs: exemptAddrs,
+			addrs: g.ExemptAddrsFromEpochReward(),
 		},
 	)
 }

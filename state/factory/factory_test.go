@@ -9,6 +9,7 @@ package factory
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/hex"
 	"math/big"
 	"math/rand"
@@ -96,6 +97,7 @@ func TestSDBSnapshot(t *testing.T) {
 	require.NoError(err)
 
 	cfg := config.Default
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
@@ -295,6 +297,7 @@ func testCandidates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	require.NoError(t, sf.Start(ctx))
 	defer require.NoError(t, sf.Stop(ctx))
 
@@ -306,21 +309,22 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(
-		protocol.WithBlockchainCtx(
-			protocol.WithBlockCtx(
-				genesis.WithGenesisContext(context.Background(), cfg.Genesis),
-				protocol.BlockCtx{
-					BlockHeight: 1,
-					Producer:    identityset.Address(27),
-					GasLimit:    gasLimit,
+		protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(
+			protocol.WithBlockchainCtx(
+				protocol.WithBlockCtx(
+					genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+					protocol.BlockCtx{
+						BlockHeight: 1,
+						Producer:    identityset.Address(27),
+						GasLimit:    gasLimit,
+					},
+				),
+				protocol.BlockchainCtx{
+					ChainID: 1,
 				},
 			),
-			protocol.BlockchainCtx{
-				ChainID: 1,
-			},
 		),
-		&blk,
-	))
+		), &blk))
 
 	candidates, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(t, err)
@@ -409,12 +413,12 @@ func TestSDBState(t *testing.T) {
 
 func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockchainCtx(protocol.WithBlockCtx(
 		context.Background(),
@@ -469,13 +473,13 @@ func testState(sf Factory, t *testing.T) {
 
 func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// Create a dummy iotex address
-	a := identityset.Address(28).String()
-	b := identityset.Address(31).String()
+	a := identityset.Address(28)
+	b := identityset.Address(31)
 	priKeyA := identityset.PrivateKey(28)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -497,7 +501,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(100), accountA.Balance)
 	require.Equal(t, big.NewInt(0), accountB.Balance)
-	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(1, big.NewInt(10), b.String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
@@ -743,7 +747,7 @@ func testNonce(sf Factory, t *testing.T) {
 	})
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
-	state, err := accountutil.AccountState(sf, a.String())
+	state, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), state.Nonce)
 
@@ -763,7 +767,7 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, sf.PutBlock(ctx, &blk))
-	state, err = accountutil.AccountState(sf, a.String())
+	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
 }
@@ -1046,6 +1050,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 		genesis.WithGenesisContext(ctx, genesis.Default),
 		protocol.BlockchainCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
@@ -1210,6 +1215,130 @@ func TestSTXGetDB(t *testing.T) {
 	kvStore := ws.GetDB()
 	_, ok := kvStore.(db.KVStoreWithBuffer)
 	require.True(ok)
+}
+
+func TestStateDBPatch(t *testing.T) {
+	require := require.New(t)
+	n1 := "n1"
+	n2 := "n2"
+	a1 := "a1"
+	a2 := "a2"
+	b11 := "bb11"
+	b12 := "bb12"
+	b21 := "bb21"
+	b22 := "bb22"
+	ha1, err := hex.DecodeString(a1)
+	require.NoError(err)
+	ha2, err := hex.DecodeString(a2)
+	require.NoError(err)
+	hb11, err := hex.DecodeString(b11)
+	require.NoError(err)
+	hb12, err := hex.DecodeString(b12)
+	require.NoError(err)
+	hb21, err := hex.DecodeString(b21)
+	require.NoError(err)
+	hb22, err := hex.DecodeString(b22)
+	require.NoError(err)
+	patchTest := [][]string{
+		{"1", "PUT", n1, a1, b11},
+		{"1", "PUT", n1, a2, b12},
+		{"1", "PUT", n2, a1, b21},
+		{"2", "DELETE", n1, a1},
+		{"2", "PUT", n2, a2, b22},
+	}
+	patchFile, err := testutil.PathOfTempFile(triePath + ".patch")
+	require.NoError(err)
+	f, err := os.Create(patchFile)
+	require.NoError(err)
+	require.NoError(csv.NewWriter(f).WriteAll(patchTest))
+	require.NoError(f.Close())
+
+	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	require.NoError(err)
+	cfg := config.Default
+	cfg.DB.DbPath = testDBPath
+	cfg.Chain.TrieDBPatchFile = patchFile
+	trieDB := db.NewBoltDB(cfg.DB)
+	sdb, err := NewStateDB(cfg, PrecreatedStateDBOption(trieDB), DefaultPatchOption(), SkipBlockValidationStateDBOption())
+	require.NoError(err)
+	gasLimit := testutil.TestGasLimit
+
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
+
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		}), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+	_, err = trieDB.Get(n1, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n1, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n2, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	_, err = trieDB.Get(n2, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	blk1, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(sdb.PutBlock(ctx, &blk1))
+	v11, err := trieDB.Get(n1, ha1)
+	require.NoError(err)
+	require.Equal(v11, hb11)
+	v12, err := trieDB.Get(n1, ha2)
+	require.NoError(err)
+	require.Equal(v12, hb12)
+	v21, err := trieDB.Get(n2, ha1)
+	require.NoError(err)
+	require.Equal(v21, hb21)
+	_, err = trieDB.Get(n2, ha2)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 2,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		}), protocol.BlockchainCtx{
+		ChainID: 1,
+	})
+	blk2, err := block.NewTestingBuilder().
+		SetHeight(2).
+		SetPrevBlockHash(blk1.HashBlock()).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(sdb.PutBlock(ctx, &blk2))
+	v11, err = trieDB.Get(n1, ha1)
+	require.EqualError(errors.Cause(err), db.ErrNotExist.Error())
+	v12, err = trieDB.Get(n1, ha2)
+	require.NoError(err)
+	require.Equal(v12, hb12)
+	v21, err = trieDB.Get(n2, ha1)
+	require.NoError(err)
+	require.Equal(v21, hb21)
+	v22, err := trieDB.Get(n2, ha2)
+	require.NoError(err)
+	require.Equal(v22, hb22)
+
+	require.NoError(os.RemoveAll(patchFile))
 }
 
 func TestDeleteAndPutSameKey(t *testing.T) {
@@ -1534,7 +1663,11 @@ func benchState(sf Factory, b *testing.B) {
 	for n := 1; n < b.N; n++ {
 		b.StartTimer()
 		idx := rand.Int() % len(accounts)
-		_, err := accountutil.AccountState(sf, accounts[idx])
+		addr, err := address.FromString(accounts[idx])
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, err = accountutil.AccountState(sf, addr)
 		if err != nil {
 			b.Fatal(err)
 		}

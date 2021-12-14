@@ -62,7 +62,7 @@ func (b *Body) Deserialize(buf []byte) error {
 }
 
 // CalculateTxRoot returns the Merkle root of all txs and actions in this block.
-func (b *Body) CalculateTxRoot() hash.Hash256 {
+func (b *Body) CalculateTxRoot() (hash.Hash256, error) {
 	return calculateTxRoot(b.Actions)
 }
 

@@ -32,52 +32,87 @@ type (
 	BlockByHeight func(uint64) (*block.Block, error)
 	// CommitBlock commits a block to blockchain
 	CommitBlock func(*block.Block) error
+
+	// BlockSync defines the interface of blocksyncer
+	BlockSync interface {
+		lifecycle.StartStopper
+
+		// TargetHeight returns the target height to sync to
+		TargetHeight() uint64
+		// ProcessSyncRequest processes a block sync request
+		ProcessSyncRequest(context.Context, uint64, uint64, func(context.Context, *block.Block) error) error
+		// ProcessBlock processes an incoming block
+		ProcessBlock(context.Context, string, *block.Block) error
+		// SyncStatus report block sync status
+		SyncStatus() string
+	}
+
+	dummyBlockSync struct{}
+
+	// blockSyncer implements BlockSync interface
+	blockSyncer struct {
+		cfg config.BlockSync
+		buf *blockBuffer
+
+		tipHeightHandler     TipHeight
+		blockByHeightHandler BlockByHeight
+		commitBlockHandler   CommitBlock
+		requestBlocksHandler RequestBlocks
+
+		syncTask      *routine.RecurringTask
+		syncStageTask *routine.RecurringTask
+
+		syncStageHeight   uint64
+		syncBlockIncrease uint64
+
+		lastTip           uint64
+		lastTipUpdateTime time.Time
+		targetHeight      uint64
+		mu                sync.RWMutex
+
+		peerBlockList sync.Map
+	}
+
+	peerBlock struct {
+		pid   string
+		block *block.Block
+	}
 )
-
-// BlockSync defines the interface of blocksyncer
-type BlockSync interface {
-	lifecycle.StartStopper
-
-	TargetHeight() uint64
-	ProcessSyncRequest(context.Context, uint64, uint64, func(context.Context, *block.Block) error) error
-	ProcessBlock(context.Context, string, *block.Block) error
-	SyncStatus() string
-}
-
-// blockSyncer implements BlockSync interface
-type blockSyncer struct {
-	cfg config.BlockSync
-	buf *blockBuffer
-
-	tipHeightHandler     TipHeight
-	blockByHeightHandler BlockByHeight
-	commitBlockHandler   CommitBlock
-	requestBlocksHandler RequestBlocks
-
-	syncTask      *routine.RecurringTask
-	syncStageTask *routine.RecurringTask
-
-	syncStageHeight   uint64
-	syncBlockIncrease uint64
-
-	lastTip           uint64
-	lastTipUpdateTime time.Time
-	targetHeight      uint64
-	mu                sync.RWMutex
-
-	peerBlockList sync.Map
-}
-
-type peerBlock struct {
-	pid   string
-	block *block.Block
-}
 
 func newPeerBlock(pid string, blk *block.Block) *peerBlock {
 	return &peerBlock{
 		pid:   pid,
 		block: blk,
 	}
+}
+
+// NewDummyBlockSyncer creates a new
+func NewDummyBlockSyncer() BlockSync {
+	return &dummyBlockSync{}
+}
+
+func (*dummyBlockSync) Start(context.Context) error {
+	return nil
+}
+
+func (*dummyBlockSync) Stop(context.Context) error {
+	return nil
+}
+
+func (*dummyBlockSync) TargetHeight() uint64 {
+	return 0
+}
+
+func (*dummyBlockSync) ProcessSyncRequest(context.Context, uint64, uint64, func(context.Context, *block.Block) error) error {
+	return nil
+}
+
+func (*dummyBlockSync) ProcessBlock(context.Context, string, *block.Block) error {
+	return nil
+}
+
+func (*dummyBlockSync) SyncStatus() string {
+	return ""
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -120,7 +155,7 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		}
 		bs.peerBlockList.Store(blk.pid, true)
 
-		log.L().Debug("failed to commit block", zap.Error(err))
+		log.L().Error("failed to commit block", zap.Error(err), zap.Uint64("height", blk.block.Height()), zap.String("peer", blk.pid))
 	}
 	return false
 }
@@ -149,7 +184,6 @@ func (bs *blockSyncer) sync() {
 	}
 }
 
-// TargetHeight returns the target height to sync to
 func (bs *blockSyncer) TargetHeight() uint64 {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
@@ -186,7 +220,6 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 	return nil
 }
 
-// ProcessBlock processes an incoming block
 func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block.Block) error {
 	if blk == nil {
 		return errors.New("block is nil")
@@ -199,13 +232,14 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	}
 
 	tip := bs.tipHeightHandler()
-	if !bs.buf.AddBlock(tip, newPeerBlock(peer, blk)) {
-		return nil
-	}
+	added, targetHeight := bs.buf.AddBlock(tip, newPeerBlock(peer, blk))
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	if blk.Height() > bs.targetHeight {
-		bs.targetHeight = blk.Height()
+	if targetHeight > bs.targetHeight {
+		bs.targetHeight = targetHeight
+	}
+	if !added {
+		return nil
 	}
 	syncedHeight := tip
 	for {
@@ -223,7 +257,6 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	return nil
 }
 
-// ProcessSyncRequest processes a block sync request
 func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, start uint64, end uint64, callback func(context.Context, *block.Block) error) error {
 	tip := bs.tipHeightHandler()
 	if end > tip {
@@ -257,7 +290,6 @@ func (bs *blockSyncer) syncStageChecker() {
 	bs.syncStageHeight = tipHeight
 }
 
-// SyncStatus report block sync status
 func (bs *blockSyncer) SyncStatus() string {
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
 	if syncBlockIncrease == 1 {

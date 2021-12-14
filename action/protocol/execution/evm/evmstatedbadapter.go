@@ -66,6 +66,7 @@ type (
 		asyncContractTrie   bool
 		sortCachedContracts bool
 		usePendingNonce     bool
+		fixSnapshotOrder    bool
 	}
 )
 
@@ -80,10 +81,34 @@ func SortCachedContractsOption() StateDBAdapterOption {
 	}
 }
 
-// UsePendingNonceOption set sort cached contracts as true
+// NotFixTopicCopyBugOption set notFixTopicCopyBug as true
+func NotFixTopicCopyBugOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.notFixTopicCopyBug = true
+		return nil
+	}
+}
+
+// AsyncContractTrieOption set asyncContractTrie as true
+func AsyncContractTrieOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.asyncContractTrie = true
+		return nil
+	}
+}
+
+// UsePendingNonceOption set usePendingNonce as true
 func UsePendingNonceOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.usePendingNonce = true
+		return nil
+	}
+}
+
+// FixSnapshotOrderOption set fixSnapshotOrder as true
+func FixSnapshotOrderOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixSnapshotOrder = true
 		return nil
 	}
 }
@@ -92,25 +117,21 @@ func UsePendingNonceOption() StateDBAdapterOption {
 func NewStateDBAdapter(
 	sm protocol.StateManager,
 	blockHeight uint64,
-	notFixTopicCopyBug bool,
-	asyncContractTrie bool,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
 	s := &StateDBAdapter{
-		sm:                 sm,
-		logs:               []*action.Log{},
-		err:                nil,
-		blockHeight:        blockHeight,
-		executionHash:      executionHash,
-		cachedContract:     make(contractMap),
-		contractSnapshot:   make(map[int]contractMap),
-		suicided:           make(deleteAccount),
-		suicideSnapshot:    make(map[int]deleteAccount),
-		preimages:          make(preimageMap),
-		preimageSnapshot:   make(map[int]preimageMap),
-		notFixTopicCopyBug: notFixTopicCopyBug,
-		asyncContractTrie:  asyncContractTrie,
+		sm:               sm,
+		logs:             []*action.Log{},
+		err:              nil,
+		blockHeight:      blockHeight,
+		executionHash:    executionHash,
+		cachedContract:   make(contractMap),
+		contractSnapshot: make(map[int]contractMap),
+		suicided:         make(deleteAccount),
+		suicideSnapshot:  make(map[int]deleteAccount),
+		preimages:        make(preimageMap),
+		preimageSnapshot: make(map[int]preimageMap),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -381,25 +402,32 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 //
 // This method should only be called if Berlin/2929+2930 is applicable at the current number.
 func (stateDB *StateDBAdapter) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
 }
 
 // AddressInAccessList returns true if the given address is in the access list
 func (stateDB *StateDBAdapter) AddressInAccessList(addr common.Address) bool {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
 	return false
 }
 
 // SlotInAccessList returns true if the given (address, slot)-tuple is in the access list
 func (stateDB *StateDBAdapter) SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
 	return false, false
 }
 
 // AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
 // even if the feature/fork is not active yet
-func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {}
+func (stateDB *StateDBAdapter) AddAddressToAccessList(addr common.Address) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
+}
 
 // AddSlotToAccessList adds the given (address,slot) to the access list. This operation is safe to perform
 // even if the feature/fork is not active yet
-func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {}
+func (stateDB *StateDBAdapter) AddSlotToAccessList(addr common.Address, slot common.Hash) {
+	log.L().Panic("access list API should not be hit with London/Berlin not enabled yet")
+}
 
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
@@ -436,6 +464,16 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore the suicide accounts
 	stateDB.suicided = nil
 	stateDB.suicided = ds
+	if stateDB.fixSnapshotOrder {
+		delete(stateDB.suicideSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.suicideSnapshot[i]; ok {
+				delete(stateDB.suicideSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore modified contracts
 	stateDB.cachedContract = nil
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
@@ -446,9 +484,29 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			return
 		}
 	}
+	if stateDB.fixSnapshotOrder {
+		delete(stateDB.contractSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.contractSnapshot[i]; ok {
+				delete(stateDB.contractSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore preimages
 	stateDB.preimages = nil
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
+	if stateDB.fixSnapshotOrder {
+		delete(stateDB.preimageSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.preimageSnapshot[i]; ok {
+				delete(stateDB.preimageSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -464,10 +522,21 @@ func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
+	// save a copy of modified contracts
+	c := make(contractMap)
+	if stateDB.fixSnapshotOrder {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
+	}
 	sn := stateDB.sm.Snapshot()
 	if _, ok := stateDB.suicideSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
-		log.L().Error("Failed to snapshot.", zap.Error(err))
+		if stateDB.fixSnapshotOrder {
+			log.L().Panic("Failed to snapshot.", zap.Error(err))
+		} else {
+			log.L().Error("Failed to snapshot.", zap.Error(err))
+		}
 		// stateDB.err = err
 		return sn
 	}
@@ -477,10 +546,10 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		sa[k] = v
 	}
 	stateDB.suicideSnapshot[sn] = sa
-	// save a copy of modified contracts
-	c := make(contractMap)
-	for _, addr := range stateDB.cachedContractAddrs() {
-		c[addr] = stateDB.cachedContract[addr].Snapshot()
+	if !stateDB.fixSnapshotOrder {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
 	}
 	stateDB.contractSnapshot[sn] = c
 	// save a copy of preimages

@@ -9,13 +9,13 @@ package action
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestActionProtoAndVerify(t *testing.T) {
@@ -66,7 +66,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 
-		require.Equal(ErrInsufficientBalanceForGas, errors.Cause(Verify(selp)))
+		require.Equal(ErrIntrinsicGas, errors.Cause(Verify(selp)))
 	})
 	t.Run("invalid signature", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
@@ -77,7 +77,34 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		selp.signature = []byte("invalid signature")
-
-		require.True(strings.Contains(Verify(selp).Error(), "failed to verify action hash"))
+		require.Equal(ErrInvalidSender, errors.Cause(Verify(selp)))
 	})
+}
+
+func TestActionClassifyActions(t *testing.T) {
+	require := require.New(t)
+	var (
+		producerAddr   = identityset.Address(27).String()
+		producerPriKey = identityset.PrivateKey(27)
+		amount         = big.NewInt(0)
+		selp0, _       = SignedTransfer(producerAddr, producerPriKey, 1, amount, nil, 100, big.NewInt(0))
+		selp1, _       = SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
+		selp2, _       = SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
+		selp3, _       = SignedExecution(producerAddr, producerPriKey, uint64(1), amount, uint64(100000), big.NewInt(10), []byte{})
+		selp4, _       = SignedExecution(producerAddr, producerPriKey, uint64(2), amount, uint64(100000), big.NewInt(10), []byte{})
+	)
+	actions := []SealedEnvelope{selp0, selp1, selp2, selp3, selp4}
+	tsfs, exes := ClassifyActions(actions)
+	require.Equal(len(tsfs), 3)
+	require.Equal(len(exes), 2)
+}
+
+func TestActionFakeSeal(t *testing.T) {
+	require := require.New(t)
+	priKey := identityset.PrivateKey(27)
+	selp1, err := SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	require.NoError(err)
+	selp := FakeSeal(selp1.Envelope, priKey.PublicKey())
+	require.Equal(selp.srcPubkey, priKey.PublicKey())
 }

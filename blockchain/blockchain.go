@@ -206,6 +206,7 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		log.L().Panic("blockdao is nil")
 	}
 	chain.lifecycle.Add(chain.dao)
+	chain.lifecycle.Add(chain.pubSubManager)
 
 	return chain
 }
@@ -321,6 +322,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			Producer:       producerAddr,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 	if bc.blockValidator == nil {
 		return nil
 	}
@@ -356,7 +358,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		}
 	}
 
-	return genesis.WithGenesisContext(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
@@ -365,7 +367,8 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 			},
 		),
 		bc.config.Genesis,
-	), nil
+	)
+	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
 
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
@@ -383,6 +386,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx = protocol.WithFeatureCtx(ctx)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
@@ -412,8 +416,6 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	log.L().Info("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
@@ -423,9 +425,6 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-
 	return bc.pubSubManager.RemoveBlockListener(s)
 }
 
@@ -467,7 +466,7 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
-	ctx, err := bc.context(context.Background(), false)
+	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
 	}

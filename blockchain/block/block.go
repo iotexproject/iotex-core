@@ -88,7 +88,12 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.Receipts = nil
 
 	// verify merkle root can match after deserialize
-	if err := b.VerifyTxRoot(b.CalculateTxRoot()); err != nil {
+	txHash, err := b.CalculateTxRoot()
+	if err != nil {
+		log.L().Debug("error in getting hash ", zap.Error(err))
+		return err
+	}
+	if err := b.VerifyTxRoot(txHash); err != nil {
 		return err
 	}
 	return nil

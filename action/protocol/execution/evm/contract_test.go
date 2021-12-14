@@ -66,7 +66,8 @@ func TestCreateContract(t *testing.T) {
 	addr := identityset.Address(28)
 	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(sm, 0, !cfg.Genesis.IsAleutian(0), cfg.Genesis.IsGreenland(0), hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 0, hash.ZeroHash256, NotFixTopicCopyBugOption())
+
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])

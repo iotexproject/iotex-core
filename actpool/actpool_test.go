@@ -10,10 +10,10 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -22,6 +22,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -169,7 +171,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
 	require.NoError(ap.Add(ctx, tsf4))
-	require.Equal(action.ErrBalance, errors.Cause(ap.Add(ctx, tsf5)))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(ctx, tsf5)))
 	require.NoError(ap.Add(ctx, tsf6))
 	require.NoError(ap.Add(ctx, tsf7))
 	require.NoError(ap.Add(ctx, tsf8))
@@ -196,7 +198,7 @@ func TestActPool_AddActs(t *testing.T) {
 	bannedTsf, err := action.SignedTransfer(addr6, priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, bannedTsf)
-	require.True(strings.Contains(err.Error(), "action source address is blacklisted"))
+	require.Contains(err.Error(), "action source address is blacklisted")
 	// Case II: Action already exists in pool
 	require.Error(ap.Add(ctx, tsf1))
 	require.Error(ap.Add(ctx, tsf4))
@@ -213,9 +215,9 @@ func TestActPool_AddActs(t *testing.T) {
 		ap2.allActions[nTsfHash] = nTsf
 	}
 	err = ap2.Add(ctx, tsf1)
-	require.Equal(action.ErrActPool, errors.Cause(err))
+	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
 	err = ap2.Add(ctx, tsf4)
-	require.Equal(action.ErrActPool, errors.Cause(err))
+	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
 
 	Ap3, err := NewActPool(sf, apConfig)
 	require.NoError(err)
@@ -234,13 +236,13 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf10, err := action.SignedTransfer(addr2, priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	err = ap3.Add(ctx, tsf10)
-	require.True(strings.Contains(err.Error(), "insufficient gas space for action"))
+	require.Equal(action.ErrGasLimit, errors.Cause(err))
 
 	// Case IV: Nonce already exists
 	replaceTsf, err := action.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), addr2, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -253,17 +255,17 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	// Case V: Nonce is too large
 	outOfBoundsTsf, err := action.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, outOfBoundsTsf)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(action.ErrNonceTooHigh, errors.Cause(err))
 	// Case VI: Insufficient balance
 	overBalTsf, err := action.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, overBalTsf)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
 	creationExecution, err := action.NewExecution(
@@ -285,7 +287,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
-	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
+	require.Equal(action.ErrIntrinsicGas, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
@@ -340,7 +342,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), tsf2))
 		require.NoError(ap.Add(context.Background(), tsf3))
 		require.NoError(ap.Add(context.Background(), tsf4))
-		require.Equal(action.ErrBalance, errors.Cause(ap.Add(context.Background(), tsf5)))
+		require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(context.Background(), tsf5)))
 		require.Error(ap.Add(context.Background(), tsf6))
 
 		require.Error(ap.Add(context.Background(), tsf7))
@@ -493,11 +495,11 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap1.Add(ctx, tsf1))
 	require.NoError(ap1.Add(ctx, tsf2))
 	err = ap1.Add(ctx, tsf3)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	require.NoError(ap1.Add(ctx, tsf4))
 	require.NoError(ap1.Add(ctx, tsf5))
 	err = ap1.Add(ctx, tsf6)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	require.NoError(ap1.Add(ctx, tsf7))
 	require.NoError(ap1.Add(ctx, tsf8))
 	require.NoError(ap1.Add(ctx, tsf9))
@@ -517,13 +519,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap2.Add(ctx, tsf2))
 	require.NoError(ap2.Add(ctx, tsf10))
 	err = ap2.Add(ctx, tsf11)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	require.NoError(ap2.Add(ctx, tsf4))
 	require.NoError(ap2.Add(ctx, tsf12))
 	require.NoError(ap2.Add(ctx, tsf13))
 	require.NoError(ap2.Add(ctx, tsf14))
 	err = ap2.Add(ctx, tsf9)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
@@ -621,9 +623,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap2.Add(ctx, tsf17))
 	require.NoError(ap2.Add(ctx, tsf18))
 	err = ap2.Add(ctx, tsf19)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	err = ap2.Add(ctx, tsf20)
-	require.Equal(action.ErrBalance, errors.Cause(err))
+	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
@@ -1017,12 +1019,82 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	require.Error(t, ap.Add(ctx, tsf))
 }
 
+func TestActPool_SpeedUpAction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	require := require.New(t)
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+		acct, ok := account.(*state.Account)
+		require.True(ok)
+		acct.Nonce = 0
+		cfg := &protocol.StateConfig{}
+		for _, opt := range opts {
+			opt(cfg)
+		}
+		acct.Balance = big.NewInt(10000000)
+		return 0, nil
+	}).AnyTimes()
+
+	// Create actpool
+	apConfig := getActPoolCfg()
+	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	require.NoError(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+
+	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	tsf2, err := action.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(1))
+	require.NoError(err)
+	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(3))
+	require.NoError(err)
+
+	// A send action tsf1 with nonce 1, B send action tsf2 with nonce 1
+	ctx := context.Background()
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+
+	// check account and actpool status
+	pBalance1, _ := ap.getPendingBalance(addr1)
+	require.Equal(uint64(10000000-10), pBalance1.Uint64())
+	pNonce1, _ := ap.getPendingNonce(addr1)
+	require.Equal(uint64(2), pNonce1)
+	pBalance2, _ := ap.getPendingBalance(addr2)
+	require.Equal(uint64(10000000-5-10000), pBalance2.Uint64())
+	pNonce2, _ := ap.getPendingNonce(addr2)
+	require.Equal(uint64(2), pNonce2)
+
+	// A send action tsf3 with nonce 1 and higher gas price
+	require.NoError(ap.Add(ctx, tsf3))
+
+	// check account and actpool status again after new action is inserted
+	pNonce3, _ := ap.getPendingNonce(addr1)
+	require.Equal(uint64(2), pNonce3)
+
+	ai := actioniterator.NewActionIterator(ap.PendingActionMap())
+	appliedActionList := make([]action.SealedEnvelope, 0)
+	for {
+		bestAction, ok := ai.Next()
+		if !ok {
+			break
+		}
+		appliedActionList = append(appliedActionList, bestAction)
+	}
+	// tsf1 is replaced by tsf3 with higher gas price
+	require.Equal(appliedActionList, []action.SealedEnvelope{tsf3, tsf2})
+}
+
 // Helper function to return the correct pending nonce just in case of empty queue
 func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedState, err := accountutil.AccountState(ap.sf, addr)
+	addr1, err := address.FromString(addr)
+	if err != nil {
+		return 0, err
+	}
+	committedState, err := accountutil.AccountState(ap.sf, addr1)
 	return committedState.Nonce + 1, err
 }
 
@@ -1031,7 +1103,11 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	state, err := accountutil.AccountState(ap.sf, addr)
+	addr1, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+	state, err := accountutil.AccountState(ap.sf, addr1)
 	if err != nil {
 		return nil, err
 	}
