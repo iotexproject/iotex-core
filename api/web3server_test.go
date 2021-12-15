@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
@@ -44,7 +44,7 @@ func TestGetWeb3Reqs(t *testing.T) {
 		{
 			req:      httptest.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`)),
 			header:   true,
-			hasError: true,
+			hasError: false,
 		},
 		// success
 		{
@@ -77,11 +77,11 @@ func TestServeHTTP(t *testing.T) {
 	response1 := getServerResp(svr, request1)
 	require.Equal(response1.Result().StatusCode, http.StatusMethodNotAllowed)
 
-	// invalid web3 req
-	request2, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	// web3 req without params
+	request2, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_getBalance","id":67}`))
 	response2 := getServerResp(svr, request2)
 	bodyBytes2, _ := ioutil.ReadAll(response2.Body)
-	require.Contains(string(bodyBytes2), "failed to parse")
+	require.Contains(string(bodyBytes2), "invalid format")
 
 	// missing web3 method
 	request3, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_foo","params":[],"id":67}`))
@@ -96,21 +96,19 @@ func TestServeHTTP(t *testing.T) {
 	require.Contains(string(bodyBytes4), "result")
 
 	// multiple web3 req
-	// request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
-	// response5 := getServerResp(svr, request5)
-	// bodyBytes5, _ := ioutil.ReadAll(response5.Body)
-	jstr := `[{"jsonrpc":[1, "2.0"],"method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`
-	// jstr := string(bodyBytes5)
-	if gjson.Valid(jstr) {
-		res := gjson.Parse(jstr)
+	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
+	response5 := getServerResp(svr, request5)
+	bodyBytes5, _ := ioutil.ReadAll(response5.Body)
+	var web3Reqs []web3Resp
+	_ = json.Unmarshal(bodyBytes5, &web3Reqs)
+	require.Equal(len(web3Reqs), 2)
 
-		tt := res.Array()[0].Get("jsonrpc")
-		ss := tt.Value()
-		fmt.Printf("%T\n", ss)
-	}
-	// var web3Reqs []web3Resp
-	// _ = json.Unmarshal(bodyBytes5, &web3Reqs)
-	// require.Equal(len(web3Reqs), 2)
+	// web3 req without params
+	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	response6 := getServerResp(svr, request6)
+	bodyBytes6, _ := ioutil.ReadAll(response6.Body)
+	require.Contains(string(bodyBytes6), "result")
+
 }
 
 func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {
