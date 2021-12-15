@@ -344,7 +344,7 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
 	if err != nil {
 		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
+		if ok && st.Code() == codes.InvalidArgument {
 			return nil, nil
 		}
 		return nil, err
@@ -772,7 +772,7 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
 	if err != nil {
 		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
+		if ok && st.Code() == codes.InvalidArgument {
 			return nil, nil
 		}
 		return nil, err
