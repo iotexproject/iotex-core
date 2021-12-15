@@ -23,8 +23,11 @@ COPY --from=build /go/apps/iotex-core/bin/actioninjectorv2 /usr/local/bin/iotex-
 COPY --from=build /go/apps/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen
 COPY --from=build /go/apps/iotex-core/bin/ioctl /usr/local/bin/ioctl
 
+CMD [ "iotex-server"]
+
+# logrotate log file daily
 COPY logrotate.conf /etc/logrotate.d/iotex
 RUN mkdir -p /var/lib/
+RUN touch /var/lib/logrotate.status
 RUN apk add logrotate
-
-CMD [ "iotex-server"]
+RUN logrotate /etc/logrotate.d/iotex
