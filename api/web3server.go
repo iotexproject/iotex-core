@@ -280,8 +280,7 @@ func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
 	for _, req := range parsedReqs {
 		id := req.Get("id")
 		method := req.Get("method")
-		params := req.Get("params")
-		if !id.Exists() || !method.Exists() || !params.Exists() {
+		if !id.Exists() || !method.Exists() {
 			return nil, errors.New("request field is incomplete")
 		}
 	}
@@ -344,6 +343,10 @@ func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
 
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
 	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if len(blkMetas) == 0 {
@@ -768,6 +771,10 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	}
 	blkMetas, err := svr.coreService.BlockMetas(num, 1)
 	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if len(blkMetas) == 0 {
