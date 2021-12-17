@@ -397,7 +397,7 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(accountMeta.Nonce), nil
+	return uint64ToHex(accountMeta.GetPendingNonce()), nil
 }
 
 func (svr *Web3Server) call(in interface{}) (interface{}, error) {
