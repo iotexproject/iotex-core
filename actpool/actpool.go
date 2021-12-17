@@ -249,7 +249,7 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return confirmedState.Nonce + 1, err
+	return confirmedState.PendingNonce(), err
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address

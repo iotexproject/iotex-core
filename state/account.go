@@ -35,8 +35,8 @@ type Account struct {
 	VotingWeight *big.Int
 }
 
-// ToProto converts to protobuf's Account
-func (st *Account) ToProto() *accountpb.Account {
+// toProto converts to protobuf's Account
+func (st *Account) toProto() *accountpb.Account {
 	acPb := &accountpb.Account{}
 	acPb.Nonce = st.Nonce
 	if st.Balance != nil {
@@ -55,11 +55,11 @@ func (st *Account) ToProto() *accountpb.Account {
 
 // Serialize serializes account state into bytes
 func (st Account) Serialize() ([]byte, error) {
-	return proto.Marshal(st.ToProto())
+	return proto.Marshal(st.toProto())
 }
 
-// FromProto converts from protobuf's Account
-func (st *Account) FromProto(acPb *accountpb.Account) {
+// fromProto converts from protobuf's Account
+func (st *Account) fromProto(acPb *accountpb.Account) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
 	if acPb.Balance != "" {
@@ -84,7 +84,7 @@ func (st *Account) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, acPb); err != nil {
 		return err
 	}
-	st.FromProto(acPb)
+	st.fromProto(acPb)
 	return nil
 }
 
@@ -102,6 +102,15 @@ func (st *Account) SubBalance(amount *big.Int) error {
 	}
 	st.Balance.Sub(st.Balance, amount)
 	return nil
+}
+
+// PendingNonce returns the pending nonce of account
+func (st *Account) PendingNonce() uint64 {
+	if st.Nonce == 0 {
+		// to be compatible with Ethereum, where a new account's first tx use nonce = 0
+		return st.Nonce
+	}
+	return st.Nonce + 1
 }
 
 // IsContract returns true for contract account

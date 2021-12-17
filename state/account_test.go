@@ -11,8 +11,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 )
@@ -50,8 +48,6 @@ func TestProto(t *testing.T) {
 
 func TestBalance(t *testing.T) {
 	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	state := &Account{Balance: big.NewInt(20)}
 	// Add 10 to the balance
@@ -60,6 +56,15 @@ func TestBalance(t *testing.T) {
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 	// Sub 40 to the balance
 	require.Equal(ErrNotEnoughBalance, state.SubBalance(big.NewInt(40)))
+}
+
+func TestPendingNonce(t *testing.T) {
+	require := require.New(t)
+
+	state := &Account{Balance: big.NewInt(20)}
+	require.Zero(state.PendingNonce())
+	state.Nonce = 7
+	require.EqualValues(8, state.PendingNonce())
 }
 
 func TestClone(t *testing.T) {
