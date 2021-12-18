@@ -1036,11 +1036,13 @@ func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.B
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	tipHeight := core.bc.TipHeight()
+	var (
+		tipHeight = core.bc.TipHeight()
+		res       = make([]*iotextypes.BlockMeta, 0)
+	)
 	if start > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
-	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
 		blockMeta, err := core.getBlockMetaByHeight(height)
 		if err != nil {

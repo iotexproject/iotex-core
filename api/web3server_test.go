@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
@@ -44,7 +44,7 @@ func TestGetWeb3Reqs(t *testing.T) {
 		{
 			req:      httptest.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`)),
 			header:   true,
-			hasError: true,
+			hasError: false,
 		},
 		// success
 		{
@@ -77,11 +77,11 @@ func TestServeHTTP(t *testing.T) {
 	response1 := getServerResp(svr, request1)
 	require.Equal(response1.Result().StatusCode, http.StatusMethodNotAllowed)
 
-	// invalid web3 req
-	request2, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	// web3 req without params
+	request2, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_getBalance","id":67}`))
 	response2 := getServerResp(svr, request2)
 	bodyBytes2, _ := ioutil.ReadAll(response2.Body)
-	require.Contains(string(bodyBytes2), "failed to parse")
+	require.Contains(string(bodyBytes2), "invalid format")
 
 	// missing web3 method
 	request3, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_foo","params":[],"id":67}`))
@@ -96,21 +96,19 @@ func TestServeHTTP(t *testing.T) {
 	require.Contains(string(bodyBytes4), "result")
 
 	// multiple web3 req
-	// request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
-	// response5 := getServerResp(svr, request5)
-	// bodyBytes5, _ := ioutil.ReadAll(response5.Body)
-	jstr := `[{"jsonrpc":[1, "2.0"],"method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`
-	// jstr := string(bodyBytes5)
-	if gjson.Valid(jstr) {
-		res := gjson.Parse(jstr)
+	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
+	response5 := getServerResp(svr, request5)
+	bodyBytes5, _ := ioutil.ReadAll(response5.Body)
+	var web3Reqs []web3Resp
+	_ = json.Unmarshal(bodyBytes5, &web3Reqs)
+	require.Equal(len(web3Reqs), 2)
 
-		tt := res.Array()[0].Get("jsonrpc")
-		ss := tt.Value()
-		fmt.Printf("%T\n", ss)
-	}
-	// var web3Reqs []web3Resp
-	// _ = json.Unmarshal(bodyBytes5, &web3Reqs)
-	// require.Equal(len(web3Reqs), 2)
+	// web3 req without params
+	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	response6 := getServerResp(svr, request6)
+	bodyBytes6, _ := ioutil.ReadAll(response6.Body)
+	require.Contains(string(bodyBytes6), "result")
+
 }
 
 func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {
@@ -168,15 +166,26 @@ func TestGetBlockByNumber(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := []interface{}{"1", true}
-	ret, _ := svr.web3Server.getBlockByNumber(testData)
-	v, _ := ret.(blockObject)
-	require.Equal(len(v.Transactions), 1)
+	testData := []struct {
+		data     []interface{}
+		expected int
+	}{
+		{[]interface{}{"1", true}, 1},
+		{[]interface{}{"1", false}, 2},
+		{[]interface{}{"10", false}, 0},
+	}
 
-	testData2 := []interface{}{"1", false}
-	ret, _ = svr.web3Server.getBlockByNumber(testData2)
-	v, _ = ret.(blockObject)
-	require.Equal(len(v.Transactions), 2)
+	for _, v := range testData {
+		ret, err := svr.web3Server.getBlockByNumber(v.data)
+		require.NoError(err)
+		if v.expected == 0 {
+			require.Nil(ret)
+			continue
+		}
+		blk, ok := ret.(blockObject)
+		require.True(ok)
+		require.Equal(len(blk.Transactions), v.expected)
+	}
 }
 
 func TestGetBalance(t *testing.T) {
@@ -203,8 +212,12 @@ func TestGetTransactionCount(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	testData := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1}
+	testData := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"}
 	ret, _ := svr.web3Server.getTransactionCount(testData)
+	require.Equal(ret, uint64ToHex(2))
+
+	testData2 := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"}
+	ret, _ = svr.web3Server.getTransactionCount(testData2)
 	require.Equal(ret, uint64ToHex(2))
 }
 
@@ -388,6 +401,11 @@ func TestGetBlockByHash(t *testing.T) {
 	ans, _ := ret.(blockObject)
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(blkHash[:]))
 	require.Equal(len(ans.Transactions), 2)
+
+	testData2 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false}
+	ret, err = svr.web3Server.getBlockByHash(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetTransactionByHash(t *testing.T) {
@@ -403,6 +421,11 @@ func TestGetTransactionByHash(t *testing.T) {
 	ret, err := svr.web3Server.getTransactionByHash(testData)
 	require.NoError(err)
 	require.Equal(ret.(transactionObject).Hash, "0x"+hex.EncodeToString(transferHash1[:]))
+
+	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", false}
+	ret, err = svr.web3Server.getTransactionByHash(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetLogs(t *testing.T) {
@@ -457,6 +480,11 @@ func TestGetTransactionReceipt(t *testing.T) {
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
 	require.Equal(ans.From, fromAddr)
 	require.Equal(*ans.To, toAddr)
+
+	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
+	ret, err = svr.web3Server.getTransactionReceipt(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
@@ -482,6 +510,15 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	require.Equal(*ans.To, toAddr)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
+
+	testData2 := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x10"}
+	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
+	require.Error(err)
+
+	testData3 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", "0x0"}
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData3)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
@@ -504,6 +541,15 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	require.Equal(*ans.To, toAddr)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
+
+	testData2 := []interface{}{"0x1", "0x10"}
+	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
+	require.Error(err)
+
+	testData3 := []interface{}{"0x10", "0x0"}
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData3)
+	require.NoError(err)
+	require.Nil(ret)
 }
 
 func TestNewfilter(t *testing.T) {
@@ -642,48 +688,4 @@ func TestGetNetworkID(t *testing.T) {
 	}()
 	res, _ := svr.web3Server.getNetworkID()
 	require.Equal("1", res)
-}
-
-func TestIsResultValid(t *testing.T) {
-	require := require.New(t)
-	testData := []struct {
-		data    web3Resp
-		isValid bool
-	}{
-		{
-			data: web3Resp{
-				ID:      1,
-				Jsonrpc: "2.0",
-				Result:  []string{},
-			},
-			isValid: true,
-		},
-		{
-			data: web3Resp{
-				ID:      1,
-				Jsonrpc: "2.0",
-			},
-			isValid: false,
-		},
-		{
-			data: web3Resp{
-				ID:      1,
-				Jsonrpc: "2.0",
-				Result:  nil,
-			},
-			isValid: false,
-		},
-		{
-			data: web3Resp{
-				ID:      1,
-				Jsonrpc: "2.0",
-				Error:   &web3Err{},
-			},
-			isValid: true,
-		},
-	}
-
-	for _, v := range testData {
-		require.Equal(v.isValid, isResultValid(v.data))
-	}
 }
