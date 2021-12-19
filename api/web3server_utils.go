@@ -364,7 +364,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		filter.Address = append(filter.Address, ioAddr.String())
 	}
 	for _, tp := range topics {
-		topic := make([][]byte, 0)
+		var topic [][]byte
 		for _, str := range tp {
 			b, err := hexToBytes(str)
 			if err != nil {
