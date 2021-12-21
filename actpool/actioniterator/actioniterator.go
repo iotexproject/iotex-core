@@ -35,19 +35,19 @@ func (s *actionByPrice) Pop() interface{} {
 	return x
 }
 
-// ActionIterator define the interface of action iterator
-type ActionIterator interface {
-	Next() (action.SealedEnvelope, bool)
-	PopAccount()
-}
+// // ActionIterator define the interface of action iterator
+// type ActionIterator interface {
+// 	Next() (action.SealedEnvelope, bool)
+// 	PopAccount()
+// }
 
-type actionIterator struct {
+type ActionIterator struct {
 	accountActs map[string][]action.SealedEnvelope
 	heads       actionByPrice
 }
 
 // NewActionIterator return a new action iterator
-func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIterator {
+func NewActionIterator(accountActs map[string][]action.SealedEnvelope) *ActionIterator {
 	heads := make(actionByPrice, 0, len(accountActs))
 	for sender, accActs := range accountActs {
 		if len(accActs) == 0 {
@@ -62,14 +62,14 @@ func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIte
 		}
 	}
 	heap.Init(&heads)
-	return &actionIterator{
+	return &ActionIterator{
 		accountActs: accountActs,
 		heads:       heads,
 	}
 }
 
 // LoadNext load next action of account of top action
-func (ai *actionIterator) loadNextActionForTopAccount() {
+func (ai *ActionIterator) loadNextActionForTopAccount() {
 	sender := ai.heads[0].SrcPubkey()
 	callerAddrStr := sender.Address().String()
 	if actions, ok := ai.accountActs[callerAddrStr]; ok && len(actions) > 0 {
@@ -81,7 +81,7 @@ func (ai *actionIterator) loadNextActionForTopAccount() {
 }
 
 // Next load next action of account of top action
-func (ai *actionIterator) Next() (action.SealedEnvelope, bool) {
+func (ai *ActionIterator) Next() (action.SealedEnvelope, bool) {
 	if len(ai.heads) == 0 {
 		return action.SealedEnvelope{}, false
 	}
@@ -92,7 +92,7 @@ func (ai *actionIterator) Next() (action.SealedEnvelope, bool) {
 }
 
 // PopAccount will remove all actions related to this account
-func (ai *actionIterator) PopAccount() {
+func (ai *ActionIterator) PopAccount() {
 	if len(ai.heads) != 0 {
 		heap.Pop(&ai.heads)
 	}
