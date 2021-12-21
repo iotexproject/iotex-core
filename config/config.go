@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -77,6 +78,7 @@ var (
 		Network: p2p.DefaultConfig,
 		Chain: Chain{
 			ChainDBPath:            "/var/data/chain.db",
+			TrieDBPatchFile:        "/var/data/trie.db.patch",
 			TrieDBPath:             "/var/data/trie.db",
 			IndexDBPath:            "/var/data/index.db",
 			BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
@@ -153,6 +155,7 @@ var (
 		API: API{
 			UseRDS:    false,
 			Port:      14014,
+			Web3Port:  15014,
 			TpsWindow: 10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
@@ -207,6 +210,7 @@ type (
 	// Chain is the config struct for blockchain package
 	Chain struct {
 		ChainDBPath            string           `yaml:"chainDBPath"`
+		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
 		TrieDBPath             string           `yaml:"trieDBPath"`
 		IndexDBPath            string           `yaml:"indexDBPath"`
 		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
@@ -300,11 +304,14 @@ type (
 
 	// API is the api service config
 	API struct {
-		UseRDS          bool       `yaml:"useRDS"`
-		Port            int        `yaml:"port"`
-		TpsWindow       int        `yaml:"tpsWindow"`
-		GasStation      GasStation `yaml:"gasStation"`
-		RangeQueryLimit uint64     `yaml:"rangeQueryLimit"`
+		UseRDS          bool          `yaml:"useRDS"`
+		Port            int           `yaml:"port"`
+		Web3Port        int           `yaml:"web3port"`
+		RedisCacheURL   string        `yaml:"redisCacheURL"`
+		TpsWindow       int           `yaml:"tpsWindow"`
+		GasStation      GasStation    `yaml:"gasStation"`
+		RangeQueryLimit uint64        `yaml:"rangeQueryLimit"`
+		Tracer          tracer.Config `yaml:"tracer"`
 	}
 
 	// GasStation is the gas station config
@@ -631,6 +638,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "Iceland is heigher than Jutland")
 	case hu.JutlandBlockHeight > hu.KamchatkaBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Jutland is heigher than Kamchatka")
+	case hu.KamchatkaBlockHeight > hu.LordHoweBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Kamchatka is heigher than LordHowe")
 	}
 	return nil
 }

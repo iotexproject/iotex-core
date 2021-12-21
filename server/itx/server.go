@@ -33,7 +33,7 @@ type Server struct {
 	cfg                  config.Config
 	rootChainService     *chainservice.ChainService
 	chainservices        map[uint32]*chainservice.ChainService
-	p2pAgent             *p2p.Agent
+	p2pAgent             p2p.Agent
 	dispatcher           dispatcher.Dispatcher
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
@@ -57,7 +57,13 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
-	p2pAgent := p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	var p2pAgent p2p.Agent
+	switch cfg.Consensus.Scheme {
+	case config.StandaloneScheme:
+		p2pAgent = p2p.NewDummyAgent()
+	default:
+		p2pAgent = p2p.NewAgent(cfg.Network, cfg.Chain.ID, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	}
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
@@ -152,7 +158,7 @@ func (s *Server) StopChainService(ctx context.Context, id uint32) error {
 }
 
 // P2PAgent returns the P2P agent
-func (s *Server) P2PAgent() *p2p.Agent {
+func (s *Server) P2PAgent() p2p.Agent {
 	return s.p2pAgent
 }
 

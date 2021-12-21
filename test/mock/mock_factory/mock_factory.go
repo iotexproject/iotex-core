@@ -197,6 +197,21 @@ func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2, arg3)
 }
 
+// ReadContractStorage mocks base method
+func (m *MockFactory) ReadContractStorage(arg0 context.Context, arg1 address.Address, arg2 []byte) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadContractStorage", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadContractStorage indicates an expected call of ReadContractStorage
+func (mr *MockFactoryMockRecorder) ReadContractStorage(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadContractStorage", reflect.TypeOf((*MockFactory)(nil).ReadContractStorage), arg0, arg1, arg2)
+}
+
 // PutBlock mocks base method
 func (m *MockFactory) PutBlock(arg0 context.Context, arg1 *block.Block) error {
 	m.ctrl.T.Helper()

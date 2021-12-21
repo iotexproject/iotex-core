@@ -4,18 +4,19 @@ coverage:
     project:
       default:
         enabled: yes
-        target: 60%
+        target: 75%
     patch:
       default:
         enabled: yes
         target: auto
 ignore:
-  - "test/mock/**/*"
-  - "consensus/scheme/rolldpos/endorsementpb"
   - "action/protocol/rewarding/rewardingpb"
   - "action/protocol/account/accountpb"
-  - "action/protocol/poll/consortiummanagement.abi.go"
-  - "db/trie/triepb"
+  - "action/protocol/poll/*.abi.go"
   - "blockindex/indexpb"
-  - "tools/
-  - "e2etest/"
+  - "consensus/scheme/rolldpos/endorsementpb"
+  - "db/trie/triepb"
+  - "e2etest/*"
+  - "ioctl/**/*"
+  - "test/mock/**/*"
+  - "tools/**/*"

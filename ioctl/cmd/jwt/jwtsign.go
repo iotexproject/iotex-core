@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-antenna-go/v2/jwt"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
@@ -70,7 +71,7 @@ func jwtSign() error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
-	prvKey, err := action.PrivateKeyFromSigner(signer)
+	prvKey, err := account.PrivateKeyFromSigner(signer, "")
 	if err != nil {
 		return err
 	}

@@ -19,13 +19,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/cache"
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -97,11 +97,13 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
-		networkPort := 4689 + i
-		apiPort := 14014 + i
-		HTTPAdminPort := 9009 + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort)
+		networkPort := config.Default.Network.Port + i
+		apiPort := config.Default.API.Port + i
+		web3APIPort := config.Default.API.Web3Port + i
+		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
+		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Chain.BloomfilterIndexDBPath = bloomfilterIndexDBPath
@@ -202,9 +204,9 @@ func main() {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
 		// Wait until the smart contract is successfully deployed
-		var receipt *action.Receipt
+		var receipt *iotextypes.Receipt
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = svrs[0].ChainService(uint32(1)).APIServer().GetReceiptByActionHash(eHash)
+			receipt, err = util.GetReceiptByAction(svrs[0].ChainService(uint32(1)).APIServer(), eHash)
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
@@ -262,7 +264,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
-		pendingActionMap := cache.NewThreadSafeLruCache(0)
+		pendingActionMap, _ := ttl.NewCache(ttl.EvictOnErrorOption())
 
 		log.L().Info("Start action injections.")
 
@@ -270,14 +272,14 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			&expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
+			expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			empty, err := util.CheckPendingActionList(
 				svrs[0].ChainService(1),
 				pendingActionMap,
-				&expectedBalancesMap,
+				expectedBalancesMap,
 			)
 			if err != nil {
 				log.L().Error(err.Error())
@@ -287,9 +289,9 @@ func main() {
 		})
 
 		totalPendingActions := 0
-		pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
+		pendingActionMap.Range(func(selphash, vi interface{}) error {
 			totalPendingActions++
-			return true
+			return nil
 		})
 
 		if err != nil {
@@ -394,6 +396,7 @@ func newConfig(
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
+	web3APIPort int,
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
@@ -422,6 +425,7 @@ func newConfig(
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
 	cfg.API.Port = apiPort
+	cfg.API.Web3Port = web3APIPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2

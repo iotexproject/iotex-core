@@ -105,36 +105,14 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	return dao.checkIndexers(ctx)
 }
 
-func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) (context.Context, error) {
-	g, ok := genesis.ExtractGenesisContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to find blockchain ctx")
-	}
-	bcCtx := protocol.BlockchainCtx{}
-	if height == 0 {
-		bcCtx.Tip = protocol.TipInfo{
-			Height:    0,
-			Hash:      g.Hash(),
-			Timestamp: time.Unix(g.Timestamp, 0),
-		}
-	} else {
-		header, err := dao.HeaderByHeight(height)
-		if err != nil {
-			return nil, err
-		}
-		bcCtx.Tip = protocol.TipInfo{
-			Height:    height,
-			Hash:      header.HashHeader(),
-			Timestamp: header.Timestamp(),
-		}
-	}
-	return protocol.WithBlockchainCtx(ctx, bcCtx), nil
-}
-
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	g, ok := genesis.ExtractGenesisContext(ctx)
+	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
 	if !ok {
 		return errors.New("failed to find blockchain ctx")
+	}
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return errors.New("failed to find genesis ctx")
 	}
 	for ii, indexer := range dao.indexers {
 		tipHeight, err := indexer.Height()
@@ -144,6 +122,10 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 		if tipHeight > dao.tipHeight {
 			// TODO: delete block
 			return errors.New("indexer tip height cannot by higher than dao tip height")
+		}
+		tipBlk, err := dao.GetBlockByHeight(tipHeight)
+		if err != nil {
+			return err
 		}
 		for i := tipHeight + 1; i <= dao.tipHeight; i++ {
 			blk, err := dao.GetBlockByHeight(i)
@@ -160,19 +142,30 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if producer == nil {
 				return errors.New("failed to get address")
 			}
-			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, i-1)
-			if err != nil {
-				return err
+			bcCtx.Tip.Height = tipBlk.Height()
+			if bcCtx.Tip.Height > 0 {
+				bcCtx.Tip.Hash = tipBlk.HashHeader()
+				bcCtx.Tip.Timestamp = tipBlk.Timestamp()
+			} else {
+				bcCtx.Tip.Hash = g.Hash()
+				bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 			}
-			if err := indexer.PutBlock(protocol.WithBlockCtx(
-				ctxWithTip,
-				protocol.BlockCtx{
-					BlockHeight:    i,
-					BlockTimeStamp: blk.Timestamp(),
-					Producer:       producer,
-					GasLimit:       g.BlockGasLimit,
-				},
-			), blk); err != nil {
+			for {
+				if err = indexer.PutBlock(protocol.WithBlockCtx(
+					protocol.WithBlockchainCtx(ctx, bcCtx),
+					protocol.BlockCtx{
+						BlockHeight:    i,
+						BlockTimeStamp: blk.Timestamp(),
+						Producer:       producer,
+						GasLimit:       g.BlockGasLimit,
+					},
+				), blk); err == nil {
+					break
+				}
+				if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
+					log.L().Info("delta state mismatch", zap.Uint64("block", i))
+					continue
+				}
 				return err
 			}
 			if i%5000 == 0 {
@@ -182,6 +175,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 					zap.Uint64("height", i),
 				)
 			}
+			tipBlk = blk
 		}
 		log.L().Info(
 			"indexer is up to date.",
@@ -318,11 +312,6 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := dao.timerFactory.NewTimer("put_block")
-	var err error
-	ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
-	if err != nil {
-		return err
-	}
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
 		timer.End()
 		return err

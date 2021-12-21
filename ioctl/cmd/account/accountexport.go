@@ -7,8 +7,6 @@
 package account
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -41,20 +39,23 @@ var accountExportCmd = &cobra.Command{
 }
 
 func accountExport(arg string) error {
-	addr, err := util.Address(arg)
-	if err != nil {
-		return output.NewError(output.AddressError, "failed to get address", err)
+	var (
+		addr string
+		err  error
+	)
+	if util.AliasIsHdwalletKey(arg) {
+		addr = arg
+	} else {
+		addr, err = util.Address(arg)
+		if err != nil {
+			return output.NewError(output.AddressError, "failed to get address", err)
+		}
 	}
-	output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", addr))
-	password, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return output.NewError(output.InputError, "failed to get password", nil)
-	}
-	prvKey, err := LocalAccountToPrivateKey(addr, password)
+	prvKey, err := PrivateKeyFromSigner(addr, "")
 	if err != nil {
 		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}
-	defer prvKey.Zero()
 	output.PrintResult(prvKey.HexString())
+	prvKey.Zero()
 	return nil
 }

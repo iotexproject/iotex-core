@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -154,12 +156,12 @@ func (ws *workingSet) runAction(
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
-		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsKamchatka(ws.height) {
+	if g.IsToBeEnabled(ws.height) {
 		if elp.ChainID() != blkChainCtx.ChainID {
 			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
 		}
@@ -319,7 +321,8 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedState, err := accountutil.AccountState(ws, srcAddr)
+		addr, _ := address.FromString(srcAddr)
+		confirmedState, err := accountutil.AccountState(ws, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
@@ -328,7 +331,7 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 		for i, nonce := range receivedNonces {
 			if nonce != confirmedState.Nonce+uint64(i+1) {
 				return errors.Wrapf(
-					action.ErrNonce,
+					action.ErrNonceTooHigh,
 					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
 					i,
 					nonce,
@@ -401,6 +404,7 @@ func (ws *workingSet) pickAndRunActions(
 
 	// initial action iterator
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	ctxWithBlockContext := ctx
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
@@ -412,10 +416,11 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
+			if err == nil {
 				for _, p := range reg.All() {
 					if validator, ok := p.(protocol.ActionValidator); ok {
-						if err = validator.Validate(ctx, nextAction.Action(), ws); err != nil {
+						if err = validator.Validate(actionCtx, nextAction.Action(), ws); err != nil {
 							break
 						}
 					}
@@ -430,13 +435,13 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			receipt, err := ws.runAction(ctx, nextAction)
+			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
 			case action.ErrChainID:
 				continue
-			case action.ErrHitGasLimit:
+			case action.ErrGasLimit:
 				actionIterator.PopAccount()
 				continue
 			default:
@@ -448,7 +453,7 @@ func (ws *workingSet) pickAndRunActions(
 			}
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
-				ctx = protocol.WithBlockCtx(ctx, blkCtx)
+				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, nextAction)
@@ -462,10 +467,11 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	for _, selp := range postSystemActions {
-		if ctx, err = withActionCtx(ctx, selp); err != nil {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, selp)
+		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctx, selp)
+		receipt, err := ws.runAction(actionCtx, selp)
 		if err != nil {
 			return nil, err
 		}

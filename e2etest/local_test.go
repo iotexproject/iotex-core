@@ -60,6 +60,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -74,18 +75,17 @@ func TestLocalCommit(t *testing.T) {
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
-	chainID := cfg.Chain.ID
-	bc := svr.ChainService(chainID).Blockchain()
-	sf := svr.ChainService(chainID).StateFactory()
-	ap := svr.ChainService(chainID).ActionPool()
+	cs := svr.ChainService(cfg.Chain.ID)
+	bc := cs.Blockchain()
+	sf := cs.StateFactory()
+	ap := cs.ActionPool()
 	require.NotNil(bc)
 	require.NotNil(sf)
 	require.NotNil(ap)
 
-	i27State, err := accountutil.AccountState(sf, identityset.Address(27).String())
+	i27State, err := accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc, ap))
-	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2PAgent())
 
 	// create client
@@ -113,48 +113,48 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := accountutil.AccountState(sf, identityset.Address(28).String())
+	s, err := accountutil.AccountState(sf, identityset.Address(28))
 	require.NoError(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(29).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(29))
 	require.NoError(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(30).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(30))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(31).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(31))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(32).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(32))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(33).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(33))
 	require.NoError(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(27).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -218,7 +218,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 1
 	// C --> A
-	s, _ = accountutil.AccountState(sf, identityset.Address(30).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(30))
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -228,7 +228,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act1); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 1, nil
 	})
 	require.NoError(err)
@@ -239,7 +239,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = accountutil.AccountState(sf, identityset.Address(33).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(33))
 	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -253,14 +253,14 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act2); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 2, nil
 	})
 	require.NoError(err)
 
 	// transfer 3
 	// B --> B
-	s, _ = accountutil.AccountState(sf, identityset.Address(29).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(29))
 	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -274,14 +274,14 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act3); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 3, nil
 	})
 	require.NoError(err)
 
 	// transfer 4
 	// test --> E
-	s, _ = accountutil.AccountState(sf, identityset.Address(27).String())
+	s, _ = accountutil.AccountState(sf, identityset.Address(27))
 	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -295,7 +295,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(ctx, act4); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		acts := ap.PendingActionMap()
 		return lenPendingActionMap(acts) == 4, nil
 	})
 	require.NoError(err)
@@ -312,48 +312,48 @@ func TestLocalCommit(t *testing.T) {
 	require.True(9 == bc.TipHeight())
 
 	// check balance
-	s, err = accountutil.AccountState(sf, identityset.Address(28).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(28))
 	require.NoError(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(29).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(29))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(30).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(30))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(31).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(31))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(32).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(32))
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(33).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(33))
 	require.NoError(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = accountutil.AccountState(sf, identityset.Address(27).String())
+	s, err = accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
@@ -378,6 +378,7 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(err)
 	indexDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -445,6 +446,7 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err = newTestConfig()
 	require.NoError(err)
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -537,6 +539,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
+	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
@@ -548,15 +551,13 @@ func TestStartExistingBlockchain(t *testing.T) {
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
-	chainID := cfg.Chain.ID
-	bc := svr.ChainService(chainID).Blockchain()
-	sf := svr.ChainService(chainID).StateFactory()
-	ap := svr.ChainService(chainID).ActionPool()
-	dao := svr.ChainService(chainID).BlockDAO()
+	cs := svr.ChainService(cfg.Chain.ID)
+	bc := cs.Blockchain()
+	ap := cs.ActionPool()
 	require.NotNil(bc)
-	require.NotNil(sf)
+	require.NotNil(cs.StateFactory())
 	require.NotNil(ap)
-	require.NotNil(dao)
+	require.NotNil(cs.BlockDAO())
 
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
@@ -571,17 +572,21 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
 
-	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
-	height, _ := svr.ChainService(cfg.Chain.ID).StateFactory().Height()
+	require.NoError(cs.Blockchain().Start(ctx))
+	height, _ := cs.StateFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(5), height)
-	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Stop(ctx))
+	require.NoError(cs.Blockchain().Stop(ctx))
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
+	dao := blockdao.NewBlockDAO(nil, cfg.DB)
+	require.NoError(dao.Start(protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{
+			ChainID: cfg.Chain.ID,
+		})))
 	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(dao.Stop(ctx))
 
@@ -590,11 +595,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
-	bc = svr.ChainService(chainID).Blockchain()
-	sf = svr.ChainService(chainID).StateFactory()
-	dao = svr.ChainService(chainID).BlockDAO()
-	height, _ = sf.Height()
-	require.Equal(bc.TipHeight(), height)
+	cs = svr.ChainService(cfg.Chain.ID)
+	height, _ = cs.StateFactory().Height()
+	require.Equal(cs.Blockchain().TipHeight(), height)
 	require.Equal(uint64(3), height)
 
 	// Recover to height 2 from an existing state DB with Height 3
@@ -602,7 +605,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
+	require.NoError(dao.Start(protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(ctx, cfg.Genesis),
+		protocol.BlockchainCtx{
+			ChainID: cfg.Chain.ID,
+		})))
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
@@ -610,10 +617,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	// Build states from height 1 to 2
 	require.NoError(svr.Start(ctx))
-	bc = svr.ChainService(chainID).Blockchain()
-	sf = svr.ChainService(chainID).StateFactory()
-	height, _ = sf.Height()
-	require.Equal(bc.TipHeight(), height)
+	cs = svr.ChainService(cfg.Chain.ID)
+	height, _ = cs.StateFactory().Height()
+	require.Equal(cs.Blockchain().TipHeight(), height)
 	require.Equal(uint64(2), height)
 	require.NoError(svr.Stop(ctx))
 }
@@ -626,6 +632,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
+	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
 	sk, err := crypto.GenerateKey()
 

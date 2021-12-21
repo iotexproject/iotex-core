@@ -28,7 +28,6 @@ type admin struct {
 	numDelegatesForFoundationBonus uint64
 	foundationBonusLastEpoch       uint64
 	productivityThreshold          uint64
-	foundationBonusExtension       []genesis.Period
 }
 
 // Serialize serializes admin state into bytes
@@ -41,24 +40,8 @@ func (a admin) Serialize() ([]byte, error) {
 		NumDelegatesForFoundationBonus: a.numDelegatesForFoundationBonus,
 		FoundationBonusLastEpoch:       a.foundationBonusLastEpoch,
 		ProductivityThreshold:          a.productivityThreshold,
-		FoundationBonusExtension:       a.periodProto(),
 	}
 	return proto.Marshal(&gen)
-}
-
-func (a *admin) periodProto() []*rewardingpb.Period {
-	if len(a.foundationBonusExtension) == 0 {
-		return nil
-	}
-
-	pb := make([]*rewardingpb.Period, len(a.foundationBonusExtension))
-	for i, ext := range a.foundationBonusExtension {
-		pb[i] = &rewardingpb.Period{
-			Start: ext.Start,
-			End:   ext.End,
-		}
-	}
-	return pb
 }
 
 // Deserialize deserializes bytes into admin state
@@ -86,35 +69,11 @@ func (a *admin) Deserialize(data []byte) error {
 	a.numDelegatesForFoundationBonus = gen.NumDelegatesForFoundationBonus
 	a.foundationBonusLastEpoch = gen.FoundationBonusLastEpoch
 	a.productivityThreshold = gen.ProductivityThreshold
-
-	if len(gen.FoundationBonusExtension) == 0 {
-		return nil
-	}
-	a.foundationBonusExtension = make([]genesis.Period, len(gen.FoundationBonusExtension))
-	for i, v := range gen.FoundationBonusExtension {
-		a.foundationBonusExtension[i] = genesis.Period{
-			Start: v.Start,
-			End:   v.End,
-		}
-	}
 	return nil
 }
 
-func (a *admin) hasFoundationBonusExtension() bool {
-	// starting Kamchatka height, we add the foundation bonus extension epoch into admin{} struct
-	return len(a.foundationBonusExtension) > 0
-}
-
 func (a *admin) grantFoundationBonus(epoch uint64) bool {
-	if epoch <= a.foundationBonusLastEpoch {
-		return true
-	}
-	for _, ext := range a.foundationBonusExtension {
-		if epoch >= ext.Start && epoch <= ext.End {
-			return true
-		}
-	}
-	return false
+	return epoch <= a.foundationBonusLastEpoch
 }
 
 // exempt stores the addresses that exempt from epoch reward

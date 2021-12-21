@@ -206,6 +206,7 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		log.L().Panic("blockdao is nil")
 	}
 	chain.lifecycle.Add(chain.dao)
+	chain.lifecycle.Add(chain.pubSubManager)
 
 	return chain
 }
@@ -415,8 +416,6 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	log.L().Info("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
@@ -426,9 +425,6 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-
 	return bc.pubSubManager.RemoveBlockListener(s)
 }
 
@@ -470,7 +466,7 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
-	ctx, err := bc.context(context.Background(), false)
+	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
 	}

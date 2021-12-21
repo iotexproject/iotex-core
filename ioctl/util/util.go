@@ -108,9 +108,6 @@ func RauToString(amount *big.Int, numDecimals int) string {
 
 // IoAddrToEvmAddr converts IoTeX address into evm address
 func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
-	if err := validator.ValidateAddress(ioAddr); err != nil {
-		return common.Address{}, output.NewError(output.ValidationError, "", err)
-	}
 	address, err := address.FromString(ioAddr)
 	if err != nil {
 		return common.Address{}, output.NewError(output.ConvertError, "", err)
@@ -172,7 +169,7 @@ func GetAddress(in string) (string, error) {
 func Address(in string) (string, error) {
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
-			return "", output.NewError(output.ValidationError, "", err)
+			return "", output.NewError(output.ValidationError, in, err)
 		}
 		return in, nil
 	}
@@ -180,7 +177,7 @@ func Address(in string) (string, error) {
 	if ok {
 		return addr, nil
 	}
-	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+	return "", output.NewError(output.ConfigError, "cannot find address for alias "+in, nil)
 }
 
 // JwtAuth used for ioctl set auth and send for every grpc request

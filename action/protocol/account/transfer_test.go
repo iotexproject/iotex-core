@@ -39,7 +39,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 		payload := tmpPayload[:]
 		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0), big.NewInt(0))
 		require.NoError(err)
-		require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), tsf, nil)))
+		require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), tsf, nil)))
 	})
 }
 
@@ -114,9 +114,11 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 		})
 
-		sender, err := accountutil.AccountState(sm, v.caller.String())
+		sender, err := accountutil.AccountState(sm, v.caller)
 		require.NoError(err)
-		recipient, err := accountutil.AccountState(sm, v.recipient)
+		addr, err := address.FromString(v.recipient)
+		require.NoError(err)
+		recipient, err := accountutil.AccountState(sm, addr)
 		require.NoError(err)
 		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
 
@@ -126,7 +128,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		if err != nil {
 			require.Nil(receipt)
 			// sender balance/nonce remains the same in case of error
-			newSender, err := accountutil.AccountState(sm, v.caller.String())
+			newSender, err := accountutil.AccountState(sm, v.caller)
 			require.NoError(err)
 			require.Equal(sender.Balance, newSender.Balance)
 			require.Equal(sender.Nonce, newSender.Nonce)
@@ -138,13 +140,15 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) && !v.isContract {
 			gasFee.Add(gasFee, v.amount)
 			// verify recipient
-			newRecipient, err := accountutil.AccountState(sm, v.recipient)
+			addr, err := address.FromString(v.recipient)
+			require.NoError(err)
+			newRecipient, err := accountutil.AccountState(sm, addr)
 			require.NoError(err)
 			recipient.AddBalance(v.amount)
 			require.Equal(recipient.Balance, newRecipient.Balance)
 		}
 		// verify sender balance/nonce
-		newSender, err := accountutil.AccountState(sm, v.caller.String())
+		newSender, err := accountutil.AccountState(sm, v.caller)
 		require.NoError(err)
 		sender.SubBalance(gasFee)
 		require.Equal(sender.Balance, newSender.Balance)

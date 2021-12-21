@@ -23,12 +23,30 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+func TestDummyAgent(t *testing.T) {
+	require := require.New(t)
+	a := NewDummyAgent()
+	require.NoError(a.Start(nil))
+	require.NoError(a.Stop(nil))
+	require.NoError(a.BroadcastOutbound(nil, nil))
+	require.NoError(a.UnicastOutbound(nil, peer.AddrInfo{}, nil))
+	info, err := a.Info()
+	require.Equal(peer.AddrInfo{}, info)
+	require.NoError(err)
+	addrs, err := a.Self()
+	require.Nil(addrs)
+	require.NoError(err)
+	neighbors, err := a.Neighbors(nil)
+	require.Nil(neighbors)
+	require.NoError(err)
+}
+
 func TestBroadcast(t *testing.T) {
 	r := require.New(t)
 
 	ctx := context.Background()
 	n := 10
-	agents := make([]*Agent, 0)
+	agents := make([]Agent, 0)
 	defer func() {
 		var err error
 		for _, agent := range agents {
@@ -108,7 +126,7 @@ func TestUnicast(t *testing.T) {
 
 	ctx := context.Background()
 	n := 10
-	agents := make([]*Agent, 0)
+	agents := make([]Agent, 0)
 	defer func() {
 		var err error
 		for _, agent := range agents {

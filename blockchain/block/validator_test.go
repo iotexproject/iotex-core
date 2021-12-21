@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
@@ -31,10 +33,10 @@ func TestValidator(t *testing.T) {
 	v := NewValidator(nil)
 	require.NoError(v.Validate(ctx, blk))
 
-	valid := protocol.NewGenericValidator(nil, func(sr protocol.StateReader, addr string) (*state.Account, error) {
+	valid := protocol.NewGenericValidator(nil, func(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
 		eAddr := pk.Address()
-		if strings.EqualFold(eAddr.String(), addr) {
+		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
 		return &state.Account{Nonce: 2}, nil
@@ -57,6 +59,6 @@ func TestValidator(t *testing.T) {
 	require.NoError(err)
 
 	v = NewValidator(nil, valid)
-	require.True(strings.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error"))
+	require.Contains(v.Validate(ctx, &nblk).Error(), "MockChainManager nonce error")
 
 }

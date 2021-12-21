@@ -64,9 +64,9 @@ type (
 		preimageSnapshot    map[int]preimageMap
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
-		fixSnapshotOrder    bool
 		sortCachedContracts bool
 		usePendingNonce     bool
+		fixSnapshotOrder    bool
 	}
 )
 
@@ -81,10 +81,34 @@ func SortCachedContractsOption() StateDBAdapterOption {
 	}
 }
 
-// UsePendingNonceOption set sort cached contracts as true
+// NotFixTopicCopyBugOption set notFixTopicCopyBug as true
+func NotFixTopicCopyBugOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.notFixTopicCopyBug = true
+		return nil
+	}
+}
+
+// AsyncContractTrieOption set asyncContractTrie as true
+func AsyncContractTrieOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.asyncContractTrie = true
+		return nil
+	}
+}
+
+// UsePendingNonceOption set usePendingNonce as true
 func UsePendingNonceOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.usePendingNonce = true
+		return nil
+	}
+}
+
+// FixSnapshotOrderOption set fixSnapshotOrder as true
+func FixSnapshotOrderOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixSnapshotOrder = true
 		return nil
 	}
 }
@@ -93,27 +117,21 @@ func UsePendingNonceOption() StateDBAdapterOption {
 func NewStateDBAdapter(
 	sm protocol.StateManager,
 	blockHeight uint64,
-	notFixTopicCopyBug bool,
-	asyncContractTrie bool,
-	fixSnapshotOrder bool,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
 	s := &StateDBAdapter{
-		sm:                 sm,
-		logs:               []*action.Log{},
-		err:                nil,
-		blockHeight:        blockHeight,
-		executionHash:      executionHash,
-		cachedContract:     make(contractMap),
-		contractSnapshot:   make(map[int]contractMap),
-		suicided:           make(deleteAccount),
-		suicideSnapshot:    make(map[int]deleteAccount),
-		preimages:          make(preimageMap),
-		preimageSnapshot:   make(map[int]preimageMap),
-		notFixTopicCopyBug: notFixTopicCopyBug,
-		asyncContractTrie:  asyncContractTrie,
-		fixSnapshotOrder:   fixSnapshotOrder,
+		sm:               sm,
+		logs:             []*action.Log{},
+		err:              nil,
+		blockHeight:      blockHeight,
+		executionHash:    executionHash,
+		cachedContract:   make(contractMap),
+		contractSnapshot: make(map[int]contractMap),
+		suicided:         make(deleteAccount),
+		suicideSnapshot:  make(map[int]deleteAccount),
+		preimages:        make(preimageMap),
+		preimageSnapshot: make(map[int]preimageMap),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -446,6 +464,16 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore the suicide accounts
 	stateDB.suicided = nil
 	stateDB.suicided = ds
+	if stateDB.fixSnapshotOrder {
+		delete(stateDB.suicideSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.suicideSnapshot[i]; ok {
+				delete(stateDB.suicideSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore modified contracts
 	stateDB.cachedContract = nil
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
@@ -456,9 +484,29 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			return
 		}
 	}
+	if stateDB.fixSnapshotOrder {
+		delete(stateDB.contractSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.contractSnapshot[i]; ok {
+				delete(stateDB.contractSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore preimages
 	stateDB.preimages = nil
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
+	if stateDB.fixSnapshotOrder {
+		delete(stateDB.preimageSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.preimageSnapshot[i]; ok {
+				delete(stateDB.preimageSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -484,7 +532,11 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	sn := stateDB.sm.Snapshot()
 	if _, ok := stateDB.suicideSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
-		log.L().Error("Failed to snapshot.", zap.Error(err))
+		if stateDB.fixSnapshotOrder {
+			log.L().Panic("Failed to snapshot.", zap.Error(err))
+		} else {
+			log.L().Error("Failed to snapshot.", zap.Error(err))
+		}
 		// stateDB.err = err
 		return sn
 	}
