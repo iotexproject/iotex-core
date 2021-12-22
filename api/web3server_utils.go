@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -77,7 +76,7 @@ type (
 )
 
 func hexStringToNumber(hexStr string) (uint64, error) {
-	return strconv.ParseUint(removeHexPrefix(hexStr), 16, 64)
+	return strconv.ParseUint(util.Remove0xPrefix(hexStr), 16, 64)
 }
 
 func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
@@ -87,11 +86,19 @@ func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 	return address.FromHex(ethAddr)
 }
 
+func ioAddrToEvmAddr(ioAddr string) (common.Address, error) {
+	address, err := address.FromString(ioAddr)
+	if err != nil {
+		return common.Address{}, errInvalidFormat
+	}
+	return common.BytesToAddress(address.Bytes()), nil
+}
+
 func ioAddrToEthAddr(ioAddr string) (string, error) {
 	if len(ioAddr) == 0 {
 		return "0x0000000000000000000000000000000000000000", nil
 	}
-	addr, err := util.IoAddrToEvmAddr(ioAddr)
+	addr, err := ioAddrToEvmAddr(ioAddr)
 	if err != nil {
 		return "", err
 	}
@@ -141,15 +148,9 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 	return
 }
 
-func removeHexPrefix(hexStr string) string {
-	ret := strings.Replace(hexStr, "0x", "", -1)
-	ret = strings.Replace(ret, "0X", "", -1)
-	return ret
-}
-
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactionsRoot := "0x"
-	var transactions []interface{}
+	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
 		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
 		if err != nil {
@@ -289,7 +290,7 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 	}
 
 	if tx.To == nil {
-		actHash, err := hash.HexStringToHash256(removeHexPrefix(tx.Hash))
+		actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(tx.Hash))
 		if err != nil {
 			return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", tx.Hash)
 		}
@@ -308,9 +309,9 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	switch str {
-	case "earliest":
+	case earliestBlockNumber:
 		return 1, nil
-	case "", "pending", "latest":
+	case "", pendingBlockNumber, latestBlockNumber:
 		return svr.coreService.bc.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
@@ -383,7 +384,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	// parse log results
 	ret := make([]logsObject, 0)
 	for _, l := range logs {
-		var topics []string
+		topics := make([]string, 0)
 		for _, val := range l.Topics {
 			topics = append(topics, byteToHex(val))
 		}
@@ -406,24 +407,12 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	return ret, nil
 }
 
-func isResultValid(in web3Resp) bool {
-	objInByte, err := json.Marshal(in)
-	if err != nil || !gjson.Valid(string(objInByte)) {
-		return false
-	}
-	parsedReqs := gjson.Parse(string(objInByte))
-	if !parsedReqs.Get("error").Exists() && !parsedReqs.Get("result").Exists() {
-		return false
-	}
-	return true
-}
-
 func byteToHex(b []byte) string {
 	return "0x" + hex.EncodeToString(b)
 }
 
 func hexToBytes(str string) ([]byte, error) {
-	str = removeHexPrefix(str)
+	str = util.Remove0xPrefix(str)
 	if len(str)%2 == 1 {
 		str = "0" + str
 	}
@@ -443,11 +432,11 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 			if topics.IsArray() {
 				var topicArr []string
 				for _, topic := range topics.Array() {
-					topicArr = append(topicArr, removeHexPrefix(topic.String()))
+					topicArr = append(topicArr, util.Remove0xPrefix(topic.String()))
 				}
 				logReq.Topics = append(logReq.Topics, topicArr)
 			} else {
-				logReq.Topics = append(logReq.Topics, []string{removeHexPrefix(topics.String())})
+				logReq.Topics = append(logReq.Topics, []string{util.Remove0xPrefix(topics.String())})
 			}
 		}
 	}
@@ -496,7 +485,7 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 	}
 	from = ioAddr.String()
 	if callObj.Value != "" {
-		value, ok = big.NewInt(0).SetString(removeHexPrefix(callObj.Value), 16)
+		value, ok = big.NewInt(0).SetString(util.Remove0xPrefix(callObj.Value), 16)
 		if !ok {
 			err = errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
 			return
