@@ -679,7 +679,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		}
 		log := logsObject{
 			BlockHash:        "0x" + blkHash,
-			TransactionHash:  "0x" + hex.EncodeToString(v.ActionHash[:]),
+			TransactionHash:  "0x" + hex.EncodeToString(actHash[:]),
 			TransactionIndex: tx.TransactionIndex,
 			LogIndex:         uint64ToHex(uint64(v.Index)),
 			BlockNumber:      uint64ToHex(v.BlockHeight),
@@ -699,7 +699,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		Status:            uint64ToHex(receipt.Status),
 		To:                tx.To,
-		TransactionHash:   actHashStr,
+		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
 		TransactionIndex:  tx.TransactionIndex,
 		Logs:              logs,
 	}, nil
