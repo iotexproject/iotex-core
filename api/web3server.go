@@ -252,8 +252,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 		}
 		if err != nil {
 			// temporally used for monitor and debug
-			log.L().Error("web3 server err",
-				zap.String("input", fmt.Sprintf("%+v", web3Req)),
+			log.L().Error("web3server",
+				zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 				zap.Error(err))
 		}
 		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
@@ -673,13 +673,13 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		for _, tpc := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
 		}
-		addr := ""
-		if contractAddr != nil {
-			addr = *contractAddr
+		addr, err := ioAddrToEthAddr(v.Address)
+		if err != nil {
+			return nil, err
 		}
 		log := logsObject{
 			BlockHash:        "0x" + blkHash,
-			TransactionHash:  actHashStr,
+			TransactionHash:  "0x" + hex.EncodeToString(actHash[:]),
 			TransactionIndex: tx.TransactionIndex,
 			LogIndex:         uint64ToHex(uint64(v.Index)),
 			BlockNumber:      uint64ToHex(v.BlockHeight),
@@ -699,7 +699,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		Status:            uint64ToHex(receipt.Status),
 		To:                tx.To,
-		TransactionHash:   actHashStr,
+		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
 		TransactionIndex:  tx.TransactionIndex,
 		Logs:              logs,
 	}, nil
