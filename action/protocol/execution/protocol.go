@@ -66,7 +66,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	exec, ok := act.(*action.Execution)
 	if !ok {
-		if !featureCtx.TransferToContractFallback {
+		if !featureCtx.ConvertTransferToExecution {
 			return nil, nil
 		}
 
@@ -84,18 +84,17 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		if err != nil {
 			return nil, err
 		}
-		if recipientAcct.IsContract() {
-			exec, _ = action.NewExecution(
-				tsf.Recipient(),
-				tsf.Nonce(),
-				tsf.Amount(),
-				tsf.GasLimit(),
-				tsf.GasPrice(),
-				tsf.Payload(),
-			)
-		} else {
+		if !recipientAcct.IsContract() {
 			return nil, nil
 		}
+		exec, _ = action.NewExecution(
+			tsf.Recipient(),
+			tsf.Nonce(),
+			tsf.Amount(),
+			tsf.GasLimit(),
+			tsf.GasPrice(),
+			tsf.Payload(),
+		)
 	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 

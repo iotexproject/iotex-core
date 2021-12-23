@@ -69,7 +69,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
 	if err == nil && recipientAcct.IsContract() {
-		if featureCtx.TransferToContractFallback {
+		if featureCtx.ConvertTransferToExecution {
 			return nil, nil
 		}
 
