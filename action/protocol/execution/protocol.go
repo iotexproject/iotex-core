@@ -61,40 +61,45 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 	return ep
 }
 
+func (p *Protocol) convertToExecution(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Execution, error) {
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if !featureCtx.ConvertTransferToExecution {
+		return nil, nil
+	}
+	tsf, ok := act.(*action.Transfer)
+	if !ok {
+		return nil, nil
+	}
+	recipientAddr, err := address.FromString(tsf.Recipient())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
+	}
+	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
+	if err != nil {
+		return nil, err
+	}
+	if !recipientAcct.IsContract() {
+		return nil, nil
+	}
+	exec, _ := action.NewExecution(
+		tsf.Recipient(),
+		tsf.Nonce(),
+		tsf.Amount(),
+		tsf.GasLimit(),
+		tsf.GasPrice(),
+		tsf.Payload(),
+	)
+	return exec, nil
+}
+
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	exec, ok := act.(*action.Execution)
 	if !ok {
-		if !featureCtx.ConvertTransferToExecution {
-			return nil, nil
-		}
-
-		tsf, ok := act.(*action.Transfer)
-		if !ok {
-			return nil, nil
-		}
-
-		recipientAddr, err := address.FromString(tsf.Recipient())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
-		}
-
-		recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
-		if err != nil {
+		exec, err := p.convertToExecution(ctx, act, sm)
+		if exec == nil {
 			return nil, err
 		}
-		if !recipientAcct.IsContract() {
-			return nil, nil
-		}
-		exec, _ = action.NewExecution(
-			tsf.Recipient(),
-			tsf.Nonce(),
-			tsf.Amount(),
-			tsf.GasLimit(),
-			tsf.GasPrice(),
-			tsf.Payload(),
-		)
 	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 
