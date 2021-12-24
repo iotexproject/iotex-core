@@ -94,9 +94,10 @@ func (p *Protocol) convertToExecution(ctx context.Context, act action.Action, sm
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	var err error
 	exec, ok := act.(*action.Execution)
 	if !ok {
-		exec, err := p.convertToExecution(ctx, act, sm)
+		exec, err = p.convertToExecution(ctx, act, sm)
 		if exec == nil {
 			return nil, err
 		}
