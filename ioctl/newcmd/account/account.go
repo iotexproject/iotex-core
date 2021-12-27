@@ -65,7 +65,7 @@ var (
 // CryptoSm2 is a flag for sm2 cryptographic algorithm
 var CryptoSm2 bool
 
-// NewAccountCreate represents the account command
+// NewAccountCmd represents the account command
 func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	accountUses, _ := client.SelectTranslation(accountCmdUses)
 	accountShorts, _ := client.SelectTranslation(accountCmdShorts)
