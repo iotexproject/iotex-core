@@ -2316,23 +2316,6 @@ func TestGrpcServer_GetElectionBuckets(t *testing.T) {
 	require.Error(err)
 }
 
-func TestGrpcServer_GetActionByActionHash(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig(t)
-
-	svr, bfIndexFile, err := createServerV2(cfg, false)
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
-	}()
-
-	for _, test := range getActionByActionHashTest {
-		ret, err := svr.core.ActionByActionHash(test.h)
-		require.NoError(err)
-		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
-	}
-}
-
 func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
