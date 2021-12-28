@@ -85,7 +85,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		if !recipientAcct.IsContract() {
 			return nil, nil
 		}
-		exec, _ = action.NewExecution(
+		exec, err = action.NewExecution(
 			tsf.Recipient(),
 			tsf.Nonce(),
 			tsf.Amount(),
@@ -93,6 +93,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 			tsf.GasPrice(),
 			tsf.Payload(),
 		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 
