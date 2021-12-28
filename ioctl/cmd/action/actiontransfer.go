@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -51,6 +52,15 @@ func transfer(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get recipient address", err)
 	}
+
+	accountMeta, err := account.GetAccountMeta(recipient)
+	if err != nil {
+		return output.NewError(0, "failed to get account meta", err)
+	}
+	if accountMeta.IsContract {
+		return output.NewError(output.RuntimeError, "use 'ioctl contract' command instead", err)
+	}
+
 	amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
