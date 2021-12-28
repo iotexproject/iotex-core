@@ -61,15 +61,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 	return ep
 }
 
-func (p *Protocol) convertToExecution(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Execution, error) {
-	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	if !featureCtx.ConvertTransferToExecution {
-		return nil, nil
-	}
-	tsf, ok := act.(*action.Transfer)
-	if !ok {
-		return nil, nil
-	}
+func (p *Protocol) convertToExecution(ctx context.Context, tsf *action.Transfer, sm protocol.StateManager) (*action.Execution, error) {
 	recipientAddr, err := address.FromString(tsf.Recipient())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
@@ -81,7 +73,7 @@ func (p *Protocol) convertToExecution(ctx context.Context, act action.Action, sm
 	if !recipientAcct.IsContract() {
 		return nil, nil
 	}
-	exec, _ := action.NewExecution(
+	return action.NewExecution(
 		tsf.Recipient(),
 		tsf.Nonce(),
 		tsf.Amount(),
@@ -89,7 +81,6 @@ func (p *Protocol) convertToExecution(ctx context.Context, act action.Action, sm
 		tsf.GasPrice(),
 		tsf.Payload(),
 	)
-	return exec, nil
 }
 
 // Handle handles an execution
@@ -97,8 +88,16 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	var err error
 	exec, ok := act.(*action.Execution)
 	if !ok {
-		exec, err = p.convertToExecution(ctx, act, sm)
-		if exec == nil {
+		featureCtx := protocol.MustGetFeatureCtx(ctx)
+		if !featureCtx.ConvertTransferToExecution {
+			return nil, nil
+		}
+		tsf, ok := act.(*action.Transfer)
+		if !ok {
+			return nil, nil
+		}
+		exec, err = p.convertToExecution(ctx, tsf, sm)
+		if exec == nil || err != nil {
 			return nil, err
 		}
 	}
