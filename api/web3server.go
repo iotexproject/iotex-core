@@ -244,6 +244,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
+		case "eth_debugTransactionByHash":
+			res, err = svr.debugTransactionByHash(params)
 		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
@@ -615,6 +617,49 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 		return nil, err
 	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos)
+}
+
+func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, error) {
+	h, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(h), false)
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.Unavailable {
+			return nil, nil
+		}
+		return nil, err
+	}
+	nselp := &action.SealedEnvelope{}
+	var act *action.Execution
+
+	switch actInfo.Action.Core.Action.(type) {
+	case *iotextypes.ActionCore_Execution:
+		err = nselp.LoadProto(actInfo.Action)
+		if err != nil {
+			return nil, err
+		}
+		act, _ = nselp.Action().(*action.Execution)
+
+	default:
+		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
+	}
+	if err != nil {
+		return transactionObject{}, err
+	}
+
+	callerAddr, _ := address.FromString(act.Contract())
+	sf := svr.coreService.sf
+	_, _, err = sf.SimulateExecution(context.Background(), callerAddr, act, func(uint64) (hash.Hash256, error) {
+		return hash.ZeroHash256, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
