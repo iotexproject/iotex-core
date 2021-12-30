@@ -122,3 +122,21 @@ func TestCreateStake(t *testing.T) {
 	}
 
 }
+
+func TestABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	test := stakeCreateTestParams[0]
+	stake, err := NewCreateStake(test.Nonce, test.CanAddress, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
+	require.NoError(err)
+	data, err := stake.EncodingABIBinary(StakingInterface)
+	require.NoError(err)
+	method, err := StakingInterface.MethodById(data[:4])
+	require.NoError(err)
+	err = stake.DecodingABIBinary(method, data[4:])
+	require.NoError(err)
+	require.Equal(test.CanAddress, stake.candName)
+	require.Equal(test.AmountStr, stake.amount.String())
+	require.Equal(test.Duration, stake.duration)
+	require.Equal(test.AutoStake, stake.autoStake)
+	require.Equal(test.Payload, stake.payload)
+}
