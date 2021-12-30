@@ -288,13 +288,13 @@ func MustGetFeatureWithHeightCtx(ctx context.Context) FeatureWithHeightCtx {
 	return fc
 }
 
-// WithVmConfig adds vm config to context
-func WithVmConfig(ctx context.Context, vmConfig vm.Config) context.Context {
+// WithVMConfig adds vm config to context
+func WithVMConfig(ctx context.Context, vmConfig vm.Config) context.Context {
 	return context.WithValue(ctx, vmConfigContextKey{}, vmConfig)
 }
 
-// GetVmConfig returns the vm config from context
-func GetVmConfig(ctx context.Context) (vm.Config, bool) {
+// GetVMConfig returns the vm config from context
+func GetVMConfig(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
 }

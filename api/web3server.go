@@ -679,7 +679,7 @@ func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, erro
 	if err != nil {
 		return nil, err
 	}
-	ctx = protocol.WithVmConfig(ctx, vmConfig)
+	ctx = protocol.WithVMConfig(ctx, vmConfig)
 	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
 	if err != nil {
 		return nil, err

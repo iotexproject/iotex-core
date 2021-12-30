@@ -320,7 +320,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	vmCfg, ok := protocol.GetVmConfig(ctx)
+	vmCfg, ok := protocol.GetVMConfig(ctx)
 	if ok {
 		config = vmCfg
 	}
