@@ -192,7 +192,7 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
 	require.Equal(2, s2)
-	require.NoError(s.AddBalance(big.NewInt(6)))
+	s.AddBalance(big.NewInt(6))
 	require.Equal(big.NewInt(13), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(tHash))
 	require.NoError(err)

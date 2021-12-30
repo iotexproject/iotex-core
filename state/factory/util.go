@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"sync"
 
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -44,10 +45,16 @@ func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 	if len(receipts) == 0 {
 		return hash.ZeroHash256
 	}
-	h := make([]hash.Hash256, 0, len(receipts))
-	for _, receipt := range receipts {
-		h = append(h, receipt.Hash())
+	h := make([]hash.Hash256, len(receipts))
+	var wg sync.WaitGroup
+	for i := range receipts {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			h[i] = receipts[i].Hash()
+		}(i)
 	}
+	wg.Wait()
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res
 }

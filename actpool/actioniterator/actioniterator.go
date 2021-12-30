@@ -41,6 +41,7 @@ func (s *actionByPrice) Pop() interface{} {
 // 	PopAccount()
 // }
 
+// ActionIterator define the interface of action iterator
 type ActionIterator struct {
 	accountActs map[string][]action.SealedEnvelope
 	heads       actionByPrice

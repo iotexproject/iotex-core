@@ -388,7 +388,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr)
 	if err != nil {
 		return err
 	}

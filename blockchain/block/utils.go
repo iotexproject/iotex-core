@@ -14,20 +14,29 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
 )
 
 func calculateTxRoot(acts []action.SealedEnvelope) (hash.Hash256, error) {
-	h := make([]hash.Hash256, 0, len(acts))
-	for _, act := range acts {
-		actHash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Error in getting hash", zap.Error(err))
-			return hash.ZeroHash256, err
-		}
-		h = append(h, actHash)
+	h := make([]hash.Hash256, len(acts))
+	var eg = new(errgroup.Group)
+	for i := range acts {
+		j := i // https://golang.org/doc/faq#closures_and_goroutines
+		eg.Go(func() error {
+			actHash, err := acts[j].Hash()
+			if err != nil {
+				log.L().Debug("Error in getting hash", zap.Error(err))
+				return err
+			}
+			h[j] = actHash
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return hash.ZeroHash256, err
 	}
 	if len(h) == 0 {
 		return hash.ZeroHash256, nil

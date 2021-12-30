@@ -159,7 +159,7 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 		log.L().Error("Failed to convert evm address.", zap.Error(err))
 		return
 	}
-	_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr.String())
+	_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr)
 	if err != nil {
 		log.L().Error("Failed to create account.", zap.Error(err))
 		stateDB.logError(err)
@@ -215,18 +215,14 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		state = contract.SelfState()
 	} else {
-		state, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr.String())
+		state, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr)
 		if err != nil {
 			log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
 			stateDB.logError(err)
 			return
 		}
 	}
-	if err := state.AddBalance(amount); err != nil {
-		log.L().Error("Failed to add balance.", zap.Error(err))
-		stateDB.logError(err)
-		return
-	}
+	state.AddBalance(amount)
 	if err := accountutil.StoreAccount(stateDB.sm, addr, state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 		stateDB.logError(err)

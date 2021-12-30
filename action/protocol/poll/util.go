@@ -170,7 +170,11 @@ func setCandidates(
 	}
 	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
 	for _, candidate := range candidates {
-		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
+		candAddr, err := address.FromString(candidate.Address)
+		if err != nil {
+			errors.Wrap(err, "failed to convert candidate address")
+		}
+		delegate, err := accountutil.LoadOrCreateAccount(sm, candAddr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
@@ -179,10 +183,6 @@ func setCandidates(
 			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
 				return err
 			}
-		}
-		candAddr, err := address.FromString(candidate.Address)
-		if err != nil {
-			errors.Wrap(err, "failed to convert candidate address")
 		}
 		if err := accountutil.StoreAccount(sm, candAddr, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")

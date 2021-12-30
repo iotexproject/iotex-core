@@ -89,9 +89,8 @@ func (st *Account) Deserialize(buf []byte) error {
 }
 
 // AddBalance adds balance for account state
-func (st *Account) AddBalance(amount *big.Int) error {
+func (st *Account) AddBalance(amount *big.Int) {
 	st.Balance.Add(st.Balance, amount)
-	return nil
 }
 
 // SubBalance subtracts balance for account state

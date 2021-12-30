@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -107,7 +106,6 @@ func BenchmarkValidateBlock(b *testing.B) {
 
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	fmt.Println(len(blk.Body.Actions))
 
 	for n := 0; n < b.N; n++ {
 		t1 := time.Now()

@@ -7,8 +7,6 @@
 package accountutil
 
 import (
-	"math/big"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -30,27 +28,22 @@ func SetNonce(i noncer, state *state.Account) {
 }
 
 // LoadOrCreateAccount either loads an account state or creates an account state
-func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.Account, error) {
+func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address) (*state.Account, error) {
 	var account state.Account
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		account = state.EmptyAccount()
-		return &account, errors.Wrap(err, "failed to get address public key hash from encoded address")
-	}
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	_, err = sm.State(&account, protocol.LegacyKeyOption(addrHash))
-	if err == nil {
+	_, err := sm.State(&account, protocol.LegacyKeyOption(addrHash))
+	switch errors.Cause(err) {
+	case nil:
 		return &account, nil
-	}
-	if errors.Cause(err) == state.ErrStateNotExist {
-		account.Balance = big.NewInt(0)
-		account.VotingWeight = big.NewInt(0)
+	case state.ErrStateNotExist:
+		account = state.EmptyAccount()
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
 		return &account, nil
+	default:
+		return nil, err
 	}
-	return nil, err
 }
 
 // LoadAccount loads an account state by address.Address
@@ -61,14 +54,16 @@ func LoadAccount(sr protocol.StateReader, addr address.Address) (*state.Account,
 // LoadAccountByHash160 loads an account state by 20-byte address
 func LoadAccountByHash160(sr protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
 	var account state.Account
-	if _, err := sr.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
+	_, err := sr.State(&account, protocol.LegacyKeyOption(addrHash))
+	switch errors.Cause(err) {
+	case nil:
+		return &account, nil
+	case state.ErrStateNotExist:
+		account = state.EmptyAccount()
+		return &account, nil
+	default:
 		return nil, err
 	}
-	return &account, nil
 }
 
 // StoreAccount puts updated account state to trie
