@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -22,6 +24,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -650,16 +654,38 @@ func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, erro
 		return transactionObject{}, err
 	}
 
-	callerAddr, _ := address.FromString(act.Contract())
-	sf := svr.coreService.sf
-	_, _, err = sf.SimulateExecution(context.Background(), callerAddr, act, func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	})
-
+	callerAddr, err := address.FromString(actInfo.Sender)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	state, err := accountutil.AccountState(svr.coreService.sf, callerAddr)
+	if err != nil {
+		return nil, err
+	}
+	nonce := state.Nonce + 1
+	sc, _ := action.NewExecution(
+		act.Contract(),
+		nonce,
+		act.Amount(),
+		svr.coreService.cfg.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		act.Data(),
+	)
+
+	tracer := vm.NewStructLogger(nil)
+	vmConfig := vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true}
+
+	ctx, err := svr.coreService.bc.Context(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	ctx = protocol.WithVmConfig(ctx, vmConfig)
+	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return tracer.StructLogs(), nil
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
