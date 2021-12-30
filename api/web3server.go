@@ -651,7 +651,7 @@ func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, erro
 		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
 	}
 	if err != nil {
-		return transactionObject{}, err
+		return nil, err
 	}
 
 	callerAddr, err := address.FromString(actInfo.Sender)
