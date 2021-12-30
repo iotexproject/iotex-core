@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -351,6 +353,35 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 		return false, err
 	}
 	return accountMeta.IsContract, nil
+}
+
+func addStakingAction(data []byte, core *iotextypes.ActionCore) error {
+	var (
+		method *abi.Method
+		err    error
+	)
+	if len(data) <= 5 {
+		return errInvalidFormat
+	}
+	method, err = action.StakingInterface.MethodById(data[1:5])
+	if err != nil {
+		return err
+	}
+	switch method.Name {
+	case "createStake":
+		var act action.CreateStake
+		err = act.DecodingABIBinary(method, data[5:])
+		if err != nil {
+			return err
+		}
+		core.Action, err = act.ConvertProto()
+	default:
+		return errInvalidFormat
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {

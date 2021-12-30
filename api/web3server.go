@@ -495,25 +495,33 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
 
+	switch to {
 	// TODO: process special staking action
-
-	if isContract, _ := svr.isContractAddr(to); !isContract {
-		// transfer
-		req.Core.Action = &iotextypes.ActionCore_Transfer{
-			Transfer: &iotextypes.Transfer{
-				Recipient: to,
-				Payload:   tx.Data(),
-				Amount:    value,
-			},
+	// this is staking
+	case "io1qqqqqqqqqqq8xarpdd5kue6rwfjkzar9k0wk6t":
+		err := addStakingAction(tx.Data(), req.Core)
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		// execution
-		req.Core.Action = &iotextypes.ActionCore_Execution{
-			Execution: &iotextypes.Execution{
-				Contract: to,
-				Data:     tx.Data(),
-				Amount:   value,
-			},
+	default:
+		if isContract, _ := svr.isContractAddr(to); !isContract {
+			// transfer
+			req.Core.Action = &iotextypes.ActionCore_Transfer{
+				Transfer: &iotextypes.Transfer{
+					Recipient: to,
+					Payload:   tx.Data(),
+					Amount:    value,
+				},
+			}
+		} else {
+			// execution
+			req.Core.Action = &iotextypes.ActionCore_Execution{
+				Execution: &iotextypes.Execution{
+					Contract: to,
+					Data:     tx.Data(),
+					Amount:   value,
+				},
+			}
 		}
 	}
 

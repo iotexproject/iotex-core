@@ -9,10 +9,10 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -153,4 +153,41 @@ func (cs *CreateStake) SanityCheck() error {
 	}
 
 	return cs.AbstractAction.SanityCheck()
+}
+
+// EncodingABIBinary encodes data into abi encoding
+func (cs *CreateStake) EncodingABIBinary(stakeABI *abi.ABI) ([]byte, error) {
+	return stakeABI.Pack("createStake", cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
+}
+
+// EncodingABIBinary encodes data into abi encoding
+func (cs *CreateStake) DecodingABIBinary(method *abi.Method, data []byte) error {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+	)
+	if err := method.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+		return err
+	}
+	if cs.candName, ok = paramsMap["candName"].(string); !ok {
+		panic(ok)
+	}
+	if cs.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+		panic(ok)
+	}
+	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
+		panic(ok)
+	}
+	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+		panic(ok)
+	}
+	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+		panic(ok)
+	}
+	return nil
+}
+
+// EncodingABIBinary encodes data into abi encoding
+func (cs *CreateStake) ConvertProto() (*iotextypes.ActionCore_StakeCreate, error) {
+	return nil, nil
 }

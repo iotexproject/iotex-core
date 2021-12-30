@@ -288,15 +288,12 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		errMsg := core.cfg.ProducerAddress().String() + ": " + err.Error()
 		st := status.New(codes.Internal, errMsg)
 		br := &errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{
-					Field:       "Action rejected",
-					Description: action.LoadErrorDescription(err),
-				},
-			},
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{{
+				Field:       "Action rejected",
+				Description: action.LoadErrorDescription(err),
+			}},
 		}
-		st, err := st.WithDetails(br)
-		if err != nil {
+		if st, err = st.WithDetails(br); err != nil {
 			log.S().Panicf("Unexpected error attaching metadata: %v", err)
 		}
 		return "", st.Err()
