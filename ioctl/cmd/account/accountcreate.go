@@ -54,6 +54,7 @@ type createMessage struct {
 
 type generatedAccount struct {
 	Address    string `json:"address"`
+	EthAddress string `json:"ethAddress"`
 	PrivateKey string `json:"privateKey"`
 	PublicKey  string `json:"publicKey"`
 }
@@ -84,7 +85,9 @@ func accountCreate() error {
 		if addr == nil {
 			return output.NewError(output.ConvertError, "failed to convert public key into address", nil)
 		}
+		//ethAddr, _ := address.FromString(addr.String())
 		newAccount := generatedAccount{
+			EthAddress: addr.Hex(),
 			Address:    addr.String(),
 			PrivateKey: fmt.Sprintf("%x", private.Bytes()),
 			PublicKey:  fmt.Sprintf("%x", private.PublicKey().Bytes()),
