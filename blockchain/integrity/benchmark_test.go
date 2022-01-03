@@ -101,18 +101,15 @@ func BenchmarkValidateBlock(b *testing.B) {
 	require.NoError(err)
 	nonceMap := make(map[string]uint64)
 
-	err = injectExecution(nonceMap, ap)
+	err = injectTransfer(nonceMap, ap)
 	require.NoError(err)
 
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 
 	for n := 0; n < b.N; n++ {
-		t1 := time.Now()
 		err = bc.ValidateBlock(blk)
 		require.NoError(err)
-		t2 := time.Since(t1)
-		log.L().Info("assd", zap.String("time", t2.String()), zap.Int("blk size", len(blk.Body.Actions)))
 	}
 }
 

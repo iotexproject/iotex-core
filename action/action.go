@@ -85,7 +85,7 @@ func Verify(sealed SealedEnvelope) error {
 	}
 	// Reject action with insufficient gas limit
 	intrinsicGas, err := sealed.IntrinsicGas()
-	if intrinsicGas > sealed.GasLimit() || err != nil {
+	if err != nil || intrinsicGas > sealed.GasLimit() {
 		return ErrIntrinsicGas
 	}
 

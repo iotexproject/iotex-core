@@ -8,10 +8,10 @@ package block
 
 import (
 	"context"
-	"sync"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 // Validator is the interface of validator
@@ -33,37 +33,25 @@ func NewValidator(subsequenceValidator Validator, validators ...action.SealedEnv
 func (v *validator) Validate(ctx context.Context, blk *Block) error {
 	actions := blk.Actions
 	// Verify transfers, votes, executions, witness, and secrets
-	errChan := make(chan error, len(actions))
-
-	v.validateActions(ctx, actions, errChan)
-	close(errChan)
-	for err := range errChan {
+	if err := v.validateActions(ctx, actions); err != nil {
 		return errors.Wrap(err, "failed to validate action")
 	}
-
 	if v.subValidator != nil {
 		return v.subValidator.Validate(ctx, blk)
 	}
 	return nil
 }
 
-func (v *validator) validateActions(
-	ctx context.Context,
-	actions []action.SealedEnvelope,
-	errChan chan error,
-) {
-	var wg sync.WaitGroup
-	for _, selp := range actions {
-		wg.Add(1)
-		go func(s action.SealedEnvelope) {
-			defer wg.Done()
-			for _, sev := range v.validators {
-				if err := sev.Validate(ctx, s); err != nil {
-					errChan <- err
-					return
-				}
-			}
-		}(selp)
+func (v *validator) validateActions(ctx context.Context, actions []action.SealedEnvelope) error {
+	var eg = new(errgroup.Group)
+	for _, act := range actions {
+		selp := act // https://golang.org/doc/faq#closures_and_goroutines
+		for _, sev := range v.validators {
+			validator := sev
+			eg.Go(func() error {
+				return validator.Validate(ctx, selp)
+			})
+		}
 	}
-	wg.Wait()
+	return eg.Wait()
 }

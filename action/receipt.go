@@ -168,13 +168,11 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}
 	l.ContractAddress = log.Address
 	l.Topics = [][]byte{}
-	for _, topic := range log.Topics {
+	for i, topic := range log.Topics {
 		if log.NotFixTopicCopyBug {
 			l.Topics = append(l.Topics, topic[:])
 		} else {
-			data := make([]byte, len(topic))
-			copy(data, topic[:])
-			l.Topics = append(l.Topics, data)
+			l.Topics = append(l.Topics, log.Topics[i][:])
 		}
 	}
 	l.Data = log.Data
