@@ -34,17 +34,16 @@ func (h noncePriorityQueue) Less(i, j int) bool { return h[i].nonce < h[j].nonce
 func (h noncePriorityQueue) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
 func (h *noncePriorityQueue) Push(x interface{}) {
-	in, ok := x.(nonceWithTTL)
-	if !ok {
-		return
+	if in, ok := x.(nonceWithTTL); ok {
+		*h = append(*h, in)
 	}
-	*h = append(*h, in)
 }
 
 func (h *noncePriorityQueue) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
+	// old[n-1] = nil // avoid memory leak
 	*h = old[0 : n-1]
 	return x
 }
@@ -53,7 +52,7 @@ func (h *noncePriorityQueue) Pop() interface{} {
 type ActQueue interface {
 	Put(action.SealedEnvelope) error
 	FilterNonce(uint64) []action.SealedEnvelope
-	UpdateQueue(uint64) []action.SealedEnvelope
+	UpdateQueue() []action.SealedEnvelope
 	SetPendingNonce(uint64)
 	PendingNonce() uint64
 	SetPendingBalance(*big.Int)
@@ -113,8 +112,8 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 		}
 		// update action in q.items and q.index
 		q.items[nonce] = act
-		for i, x := range q.index {
-			if x.nonce == nonce {
+		for i := range q.index {
+			if q.index[i].nonce == nonce {
 				q.index[i].deadline = q.clock.Now().Add(q.ttl)
 				break
 			}
@@ -140,24 +139,70 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 
 func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	removedFromQueue := make([]action.SealedEnvelope, 0)
-	for i := 0; i < len(q.index); i++ {
-		if q.clock.Now().After(q.index[i].deadline) {
-			// remove
+	i := 0
+	timeNow := q.clock.Now()
+	for i < len(q.index) {
+		if timeNow.After(q.index[i].deadline) {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
-			q.index = append(q.index[:i], q.index[i+1:]...)
+			q.index[i] = q.index[len(q.index)-1]
+			q.index = q.index[:len(q.index)-1]
+			continue
 		}
+		i++
 	}
+	heap.Init(&q.index)
 	return removedFromQueue
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
-	removedFromQueue := make([]action.SealedEnvelope, 0)
+func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
+	var (
+		nonce = q.PendingNonce()
+		// pendingBalance   = new(big.Int).Set(q.PendingBalance())
+		removedFromQueue = make([]action.SealedEnvelope, 0)
+		// newIndex         = make(noncePriorityQueue, 0)
+	)
 	// First remove all timed out actions
 	if q.ttl != 0 {
 		removedFromQueue = append(removedFromQueue, q.cleanTimeout()...)
 	}
+
+	// for q.index.Len() > 0 && q.index.Top().(nonceWithTTL).nonce < nonce {
+	// 	ret := heap.Pop(&q.index).(nonceWithTTL)
+	// 	newIndex = append(newIndex, ret)
+	// }
+
+	// for q.index.Len() > 0 && q.index.Top().(nonceWithTTL).nonce == nonce {
+	// 	cost, _ := q.items[nonce].Cost()
+	// 	if pendingBalance.Cmp(cost) < 0 {
+	// 		break
+	// 	}
+
+	// 	// following steps
+	// 	ret := heap.Pop(&q.index).(nonceWithTTL)
+	// 	newIndex = append(newIndex, ret)
+	// 	pendingBalance.Sub(pendingBalance, cost)
+	// 	nonce++
+	// }
+	// q.pendingNonce, q.pendingBalance = nonce, new(big.Int).Set(pendingBalance)
+
+	// // case 1 : break when balance is unenough
+	// for q.index.Len() > 0 {
+	// 	topNonce := q.index.Top().(nonceWithTTL).nonce
+	// 	cost, _ := q.items[topNonce].Cost()
+	// 	if pendingBalance.Cmp(cost) < 0 {
+	// 		break
+	// 	}
+	// 	ret := heap.Pop(&q.index).(nonceWithTTL)
+	// 	newIndex = append(newIndex, ret)
+	// 	pendingBalance.Sub(pendingBalance, cost)
+	// }
+	// if q.index.Len() > 0 {
+	// 	removedFromQueue = append(removedFromQueue, q.removeActs(0)...)
+	// }
+	// q.index = newIndex
+	// return removedFromQueue
 
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce
 	// while updating pending balance if actions are payable
@@ -173,32 +218,32 @@ func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
 	q.pendingNonce = nonce
 
 	// Find the index of new pending nonce within the queue
-	sort.Sort(q.index)
-	i := 0
-	for ; i < q.index.Len(); i++ {
-		if q.index[i].nonce >= nonce {
-			break
-		}
-	}
-	// Case I: An unpayable action has been found while updating pending nonce/balance
-	// Remove all the subsequent actions in the queue starting from the index of new pending nonce
-	if _, exist := q.items[nonce]; exist {
-		removedFromQueue = append(removedFromQueue, q.removeActs(i)...)
-		return removedFromQueue
-	}
+	// sort.Sort(q.index)
+	// i := 0
+	// for ; i < q.index.Len(); i++ {
+	// 	if q.index[i].nonce >= nonce {
+	// 		break
+	// 	}
+	// }
+	// // Case I: An unpayable action has been found while updating pending nonce/balance
+	// // Remove all the subsequent actions in the queue starting from the index of new pending nonce
+	// if _, exist := q.items[nonce]; exist {
+	// 	removedFromQueue = append(removedFromQueue, q.removeActs(i)...)
+	// 	return removedFromQueue
+	// }
 
-	// Case II: All actions are payable while updating pending nonce/balance
-	// Check all the subsequent actions in the queue starting from the index of new pending nonce
-	// Find the nonce index of the first unpayable action
-	// Remove all the subsequent actions in the queue starting from that index
-	for ; i < q.index.Len(); i++ {
-		nonce = q.index[i].nonce
-		act := q.items[nonce]
-		if !q.enoughBalance(act, false) {
-			break
-		}
-	}
-	removedFromQueue = append(removedFromQueue, q.removeActs(i)...)
+	// // Case II: All actions are payable while updating pending nonce/balance
+	// // Check all the subsequent actions in the queue starting from the index of new pending nonce
+	// // Find the nonce index of the first unpayable action
+	// // Remove all the subsequent actions in the queue starting from that index
+	// for ; i < q.index.Len(); i++ {
+	// 	nonce = q.index[i].nonce
+	// 	act := q.items[nonce]
+	// 	if !q.enoughBalance(act, false) {
+	// 		break
+	// 	}
+	// }
+	// removedFromQueue = append(removedFromQueue, q.removeActs(i)...)
 	return removedFromQueue
 }
 
@@ -237,7 +282,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 	if q.Len() == 0 {
 		return nil
 	}
-	acts := make([]action.SealedEnvelope, 0, len(q.items))
+	acts := make([]action.SealedEnvelope, 0)
 	addr, err := address.FromString(q.address)
 	if err != nil {
 		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
@@ -248,25 +293,31 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil
 	}
-	nonce := confirmedState.Nonce + 1
-	for ; ; nonce++ {
-		if _, exist := q.items[nonce]; !exist {
+	pendingBalance := new(big.Int).Set(confirmedState.Balance)
+	for nonce := confirmedState.Nonce + 1; ; nonce++ {
+		act, exist := q.items[nonce]
+		if !exist {
 			break
 		}
-		acts = append(acts, q.items[nonce])
+		cost, _ := act.Cost()
+		if pendingBalance.Cmp(cost) < 0 {
+			break
+		}
+		pendingBalance.Sub(pendingBalance, cost)
+		acts = append(acts, act)
 	}
 	return acts
 }
 
 // AllActs returns all the actions currently in queue
 func (q *actQueue) AllActs() []action.SealedEnvelope {
-	acts := make([]action.SealedEnvelope, 0, len(q.items))
+	acts := make([]action.SealedEnvelope, 0, q.Len())
 	if q.Len() == 0 {
 		return acts
 	}
 	sort.Sort(q.index)
-	for _, nonce := range q.index {
-		acts = append(acts, q.items[nonce.nonce])
+	for _, item := range q.index {
+		acts = append(acts, q.items[item.nonce])
 	}
 	return acts
 }
@@ -279,7 +330,6 @@ func (q *actQueue) removeActs(idx int) []action.SealedEnvelope {
 		delete(q.items, q.index[i].nonce)
 	}
 	q.index = q.index[:idx]
-	heap.Init(&q.index)
 	return removedFromQueue
 }
 

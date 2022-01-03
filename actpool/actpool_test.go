@@ -414,7 +414,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.reset()
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[addr1])
 }
@@ -772,7 +772,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
 }
 
-func TestActPool_removeInvalidActs(t *testing.T) {
+func TestActPool_removeActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
@@ -812,7 +812,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	acts := []action.SealedEnvelope{tsf1, tsf4}
 	require.NotNil(ap.allActions[hash1])
 	require.NotNil(ap.allActions[hash2])
-	ap.removeInvalidActs(acts)
+	ap.removeActs(acts)
 	require.Equal(action.SealedEnvelope{}, ap.allActions[hash1])
 	require.Equal(action.SealedEnvelope{}, ap.allActions[hash2])
 }
@@ -999,7 +999,7 @@ func TestActPool_GetSize(t *testing.T) {
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.reset()
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())
 }
