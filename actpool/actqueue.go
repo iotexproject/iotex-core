@@ -140,14 +140,19 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 
 func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	removedFromQueue := make([]action.SealedEnvelope, 0)
-	for i := 0; i < len(q.index); i++ {
-		if q.clock.Now().After(q.index[i].deadline) {
-			// remove
+	i := 0
+	timeNow := q.clock.Now()
+	for i < len(q.index) {
+		if timeNow.After(q.index[i].deadline) {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
-			q.index = append(q.index[:i], q.index[i+1:]...)
+			q.index[i] = q.index[len(q.index)-1]
+			q.index = q.index[:len(q.index)-1]
+			continue
 		}
+		i++
 	}
+	heap.Init(&q.index)
 	return removedFromQueue
 }
 
