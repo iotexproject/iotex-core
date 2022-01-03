@@ -142,17 +142,19 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	var (
 		removedFromQueue = make([]action.SealedEnvelope, 0)
 		timeNow          = q.clock.Now()
+		len              = len(q.index)
 	)
-	for i := 0; i < len(q.index); {
+	for i := 0; i < len; {
 		if timeNow.After(q.index[i].deadline) {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
-			q.index[i] = q.index[len(q.index)-1]
-			q.index = q.index[:len(q.index)-1]
+			q.index[i] = q.index[len-1]
+			len--
 			continue
 		}
 		i++
 	}
+	q.index = q.index[:len]
 	heap.Init(&q.index)
 	return removedFromQueue
 }
@@ -162,7 +164,7 @@ func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
 	removedFromQueue := make([]action.SealedEnvelope, 0)
 	// First remove all timed out actions
 	if q.ttl != 0 {
-		removedFromQueue = append(removedFromQueue, q.cleanTimeout()...)
+		removedFromQueue = q.cleanTimeout()
 	}
 
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce
