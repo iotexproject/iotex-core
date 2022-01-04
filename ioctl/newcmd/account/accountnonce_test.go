@@ -63,6 +63,9 @@ func execNewAccount(t *testing.T, passwd string) {
 	require.NoError(t, err)
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
 
+	config.ReadConfig.Endpoint = "127.0.0.1:14014"
+	config.ReadConfig.SecureConnect = false
+
 	cmd := NewAccountNonce(client)
 	result, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, result)
