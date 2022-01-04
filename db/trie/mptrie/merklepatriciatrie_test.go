@@ -8,7 +8,6 @@ package mptrie
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -457,19 +455,10 @@ func TestHistoryTrie(t *testing.T) {
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{
 		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() != batch.Delete {
-				return wi
+			if wi.WriteType() == batch.Delete {
+				return nil
 			}
-			oldKey := wi.Key()
-			newKey := byteutil.Uint64ToBytesBigEndian(1)
-			return batch.NewWriteInfo(
-				batch.Put,
-				strings.Join([]string{"Archive", wi.Namespace()}, "-"),
-				append(newKey, oldKey...),
-				wi.Value(),
-				wi.ErrorFormat(),
-				wi.ErrorArgs(),
-			)
+			return wi
 		}),
 	}
 	dao := db.NewBoltDB(cfg)
