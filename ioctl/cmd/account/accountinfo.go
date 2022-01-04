@@ -45,6 +45,7 @@ var accountInfoCmd = &cobra.Command{
 
 type infoMessage struct {
 	Address          string `json:"address"`
+	EthAddress       string `json:"ethAddress"`
 	Balance          string `json:"balance"`
 	Nonce            int    `json:"nonce"`
 	PendingNonce     int    `json:"pendingNonce"`
@@ -71,9 +72,13 @@ func info(arg string) error {
 	if !ok {
 		return output.NewError(output.ConvertError, "", err)
 	}
-
+	ethAddr, err := address.FromString(addr)
+	if err != nil {
+		return output.NewError(output.ConvertError, "", err)
+	}
 	message := infoMessage{
 		Address:          addr,
+		EthAddress:       ethAddr.Hex(),
 		Balance:          util.RauToString(balance, util.IotxDecimalNum),
 		Nonce:            int(accountMeta.Nonce),
 		PendingNonce:     int(accountMeta.PendingNonce),
