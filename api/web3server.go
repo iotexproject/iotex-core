@@ -636,24 +636,15 @@ func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, erro
 		}
 		return nil, err
 	}
-	nselp := &action.SealedEnvelope{}
-	var act *action.Execution
-
-	switch actInfo.Action.Core.Action.(type) {
-	case *iotextypes.ActionCore_Execution:
-		err = nselp.LoadProto(actInfo.Action)
-		if err != nil {
-			return nil, err
-		}
-		act, _ = nselp.Action().(*action.Execution)
-
-	default:
+	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
+	if !ok {
 		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
 	}
-	if err != nil {
-		return nil, err
-	}
 
+	amount, ok := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
+	if !ok {
+		return nil, errors.Errorf("failed to set execution amount")
+	}
 	callerAddr, err := address.FromString(actInfo.Sender)
 	if err != nil {
 		return nil, err
@@ -664,12 +655,12 @@ func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, erro
 	}
 	nonce := state.Nonce + 1
 	sc, _ := action.NewExecution(
-		act.Contract(),
+		exec.Execution.GetContract(),
 		nonce,
-		act.Amount(),
+		amount,
 		svr.coreService.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
-		act.Data(),
+		exec.Execution.GetData(),
 	)
 
 	tracer := vm.NewStructLogger(nil)
