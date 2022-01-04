@@ -318,10 +318,11 @@ func (sdb *stateDB) NewBlockBuilder(
 	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
-	sdb.mutex.Lock()
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-	sdb.mutex.Unlock()
+	sdb.mutex.RLock()
+	h := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	ws, err := sdb.newWorkingSet(ctx, h+1)
 	if err != nil {
 		return nil, err
 	}
@@ -363,9 +364,10 @@ func (sdb *stateDB) SimulateExecution(
 	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
 	defer span.End()
 
-	sdb.mutex.Lock()
-	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-	sdb.mutex.Unlock()
+	sdb.mutex.RLock()
+	h := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	ws, err := sdb.newWorkingSet(ctx, h+1)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -375,9 +377,10 @@ func (sdb *stateDB) SimulateExecution(
 
 // ReadContractStorage reads contract's storage
 func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
-	sdb.mutex.Lock()
-	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-	sdb.mutex.Unlock()
+	sdb.mutex.RLock()
+	h := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	ws, err := sdb.newWorkingSet(ctx, h+1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate working set from state db")
 	}
@@ -446,27 +449,27 @@ func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
 
 // State returns a confirmed state in the state factory
 func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-
-	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
+	sdb.mutex.RLock()
+	h := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	return h, sdb.state(cfg.Namespace, cfg.Key, s)
 }
 
 // State returns a set of states in the state factory
 func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
+	sdb.mutex.RLock()
+	h := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
 	if cfg.Key != nil {
-		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+		return h, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
 	if cfg.Cond == nil {
 		cfg.Cond = func(k, v []byte) bool {
@@ -476,12 +479,12 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	_, values, err := sdb.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
+			return h, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
 		}
-		return sdb.currentChainHeight, nil, err
+		return h, nil, err
 	}
 
-	return sdb.currentChainHeight, state.NewIterator(values), nil
+	return h, state.NewIterator(values), nil
 }
 
 // StateAtHeight returns a confirmed state at height -- archive mode
@@ -553,8 +556,6 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
 func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
 	if data, ok := sdb.workingsets.Get(key); ok {
 		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
@@ -562,13 +563,13 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	tx, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
-
+	sdb.mutex.RLock()
+	h := sdb.currentChainHeight
+	sdb.mutex.RUnlock()
+	tx, err := sdb.newWorkingSet(ctx, h+1)
 	return tx, false, err
 }
 
 func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	sdb.workingsets.Add(key, ws)
 }
