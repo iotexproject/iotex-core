@@ -3,12 +3,15 @@ package api
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -24,6 +27,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -379,4 +384,76 @@ func (svr *GRPCServer) ReadContractStorage(ctx context.Context, in *iotexapi.Rea
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.ReadContractStorageResponse{Data: b}, nil
+}
+
+// TraceTransactionStructLogs get trace transaction struct logs
+func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
+	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(in.GetActionHash()), false)
+	if err != nil {
+		return nil, err
+	}
+	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
+	if !ok {
+		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
+	}
+
+	amount, ok := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
+	if !ok {
+		return nil, errors.Errorf("failed to set execution amount")
+	}
+	callerAddr, err := address.FromString(actInfo.Sender)
+	if err != nil {
+		return nil, err
+	}
+	state, err := accountutil.AccountState(svr.coreService.sf, callerAddr)
+	if err != nil {
+		return nil, err
+	}
+	nonce := state.Nonce + 1
+	sc, _ := action.NewExecution(
+		exec.Execution.GetContract(),
+		nonce,
+		amount,
+		svr.coreService.cfg.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		exec.Execution.GetData(),
+	)
+
+	tracer := vm.NewStructLogger(nil)
+	vmConfig := vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true}
+
+	ctx, err = svr.coreService.bc.Context(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ctx = protocol.WithVMConfigCtx(ctx, vmConfig)
+	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	structLogs := make([]*iotextypes.TransactionStructLog, 0)
+	for _, log := range tracer.StructLogs() {
+		var stack []string
+		for _, s := range log.Stack {
+			stack = append(stack, s.String())
+		}
+		structLogs = append(structLogs, &iotextypes.TransactionStructLog{
+			Pc:         log.Pc,
+			Op:         uint64(log.Op),
+			Gas:        fmt.Sprintf("%#x", log.Gas),
+			GasCost:    fmt.Sprintf("%#x", log.GasCost),
+			Memory:     fmt.Sprintf("%#x", log.Memory),
+			MemSize:    int32(log.MemorySize),
+			Stack:      stack,
+			ReturnData: string(log.ReturnData),
+			Depth:      int32(log.Depth),
+			Refund:     log.RefundCounter,
+			OpName:     log.OpName(),
+			Error:      log.ErrorString(),
+		})
+	}
+	return &iotexapi.TraceTransactionStructLogsResponse{
+		StructLogs: structLogs,
+	}, nil
 }
