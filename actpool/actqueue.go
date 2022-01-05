@@ -139,33 +139,33 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 }
 
 func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
+	if q.ttl == 0 {
+		return []action.SealedEnvelope{}
+	}
 	var (
 		removedFromQueue = make([]action.SealedEnvelope, 0)
 		timeNow          = q.clock.Now()
-		len              = len(q.index)
+		size             = len(q.index)
 	)
-	for i := 0; i < len; {
+	for i := 0; i < size; {
 		if timeNow.After(q.index[i].deadline) {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
-			q.index[i] = q.index[len-1]
-			len--
+			q.index[i] = q.index[size-1]
+			size--
 			continue
 		}
 		i++
 	}
-	q.index = q.index[:len]
+	q.index = q.index[:size]
 	heap.Init(&q.index)
 	return removedFromQueue
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
 func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
-	removedFromQueue := make([]action.SealedEnvelope, 0)
 	// First remove all timed out actions
-	if q.ttl != 0 {
-		removedFromQueue = q.cleanTimeout()
-	}
+	removedFromQueue := q.cleanTimeout()
 
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce
 	// while updating pending balance if actions are payable
