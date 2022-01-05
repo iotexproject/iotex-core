@@ -415,11 +415,6 @@ func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, er
 	return estimateGas, nil
 }
 
-// CalculateGasConsumption estimate gas consumption for actions except execution
-func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
-	return payloadGas*payloadSize + intrinsicGas
-}
-
 // EpochMeta gets epoch metadata
 func (core *coreService) EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error) {
 	rp := rolldpos.FindProtocol(core.registry)
@@ -1313,6 +1308,11 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 	}
 
 	return logs, nil
+}
+
+// CalculateGasConsumption estimate gas consumption for actions except execution
+func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
+	return payloadGas*payloadSize + intrinsicGas
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
