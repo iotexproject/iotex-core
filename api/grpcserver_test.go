@@ -2997,6 +2997,7 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	require.Error(err)
 
 	request.ActionHash = hex.EncodeToString(executionHash1[:])
-	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	ret, err := svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.NoError(err)
+	require.Equal(len(ret.StructLogs), 0)
 }

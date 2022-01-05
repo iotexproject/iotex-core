@@ -34,6 +34,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
+var (
+	errUnsupportedAction = errors.New("the type of action is not supported")
+)
+
 // GRPCServer contains grpc server and the pointer to api coreservice
 type GRPCServer struct {
 	port        string
@@ -394,7 +398,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	}
 	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
 	if !ok {
-		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
+		return nil, errUnsupportedAction
 	}
 
 	amount, ok := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
@@ -419,13 +423,12 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		exec.Execution.GetData(),
 	)
 
-	tracer := vm.NewStructLogger(nil)
-	vmConfig := vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true}
-
 	ctx, err = svr.coreService.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
+	tracer := vm.NewStructLogger(nil)
+	vmConfig := vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true}
 	ctx = protocol.WithVMConfigCtx(ctx, vmConfig)
 	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
 	if err != nil {
