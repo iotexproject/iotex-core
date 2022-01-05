@@ -309,9 +309,9 @@ func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.Acti
 
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	switch str {
-	case "earliest":
+	case earliestBlockNumber:
 		return 1, nil
-	case "", "pending", "latest":
+	case "", pendingBlockNumber, latestBlockNumber:
 		return svr.coreService.bc.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
@@ -405,18 +405,6 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		})
 	}
 	return ret, nil
-}
-
-func isResultValid(in web3Resp) bool {
-	objInByte, err := json.Marshal(in)
-	if err != nil || !gjson.Valid(string(objInByte)) {
-		return false
-	}
-	parsedReqs := gjson.Parse(string(objInByte))
-	if !parsedReqs.Get("error").Exists() && !parsedReqs.Get("result").Exists() {
-		return false
-	}
-	return true
 }
 
 func byteToHex(b []byte) string {

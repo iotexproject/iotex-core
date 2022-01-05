@@ -150,15 +150,22 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 				bcCtx.Tip.Hash = g.Hash()
 				bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 			}
-			if err := indexer.PutBlock(protocol.WithBlockCtx(
-				protocol.WithBlockchainCtx(ctx, bcCtx),
-				protocol.BlockCtx{
-					BlockHeight:    i,
-					BlockTimeStamp: blk.Timestamp(),
-					Producer:       producer,
-					GasLimit:       g.BlockGasLimit,
-				},
-			), blk); err != nil {
+			for {
+				if err = indexer.PutBlock(protocol.WithBlockCtx(
+					protocol.WithBlockchainCtx(ctx, bcCtx),
+					protocol.BlockCtx{
+						BlockHeight:    i,
+						BlockTimeStamp: blk.Timestamp(),
+						Producer:       producer,
+						GasLimit:       g.BlockGasLimit,
+					},
+				), blk); err == nil {
+					break
+				}
+				if i < g.HawaiiBlockHeight && errors.Cause(err) == block.ErrDeltaStateMismatch {
+					log.L().Info("delta state mismatch", zap.Uint64("block", i))
+					continue
+				}
 				return err
 			}
 			if i%5000 == 0 {
