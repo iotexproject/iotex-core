@@ -2348,6 +2348,9 @@ func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	}
 	_, err = svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
 	require.Error(err)
+	sta, ok := status.FromError(err)
+	require.Equal(true, ok)
+	require.Equal(codes.NotFound, sta.Code())
 
 	for h, log := range implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
