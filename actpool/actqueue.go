@@ -27,24 +27,23 @@ type nonceWithTTL struct {
 	deadline time.Time
 }
 
-type noncePriorityQueue []nonceWithTTL
+type noncePriorityQueue []*nonceWithTTL
 
 func (h noncePriorityQueue) Len() int           { return len(h) }
 func (h noncePriorityQueue) Less(i, j int) bool { return h[i].nonce < h[j].nonce }
 func (h noncePriorityQueue) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
 func (h *noncePriorityQueue) Push(x interface{}) {
-	in, ok := x.(nonceWithTTL)
-	if !ok {
-		return
+	if in, ok := x.(*nonceWithTTL); ok {
+		*h = append(*h, in)
 	}
-	*h = append(*h, in)
 }
 
 func (h *noncePriorityQueue) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
+	old[n-1] = nil // avoid memory leak
 	*h = old[0 : n-1]
 	return x
 }
@@ -121,7 +120,7 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 		}
 		return nil
 	}
-	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
+	heap.Push(&q.index, &nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
 	q.items[nonce] = act
 	return nil
 }
@@ -131,7 +130,7 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 	var removed []action.SealedEnvelope
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0].nonce < threshold {
-		nonce := heap.Pop(&q.index).(nonceWithTTL).nonce
+		nonce := heap.Pop(&q.index).(*nonceWithTTL).nonce
 		removed = append(removed, q.items[nonce])
 		delete(q.items, nonce)
 	}
