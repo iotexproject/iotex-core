@@ -6,12 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -24,8 +22,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -248,8 +244,6 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
-		case "eth_debugTransactionByHash":
-			res, err = svr.debugTransactionByHash(params)
 		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
@@ -621,62 +615,6 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 		return nil, err
 	}
 	return svr.getTransactionCreateFromActionInfo(actionInfos)
-}
-
-func (svr *Web3Server) debugTransactionByHash(in interface{}) (interface{}, error) {
-	h, err := getStringFromArray(in, 0)
-	if err != nil {
-		return nil, err
-	}
-	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(h), false)
-	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.Unavailable {
-			return nil, nil
-		}
-		return nil, err
-	}
-	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
-	if !ok {
-		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
-	}
-
-	amount, ok := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
-	if !ok {
-		return nil, errors.Errorf("failed to set execution amount")
-	}
-	callerAddr, err := address.FromString(actInfo.Sender)
-	if err != nil {
-		return nil, err
-	}
-	state, err := accountutil.AccountState(svr.coreService.sf, callerAddr)
-	if err != nil {
-		return nil, err
-	}
-	nonce := state.Nonce + 1
-	sc, _ := action.NewExecution(
-		exec.Execution.GetContract(),
-		nonce,
-		amount,
-		svr.coreService.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		exec.Execution.GetData(),
-	)
-
-	tracer := vm.NewStructLogger(nil)
-	vmConfig := vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true}
-
-	ctx, err := svr.coreService.bc.Context(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	ctx = protocol.WithVMConfigCtx(ctx, vmConfig)
-	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return tracer.StructLogs(), nil
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {

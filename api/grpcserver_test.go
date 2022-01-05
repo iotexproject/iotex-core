@@ -2348,9 +2348,6 @@ func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	}
 	_, err = svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
 	require.Error(err)
-	sta, ok := status.FromError(err)
-	require.Equal(true, ok)
-	require.Equal(codes.NotFound, sta.Code())
 
 	for h, log := range implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
@@ -2973,4 +2970,30 @@ func TestChainlinkErrTest(t *testing.T) {
 			require.True(test.errRegex.MatchString(s.Message()))
 		})
 	}
+}
+
+func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServerV2(cfg, true)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	request := &iotexapi.TraceTransactionStructLogsRequest{
+		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
+	}
+	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	require.Error(err)
+
+	//unsupport type
+	request.ActionHash = hex.EncodeToString(transferHash1[:])
+	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	require.Error(err)
+
+	request.ActionHash = hex.EncodeToString(executionHash1[:])
+	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	require.NoError(err)
 }
