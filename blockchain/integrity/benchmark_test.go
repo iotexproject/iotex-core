@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	ethCrypto "github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -42,18 +45,29 @@ import (
 // TODO: add func TestValidateBlock()
 
 var (
-	userA   = identityset.Address(28)
-	priKeyA = identityset.PrivateKey(28)
-	userB   = identityset.Address(29)
-	priKeyB = identityset.PrivateKey(29)
-
 	totalActionPair  = 2000
 	contractByteCode = "60806040526101f4600055603260015534801561001b57600080fd5b506102558061002b6000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806358931c461461003b5780637f353d5514610045575b600080fd5b61004361004f565b005b61004d610097565b005b60006001905060005b6000548110156100935760028261006f9190610114565b915060028261007e91906100e3565b9150808061008b90610178565b915050610058565b5050565b60005b6001548110156100e057600281908060018154018082558091505060019003906000526020600020016000909190919091505580806100d890610178565b91505061009a565b50565b60006100ee8261016e565b91506100f98361016e565b925082610109576101086101f0565b5b828204905092915050565b600061011f8261016e565b915061012a8361016e565b9250817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0483118215151615610163576101626101c1565b5b828202905092915050565b6000819050919050565b60006101838261016e565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8214156101b6576101b56101c1565b5b600182019050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fdfea2646970667358221220cb9cada3f1d447c978af17aa3529d6fe4f25f9c5a174085443e371b6940ae99b64736f6c63430008070033"
 	contractAddr     string
 
+	randAccountSize = 1000
+	usersAddr       = make([]address.Address, 0)
+	priKeys         = make([]ethCrypto.PrivateKey, 0)
+	userA           = identityset.Address(28)
+	priKeyA         = identityset.PrivateKey(28)
+	userB           = identityset.Address(29)
+	priKeyB         = identityset.PrivateKey(29)
+
 	opAppend, _ = hex.DecodeString("7f353d55")
 	opMul, _    = hex.DecodeString("58931c46")
 )
+
+func init() {
+	for i := 0; i < randAccountSize; i++ {
+		pvk, _ := ethCrypto.GenerateKey()
+		priKeys = append(priKeys, pvk)
+		usersAddr = append(usersAddr, pvk.PublicKey().Address())
+	}
+}
 
 func BenchmarkMintAndCommitBlock(b *testing.B) {
 	require := require.New(b)
@@ -64,7 +78,7 @@ func BenchmarkMintAndCommitBlock(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		t1 := time.Now()
-		err = injectTransfer(nonceMap, ap)
+		err = injectMultipleAccountsTransfer(nonceMap, ap)
 		require.NoError(err)
 
 		blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -131,6 +145,32 @@ func injectTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
 		}
 		err = ap.Add(context.Background(), tsf2)
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func injectMultipleAccountsTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < 2*totalActionPair; i++ {
+		senderIdx := rand.Intn(randAccountSize)
+		recipientIdx := senderIdx
+		for ; recipientIdx != senderIdx; recipientIdx = rand.Intn(randAccountSize) {
+		}
+		nonceMap[usersAddr[senderIdx].String()]++
+		tsf, err := action.SignedTransfer(
+			usersAddr[recipientIdx].String(),
+			priKeys[senderIdx],
+			nonceMap[usersAddr[senderIdx].String()],
+			big.NewInt(int64(rand.Intn(2))),
+			[]byte{},
+			testutil.TestGasLimit,
+			big.NewInt(testutil.TestGasPriceInt64))
+		if err != nil {
+			return err
+		}
+		if err = ap.Add(context.Background(), tsf); err != nil {
 			return err
 		}
 	}
@@ -248,26 +288,42 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	}
 
 	genesisPriKey := identityset.PrivateKey(27)
+	var genesisNonce uint64 = 0
+
 	// make a transfer from genesisAccount to a and b,because stateTX cannot store data in height 0
-	tsf, err := action.SignedTransfer(userA.String(), genesisPriKey, 1, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	genesisNonce++
+	tsf, err := action.SignedTransfer(userA.String(), genesisPriKey, genesisNonce, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return nil, nil, err
 	}
 	if err = ap.Add(context.Background(), tsf); err != nil {
 		return nil, nil, err
 	}
-	tsf2, err := action.SignedTransfer(userB.String(), genesisPriKey, 2, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	genesisNonce++
+	tsf2, err := action.SignedTransfer(userB.String(), genesisPriKey, genesisNonce, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return nil, nil, err
 	}
 	if err = ap.Add(context.Background(), tsf2); err != nil {
 		return nil, nil, err
 	}
+	for i := 0; i < randAccountSize; i++ {
+		genesisNonce++
+		tsf, err := action.SignedTransfer(usersAddr[i].String(), genesisPriKey, genesisNonce, big.NewInt(1e17), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+		if err != nil {
+			return nil, nil, err
+		}
+		if err = ap.Add(context.Background(), tsf); err != nil {
+			return nil, nil, err
+		}
+	}
+	// deploy contract
 	data, err := hex.DecodeString(contractByteCode)
 	if err != nil {
 		return nil, nil, err
 	}
-	ex1, err := action.SignedExecution(action.EmptyAddress, genesisPriKey, 3, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	genesisNonce++
+	ex1, err := action.SignedExecution(action.EmptyAddress, genesisPriKey, genesisNonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return nil, nil, err
 	}

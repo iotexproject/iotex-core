@@ -464,6 +464,7 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 // 	}
 // }
 
+// TODO: multithread
 func (ap *actPool) removeActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
@@ -471,23 +472,10 @@ func (ap *actPool) removeActs(acts []action.SealedEnvelope) {
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
-		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
 		//del actions in destination map
-		ap.deleteAccountDestinationActions(act)
-	}
-}
-
-// deleteAccountDestinationActions just for destination map
-func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
-	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
 		if desAddress, ok := act.Destination(); ok {
 			if dst := ap.accountDesActs[desAddress]; dst != nil {
 				delete(dst, hash)
@@ -495,6 +483,18 @@ func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope
 		}
 	}
 }
+
+// // deleteAccountDestinationActions just for destination map
+// func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
+// 	for _, act := range acts {
+// 		hash, err := act.Hash()
+// 		if err != nil {
+// 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+// 			continue
+// 		}
+
+// 	}
+// }
 
 // updateAccount updates queue's status and remove invalidated actions from pool if necessary
 func (ap *actPool) updateAccount(sender string) {
@@ -515,7 +515,6 @@ func (ap *actPool) reset() {
 
 	// Reset the state of every account in the pool
 	for from, queue := range ap.accountActs {
-		// Reset pending balance for each account
 		addr, _ := address.FromString(from)
 		confirmedState, err := accountutil.AccountState(ap.sf, addr)
 		if err != nil {
@@ -527,19 +526,27 @@ func (ap *actPool) reset() {
 
 		pendingNonce := confirmedState.Nonce + 1
 		// Remove confirmed actions in actpool
-		acts := queue.FilterNonce(pendingNonce)
-		ap.removeActs(acts)
+		ap.removeActs(queue.FilterNonce(pendingNonce)) //@
 
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
-			delete(ap.accountActs, from)
+			delete(ap.accountActs, from) //@
 			continue
 		}
 
+		// Reset pending balance for each account
 		queue.SetPendingBalance(confirmedState.Balance)
 
 		// Reset pending nonce and remove invalid actions for each account
 		queue.SetPendingNonce(pendingNonce)
-		ap.updateAccount(from)
+
+		acts := queue.UpdateQueue()
+		if len(acts) > 0 {
+			ap.removeActs(acts)
+		}
+		// Delete the queue entry if it becomes empty
+		if queue.Empty() {
+			delete(ap.accountActs, from)
+		}
 	}
 }
