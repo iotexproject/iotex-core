@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -19,7 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -30,13 +32,11 @@ func TestNewAccountNonce(t *testing.T) {
 		"test",
 		func() string {
 			nonce := strconv.FormatInt(rand.Int63(), 10)
-			fmt.Printf("nonce=%s\n", nonce)
 			return "3dj,<>@@SF{}rj0ZF#" + nonce
 		}(),
 	}
 
 	for _, passwd := range passwds {
-		fmt.Printf("passwd=%s\n", passwd)
 		execNewAccount(t, passwd)
 	}
 }
@@ -45,8 +45,7 @@ func execNewAccount(t *testing.T, passwd string) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
-		config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 	require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
@@ -63,8 +62,11 @@ func execNewAccount(t *testing.T, passwd string) {
 	require.NoError(t, err)
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
 
-	config.ReadConfig.Endpoint = "127.0.0.1:14014"
-	config.ReadConfig.SecureConnect = false
+	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+
+	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{}}
+	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil).Times(1)
 
 	cmd := NewAccountNonce(client)
 	result, err := util.ExecuteCmd(cmd)

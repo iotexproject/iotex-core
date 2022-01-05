@@ -59,6 +59,7 @@ var (
 
 // Errors
 var (
+	// ErrPasswdNotMatch indicates that the second input password is different from the first
 	ErrPasswdNotMatch = errors.New("password doesn't match")
 )
 
@@ -182,21 +183,24 @@ func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
 }
 
 // GetAccountMeta gets account metadata
-func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, error) {
+	var endpoint string
+	var insecure bool
+	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
+		Endpoint: endpoint,
+		Insecure: insecure,
+	})
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-	request := iotexapi.GetAccountRequest{Address: addr}
 
+	ctx := context.Background()
 	jwtMD, err := util.JwtAuth()
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
-	response, err := cli.GetAccount(ctx, &request)
+
+	response, err := apiServiceClient.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 
 	if err != nil {
 		sta, ok := status.FromError(err)
