@@ -216,3 +216,49 @@ func TestActQueueTimeOutAction(t *testing.T) {
 	q.(*actQueue).cleanTimeout()
 	assert.Equal(t, 1, q.Len())
 }
+
+func TestActQueueCleanTimeout(t *testing.T) {
+	require := require.New(t)
+	q := NewActQueue(nil, "").(*actQueue)
+	q.ttl = 1
+	invalidTime := time.Now()
+	validTime := time.Now().Add(10 * time.Minute)
+	tsf1, _ := action.SignedTransfer(addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf2, _ := action.SignedTransfer(addr2, priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf3, _ := action.SignedTransfer(addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf5, _ := action.SignedTransfer(addr2, priKey1, 5, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf6, _ := action.SignedTransfer(addr2, priKey1, 6, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf7, _ := action.SignedTransfer(addr2, priKey1, 7, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	q.items[1] = tsf1
+	q.items[2] = tsf2
+	q.items[3] = tsf3
+	q.items[5] = tsf5
+	q.items[6] = tsf6
+	q.items[7] = tsf7
+
+	q.index = []nonceWithTTL{
+		{1, validTime},
+		{5, validTime},
+		{2, validTime},
+		{6, validTime},
+		{7, invalidTime},
+		{3, validTime},
+	}
+	q.cleanTimeout()
+	require.Equal(5, len(q.index))
+	expectedHeap := []uint64{1, 3, 2, 6, 5}
+	for i := range expectedHeap {
+		require.Equal(expectedHeap[i], q.index[i].nonce)
+	}
+
+	q.index = []nonceWithTTL{
+		{1, validTime},
+		{5, validTime},
+		{2, validTime},
+		{6, validTime},
+		{7, invalidTime},
+		{3, invalidTime},
+	}
+	ret := q.cleanTimeout()
+	require.Equal(2, len(ret))
+}
