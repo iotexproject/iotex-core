@@ -466,22 +466,33 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 
 // TODO: multithread
 func (ap *actPool) removeActs(acts []action.SealedEnvelope) {
+	var wg sync.WaitGroup
+	mu := sync.Mutex{}
 	for _, act := range acts {
-		hash, err := act.Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		delete(ap.allActions, hash)
-		intrinsicGas, _ := act.IntrinsicGas()
-		atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
-		//del actions in destination map
-		if desAddress, ok := act.Destination(); ok {
-			if dst := ap.accountDesActs[desAddress]; dst != nil {
-				delete(dst, hash)
+		wg.Add(1)
+		func(act *action.SealedEnvelope) {
+			defer wg.Done()
+			hash, err := act.Hash()
+			if err != nil {
+				log.L().Debug("Skipping action due to hash error", zap.Error(err))
+				return
 			}
-		}
+			mu.Lock()
+			delete(ap.allActions, hash)
+			mu.Unlock()
+			intrinsicGas, _ := act.IntrinsicGas()
+			atomic.AddUint64(&ap.gasInPool, ^uint64(intrinsicGas-1))
+			//del actions in destination map
+			if desAddress, ok := act.Destination(); ok {
+				if dst := ap.accountDesActs[desAddress]; dst != nil {
+					mu.Lock()
+					delete(dst, hash)
+					mu.Unlock()
+				}
+			}
+		}(&act)
 	}
+	wg.Wait()
 }
 
 // // deleteAccountDestinationActions just for destination map
@@ -509,44 +520,72 @@ func (ap *actPool) updateAccount(sender string) {
 	}
 }
 
+// Reset the state of every account in the pool
 func (ap *actPool) reset() {
 	timer := ap.timerFactory.NewTimer("reset")
 	defer timer.End()
 
-	// Reset the state of every account in the pool
+	actsToRemoved := struct {
+		sync.RWMutex
+		items []action.SealedEnvelope
+	}{
+		items: make([]action.SealedEnvelope, 0),
+	}
+
+	accountsToRemoved := struct {
+		sync.RWMutex
+		items []string
+	}{
+		items: make([]string, 0),
+	}
+
+	var wg sync.WaitGroup
 	for from, queue := range ap.accountActs {
-		addr, _ := address.FromString(from)
-		confirmedState, err := accountutil.AccountState(ap.sf, addr)
-		if err != nil {
-			log.L().Error("Error when resetting actpool state.", zap.Error(err))
-			// why return
-			continue
-			// return
-		}
+		wg.Add(1)
+		func(from string, queue *actQueue) {
+			defer wg.Done()
+			addr, _ := address.FromString(from)
+			confirmedState, err := accountutil.AccountState(ap.sf, addr)
+			if err != nil {
+				log.L().Error("Error when resetting actpool state.", zap.Error(err))
+				return
+			}
+			pendingNonce := confirmedState.Nonce + 1
 
-		pendingNonce := confirmedState.Nonce + 1
-		// Remove confirmed actions in actpool
-		ap.removeActs(queue.FilterNonce(pendingNonce)) //@
+			// Remove confirmed actions in actpool
+			acts := queue.FilterNonce(pendingNonce)
+			actsToRemoved.Lock()
+			actsToRemoved.items = append(actsToRemoved.items, acts...)
+			actsToRemoved.Unlock()
 
-		// Delete the queue entry if it becomes empty
-		if queue.Empty() {
-			delete(ap.accountActs, from) //@
-			continue
-		}
+			if queue.Empty() {
+				accountsToRemoved.Lock()
+				accountsToRemoved.items = append(accountsToRemoved.items, from)
+				accountsToRemoved.Unlock()
+				return
+			}
 
-		// Reset pending balance for each account
-		queue.SetPendingBalance(confirmedState.Balance)
+			queue.SetPendingBalance(confirmedState.Balance)
+			queue.SetPendingNonce(pendingNonce)
 
-		// Reset pending nonce and remove invalid actions for each account
-		queue.SetPendingNonce(pendingNonce)
+			// remove invalid actions for each account
+			acts = queue.UpdateQueue()
+			actsToRemoved.Lock()
+			actsToRemoved.items = append(actsToRemoved.items, acts...)
+			actsToRemoved.Unlock()
 
-		acts := queue.UpdateQueue()
-		if len(acts) > 0 {
-			ap.removeActs(acts)
-		}
-		// Delete the queue entry if it becomes empty
-		if queue.Empty() {
-			delete(ap.accountActs, from)
-		}
+			if queue.Empty() {
+				accountsToRemoved.Lock()
+				accountsToRemoved.items = append(accountsToRemoved.items, from)
+				accountsToRemoved.Unlock()
+			}
+		}(from, queue.(*actQueue))
+	}
+	wg.Wait()
+
+	ap.removeActs(actsToRemoved.items)
+
+	for _, from := range accountsToRemoved.items {
+		delete(ap.accountActs, from)
 	}
 }

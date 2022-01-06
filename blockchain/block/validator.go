@@ -45,8 +45,8 @@ func (v *validator) Validate(ctx context.Context, blk *Block) error {
 func (v *validator) validateActions(ctx context.Context, actions []action.SealedEnvelope) error {
 	var eg = new(errgroup.Group)
 	for _, act := range actions {
-		selp := act // https://golang.org/doc/faq#closures_and_goroutines
 		for _, sev := range v.validators {
+			selp := act // https://golang.org/doc/faq#closures_and_goroutines
 			validator := sev
 			eg.Go(func() error {
 				return validator.Validate(ctx, selp)
