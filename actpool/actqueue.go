@@ -42,6 +42,9 @@ func (h *noncePriorityQueue) Push(x interface{}) {
 func (h *noncePriorityQueue) Pop() interface{} {
 	old := *h
 	n := len(old)
+	if n == 0 {
+		return nil
+	}
 	x := old[n-1]
 	old[n-1] = nil // avoid memory leak
 	*h = old[0 : n-1]
