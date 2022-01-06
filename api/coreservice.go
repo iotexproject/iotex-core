@@ -928,8 +928,12 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 	return core.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
-// getActionByActionHash returns action by action hash
-func (core *coreService) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+// ActionByActionHash returns action by action hash
+func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+	if !core.hasActionIndex || core.indexer == nil {
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
@@ -1168,7 +1172,7 @@ func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Ac
 }
 
 func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, actIndex, err := core.getActionByActionHash(actHash)
+	selp, blkHash, blkHeight, actIndex, err := core.ActionByActionHash(actHash)
 	if err == nil {
 		act, err := core.committedAction(selp, blkHash, blkHeight)
 		if err != nil {
@@ -1493,16 +1497,6 @@ func (core *coreService) EVMNetworkID() uint32 {
 // ChainID returns the chain id of evm
 func (core *coreService) ChainID() uint32 {
 	return core.bc.ChainID()
-}
-
-// GetActionByActionHash returns action by action hash
-func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !core.hasActionIndex || core.indexer == nil {
-		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-
-	selp, _, _, _, err := core.getActionByActionHash(h)
-	return selp, err
 }
 
 // ReadContractStorage reads contract's storage
