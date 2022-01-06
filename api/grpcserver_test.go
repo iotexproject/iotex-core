@@ -2996,8 +2996,28 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.Error(err)
 
-	request.ActionHash = hex.EncodeToString(executionHash1[:])
+	// deploy a contract
+	contractCode := "6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032"
+
+	data, _ := hex.DecodeString(contractCode)
+	ex1, err := action.SignedExecution(action.EmptyAddress, identityset.PrivateKey(13), 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	require.NoError(err)
+	svr.core.ap.Add(context.Background(), ex1)
+	require.NoError(err)
+	blk, err := svr.core.bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	svr.core.bc.CommitBlock(blk)
+	require.NoError(err)
+	svr.core.ap.Reset()
+	ex1Hash, _ := ex1.Hash()
+	request.ActionHash = hex.EncodeToString(ex1Hash[:])
 	ret, err := svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.NoError(err)
-	require.Equal(len(ret.StructLogs), 0)
+	require.Equal(len(ret.StructLogs), 17)
+	log := ret.StructLogs[0]
+	require.Equal(log.Depth, int32(1))
+	require.Equal(log.Gas, "0x4bc1c0")
+	require.Equal(log.GasCost, "0x3")
+	require.Equal(log.Op, uint64(0x60))
+	require.Equal(log.OpName, "PUSH1")
 }
