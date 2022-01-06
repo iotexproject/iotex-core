@@ -8,21 +8,20 @@ package account
 
 import (
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
 func TestNewAccountNonce(t *testing.T) {
@@ -37,37 +36,75 @@ func TestNewAccountNonce(t *testing.T) {
 	for _, passwd := range passwds {
 		execNewAccount(t, passwd)
 	}
+
 }
 
 func execNewAccount(t *testing.T, passwd string) {
+	accountNoneTests := []struct {
+		// input
+		inAddr string
+		// output
+		outNonce        int
+		outPendingNonce int
+	}{
+		{
+			inAddr:          "",
+			outNonce:        0,
+			outPendingNonce: 0,
+		},
+		{
+			inAddr:          "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r",
+			outNonce:        0,
+			outPendingNonce: 1,
+		},
+		{
+			inAddr:          "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7",
+			outNonce:        2,
+			outPendingNonce: 3,
+		},
+	}
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 
-	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
-	require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
-	defer func() {
-		require.NoError(t, os.RemoveAll(testAccountFolder))
-	}()
-	ks := keystore.NewKeyStore(testAccountFolder,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-
-	acc, err := ks.NewAccount(passwd)
-	require.NoError(t, err)
-
-	accAddr, err := address.FromBytes(acc.Address.Bytes())
-	require.NoError(t, err)
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
+	accAddr := identityset.Address(28).String()
+	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr, nil).AnyTimes()
+	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
-	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{}}
-	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil).Times(1)
+	for i := 0; i < len(accountNoneTests); i++ {
+		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+
+		accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
+			Address:      accAddr,
+			Nonce:        uint64(accountNoneTests[i].outNonce),
+			PendingNonce: uint64(accountNoneTests[i].outPendingNonce),
+		}}
+		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
+
+		cmd := NewAccountNonce(client)
+		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
+		require.NotNil(t, result)
+		require.NoError(t, err)
+	}
+
+	expectedErr := output.NewError(output.NetworkError, "failed to dial grpc connection", nil)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
 
 	cmd := NewAccountNonce(client)
-	result, err := util.ExecuteCmd(cmd)
-	require.NotNil(t, result)
-	require.NoError(t, err)
+	_, err := util.ExecuteCmd(cmd)
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err)
+
+	expectedErr = output.NewError(output.NetworkError, "failed to invoke GetAccount api", nil)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
+
+	cmd = NewAccountNonce(client)
+	_, err = util.ExecuteCmd(cmd)
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err)
 }

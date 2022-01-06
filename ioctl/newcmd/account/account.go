@@ -184,14 +184,14 @@ func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, error) {
-	var endpoint string
-	var insecure bool
+	endpoint := client.Config().Endpoint
+	insecure := client.Config().SecureConnect && !config.Insecure
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 		Endpoint: endpoint,
 		Insecure: insecure,
 	})
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "", err)
 	}
 
 	ctx := context.Background()
@@ -201,13 +201,12 @@ func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, 
 	}
 
 	response, err := apiServiceClient.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
-
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetAccount api", err)
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetAccount api", nil)
 	}
 	return response.AccountMeta, nil
 }
