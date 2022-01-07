@@ -6,35 +6,34 @@ package mock_trie
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
-// MockIterator is a mock of Iterator interface.
+// MockIterator is a mock of Iterator interface
 type MockIterator struct {
 	ctrl     *gomock.Controller
 	recorder *MockIteratorMockRecorder
 }
 
-// MockIteratorMockRecorder is the mock recorder for MockIterator.
+// MockIteratorMockRecorder is the mock recorder for MockIterator
 type MockIteratorMockRecorder struct {
 	mock *MockIterator
 }
 
-// NewMockIterator creates a new mock instance.
+// NewMockIterator creates a new mock instance
 func NewMockIterator(ctrl *gomock.Controller) *MockIterator {
 	mock := &MockIterator{ctrl: ctrl}
 	mock.recorder = &MockIteratorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockIterator) EXPECT() *MockIteratorMockRecorder {
 	return m.recorder
 }
 
-// Next mocks base method.
+// Next mocks base method
 func (m *MockIterator) Next() ([]byte, []byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next")
@@ -44,50 +43,78 @@ func (m *MockIterator) Next() ([]byte, []byte, error) {
 	return ret0, ret1, ret2
 }
 
-// Next indicates an expected call of Next.
+// Next indicates an expected call of Next
 func (mr *MockIteratorMockRecorder) Next() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockIterator)(nil).Next))
 }
 
-// MockTrie is a mock of Trie interface.
+// MockTrie is a mock of Trie interface
 type MockTrie struct {
 	ctrl     *gomock.Controller
 	recorder *MockTrieMockRecorder
 }
 
-// MockTrieMockRecorder is the mock recorder for MockTrie.
+// MockTrieMockRecorder is the mock recorder for MockTrie
 type MockTrieMockRecorder struct {
 	mock *MockTrie
 }
 
-// NewMockTrie creates a new mock instance.
+// NewMockTrie creates a new mock instance
 func NewMockTrie(ctrl *gomock.Controller) *MockTrie {
 	mock := &MockTrie{ctrl: ctrl}
 	mock.recorder = &MockTrieMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method.
-func (m *MockTrie) Delete(arg0 []byte) error {
+// Start mocks base method
+func (m *MockTrie) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Delete indicates an expected call of Delete.
-func (mr *MockTrieMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+// Start indicates an expected call of Start
+func (mr *MockTrieMockRecorder) Start(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTrie)(nil).Delete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTrie)(nil).Start), arg0)
 }
 
-// Get mocks base method.
+// Stop mocks base method
+func (m *MockTrie) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockTrieMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTrie)(nil).Stop), arg0)
+}
+
+// Upsert mocks base method
+func (m *MockTrie) Upsert(arg0, arg1 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upsert", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Upsert indicates an expected call of Upsert
+func (mr *MockTrieMockRecorder) Upsert(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTrie)(nil).Upsert), arg0, arg1)
+}
+
+// Get mocks base method
 func (m *MockTrie) Get(arg0 []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
@@ -96,27 +123,27 @@ func (m *MockTrie) Get(arg0 []byte) ([]byte, error) {
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get.
+// Get indicates an expected call of Get
 func (mr *MockTrieMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTrie)(nil).Get), arg0)
 }
 
-// IsEmpty mocks base method.
-func (m *MockTrie) IsEmpty() bool {
+// Delete mocks base method
+func (m *MockTrie) Delete(arg0 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsEmpty")
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// IsEmpty indicates an expected call of IsEmpty.
-func (mr *MockTrieMockRecorder) IsEmpty() *gomock.Call {
+// Delete indicates an expected call of Delete
+func (mr *MockTrieMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEmpty", reflect.TypeOf((*MockTrie)(nil).IsEmpty))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTrie)(nil).Delete), arg0)
 }
 
-// RootHash mocks base method.
+// RootHash mocks base method
 func (m *MockTrie) RootHash() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RootHash")
@@ -125,13 +152,13 @@ func (m *MockTrie) RootHash() ([]byte, error) {
 	return ret0, ret1
 }
 
-// RootHash indicates an expected call of RootHash.
+// RootHash indicates an expected call of RootHash
 func (mr *MockTrieMockRecorder) RootHash() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockTrie)(nil).RootHash))
 }
 
-// SetRootHash mocks base method.
+// SetRootHash mocks base method
 func (m *MockTrie) SetRootHash(arg0 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRootHash", arg0)
@@ -139,107 +166,78 @@ func (m *MockTrie) SetRootHash(arg0 []byte) error {
 	return ret0
 }
 
-// SetRootHash indicates an expected call of SetRootHash.
+// SetRootHash indicates an expected call of SetRootHash
 func (mr *MockTrieMockRecorder) SetRootHash(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRootHash", reflect.TypeOf((*MockTrie)(nil).SetRootHash), arg0)
 }
 
-// Start mocks base method.
-func (m *MockTrie) Start(arg0 context.Context) error {
+// IsEmpty mocks base method
+func (m *MockTrie) IsEmpty() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", arg0)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "IsEmpty")
+	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// Start indicates an expected call of Start.
-func (mr *MockTrieMockRecorder) Start(arg0 interface{}) *gomock.Call {
+// IsEmpty indicates an expected call of IsEmpty
+func (mr *MockTrieMockRecorder) IsEmpty() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTrie)(nil).Start), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEmpty", reflect.TypeOf((*MockTrie)(nil).IsEmpty))
 }
 
-// Stop mocks base method.
-func (m *MockTrie) Stop(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stop", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Stop indicates an expected call of Stop.
-func (mr *MockTrieMockRecorder) Stop(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTrie)(nil).Stop), arg0)
-}
-
-// Upsert mocks base method.
-func (m *MockTrie) Upsert(arg0, arg1 []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upsert", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Upsert indicates an expected call of Upsert.
-func (mr *MockTrieMockRecorder) Upsert(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTrie)(nil).Upsert), arg0, arg1)
-}
-
-// MockTwoLayerTrie is a mock of TwoLayerTrie interface.
+// MockTwoLayerTrie is a mock of TwoLayerTrie interface
 type MockTwoLayerTrie struct {
 	ctrl     *gomock.Controller
 	recorder *MockTwoLayerTrieMockRecorder
 }
 
-// MockTwoLayerTrieMockRecorder is the mock recorder for MockTwoLayerTrie.
+// MockTwoLayerTrieMockRecorder is the mock recorder for MockTwoLayerTrie
 type MockTwoLayerTrieMockRecorder struct {
 	mock *MockTwoLayerTrie
 }
 
-// NewMockTwoLayerTrie creates a new mock instance.
+// NewMockTwoLayerTrie creates a new mock instance
 func NewMockTwoLayerTrie(ctrl *gomock.Controller) *MockTwoLayerTrie {
 	mock := &MockTwoLayerTrie{ctrl: ctrl}
 	mock.recorder = &MockTwoLayerTrieMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
+// EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockTwoLayerTrie) EXPECT() *MockTwoLayerTrieMockRecorder {
 	return m.recorder
 }
 
-// Delete mocks base method.
-func (m *MockTwoLayerTrie) Delete(arg0, arg1 []byte) error {
+// Start mocks base method
+func (m *MockTwoLayerTrie) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Delete indicates an expected call of Delete.
-func (mr *MockTwoLayerTrieMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+// Start indicates an expected call of Start
+func (mr *MockTwoLayerTrieMockRecorder) Start(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTwoLayerTrie)(nil).Delete), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTwoLayerTrie)(nil).Start), arg0)
 }
 
-// Get mocks base method.
-func (m *MockTwoLayerTrie) Get(arg0, arg1 []byte) ([]byte, error) {
+// Stop mocks base method
+func (m *MockTwoLayerTrie) Stop(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Get indicates an expected call of Get.
-func (mr *MockTwoLayerTrieMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+// Stop indicates an expected call of Stop
+func (mr *MockTwoLayerTrieMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTwoLayerTrie)(nil).Get), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTwoLayerTrie)(nil).Stop), arg0)
 }
 
-// RootHash mocks base method.
+// RootHash mocks base method
 func (m *MockTwoLayerTrie) RootHash() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RootHash")
@@ -248,13 +246,13 @@ func (m *MockTwoLayerTrie) RootHash() ([]byte, error) {
 	return ret0, ret1
 }
 
-// RootHash indicates an expected call of RootHash.
+// RootHash indicates an expected call of RootHash
 func (mr *MockTwoLayerTrieMockRecorder) RootHash() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockTwoLayerTrie)(nil).RootHash))
 }
 
-// SetRootHash mocks base method.
+// SetRootHash mocks base method
 func (m *MockTwoLayerTrie) SetRootHash(arg0 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRootHash", arg0)
@@ -262,41 +260,28 @@ func (m *MockTwoLayerTrie) SetRootHash(arg0 []byte) error {
 	return ret0
 }
 
-// SetRootHash indicates an expected call of SetRootHash.
+// SetRootHash indicates an expected call of SetRootHash
 func (mr *MockTwoLayerTrieMockRecorder) SetRootHash(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRootHash", reflect.TypeOf((*MockTwoLayerTrie)(nil).SetRootHash), arg0)
 }
 
-// Start mocks base method.
-func (m *MockTwoLayerTrie) Start(arg0 context.Context) error {
+// Get mocks base method
+func (m *MockTwoLayerTrie) Get(arg0, arg1 []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "Get", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Start indicates an expected call of Start.
-func (mr *MockTwoLayerTrieMockRecorder) Start(arg0 interface{}) *gomock.Call {
+// Get indicates an expected call of Get
+func (mr *MockTwoLayerTrieMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTwoLayerTrie)(nil).Start), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTwoLayerTrie)(nil).Get), arg0, arg1)
 }
 
-// Stop mocks base method.
-func (m *MockTwoLayerTrie) Stop(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stop", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Stop indicates an expected call of Stop.
-func (mr *MockTwoLayerTrieMockRecorder) Stop(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTwoLayerTrie)(nil).Stop), arg0)
-}
-
-// Upsert mocks base method.
+// Upsert mocks base method
 func (m *MockTwoLayerTrie) Upsert(arg0, arg1, arg2 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upsert", arg0, arg1, arg2)
@@ -304,8 +289,22 @@ func (m *MockTwoLayerTrie) Upsert(arg0, arg1, arg2 []byte) error {
 	return ret0
 }
 
-// Upsert indicates an expected call of Upsert.
+// Upsert indicates an expected call of Upsert
 func (mr *MockTwoLayerTrieMockRecorder) Upsert(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTwoLayerTrie)(nil).Upsert), arg0, arg1, arg2)
+}
+
+// Delete mocks base method
+func (m *MockTwoLayerTrie) Delete(arg0, arg1 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockTwoLayerTrieMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTwoLayerTrie)(nil).Delete), arg0, arg1)
 }

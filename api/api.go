@@ -1727,5 +1727,5 @@ func (api *Server) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoo
 
 // TraceTransactionStructLogs get trace transaction struct logs
 func (api *Server) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
-	return nil, nil
+	return nil, status.Error(codes.Unimplemented, "The operation is not implemented")
 }
