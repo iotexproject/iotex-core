@@ -70,8 +70,8 @@ func TestNewAccountNonce(t *testing.T) {
 
 		cmd := NewAccountNonce(client)
 		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
-		require.NotNil(t, result)
 		require.NoError(t, err)
+		require.Equal(t, "", result)
 	}
 
 	expectedErr := output.NewError(output.NetworkError, "failed to dial grpc connection", nil)
