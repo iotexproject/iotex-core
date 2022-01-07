@@ -7,8 +7,6 @@
 package account
 
 import (
-	"math/rand"
-	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -25,21 +23,6 @@ import (
 )
 
 func TestNewAccountNonce(t *testing.T) {
-	passwds := []string{
-		"test",
-		func() string {
-			nonce := strconv.FormatInt(rand.Int63(), 10)
-			return "3dj,<>@@SF{}rj0ZF#" + nonce
-		}(),
-	}
-
-	for _, passwd := range passwds {
-		execNewAccount(t, passwd)
-	}
-
-}
-
-func execNewAccount(t *testing.T, passwd string) {
 	accountNoneTests := []struct {
 		// input
 		inAddr string
