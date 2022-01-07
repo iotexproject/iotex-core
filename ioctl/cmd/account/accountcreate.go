@@ -54,6 +54,7 @@ type createMessage struct {
 
 type generatedAccount struct {
 	Address    string `json:"address"`
+	EthAddress string `json:"ethAddress"`
 	PrivateKey string `json:"privateKey"`
 	PublicKey  string `json:"publicKey"`
 }
@@ -86,6 +87,7 @@ func accountCreate() error {
 		}
 		newAccount := generatedAccount{
 			Address:    addr.String(),
+			EthAddress: addr.Hex(),
 			PrivateKey: fmt.Sprintf("%x", private.Bytes()),
 			PublicKey:  fmt.Sprintf("%x", private.PublicKey().Bytes()),
 		}
