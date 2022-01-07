@@ -97,6 +97,7 @@ type (
 		UpdateBlockMeta             bool
 		CurrentEpochProductivity    bool
 		FixSnapshotOrder            bool
+		AllowCorrectDefaultChainID  bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -220,6 +221,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UpdateBlockMeta:             g.IsGreenland(height),
 			CurrentEpochProductivity:    g.IsGreenland(height),
 			FixSnapshotOrder:            g.IsKamchatka(height),
+			AllowCorrectDefaultChainID:  g.IsToBeEnabled(height),
 		},
 	)
 }
