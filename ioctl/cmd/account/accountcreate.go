@@ -86,8 +86,8 @@ func accountCreate() error {
 			return output.NewError(output.ConvertError, "failed to convert public key into address", nil)
 		}
 		newAccount := generatedAccount{
-			EthAddress: addr.Hex(),
 			Address:    addr.String(),
+			EthAddress: addr.Hex(),
 			PrivateKey: fmt.Sprintf("%x", private.Bytes()),
 			PublicKey:  fmt.Sprintf("%x", private.PublicKey().Bytes()),
 		}
