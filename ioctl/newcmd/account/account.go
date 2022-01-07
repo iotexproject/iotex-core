@@ -206,7 +206,7 @@ func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, 
 		if ok {
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetAccount api", nil)
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetAccount api", err)
 	}
 	return response.AccountMeta, nil
 }

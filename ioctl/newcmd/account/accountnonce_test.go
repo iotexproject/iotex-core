@@ -89,5 +89,5 @@ func TestNewAccountNonce(t *testing.T) {
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)
 	require.Error(t, err)
-	require.Equal(t, expectedErr, err)
+	require.Contains(t, err.Error(), expectedErr.Error())
 }
