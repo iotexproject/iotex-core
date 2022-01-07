@@ -9,14 +9,13 @@ package addrutil
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // IoAddrToEvmAddr converts IoTeX address into evm address
 func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
 	address, err := address.FromString(ioAddr)
 	if err != nil {
-		return common.Address{}, output.NewError(output.ConvertError, "", err)
+		return common.Address{}, err
 	}
 	return common.BytesToAddress(address.Bytes()), nil
 }
