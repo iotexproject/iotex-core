@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
@@ -79,7 +80,7 @@ func EtherAddress(in string) (common.Address, error) {
 	if err != nil {
 		return common.Address{}, output.NewError(output.AddressError, "", err)
 	}
-	return util.IoAddrToEvmAddr(addr)
+	return addrutil.IoAddrToEvmAddr(addr)
 }
 
 // Alias returns the alias corresponding to address

@@ -25,6 +25,7 @@ import (
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 type (
@@ -86,19 +87,11 @@ func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 	return address.FromHex(ethAddr)
 }
 
-func ioAddrToEvmAddr(ioAddr string) (common.Address, error) {
-	address, err := address.FromString(ioAddr)
-	if err != nil {
-		return common.Address{}, errInvalidFormat
-	}
-	return common.BytesToAddress(address.Bytes()), nil
-}
-
 func ioAddrToEthAddr(ioAddr string) (string, error) {
 	if len(ioAddr) == 0 {
 		return "0x0000000000000000000000000000000000000000", nil
 	}
-	addr, err := ioAddrToEvmAddr(ioAddr)
+	addr, err := addrutil.IoAddrToEvmAddr(ioAddr)
 	if err != nil {
 		return "", err
 	}
