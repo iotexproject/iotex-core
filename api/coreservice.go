@@ -265,10 +265,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
-	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) {
-		if core.bc.ChainID() != in.GetCore().GetChainID() {
-			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), in.GetCore().GetChainID())
-		}
+	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {
+		return "", err
 	}
 
 	// Add to local actpool
@@ -307,6 +305,14 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (core *coreService) validateChainID(chainID uint32) error {
+	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) &&
+		chainID != core.bc.ChainID() && chainID != 0 {
+		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+	}
+	return nil
 }
 
 // ReceiptByAction gets receipt with corresponding action hash
