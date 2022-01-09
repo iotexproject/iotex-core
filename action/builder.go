@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -36,12 +35,6 @@ func (b *Builder) SetVersion(v uint32) *Builder {
 // SetNonce sets action's nonce.
 func (b *Builder) SetNonce(n uint64) *Builder {
 	b.act.nonce = n
-	return b
-}
-
-// SetSourcePublicKey sets action's source's public key.
-func (b *Builder) SetSourcePublicKey(key crypto.PublicKey) *Builder {
-	b.act.srcPubkey = key
 	return b
 }
 
@@ -150,6 +143,10 @@ func (b *EnvelopeBuilder) build() Envelope {
 	if b.elp.version == 0 {
 		b.elp.version = version.ProtocolVersion
 	}
+	if b.elp.payload == nil {
+		panic("cannot build Envelope w/o a valid payload")
+	}
+	b.elp.payload.SetAbstractAction(b.elp.AbstractAction)
 	return &b.elp
 }
 

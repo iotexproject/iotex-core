@@ -28,12 +28,8 @@ type (
 	}
 
 	envelope struct {
-		version  uint32
-		chainID  uint32
-		nonce    uint64
-		gasLimit uint64
-		gasPrice *big.Int
-		payload  actionPayload
+		AbstractAction
+		payload actionPayload
 	}
 )
 
@@ -244,6 +240,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
+	elp.payload.SetAbstractAction(elp.AbstractAction)
 	return nil
 }
 

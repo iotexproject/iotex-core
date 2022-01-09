@@ -18,7 +18,7 @@ import (
 type (
 	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 	Action interface {
-		SetEnvelopeContext(SealedEnvelope)
+		SetAbstractAction(AbstractAction)
 		SanityCheck() error
 	}
 
@@ -30,7 +30,7 @@ type (
 	actionPayload interface {
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
-		SetEnvelopeContext(SealedEnvelope)
+		SetAbstractAction(AbstractAction)
 		SanityCheck() error
 	}
 
@@ -55,7 +55,6 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		return sealed, ErrInvalidSender
 	}
 	sealed.signature = sig
-	act.Action().SetEnvelopeContext(sealed)
 	return sealed, nil
 }
 
@@ -66,7 +65,6 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
-	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -78,7 +76,6 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 		srcPubkey: pk,
 		signature: sig,
 	}
-	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 

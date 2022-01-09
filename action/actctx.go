@@ -8,18 +8,15 @@ package action
 
 import (
 	"math/big"
-
-	"github.com/iotexproject/go-pkgs/crypto"
 )
 
 // AbstractAction is an abstract implementation of Action interface
 type AbstractAction struct {
-	version   uint32
-	chainID   uint32
-	nonce     uint64
-	gasLimit  uint64
-	gasPrice  *big.Int
-	srcPubkey crypto.PublicKey
+	version  uint32
+	chainID  uint32
+	nonce    uint64
+	gasLimit uint64
+	gasPrice *big.Int
 }
 
 // Version returns the version
@@ -62,9 +59,6 @@ func (act *AbstractAction) SetGasPrice(val *big.Int) {
 func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
-	if act.srcPubkey != nil {
-		size += len(act.srcPubkey.Bytes())
-	}
 	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
 		size += len(act.gasPrice.Bytes())
 	}
@@ -72,17 +66,12 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	return uint32(size)
 }
 
-// SetEnvelopeContext sets the SealedEnvelope context to action context.
-func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
+// SetAbstractAction sets the struct to input
+func (act *AbstractAction) SetAbstractAction(ab AbstractAction) {
 	if act == nil {
 		return
 	}
-	act.version = selp.Version()
-	act.chainID = selp.ChainID()
-	act.nonce = selp.Nonce()
-	act.gasLimit = selp.GasLimit()
-	act.gasPrice = selp.GasPrice()
-	act.srcPubkey = selp.SrcPubkey()
+	*act = ab
 }
 
 // SanityCheck validates the variables in the action
