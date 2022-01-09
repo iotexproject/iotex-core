@@ -706,7 +706,7 @@ func testNonce(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, ge))
 
 	require.NoError(t, sf.Start(ctx))
 	defer func() {

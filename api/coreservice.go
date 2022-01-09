@@ -265,10 +265,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
-	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) {
-		if core.bc.ChainID() != in.GetCore().GetChainID() {
-			return "", status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), in.GetCore().GetChainID())
-		}
+	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {
+		return "", err
 	}
 
 	// Add to local actpool
@@ -307,6 +305,14 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (core *coreService) validateChainID(chainID uint32) error {
+	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) &&
+		chainID != core.bc.ChainID() && chainID != 0 {
+		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+	}
+	return nil
 }
 
 // ReceiptByAction gets receipt with corresponding action hash
@@ -413,40 +419,6 @@ func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, er
 		return 0, status.Error(codes.Internal, err.Error())
 	}
 	return estimateGas, nil
-}
-
-// EstimateActionGasConsumption estimate gas consume for action without signature
-func (core *coreService) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (uint64, error) {
-	var ret uint64
-	// TODO: refactor gas estimation code out of core service
-	switch {
-	case in.GetExecution() != nil:
-		request := in.GetExecution()
-		return core.estimateActionGasConsumptionForExecution(ctx, request, in.GetCallerAddress())
-	case in.GetTransfer() != nil:
-		ret = uint64(len(in.GetTransfer().Payload))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
-	case in.GetStakeCreate() != nil:
-		ret = uint64(len(in.GetStakeCreate().Payload))*action.CreateStakePayloadGas + action.CreateStakeBaseIntrinsicGas
-	case in.GetStakeUnstake() != nil:
-		ret = uint64(len(in.GetStakeUnstake().Payload))*action.ReclaimStakePayloadGas + action.ReclaimStakeBaseIntrinsicGas
-	case in.GetStakeWithdraw() != nil:
-		ret = uint64(len(in.GetStakeWithdraw().Payload))*action.ReclaimStakePayloadGas + action.ReclaimStakeBaseIntrinsicGas
-	case in.GetStakeAddDeposit() != nil:
-		ret = uint64(len(in.GetStakeAddDeposit().Payload))*action.DepositToStakePayloadGas + action.DepositToStakeBaseIntrinsicGas
-	case in.GetStakeRestake() != nil:
-		ret = uint64(len(in.GetStakeRestake().Payload))*action.RestakePayloadGas + action.RestakeBaseIntrinsicGas
-	case in.GetStakeChangeCandidate() != nil:
-		ret = uint64(len(in.GetStakeChangeCandidate().Payload))*action.MoveStakePayloadGas + action.MoveStakeBaseIntrinsicGas
-	case in.GetStakeTransferOwnership() != nil:
-		ret = uint64(len(in.GetStakeTransferOwnership().Payload))*action.MoveStakePayloadGas + action.MoveStakeBaseIntrinsicGas
-	case in.GetCandidateRegister() != nil:
-		ret = uint64(len(in.GetCandidateRegister().Payload))*action.CandidateRegisterPayloadGas + action.CandidateRegisterBaseIntrinsicGas
-	case in.GetCandidateUpdate() != nil:
-		ret = action.CandidateUpdateBaseIntrinsicGas
-	default:
-		return 0, status.Error(codes.InvalidArgument, "invalid argument")
-	}
-	return ret, nil
 }
 
 // EpochMeta gets epoch metadata
@@ -962,8 +934,12 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 	return core.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
-// getActionByActionHash returns action by action hash
-func (core *coreService) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+// ActionByActionHash returns action by action hash
+func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
+	if !core.hasActionIndex || core.indexer == nil {
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
@@ -1036,11 +1012,13 @@ func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.B
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	tipHeight := core.bc.TipHeight()
+	var (
+		tipHeight = core.bc.TipHeight()
+		res       = make([]*iotextypes.BlockMeta, 0)
+	)
 	if start > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
-	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
 		blockMeta, err := core.getBlockMetaByHeight(height)
 		if err != nil {
@@ -1200,7 +1178,7 @@ func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Ac
 }
 
 func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, actIndex, err := core.getActionByActionHash(actHash)
+	selp, blkHash, blkHeight, actIndex, err := core.ActionByActionHash(actHash)
 	if err == nil {
 		act, err := core.committedAction(selp, blkHash, blkHeight)
 		if err != nil {
@@ -1342,26 +1320,22 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 	return logs, nil
 }
 
-func (core *coreService) estimateActionGasConsumptionForExecution(ctx context.Context, exec *iotextypes.Execution, sender string) (uint64, error) {
+// CalculateGasConsumption estimate gas consumption for actions except execution
+func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
+	return payloadGas*payloadSize + intrinsicGas
+}
+
+// EstimateExecutionGasConsumption estimate gas consumption for execution action
+func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, exec *iotextypes.Execution, callerAddr address.Address) (uint64, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	addr, err := address.FromString(sender)
-	if err != nil {
-		return 0, status.Error(codes.FailedPrecondition, err.Error())
-	}
-	state, err := accountutil.AccountState(core.sf, addr)
+	state, err := accountutil.AccountState(core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
 	nonce := state.Nonce + 1
-
-	callerAddr, err := address.FromString(sender)
-	if err != nil {
-		return 0, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, nonce, core.cfg.Genesis.BlockGasLimit)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
@@ -1529,16 +1503,6 @@ func (core *coreService) EVMNetworkID() uint32 {
 // ChainID returns the chain id of evm
 func (core *coreService) ChainID() uint32 {
 	return core.bc.ChainID()
-}
-
-// GetActionByActionHash returns action by action hash
-func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !core.hasActionIndex || core.indexer == nil {
-		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-
-	selp, _, _, _, err := core.getActionByActionHash(h)
-	return selp, err
 }
 
 // ReadContractStorage reads contract's storage

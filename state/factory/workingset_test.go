@@ -212,9 +212,9 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			GasLimit:    gasLimit,
 		})
 	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
-	zctx = protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
+	zctx = protocol.WithFeatureCtx(protocol.WithBlockchainCtx(zctx, protocol.BlockchainCtx{
 		ChainID: 1,
-	})
+	}))
 	for _, f := range factories {
 		for _, test := range tests {
 			require.Equal(test.err, errors.Cause(f.Validate(zctx, test.block)))

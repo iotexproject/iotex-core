@@ -1014,6 +1014,18 @@ func TestGrpcServer_GetAction(t *testing.T) {
 			require.Equal(uint64(0), act.BlkHeight)
 		}
 	}
+
+	// failure: invalid hash
+	_, err = svr.GrpcServer.GetActions(context.Background(),
+		&iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash:   "0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e",
+					CheckPending: true,
+				},
+			},
+		})
+	require.Error(err)
 }
 
 func TestGrpcServer_GetActionsByAddress(t *testing.T) {
@@ -1178,6 +1190,20 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	}
 	// failure: empty request
 	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+	require.Error(err)
+
+	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{Start: 10, Count: 1},
+		},
+	})
+	require.Error(err)
+
+	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: "0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"},
+		},
+	})
 	require.Error(err)
 }
 
@@ -2301,7 +2327,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, err := svr.core.ActionByActionHash(test.h)
+		ret, _, _, _, err := svr.core.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
