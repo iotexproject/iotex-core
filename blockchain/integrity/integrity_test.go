@@ -557,7 +557,6 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NotNil(bc)
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
-	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
@@ -946,79 +945,90 @@ func TestConstantinople(t *testing.T) {
 		// at that time, the test is run with both EVM version (Byzantium vs. Constantinople), and it generates the
 		// same exact block hash, so these values stood as gatekeeper for backward-compatibility
 		hashTopic := []struct {
+			height  uint64
 			h       hash.Hash256
 			blkHash string
 			topic   []byte
 		}{
 			{
+				1,
 				deployHash,
 				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
 				nil,
 			},
 			{
+				2,
 				setHash,
 				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
 				setTopic,
 			},
 			{
+				3,
 				shrHash,
 				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
 				shrTopic,
 			},
 			{
+				4,
 				shlHash,
 				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
 				shlTopic,
 			},
 			{
+				5,
 				sarHash,
 				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
 				sarTopic,
 			},
 			{
+				6,
 				extHash,
 				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
 				extTopic,
 			},
 			{
+				7,
 				crt2Hash,
-				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
+				"5254d2cbd18b6bf4311ef568613803c2df51488d1f26727f5b7f230e2e0368c0",
 				crt2Topic,
 			},
 		}
 
 		// test getReceipt
-		for i := range hashTopic {
-			actHash := hashTopic[i].h
-			ai, err := indexer.GetActionIndex(actHash[:])
+		for _, v := range hashTopic {
+			ai, err := indexer.GetActionIndex(v.h[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(actHash, ai.BlockHeight())
+			require.Equal(v.height, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(v.h, v.height)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
-			require.Equal(actHash, r.ActionHash)
-			require.Equal(uint64(i)+1, r.BlockHeight)
-			a, _, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
+			require.Equal(v.h, r.ActionHash)
+			require.Equal(v.height, r.BlockHeight)
+			if v.height == 1 || v.height >= cfg.Genesis.ToBeEnabledBlockHeight {
+				require.Equal("io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn", r.ContractAddress)
+			} else {
+				require.Empty(r.ContractAddress)
+			}
+			a, _, err := dao.GetActionByActionHash(v.h, v.height)
 			require.NoError(err)
 			require.NotNil(a)
 			aHash, err := a.Hash()
 			require.NoError(err)
-			require.Equal(actHash, aHash)
+			require.Equal(v.h, aHash)
 
-			actIndex, err := indexer.GetActionIndex(actHash[:])
+			blkHash, err := dao.GetBlockHash(v.height)
 			require.NoError(err)
-			blkHash, err := dao.GetBlockHash(actIndex.BlockHeight())
-			require.NoError(err)
-			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
+			require.Equal(v.blkHash, hex.EncodeToString(blkHash[:]))
 
-			if hashTopic[i].topic != nil {
+			if v.topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
-				blk, err := dao.GetBlockByHeight(1 + uint64(i))
+				blk, err := dao.GetBlockByHeight(v.height)
 				require.NoError(err)
 				f := blk.Header.LogsBloomfilter()
 				require.NotNil(f)
 				require.True(f.Exist(funcSig[:]))
-				require.True(f.Exist(hashTopic[i].topic))
+				require.True(f.Exist(v.topic))
 			}
 		}
 
@@ -1119,6 +1129,7 @@ func TestConstantinople(t *testing.T) {
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 8
 	cfg.Genesis.GreenlandBlockHeight = 9
+	cfg.Genesis.ToBeEnabledBlockHeight = 7
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	t.Run("test Constantinople contract", func(t *testing.T) {
