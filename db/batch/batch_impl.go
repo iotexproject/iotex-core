@@ -7,6 +7,7 @@
 package batch
 
 import (
+	"container/list"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -93,23 +94,41 @@ func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 	return b.writeQueue[index], nil
 }
 
+type dataLocation struct {
+	data  []byte
+	index int
+}
+
 func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
+	var (
+		dataList       = list.New()
+		size           = 0
+		serializedData []byte
+	)
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// 1. This could be improved by being processed in parallel
 	// 2. Digest could be replaced by merkle root if we need proof
-	bytes := make([]byte, 0)
 	for _, wi := range b.writeQueue {
 		if filter != nil && filter(wi) {
 			continue
 		}
 		if serialize != nil {
-			bytes = append(bytes, serialize(wi)...)
+			serializedData = serialize(wi)
 		} else {
-			bytes = append(bytes, wi.Serialize()...)
+			serializedData = wi.Serialize()
 		}
+		dataList.PushBack(dataLocation{serializedData, size})
+		size += len(serializedData)
 	}
-	return bytes
+	ret := make([]byte, size)
+	for e := dataList.Front(); e != nil; e = e.Next() {
+		item := e.Value.(dataLocation)
+		copy(ret[item.index:], item.data)
+	}
+	// log.L().Info("byte len", zap.Int("bytes len", len(bytes)),
+	// zap.Int("queue len", len(b.writeQueue)))
+	return ret
 }
 
 // Clear clear write queue

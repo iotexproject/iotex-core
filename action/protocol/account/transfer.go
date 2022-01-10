@@ -7,6 +7,7 @@
 package account
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 
@@ -64,7 +65,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
-	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
+	recipientAcct, err := accountutil.LoadOrCreateAccount(sm, recipientAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
+	}
 	if err == nil && recipientAcct.IsContract() {
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
@@ -96,18 +100,17 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 	}
 	// update sender Nonce
 	accountutil.SetNonce(tsf, sender)
-	// put updated sender's state to trie
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
-		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+	if bytes.Equal(actionCtx.Caller.Bytes(), recipientAddr.Bytes()) {
+		recipientAcct = sender
+	} else {
+		// put updated sender's state to trie
+		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+		}
 	}
-	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
-	}
-	recipient.AddBalance(tsf.Amount())
+	recipientAcct.AddBalance(tsf.Amount())
 	// put updated recipient's state to trie
-	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
+	if err := accountutil.StoreAccount(sm, recipientAddr, recipientAcct); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 

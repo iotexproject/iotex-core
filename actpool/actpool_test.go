@@ -398,7 +398,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(9)
+	}).Times(8)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))
@@ -984,7 +984,7 @@ func TestActPool_GetSize(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(9)
+	}).Times(8)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))
