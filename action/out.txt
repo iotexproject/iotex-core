@@ -1,0 +1,758 @@
+# command-line-arguments
+./sealedenvelope.go:97:25: devirtualizing elp.LoadProto to *envelope
+./sealedenvelope.go:109:36: devirtualizing elp.Action to *envelope
+./sealedenvelope.go:129:12: devirtualizing elp.Action to *envelope
+./actctx.go:26:7: act does not escape
+./actctx.go:29:7: act does not escape
+./actctx.go:32:7: act does not escape
+./actctx.go:35:7: act does not escape
+./actctx.go:38:7: act does not escape
+./actctx.go:39:7: &big.Int{} escapes to heap
+./actctx.go:47:7: leaking param content: act
+./sealedenvelope.go:59:7: leaking param: sealed to result ~r0 level=1
+./actctx.go:61:7: act does not escape
+./actctx.go:61:47: leaking param: selp
+./actctx.go:74:7: act does not escape
+./sealedenvelope.go:167:37: leaking param: ab
+./sealedenvelope.go:167:56: toAddr does not escape
+./sealedenvelope.go:167:71: leaking param: pb
+./sealedenvelope.go:176:9: &Execution{...} escapes to heap
+./stake_create.go:90:7: leaking param content: cs
+./stake_create.go:91:2: moved to heap: act
+./stake_create.go:102:21: make([]byte, len(cs.payload)) escapes to heap
+./stake_adddeposit.go:78:7: leaking param content: ds
+./stake_adddeposit.go:79:9: &iotextypes.StakeAddDeposit{...} escapes to heap
+./stake_changecandidate.go:74:7: leaking param content: cc
+./stake_changecandidate.go:75:9: &iotextypes.StakeChangeCandidate{...} escapes to heap
+./stake_reclaim.go:48:7: leaking param content: sr
+./stake_reclaim.go:49:9: &iotextypes.StakeReclaim{...} escapes to heap
+./stake_restake.go:80:7: leaking param content: rs
+./stake_restake.go:81:9: &iotextypes.StakeRestake{...} escapes to heap
+./stake_transferownership.go:72:7: leaking param content: ts
+./stake_transferownership.go:73:9: &iotextypes.StakeTransferOwnership{...} escapes to heap
+./candidate_register.go:128:7: leaking param content: cr
+./candidate_register.go:129:2: moved to heap: act
+./candidate_register.go:130:14: &iotextypes.CandidateBasicInfo{...} escapes to heap
+./candidate_register.go:148:21: make([]byte, len(cr.payload)) escapes to heap
+./candidate_update.go:82:7: leaking param content: cu
+./candidate_update.go:83:9: &iotextypes.CandidateBasicInfo{...} escapes to heap
+./sealedenvelope.go:133:18: leaking param: action
+./sealedenvelope.go:162:28: ... argument does not escape
+./rlp_tx.go:46:20: leaking param: act
+./rlp_tx.go:55:28: ... argument does not escape
+./rlp_tx.go:55:34: to escapes to heap
+./rlp_tx.go:27:17: leaking param: tx
+./sealedenvelope.go:26:7: leaking param content: sealed
+./sealedenvelope.go:37:41: ... argument does not escape
+./sealedenvelope.go:37:76: sealed.encoding escapes to heap
+./action.go:39:11: leaking param: act
+./action.go:39:25: leaking param: sk
+./action.go:45:2: moved to heap: h
+./action.go:60:15: leaking param: act
+./action.go:60:29: leaking param: pubk
+./action.go:71:29: leaking param: act
+./action.go:71:43: leaking param: pk
+./action.go:71:64: leaking param: sig
+./sealedenvelope.go:62:7: sealed does not escape
+./sealedenvelope.go:63:13: make([]byte, len(sealed.signature)) escapes to heap
+./action.go:82:13: leaking param: sealed
+./action.go:92:2: moved to heap: h
+./action.go:97:15: ... argument escapes to heap
+./action.go:106:22: leaking param content: actions
+./action.go:107:14: make([]*Transfer, 0) escapes to heap
+./action.go:108:14: make([]*Execution, 0) escapes to heap
+./action.go:123:8: "payload gas price cannot be zero" escapes to heap
+./builder.go:23:7: leaking param: b to result ~r1 level=0
+./builder.go:29:7: leaking param: b to result ~r1 level=0
+./builder.go:35:7: leaking param: b to result ~r1 level=0
+./builder.go:35:38: leaking param: key
+./builder.go:41:7: leaking param: b to result ~r1 level=0
+./builder.go:47:7: leaking param content: b
+./builder.go:47:7: leaking param: b to result ~r1 level=0
+./builder.go:47:31: p does not escape
+./builder.go:51:19: &big.Int{} escapes to heap
+./builder.go:57:7: leaking param content: b
+./builder.go:57:7: leaking param: b to result ~r1 level=0
+./builder.go:57:38: buf does not escape
+./builder.go:61:19: &big.Int{} escapes to heap
+./builder.go:67:7: leaking param: b to result ~r0 level=1
+./builder.go:83:7: leaking param: b to result ~r1 level=0
+./builder.go:89:7: leaking param: b to result ~r1 level=0
+./builder.go:95:7: leaking param: b to result ~r1 level=0
+./builder.go:101:7: leaking param content: b
+./builder.go:101:7: leaking param: b to result ~r1 level=0
+./builder.go:101:39: p does not escape
+./builder.go:105:19: &big.Int{} escapes to heap
+./builder.go:111:7: leaking param content: b
+./builder.go:111:7: leaking param: b to result ~r1 level=0
+./builder.go:111:46: buf does not escape
+./builder.go:115:19: &big.Int{} escapes to heap
+./builder.go:121:7: leaking param: b to result ~r1 level=0
+./builder.go:121:37: leaking param: action
+./builder.go:127:7: leaking param: b to result ~r1 level=0
+./builder.go:133:7: leaking param: b to result ~r0 level=0
+./candidate_register.go:50:2: leaking param: name
+./candidate_register.go:50:8: leaking param: operatorAddrStr
+./candidate_register.go:50:25: leaking param: rewardAddrStr
+./candidate_register.go:50:40: leaking param: ownerAddrStr
+./candidate_register.go:50:54: leaking param: amountStr
+./candidate_register.go:53:2: leaking param: payload
+./candidate_register.go:55:2: leaking param: gasPrice
+./candidate_register.go:67:19: new(big.Int) escapes to heap
+./candidate_register.go:69:27: ... argument does not escape
+./candidate_register.go:72:8: &CandidateRegister{...} escapes to heap
+./candidate_register.go:99:7: leaking param: cr to result ~r0 level=1
+./candidate_register.go:102:7: leaking param: cr to result ~r0 level=1
+./candidate_register.go:105:7: cr does not escape
+./candidate_register.go:108:7: cr does not escape
+./candidate_register.go:111:7: leaking param: cr to result ~r0 level=1
+./candidate_register.go:114:7: leaking param: cr to result ~r0 level=1
+./candidate_register.go:117:7: leaking param: cr to result ~r0 level=1
+./candidate_register.go:120:7: leaking param: cr to result ~r0 level=1
+./candidate_register.go:123:7: leaking param content: cr
+./candidate_register.go:155:7: cr does not escape
+./candidate_register.go:155:40: leaking param content: pbAct
+./candidate_register.go:179:25: new(big.Int) escapes to heap
+./candidate_register.go:180:24: ... argument does not escape
+./candidate_register.go:180:67: pbAct.GetStakedAmount() escapes to heap
+./candidate_register.go:186:20: make([]byte, len(pbAct.GetPayload())) escapes to heap
+./candidate_register.go:201:7: cr does not escape
+./candidate_register.go:207:7: leaking param content: cr
+./candidate_register.go:217:7: cr does not escape
+./candidate_update.go:36:2: leaking param: name
+./candidate_update.go:36:8: leaking param: operatorAddrStr
+./candidate_update.go:36:25: leaking param: rewardAddrStr
+./candidate_update.go:38:2: leaking param: gasPrice
+./candidate_update.go:40:8: &CandidateUpdate{...} escapes to heap
+./candidate_update.go:68:7: leaking param: cu to result ~r0 level=1
+./candidate_update.go:71:7: leaking param: cu to result ~r0 level=1
+./candidate_update.go:74:7: leaking param: cu to result ~r0 level=1
+./candidate_update.go:77:7: leaking param content: cu
+./candidate_update.go:99:7: cu does not escape
+./candidate_update.go:99:38: leaking param content: pbAct
+./candidate_update.go:125:7: cu does not escape
+./candidate_update.go:130:7: cu does not escape
+./claimreward.go:35:7: leaking param: c to result ~r0 level=1
+./claimreward.go:38:7: leaking param: c to result ~r0 level=1
+./claimreward.go:46:7: leaking param content: c
+./claimreward.go:47:9: &iotextypes.ClaimFromRewardingFund{...} escapes to heap
+./claimreward.go:41:7: leaking param content: c
+./claimreward.go:54:7: c does not escape
+./claimreward.go:54:44: leaking param content: claim
+./claimreward.go:66:7: c does not escape
+./claimreward.go:72:7: c does not escape
+./claimreward.go:81:7: c does not escape
+./claimreward.go:96:7: leaking param: b to result ~r1 level=0
+./claimreward.go:96:51: leaking param: amount
+./claimreward.go:102:7: leaking param: b to result ~r1 level=0
+./claimreward.go:102:49: leaking param: data
+./claimreward.go:108:7: leaking param content: b
+./consignment_transfer.go:202:14: sigType does not escape
+./consignment_transfer.go:202:30: msg does not escape
+./consignment_transfer.go:186:30: sigType does not escape
+./consignment_transfer.go:186:46: msg does not escape
+./consignment_transfer.go:186:51: leaking param: sig
+./consignment_transfer.go:96:30: c does not escape
+./consignment_transfer.go:98:2: moved to heap: msg
+./consignment_transfer.go:116:2: moved to heap: con
+./consignment_transfer.go:99:33: ([]byte)(c.Msg) escapes to heap
+./consignment_transfer.go:111:51: ([]byte)(c.Msg) does not escape
+./consignment_transfer.go:82:21: leaking param: data
+./consignment_transfer.go:83:2: moved to heap: c
+./consignment_transfer.go:130:7: leaking param: c to result ~r0 level=1
+./consignment_transfer.go:134:7: leaking param: c to result ~r0 level=1
+./consignment_transfer.go:138:7: c does not escape
+./consignment_transfer.go:142:7: c does not escape
+./consignment_transfer.go:147:20: sigType does not escape
+./consignment_transfer.go:147:29: leaking param: recipient
+./consignment_transfer.go:156:32: msg escapes to heap
+./consignment_transfer.go:167:21: leaking param: sigType
+./consignment_transfer.go:167:30: leaking param: recipient
+./consignment_transfer.go:167:41: leaking param: sig
+./consignment_transfer.go:175:15: string(msgBytes) escapes to heap
+./consignment_transfer.go:178:30: msgJSON escapes to heap
+./const.go:62:27: leaking param: err
+./depositreward.go:35:7: leaking param: d to result ~r0 level=1
+./depositreward.go:38:7: leaking param: d to result ~r0 level=1
+./depositreward.go:46:7: leaking param content: d
+./depositreward.go:47:9: &iotextypes.DepositToRewardingFund{...} escapes to heap
+./depositreward.go:41:7: leaking param content: d
+./depositreward.go:54:7: d does not escape
+./depositreward.go:54:44: leaking param content: deposit
+./depositreward.go:66:7: d does not escape
+./depositreward.go:72:7: d does not escape
+./depositreward.go:81:7: d does not escape
+./depositreward.go:96:7: leaking param: b to result ~r1 level=0
+./depositreward.go:96:51: leaking param: amount
+./depositreward.go:102:7: leaking param: b to result ~r1 level=0
+./depositreward.go:102:49: leaking param: data
+./depositreward.go:108:7: leaking param content: b
+./envelope.go:41:7: elp does not escape
+./envelope.go:44:7: elp does not escape
+./envelope.go:47:7: leaking param content: elp
+./envelope.go:57:7: elp does not escape
+./envelope.go:60:7: elp does not escape
+./envelope.go:61:7: &big.Int{} escapes to heap
+./envelope.go:69:7: leaking param content: elp
+./envelope.go:74:7: leaking param content: elp
+./envelope.go:79:7: leaking param: elp to result ~r0 level=1
+./transfer.go:90:7: leaking param content: tsf
+./transfer.go:92:9: &iotextypes.Transfer{...} escapes to heap
+./execution.go:97:7: leaking param content: ex
+./execution.go:98:9: &iotextypes.Execution{...} escapes to heap
+./grantreward.go:45:7: g does not escape
+./grantreward.go:46:2: moved to heap: gProto
+./putpollresult.go:63:7: leaking param content: r
+./putpollresult.go:64:9: &iotextypes.PutPollResult{...} escapes to heap
+./envelope.go:82:7: leaking param content: elp
+./envelope.go:83:13: &iotextypes.ActionCore{...} escapes to heap
+./envelope.go:95:20: &iotextypes.ActionCore_Transfer{...} escapes to heap
+./envelope.go:97:20: &iotextypes.ActionCore_Execution{...} escapes to heap
+./envelope.go:99:20: &iotextypes.ActionCore_GrantReward{...} escapes to heap
+./envelope.go:101:20: &iotextypes.ActionCore_ClaimFromRewardingFund{...} escapes to heap
+./envelope.go:103:20: &iotextypes.ActionCore_DepositToRewardingFund{...} escapes to heap
+./envelope.go:105:20: &iotextypes.ActionCore_PutPollResult{...} escapes to heap
+./envelope.go:107:20: &iotextypes.ActionCore_StakeCreate{...} escapes to heap
+./envelope.go:109:20: &iotextypes.ActionCore_StakeUnstake{...} escapes to heap
+./envelope.go:111:20: &iotextypes.ActionCore_StakeWithdraw{...} escapes to heap
+./envelope.go:113:20: &iotextypes.ActionCore_StakeAddDeposit{...} escapes to heap
+./envelope.go:115:20: &iotextypes.ActionCore_StakeRestake{...} escapes to heap
+./envelope.go:117:20: &iotextypes.ActionCore_StakeChangeCandidate{...} escapes to heap
+./envelope.go:119:20: &iotextypes.ActionCore_StakeTransferOwnership{...} escapes to heap
+./envelope.go:121:20: &iotextypes.ActionCore_CandidateRegister{...} escapes to heap
+./envelope.go:123:20: &iotextypes.ActionCore_CandidateUpdate{...} escapes to heap
+./envelope.go:125:17: ... argument does not escape
+./transfer.go:104:7: leaking param content: tsf
+./transfer.go:104:32: leaking param content: pbAct
+./execution.go:109:7: leaking param content: ex
+./execution.go:109:32: leaking param content: pbAct
+./execution.go:119:14: &big.Int{} escapes to heap
+./grantreward.go:59:7: g does not escape
+./grantreward.go:59:33: gProto does not escape
+./putpollresult.go:48:7: r does not escape
+./putpollresult.go:48:35: leaking param content: putPollResultPb
+./stake_create.go:109:7: cs does not escape
+./stake_create.go:109:34: leaking param content: pbAct
+./stake_create.go:120:25: new(big.Int) escapes to heap
+./stake_create.go:121:24: ... argument does not escape
+./stake_create.go:121:51: pbAct.StakedAmount escapes to heap
+./stake_create.go:127:20: make([]byte, len(pbAct.Payload)) escapes to heap
+./stake_reclaim.go:58:7: sr does not escape
+./stake_reclaim.go:58:35: leaking param content: pbAct
+./stake_adddeposit.go:91:7: leaking param content: ds
+./stake_adddeposit.go:91:37: leaking param content: pbAct
+./stake_restake.go:91:7: rs does not escape
+./stake_restake.go:91:30: leaking param content: pbAct
+./stake_changecandidate.go:85:7: cc does not escape
+./stake_changecandidate.go:85:38: leaking param content: pbAct
+./stake_transferownership.go:83:7: ts does not escape
+./stake_transferownership.go:83:36: leaking param content: pbAct
+./envelope.go:131:7: leaking param content: elp
+./envelope.go:131:32: leaking param content: pbAct
+./envelope.go:142:17: &big.Int{} escapes to heap
+./envelope.go:147:10: &Transfer{} escapes to heap
+./envelope.go:153:10: &Execution{} escapes to heap
+./envelope.go:159:10: &GrantReward{} escapes to heap
+./envelope.go:165:10: &ClaimFromRewardingFund{} escapes to heap
+./envelope.go:171:10: &DepositToRewardingFund{} escapes to heap
+./envelope.go:177:10: &PutPollResult{} escapes to heap
+./envelope.go:184:10: &CreateStake{} escapes to heap
+./envelope.go:190:10: &Unstake{} escapes to heap
+./envelope.go:196:10: &WithdrawStake{} escapes to heap
+./envelope.go:202:10: &DepositToStake{} escapes to heap
+./envelope.go:208:10: &Restake{} escapes to heap
+./envelope.go:214:10: &ChangeCandidate{} escapes to heap
+./envelope.go:220:10: &TransferStake{} escapes to heap
+./envelope.go:226:10: &CandidateRegister{} escapes to heap
+./envelope.go:232:10: &CandidateUpdate{} escapes to heap
+./envelope.go:238:23: ... argument does not escape
+./envelope.go:244:7: elp does not escape
+./envelope.go:247:7: elp does not escape
+./envelope.go:250:7: elp does not escape
+./execution.go:43:2: leaking param: contractAddress
+./execution.go:45:2: leaking param: amount
+./execution.go:47:2: leaking param: gasPrice
+./execution.go:48:2: leaking param: data
+./execution.go:50:9: &Execution{...} escapes to heap
+./execution.go:64:7: leaking param: ex to result ~r0 level=1
+./execution.go:67:7: leaking param: ex to result ~r0 level=1
+./execution.go:70:7: leaking param: ex to result ~r0 level=1
+./execution.go:73:7: leaking param: ex to result ~r0 level=1
+./execution.go:76:7: leaking param: ex to result ~r0 level=1
+./execution.go:79:7: leaking param: ex to result ~r0 level=1
+./execution.go:82:7: leaking param content: ex
+./execution.go:92:7: leaking param content: ex
+./execution.go:126:7: ex does not escape
+./execution.go:132:7: leaking param content: ex
+./execution.go:138:7: leaking param content: ex
+./execution.go:146:23: ... argument does not escape
+./execution.go:146:87: ex.Contract() escapes to heap
+./grantreward.go:34:7: g does not escape
+./grantreward.go:37:7: g does not escape
+./grantreward.go:40:7: g does not escape
+./grantreward.go:89:7: leaking param: b to result ~r1 level=0
+./grantreward.go:95:7: leaking param: b to result ~r1 level=0
+./grantreward.go:101:7: leaking param content: b
+./putpollresult.go:33:2: leaking param: candidates
+./putpollresult.go:35:9: &PutPollResult{...} escapes to heap
+./putpollresult.go:71:7: r does not escape
+./putpollresult.go:74:7: leaking param: r to result ~r0 level=1
+./putpollresult.go:77:7: leaking param content: r
+./putpollresult.go:82:7: r does not escape
+./putpollresult.go:87:7: r does not escape
+./receipt.go:167:7: leaking param: log
+./receipt.go:171:9: moved to heap: topic
+./receipt.go:168:7: &iotextypes.Log{} escapes to heap
+./receipt.go:170:21: [][]byte{} escapes to heap
+./receipt.go:66:7: leaking param: receipt
+./receipt.go:67:7: &iotextypes.Receipt{} escapes to heap
+./receipt.go:73:28: []*iotextypes.Log{} escapes to heap
+./receipt.go:186:7: log does not escape
+./receipt.go:186:34: leaking param content: pbLog
+./receipt.go:189:19: make([]"github.com/iotexproject/go-pkgs/hash".Hash256, len(pbLogs)) escapes to heap
+./receipt.go:84:7: receipt does not escape
+./receipt.go:84:46: leaking param content: pbReceipt
+./receipt.go:91:21: make([]*Log, len(logs)) escapes to heap
+./receipt.go:93:21: &Log{} escapes to heap
+./receipt.go:100:7: leaking param: receipt
+./receipt.go:105:7: receipt does not escape
+./receipt.go:105:37: leaking param: buf
+./receipt.go:106:15: &iotextypes.Receipt{} escapes to heap
+./receipt.go:115:7: leaking param: receipt
+./receipt.go:124:7: leaking param: receipt to result ~r0 level=1
+./receipt.go:129:7: leaking param content: receipt
+./receipt.go:129:7: leaking param: receipt to result ~r1 level=0
+./receipt.go:129:33: leaking param content: logs
+./receipt.go:139:7: leaking param: receipt to result ~r0 level=1
+./receipt.go:144:7: leaking param content: receipt
+./receipt.go:144:7: leaking param: receipt to result ~r1 level=0
+./receipt.go:144:44: leaking param content: logs
+./receipt.go:154:7: leaking param: receipt to result ~r0 level=1
+./receipt.go:159:7: leaking param: receipt to result ~r1 level=0
+./receipt.go:159:47: leaking param: revertReason
+./receipt.go:200:7: leaking param: log
+./receipt.go:205:7: log does not escape
+./receipt.go:205:29: leaking param: buf
+./receipt.go:206:11: &iotextypes.Log{} escapes to heap
+./rlp_tx.go:63:36: leaking param: tx
+./rlp_tx.go:63:71: sig does not escape
+./rlp_tx.go:65:28: ... argument does not escape
+./rlp_tx.go:65:79: len(sig) escapes to heap
+./rlp_tx.go:67:12: make([]byte, 65) escapes to heap
+./rlp_tx.go:77:60: types.NewEIP155Signer(big.NewInt(int64(chainID))) escapes to heap
+./rlp_tx.go:36:20: leaking param: tx
+./rlp_tx.go:36:55: sig does not escape
+./rlp_tx.go:85:18: rawData does not escape
+./rlp_tx.go:113:2: moved to heap: rawHash
+./rlp_tx.go:96:7: &types.Transaction{} escapes to heap
+./rlp_tx.go:105:12: make([]byte, 64, 65) escapes to heap
+./sealedenvelope.go:74:7: leaking param content: sealed
+./sealedenvelope.go:75:9: &iotextypes.Action{...} escapes to heap
+./sealedenvelope.go:43:7: leaking param content: sealed
+./sealedenvelope.go:54:41: ... argument does not escape
+./sealedenvelope.go:54:76: sealed.encoding escapes to heap
+./sealedenvelope.go:69:7: sealed does not escape
+./sealedenvelope.go:84:7: leaking param content: sealed
+./sealedenvelope.go:84:41: leaking param content: pbAct
+./sealedenvelope.go:93:23: ... argument does not escape
+./sealedenvelope.go:93:24: sigSize escapes to heap
+./sealedenvelope.go:96:21: &envelope{} escapes to heap
+./sealedenvelope.go:120:23: ... argument does not escape
+./sealedenvelope.go:120:24: encoding escapes to heap
+./sealedenvelope.go:126:25: make([]byte, sigSize) escapes to heap
+./transfer.go:42:2: leaking param: amount
+./transfer.go:43:2: leaking param: recipient
+./transfer.go:44:2: leaking param: payload
+./transfer.go:46:2: leaking param: gasPrice
+./transfer.go:48:9: &Transfer{...} escapes to heap
+./signedaction.go:24:21: leaking param: recipientAddr
+./signedaction.go:24:43: leaking param: senderPriKey
+./signedaction.go:24:89: leaking param: amount
+./signedaction.go:24:106: leaking param: payload
+./signedaction.go:24:139: leaking param: gasPrice
+./signedaction.go:29:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:36:40: ... argument does not escape
+./signedaction.go:42:22: leaking param: contractAddr
+./signedaction.go:42:43: leaking param: executorPriKey
+./signedaction.go:42:91: leaking param: amount
+./signedaction.go:42:125: leaking param: gasPrice
+./signedaction.go:42:144: leaking param: data
+./signedaction.go:47:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:54:40: ... argument does not escape
+./signedaction.go:62:2: leaking param: name
+./signedaction.go:62:8: leaking param: operatorAddrStr
+./signedaction.go:62:25: leaking param: rewardAddrStr
+./signedaction.go:62:40: leaking param: ownerAddrStr
+./signedaction.go:62:54: leaking param: amountStr
+./signedaction.go:65:2: leaking param: payload
+./signedaction.go:67:2: leaking param: gasPrice
+./signedaction.go:68:2: leaking param: registererPriKey
+./signedaction.go:75:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:82:40: ... argument does not escape
+./signedaction.go:90:2: leaking param: name
+./signedaction.go:90:8: leaking param: operatorAddrStr
+./signedaction.go:90:25: leaking param: rewardAddrStr
+./signedaction.go:92:2: leaking param: gasPrice
+./signedaction.go:93:2: leaking param: registererPriKey
+./signedaction.go:99:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:106:40: ... argument does not escape
+./stake_create.go:42:2: leaking param: candidateName
+./stake_create.go:42:17: leaking param: amount
+./stake_create.go:45:2: leaking param: payload
+./stake_create.go:47:2: leaking param: gasPrice
+./stake_create.go:49:18: new(big.Int) escapes to heap
+./stake_create.go:51:27: ... argument does not escape
+./stake_create.go:51:46: amount escapes to heap
+./stake_create.go:54:9: &CreateStake{...} escapes to heap
+./signedaction.go:113:2: leaking param: candidateName
+./signedaction.go:113:17: leaking param: amount
+./signedaction.go:116:2: leaking param: payload
+./signedaction.go:118:2: leaking param: gasPrice
+./signedaction.go:119:2: leaking param: stakerPriKey
+./signedaction.go:126:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:133:40: ... argument does not escape
+./stake_reclaim.go:77:2: leaking param: payload
+./stake_reclaim.go:79:2: leaking param: gasPrice
+./stake_reclaim.go:81:9: &Unstake{...} escapes to heap
+./stake_reclaim.go:120:2: leaking param: payload
+./stake_reclaim.go:122:2: leaking param: gasPrice
+./stake_reclaim.go:124:9: &WithdrawStake{...} escapes to heap
+./signedaction.go:143:2: leaking param: payload
+./signedaction.go:145:2: leaking param: gasPrice
+./signedaction.go:146:2: leaking param: reclaimerPriKey
+./signedaction.go:148:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:169:40: ... argument does not escape
+./stake_changecandidate.go:40:2: leaking param: candName
+./stake_changecandidate.go:42:2: leaking param: payload
+./stake_changecandidate.go:44:2: leaking param: gasPrice
+./stake_changecandidate.go:46:9: &ChangeCandidate{...} escapes to heap
+./signedaction.go:177:2: leaking param: candName
+./signedaction.go:179:2: leaking param: payload
+./signedaction.go:181:2: leaking param: gasPrice
+./signedaction.go:182:2: leaking param: stakerPriKey
+./signedaction.go:188:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:195:40: ... argument does not escape
+./stake_transferownership.go:34:2: leaking param: voterAddress
+./stake_transferownership.go:36:2: leaking param: payload
+./stake_transferownership.go:38:2: leaking param: gasPrice
+./stake_transferownership.go:44:9: &TransferStake{...} escapes to heap
+./signedaction.go:203:2: leaking param: voterAddress
+./signedaction.go:205:2: leaking param: payload
+./signedaction.go:207:2: leaking param: gasPrice
+./signedaction.go:208:2: leaking param: stakerPriKey
+./signedaction.go:214:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:221:40: ... argument does not escape
+./stake_adddeposit.go:41:2: leaking param: amount
+./stake_adddeposit.go:42:2: leaking param: payload
+./stake_adddeposit.go:44:2: leaking param: gasPrice
+./stake_adddeposit.go:46:18: new(big.Int) escapes to heap
+./stake_adddeposit.go:48:27: ... argument does not escape
+./stake_adddeposit.go:48:46: amount escapes to heap
+./stake_adddeposit.go:50:9: &DepositToStake{...} escapes to heap
+./signedaction.go:230:2: leaking param: amount
+./signedaction.go:231:2: leaking param: payload
+./signedaction.go:233:2: leaking param: gasPrice
+./signedaction.go:234:2: leaking param: depositorPriKey
+./signedaction.go:240:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:247:40: ... argument does not escape
+./stake_restake.go:44:2: leaking param: payload
+./stake_restake.go:46:2: leaking param: gasPrice
+./stake_restake.go:48:9: &Restake{...} escapes to heap
+./signedaction.go:258:2: leaking param: payload
+./signedaction.go:260:2: leaking param: gasPrice
+./signedaction.go:261:2: leaking param: restakerPriKey
+./signedaction.go:267:8: &EnvelopeBuilder{} escapes to heap
+./signedaction.go:274:40: ... argument does not escape
+./stake_adddeposit.go:64:7: leaking param: ds to result ~r0 level=1
+./stake_adddeposit.go:67:7: leaking param: ds to result ~r0 level=1
+./stake_adddeposit.go:70:7: ds does not escape
+./stake_adddeposit.go:73:7: leaking param content: ds
+./stake_adddeposit.go:107:7: ds does not escape
+./stake_adddeposit.go:113:7: leaking param content: ds
+./stake_adddeposit.go:123:7: ds does not escape
+./stake_changecandidate.go:60:7: leaking param: cc to result ~r0 level=1
+./stake_changecandidate.go:63:7: cc does not escape
+./stake_changecandidate.go:66:7: leaking param: cc to result ~r0 level=1
+./stake_changecandidate.go:69:7: leaking param content: cc
+./stake_changecandidate.go:97:7: cc does not escape
+./stake_changecandidate.go:103:7: cc does not escape
+./stake_create.go:70:7: leaking param: cs to result ~r0 level=1
+./stake_create.go:73:7: leaking param: cs to result ~r0 level=1
+./stake_create.go:76:7: leaking param: cs to result ~r0 level=1
+./stake_create.go:79:7: cs does not escape
+./stake_create.go:82:7: cs does not escape
+./stake_create.go:85:7: leaking param content: cs
+./stake_create.go:134:7: cs does not escape
+./stake_create.go:140:7: leaking param content: cs
+./stake_create.go:150:7: cs does not escape
+./stake_reclaim.go:37:7: sr does not escape
+./stake_reclaim.go:40:7: leaking param: sr to result ~r0 level=1
+./stake_reclaim.go:43:7: leaking param content: sr
+./stake_reclaim.go:96:7: su does not escape
+./stake_reclaim.go:102:7: su does not escape
+./stake_reclaim.go:139:7: sw does not escape
+./stake_reclaim.go:145:7: sw does not escape
+./stake_restake.go:63:7: leaking param: rs to result ~r0 level=1
+./stake_restake.go:66:7: rs does not escape
+./stake_restake.go:69:7: rs does not escape
+./stake_restake.go:72:7: rs does not escape
+./stake_restake.go:75:7: leaking param content: rs
+./stake_restake.go:105:7: rs does not escape
+./stake_restake.go:111:7: rs does not escape
+./stake_transferownership.go:58:7: leaking param: ts to result ~r0 level=1
+./stake_transferownership.go:61:7: ts does not escape
+./stake_transferownership.go:64:7: leaking param: ts to result ~r0 level=1
+./stake_transferownership.go:67:7: leaking param content: ts
+./stake_transferownership.go:98:7: ts does not escape
+./stake_transferownership.go:104:7: ts does not escape
+./transfer.go:63:7: leaking param: tsf to result ~r0 level=1
+./transfer.go:66:7: leaking param: tsf to result ~r0 level=1
+./transfer.go:69:7: leaking param: tsf to result ~r0 level=1
+./transfer.go:72:7: leaking param: tsf to result ~r0 level=1
+./transfer.go:75:7: leaking param content: tsf
+./transfer.go:85:7: leaking param content: tsf
+./transfer.go:121:7: tsf does not escape
+./transfer.go:127:7: leaking param content: tsf
+./transfer.go:137:7: leaking param content: tsf
+./transfer.go:144:22: ... argument does not escape
+./transfer.go:144:89: tsf.Recipient() escapes to heap
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+./envelope.go:25:13: leaking param: pbAct
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+./action.go:30:21: leaking param: .anon0
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./stake_reclaim.go:58:35: leaking param content: pbAct
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param: .this to result ~r0 level=1
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./stake_reclaim.go:58:35: leaking param content: pbAct
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param: .this to result ~r0 level=1
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+./action.go:23:21: leaking param: .anon0
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:47:31: p does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:57:38: buf does not escape
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:35:38: leaking param: key
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:47:31: p does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:57:38: buf does not escape
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:35:38: leaking param: key
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:47:31: p does not escape
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:57:38: buf does not escape
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+./builder.go:35:38: leaking param: key
+<autogenerated>:1: leaking param: .this to result ~r1 level=0
+<autogenerated>:1: leaking param: .this
+./sealedenvelopevalidator.go:16:11: leaking param: .anon0
+./sealedenvelopevalidator.go:16:28: leaking param: .anon1
+<autogenerated>:1: leaking param content: .this
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+<autogenerated>:1: .this does not escape
+./actctx.go:61:47: leaking param: selp
+<autogenerated>:1: .this does not escape

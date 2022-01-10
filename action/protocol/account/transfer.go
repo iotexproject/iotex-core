@@ -85,7 +85,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 			BlockHeight:     blkCtx.BlockHeight,
 			ActionHash:      actionCtx.ActionHash,
 			GasConsumed:     actionCtx.IntrinsicGas,
-			ContractAddress: p.addr.String(),
+			ContractAddress: p.addr,
 		}).AddTransactionLogs(depositLog)
 		return receipt, nil
 	}
@@ -125,7 +125,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, tsf *action.Transfer, sm 
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
+		ContractAddress: p.addr,
 	}).AddTransactionLogs(&action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
 		Sender:    actionCtx.Caller.String(),

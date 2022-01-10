@@ -28,7 +28,7 @@ const protocolID = "account"
 
 // Protocol defines the protocol of handling account
 type Protocol struct {
-	addr       address.Address
+	addr       string
 	depositGas DepositGas
 }
 
@@ -43,7 +43,7 @@ func NewProtocol(depositGas DepositGas) *Protocol {
 		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr, depositGas: depositGas}
+	return &Protocol{addr: addr.String(), depositGas: depositGas}
 }
 
 // FindProtocol finds the registered protocol from registry
