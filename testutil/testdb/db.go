@@ -174,7 +174,7 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 					return true
 				}
 			}
-			_, fv, err := kv.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+			_, fv, err := kv.Filter(cfg.Namespace, cfg.Cond, nil, nil)
 			if err != nil {
 				return 0, nil, state.ErrStateNotExist
 			}

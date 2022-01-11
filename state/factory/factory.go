@@ -323,7 +323,15 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			return err
 		},
 		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sf.States(opts...)
+			cfg, err := processOptions(opts...)
+			if err != nil {
+				return 0, nil, err
+			}
+			if cfg.Key != nil {
+				return height, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+			}
+			iter, err := readStates(tlt, cfg)
+			return height, iter, err
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -416,7 +424,7 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 	}
 	if sf.saveHistory {
 		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() == batch.Delete {
+			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
 				return nil
 			}
 			return wi
@@ -643,7 +651,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 			return true
 		}
 	}
-	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, nil, nil)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
 			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
@@ -683,6 +691,29 @@ func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) erro
 	}
 
 	return state.Deserialize(s, data)
+}
+
+func readStates(tlt trie.TwoLayerTrie, cfg *protocol.StateConfig) (state.Iterator, error) {
+	iter, err := mptrie.NewLayerTwoLeafIterator(tlt, namespaceKey(cfg.Namespace), 20)
+	if err != nil {
+		return nil, err
+	}
+	values := [][]byte{}
+	for {
+		key, value, err := iter.Next()
+		if err == trie.ErrEndOfIterator {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !cfg.Cond(key, value) {
+			continue
+		}
+		values = append(values, value)
+	}
+
+	return state.NewIterator(values), nil
 }
 
 func toLegacyKey(input []byte) []byte {

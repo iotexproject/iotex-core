@@ -616,13 +616,16 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	_, _, err = sf.States(keyOpt)
 	require.Equal(t, ErrNotSupported, errors.Cause(err))
 
-	// case II: check without cond and namespace,key not exists
-	filterOpt := protocol.FilterOption(nil, []byte("1"), []byte("2"))
+	// case II: check with cond and namespace,key not exists
+	filterOpt := protocol.FilterOption(func(key, _ []byte) bool {
+		return bytes.HasPrefix(key, []byte("1"))
+	})
 	_, _, err = sf.States(filterOpt)
 	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case III: check without cond,with AccountKVNamespace namespace,key not exists
-	filterOpt = protocol.FilterOption(nil, []byte("1"), []byte("2"))
+	// case III: check with cond and AccountKVNamespace namespace
+	filterOpt = protocol.FilterOption(func(key, _ []byte) bool {
+		return bytes.HasPrefix(key, []byte("1"))
+	})
 	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
 	_, _, err = sf.States(filterOpt, namespaceOpt)
 	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
@@ -652,7 +655,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	cond := func(k, v []byte) bool {
 		return bytes.Equal(k, addrHash[:])
 	}
-	condOpt := protocol.FilterOption(cond, nil, nil)
+	condOpt := protocol.FilterOption(cond)
 	height, iter, err = sf.States(condOpt, namespaceOpt)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)

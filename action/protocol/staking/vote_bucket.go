@@ -7,7 +7,6 @@
 package staking
 
 import (
-	"bytes"
 	"math"
 	"math/big"
 	"time"
@@ -276,24 +275,26 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 }
 
 func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, uint64, error) {
-	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
-	maxKey := []byte{_bucket + 1}
-	height, iter, err := sr.States(
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.FilterOption(func(k, v []byte) bool {
-			return bytes.HasPrefix(k, []byte{_bucket})
-		}, bucketKey(0), maxKey))
+	// TODO (zhi): read all states in one query
+	count, err := getTotalBucketCount(sr)
 	if err != nil {
-		return nil, height, err
+		return nil, 0, err
 	}
-
-	buckets := make([]*VoteBucket, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		vb := &VoteBucket{}
-		if err := iter.Next(vb); err != nil {
-			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
+	buckets := []*VoteBucket{}
+	for i := uint64(0); i < count; i++ {
+		bucket, err := getBucket(sr, i)
+		switch errors.Cause(err) {
+		case state.ErrStateNotExist:
+			// do nothing
+		case nil:
+			buckets = append(buckets, bucket)
+		default:
+			return nil, 0, err
 		}
-		buckets = append(buckets, vb)
+	}
+	height, err := sr.Height()
+	if err != nil {
+		return nil, 0, err
 	}
 	return buckets, height, nil
 }

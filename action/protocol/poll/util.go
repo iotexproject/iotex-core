@@ -7,7 +7,6 @@
 package poll
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -319,12 +318,9 @@ func setCurrentBlockMeta(
 
 // allBlockMetasFromDB returns all latest block meta structs
 func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*BlockMeta, error) {
+	// TODO (zhi): specify keys
 	stateHeight, iter, err := sr.States(
 		protocol.NamespaceOption(protocol.SystemNamespace),
-		protocol.FilterOption(func(k, v []byte) bool {
-			prefix := candidatesutil.ConstructKey(blockMetaPrefix)
-			return bytes.HasPrefix(k, prefix[:])
-		}, blockMetaKey(0, blocksInEpoch), blockMetaKey(math.MaxUint64, blocksInEpoch)),
 	)
 	if err != nil {
 		return nil, err

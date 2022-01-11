@@ -42,7 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -1685,7 +1684,7 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, kv, dao, ap := newChain(t, statetx)
+	bc, sf, _, dao, ap := newChain(t, statetx)
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, ap, t)
@@ -1695,7 +1694,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err := accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the original balance
-	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
+	balance := BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
 	expect, ok := big.NewInt(0).SetString("2000000000000000000000000000", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1704,7 +1703,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err = accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the balance after transfer
-	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
+	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
 	expect, ok = big.NewInt(0).SetString("1999999999999999999999999999", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1714,9 +1713,10 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.True(errors.Cause(err) == factory.ErrNotSupported)
 	} else {
-		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
+		sr := factory.NewHistoryStateReader(sf, bc.TipHeight()-1)
+		account, err = accountutil.AccountState(sr, contractAddr)
 		require.NoError(err)
-		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
+		balance = BalanceOfContract(contract, genesisAccount, sr, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
 		require.True(ok)
 		require.Equal(expect, balance)
@@ -1751,13 +1751,12 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 	return r.ContractAddress
 }
 
-func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testing.T, root hash.Hash256) *big.Int {
+func BalanceOfContract(contract, genesisAccount string, sr protocol.StateReader, t *testing.T, root hash.Hash256) *big.Int {
 	require := require.New(t)
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	dbForTrie, err := trie.NewKVStore(evm.ContractKVNameSpace, kv)
-	require.NoError(err)
+	dbForTrie := protocol.NewKVStoreForTrieWithStateReader(evm.ContractKVNameSpace, sr)
 	options := []mptrie.Option{
 		mptrie.KVStoreOption(dbForTrie),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),

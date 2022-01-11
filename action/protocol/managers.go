@@ -34,13 +34,9 @@ func LegacyKeyOption(key hash.Hash160) StateOption {
 }
 
 // FilterOption sets the filter
-func FilterOption(cond db.Condition, minKey, maxKey []byte) StateOption {
+func FilterOption(cond db.Condition) StateOption {
 	return func(cfg *StateConfig) error {
 		cfg.Cond = cond
-		cfg.MinKey = make([]byte, len(minKey))
-		copy(cfg.MinKey, minKey)
-		cfg.MaxKey = make([]byte, len(maxKey))
-		copy(cfg.MaxKey, maxKey)
 		return nil
 	}
 }
@@ -61,8 +57,6 @@ type (
 	StateConfig struct {
 		Namespace string // namespace used by state's storage
 		Key       []byte
-		MinKey    []byte
-		MaxKey    []byte
 		Cond      db.Condition
 	}
 
