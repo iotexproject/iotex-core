@@ -195,7 +195,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		IsContract:   state.IsContract(),
 	}
 	if state.IsContract() {
-		var code evm.SerializableBytes
+		var code protocol.SerializableBytes
 		_, err = api.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
