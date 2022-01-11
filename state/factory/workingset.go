@@ -412,6 +412,11 @@ func (ws *workingSet) pickAndRunActions(
 			if !ok {
 				break
 			}
+			// preload
+			// go func(selp *action.SealedEnvelope) {
+			// 	addr := selp.SrcPubkey().Address()
+			// 	_, _ = accountutil.LoadAccount(ws, addr)
+			// }(&nextAction)
 			if nextAction.GasLimit() > blkCtx.GasLimit {
 				actionIterator.PopAccount()
 				continue

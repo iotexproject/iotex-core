@@ -128,6 +128,7 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 // FilterNonce removes all actions from the map with a nonce lower than the given threshold
 func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 	var removed []action.SealedEnvelope
+	heap.Init(&q.index) // check when to used
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0].nonce < threshold {
 		nonce := heap.Pop(&q.index).(*nonceWithTTL).nonce
@@ -177,13 +178,13 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
 			q.index[i] = q.index[len-1]
+			q.index[len-1] = nil
 			len--
 			continue
 		}
 		i++
 	}
 	q.index = q.index[:len]
-	heap.Init(&q.index)
 	return removedFromQueue
 }
 

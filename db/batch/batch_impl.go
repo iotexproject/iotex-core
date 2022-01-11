@@ -290,6 +290,10 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
 	h := cb.hash(namespace, key)
+	// log.L().Info("asd",
+	// 	zap.Int("len namespace", len(namespace)),
+	// 	zap.Int("len key", len(key)),
+	// )
 	return cb.Read(h)
 }
 
