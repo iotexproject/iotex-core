@@ -300,7 +300,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 		finalized: false,
 		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			return readState(tlt, ns, key, s)
+			value, err := readState(tlt, ns, key)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, value)
 		},
 		putStateFunc: func(ns string, key []byte, s interface{}) error {
 			ss, err := state.Serialize(s)
@@ -322,8 +326,37 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			}
 			return err
 		},
-		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sf.States(opts...)
+		statesFunc: func(ns string, keys [][]byte) ([][]byte, error) {
+			if keys == nil {
+				iter, err := mptrie.NewLayerTwoLeafIterator(tlt, namespaceKey(ns), legacyKeyLen())
+				if err != nil {
+					return nil, err
+				}
+				values := [][]byte{}
+				for {
+					_, value, err := iter.Next()
+					if err == trie.ErrEndOfIterator {
+						break
+					}
+					if err != nil {
+						return nil, err
+					}
+					values = append(values, value)
+				}
+			}
+			var values [][]byte
+			for _, key := range keys {
+				value, err := readState(tlt, ns, key)
+				switch errors.Cause(err) {
+				case db.ErrNotExist, db.ErrBucketNotExist:
+					values = append(values, nil)
+				case nil:
+					values = append(values, value)
+				default:
+					return nil, err
+				}
+			}
+			return values, nil
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -592,6 +625,9 @@ func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.
 	if err != nil {
 		return err
 	}
+	if cfg.Keys != nil {
+		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	if height > sf.currentChainHeight {
 		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
@@ -616,6 +652,9 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	if err != nil {
 		return 0, err
 	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -638,17 +677,27 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.Cond == nil {
-		cfg.Cond = func(k, v []byte) bool {
-			return true
+	var values [][]byte
+	if cfg.Keys == nil {
+		_, values, err = sf.dao.Filter(cfg.Namespace, func(key, value []byte) bool { return true }, nil, nil)
+		if err != nil {
+			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+				return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
+			}
+			return sf.currentChainHeight, nil, err
 		}
-	}
-	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
+	} else {
+		for _, key := range cfg.Keys {
+			value, err := sf.dao.Get(cfg.Namespace, key)
+			switch errors.Cause(err) {
+			case db.ErrNotExist, db.ErrBucketNotExist:
+				values = append(values, nil)
+			case nil:
+				values = append(values, value)
+			default:
+				return 0, nil, err
+			}
 		}
-		return sf.currentChainHeight, nil, err
 	}
 
 	return sf.currentChainHeight, state.NewIterator(values), nil
@@ -672,22 +721,26 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
+func readState(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
 	ltKey := toLegacyKey(key)
 	data, err := tlt.Get(namespaceKey(ns), ltKey)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
 		}
-		return err
+		return nil, err
 	}
 
-	return state.Deserialize(s, data)
+	return data, nil
 }
 
 func toLegacyKey(input []byte) []byte {
 	key := hash.Hash160b(input)
 	return key[:]
+}
+
+func legacyKeyLen() int {
+	return 20
 }
 
 func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
@@ -703,7 +756,11 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	}
 	defer tlt.Stop(context.Background())
 
-	return readState(tlt, ns, key, s)
+	value, err := readState(tlt, ns, key)
+	if err != nil {
+		return err
+	}
+	return state.Deserialize(s, value)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {
