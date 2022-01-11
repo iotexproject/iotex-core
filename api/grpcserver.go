@@ -34,10 +34,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
-var (
-	errUnsupportedAction = errors.New("the type of action is not supported")
-)
-
 // GRPCServer contains grpc server and the pointer to api coreservice
 type GRPCServer struct {
 	port        string
@@ -432,7 +428,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	}
 	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
 	if !ok {
-		return nil, errUnsupportedAction
+		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
 
 	amount, _ := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
@@ -444,23 +440,25 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if err != nil {
 		return nil, err
 	}
-	nonce := state.Nonce + 1
+	ctx, err = svr.coreService.bc.Context(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tracer := vm.NewStructLogger(nil)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    tracer,
+		NoBaseFee: true,
+	})
 	sc, _ := action.NewExecution(
 		exec.Execution.GetContract(),
-		nonce,
+		state.Nonce+1,
 		amount,
 		svr.coreService.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
 		exec.Execution.GetData(),
 	)
 
-	ctx, err = svr.coreService.bc.Context(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tracer := vm.NewStructLogger(nil)
-	vmConfig := vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true}
-	ctx = protocol.WithVMConfigCtx(ctx, vmConfig)
 	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
 	if err != nil {
 		return nil, err
@@ -475,12 +473,12 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		structLogs = append(structLogs, &iotextypes.TransactionStructLog{
 			Pc:         log.Pc,
 			Op:         uint64(log.Op),
-			Gas:        fmt.Sprintf("%#x", log.Gas),
-			GasCost:    fmt.Sprintf("%#x", log.GasCost),
+			Gas:        log.Gas,
+			GasCost:    log.GasCost,
 			Memory:     fmt.Sprintf("%#x", log.Memory),
 			MemSize:    int32(log.MemorySize),
 			Stack:      stack,
-			ReturnData: string(log.ReturnData),
+			ReturnData: fmt.Sprintf("%#x", log.ReturnData),
 			Depth:      int32(log.Depth),
 			Refund:     log.RefundCounter,
 			OpName:     log.OpName(),
