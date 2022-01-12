@@ -53,20 +53,25 @@ func TestAskToConfirm(t *testing.T) {
 }
 
 func TestAPIServiceClient(t *testing.T) {
+	r := require.New(t)
 	c := NewClient()
 	defer c.Stop(context.Background())
 	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
-	require.NoError(t, err)
-	require.NotNil(t, apiServiceClient)
+	r.NoError(err)
+	r.NotNil(apiServiceClient)
 
 	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.199:14014", Insecure: false})
-	require.NoError(t, err)
-	require.NotNil(t, apiServiceClient)
+	r.NoError(err)
+	r.NotNil(apiServiceClient)
 
 	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "", Insecure: false})
-	require.Error(t, err)
-	require.Contains(t, `use "ioctl config set endpoint" to config endpoint first`, err.Error())
-	require.Nil(t, apiServiceClient)
+	r.Error(err)
+	r.Contains(`use "ioctl config set endpoint" to config endpoint first`, err.Error())
+	r.Nil(apiServiceClient)
+}
+
+func testGetAddress(t *testing.T) {
+
 }
 
 func TestGetAddress(t *testing.T) {
@@ -84,16 +89,14 @@ func TestGetAddress(t *testing.T) {
 		Aliases:        map[string]string{"": ""},
 		DefaultAccount: config.Context{AddressOrAlias: testDatas[0].in},
 	}
-	require.NoError(t, writeTempConfig(t, &cfg))
-	cfg, err := config.LoadConfig()
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	require.NoError(t, err)
-	config.ReadConfig = cfg
+	var err error
+	r := require.New(t)
+	config.ReadConfig, err = getTempConfig(t, &cfg)
 	c := NewClient()
 	out, err := c.GetAddress(testDatas[0].in)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot find address from "+testDatas[0].in)
-	require.Equal(t, "", out)
+	r.Error(err)
+	r.Contains(err.Error(), "cannot find address from "+testDatas[0].in)
+	r.Equal("", out)
 
 	cfg = config.Config{
 		Aliases: map[string]string{
@@ -102,16 +105,12 @@ func TestGetAddress(t *testing.T) {
 		},
 		DefaultAccount: config.Context{AddressOrAlias: testDatas[1].in},
 	}
-	require.NoError(t, writeTempConfig(t, &cfg))
-	cfg, err = config.LoadConfig()
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	require.NoError(t, err)
-	config.ReadConfig = cfg
+	config.ReadConfig, err = getTempConfig(t, &cfg)
 	c = NewClient()
 	out, err = c.GetAddress(testDatas[1].in)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid IoTeX address")
-	require.Equal(t, "", out)
+	r.Error(err)
+	r.Contains(err.Error(), "invalid IoTeX address")
+	r.Equal("", out)
 
 	cfg = config.Config{
 		Aliases: map[string]string{
@@ -120,16 +119,12 @@ func TestGetAddress(t *testing.T) {
 		},
 		DefaultAccount: config.Context{AddressOrAlias: ""},
 	}
-	require.NoError(t, writeTempConfig(t, &cfg))
-	cfg, err = config.LoadConfig()
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	require.NoError(t, err)
-	config.ReadConfig = cfg
+	config.ReadConfig, err = getTempConfig(t, &cfg)
 	c = NewClient()
 	out, err = c.GetAddress(testDatas[2].in)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
-	require.Equal(t, "", out)
+	r.Error(err)
+	r.Contains(err.Error(), `use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
+	r.Equal("", out)
 
 	cfg = config.Config{
 		Aliases: map[string]string{
@@ -138,15 +133,11 @@ func TestGetAddress(t *testing.T) {
 		},
 		DefaultAccount: config.Context{AddressOrAlias: ""},
 	}
-	require.NoError(t, writeTempConfig(t, &cfg))
-	cfg, err = config.LoadConfig()
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	require.NoError(t, err)
-	config.ReadConfig = cfg
+	config.ReadConfig, err = getTempConfig(t, &cfg)
 	c = NewClient()
 	out, err = c.GetAddress(testDatas[0].in)
-	require.NoError(t, err)
-	require.Equal(t, testDatas[0].out, out)
+	r.NoError(err)
+	r.Equal(testDatas[0].out, out)
 
 	cfg = config.Config{
 		Aliases: map[string]string{
@@ -156,15 +147,11 @@ func TestGetAddress(t *testing.T) {
 		},
 		DefaultAccount: config.Context{AddressOrAlias: testDatas[3].in},
 	}
-	require.NoError(t, writeTempConfig(t, &cfg))
-	cfg, err = config.LoadConfig()
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	require.NoError(t, err)
-	config.ReadConfig = cfg
+	config.ReadConfig, err = getTempConfig(t, &cfg)
 	c = NewClient()
 	out, err = c.GetAddress(testDatas[3].in)
-	require.NoError(t, err)
-	require.Equal(t, testDatas[3].out, out)
+	r.NoError(err)
+	r.Equal(testDatas[3].out, out)
 }
 
 func TestNewKeyStore(t *testing.T) {
@@ -233,6 +220,24 @@ func TestWriteConfig(t *testing.T) {
 	}
 	err = c.WriteConfig(cfg)
 	require.NoError(t, err)
+}
+
+func getTempConfig(t *testing.T, cfg *config.Config) (config.Config, error) {
+	cfgload := config.Config{
+		Aliases: make(map[string]string),
+	}
+	err := writeTempConfig(t, cfg)
+	if err != nil {
+		t.Error(err)
+		return cfgload, err
+	}
+	cfgload, err = config.LoadConfig()
+	if err != nil {
+		t.Error(err)
+		return cfgload, err
+	}
+	defer testutil.CleanupPath(t, config.ConfigDir)
+	return cfgload, nil
 }
 
 func writeTempConfig(t *testing.T, cfg *config.Config) error {
