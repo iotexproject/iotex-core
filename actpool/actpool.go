@@ -492,7 +492,7 @@ func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope
 // updateAccount updates queue's status and remove invalidated actions from pool if necessary
 func (ap *actPool) updateAccount(sender string) {
 	queue := ap.accountActs[sender]
-	acts := queue.UpdateQueue(queue.PendingNonce())
+	acts := queue.UpdateQueue()
 	if len(acts) > 0 {
 		ap.removeInvalidActs(acts)
 	}

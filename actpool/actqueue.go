@@ -55,7 +55,7 @@ func (h *noncePriorityQueue) Pop() interface{} {
 type ActQueue interface {
 	Put(action.SealedEnvelope) error
 	FilterNonce(uint64) []action.SealedEnvelope
-	UpdateQueue(uint64) []action.SealedEnvelope
+	UpdateQueue() []action.SealedEnvelope
 	SetPendingNonce(uint64)
 	PendingNonce() uint64
 	SetPendingBalance(*big.Int)
@@ -165,50 +165,25 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
+func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
 	// First remove all timed out actions
 	removedFromQueue := q.cleanTimeout()
 
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce
 	// while updating pending balance if actions are payable
+	nonce := q.PendingNonce()
 	for ; ; nonce++ {
-		_, exist := q.items[nonce]
+		act, exist := q.items[nonce]
 		if !exist {
 			break
 		}
-		if !q.enoughBalance(q.items[nonce], true) {
+		cost, _ := act.Cost()
+		if q.pendingBalance.Cmp(cost) < 0 {
 			break
 		}
+		q.pendingBalance.Sub(q.pendingBalance, cost)
 	}
 	q.pendingNonce = nonce
-
-	// Find the index of new pending nonce within the queue
-	sort.Sort(q.index)
-	i := 0
-	for ; i < q.index.Len(); i++ {
-		if q.index[i].nonce >= nonce {
-			break
-		}
-	}
-	// Case I: An unpayable action has been found while updating pending nonce/balance
-	// Remove all the subsequent actions in the queue starting from the index of new pending nonce
-	if _, exist := q.items[nonce]; exist {
-		removedFromQueue = append(removedFromQueue, q.removeActs(i)...)
-		return removedFromQueue
-	}
-
-	// Case II: All actions are payable while updating pending nonce/balance
-	// Check all the subsequent actions in the queue starting from the index of new pending nonce
-	// Find the nonce index of the first unpayable action
-	// Remove all the subsequent actions in the queue starting from that index
-	for ; i < q.index.Len(); i++ {
-		nonce = q.index[i].nonce
-		act := q.items[nonce]
-		if !q.enoughBalance(act, false) {
-			break
-		}
-	}
-	removedFromQueue = append(removedFromQueue, q.removeActs(i)...)
 	return removedFromQueue
 }
 
@@ -247,7 +222,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 	if q.Len() == 0 {
 		return nil
 	}
-	acts := make([]action.SealedEnvelope, 0, len(q.items))
+	acts := make([]action.SealedEnvelope, 0)
 	addr, err := address.FromString(q.address)
 	if err != nil {
 		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
@@ -258,12 +233,18 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil
 	}
-	nonce := confirmedState.Nonce + 1
-	for ; ; nonce++ {
-		if _, exist := q.items[nonce]; !exist {
+	pendingBalance := new(big.Int).Set(confirmedState.Balance)
+	for nonce := confirmedState.Nonce + 1; ; nonce++ {
+		act, exist := q.items[nonce]
+		if !exist {
 			break
 		}
-		acts = append(acts, q.items[nonce])
+		cost, _ := act.Cost()
+		if pendingBalance.Cmp(cost) < 0 {
+			break
+		}
+		pendingBalance.Sub(pendingBalance, cost)
+		acts = append(acts, act)
 	}
 	return acts
 }
@@ -279,30 +260,4 @@ func (q *actQueue) AllActs() []action.SealedEnvelope {
 		acts = append(acts, q.items[nonce.nonce])
 	}
 	return acts
-}
-
-// removeActs removes all the actions starting at idx from queue
-func (q *actQueue) removeActs(idx int) []action.SealedEnvelope {
-	removedFromQueue := make([]action.SealedEnvelope, 0)
-	for i := idx; i < q.index.Len(); i++ {
-		removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
-		delete(q.items, q.index[i].nonce)
-	}
-	q.index = q.index[:idx]
-	heap.Init(&q.index)
-	return removedFromQueue
-}
-
-// enoughBalance helps check whether queue's pending balance is sufficient for the given action
-func (q *actQueue) enoughBalance(act action.SealedEnvelope, updateBalance bool) bool {
-	cost, _ := act.Cost()
-	if q.pendingBalance.Cmp(cost) < 0 {
-		return false
-	}
-
-	if updateBalance {
-		q.pendingBalance.Sub(q.pendingBalance, cost)
-	}
-
-	return true
 }
