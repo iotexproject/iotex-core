@@ -174,7 +174,7 @@ func (c *client) Address(in string) (string, error) {
 		}
 		return in, nil
 	}
-	addr, ok := config.ReadConfig.Aliases[in]
+	addr, ok := c.cfg.Aliases[in]
 	if ok {
 		return addr, nil
 	}
@@ -187,7 +187,7 @@ func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyS
 
 func (c *client) GetAliasMap() map[string]string {
 	aliases := make(map[string]string)
-	for name, addr := range config.ReadConfig.Aliases {
+	for name, addr := range c.cfg.Aliases {
 		aliases[addr] = name
 	}
 	return aliases

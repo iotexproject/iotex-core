@@ -25,6 +25,7 @@ import (
 func TestStop(t *testing.T) {
 	c := NewClient()
 	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
+	require.NoError(t, err)
 	err = c.Stop(context.Background())
 	require.NoError(t, err)
 }
@@ -79,9 +80,6 @@ func TestGetAddress(t *testing.T) {
 		{in: "abc", out: "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95aabc"},
 	}
 
-	c := NewClient()
-	defer c.Stop(context.Background())
-
 	cfg := config.Config{
 		Aliases:        map[string]string{"": ""},
 		DefaultAccount: config.Context{AddressOrAlias: testDatas[0].in},
@@ -91,6 +89,7 @@ func TestGetAddress(t *testing.T) {
 	defer testutil.CleanupPath(t, config.ConfigDir)
 	require.NoError(t, err)
 	config.ReadConfig = cfg
+	c := NewClient()
 	out, err := c.GetAddress(testDatas[0].in)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot find address from "+testDatas[0].in)
@@ -108,6 +107,7 @@ func TestGetAddress(t *testing.T) {
 	defer testutil.CleanupPath(t, config.ConfigDir)
 	require.NoError(t, err)
 	config.ReadConfig = cfg
+	c = NewClient()
 	out, err = c.GetAddress(testDatas[1].in)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid IoTeX address")
@@ -125,6 +125,7 @@ func TestGetAddress(t *testing.T) {
 	defer testutil.CleanupPath(t, config.ConfigDir)
 	require.NoError(t, err)
 	config.ReadConfig = cfg
+	c = NewClient()
 	out, err = c.GetAddress(testDatas[2].in)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
@@ -142,6 +143,7 @@ func TestGetAddress(t *testing.T) {
 	defer testutil.CleanupPath(t, config.ConfigDir)
 	require.NoError(t, err)
 	config.ReadConfig = cfg
+	c = NewClient()
 	out, err = c.GetAddress(testDatas[0].in)
 	require.NoError(t, err)
 	require.Equal(t, testDatas[0].out, out)
@@ -159,6 +161,7 @@ func TestGetAddress(t *testing.T) {
 	defer testutil.CleanupPath(t, config.ConfigDir)
 	require.NoError(t, err)
 	config.ReadConfig = cfg
+	c = NewClient()
 	out, err = c.GetAddress(testDatas[3].in)
 	require.NoError(t, err)
 	require.Equal(t, testDatas[3].out, out)
@@ -236,7 +239,6 @@ func writeTempConfig(t *testing.T, cfg *config.Config) error {
 	testPathd, _ := ioutil.TempDir(os.TempDir(), "kstest")
 	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-	config.ReadConfig.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(cfg)
 	if err != nil {
 		t.Error(err)
