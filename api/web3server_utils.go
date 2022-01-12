@@ -25,6 +25,7 @@ import (
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 type (
@@ -86,19 +87,11 @@ func ethAddrToIoAddr(ethAddr string) (address.Address, error) {
 	return address.FromHex(ethAddr)
 }
 
-func ioAddrToEvmAddr(ioAddr string) (common.Address, error) {
-	address, err := address.FromString(ioAddr)
-	if err != nil {
-		return common.Address{}, errInvalidFormat
-	}
-	return common.BytesToAddress(address.Bytes()), nil
-}
-
 func ioAddrToEthAddr(ioAddr string) (string, error) {
 	if len(ioAddr) == 0 {
 		return "0x0000000000000000000000000000000000000000", nil
 	}
-	addr, err := ioAddrToEvmAddr(ioAddr)
+	addr, err := addrutil.IoAddrToEvmAddr(ioAddr)
 	if err != nil {
 		return "", err
 	}
@@ -443,20 +436,26 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 	return &logReq, nil
 }
 
-func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, value *big.Int, data []byte, err error) {
+func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int, []byte, error) {
+	var (
+		from     address.Address
+		to       string
+		gasLimit uint64
+		value    *big.Int
+		data     []byte
+	)
+
 	params, ok := in.([]interface{})
 	if !ok {
-		err = errInvalidFormat
-		return
+		return nil, "", 0, nil, nil, errInvalidFormat
 	}
 	params0, ok := params[0].(map[string]interface{})
 	if !ok {
-		err = errInvalidFormat
-		return
+		return nil, "", 0, nil, nil, errInvalidFormat
 	}
 	req, err := json.Marshal(params0)
 	if err != nil {
-		return
+		return nil, "", 0, nil, nil, err
 	}
 	callObj := struct {
 		From     string `json:"from,omitempty"`
@@ -466,41 +465,37 @@ func parseCallObject(in interface{}) (from string, to string, gasLimit uint64, v
 		Value    string `json:"value,omitempty"`
 		Data     string `json:"data,omitempty"`
 	}{}
-	err = json.Unmarshal(req, &callObj)
-	if err != nil {
-		return
+	if err = json.Unmarshal(req, &callObj); err != nil {
+		return nil, "", 0, nil, nil, err
 	}
-	var ioAddr address.Address
 	if callObj.To != "" {
+		var ioAddr address.Address
 		if ioAddr, err = ethAddrToIoAddr(callObj.To); err != nil {
-			return
+			return nil, "", 0, nil, nil, err
 		}
 		to = ioAddr.String()
 	}
 	if callObj.From == "" {
 		callObj.From = "0x0000000000000000000000000000000000000000"
 	}
-	if ioAddr, err = ethAddrToIoAddr(callObj.From); err != nil {
-		return
+	if from, err = ethAddrToIoAddr(callObj.From); err != nil {
+		return nil, "", 0, nil, nil, err
 	}
-	from = ioAddr.String()
 	if callObj.Value != "" {
 		value, ok = big.NewInt(0).SetString(util.Remove0xPrefix(callObj.Value), 16)
 		if !ok {
-			err = errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
-			return
+			return nil, "", 0, nil, nil, errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
 		}
 	} else {
 		value = big.NewInt(0)
 	}
 	if callObj.Gas != "" {
-		gasLimit, err = hexStringToNumber(callObj.Gas)
-		if err != nil {
-			return
+		if gasLimit, err = hexStringToNumber(callObj.Gas); err != nil {
+			return nil, "", 0, nil, nil, err
 		}
 	}
 	data = common.FromHex(callObj.Data)
-	return
+	return from, to, gasLimit, value, data, nil
 }
 
 func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {

@@ -195,7 +195,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		IsContract:   state.IsContract(),
 	}
 	if state.IsContract() {
-		var code evm.SerializableBytes
+		var code protocol.SerializableBytes
 		_, err = api.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -357,10 +357,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 
 	// reject action if chainID is not matched
-	if api.cfg.Genesis.Blockchain.IsToBeEnabled(api.bc.TipHeight()) {
-		if api.bc.ChainID() != in.GetAction().Core.GetChainID() {
-			return nil, status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), in.GetAction().Core.GetChainID())
-		}
+	if err := api.validateChainID(in.GetAction().GetCore().GetChainID()); err != nil {
+		return nil, err
 	}
 
 	// Add to local actpool
@@ -399,6 +397,14 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
+}
+
+func (api *Server) validateChainID(chainID uint32) error {
+	if api.cfg.Genesis.Blockchain.IsToBeEnabled(api.bc.TipHeight()) &&
+		chainID != api.bc.ChainID() && chainID != 0 {
+		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", api.bc.ChainID(), chainID)
+	}
+	return nil
 }
 
 // GetReceiptByAction gets receipt with corresponding action hash

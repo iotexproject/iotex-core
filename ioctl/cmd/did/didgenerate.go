@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
@@ -73,7 +74,7 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 		return
 	}
 	doc := newDIDDoc()
-	ethAddress, err := util.IoAddrToEvmAddr(signer)
+	ethAddress, err := addrutil.IoAddrToEvmAddr(signer)
 	if err != nil {
 		return "", output.NewError(output.AddressError, "", err)
 	}
