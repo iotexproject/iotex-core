@@ -327,12 +327,12 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			return err
 		},
 		statesFunc: func(ns string, keys [][]byte) ([][]byte, error) {
+			values := [][]byte{}
 			if keys == nil {
 				iter, err := mptrie.NewLayerTwoLeafIterator(tlt, namespaceKey(ns), legacyKeyLen())
 				if err != nil {
 					return nil, err
 				}
-				values := [][]byte{}
 				for {
 					_, value, err := iter.Next()
 					if err == trie.ErrEndOfIterator {
@@ -343,17 +343,17 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 					}
 					values = append(values, value)
 				}
-			}
-			var values [][]byte
-			for _, key := range keys {
-				value, err := readState(tlt, ns, key)
-				switch errors.Cause(err) {
-				case db.ErrNotExist, db.ErrBucketNotExist:
-					values = append(values, nil)
-				case nil:
-					values = append(values, value)
-				default:
-					return nil, err
+			} else {
+				for _, key := range keys {
+					value, err := readState(tlt, ns, key)
+					switch errors.Cause(err) {
+					case db.ErrNotExist, db.ErrBucketNotExist:
+						values = append(values, nil)
+					case nil:
+						values = append(values, value)
+					default:
+						return nil, err
+					}
 				}
 			}
 			return values, nil
