@@ -42,9 +42,8 @@ func (kv *kvStoreForTrie) Stop(context.Context) error {
 
 func (kv *kvStoreForTrie) Put(key []byte, value []byte) error {
 	var sb SerializableBytes
-	if err := sb.Deserialize(value); err != nil {
-		return err
-	}
+	sb = make([]byte, len(value))
+	copy(sb, value)
 	_, err := kv.sm.PutState(sb, KeyOption(key), kv.nsOpt)
 
 	return err
