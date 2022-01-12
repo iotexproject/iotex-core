@@ -14,14 +14,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -65,6 +62,7 @@ type (
 		Endpoint string
 		Insecure bool
 	}
+
 	client struct {
 		cfg  config.Config
 		conn *grpc.ClientConn
@@ -73,16 +71,16 @@ type (
 	}
 )
 
+var confirmMessages = map[config.Language]string{
+	config.English: "Do you want to continue? [yes/NO]",
+	config.Chinese: "是否继续？【是/否】",
+}
+
 // NewClient creates a new ioctl client
 func NewClient() Client {
 	return &client{
 		cfg: config.ReadConfig,
 	}
-}
-
-var confirmMessages = map[config.Language]string{
-	config.English: "Do you want to continue? [yes/NO]",
-	config.Chinese: "是否继续？【是/否】",
 }
 
 func (c *client) Start(context.Context) error {
@@ -141,6 +139,10 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 			return nil, err
 		}
 	}
+	if cfg.Endpoint == "" {
+		return nil, output.NewError(output.ConfigError, `use "ioctl config set endpoint" to config endpoint first`, nil)
+	}
+
 	var err error
 	if cfg.Insecure {
 		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithInsecure())
@@ -162,7 +164,7 @@ func (c *client) GetAddress(in string) (string, error) {
 	if err != nil {
 		return "", output.NewError(output.AddressError, "", err)
 	}
-	return address(addr)
+	return c.Address(addr)
 }
 
 func (c *client) Address(in string) (string, error) {
@@ -201,18 +203,4 @@ func (c *client) WriteConfig(cfg config.Config) error {
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	return nil
-}
-
-func address(in string) (string, error) {
-	if len(in) >= validator.IoAddrLen {
-		if err := validator.ValidateAddress(in); err != nil {
-			return "", output.NewError(output.ValidationError, "", err)
-		}
-		return in, nil
-	}
-	addr, ok := config.ReadConfig.Aliases[in]
-	if ok {
-		return addr, nil
-	}
-	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
