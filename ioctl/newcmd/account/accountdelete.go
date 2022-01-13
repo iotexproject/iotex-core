@@ -9,7 +9,6 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,7 +115,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 
 			// check whether crypto file exists
 			if _, err = os.Stat(filePath); err != nil {
-				return output.NewError(output.ValidationError, fmt.Sprintf(failToFindAccount, addr), nil)
+				return output.NewError(output.ReadFileError, fmt.Sprintf(failToFindAccount, addr), nil)
 			}
 			var confirm string
 			message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
@@ -128,7 +127,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			}
 
 			if err := os.Remove(filePath); err != nil {
-				return output.NewError(output.WriteFileError, failToRemoveKeystoreFile, err)
+				return output.NewError(output.ReadFileError, failToRemoveKeystoreFile, err)
 			}
 
 			aliases := c.GetAliasMap()
@@ -138,7 +137,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if err != nil {
 				return output.NewError(output.SerializationError, "", err)
 			}
-			if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 				return output.NewError(output.WriteFileError,
 					fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
 			}
