@@ -70,88 +70,78 @@ func TestAPIServiceClient(t *testing.T) {
 	r.Nil(apiServiceClient)
 }
 
-func testGetAddress(t *testing.T) {
-
-}
-
 func TestGetAddress(t *testing.T) {
-	testDatas := []struct {
-		in  string
-		out string
-	}{
-		{in: "abcdef", out: "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r"},
-		{in: "00io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7", out: ""},
-		{in: "", out: "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95aaaa"},
-		{in: "abc", out: "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95aabc"},
+	type Data struct {
+		cfg    config.Config
+		in     string
+		out    string
+		errMsg string
 	}
 
-	cfg := config.Config{
-		Aliases:        map[string]string{"": ""},
-		DefaultAccount: config.Context{AddressOrAlias: testDatas[0].in},
-	}
-	var err error
-	r := require.New(t)
-	config.ReadConfig, err = getTempConfig(t, &cfg)
-	c := NewClient()
-	out, err := c.GetAddress(testDatas[0].in)
-	r.Error(err)
-	r.Contains(err.Error(), "cannot find address from "+testDatas[0].in)
-	r.Equal("", out)
-
-	cfg = config.Config{
-		Aliases: map[string]string{
-			testDatas[1].in: testDatas[1].out,
-			"bbb":           "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+	tests := []Data{
+		{
+			config.Config{
+				Aliases:        map[string]string{"": ""},
+				DefaultAccount: config.Context{AddressOrAlias: "abcdef"},
+			}, "abcdef", "", "cannot find address from",
 		},
-		DefaultAccount: config.Context{AddressOrAlias: testDatas[1].in},
-	}
-	config.ReadConfig, err = getTempConfig(t, &cfg)
-	c = NewClient()
-	out, err = c.GetAddress(testDatas[1].in)
-	r.Error(err)
-	r.Contains(err.Error(), "invalid IoTeX address")
-	r.Equal("", out)
 
-	cfg = config.Config{
-		Aliases: map[string]string{
-			testDatas[2].in: testDatas[2].out,
-			"bbb":           "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"000io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r",
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: "000io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7"},
+			}, "000io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7", "", "invalid IoTeX address",
 		},
-		DefaultAccount: config.Context{AddressOrAlias: ""},
-	}
-	config.ReadConfig, err = getTempConfig(t, &cfg)
-	c = NewClient()
-	out, err = c.GetAddress(testDatas[2].in)
-	r.Error(err)
-	r.Contains(err.Error(), `use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
-	r.Equal("", out)
 
-	cfg = config.Config{
-		Aliases: map[string]string{
-			testDatas[0].in: testDatas[0].out,
-			"bbb":           "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			}, "", "", `use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`,
 		},
-		DefaultAccount: config.Context{AddressOrAlias: ""},
-	}
-	config.ReadConfig, err = getTempConfig(t, &cfg)
-	c = NewClient()
-	out, err = c.GetAddress(testDatas[0].in)
-	r.NoError(err)
-	r.Equal(testDatas[0].out, out)
 
-	cfg = config.Config{
-		Aliases: map[string]string{
-			"ccc":           "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
-			testDatas[3].in: testDatas[3].out,
-			"bbb":           "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"abcdef": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r",
+					"bbb":    "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			}, "abcdef", "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r", "",
 		},
-		DefaultAccount: config.Context{AddressOrAlias: testDatas[3].in},
+
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
+					"abc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95aabc",
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: "abc"},
+			}, "abc", "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95aabc", "",
+		},
 	}
-	config.ReadConfig, err = getTempConfig(t, &cfg)
-	c = NewClient()
-	out, err = c.GetAddress(testDatas[3].in)
-	r.NoError(err)
-	r.Equal(testDatas[3].out, out)
+
+	for _, test := range tests {
+		r := require.New(t)
+		r.NoError(writeTempConfig(t, &test.cfg))
+		cfg, err := config.LoadConfig()
+		r.NoError(err)
+		defer testutil.CleanupPath(t, config.ConfigDir)
+		config.ReadConfig = cfg
+		c := NewClient()
+		out, err := c.GetAddress(test.in)
+		if err != nil {
+			r.Error(err)
+			r.Contains(err.Error(), test.errMsg)
+		}
+		r.Equal(test.out, out)
+	}
 }
 
 func TestNewKeyStore(t *testing.T) {
@@ -220,24 +210,6 @@ func TestWriteConfig(t *testing.T) {
 	}
 	err = c.WriteConfig(cfg)
 	require.NoError(t, err)
-}
-
-func getTempConfig(t *testing.T, cfg *config.Config) (config.Config, error) {
-	cfgload := config.Config{
-		Aliases: make(map[string]string),
-	}
-	err := writeTempConfig(t, cfg)
-	if err != nil {
-		t.Error(err)
-		return cfgload, err
-	}
-	cfgload, err = config.LoadConfig()
-	if err != nil {
-		t.Error(err)
-		return cfgload, err
-	}
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	return cfgload, nil
 }
 
 func writeTempConfig(t *testing.T, cfg *config.Config) error {
