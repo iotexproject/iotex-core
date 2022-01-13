@@ -10,7 +10,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -18,38 +18,39 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestStop(t *testing.T) {
+	r := require.New(t)
 	c := NewClient()
 	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
-	require.NoError(t, err)
+	r.NoError(err)
 	err = c.Stop(context.Background())
-	require.NoError(t, err)
+	r.NoError(err)
 }
 
 func TestAskToConfirm(t *testing.T) {
+	r := require.New(t)
 	c := NewClient()
 	defer c.Stop(context.Background())
 	blang := c.AskToConfirm()
 	// no input
-	require.False(t, blang)
+	r.False(blang)
 
 	c = &client{
 		cfg:  config.ReadConfig,
 		lang: config.Chinese,
 	}
 	blang = c.AskToConfirm()
-	require.False(t, blang)
+	r.False(blang)
 
 	c = &client{
 		cfg:  config.ReadConfig,
 		lang: 2, // other language is english as default
 	}
 	blang = c.AskToConfirm()
-	require.False(t, blang)
+	r.False(blang)
 }
 
 func TestAPIServiceClient(t *testing.T) {
@@ -65,8 +66,7 @@ func TestAPIServiceClient(t *testing.T) {
 	r.NotNil(apiServiceClient)
 
 	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "", Insecure: false})
-	r.Error(err)
-	r.Contains(`use "ioctl config set endpoint" to config endpoint first`, err.Error())
+	r.Contains(err.Error(), `use "ioctl config set endpoint" to config endpoint first`)
 	r.Nil(apiServiceClient)
 }
 
@@ -137,7 +137,6 @@ func TestGetAddress(t *testing.T) {
 		c := NewClient()
 		out, err := c.GetAddress(test.in)
 		if err != nil {
-			r.Error(err)
 			r.Contains(err.Error(), test.errMsg)
 		}
 		r.Equal(test.out, out)
@@ -145,18 +144,31 @@ func TestGetAddress(t *testing.T) {
 }
 
 func TestNewKeyStore(t *testing.T) {
-	testWallet := filepath.Join(os.TempDir(), "ksTest")
+	r := require.New(t)
+	testWallet, err := ioutil.TempDir(os.TempDir(), "ksTest")
+	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
-	config.ReadConfig.Wallet = testWallet
+
 	c := NewClient()
 	defer c.Stop(context.Background())
-	keyStore := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-	require.NotNil(t, keyStore)
-	keyStore = c.NewKeyStore(config.ReadConfig.Wallet, keystore.LightScryptN, keystore.LightScryptP)
-	require.NotNil(t, keyStore)
+
+	tests := [][]int{
+		{keystore.StandardScryptN, keystore.StandardScryptP},
+		{keystore.LightScryptN, keystore.LightScryptP},
+	}
+	for _, test := range tests {
+		ks := c.NewKeyStore(testWallet, test[0], test[1])
+		acc, err := ks.NewAccount("test")
+		r.NoError(err)
+		_, err = os.Stat(acc.URL.Path)
+		r.NoError(err)
+		r.True(strings.HasPrefix(acc.URL.Path, testWallet))
+		r.True(ks.HasAddress(acc.Address))
+	}
 }
 
 func TestGetAliasMap(t *testing.T) {
+	r := require.New(t)
 	cfg := config.Config{
 		Aliases: map[string]string{
 			"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
@@ -164,11 +176,12 @@ func TestGetAliasMap(t *testing.T) {
 			"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
 		},
 	}
-	require.NoError(t, writeTempConfig(t, &cfg))
-	cfg, err := config.LoadConfig()
+	r.NoError(writeTempConfig(t, &cfg))
+	cfgload, err := config.LoadConfig()
+	r.NoError(err)
+	r.Equal(cfg, cfgload)
 	defer testutil.CleanupPath(t, config.ConfigDir)
-	require.NoError(t, err)
-	config.ReadConfig = cfg
+	config.ReadConfig = cfgload
 
 	exprAliases := map[string]string{
 		cfg.Aliases["aaa"]: "aaa",
@@ -178,52 +191,55 @@ func TestGetAliasMap(t *testing.T) {
 	c := NewClient()
 	defer c.Stop(context.Background())
 	result := c.GetAliasMap()
-	require.Equal(t, exprAliases, result)
+	r.Equal(exprAliases, result)
 }
 
 func TestWriteConfig(t *testing.T) {
-	config.ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"
-	if !fileutil.FileExists(config.ConfigDir) {
-		err := os.MkdirAll(config.ConfigDir, 0700)
-		require.NoError(t, err)
-	}
+	r := require.New(t)
+	testPathd, err := ioutil.TempDir(os.TempDir(), "cfgtest")
+	r.NoError(err)
+	defer testutil.CleanupPath(t, testPathd)
+	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 
-	cfg := config.Config{
-		Aliases: map[string]string{
-			"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
-			"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
-			"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
+	tests := []config.Config{
+		{
+			Endpoint:      "127.1.1.1:1234",
+			SecureConnect: true,
+			Aliases: map[string]string{
+				"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+				"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+				"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
+			},
+			DefaultAccount: config.Context{AddressOrAlias: "ddd"},
 		},
-		DefaultAccount: config.Context{AddressOrAlias: "ddd"},
-	}
-	c := NewClient()
-	defer c.Stop(context.Background())
-	err := c.WriteConfig(cfg)
-	require.NoError(t, err)
 
-	cfg = config.Config{
-		Aliases: map[string]string{
-			"": "",
+		{
+			Aliases: map[string]string{
+				"": "",
+			},
+			DefaultAccount: config.Context{AddressOrAlias: ""},
 		},
-		DefaultAccount: config.Context{AddressOrAlias: ""},
 	}
-	err = c.WriteConfig(cfg)
-	require.NoError(t, err)
+
+	for _, test := range tests {
+		c := NewClient()
+		err = c.WriteConfig(test)
+		cfgload, err := config.LoadConfig()
+		r.NoError(err)
+		r.Equal(test, cfgload)
+	}
 }
 
 func writeTempConfig(t *testing.T, cfg *config.Config) error {
-	testPathd, _ := ioutil.TempDir(os.TempDir(), "kstest")
+	r := require.New(t)
+	testPathd, err := ioutil.TempDir(os.TempDir(), "kstest")
+	r.NoError(err)
 	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
+	config.ReadConfig.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(cfg)
-	if err != nil {
-		t.Error(err)
-		return err
-	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		t.Error(err)
-		return err
-	}
+	r.NoError(err)
+	r.NoError(ioutil.WriteFile(config.DefaultConfigFile, out, 0600))
 	return nil
 }
