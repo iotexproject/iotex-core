@@ -10,7 +10,6 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 )
 
@@ -333,6 +332,6 @@ func (cb *cachedBatch) AddFillPercent(ns string, percent float64) {
 	cb.kvStoreBatch.AddFillPercent(ns, percent)
 }
 
-func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
-	return hash.Hash160b(append([]byte(namespace), key...))
+func (cb *cachedBatch) hash(namespace string, key []byte) *kvCacheKey {
+	return &kvCacheKey{namespace, string(key)}
 }

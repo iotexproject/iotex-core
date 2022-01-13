@@ -9,15 +9,13 @@ package batch
 import (
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	k1 = hash.Hash160b([]byte("key_1"))
-	k2 = hash.Hash160b([]byte([]byte("key_2")))
-	k3 = hash.Hash160b([]byte([]byte("key_3")))
+	k1 = &kvCacheKey{"ns", "key"}
+	k2 = &kvCacheKey{"nsk", "ey"}
+	k3 = &kvCacheKey{"n", "skey"}
 
 	v1 = []byte("value_1")
 	v2 = []byte("value_2")

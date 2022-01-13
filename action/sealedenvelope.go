@@ -21,6 +21,7 @@ type SealedEnvelope struct {
 	evmNetworkID uint32
 	srcPubkey    crypto.PublicKey
 	signature    []byte
+	hash         hash.Hash256
 }
 
 var bufPool = sync.Pool{
@@ -49,18 +50,31 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
+	if sealed.hash == hash.ZeroHash256 {
+		if err := sealed.calcHash(); err != nil {
+			return hash.ZeroHash256, err
+		}
+	}
+	return sealed.hash, nil
+}
+
+func (sealed *SealedEnvelope) calcHash() error {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		tx, err := actionToRLP(sealed.Action())
 		if err != nil {
-			return hash.ZeroHash256, err
+			return err
 		}
-		return rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
+		sealed.hash, err = rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
+		if err != nil {
+			return err
+		}
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.Hash256b(byteutil.Must(sealed.serialize())), nil
+		sealed.hash = hash.Hash256b(byteutil.Must(sealed.serialize()))
 	default:
-		return hash.ZeroHash256, errors.Errorf("unknown encoding type %v", sealed.encoding)
+		return errors.Errorf("unknown encoding type %v", sealed.encoding)
 	}
+	return nil
 }
 
 func (sealed *SealedEnvelope) serialize() ([]byte, error) {
@@ -146,6 +160,9 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
 	elp.Action().SetEnvelopeContext(*sealed)
+	if err := sealed.calcHash(); err != nil {
+		return err
+	}
 	return nil
 }
 

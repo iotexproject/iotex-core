@@ -181,7 +181,9 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	// make actionMap protected by mutex in parallel
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for from, queue := range ap.accountActs {
-		actionMap[from] = queue.PendingActs()
+		if ret := queue.PendingActs(); len(ret) > 0 {
+			actionMap[from] = ret
+		}
 	}
 	return actionMap
 }

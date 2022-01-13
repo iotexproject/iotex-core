@@ -52,6 +52,9 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 	}
 	sealed.signature = sig
 	act.Action().SetEnvelopeContext(sealed)
+	if err := sealed.calcHash(); err != nil {
+		return sealed, err
+	}
 	return sealed, nil
 }
 
