@@ -658,7 +658,7 @@ func TestPreimage(t *testing.T) {
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("fox"))
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
-	var k SerializableBytes
+	var k protocol.SerializableBytes
 	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v1[:]))
 	require.NoError(err)
 	require.Equal([]byte("cat"), []byte(k))

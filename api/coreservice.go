@@ -154,7 +154,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		IsContract:   state.IsContract(),
 	}
 	if state.IsContract() {
-		var code evm.SerializableBytes
+		var code protocol.SerializableBytes
 		_, err = core.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, nil, status.Error(codes.NotFound, err.Error())

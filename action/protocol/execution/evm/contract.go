@@ -46,9 +46,9 @@ type (
 	contract struct {
 		*state.Account
 		async      bool
-		dirtyCode  bool              // contract's code has been set
-		dirtyState bool              // contract's account state has changed
-		code       SerializableBytes // contract byte-code
+		dirtyCode  bool                       // contract's code has been set
+		dirtyState bool                       // contract's account state has changed
+		code       protocol.SerializableBytes // contract byte-code
 		root       hash.Hash256
 		committed  map[hash.Hash256][]byte
 		sm         protocol.StateManager
@@ -188,7 +188,7 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 		async:     enableAsync,
 	}
 	options := []mptrie.Option{
-		mptrie.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
+		mptrie.KVStoreOption(protocol.NewKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),
 		mptrie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addr[:], data...))
