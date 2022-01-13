@@ -13,9 +13,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -38,8 +39,33 @@ func TestNewAccountDelete(t *testing.T) {
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
 	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
+	client.EXPECT().GetAliasMap().DoAndReturn(
+		func() map[string]string {
+			aliases := make(map[string]string)
+			for name, addr := range config.ReadConfig.Aliases {
+				aliases[addr] = name
+			}
+			return aliases
+		}).Times(2)
 
+	client.EXPECT().Config().DoAndReturn(
+		func() config.Config {
+			config.ReadConfig.Wallet = testAccountFolder
+			return config.ReadConfig
+		}).AnyTimes()
+
+	CryptoSm2 = false
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
+	require.NoError(t, err)
+
+	CryptoSm2 = true
+	priKey2, _ := crypto.GenerateKeySm2()
+	addr2 := priKey2.PublicKey().Address()
+	pemFilePath := sm2KeyPath(addr2)
+	crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
+	client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
+	cmd = NewAccountDelete(client)
+	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 }
