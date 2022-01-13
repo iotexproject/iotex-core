@@ -8,7 +8,6 @@ package ioctl
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -145,7 +144,7 @@ func TestGetAddress(t *testing.T) {
 
 func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
-	testWallet, err := ioutil.TempDir(os.TempDir(), "ksTest")
+	testWallet, err := os.MkdirTemp(os.TempDir(), "ksTest")
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
 
@@ -196,7 +195,7 @@ func TestGetAliasMap(t *testing.T) {
 
 func TestWriteConfig(t *testing.T) {
 	r := require.New(t)
-	testPathd, err := ioutil.TempDir(os.TempDir(), "cfgtest")
+	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testPathd)
 	config.ConfigDir = testPathd
@@ -233,13 +232,13 @@ func TestWriteConfig(t *testing.T) {
 
 func writeTempConfig(t *testing.T, cfg *config.Config) error {
 	r := require.New(t)
-	testPathd, err := ioutil.TempDir(os.TempDir(), "kstest")
+	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
 	r.NoError(err)
 	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 	config.ReadConfig.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(cfg)
 	r.NoError(err)
-	r.NoError(ioutil.WriteFile(config.DefaultConfigFile, out, 0600))
+	r.NoError(os.WriteFile(config.DefaultConfigFile, out, 0600))
 	return nil
 }
