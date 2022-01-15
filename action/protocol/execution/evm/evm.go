@@ -110,18 +110,27 @@ func newParams(
 	}
 
 	var getHashFn vm.GetHashFunc
-	if !featureCtx.FixGetHashFnHeight {
+	switch {
+	case featureCtx.CorrectGetHashFn:
 		getHashFn = func(n uint64) common.Hash {
-			hash, err := getBlockHash(stateDB.blockHeight - n)
-			if err != nil {
+			hash, err := getBlockHash(n)
+			if err == nil {
 				return common.BytesToHash(hash[:])
 			}
 			return common.Hash{}
 		}
-	} else {
+	case featureCtx.FixGetHashFnHeight:
 		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - (n + 1))
 			if err == nil {
+				return common.BytesToHash(hash[:])
+			}
+			return common.Hash{}
+		}
+	default:
+		getHashFn = func(n uint64) common.Hash {
+			hash, err := getBlockHash(stateDB.blockHeight - n)
+			if err != nil {
 				return common.BytesToHash(hash[:])
 			}
 			return common.Hash{}
