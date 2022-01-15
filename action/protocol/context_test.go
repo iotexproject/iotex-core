@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
@@ -156,4 +157,18 @@ func TestMustGetActionCtx(t *testing.T) {
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
 	// Case II: Panic
 	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss action context")
+}
+
+func TestWithVMConfigCtx(t *testing.T) {
+	require := require.New(t)
+	require.NotNil(WithVMConfigCtx(context.Background(), vm.Config{Debug: true}))
+}
+
+func TestGetVMConfigCtx(t *testing.T) {
+	require := require.New(t)
+	ctx := WithVMConfigCtx(context.Background(), vm.Config{Debug: true})
+	require.NotNil(ctx)
+	ret, ok := GetVMConfigCtx(ctx)
+	require.True(ok)
+	require.True(ret.Debug)
 }
