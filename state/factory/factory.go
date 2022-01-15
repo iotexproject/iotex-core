@@ -416,7 +416,7 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 	}
 	if sf.saveHistory {
 		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() == batch.Delete {
+			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
 				return nil
 			}
 			return wi
