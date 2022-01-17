@@ -706,6 +706,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 		{12, 4},
 		{13, 0},
 		{14, 100},
+		{15, 15},
 	}
 	for _, test := range tests {
 		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHash(int64(test.getHashHeight)))
