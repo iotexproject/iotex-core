@@ -39,7 +39,7 @@ type (
 	contractMap map[hash.Hash160]Contract
 
 	// preimageMap records the preimage of hash reported by VM
-	preimageMap map[common.Hash]SerializableBytes
+	preimageMap map[common.Hash]protocol.SerializableBytes
 
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
@@ -706,7 +706,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
 	}
-	var code SerializableBytes
+	var code protocol.SerializableBytes
 	if _, err = stateDB.sm.State(&code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(account.CodeHash[:])); err != nil {
 		// TODO: Suppress the as it's too much now
 		//log.L().Error("Failed to get code from trie.", zap.Error(err))

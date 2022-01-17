@@ -20,7 +20,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.6
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.5.4
+	github.com/iotexproject/iotex-proto v0.5.8
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
@@ -46,11 +46,11 @@ require (
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
+	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/genproto v0.0.0-20201211151036-40ec1c210f7a
-	google.golang.org/grpc v1.40.0
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/genproto v0.0.0-20211223182754-3ac035c7e7cb
+	google.golang.org/grpc v1.43.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -168,9 +168,9 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912 // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect

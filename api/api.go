@@ -195,7 +195,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		IsContract:   state.IsContract(),
 	}
 	if state.IsContract() {
-		var code evm.SerializableBytes
+		var code protocol.SerializableBytes
 		_, err = api.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -1729,4 +1729,9 @@ func (api *Server) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoo
 	}
 
 	return ret, nil
+}
+
+// TraceTransactionStructLogs get trace transaction struct logs
+func (api *Server) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "The operation is not implemented")
 }
