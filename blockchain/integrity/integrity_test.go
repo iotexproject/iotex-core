@@ -675,7 +675,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 		return ex1Hash, nil
 	}
 
-	getBlockHash := func(x int64) []byte {
+	getBlockHashCallData := func(x int64) []byte {
 		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
 		// convert block number to uint256 (32-bytes)
 		blockNumber := hash.BytesToHash256(big.NewInt(x).Bytes())
@@ -709,7 +709,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 		{15, 15},
 	}
 	for _, test := range tests {
-		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHash(int64(test.getHashHeight)))
+		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHashCallData(int64(test.getHashHeight)))
 		require.NoError(err)
 		r, err := dao.GetReceiptByActionHash(h, test.commitHeight)
 		require.NoError(err)
