@@ -131,6 +131,7 @@ func newParams(
 		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - n)
 			if err != nil {
+				// initial implementation did wrong, should return common.Hash{} in case of error
 				return common.BytesToHash(hash[:])
 			}
 			return common.Hash{}
