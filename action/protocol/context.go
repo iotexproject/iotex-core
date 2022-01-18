@@ -99,6 +99,7 @@ type (
 		FixSnapshotOrder            bool
 		AllowCorrectDefaultChainID  bool
 		CorrectGetHashFn            bool
+		CorrectTxLogIndex           bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -224,6 +225,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixSnapshotOrder:            g.IsKamchatka(height),
 			AllowCorrectDefaultChainID:  g.IsToBeEnabled(height),
 			CorrectGetHashFn:            g.IsToBeEnabled(height),
+			CorrectTxLogIndex:           g.IsToBeEnabled(height), // change to next hard-fork
 		},
 	)
 }

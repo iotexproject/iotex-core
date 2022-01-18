@@ -109,6 +109,8 @@ func (ws *workingSet) runActions(
 		return nil, err
 	}
 	// Handle actions
+	var txIndex, logIndex uint32
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		ctx, err := withActionCtx(ctx, elp)
@@ -120,6 +122,9 @@ func (ws *workingSet) runActions(
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
+			if featureCtx.CorrectTxLogIndex {
+				txIndex, logIndex = receipt.UpdateIndex(txIndex, logIndex)
+			}
 			receipts = append(receipts, receipt)
 		}
 	}
@@ -406,6 +411,8 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	// initial action iterator
+	var txIndex, logIndex uint32
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	ctxWithBlockContext := ctx
 	if ap != nil {
@@ -457,6 +464,9 @@ func (ws *workingSet) pickAndRunActions(
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
 				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
+				if featureCtx.CorrectTxLogIndex {
+					txIndex, logIndex = receipt.UpdateIndex(txIndex, logIndex)
+				}
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, nextAction)
@@ -479,6 +489,9 @@ func (ws *workingSet) pickAndRunActions(
 			return nil, err
 		}
 		if receipt != nil {
+			if featureCtx.CorrectTxLogIndex {
+				txIndex, logIndex = receipt.UpdateIndex(txIndex, logIndex)
+			}
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, selp)
