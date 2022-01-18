@@ -66,4 +66,6 @@ type ServiceClient interface {
 	GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest, opts ...grpc.CallOption) (*iotexapi.GetActPoolActionsResponse, error)
 	// read contract storage
 	ReadContractStorage(ctx context.Context, in *iotexapi.ReadContractStorageRequest, opts ...grpc.CallOption) (*iotexapi.ReadContractStorageResponse, error)
+	// TraceTransactionStructLogs get trace transaction struct logs
+	TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest, opts ...grpc.CallOption) (*iotexapi.TraceTransactionStructLogsResponse, error)
 }
