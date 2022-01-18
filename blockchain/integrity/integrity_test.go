@@ -574,7 +574,8 @@ func TestGetBlockHash(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.HawaiiBlockHeight = 3
+	cfg.Genesis.HawaiiBlockHeight = 4
+	cfg.Genesis.ToBeEnabledBlockHeight = 9
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash(&config.Default.Genesis)
@@ -606,15 +607,14 @@ func TestGetBlockHash(t *testing.T) {
 	require.NotNil(bc)
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
-	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
 
-	addTestingGetBlockHash(t, cfg.Genesis.HawaiiBlockHeight, bc, dao, ap)
+	addTestingGetBlockHash(t, cfg.Genesis, bc, dao, ap)
 }
 
-func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
+func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
 	require := require.New(t)
 	priKey0 := identityset.PrivateKey(27)
 
@@ -675,7 +675,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		return ex1Hash, nil
 	}
 
-	getBlockHash := func(x int64) []byte {
+	getBlockHashCallData := func(x int64) []byte {
 		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
 		// convert block number to uint256 (32-bytes)
 		blockNumber := hash.BytesToHash256(big.NewInt(x).Bytes())
@@ -684,48 +684,53 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 
 	var (
 		zero     = big.NewInt(0)
+		nonce    = uint64(2)
 		gasLimit = testutil.TestGasLimit * 5
 		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
+		bcHash   hash.Hash256
 	)
-
-	acHash2, err := addOneBlock(contract, 2, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to all zero
-	require.NoError(err)
-	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to block 2
-	require.NoError(err)
-	acHash4, err := addOneBlock(contract, 4, zero, gasLimit, gasPrice, getBlockHash(1)) // equal to block 2
-	require.NoError(err)
-	acHash5, err := addOneBlock(contract, 5, zero, gasLimit, gasPrice, getBlockHash(3)) // equal to block 1
-	require.NoError(err)
-	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, getBlockHash(2)) // equal to block 3
-	require.NoError(err)
-	acHash7, err := addOneBlock(contract, 7, zero, gasLimit, gasPrice, getBlockHash(6)) // equal to genesis block
-	require.NoError(err)
-
 	tests := []struct {
-		acHash       hash.Hash256
-		commitHeight uint64
-		targetHeight uint64
+		commitHeight  uint64
+		getHashHeight uint64
 	}{
-		{acHash2, 2, 0},
-		{acHash3, 3, 2},
-		{acHash4, 4, 2},
-		{acHash5, 5, 1},
-		{acHash6, 6, 3},
-		{acHash7, 7, 0},
+		{2, 0},
+		{3, 5},
+		{4, 1},
+		{5, 3},
+		{6, 0},
+		{7, 6},
+		{8, 9},
+		{9, 3},
+		{10, 9},
+		{11, 1},
+		{12, 4},
+		{13, 0},
+		{14, 100},
+		{15, 15},
 	}
 	for _, test := range tests {
-		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
+		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHashCallData(int64(test.getHashHeight)))
 		require.NoError(err)
-		var bcHash hash.Hash256
-		if test.commitHeight < hawaiiHeight {
+		r, err := dao.GetReceiptByActionHash(h, test.commitHeight)
+		require.NoError(err)
+		if test.getHashHeight >= test.commitHeight {
+			bcHash = hash.ZeroHash256
+		} else if test.commitHeight < g.HawaiiBlockHeight {
 			// before hawaii it mistakenly return zero hash
 			// see https://github.com/iotexproject/iotex-core/commit/2585b444214f9009b6356fbaf59c992e8728fc01
 			bcHash = hash.ZeroHash256
 		} else {
-			bcHash, err = dao.GetBlockHash(test.targetHeight)
+			var targetHeight uint64
+			if test.commitHeight < g.ToBeEnabledBlockHeight {
+				targetHeight = test.commitHeight - (test.getHashHeight + 1)
+			} else {
+				targetHeight = test.getHashHeight
+			}
+			bcHash, err = dao.GetBlockHash(targetHeight)
 			require.NoError(err)
 		}
 		require.Equal(r.Logs()[0].Topics[0], bcHash)
+		nonce++
 	}
 }
 
