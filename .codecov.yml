@@ -10,14 +10,14 @@ coverage:
         enabled: yes
         target: auto
 ignore:
-  - 'action/protocol/rewarding/rewardingpb'
-  - 'action/protocol/account/accountpb'
-  - 'action/protocol/poll/*.abi.go'
-  - 'api/api.go'
-  - 'blockindex/indexpb'
-  - 'consensus/scheme/rolldpos/endorsementpb'
-  - 'db/trie/triepb'
-  - 'e2etest/*'
-  - 'ioctl/**/*'
-  - 'test/mock/**/*'
-  - 'tools/**/*'
+  - "action/protocol/rewarding/rewardingpb"
+  - "action/protocol/account/accountpb"
+  - "action/protocol/poll/*.abi.go"
+  - "api/api.go"
+  - "blockindex/indexpb"
+  - "consensus/scheme/rolldpos/endorsementpb"
+  - "db/trie/triepb"
+  - "e2etest/*"
+  - "ioctl/**/*"
+  - "test/mock/**/*"
+  - "tools/**/*"
