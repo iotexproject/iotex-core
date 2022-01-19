@@ -37,18 +37,8 @@ func TestServerV2Error(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	err := svr.GrpcServer.Start()
-	if err != nil {
-		svr.GrpcServer.Stop()
-	} else {
-		err = svr.Start()
-		require.Error(err)
-		require.Contains(err.Error(), "grpc server failed to listen")
-		svr.GrpcServer.Stop()
-	}
-
 	svr.core.chainListener = nil
-	err = svr.Start()
+	err := svr.Start()
 	require.Error(err)
 	require.Contains(err.Error(), "failed to add chainListener")
 
