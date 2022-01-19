@@ -36,12 +36,16 @@ func TestNewAccountDelete(t *testing.T) {
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	acc, _ := ks.NewAccount("test")
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
-	client.EXPECT().AskToConfirm().Return(true).AnyTimes()
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
-
+	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
+	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
+	client.EXPECT().Config().Return(config.ReadConfig).Times(2)
+	client.EXPECT().AskToConfirm().Return(false)
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
+	require.NoError(t, err)
+
+	client.EXPECT().AskToConfirm().Return(true)
+	cmd = NewAccountDelete(client)
+	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 }
