@@ -11,13 +11,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -50,6 +48,7 @@ var (
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
+
 	failToRemoveKeystoreFile = map[config.Language]string{
 		config.English: "failed to remove keystore file",
 		config.Chinese: "移除keystore文件失败",
@@ -70,7 +69,6 @@ var (
 
 // NewAccountDelete represents the account delete command
 func NewAccountDelete(c ioctl.Client) *cobra.Command {
-
 	use, _ := c.SelectTranslation(deleteUses)
 	short, _ := c.SelectTranslation(deleteShorts)
 	failToGetAddress, _ := c.SelectTranslation(failToGetAddress)
@@ -102,11 +100,9 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 			for _, v := range ks.Accounts() {
 				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-					var confirm string
 					message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
 					fmt.Println(message.String())
-					fmt.Scanf("%s", &confirm)
-					if !strings.EqualFold(confirm, "yes") {
+					if !c.AskToConfirm() {
 						output.PrintResult("quit")
 						return nil
 					}

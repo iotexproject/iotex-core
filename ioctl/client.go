@@ -102,16 +102,9 @@ func (c *client) Config() config.Config {
 }
 
 func (c *client) AskToConfirm() bool {
-	msg, lang := c.SelectTranslation(confirmMessages)
-	fmt.Println(msg)
 	var confirm string
 	fmt.Scanf("%s", &confirm)
-	switch lang {
-	case config.Chinese:
-		return strings.EqualFold(confirm, "是")
-	default: // config.English
-		return strings.EqualFold(confirm, "yes")
-	}
+	return strings.EqualFold(confirm, "yes")
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
