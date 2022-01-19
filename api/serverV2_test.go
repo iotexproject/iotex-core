@@ -10,7 +10,7 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestServerV2(t *testing.T) {
+func TestServerV2Start(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	config.SetEVMNetworkID(1)
@@ -20,9 +20,6 @@ func TestServerV2(t *testing.T) {
 	}()
 
 	err := svr.Start()
-	require.NoError(err)
-
-	err = svr.Stop()
 	require.NoError(err)
 }
 
