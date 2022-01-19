@@ -57,6 +57,7 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt.ActionHash, receipt2.ActionHash)
 	require.Equal(receipt.GasConsumed, receipt2.GasConsumed)
 	require.Equal(receipt.ContractAddress, receipt2.ContractAddress)
+	require.Equal(receipt.TxIndex, receipt2.TxIndex)
 	require.Equal(receipt.executionRevertMsg, receipt2.executionRevertMsg)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
 	require.NotEqual(testLog, receipt2.logs[0])
@@ -120,9 +121,9 @@ func TestUpdateIndex(t *testing.T) {
 		{0, 0},
 		{0, 2},
 	} {
-		tx, log := receipt.UpdateIndex(v.txIndex, v.logIndex)
-		require.Equal(v.txIndex+1, tx)
-		require.Equal(v.logIndex+uint32(len(receipt.logs)), log)
+		receipt.UpdateIndex(v.txIndex, v.logIndex)
+		require.Equal(v.txIndex, receipt.TxIndex)
+		require.Equal(v.logIndex+uint32(len(receipt.logs)), receipt.LastLogIndex()+1)
 		// verify each log's index
 		for i, l := range receipt.logs {
 			require.Equal(v.logIndex+uint32(i), l.Index)

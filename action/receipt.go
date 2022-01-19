@@ -123,6 +123,14 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 	return hash.Hash256b(data)
 }
 
+// LastLogIndex returns the index of last log
+func (receipt *Receipt) LastLogIndex() uint32 {
+	if len(receipt.logs) == 0 {
+		return 0
+	}
+	return receipt.logs[len(receipt.logs)-1].Index
+}
+
 // Logs returns the list of logs stored in receipt
 func (receipt *Receipt) Logs() []*Log {
 	return receipt.logs
@@ -167,17 +175,13 @@ func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
 }
 
 // UpdateIndex updates the index of receipt and logs
-func (receipt *Receipt) UpdateIndex(txIndex, logIndex uint32) (uint32, uint32) {
-	if receipt == nil {
-		return txIndex, logIndex
-	}
+func (receipt *Receipt) UpdateIndex(txIndex, logIndex uint32) {
 	receipt.TxIndex = txIndex
 	for _, l := range receipt.logs {
 		l.TxIndex = txIndex
 		l.Index = logIndex
 		logIndex++
 	}
-	return txIndex + 1, logIndex
 }
 
 // ConvertToLogPb converts a Log to protobuf's Log

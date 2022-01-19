@@ -123,7 +123,11 @@ func (ws *workingSet) runActions(
 		}
 		if receipt != nil {
 			if featureCtx.CorrectTxLogIndex {
-				txIndex, logIndex = receipt.UpdateIndex(txIndex, logIndex)
+				receipt.UpdateIndex(txIndex, logIndex)
+				txIndex = receipt.TxIndex + 1
+				if len(receipt.Logs()) > 0 {
+					logIndex = receipt.LastLogIndex() + 1
+				}
 			}
 			receipts = append(receipts, receipt)
 		}
@@ -465,7 +469,11 @@ func (ws *workingSet) pickAndRunActions(
 				blkCtx.GasLimit -= receipt.GasConsumed
 				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 				if featureCtx.CorrectTxLogIndex {
-					txIndex, logIndex = receipt.UpdateIndex(txIndex, logIndex)
+					receipt.UpdateIndex(txIndex, logIndex)
+					txIndex = receipt.TxIndex + 1
+					if len(receipt.Logs()) > 0 {
+						logIndex = receipt.LastLogIndex() + 1
+					}
 				}
 				receipts = append(receipts, receipt)
 			}
@@ -490,7 +498,11 @@ func (ws *workingSet) pickAndRunActions(
 		}
 		if receipt != nil {
 			if featureCtx.CorrectTxLogIndex {
-				txIndex, logIndex = receipt.UpdateIndex(txIndex, logIndex)
+				receipt.UpdateIndex(txIndex, logIndex)
+				txIndex = receipt.TxIndex + 1
+				if len(receipt.Logs()) > 0 {
+					logIndex = receipt.LastLogIndex() + 1
+				}
 			}
 			receipts = append(receipts, receipt)
 		}
