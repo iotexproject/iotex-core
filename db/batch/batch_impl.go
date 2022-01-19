@@ -309,6 +309,6 @@ func (cb *cachedBatch) AddFillPercent(ns string, percent float64) {
 	cb.kvStoreBatch.AddFillPercent(ns, percent)
 }
 
-func (cb *cachedBatch) hash(namespace string, key []byte) *KvCacheKey {
-	return &KvCacheKey{namespace, string(key)}
+func (cb *cachedBatch) hash(namespace string, key []byte) *kvCacheKey {
+	return &kvCacheKey{namespace, string(key)}
 }

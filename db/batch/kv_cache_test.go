@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	k1 = &KvCacheKey{"ns", "key"}
-	k2 = &KvCacheKey{"nsk", "ey"}
-	k3 = &KvCacheKey{"n", "skey"}
+	k1 = &kvCacheKey{"ns", "key"}
+	k2 = &kvCacheKey{"nsk", "ey"}
+	k3 = &kvCacheKey{"n", "skey"}
 
 	v1 = []byte("value_1")
 	v2 = []byte("value_2")
