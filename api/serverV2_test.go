@@ -2,6 +2,7 @@ package api
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -21,6 +22,10 @@ func TestServerV2Start(t *testing.T) {
 
 	err := svr.Start()
 	require.NoError(err)
+
+	time.Sleep(3 * time.Second)
+	err = svr.Stop()
+	require.NoError(err)
 }
 
 func TestServerV2Error(t *testing.T) {
@@ -33,10 +38,14 @@ func TestServerV2Error(t *testing.T) {
 	}()
 
 	err := svr.GrpcServer.Start()
-	require.NoError(err)
-	err = svr.Start()
-	require.Error(err)
-	require.Contains(err.Error(), "grpc server failed to listen")
+	if err != nil {
+		svr.GrpcServer.Stop()
+	} else {
+		err = svr.Start()
+		require.Error(err)
+		require.Contains(err.Error(), "grpc server failed to listen")
+		svr.GrpcServer.Stop()
+	}
 
 	svr.core.chainListener = nil
 	err = svr.Start()
