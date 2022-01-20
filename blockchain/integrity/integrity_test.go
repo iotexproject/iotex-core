@@ -993,7 +993,7 @@ func TestConstantinople(t *testing.T) {
 			{
 				7,
 				crt2Hash,
-				"5254d2cbd18b6bf4311ef568613803c2df51488d1f26727f5b7f230e2e0368c0",
+				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
 				crt2Topic,
 			},
 		}
@@ -1009,7 +1009,7 @@ func TestConstantinople(t *testing.T) {
 			require.Equal(uint64(1), r.Status)
 			require.Equal(v.h, r.ActionHash)
 			require.Equal(v.height, r.BlockHeight)
-			if v.height == 1 || v.height >= cfg.Genesis.ToBeEnabledBlockHeight {
+			if v.height == 1 {
 				require.Equal("io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn", r.ContractAddress)
 			} else {
 				require.Empty(r.ContractAddress)
@@ -1133,7 +1133,6 @@ func TestConstantinople(t *testing.T) {
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 8
 	cfg.Genesis.GreenlandBlockHeight = 9
-	cfg.Genesis.ToBeEnabledBlockHeight = 7
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	t.Run("test Constantinople contract", func(t *testing.T) {
