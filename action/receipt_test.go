@@ -121,9 +121,9 @@ func TestUpdateIndex(t *testing.T) {
 		{0, 0},
 		{0, 2},
 	} {
-		receipt.UpdateIndex(v.txIndex, v.logIndex)
+		log := receipt.UpdateIndex(v.txIndex, v.logIndex)
 		require.Equal(v.txIndex, receipt.TxIndex)
-		require.Equal(v.logIndex+uint32(len(receipt.logs)), receipt.LastLogIndex()+1)
+		require.Equal(v.logIndex+uint32(len(receipt.logs)), log)
 		// verify each log's index
 		for i, l := range receipt.logs {
 			require.Equal(v.logIndex+uint32(i), l.Index)
