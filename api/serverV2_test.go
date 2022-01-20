@@ -23,22 +23,14 @@ func TestServerV2Start(t *testing.T) {
 	err := svr.Start()
 	require.NoError(err)
 
-	time.Sleep(3 * time.Second)
-	err = svr.Stop()
+	err = testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
+		err = svr.Stop()
+		return err == nil, err
+	})
 	require.NoError(err)
-}
-
-func TestServerV2Error(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig(t)
-	config.SetEVMNetworkID(1)
-	svr, bfIndexFile, _ := createServerV2(cfg, false)
-	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
-	}()
 
 	svr.core.chainListener = nil
-	err := svr.Start()
+	err = svr.Start()
 	require.Error(err)
 	require.Contains(err.Error(), "failed to add chainListener")
 
