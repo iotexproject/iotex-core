@@ -146,6 +146,7 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	}
 	var (
 		removedFromQueue = make([]action.SealedEnvelope, 0)
+		removedIndex     = 0
 		timeNow          = q.clock.Now()
 		size             = len(q.index)
 	)
@@ -154,13 +155,18 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
 			q.index[i] = q.index[size-1]
+			removedIndex = i
 			size--
 			continue
 		}
 		i++
 	}
 	q.index = q.index[:size]
-	heap.Init(&q.index)
+	if len(removedFromQueue) == 1 {
+		heap.Fix(&q.index, removedIndex)
+	} else {
+		heap.Init(&q.index)
+	}
 	return removedFromQueue
 }
 
