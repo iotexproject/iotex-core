@@ -98,8 +98,8 @@ type (
 		CurrentEpochProductivity    bool
 		FixSnapshotOrder            bool
 		AllowCorrectDefaultChainID  bool
-		ContractAddressInReceipt    bool
 		CorrectGetHashFn            bool
+		CorrectTxLogIndex           bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -224,8 +224,8 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CurrentEpochProductivity:    g.IsGreenland(height),
 			FixSnapshotOrder:            g.IsKamchatka(height),
 			AllowCorrectDefaultChainID:  g.IsToBeEnabled(height),
-			ContractAddressInReceipt:    g.IsToBeEnabled(height),
 			CorrectGetHashFn:            g.IsToBeEnabled(height),
+			CorrectTxLogIndex:           g.IsToBeEnabled(height), // change to next hard-fork
 		},
 	)
 }

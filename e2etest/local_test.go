@@ -75,6 +75,9 @@ func TestLocalCommit(t *testing.T) {
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
+	defer func() {
+		require.NoError(svr.Stop(ctx))
+	}()
 	cs := svr.ChainService(cfg.Chain.ID)
 	bc := cs.Blockchain()
 	sf := cs.StateFactory()
@@ -86,7 +89,31 @@ func TestLocalCommit(t *testing.T) {
 	i27State, err := accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc, ap))
-	require.NotNil(svr.P2PAgent())
+	require.EqualValues(5, bc.TipHeight())
+
+	// check balance
+	change := &big.Int{}
+	for _, v := range []struct {
+		addrIndex int
+		balance   string
+	}{
+		{28, "23"},
+		{29, "34"},
+		{30, "47"},
+		{31, "69"},
+		{32, "100"},
+		{33, "5242883"},
+	} {
+		s, err := accountutil.AccountState(sf, identityset.Address(v.addrIndex))
+		require.NoError(err)
+		require.Equal(v.balance, s.Balance.String())
+		change.Add(change, s.Balance)
+	}
+	s, err := accountutil.AccountState(sf, identityset.Address(27))
+	require.NoError(err)
+	change.Add(change, s.Balance)
+	change.Sub(change, i27State.Balance)
+	require.Equal(unit.ConvertIotxToRau(90000000), change)
 
 	// create client
 	cfg, err = newTestConfig()
@@ -105,72 +132,9 @@ func TestLocalCommit(t *testing.T) {
 	)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
-
 	defer func() {
 		require.NoError(p.Stop(ctx))
-		require.NoError(svr.Stop(ctx))
-		require.NoError(bc.Stop(ctx))
 	}()
-
-	// check balance
-	s, err := accountutil.AccountState(sf, identityset.Address(28))
-	require.NoError(err)
-	change := s.Balance
-	t.Logf("Alfa balance = %d", change)
-	require.True(change.String() == "23")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(29))
-	require.NoError(err)
-	beta := s.Balance
-	t.Logf("Bravo balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "34")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(30))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Charlie balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "47")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(31))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Delta balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "69")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(32))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Echo balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "100")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(33))
-	require.NoError(err)
-	fox := s.Balance
-	t.Logf("Foxtrot balance = %d", fox)
-	change.Add(change, fox)
-	require.True(fox.String() == "5242883")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(27))
-	require.NoError(err)
-	test := s.Balance
-	t.Logf("test balance = %d", test)
-	change.Add(change, test)
-	change.Sub(change, i27State.Balance)
-
-	require.Equal(
-		unit.ConvertIotxToRau(90000000),
-		change,
-	)
-	t.Log("Total balance match")
-
-	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
-		return
-	}
-	require.EqualValues(5, bc.TipHeight())
 
 	// create local chain
 	testTriePath2, err := testutil.PathOfTempFile(triePath2)
@@ -312,59 +276,28 @@ func TestLocalCommit(t *testing.T) {
 	require.True(9 == bc.TipHeight())
 
 	// check balance
-	s, err = accountutil.AccountState(sf, identityset.Address(28))
-	require.NoError(err)
-	change = s.Balance
-	t.Logf("Alfa balance = %d", change)
-	require.True(change.String() == "24")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(29))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Bravo balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "34")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(30))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Charlie balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "46")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(31))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Delta balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "70")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(32))
-	require.NoError(err)
-	beta = s.Balance
-	t.Logf("Echo balance = %d", beta)
-	change.Add(change, beta)
-	require.True(beta.String() == "101")
-
-	s, err = accountutil.AccountState(sf, identityset.Address(33))
-	require.NoError(err)
-	fox = s.Balance
-	t.Logf("Foxtrot balance = %d", fox)
-	change.Add(change, fox)
-	require.True(fox.String() == "5242882")
-
+	change.SetBytes(nil)
+	for _, v := range []struct {
+		addrIndex int
+		balance   string
+	}{
+		{28, "24"},
+		{29, "34"},
+		{30, "46"},
+		{31, "70"},
+		{32, "101"},
+		{33, "5242882"},
+	} {
+		s, err = accountutil.AccountState(sf, identityset.Address(v.addrIndex))
+		require.NoError(err)
+		require.Equal(v.balance, s.Balance.String())
+		change.Add(change, s.Balance)
+	}
 	s, err = accountutil.AccountState(sf, identityset.Address(27))
 	require.NoError(err)
-	test = s.Balance
-	t.Logf("test balance = %d", test)
-	change.Add(change, test)
+	change.Add(change, s.Balance)
 	change.Sub(change, i27State.Balance)
-
-	require.Equal(
-		unit.ConvertIotxToRau(90000000),
-		change,
-	)
-	t.Log("Total balance match")
+	require.Equal(unit.ConvertIotxToRau(90000000), change)
 }
 
 func TestLocalSync(t *testing.T) {
@@ -421,21 +354,12 @@ func TestLocalSync(t *testing.T) {
 	require.NotNil(svr.P2PAgent())
 	require.NoError(addTestingTsfBlocks(bc, ap))
 
-	blk, err := dao.GetBlockByHeight(1)
-	require.NoError(err)
-	hash1 := blk.HashBlock()
-	blk, err = dao.GetBlockByHeight(2)
-	require.NoError(err)
-	hash2 := blk.HashBlock()
-	blk, err = dao.GetBlockByHeight(3)
-	require.NoError(err)
-	hash3 := blk.HashBlock()
-	blk, err = dao.GetBlockByHeight(4)
-	require.NoError(err)
-	hash4 := blk.HashBlock()
-	blk, err = dao.GetBlockByHeight(5)
-	require.NoError(err)
-	hash5 := blk.HashBlock()
+	var blkHash [5]hash.Hash256
+	for i := uint64(1); i <= 5; i++ {
+		blk, err := dao.GetBlockByHeight(i)
+		require.NoError(err)
+		blkHash[i-1] = blk.HashBlock()
+	}
 
 	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
@@ -465,7 +389,7 @@ func TestLocalSync(t *testing.T) {
 	nChain := cli.ChainService(cfg.Chain.ID)
 	require.NotNil(nChain.Blockchain())
 	require.NotNil(cli.P2PAgent())
-
+	require.Zero(nChain.Blockchain().TipHeight())
 	defer func() {
 		require.NoError(cli.Stop(ctx))
 		require.NoError(svr.Stop(ctx))
@@ -476,56 +400,21 @@ func TestLocalSync(t *testing.T) {
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)
-
-	err = svr.P2PAgent().BroadcastOutbound(ctx, blk.ConvertToBlockPb())
-	require.NoError(err)
 	nDao := nChain.BlockDAO()
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := nDao.GetBlockByHeight(1)
-		if err != nil {
-			return false, nil
+		for i := uint64(1); i <= 5; i++ {
+			blk, err := nDao.GetBlockByHeight(i)
+			if err != nil {
+				return false, nil
+			}
+			if blk.HashBlock() != blkHash[i-1] {
+				return false, nil
+			}
 		}
-		blk2, err := nDao.GetBlockByHeight(2)
-		if err != nil {
-			return false, nil
-		}
-		blk3, err := nDao.GetBlockByHeight(3)
-		if err != nil {
-			return false, nil
-		}
-		blk4, err := nDao.GetBlockByHeight(4)
-		if err != nil {
-			return false, nil
-		}
-		blk5, err := nDao.GetBlockByHeight(5)
-		if err != nil {
-			return false, nil
-		}
-		return hash1 == blk1.HashBlock() &&
-			hash2 == blk2.HashBlock() &&
-			hash3 == blk3.HashBlock() &&
-			hash4 == blk4.HashBlock() &&
-			hash5 == blk5.HashBlock(), nil
+		return true, nil
 	})
 	require.NoError(testutil.WaitUntil(time.Millisecond*100, time.Second*60, check))
-
-	// verify 4 received blocks
-	blk, err = nDao.GetBlockByHeight(1)
-	require.NoError(err)
-	require.Equal(hash1, blk.HashBlock())
-	blk, err = nDao.GetBlockByHeight(2)
-	require.NoError(err)
-	require.Equal(hash2, blk.HashBlock())
-	blk, err = nDao.GetBlockByHeight(3)
-	require.NoError(err)
-	require.Equal(hash3, blk.HashBlock())
-	blk, err = nDao.GetBlockByHeight(4)
-	require.NoError(err)
-	require.Equal(hash4, blk.HashBlock())
-	blk, err = nDao.GetBlockByHeight(5)
-	require.NoError(err)
-	require.Equal(hash5, blk.HashBlock())
-	t.Log("4 blocks received correctly")
+	require.EqualValues(5, nChain.Blockchain().TipHeight())
 }
 
 func TestStartExistingBlockchain(t *testing.T) {
@@ -634,6 +523,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.API.Port = testutil.RandomPort()
 	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Genesis.ToBeEnabledBlockHeight = 1
 	sk, err := crypto.GenerateKey()
 
 	if err != nil {
