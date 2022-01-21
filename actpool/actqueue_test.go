@@ -7,6 +7,7 @@ package actpool
 
 import (
 	"container/heap"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -237,12 +238,12 @@ func TestActQueueCleanTimeout(t *testing.T) {
 	q.items[7] = tsf7
 
 	q.index = []*nonceWithTTL{
-		{1, validTime},
-		{5, validTime},
-		{2, validTime},
-		{6, validTime},
-		{7, invalidTime},
-		{3, validTime},
+		{idx: 0, nonce: 1, deadline: validTime},
+		{idx: 1, nonce: 5, deadline: validTime},
+		{idx: 2, nonce: 2, deadline: validTime},
+		{idx: 3, nonce: 6, deadline: validTime},
+		{idx: 4, nonce: 7, deadline: invalidTime},
+		{idx: 5, nonce: 3, deadline: validTime},
 	}
 	q.cleanTimeout()
 	require.Equal(5, len(q.index))
@@ -252,12 +253,12 @@ func TestActQueueCleanTimeout(t *testing.T) {
 	}
 
 	q.index = []*nonceWithTTL{
-		{1, validTime},
-		{5, validTime},
-		{2, validTime},
-		{6, validTime},
-		{7, invalidTime},
-		{3, invalidTime},
+		{idx: 0, nonce: 1, deadline: validTime},
+		{idx: 1, nonce: 5, deadline: validTime},
+		{idx: 2, nonce: 2, deadline: validTime},
+		{idx: 3, nonce: 6, deadline: validTime},
+		{idx: 4, nonce: 7, deadline: invalidTime},
+		{idx: 5, nonce: 3, deadline: invalidTime},
 	}
 	ret := q.cleanTimeout()
 	require.Equal(2, len(ret))
@@ -266,32 +267,63 @@ func TestActQueueCleanTimeout(t *testing.T) {
 // BenchmarkHeapFixWithInit compare the heap re-establish performance between
 // using the heap.Init and the heap.Fix after remove only one element.
 // more detail: https://github.com/iotexproject/iotex-core/issues/2995
-func BenchmarkHeapFixWithInit(b *testing.B) {
-	const batch = 50
+func BenchmarkHeapRemove(b *testing.B) {
+	const batch = 20
+	testIndex := noncePriorityQueue{}
 	index := noncePriorityQueue{}
+	invalidTime := time.Now()
 	validTime := time.Now().Add(10 * time.Minute)
-	for j := uint64(1); j < batch; j++ {
-		index = append(index, &nonceWithTTL{j, validTime})
+	for k := uint64(1); k <= batch; k++ {
+		for j := uint64(0); j < batch; j++ {
+			if j < k {
+				heap.Push(&testIndex, &nonceWithTTL{nonce: j, deadline: invalidTime})
+			} else {
+				heap.Push(&testIndex, &nonceWithTTL{nonce: j, deadline: validTime})
+			}
+		}
+		b.ResetTimer()
+		b.Run(fmt.Sprintf("heap.Remove-(%d/%d)", k, batch), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				// init
+				index = index[:0]
+				for _, nonce := range testIndex {
+					nonce2 := *nonce
+					index = append(index, &nonce2)
+				}
+				// algo
+				removedNonceList := make([]*nonceWithTTL, 0, batch)
+				for _, nonce := range index {
+					if invalidTime.Equal(nonce.deadline) {
+						removedNonceList = append(removedNonceList, nonce)
+					}
+				}
+				for _, removedNonce := range removedNonceList {
+					heap.Remove(&index, removedNonce.idx)
+				}
+			}
+		})
+		b.ResetTimer()
+		b.Run(fmt.Sprintf("heap.Init-(%d/%d)", k, batch), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				// init
+				index = index[:0]
+				for _, nonce := range testIndex {
+					nonce2 := *nonce
+					index = append(index, &nonce2)
+				}
+				// algo
+				size := index.Len()
+				for j := 0; j < size; {
+					if invalidTime.Equal(index[j].deadline) {
+						index[j] = index[size-1]
+						size--
+						continue
+					}
+					j++
+				}
+				index = index[:size]
+				heap.Init(&index)
+			}
+		})
 	}
-	heap.Init(&index)
-	b.ResetTimer()
-	b.Run("heap.Init", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			temp := index[0]
-			index[0] = index[len(index)-1]
-			index = index[:len(index)-1]
-			heap.Init(&index)
-			heap.Push(&index, temp)
-		}
-	})
-	b.ResetTimer()
-	b.Run("heap.Fix", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			temp := index[0]
-			index[0] = index[len(index)-1]
-			index = index[:len(index)-1]
-			heap.Fix(&index, 0)
-			heap.Push(&index, temp)
-		}
-	})
 }
