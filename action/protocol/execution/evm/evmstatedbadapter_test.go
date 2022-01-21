@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -278,6 +279,10 @@ var tests = []stateDBTest{
 			{common.BytesToHash(v1[:]), []byte("cat")},
 			{common.BytesToHash(v2[:]), []byte("dog")},
 		},
+		[]*types.Log{
+			newTestLog(c3), newTestLog(c2), newTestLog(c1),
+		},
+		3, "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 	{
 		[]bal{
@@ -299,6 +304,10 @@ var tests = []stateDBTest{
 		[]image{
 			{common.BytesToHash(v3[:]), []byte("hen")},
 		},
+		[]*types.Log{
+			newTestLog(C4),
+		},
+		4, "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 	},
 	{
 		nil,
@@ -313,11 +322,15 @@ var tests = []stateDBTest{
 		[]image{
 			{common.BytesToHash(v4[:]), []byte("fox")},
 		},
+		[]*types.Log{
+			newTestLog(c1), newTestLog(c2),
+		},
+		6, "io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 	},
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot bool) {
+	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot, revertLog bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -331,6 +344,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		}
 		if fixSnapshot {
 			opt = append(opt, FixSnapshotOrderOption())
+		}
+		if revertLog {
+			opt = append(opt, RevertLogOption())
 		}
 		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 
@@ -358,6 +374,12 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, e := range test.preimage {
 				stateDB.AddPreimage(e.hash, e.v)
 			}
+			// set logs
+			for _, l := range test.logs {
+				stateDB.AddLog(l)
+			}
+			require.Equal(test.logSize, len(stateDB.logs))
+			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
 			require.Equal(i, stateDB.Snapshot())
 		}
 
@@ -386,6 +408,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte("fox")},
 				},
+				nil, 6, "io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
 			},
 			{
 				[]bal{
@@ -406,6 +429,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte(nil)},
 				},
+				nil, 4, "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 			},
 			{
 				[]bal{
@@ -430,6 +454,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte(nil)},
 					{common.BytesToHash(v4[:]), []byte(nil)},
 				},
+				nil, 3, "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 			},
 		}
 
@@ -463,6 +488,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
+			// test logs
+			if revertLog {
+				require.Equal(test.logSize, len(stateDB.logs))
+				require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
+			} else {
+				require.Equal(6, len(stateDB.logs))
+				require.Equal("io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", stateDB.logs[5].Address)
+			}
 		}
 
 		// snapshot after revert
@@ -482,21 +515,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
 	}
 
-	t.Run("contract snapshot/revert/commit in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, true)
+		testSnapshotAndRevert(cfg, t, false, true, false)
 	})
-	t.Run("contract snapshot/revert/commit without bug fix in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit w/o bug fix and revert log", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, false)
+		testSnapshotAndRevert(cfg, t, false, false, true)
 	})
-	t.Run("contract snapshot/revert/commit with async trie in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit with async trie and revert log", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, true)
+		testSnapshotAndRevert(cfg, t, true, true, true)
 	})
-	t.Run("contract snapshot/revert/commit with async trie and without bug fix in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit with async trie and w/o bug fix", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, false)
+		testSnapshotAndRevert(cfg, t, true, false, false)
 	})
 }
 
@@ -509,6 +542,7 @@ func TestClearSnapshots(t *testing.T) {
 		require.NoError(err)
 		opts := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
+			RevertLogOption(),
 		}
 		if async {
 			opts = append(opts, AsyncContractTrieOption())
@@ -547,6 +581,7 @@ func TestClearSnapshots(t *testing.T) {
 
 		// revert to snapshot 1
 		stateDB.RevertToSnapshot(1)
+		require.Equal(1, len(stateDB.logsSnapshot))
 
 		if stateDB.fixSnapshotOrder {
 			// snapshot 1, 2 cleared, only 0 left in map
@@ -558,6 +593,7 @@ func TestClearSnapshots(t *testing.T) {
 			require.Equal(2, len(stateDB.suicideSnapshot))
 			require.Equal(2, len(stateDB.contractSnapshot))
 			require.Equal(2, len(stateDB.preimageSnapshot))
+			require.Equal(2, len(stateDB.logsSnapshot))
 		} else {
 			// snapshot not cleared
 			require.Equal(3, len(stateDB.suicideSnapshot))
@@ -568,7 +604,10 @@ func TestClearSnapshots(t *testing.T) {
 			require.Equal(3, len(stateDB.suicideSnapshot))
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
+			// log snapshot added after fixSnapshotOrder, so it is cleared and 1 remains
+			require.Equal(1, len(stateDB.logsSnapshot))
 		}
+
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
 		cfg := config.Default

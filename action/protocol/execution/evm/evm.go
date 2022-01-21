@@ -299,6 +299,10 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) *StateDBAdapt
 	if featureCtx.FixSnapshotOrder {
 		opts = append(opts, FixSnapshotOrderOption())
 	}
+	if featureCtx.RevertLog {
+		opts = append(opts, RevertLogOption())
+	}
+
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,

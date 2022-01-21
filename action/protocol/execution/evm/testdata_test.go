@@ -1,9 +1,11 @@
 package evm
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/go-pkgs/hash"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 type (
@@ -47,6 +49,9 @@ type (
 		states   []evmSet
 		suicide  []sui
 		preimage []image
+		logs     []*types.Log
+		logSize  int
+		logAddr  string
 	}
 )
 
@@ -76,3 +81,10 @@ var (
 	k4  = common.BytesToHash(k4b[:])
 	v4  = common.BytesToHash(v4b[:])
 )
+
+func newTestLog(addr common.Address) *types.Log {
+	return &types.Log{
+		Address: addr,
+		Topics:  []common.Hash{k1},
+	}
+}
