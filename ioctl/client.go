@@ -40,7 +40,7 @@ type (
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
-		AskToConfirm() bool
+		AskToConfirm(string) bool
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
 		// Execute a bash command
@@ -101,7 +101,9 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
-func (c *client) AskToConfirm() bool {
+func (c *client) AskToConfirm(info string) bool {
+	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	fmt.Println(message.String())
 	var confirm string
 	fmt.Scanf("%s", &confirm)
 	return strings.EqualFold(confirm, "yes")

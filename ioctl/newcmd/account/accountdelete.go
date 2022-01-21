@@ -100,9 +100,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 			for _, v := range ks.Accounts() {
 				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-					message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
-					fmt.Println(message.String())
-					if !c.AskToConfirm() {
+					if !c.AskToConfirm(infoWarn) {
 						output.PrintResult("quit")
 						return nil
 					}

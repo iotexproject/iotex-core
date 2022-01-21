@@ -23,6 +23,7 @@ import (
 
 func TestNewAccountDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
@@ -38,13 +39,13 @@ func TestNewAccountDelete(t *testing.T) {
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
 	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
-	client.EXPECT().Config().Return(config.ReadConfig).Times(2)
-	client.EXPECT().AskToConfirm().Return(false)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
-	client.EXPECT().AskToConfirm().Return(true)
+	client.EXPECT().Config().Return(config.ReadConfig)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 	cmd = NewAccountDelete(client)
 	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
