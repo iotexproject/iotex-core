@@ -395,6 +395,10 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
+	setHash, err = ex1.Hash()
+	if err != nil {
+		return err
+	}
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
@@ -440,6 +444,10 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	data, _ = hex.DecodeString("c2bc2efc")
 	data = append(data, getTopic...)
 	ex1, err = action.SignedExecution(contract, priKey2, 3, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	sarHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -510,6 +518,25 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 		return err
 	}
 	if err := ap.Add(context.Background(), tsf8); err != nil {
+		return err
+	}
+	// call set() to set storedData = 0x1f40
+	data, _ = hex.DecodeString("60fe47b1")
+	data = append(data, setTopic...)
+	ex1, err = action.SignedExecution(contract, priKey2, 4, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), ex1); err != nil {
+		return err
+	}
+	data, _ = hex.DecodeString("c2bc2efc")
+	data = append(data, getTopic...)
+	ex1, err = action.SignedExecution(contract, priKey2, 5, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
@@ -993,7 +1020,7 @@ func TestConstantinople(t *testing.T) {
 			{
 				7,
 				crt2Hash,
-				"5254d2cbd18b6bf4311ef568613803c2df51488d1f26727f5b7f230e2e0368c0",
+				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
 				crt2Topic,
 			},
 		}
@@ -1009,7 +1036,7 @@ func TestConstantinople(t *testing.T) {
 			require.Equal(uint64(1), r.Status)
 			require.Equal(v.h, r.ActionHash)
 			require.Equal(v.height, r.BlockHeight)
-			if v.height == 1 || v.height >= cfg.Genesis.ToBeEnabledBlockHeight {
+			if v.height == 1 {
 				require.Equal("io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn", r.ContractAddress)
 			} else {
 				require.Empty(r.ContractAddress)
@@ -1133,7 +1160,6 @@ func TestConstantinople(t *testing.T) {
 	cfg.Genesis.AleutianBlockHeight = 2
 	cfg.Genesis.BeringBlockHeight = 8
 	cfg.Genesis.GreenlandBlockHeight = 9
-	cfg.Genesis.ToBeEnabledBlockHeight = 7
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	t.Run("test Constantinople contract", func(t *testing.T) {
@@ -1306,6 +1332,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(setTopic))
+			r, err = dao.GetReceiptByActionHash(setHash, 3)
+			require.NoError(err)
+			require.EqualValues(1, r.Status)
+			require.EqualValues(3, r.BlockHeight)
+			require.Empty(r.ContractAddress)
 
 			// 3 topics in block 4 calling get()
 			funcSig = hash.Hash256b([]byte("Get(address,uint256)"))
@@ -1316,6 +1347,16 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(setTopic))
 			require.True(f.Exist(getTopic))
+			r, err = dao.GetReceiptByActionHash(sarHash, 4)
+			require.NoError(err)
+			require.EqualValues(1, r.Status)
+			require.EqualValues(4, r.BlockHeight)
+			require.Empty(r.ContractAddress)
+
+			// txIndex/logIndex corrected in block 5
+			blk, err = dao.GetBlockByHeight(5)
+			require.NoError(err)
+			verifyTxLogIndex(require, dao, blk, 10, 2)
 
 			// verify genesis block index
 			bi, err := indexer.GetBlockIndex(0)
@@ -1393,10 +1434,39 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = "308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6"
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
+	cfg.Genesis.ToBeEnabledBlockHeight = 5
 
 	t.Run("load blockchain from DB", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
+}
+
+// verify the block contains all tx/log indices up to txIndex and logIndex
+func verifyTxLogIndex(r *require.Assertions, dao blockdao.BlockDAO, blk *block.Block, txIndex int, logIndex uint32) {
+	r.Equal(txIndex, len(blk.Actions))
+	receipts, err := dao.GetReceipts(blk.Height())
+	r.NoError(err)
+	r.Equal(txIndex, len(receipts))
+
+	logs := make(map[uint32]bool)
+	for i := uint32(0); i < logIndex; i++ {
+		logs[i] = true
+	}
+	for i, v := range receipts {
+		r.EqualValues(1, v.Status)
+		r.EqualValues(i, v.TxIndex)
+		h, err := blk.Actions[i].Hash()
+		r.NoError(err)
+		r.Equal(h, v.ActionHash)
+		// verify log index
+		for _, l := range v.Logs() {
+			r.Equal(h, l.ActionHash)
+			r.EqualValues(i, l.TxIndex)
+			r.True(logs[l.Index])
+			delete(logs, l.Index)
+		}
+	}
+	r.Zero(len(logs))
 }
 
 func TestBlockchainInitialCandidate(t *testing.T) {
