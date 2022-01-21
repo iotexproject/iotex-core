@@ -153,6 +153,44 @@ func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
 }
 
+// PrintError mocks base method.
+func (m *MockClient) PrintError(arg0 error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrintError", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PrintError indicates an expected call of PrintError.
+func (mr *MockClientMockRecorder) PrintError(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintError", reflect.TypeOf((*MockClient)(nil).PrintError), arg0)
+}
+
+// PrintQuery mocks base method.
+func (m *MockClient) PrintQuery(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PrintQuery", arg0)
+}
+
+// PrintQuery indicates an expected call of PrintQuery.
+func (mr *MockClientMockRecorder) PrintQuery(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintQuery", reflect.TypeOf((*MockClient)(nil).PrintQuery), arg0)
+}
+
+// PrintResult mocks base method.
+func (m *MockClient) PrintResult(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PrintResult", arg0)
+}
+
+// PrintResult indicates an expected call of PrintResult.
+func (mr *MockClientMockRecorder) PrintResult(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintResult", reflect.TypeOf((*MockClient)(nil).PrintResult), arg0)
+}
+
 // ReadSecret mocks base method.
 func (m *MockClient) ReadSecret() (string, error) {
 	m.ctrl.T.Helper()

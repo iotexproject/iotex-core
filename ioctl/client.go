@@ -55,6 +55,12 @@ type (
 		GetAliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
+		// PrintError print the error message
+		PrintError(error) error
+		// PrintResult print the running result
+		PrintResult(string)
+		// PrintQuery prints the query message
+		PrintQuery(string)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -203,4 +209,16 @@ func (c *client) WriteConfig(cfg config.Config) error {
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	return nil
+}
+
+func (c *client) PrintError(err error) error {
+	return output.PrintError(err)
+}
+
+func (c *client) PrintResult(result string) {
+	output.PrintResult(result)
+}
+
+func (c *client) PrintQuery(query string) {
+	output.PrintQuery(query)
 }

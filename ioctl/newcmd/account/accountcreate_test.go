@@ -20,9 +20,13 @@ import (
 
 func TestNewAccountCreate(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
-		config.English).AnyTimes()
+		config.English).Times(5)
+	client.EXPECT().PrintResult(gomock.Any()).Do(func(s string) {
+		t.Log(s)
+	}).Times(1)
 	cmd := NewAccountCreate(client)
 	result, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, result)
