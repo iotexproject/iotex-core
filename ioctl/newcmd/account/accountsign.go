@@ -7,11 +7,12 @@
 package account
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/spf13/cobra"
 )
 
 var signer string
