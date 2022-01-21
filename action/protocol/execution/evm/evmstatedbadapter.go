@@ -920,6 +920,8 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.preimages = nil
 	stateDB.preimageSnapshot = nil
 	stateDB.logsSnapshot = nil
+	stateDB.logs = nil
+	stateDB.transactionLogs = nil
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
@@ -927,4 +929,6 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.preimages = make(preimageMap)
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
 	stateDB.logsSnapshot = make(map[int]int)
+	stateDB.logs = []*action.Log{}
+	stateDB.transactionLogs = []*action.TransactionLog{}
 }
