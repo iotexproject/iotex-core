@@ -12,7 +12,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -313,7 +312,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := ioutil.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(keyStorePath)
 	if err != nil {
 		return "", output.NewError(output.ReadFileError,
 			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
@@ -388,7 +387,7 @@ func findSm2PemFile(addr address.Address) (string, error) {
 
 func listSm2Account() ([]string, error) {
 	sm2Accounts := make([]string, 0)
-	files, err := ioutil.ReadDir(config.ReadConfig.Wallet)
+	files, err := os.ReadDir(config.ReadConfig.Wallet)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
 	}
