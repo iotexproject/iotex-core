@@ -40,7 +40,7 @@ func (h noncePriorityQueue) Swap(i, j int) {
 
 func (h *noncePriorityQueue) Push(x interface{}) {
 	if in, ok := x.(*nonceWithTTL); ok {
-		in.idx = h.Len()
+		in.idx = len(*h)
 		*h = append(*h, in)
 	}
 }
