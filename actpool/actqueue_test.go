@@ -264,10 +264,12 @@ func TestActQueueCleanTimeout(t *testing.T) {
 	require.Equal(2, len(ret))
 }
 
-// BenchmarkHeapFixWithInit compare the heap re-establish performance between
-// using the heap.Init and the heap.Fix after remove only one element.
-// more detail: https://github.com/iotexproject/iotex-core/issues/2995
-func BenchmarkHeapRemove(b *testing.B) {
+// BenchmarkHeapInitAndRemove compare the heap re-establish performance between
+// using the heap.Init and the heap.Remove after remove some elements.
+// The bench result show that the performance of heap.Init is better than heap.Remove
+// in the most cases.
+// More detail to see the discusses in https://github.com/iotexproject/iotex-core/pull/3013
+func BenchmarkHeapInitAndRemove(b *testing.B) {
 	const batch = 20
 	testIndex := noncePriorityQueue{}
 	index := noncePriorityQueue{}

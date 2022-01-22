@@ -151,23 +151,23 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	var (
-		removedNonceList = make([]*nonceWithTTL, 0)
+		removedFromQueue = make([]action.SealedEnvelope, 0)
 		timeNow          = q.clock.Now()
+		size             = len(q.index)
 	)
-	for _, nonce := range q.index {
-		if timeNow.After(nonce.deadline) {
-			removedNonceList = append(removedNonceList, nonce)
+	for i := 0; i < size; {
+		if timeNow.After(q.index[i].deadline) {
+			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
+			delete(q.items, q.index[i].nonce)
+			q.index[i] = q.index[size-1]
+			size--
+			continue
 		}
+		i++
 	}
-	if len(removedNonceList) == 0 {
-		return []action.SealedEnvelope{}
-	}
-	removedFromQueue := make([]action.SealedEnvelope, 0, len(removedNonceList))
-	for _, removedNonce := range removedNonceList {
-		removedFromQueue = append(removedFromQueue, q.items[removedNonce.nonce])
-		delete(q.items, removedNonce.nonce)
-		heap.Remove(&q.index, removedNonce.idx)
-	}
+	q.index = q.index[:size]
+	// using heap.Init is better here, more detail to see BenchmarkHeapInitAndRemove
+	heap.Init(&q.index)
 	return removedFromQueue
 }
 
