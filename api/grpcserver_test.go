@@ -1166,12 +1166,11 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 			},
 		}
 		res, err := svr.GrpcServer.GetBlockMetas(context.Background(), request)
-		if test.count == 0 {
-			require.Error(err)
-			continue
-		}
 		require.NoError(err)
 		require.Equal(test.numBlks, len(res.BlkMetas))
+		if test.count == 0 {
+			continue
+		}
 		meta := res.BlkMetas[0]
 		require.Equal(test.gasLimit, meta.GasLimit)
 		require.Equal(test.gasUsed, meta.GasUsed)

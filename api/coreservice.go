@@ -1005,9 +1005,6 @@ func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint
 
 // BlockMetas returns blockmetas response within the height range
 func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error) {
-	if count == 0 {
-		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
-	}
 	if count > core.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
