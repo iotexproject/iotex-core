@@ -7,9 +7,13 @@
 package account
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -23,9 +27,28 @@ func TestNewAccountSign(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	// test for not invalid account address
-	cmd := NewAccountSign(client)
-	cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph")
-	_, err := util.ExecuteCmd(cmd)
-	require.Equal("failed to sign message: invalid address #io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph", err.Error())
+	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountSign")
+	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
+	defer func() {
+		require.NoError(os.RemoveAll(testAccountFolder))
+	}()
+	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+
+	t.Run("invalid_account", func(t *testing.T) {
+		cmd := NewAccountSign(client)
+		require.NoError(cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph"))
+		_, err := util.ExecuteCmd(cmd, "1234")
+		require.Equal("failed to sign message: invalid address #io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph", err.Error())
+	})
+	t.Run("valid_account", func(t *testing.T) {
+		const pwd = "test"
+		acc, _ := ks.NewAccount(pwd)
+		accAddr, _ := address.FromBytes(acc.Address.Bytes())
+		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
+		cmd := NewAccountSign(client)
+		require.NoError(cmd.Flag("signer").Value.Set(accAddr.String()))
+		_, err := util.ExecuteCmd(cmd, "1234")
+		require.NoError(err)
+	})
 }

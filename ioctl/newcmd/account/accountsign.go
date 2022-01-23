@@ -59,7 +59,7 @@ func NewAccountSign(client ioctl.Client) *cobra.Command {
 					return output.NewError(output.AddressError, "failed to get address", err)
 				}
 			}
-			signedMessage, err := Sign(addr, "", msg)
+			signedMessage, err := Sign(client, addr, "", msg)
 			if err != nil {
 				return output.NewError(output.KeystoreError, "failed to sign message", err)
 			}
