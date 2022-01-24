@@ -13,6 +13,7 @@ ignore:
   - "action/protocol/rewarding/rewardingpb"
   - "action/protocol/account/accountpb"
   - "action/protocol/poll/*.abi.go"
+  - "api/api.go"
   - "blockindex/indexpb"
   - "consensus/scheme/rolldpos/endorsementpb"
   - "db/trie/triepb"
