@@ -24,6 +24,7 @@ import (
 
 func TestNewAccountDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
@@ -37,8 +38,7 @@ func TestNewAccountDelete(t *testing.T) {
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	acc, _ := ks.NewAccount("test")
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
+
 	client.EXPECT().GetAliasMap().DoAndReturn(
 		func() map[string]string {
 			aliases := make(map[string]string)
@@ -52,11 +52,18 @@ func TestNewAccountDelete(t *testing.T) {
 		func() config.Config {
 			config.ReadConfig.Wallet = testAccountFolder
 			return config.ReadConfig
-		}).AnyTimes()
+		}).Times(5)
 
 	CryptoSm2 = false
+	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
+	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
+	require.NoError(t, err)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+	cmd = NewAccountDelete(client)
+	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
 	CryptoSm2 = true
@@ -65,6 +72,7 @@ func TestNewAccountDelete(t *testing.T) {
 	pemFilePath := sm2KeyPath(addr2)
 	crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
 	client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 	cmd = NewAccountDelete(client)
 	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
