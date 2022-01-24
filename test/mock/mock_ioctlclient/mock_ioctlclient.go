@@ -69,17 +69,17 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 }
 
 // AskToConfirm mocks base method.
-func (m *MockClient) AskToConfirm() bool {
+func (m *MockClient) AskToConfirm(arg0 string) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AskToConfirm")
+	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // AskToConfirm indicates an expected call of AskToConfirm.
-func (mr *MockClientMockRecorder) AskToConfirm() *gomock.Call {
+func (mr *MockClientMockRecorder) AskToConfirm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm), arg0)
 }
 
 // Config mocks base method.
