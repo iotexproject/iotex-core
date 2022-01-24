@@ -51,17 +51,8 @@ func TestNewAccountCmd(t *testing.T) {
 
 func TestSign(t *testing.T) {
 	require := require.New(t)
-	testWallet := filepath.Join(os.TempDir(), testPath)
-	require.NoError(os.MkdirAll(testWallet, os.ModePerm))
-	defer testutil.CleanupPath(t, testWallet)
-	config.ReadConfig.Wallet = testWallet
-
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-	require.NotNil(ks)
-
-	// create accounts
-	nonce := strconv.FormatInt(rand.Int63(), 10)
-	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+	ks, passwd, _, err := newTestAccount(t)
+	require.NoError(err)
 
 	account, err := ks.NewAccount(passwd)
 	require.NoError(err)
@@ -109,17 +100,8 @@ func TestSign(t *testing.T) {
 
 func TestAccount(t *testing.T) {
 	require := require.New(t)
-	testWallet := filepath.Join(os.TempDir(), testPath)
-	require.NoError(os.MkdirAll(testWallet, os.ModePerm))
-	defer testutil.CleanupPath(t, testWallet)
-	config.ReadConfig.Wallet = testWallet
-
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-	require.NotNil(ks)
-
-	// create accounts
-	nonce := strconv.FormatInt(rand.Int63(), 10)
-	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+	ks, passwd, nonce, err := newTestAccount(t)
+	require.NoError(err)
 
 	account, err := ks.NewAccount(passwd)
 	require.NoError(err)
@@ -254,17 +236,8 @@ func TestAccountError(t *testing.T) {
 
 func TestStoreKey(t *testing.T) {
 	require := require.New(t)
-	testWallet := filepath.Join(os.TempDir(), testPath)
-	require.NoError(os.MkdirAll(testWallet, os.ModePerm))
-	defer testutil.CleanupPath(t, testWallet)
-	config.ReadConfig.Wallet = testWallet
-
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-	require.NotNil(ks)
-
-	// create accounts
-	nonce := strconv.FormatInt(rand.Int63(), 10)
-	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+	ks, passwd, _, err := newTestAccount(t)
+	require.NoError(err)
 
 	// test CryptoSm2 is false
 	CryptoSm2 = false
@@ -311,4 +284,19 @@ func TestStoreKey(t *testing.T) {
 	addrString2, err := storeKey(priKey2.HexString(), config.ReadConfig.Wallet, passwd)
 	require.NoError(err)
 	require.Equal(addr2.String(), addrString2)
+}
+
+func newTestAccount(t *testing.T) (*keystore.KeyStore, string, string, error) {
+	testWallet := filepath.Join(os.TempDir(), testPath)
+	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
+		return nil, "", "", err
+	}
+	defer testutil.CleanupPath(t, testWallet)
+	config.ReadConfig.Wallet = testWallet
+
+	// create accounts
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	nonce := strconv.FormatInt(rand.Int63(), 10)
+	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+	return ks, passwd, nonce, nil
 }
