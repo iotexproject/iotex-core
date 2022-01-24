@@ -81,6 +81,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountCreate(client))
 	ac.AddCommand(NewAccountDelete(client))
 	ac.AddCommand(NewAccountNonce(client))
+	ac.AddCommand(NewAccountSign(client))
 
 	flagEndpointUsage, _ := client.SelectTranslation(flagEndpoint)
 	flagInsecureUsage, _ := client.SelectTranslation(flagInsecure)
@@ -92,8 +93,8 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 }
 
 // Sign sign message with signer
-func Sign(signer, password, message string) (string, error) {
-	pri, err := PrivateKeyFromSigner(signer, password)
+func Sign(client ioctl.Client, signer, password, message string) (string, error) {
+	pri, err := PrivateKeyFromSigner(client, signer, password)
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +118,7 @@ func Sign(signer, password, message string) (string, error) {
 }
 
 // keyStoreAccountToPrivateKey generates our PrivateKey interface from Keystore account
-func keyStoreAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
+func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (crypto.PrivateKey, error) {
 	addrString, err := util.Address(signer)
 	if err != nil {
 		return nil, err
@@ -136,7 +137,7 @@ func keyStoreAccountToPrivateKey(signer, password string) (crypto.PrivateKey, er
 		}
 	} else {
 		// find the account in keystore
-		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		ks := client.NewKeyStore(config.ReadConfig.Wallet,
 			keystore.StandardScryptN, keystore.StandardScryptP)
 		for _, account := range ks.Accounts() {
 			if bytes.Equal(addr.Bytes(), account.Address.Bytes()) {
@@ -149,19 +150,19 @@ func keyStoreAccountToPrivateKey(signer, password string) (crypto.PrivateKey, er
 }
 
 // PrivateKeyFromSigner returns private key from signer
-func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
+func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.PrivateKey, error) {
 	var (
 		prvKey crypto.PrivateKey
 		err    error
 	)
 
-	if !IsSignerExist(signer) && !util.AliasIsHdwalletKey(signer) {
+	if !IsSignerExist(client, signer) && !util.AliasIsHdwalletKey(signer) {
 		return nil, fmt.Errorf("invalid address #%s", signer)
 	}
 
 	if password == "" {
 		output.PrintQuery(fmt.Sprintf("Enter password for #%s:\n", signer))
-		password, err = util.ReadSecretFromStdin()
+		password, err = client.ReadSecret()
 		if err != nil {
 			return nil, output.NewError(output.InputError, "failed to get password", err)
 		}
@@ -178,7 +179,7 @@ func PrivateKeyFromSigner(signer, password string) (crypto.PrivateKey, error) {
 		}
 		return prvKey, nil
 	}
-	return keyStoreAccountToPrivateKey(signer, password)
+	return keyStoreAccountToPrivateKey(client, signer, password)
 }
 
 // GetAccountMeta gets account metadata
@@ -211,7 +212,7 @@ func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, 
 }
 
 // IsSignerExist checks whether signer account is existed
-func IsSignerExist(signer string) bool {
+func IsSignerExist(client ioctl.Client, signer string) bool {
 	addr, err := address.FromString(signer)
 	if err != nil {
 		return false
@@ -224,7 +225,7 @@ func IsSignerExist(signer string) bool {
 	}
 
 	// find the account in keystore
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+	ks := client.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, ksAccount := range ks.Accounts() {
 		if address.Equal(addr, ksAccount.Address) {
