@@ -33,22 +33,8 @@ func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
 	c := NewClient()
 	defer c.Stop(context.Background())
-	blang := c.AskToConfirm()
+	blang := c.AskToConfirm("test")
 	// no input
-	r.False(blang)
-
-	c = &client{
-		cfg:  config.ReadConfig,
-		lang: config.Chinese,
-	}
-	blang = c.AskToConfirm()
-	r.False(blang)
-
-	c = &client{
-		cfg:  config.ReadConfig,
-		lang: 2, // other language is english as default
-	}
-	blang = c.AskToConfirm()
 	r.False(blang)
 }
 
