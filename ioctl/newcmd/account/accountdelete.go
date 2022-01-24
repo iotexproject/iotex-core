@@ -106,7 +106,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 					}
 
 					if err := os.Remove(v.URL.Path); err != nil {
-						return output.NewError(output.ReadFileError, failToRemoveKeystoreFile, err)
+						return output.NewError(output.WriteFileError, failToRemoveKeystoreFile, err)
 					}
 
 					aliases := make(map[string]string)
