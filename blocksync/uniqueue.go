@@ -13,7 +13,7 @@ import (
 // uniQueue is not threadsafe
 type uniQueue struct {
 	blocks []*peerBlock
-	hashes map[hash.Hash256]struct
+	hashes map[hash.Hash256]struct{}
 }
 
 func newUniQueue() *uniQueue {
