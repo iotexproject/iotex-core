@@ -23,6 +23,7 @@ import (
 )
 
 type nonceWithTTL struct {
+	idx      int
 	nonce    uint64
 	deadline time.Time
 }
@@ -31,10 +32,15 @@ type noncePriorityQueue []*nonceWithTTL
 
 func (h noncePriorityQueue) Len() int           { return len(h) }
 func (h noncePriorityQueue) Less(i, j int) bool { return h[i].nonce < h[j].nonce }
-func (h noncePriorityQueue) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h noncePriorityQueue) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].idx = i
+	h[j].idx = j
+}
 
 func (h *noncePriorityQueue) Push(x interface{}) {
 	if in, ok := x.(*nonceWithTTL); ok {
+		in.idx = len(*h)
 		*h = append(*h, in)
 	}
 }
@@ -160,6 +166,7 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 		i++
 	}
 	q.index = q.index[:size]
+	// using heap.Init is better here, more detail to see BenchmarkHeapInitAndRemove
 	heap.Init(&q.index)
 	return removedFromQueue
 }

@@ -12,7 +12,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,8 +29,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -313,7 +312,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := ioutil.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(keyStorePath)
 	if err != nil {
 		return "", output.NewError(output.ReadFileError,
 			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
@@ -388,7 +387,7 @@ func findSm2PemFile(addr address.Address) (string, error) {
 
 func listSm2Account() ([]string, error) {
 	sm2Accounts := make([]string, 0)
-	files, err := ioutil.ReadDir(config.ReadConfig.Wallet)
+	files, err := os.ReadDir(config.ReadConfig.Wallet)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
 	}
