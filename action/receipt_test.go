@@ -37,7 +37,16 @@ func TestConvert(t *testing.T) {
 	testLog := newTestLog()
 	testLog.Topics = topics
 	testLog.NotFixTopicCopyBug = true
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}, nil, "balance not enough"}
+	receipt := &Receipt{
+		Status:             1,
+		BlockHeight:        1,
+		ActionHash:         hash.ZeroHash256,
+		GasConsumed:        1,
+		ContractAddress:    "test",
+		TxIndex:            1,
+		logs:               []*Log{testLog},
+		executionRevertMsg: "balance not enough",
+	}
 
 	typeReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(typeReceipt)
@@ -48,6 +57,7 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt.ActionHash, receipt2.ActionHash)
 	require.Equal(receipt.GasConsumed, receipt2.GasConsumed)
 	require.Equal(receipt.ContractAddress, receipt2.ContractAddress)
+	require.Equal(receipt.TxIndex, receipt2.TxIndex)
 	require.Equal(receipt.executionRevertMsg, receipt2.executionRevertMsg)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
 	require.NotEqual(testLog, receipt2.logs[0])
@@ -64,7 +74,12 @@ func TestConvert(t *testing.T) {
 
 func TestSerDer(t *testing.T) {
 	require := require.New(t)
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil, nil, ""}
+	receipt := &Receipt{
+		Status:      1,
+		BlockHeight: 1,
+		ActionHash:  hash.ZeroHash256,
+		GasConsumed: 1,
+	}
 	ser, err := receipt.Serialize()
 	require.NoError(err)
 
@@ -85,6 +100,37 @@ func TestSerDer(t *testing.T) {
 	hash2 := receipt.Hash()
 	require.NotEqual(oldHash, hex.EncodeToString(hash2[:]))
 }
+
+func TestUpdateIndex(t *testing.T) {
+	require := require.New(t)
+	receipt := &Receipt{
+		Status:          1,
+		BlockHeight:     1,
+		ActionHash:      hash.ZeroHash256,
+		GasConsumed:     1,
+		ContractAddress: "test",
+		TxIndex:         1,
+		logs:            []*Log{newTestLog(), newTestLog(), newTestLog(), newTestLog()},
+	}
+
+	for _, v := range []struct {
+		txIndex, logIndex uint32
+	}{
+		{3, 6},
+		{4, 0},
+		{0, 0},
+		{0, 2},
+	} {
+		log := receipt.UpdateIndex(v.txIndex, v.logIndex)
+		require.Equal(v.txIndex, receipt.TxIndex)
+		require.Equal(v.logIndex+uint32(len(receipt.logs)), log)
+		// verify each log's index
+		for i, l := range receipt.logs {
+			require.Equal(v.logIndex+uint32(i), l.Index)
+		}
+	}
+}
+
 func TestConvertLog(t *testing.T) {
 	require := require.New(t)
 
