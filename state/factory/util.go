@@ -12,11 +12,14 @@ import (
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 func processOptions(opts ...protocol.StateOption) (*protocol.StateConfig, error) {
@@ -88,4 +91,30 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 		}
 	}
 	return nil
+}
+
+func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, error) {
+	if keys == nil {
+		_, values, err := kvStore.Filter(namespace, func(k, v []byte) bool { return true }, nil, nil)
+		if err != nil {
+			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+				return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", namespace)
+			}
+			return nil, err
+		}
+		return values, nil
+	}
+	var values [][]byte
+	for _, key := range keys {
+		value, err := kvStore.Get(namespace, key)
+		switch errors.Cause(err) {
+		case db.ErrNotExist, db.ErrBucketNotExist:
+			values = append(values, nil)
+		case nil:
+			values = append(values, value)
+		default:
+			return nil, err
+		}
+	}
+	return values, nil
 }

@@ -347,7 +347,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 				for _, key := range keys {
 					value, err := readState(tlt, ns, key)
 					switch errors.Cause(err) {
-					case db.ErrNotExist, db.ErrBucketNotExist:
+					case state.ErrStateNotExist:
 						values = append(values, nil)
 					case nil:
 						values = append(values, value)
@@ -677,27 +677,9 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	var values [][]byte
-	if cfg.Keys == nil {
-		_, values, err = sf.dao.Filter(cfg.Namespace, func(key, value []byte) bool { return true }, nil, nil)
-		if err != nil {
-			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-				return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
-			}
-			return sf.currentChainHeight, nil, err
-		}
-	} else {
-		for _, key := range cfg.Keys {
-			value, err := sf.dao.Get(cfg.Namespace, key)
-			switch errors.Cause(err) {
-			case db.ErrNotExist, db.ErrBucketNotExist:
-				values = append(values, nil)
-			case nil:
-				values = append(values, value)
-			default:
-				return 0, nil, err
-			}
-		}
+	values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	return sf.currentChainHeight, state.NewIterator(values), nil
