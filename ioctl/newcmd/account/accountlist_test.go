@@ -52,6 +52,7 @@ func TestNewAccountList(t *testing.T) {
 	})
 
 	t.Run("When NewAccountList returns error", func(t *testing.T) {
+		oldCryptoSm2 := CryptoSm2
 		CryptoSm2 = true
 		config.ReadConfig.Wallet = ""
 
@@ -67,6 +68,7 @@ func TestNewAccountList(t *testing.T) {
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Error(t, err)
+		CryptoSm2 = oldCryptoSm2
 	})
 
 }
