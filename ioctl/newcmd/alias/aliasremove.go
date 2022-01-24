@@ -2,14 +2,15 @@ package alias
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -63,7 +64,7 @@ func NewAliasRemove(c ioctl.Client) *cobra.Command {
 			if err != nil {
 				return output.NewError(output.SerializationError, marshalError, err)
 			}
-			if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 				return output.NewError(output.WriteFileError, fmt.Sprintf(writeError, config.DefaultConfigFile), err)
 			}
 			fmt.Println(fmt.Sprintf(result, alias))

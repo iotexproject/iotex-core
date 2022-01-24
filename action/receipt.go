@@ -37,6 +37,7 @@ type (
 		ActionHash         hash.Hash256
 		GasConsumed        uint64
 		ContractAddress    string
+		TxIndex            uint32
 		logs               []*Log
 		transactionLogs    []*TransactionLog
 		executionRevertMsg string
@@ -49,7 +50,7 @@ type (
 		Data               []byte
 		BlockHeight        uint64
 		ActionHash         hash.Hash256
-		Index              uint
+		Index, TxIndex     uint32
 		NotFixTopicCopyBug bool
 	}
 
@@ -70,6 +71,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.ActHash = receipt.ActionHash[:]
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
+	r.TxIndex = receipt.TxIndex
 	r.Logs = []*iotextypes.Log{}
 	for _, l := range receipt.logs {
 		r.Logs = append(r.Logs, l.ConvertToLogPb())
@@ -87,6 +89,7 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	copy(receipt.ActionHash[:], pbReceipt.GetActHash())
 	receipt.GasConsumed = pbReceipt.GetGasConsumed()
 	receipt.ContractAddress = pbReceipt.GetContractAddress()
+	receipt.TxIndex = pbReceipt.GetTxIndex()
 	logs := pbReceipt.GetLogs()
 	receipt.logs = make([]*Log, len(logs))
 	for i, log := range logs {
@@ -163,6 +166,17 @@ func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
 	return receipt
 }
 
+// UpdateIndex updates the index of receipt and logs, and returns the next log index
+func (receipt *Receipt) UpdateIndex(txIndex, logIndex uint32) uint32 {
+	receipt.TxIndex = txIndex
+	for _, l := range receipt.logs {
+		l.TxIndex = txIndex
+		l.Index = logIndex
+		logIndex++
+	}
+	return logIndex
+}
+
 // ConvertToLogPb converts a Log to protobuf's Log
 func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}
@@ -180,7 +194,8 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l.Data = log.Data
 	l.BlkHeight = log.BlockHeight
 	l.ActHash = log.ActionHash[:]
-	l.Index = uint32(log.Index)
+	l.Index = log.Index
+	l.TxIndex = log.TxIndex
 	return l
 }
 
@@ -195,7 +210,8 @@ func (log *Log) ConvertFromLogPb(pbLog *iotextypes.Log) {
 	log.Data = pbLog.GetData()
 	log.BlockHeight = pbLog.GetBlkHeight()
 	copy(log.ActionHash[:], pbLog.GetActHash())
-	log.Index = uint(pbLog.GetIndex())
+	log.Index = pbLog.GetIndex()
+	log.TxIndex = pbLog.GetTxIndex()
 }
 
 // Serialize returns a serialized byte stream for the Log

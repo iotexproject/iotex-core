@@ -123,7 +123,9 @@ func (ws *workingSet) runActions(
 			receipts = append(receipts, receipt)
 		}
 	}
-
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	return receipts, nil
 }
 
@@ -483,9 +485,20 @@ func (ws *workingSet) pickAndRunActions(
 		}
 		executedActions = append(executedActions, selp)
 	}
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize()
+}
+
+func updateReceiptIndex(receipts []*action.Receipt) {
+	var txIndex, logIndex uint32
+	for _, r := range receipts {
+		logIndex = r.UpdateIndex(txIndex, logIndex)
+		txIndex++
+	}
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
