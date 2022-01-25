@@ -63,6 +63,7 @@ type (
 		preimages           preimageMap
 		preimageSnapshot    map[int]preimageMap
 		logsSnapshot        map[int]int // logs is an array, save len(logs) at time of snapshot suffices
+		txLogsSnapshot      map[int]int
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
 		sortCachedContracts bool
@@ -143,6 +144,7 @@ func NewStateDBAdapter(
 		preimages:        make(preimageMap),
 		preimageSnapshot: make(map[int]preimageMap),
 		logsSnapshot:     make(map[int]int),
+		txLogsSnapshot:   make(map[int]int),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -472,13 +474,22 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
-	// restore logs
+	// restore logs and txLogs
 	if stateDB.revertLog {
 		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
 		delete(stateDB.logsSnapshot, snapshot)
 		for i := snapshot + 1; ; i++ {
 			if _, ok := stateDB.logsSnapshot[i]; ok {
 				delete(stateDB.logsSnapshot, i)
+			} else {
+				break
+			}
+		}
+		stateDB.transactionLogs = stateDB.transactionLogs[:stateDB.txLogsSnapshot[snapshot]]
+		delete(stateDB.txLogsSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.txLogsSnapshot[i]; ok {
+				delete(stateDB.txLogsSnapshot, i)
 			} else {
 				break
 			}
@@ -566,6 +577,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	// record the current log size
 	if stateDB.revertLog {
 		stateDB.logsSnapshot[sn] = len(stateDB.logs)
+		stateDB.txLogsSnapshot[sn] = len(stateDB.transactionLogs)
 	}
 	// save a copy of current suicide accounts
 	sa := make(deleteAccount)
@@ -913,15 +925,6 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
-	stateDB.cachedContract = nil
-	stateDB.contractSnapshot = nil
-	stateDB.suicided = nil
-	stateDB.suicideSnapshot = nil
-	stateDB.preimages = nil
-	stateDB.preimageSnapshot = nil
-	stateDB.logsSnapshot = nil
-	stateDB.logs = nil
-	stateDB.transactionLogs = nil
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
@@ -929,6 +932,7 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.preimages = make(preimageMap)
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
 	stateDB.logsSnapshot = make(map[int]int)
+	stateDB.txLogsSnapshot = make(map[int]int)
 	stateDB.logs = []*action.Log{}
 	stateDB.transactionLogs = []*action.TransactionLog{}
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -282,7 +283,11 @@ var tests = []stateDBTest{
 		[]*types.Log{
 			newTestLog(c3), newTestLog(c2), newTestLog(c1),
 		},
-		3, "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+		[]*action.TransactionLog{
+			newTestTxLog(c3), newTestTxLog(c1),
+		},
+		3, 2,
+		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 	{
 		[]bal{
@@ -307,7 +312,11 @@ var tests = []stateDBTest{
 		[]*types.Log{
 			newTestLog(C4),
 		},
-		4, "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+		[]*action.TransactionLog{
+			newTestTxLog(c2), newTestTxLog(c1), newTestTxLog(C4),
+		},
+		4, 5,
+		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 	},
 	{
 		nil,
@@ -325,7 +334,9 @@ var tests = []stateDBTest{
 		[]*types.Log{
 			newTestLog(c1), newTestLog(c2),
 		},
-		6, "io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
+		nil,
+		6, 5,
+		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 	},
 }
 
@@ -374,12 +385,17 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, e := range test.preimage {
 				stateDB.AddPreimage(e.hash, e.v)
 			}
-			// set logs
+			// set logs and txLogs
 			for _, l := range test.logs {
 				stateDB.AddLog(l)
 			}
+			for _, l := range test.txLogs {
+				stateDB.transactionLogs = append(stateDB.transactionLogs, l)
+			}
 			require.Equal(test.logSize, len(stateDB.logs))
+			require.Equal(test.txLogSize, len(stateDB.transactionLogs))
 			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
+			require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
 			require.Equal(i, stateDB.Snapshot())
 		}
 
@@ -408,7 +424,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte("fox")},
 				},
-				nil, 6, "io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe",
+				nil, nil,
+				6, 5,
+				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 			},
 			{
 				[]bal{
@@ -429,7 +447,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte(nil)},
 				},
-				nil, 4, "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
+				nil, nil,
+				4, 5,
+				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 			},
 			{
 				[]bal{
@@ -454,7 +474,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte(nil)},
 					{common.BytesToHash(v4[:]), []byte(nil)},
 				},
-				nil, 3, "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
+				nil, nil,
+				3, 2,
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 			},
 		}
 
@@ -491,10 +513,14 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// test logs
 			if revertLog {
 				require.Equal(test.logSize, len(stateDB.logs))
+				require.Equal(test.txLogSize, len(stateDB.transactionLogs))
 				require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
+				require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
 			} else {
 				require.Equal(6, len(stateDB.logs))
+				require.Equal(5, len(stateDB.transactionLogs))
 				require.Equal("io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", stateDB.logs[5].Address)
+				require.Equal("io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", stateDB.transactionLogs[4].Sender)
 			}
 		}
 

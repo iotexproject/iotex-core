@@ -6,6 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/action"
 )
 
 type (
@@ -44,14 +47,15 @@ type (
 		v    []byte
 	}
 	stateDBTest struct {
-		balance  []bal
-		codes    []code
-		states   []evmSet
-		suicide  []sui
-		preimage []image
-		logs     []*types.Log
-		logSize  int
-		logAddr  string
+		balance            []bal
+		codes              []code
+		states             []evmSet
+		suicide            []sui
+		preimage           []image
+		logs               []*types.Log
+		txLogs             []*action.TransactionLog
+		logSize, txLogSize int
+		logAddr, txLogAddr string
 	}
 )
 
@@ -86,5 +90,12 @@ func newTestLog(addr common.Address) *types.Log {
 	return &types.Log{
 		Address: addr,
 		Topics:  []common.Hash{k1},
+	}
+}
+
+func newTestTxLog(addr common.Address) *action.TransactionLog {
+	a, _ := address.FromBytes(addr.Bytes())
+	return &action.TransactionLog{
+		Sender: a.String(),
 	}
 }
