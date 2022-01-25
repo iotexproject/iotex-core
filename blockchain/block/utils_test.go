@@ -99,11 +99,13 @@ func TestVerifyBlock(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	t.Run("success", func(t *testing.T) {
-		require.NoError(VerifyBlock(&blk))
+		require.True(blk.Header.VerifySignature())
+		require.NoError(blk.VerifyTxRoot())
 	})
 
 	t.Run("wrong root hash", func(t *testing.T) {
 		blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-		require.Error(VerifyBlock(&blk))
+		require.True(blk.Header.VerifySignature())
+		require.Error(blk.VerifyTxRoot())
 	})
 }

@@ -10,23 +10,14 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
-)
-
-// Errors
-var (
-	ErrTxRootMismatch      = errors.New("transaction merkle root does not match")
-	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
-	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
 )
 
 // Block defines the struct of block
@@ -88,37 +79,21 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.Receipts = nil
 
 	// verify merkle root can match after deserialize
-	txHash, err := b.CalculateTxRoot()
-	if err != nil {
-		log.L().Debug("error in getting hash ", zap.Error(err))
-		return err
-	}
-	if err := b.VerifyTxRoot(txHash); err != nil {
+	if err := b.VerifyTxRoot(); err != nil {
 		return err
 	}
 	return nil
 }
 
 // VerifyTxRoot verifies the transaction root hash
-func (b *Block) VerifyTxRoot(root hash.Hash256) error {
-	if b.Header.txRoot != root {
-		return ErrTxRootMismatch
+func (b *Block) VerifyTxRoot() error {
+	root, err := b.CalculateTxRoot()
+	if err != nil {
+		log.L().Debug("error in getting hash ", zap.Error(err))
+		return err
 	}
-	return nil
-}
-
-// VerifyDeltaStateDigest verifies the delta state digest in header
-func (b *Block) VerifyDeltaStateDigest(digest hash.Hash256) error {
-	if b.Header.deltaStateDigest != digest {
-		return ErrDeltaStateMismatch
-	}
-	return nil
-}
-
-// VerifyReceiptRoot verifies the receipt root in header
-func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
-	if b.Header.receiptRoot != root {
-		return ErrReceiptRootMismatch
+	if err := b.Header.VerifyTransactionRoot(root); err != nil {
+		return err
 	}
 	return nil
 }

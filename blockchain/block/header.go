@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
@@ -35,6 +36,13 @@ type Header struct {
 	blockSig         []byte            // block signature
 	pubkey           crypto.PublicKey  // block producer's public key
 }
+
+// Errors
+var (
+	ErrTxRootMismatch      = errors.New("transaction merkle root does not match")
+	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
+	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
+)
 
 // Version returns the version of this block.
 func (h *Header) Version() uint32 { return h.version }
@@ -172,6 +180,30 @@ func (h *Header) VerifySignature() bool {
 		return false
 	}
 	return h.pubkey.Verify(hash[:], h.blockSig)
+}
+
+// VerifyDeltaStateDigest verifies the delta state digest in header
+func (h *Header) VerifyDeltaStateDigest(digest hash.Hash256) error {
+	if h.deltaStateDigest != digest {
+		return ErrDeltaStateMismatch
+	}
+	return nil
+}
+
+// VerifyReceiptRoot verifies the receipt root in header
+func (h *Header) VerifyReceiptRoot(root hash.Hash256) error {
+	if h.receiptRoot != root {
+		return ErrReceiptRootMismatch
+	}
+	return nil
+}
+
+// VerifyDeltaStateDigest verifies the delta state digest in header
+func (h *Header) VerifyTransactionRoot(root hash.Hash256) error {
+	if h.txRoot != root {
+		return ErrTxRootMismatch
+	}
+	return nil
 }
 
 // ProducerAddress returns the address of producer
