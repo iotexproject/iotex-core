@@ -61,6 +61,7 @@ func TestNewAccountDelete(t *testing.T) {
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
+
 	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 	cmd = NewAccountDelete(client)
 	_, err = util.ExecuteCmd(cmd)
