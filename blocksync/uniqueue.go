@@ -19,7 +19,7 @@ type uniQueue struct {
 func newUniQueue() *uniQueue {
 	return &uniQueue{
 		blocks: []*peerBlock{},
-		hashes: map[hash.Hash256]struct{},
+		hashes: map[hash.Hash256]struct{}{},
 	}
 }
 
@@ -38,7 +38,7 @@ func (uq *uniQueue) dequeAll() []*peerBlock {
 	}
 	blks := uq.blocks
 	uq.blocks = []*peerBlock{}
-	uq.hashes = map[hash.Hash256]struct{}
+	uq.hashes = map[hash.Hash256]struct{}{}
 
 	return blks
 }
