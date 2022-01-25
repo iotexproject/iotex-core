@@ -205,9 +205,6 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	if featureCtx.ContractAddressInReceipt && len(contractAddress) == 0 {
-		contractAddress = execution.Contract()
-	}
 	receipt := &action.Receipt{
 		GasConsumed:     ps.gas - remainingGas,
 		BlockHeight:     blkCtx.BlockHeight,

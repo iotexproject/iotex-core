@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
@@ -49,6 +48,7 @@ var (
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
+
 	failToRemoveKeystoreFile = map[config.Language]string{
 		config.English: "failed to remove keystore file",
 		config.Chinese: "移除keystore文件失败",
@@ -117,11 +117,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if _, err = os.Stat(filePath); err != nil {
 				return output.NewError(output.ReadFileError, fmt.Sprintf(failToFindAccount, addr), nil)
 			}
-			var confirm string
-			message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
-			fmt.Println(message.String())
-			fmt.Scanf("%s", &confirm)
-			if !strings.EqualFold(confirm, "yes") {
+			if !c.AskToConfirm(infoWarn) {
 				output.PrintResult("quit")
 				return nil
 			}
