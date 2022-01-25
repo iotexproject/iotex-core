@@ -56,11 +56,9 @@ type (
 		// doing
 		WriteConfig(config.Config) error
 		// PrintError print the error message
-		PrintError(error) error
-		// PrintResult print the running result
-		PrintResult(string)
-		// PrintQuery prints the query message
-		PrintQuery(string)
+		PrintError(error)
+		// PrintInfo print the command result or the question query
+		PrintInfo(string)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -206,14 +204,10 @@ func (c *client) WriteConfig(cfg config.Config) error {
 	return nil
 }
 
-func (c *client) PrintError(err error) error {
-	return output.PrintError(err)
+func (c *client) PrintError(err error) {
+	output.PrintError(err)
 }
 
-func (c *client) PrintResult(result string) {
-	output.PrintResult(result)
-}
-
-func (c *client) PrintQuery(query string) {
-	output.PrintQuery(query)
+func (c *client) PrintInfo(info string) {
+	output.PrintResult(info)
 }
