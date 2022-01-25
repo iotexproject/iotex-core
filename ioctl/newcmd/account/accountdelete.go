@@ -79,7 +79,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 	resultSuccess, _ := c.SelectTranslation(resultSuccess)
 	failToFindAccount, _ := c.SelectTranslation(failToFindAccount)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.RangeArgs(0, 1),
@@ -141,5 +141,4 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
 }
