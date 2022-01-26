@@ -100,6 +100,7 @@ type (
 		AllowCorrectDefaultChainID  bool
 		CorrectGetHashFn            bool
 		CorrectTxLogIndex           bool
+		RevertLog                   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -226,6 +227,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			AllowCorrectDefaultChainID:  g.IsToBeEnabled(height),
 			CorrectGetHashFn:            g.IsToBeEnabled(height),
 			CorrectTxLogIndex:           g.IsToBeEnabled(height), // change to next hard-fork
+			RevertLog:                   g.IsToBeEnabled(height), // change to next hard-fork
 		},
 	)
 }
