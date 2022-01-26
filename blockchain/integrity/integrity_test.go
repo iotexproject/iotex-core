@@ -602,7 +602,7 @@ func TestGetBlockHash(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.HawaiiBlockHeight = 4
-	cfg.Genesis.ToBeEnabledBlockHeight = 9
+	cfg.Genesis.MidwayBlockHeight = 9
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash(&config.Default.Genesis)
@@ -748,7 +748,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 			bcHash = hash.ZeroHash256
 		} else {
 			var targetHeight uint64
-			if test.commitHeight < g.ToBeEnabledBlockHeight {
+			if test.commitHeight < g.MidwayBlockHeight {
 				targetHeight = test.commitHeight - (test.getHashHeight + 1)
 			} else {
 				targetHeight = test.getHashHeight
@@ -1434,7 +1434,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = "308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6"
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
-	cfg.Genesis.ToBeEnabledBlockHeight = 5
+	cfg.Genesis.MidwayBlockHeight = 5
 
 	t.Run("load blockchain from DB", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)

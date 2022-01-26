@@ -308,7 +308,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
-	if core.cfg.Genesis.Blockchain.IsToBeEnabled(core.bc.TipHeight()) &&
+	if core.cfg.Genesis.Blockchain.IsMidway(core.bc.TipHeight()) &&
 		chainID != core.bc.ChainID() && chainID != 0 {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
