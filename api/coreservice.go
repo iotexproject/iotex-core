@@ -281,7 +281,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		if serErr != nil {
 			l.Error("Data corruption", zap.Error(serErr))
 		} else {
-			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
+			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Debug("Failed to accept action", zap.Error(err))
 		}
 		errMsg := core.cfg.ProducerAddress().String() + ": " + err.Error()
 		st := status.New(codes.Internal, errMsg)
