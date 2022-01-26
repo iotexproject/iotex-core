@@ -28,7 +28,7 @@ func (uq *uniQueue) enque(blk *peerBlock) {
 	if _, ok := uq.hashes[h]; ok {
 		return
 	}
-	uq.hashes[h] = struct{}
+	uq.hashes[h] = struct{}{}
 	uq.blocks = append(uq.blocks, blk)
 }
 
