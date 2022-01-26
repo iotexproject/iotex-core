@@ -137,6 +137,7 @@ func TestAccount(t *testing.T) {
 	require.NoError(err)
 	require.True(IsSignerExist(client, addr.String()))
 
+	oldCryptoSm2 := CryptoSm2
 	CryptoSm2 = true
 	account2, err := crypto.GenerateKeySm2()
 	require.NoError(err)
@@ -188,6 +189,7 @@ func TestAccount(t *testing.T) {
 	account, err = ks.ImportECDSA(p256k1, passwd)
 	require.NoError(err)
 	require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
+	CryptoSm2 = oldCryptoSm2
 }
 
 func TestGetAccountMeta(t *testing.T) {
@@ -282,7 +284,7 @@ func TestStoreKey(t *testing.T) {
 			return keystore.NewKeyStore(keydir, scryptN, scryptP)
 		}).Times(6)
 
-	// test CryptoSm2 is false
+	oldCryptoSm2 := CryptoSm2
 	CryptoSm2 = false
 	account, err := ks.NewAccount(passwd)
 	require.NoError(err)
@@ -333,6 +335,7 @@ func TestStoreKey(t *testing.T) {
 	addrString2, err := storeKey(client, priKey2.HexString(), config.ReadConfig.Wallet, passwd)
 	require.NoError(err)
 	require.Equal(addr2.String(), addrString2)
+	CryptoSm2 = oldCryptoSm2
 }
 
 func newTestAccount() (string, *keystore.KeyStore, string, string, error) {

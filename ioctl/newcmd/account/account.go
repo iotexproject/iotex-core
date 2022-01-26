@@ -228,7 +228,6 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 	// find the account in keystore
 	ks := client.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
-
 	for _, ksAccount := range ks.Accounts() {
 		if address.Equal(addr, ksAccount.Address) {
 			return true
