@@ -23,6 +23,7 @@ func TestNewAccountCreate(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
 
+	oldCryptoSm2 := CryptoSm2
 	CryptoSm2 = false
 	cmd := NewAccountCreate(client)
 	result, err := util.ExecuteCmd(cmd)
@@ -34,4 +35,5 @@ func TestNewAccountCreate(t *testing.T) {
 	result, err = util.ExecuteCmd(cmd)
 	require.NotNil(t, result)
 	require.NoError(t, err)
+	CryptoSm2 = oldCryptoSm2
 }

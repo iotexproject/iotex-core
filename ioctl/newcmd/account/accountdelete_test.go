@@ -54,6 +54,7 @@ func TestNewAccountDelete(t *testing.T) {
 			return config.ReadConfig
 		}).Times(5)
 
+	oldCryptoSm2 := CryptoSm2
 	CryptoSm2 = false
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
 	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
@@ -77,4 +78,5 @@ func TestNewAccountDelete(t *testing.T) {
 	cmd = NewAccountDelete(client)
 	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
+	CryptoSm2 = oldCryptoSm2
 }
