@@ -183,27 +183,18 @@ func (h *Header) VerifySignature() bool {
 }
 
 // VerifyDeltaStateDigest verifies the delta state digest in header
-func (h *Header) VerifyDeltaStateDigest(digest hash.Hash256) error {
-	if h.deltaStateDigest != digest {
-		return ErrDeltaStateMismatch
-	}
-	return nil
+func (h *Header) VerifyDeltaStateDigest(digest hash.Hash256) bool {
+	return h.deltaStateDigest == digest
 }
 
 // VerifyReceiptRoot verifies the receipt root in header
-func (h *Header) VerifyReceiptRoot(root hash.Hash256) error {
-	if h.receiptRoot != root {
-		return ErrReceiptRootMismatch
-	}
-	return nil
+func (h *Header) VerifyReceiptRoot(root hash.Hash256) bool {
+	return h.receiptRoot == root
 }
 
 // VerifyDeltaStateDigest verifies the delta state digest in header
-func (h *Header) VerifyTransactionRoot(root hash.Hash256) error {
-	if h.txRoot != root {
-		return ErrTxRootMismatch
-	}
-	return nil
+func (h *Header) VerifyTransactionRoot(root hash.Hash256) bool {
+	return h.txRoot == root
 }
 
 // ProducerAddress returns the address of producer

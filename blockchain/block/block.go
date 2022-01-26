@@ -92,8 +92,8 @@ func (b *Block) VerifyTxRoot() error {
 		log.L().Debug("error in getting hash ", zap.Error(err))
 		return err
 	}
-	if err := b.Header.VerifyTransactionRoot(root); err != nil {
-		return err
+	if !b.Header.VerifyTransactionRoot(root) {
+		return ErrTxRootMismatch
 	}
 	return nil
 }
