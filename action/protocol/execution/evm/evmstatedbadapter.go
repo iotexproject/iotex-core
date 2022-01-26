@@ -62,11 +62,14 @@ type (
 		suicideSnapshot     map[int]deleteAccount // snapshots of suicide accounts
 		preimages           preimageMap
 		preimageSnapshot    map[int]preimageMap
+		logsSnapshot        map[int]int // logs is an array, save len(logs) at time of snapshot suffices
+		txLogsSnapshot      map[int]int
 		notFixTopicCopyBug  bool
 		asyncContractTrie   bool
 		sortCachedContracts bool
 		usePendingNonce     bool
 		fixSnapshotOrder    bool
+		revertLog           bool
 	}
 )
 
@@ -113,6 +116,14 @@ func FixSnapshotOrderOption() StateDBAdapterOption {
 	}
 }
 
+// RevertLogOption set revertLog as true
+func RevertLogOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.revertLog = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -132,6 +143,8 @@ func NewStateDBAdapter(
 		suicideSnapshot:  make(map[int]deleteAccount),
 		preimages:        make(preimageMap),
 		preimageSnapshot: make(map[int]preimageMap),
+		logsSnapshot:     make(map[int]int),
+		txLogsSnapshot:   make(map[int]int),
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -461,6 +474,27 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
+	// restore logs and txLogs
+	if stateDB.revertLog {
+		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
+		delete(stateDB.logsSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.logsSnapshot[i]; ok {
+				delete(stateDB.logsSnapshot, i)
+			} else {
+				break
+			}
+		}
+		stateDB.transactionLogs = stateDB.transactionLogs[:stateDB.txLogsSnapshot[snapshot]]
+		delete(stateDB.txLogsSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.txLogsSnapshot[i]; ok {
+				delete(stateDB.txLogsSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
 	// restore the suicide accounts
 	stateDB.suicided = nil
 	stateDB.suicided = ds
@@ -539,6 +573,11 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		}
 		// stateDB.err = err
 		return sn
+	}
+	// record the current log size
+	if stateDB.revertLog {
+		stateDB.logsSnapshot[sn] = len(stateDB.logs)
+		stateDB.txLogsSnapshot[sn] = len(stateDB.transactionLogs)
 	}
 	// save a copy of current suicide accounts
 	sa := make(deleteAccount)
@@ -886,16 +925,14 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
-	stateDB.cachedContract = nil
-	stateDB.contractSnapshot = nil
-	stateDB.suicided = nil
-	stateDB.suicideSnapshot = nil
-	stateDB.preimages = nil
-	stateDB.preimageSnapshot = nil
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
 	stateDB.suicideSnapshot = make(map[int]deleteAccount)
 	stateDB.preimages = make(preimageMap)
 	stateDB.preimageSnapshot = make(map[int]preimageMap)
+	stateDB.logsSnapshot = make(map[int]int)
+	stateDB.txLogsSnapshot = make(map[int]int)
+	stateDB.logs = []*action.Log{}
+	stateDB.transactionLogs = []*action.TransactionLog{}
 }
