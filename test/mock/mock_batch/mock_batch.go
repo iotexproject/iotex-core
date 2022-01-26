@@ -274,6 +274,18 @@ func (mr *MockCachedBatchMockRecorder) ClearAndUnlock() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearAndUnlock", reflect.TypeOf((*MockCachedBatch)(nil).ClearAndUnlock))
 }
 
+// ClearSnapshots mocks base method.
+func (m *MockCachedBatch) ClearSnapshots() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ClearSnapshots")
+}
+
+// ClearSnapshots indicates an expected call of ClearSnapshots.
+func (mr *MockCachedBatchMockRecorder) ClearSnapshots() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearSnapshots", reflect.TypeOf((*MockCachedBatch)(nil).ClearSnapshots))
+}
+
 // Delete mocks base method.
 func (m *MockCachedBatch) Delete(arg0 string, arg1 []byte, arg2 string, arg3 ...interface{}) {
 	m.ctrl.T.Helper()

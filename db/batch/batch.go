@@ -67,5 +67,7 @@ type (
 		Snapshot() int
 		// Revert sets the cached batch to the state at the given snapshot
 		Revert(int) error
+		// ClearSnapshots clears all saved snapshots
+		ClearSnapshots()
 	}
 )

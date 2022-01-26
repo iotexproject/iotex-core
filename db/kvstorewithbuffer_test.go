@@ -61,8 +61,7 @@ func TestFlusher(t *testing.T) {
 		t.Run("flush successfully", func(t *testing.T) {
 			buffer.EXPECT().Translate(gomock.Any()).Return(buffer).Times(1)
 			store.EXPECT().WriteBatch(gomock.Any()).Return(nil).Times(1)
-			buffer.EXPECT().Lock().Times(1)
-			buffer.EXPECT().ClearAndUnlock().Times(1)
+			buffer.EXPECT().Clear().Times(1)
 			require.NoError(t, f.Flush())
 		})
 		t.Run("Get", func(t *testing.T) {

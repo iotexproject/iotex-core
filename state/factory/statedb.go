@@ -213,7 +213,8 @@ func (sdb *stateDB) Height() (uint64, error) {
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
+	cb := batch.NewCachedBatch()
+	flusher, err := db.NewKVStoreFlusher(sdb.dao, cb, sdb.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +284,9 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 		revertFunc:   flusher.KVStoreWithBuffer().Revert,
 		dbFunc: func() db.KVStore {
 			return flusher.KVStoreWithBuffer()
+		},
+		clearActFunc: func() {
+			cb.ClearSnapshots()
 		},
 	}, nil
 }

@@ -281,7 +281,8 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
-	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
+	cb := batch.NewCachedBatch()
+	flusher, err := db.NewKVStoreFlusher(sf.dao, cb, sf.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
 	}
@@ -390,6 +391,9 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 		},
 		dbFunc: func() db.KVStore {
 			return flusher.KVStoreWithBuffer()
+		},
+		clearActFunc: func() {
+			cb.ClearSnapshots()
 		},
 	}, nil
 }

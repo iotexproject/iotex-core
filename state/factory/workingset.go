@@ -60,6 +60,7 @@ type (
 		putStateFunc  func(string, []byte, interface{}) error
 		revertFunc    func(int) error
 		snapshotFunc  func() int
+		clearActFunc  func()
 	}
 
 	workingSetCreator interface {
@@ -170,6 +171,7 @@ func (ws *workingSet) runAction(
 	}
 	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		ws.clearActFunc()
 		elpHash, err1 := elp.Hash()
 		if err1 != nil {
 			return nil, errors.Wrapf(err1, "Failed to get hash")

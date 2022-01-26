@@ -115,9 +115,7 @@ func (f *flusher) Flush() error {
 		return err
 	}
 
-	f.kvb.buffer.Lock()
-	f.kvb.buffer.ClearAndUnlock()
-
+	f.kvb.buffer.Clear()
 	return nil
 }
 

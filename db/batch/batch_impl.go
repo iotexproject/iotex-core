@@ -57,7 +57,7 @@ func (b *baseKVStoreBatch) Unlock() {
 // ClearAndUnlock clears the write queue and unlocks the batch
 func (b *baseKVStoreBatch) ClearAndUnlock() {
 	defer b.mutex.Unlock()
-	b.writeQueue = nil
+	b.writeQueue = b.writeQueue[:0]
 
 	b.fillLock.Lock()
 	defer b.fillLock.Unlock()
@@ -116,7 +116,7 @@ func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter W
 func (b *baseKVStoreBatch) Clear() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.writeQueue = nil
+	b.writeQueue = b.writeQueue[:0]
 
 	b.fillLock.Lock()
 	defer b.fillLock.Unlock()
@@ -228,10 +228,8 @@ func (cb *cachedBatch) ClearAndUnlock() {
 	cb.kvStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
-	cb.batchShots = nil
-	cb.cacheShots = nil
-	cb.batchShots = make([]int, 0)
-	cb.cacheShots = make([]KVStoreCache, 0)
+	cb.batchShots = cb.batchShots[:0]
+	cb.cacheShots = cb.cacheShots[:0]
 }
 
 // Put inserts a <key, value> record
@@ -260,10 +258,8 @@ func (cb *cachedBatch) Clear() {
 	cb.kvStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
-	cb.batchShots = nil
-	cb.cacheShots = nil
-	cb.batchShots = make([]int, 0)
-	cb.cacheShots = make([]KVStoreCache, 0)
+	cb.batchShots = cb.batchShots[:0]
+	cb.cacheShots = cb.cacheShots[:0]
 }
 
 // Get retrieves a record
@@ -300,6 +296,15 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.KVStoreCache = nil
 	cb.KVStoreCache = cb.cacheShots[snapshot]
 	return nil
+}
+
+func (cb *cachedBatch) ClearSnapshots() {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	// clear all saved snapshots
+	cb.tag = 0
+	cb.batchShots = cb.batchShots[:0]
+	cb.cacheShots = cb.cacheShots[:0]
 }
 
 func (cb *cachedBatch) CheckFillPercent(ns string) (float64, bool) {
