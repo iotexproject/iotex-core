@@ -705,3 +705,15 @@ func TestGetNetworkID(t *testing.T) {
 	res, _ := svr.web3Server.getNetworkID()
 	require.Equal("1", res)
 }
+
+func TestEthAccounts(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+	config.SetEVMNetworkID(1)
+	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+	res, _ := svr.web3Server.ethAccounts()
+	require.Equal(0, len(res.([]string)))
+}

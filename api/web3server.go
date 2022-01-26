@@ -175,6 +175,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			method = web3Req.Get("method").Value()
 		)
 		switch method {
+		case "eth_accounts":
+			res, err = svr.ethAccounts()
 		case "eth_gasPrice":
 			res, err = svr.gasPrice()
 		case "eth_getBlockByHash":
@@ -245,7 +247,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
-		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
+		case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
@@ -314,6 +316,10 @@ func packAPIResult(res interface{}, err error, id int) interface{} {
 		ID:      id,
 		Result:  res,
 	}
+}
+
+func (svr *Web3Server) ethAccounts() (interface{}, error) {
+	return []string{}, nil
 }
 
 func (svr *Web3Server) gasPrice() (interface{}, error) {
