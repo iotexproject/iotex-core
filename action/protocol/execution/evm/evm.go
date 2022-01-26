@@ -243,12 +243,12 @@ func ExecuteContract(
 	if err := stateDB.CommitContracts(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
-	stateDB.clear()
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
 		featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
+	stateDB.clear()
 
 	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
@@ -299,6 +299,10 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) *StateDBAdapt
 	if featureCtx.FixSnapshotOrder {
 		opts = append(opts, FixSnapshotOrderOption())
 	}
+	if featureCtx.RevertLog {
+		opts = append(opts, RevertLogOption())
+	}
+
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
