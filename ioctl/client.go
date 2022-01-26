@@ -205,7 +205,9 @@ func (c *client) WriteConfig(cfg config.Config) error {
 }
 
 func (c *client) PrintError(err error) {
-	output.PrintError(err)
+	if err := output.PrintError(err); err != nil {
+		fmt.Println("Error:", err.Error())
+	}
 }
 
 func (c *client) PrintInfo(info string) {

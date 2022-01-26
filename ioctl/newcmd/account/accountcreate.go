@@ -57,6 +57,7 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
 				private, err := crypto.GenerateKey()
