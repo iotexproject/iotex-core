@@ -64,63 +64,44 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				if err != nil {
 					return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
 				}
-
-				output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", acc))
-				currentPassword, err := client.ReadSecret()
-				if err != nil {
-					return output.NewError(output.InputError, "failed to get current password", err)
-				}
-				_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
-				if err != nil {
-					return output.NewError(output.CryptoError, "error occurs when checking current password", err)
-				}
-				output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", acc))
-				newPassword, err := client.ReadSecret()
-				if err != nil {
-					return output.NewError(output.InputError, "failed to get new password", err)
-				}
-				output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", acc))
-				newPasswordAgain, err := client.ReadSecret()
-				if err != nil {
-					return output.NewError(output.InputError, "failed to get new password", err)
-				}
-				if newPassword != newPasswordAgain {
-					return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
-				}
-
-				if err := crypto.UpdatePrivateKeyPasswordToPem(filePath, currentPassword, newPassword); err != nil {
-					return output.NewError(output.KeystoreError, "failed to update pem file", err)
+				if err = readSecretAndUpdate(client, acc,
+					func(currentPassword string) error {
+						_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
+						if err != nil {
+							return output.NewError(output.CryptoError, "error occurs when checking current password", err)
+						}
+						return nil
+					},
+					func(currentPassword, newPassword string) error {
+						if err := crypto.UpdatePrivateKeyPasswordToPem(filePath, currentPassword, newPassword); err != nil {
+							return output.NewError(output.KeystoreError, "failed to update pem file", err)
+						}
+						return nil
+					},
+				); err != nil {
+					return err
 				}
 			} else {
 				// find the keystore and update
 				ks := client.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
-						output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", acc))
-						currentPassword, err := client.ReadSecret()
-						if err != nil {
-							return output.NewError(output.InputError, "failed to get current password", err)
-						}
-						_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
-						if err != nil {
-							return output.NewError(output.KeystoreError, "error occurs when checking current password", err)
-						}
-						output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", acc))
-						newPassword, err := client.ReadSecret()
-						if err != nil {
-							return output.NewError(output.InputError, "failed to get new password", err)
-						}
-						output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", acc))
-						newPasswordAgain, err := client.ReadSecret()
-						if err != nil {
-							return output.NewError(output.InputError, "failed to get new password", err)
-						}
-						if newPassword != newPasswordAgain {
-							return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
-						}
-
-						if err := ks.Update(v, currentPassword, newPassword); err != nil {
-							return output.NewError(output.KeystoreError, "failed to update keystore", err)
+						if err = readSecretAndUpdate(client, acc,
+							func(currentPassword string) error {
+								_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
+								if err != nil {
+									return output.NewError(output.KeystoreError, "error occurs when checking current password", err)
+								}
+								return nil
+							},
+							func(currentPassword, newPassword string) error {
+								if err := ks.Update(v, currentPassword, newPassword); err != nil {
+									return output.NewError(output.KeystoreError, "failed to update keystore", err)
+								}
+								return nil
+							},
+						); err != nil {
+							return err
 						}
 					}
 				}
@@ -130,4 +111,31 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+func readSecretAndUpdate(client ioctl.Client, acc string,
+	checkPwdFunc func(currentPassword string) error,
+	updatePwdFunc func(currentPassword, newPassword string) error) error {
+	output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", acc))
+	currentPassword, err := client.ReadSecret()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get current password", err)
+	}
+	if err = checkPwdFunc(currentPassword); err != nil {
+		return err
+	}
+	output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", acc))
+	newPassword, err := client.ReadSecret()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get new password", err)
+	}
+	output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", acc))
+	newPasswordAgain, err := client.ReadSecret()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get new password", err)
+	}
+	if newPassword != newPasswordAgain {
+		return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+	}
+	return updatePwdFunc(currentPassword, newPassword)
 }
