@@ -63,26 +63,30 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+      cmd.SilenceErrors = true
 			var err error
 			var private crypto.PrivateKey
+      
 			newAccounts := make([]generatedAccount, 0)
-
 			for i := 0; i < int(numAccounts); i++ {
 				if !CryptoSm2 {
 					private, err = crypto.GenerateKey()
 					if err != nil {
-						return output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err)
+						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
+					  return nil
 					}
 				} else {
 					private, err = crypto.GenerateKeySm2()
 					if err != nil {
-						return output.NewError(output.CryptoError, failToGenerateNewPrivateKeySm2, err)
+            c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKeySm2, err))
+					  return nil
 					}
 				}
 
 				addr := private.PublicKey().Address()
 				if addr == nil {
-					return output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil)
+					c.PrintError(output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil))
+					return nil
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),
@@ -93,11 +97,11 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			}
 
 			message := createMessage{Accounts: newAccounts}
-			fmt.Println(message.String())
+
+			c.PrintInfo(message.String())
 			return nil
 		},
 	}
-
 	cmd.Flags().UintVarP(&numAccounts, "num", "n", 1, usage)
 	return cmd
 }
