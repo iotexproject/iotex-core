@@ -30,6 +30,7 @@ func CleanupPath(t *testing.T, path string) {
 	}
 }
 
+// TODO: replace CleanupPath with CleanupPathV2 for compatibility
 // CleanupPathV2 detects the existence of test DB file and removes it if found
 func CleanupPathV2(path string) {
 	if fileutil.FileExists(path) && os.RemoveAll(path) != nil {
