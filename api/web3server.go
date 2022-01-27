@@ -97,12 +97,13 @@ var (
 		Help: "web3 api metrics.",
 	}, []string{"method"})
 
-	errUnkownType     = errors.New("wrong type of params")
-	errNullPointer    = errors.New("null pointer")
-	errInvalidFormat  = errors.New("invalid format of request")
-	errNotImplemented = errors.New("method not implemented")
-	errInvalidFiterID = errors.New("filter not found")
-	errInvalidBlock   = errors.New("invalid block")
+	errUnkownType        = errors.New("wrong type of params")
+	errNullPointer       = errors.New("null pointer")
+	errInvalidFormat     = errors.New("invalid format of request")
+	errNotImplemented    = errors.New("method not implemented")
+	errInvalidFiterID    = errors.New("filter not found")
+	errInvalidBlock      = errors.New("invalid block")
+	errUnsupportedAction = errors.New("the type of action is not supported")
 
 	pendingBlockNumber  = "pending"
 	latestBlockNumber   = "latest"
