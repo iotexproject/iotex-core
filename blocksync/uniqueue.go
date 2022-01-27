@@ -34,8 +34,9 @@ func (uq *uniQueue) enque(blk *peerBlock) {
 
 func (uq *uniQueue) dequeAll() []*peerBlock {
 	blks := uq.blocks
-	uq.blocks = []*peerBlock{}
-	uq.hashes = map[hash.Hash256]bool{}
-
+	if len(uq.blocks) > 0 {
+		uq.blocks = []*peerBlock{}
+		uq.hashes = map[hash.Hash256]bool{}
+	}
 	return blks
 }
