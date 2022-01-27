@@ -15,10 +15,11 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/util"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -446,6 +447,21 @@ func TestGetTransactionReceipt(t *testing.T) {
 	ret, err = svr.web3Server.getTransactionReceipt(testData2)
 	require.NoError(err)
 	require.Nil(ret)
+}
+
+func TestGetBlockTransactionCountByNumber(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+	config.SetEVMNetworkID(1)
+	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	testData := []interface{}{uint64ToHex(1), 1}
+	ret, err := svr.web3Server.getBlockTransactionCountByNumber(testData)
+	require.NoError(err)
+	require.Equal(ret, uint64ToHex(2))
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {

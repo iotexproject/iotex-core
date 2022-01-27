@@ -99,6 +99,8 @@ type (
 		FixSnapshotOrder            bool
 		AllowCorrectDefaultChainID  bool
 		CorrectGetHashFn            bool
+		CorrectTxLogIndex           bool
+		RevertLog                   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -222,8 +224,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UpdateBlockMeta:             g.IsGreenland(height),
 			CurrentEpochProductivity:    g.IsGreenland(height),
 			FixSnapshotOrder:            g.IsKamchatka(height),
-			AllowCorrectDefaultChainID:  g.IsToBeEnabled(height),
-			CorrectGetHashFn:            g.IsToBeEnabled(height),
+			AllowCorrectDefaultChainID:  g.IsMidway(height),
+			CorrectGetHashFn:            g.IsMidway(height),
+			CorrectTxLogIndex:           g.IsMidway(height),
+			RevertLog:                   g.IsMidway(height),
 		},
 	)
 }

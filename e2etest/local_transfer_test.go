@@ -639,7 +639,7 @@ func TestEnforceChainID(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
-	cfg.Genesis.ToBeEnabledBlockHeight = uint64(3)
+	cfg.Genesis.MidwayBlockHeight = 3
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))

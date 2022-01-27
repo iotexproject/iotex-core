@@ -69,17 +69,17 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 }
 
 // AskToConfirm mocks base method.
-func (m *MockClient) AskToConfirm() bool {
+func (m *MockClient) AskToConfirm(arg0 string) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AskToConfirm")
+	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // AskToConfirm indicates an expected call of AskToConfirm.
-func (mr *MockClientMockRecorder) AskToConfirm() *gomock.Call {
+func (mr *MockClientMockRecorder) AskToConfirm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm), arg0)
 }
 
 // Config mocks base method.
@@ -151,6 +151,30 @@ func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore
 func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
+}
+
+// PrintError mocks base method.
+func (m *MockClient) PrintError(arg0 error) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PrintError", arg0)
+}
+
+// PrintError indicates an expected call of PrintError.
+func (mr *MockClientMockRecorder) PrintError(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintError", reflect.TypeOf((*MockClient)(nil).PrintError), arg0)
+}
+
+// PrintInfo mocks base method.
+func (m *MockClient) PrintInfo(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PrintInfo", arg0)
+}
+
+// PrintInfo indicates an expected call of PrintInfo.
+func (mr *MockClientMockRecorder) PrintInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintInfo", reflect.TypeOf((*MockClient)(nil).PrintInfo), arg0)
 }
 
 // ReadSecret mocks base method.

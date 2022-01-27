@@ -40,7 +40,7 @@ type (
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
-		AskToConfirm() bool
+		AskToConfirm(string) bool
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
 		// Execute a bash command
@@ -55,6 +55,10 @@ type (
 		GetAliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
+		// PrintError print the error message
+		PrintError(error)
+		// PrintInfo print the command result or the question query
+		PrintInfo(string)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -101,17 +105,12 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
-func (c *client) AskToConfirm() bool {
-	msg, lang := c.SelectTranslation(confirmMessages)
-	fmt.Println(msg)
+func (c *client) AskToConfirm(info string) bool {
+	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	fmt.Println(message.String())
 	var confirm string
 	fmt.Scanf("%s", &confirm)
-	switch lang {
-	case config.Chinese:
-		return strings.EqualFold(confirm, "是")
-	default: // config.English
-		return strings.EqualFold(confirm, "yes")
-	}
+	return strings.EqualFold(confirm, "yes")
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
@@ -203,4 +202,14 @@ func (c *client) WriteConfig(cfg config.Config) error {
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	return nil
+}
+
+func (c *client) PrintError(err error) {
+	if err := output.PrintError(err); err != nil {
+		fmt.Println("Error:", err.Error())
+	}
+}
+
+func (c *client) PrintInfo(info string) {
+	output.PrintResult(info)
 }
