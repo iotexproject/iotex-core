@@ -63,23 +63,23 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-      cmd.SilenceErrors = true
+			cmd.SilenceErrors = true
 			var err error
 			var private crypto.PrivateKey
-      
+
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
-				if !CryptoSm2 {
+				if !c.GetCryptoSm2() {
 					private, err = crypto.GenerateKey()
 					if err != nil {
 						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
-					  return nil
+						return nil
 					}
 				} else {
 					private, err = crypto.GenerateKeySm2()
 					if err != nil {
-            c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKeySm2, err))
-					  return nil
+						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKeySm2, err))
+						return nil
 					}
 				}
 

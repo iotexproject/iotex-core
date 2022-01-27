@@ -62,7 +62,8 @@ func TestSign(t *testing.T) {
 	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
 			return keystore.NewKeyStore(keydir, scryptN, scryptP)
-		}).AnyTimes()
+		}).Times(15)
+	client.EXPECT().GetCryptoSm2().Return(false).Times(15)
 
 	account, err := ks.NewAccount(passwd)
 	require.NoError(err)
@@ -126,70 +127,75 @@ func TestAccount(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-			return keystore.NewKeyStore(keydir, scryptN, scryptP)
-		}).Times(2)
 
-	account, err := ks.NewAccount(passwd)
-	require.NoError(err)
-	addr, err := address.FromBytes(account.Address.Bytes())
-	require.NoError(err)
-	require.True(IsSignerExist(client, addr.String()))
+	t.Run("CryptoSm2 is false", func(t *testing.T) {
+		client.EXPECT().GetCryptoSm2().Return(false).Times(2)
+		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
+				return keystore.NewKeyStore(keydir, scryptN, scryptP)
+			}).Times(2)
 
-	oldCryptoSm2 := CryptoSm2
-	CryptoSm2 = true
-	account2, err := crypto.GenerateKeySm2()
-	require.NoError(err)
-	require.NotNil(account2)
-	addr2 := account2.PublicKey().Address()
-	require.NotNil(addr2)
-	require.False(IsSignerExist(client, addr2.String()))
-	_, err = keyStoreAccountToPrivateKey(client, addr2.String(), passwd)
-	require.Contains(err.Error(), "does not match all local keys")
-	filePath := sm2KeyPath(addr2)
-	addrString, err := storeKey(client, account2.HexString(), config.ReadConfig.Wallet, passwd)
-	require.NoError(err)
-	require.Equal(addr2.String(), addrString)
-	require.True(IsSignerExist(client, addr2.String()))
+		// test new account by ks
+		account, err := ks.NewAccount(passwd)
+		require.NoError(err)
+		addr, err := address.FromBytes(account.Address.Bytes())
+		require.NoError(err)
+		require.True(IsSignerExist(client, addr.String()))
 
-	// test findSm2PemFile
-	path, err := findSm2PemFile(addr2)
-	require.NoError(err)
-	require.Equal(filePath, path)
+		// test keystore conversion and signing
+		prvKey, err := keyStoreAccountToPrivateKey(client, addr.String(), passwd)
+		require.NoError(err)
+		msg := hash.Hash256b([]byte(nonce))
+		sig, err := prvKey.Sign(msg[:])
+		require.NoError(err)
+		require.True(prvKey.PublicKey().Verify(msg[:], sig))
 
-	// test listSm2Account
-	accounts, err := listSm2Account()
-	require.NoError(err)
-	require.Equal(1, len(accounts))
-	require.Equal(addr2.String(), accounts[0])
+		// test import existing key
+		sk, err := crypto.GenerateKey()
+		require.NoError(err)
+		p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+		require.Equal(true, ok)
+		account, err = ks.ImportECDSA(p256k1, passwd)
+		require.NoError(err)
+		require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
+	})
 
-	// test keystore conversion and signing
-	CryptoSm2 = false
-	prvKey, err := keyStoreAccountToPrivateKey(client, addr.String(), passwd)
-	require.NoError(err)
-	msg := hash.Hash256b([]byte(nonce))
-	sig, err := prvKey.Sign(msg[:])
-	require.NoError(err)
-	require.True(prvKey.PublicKey().Verify(msg[:], sig))
+	t.Run("CryptoSm2 is true", func(t *testing.T) {
+		client.EXPECT().GetCryptoSm2().Return(true).Times(4)
+		// test store unexisted key
+		account2, err := crypto.GenerateKeySm2()
+		require.NoError(err)
+		require.NotNil(account2)
+		addr2 := account2.PublicKey().Address()
+		require.NotNil(addr2)
+		require.False(IsSignerExist(client, addr2.String()))
+		_, err = keyStoreAccountToPrivateKey(client, addr2.String(), passwd)
+		require.Contains(err.Error(), "does not match all local keys")
+		filePath := sm2KeyPath(addr2)
+		addrString, err := storeKey(client, account2.HexString(), config.ReadConfig.Wallet, passwd)
+		require.NoError(err)
+		require.Equal(addr2.String(), addrString)
+		require.True(IsSignerExist(client, addr2.String()))
 
-	CryptoSm2 = true
-	prvKey2, err := keyStoreAccountToPrivateKey(client, addr2.String(), passwd)
-	require.NoError(err)
-	msg2 := hash.Hash256b([]byte(nonce))
-	sig2, err := prvKey2.Sign(msg2[:])
-	require.NoError(err)
-	require.True(prvKey2.PublicKey().Verify(msg2[:], sig2))
+		// test findSm2PemFile
+		path, err := findSm2PemFile(addr2)
+		require.NoError(err)
+		require.Equal(filePath, path)
 
-	// test import existing key
-	sk, err := crypto.GenerateKey()
-	require.NoError(err)
-	p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-	require.Equal(true, ok)
-	account, err = ks.ImportECDSA(p256k1, passwd)
-	require.NoError(err)
-	require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
-	CryptoSm2 = oldCryptoSm2
+		// test listSm2Account
+		accounts, err := listSm2Account()
+		require.NoError(err)
+		require.Equal(1, len(accounts))
+		require.Equal(addr2.String(), accounts[0])
+
+		// test keyStoreAccountToPrivateKey
+		prvKey2, err := keyStoreAccountToPrivateKey(client, addr2.String(), passwd)
+		require.NoError(err)
+		msg2 := hash.Hash256b([]byte(nonce))
+		sig2, err := prvKey2.Sign(msg2[:])
+		require.NoError(err)
+		require.True(prvKey2.PublicKey().Verify(msg2[:], sig2))
+	})
 }
 
 func TestGetAccountMeta(t *testing.T) {
@@ -279,63 +285,65 @@ func TestStoreKey(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-			return keystore.NewKeyStore(keydir, scryptN, scryptP)
-		}).Times(6)
 
-	oldCryptoSm2 := CryptoSm2
-	CryptoSm2 = false
-	account, err := ks.NewAccount(passwd)
-	require.NoError(err)
-	addr, err := address.FromBytes(account.Address.Bytes())
-	require.NoError(err)
-	t.Log(addr.String())
-	require.True(IsSignerExist(client, addr.String()))
+	t.Run("CryptoSm2 is false", func(t *testing.T) {
+		client.EXPECT().GetCryptoSm2().Return(false).Times(4)
+		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
+				return keystore.NewKeyStore(keydir, scryptN, scryptP)
+			}).Times(6)
 
-	// invalid private key
-	addrString, err := storeKey(client, account.Address.String(), config.ReadConfig.Wallet, passwd)
-	require.Error(err)
-	require.Contains(err.Error(), "failed to generate private key from hex string")
-	require.Equal("", addrString)
+		account, err := ks.NewAccount(passwd)
+		require.NoError(err)
+		addr, err := address.FromBytes(account.Address.Bytes())
+		require.NoError(err)
+		t.Log(addr.String())
+		require.True(IsSignerExist(client, addr.String()))
 
-	// valid private key
-	prvKey, err := keyStoreAccountToPrivateKey(client, addr.String(), passwd)
-	require.NoError(err)
-	// import the existed account addr
-	addrString, err = storeKey(client, prvKey.HexString(), config.ReadConfig.Wallet, passwd)
-	require.Error(err)
-	require.Contains(err.Error(), "failed to import private key into keystore")
-	require.Equal("", addrString)
+		// invalid private key
+		addrString, err := storeKey(client, account.Address.String(), config.ReadConfig.Wallet, passwd)
+		require.Error(err)
+		require.Contains(err.Error(), "failed to generate private key from hex string")
+		require.Equal("", addrString)
 
-	// import the unexisted account addr
-	prvKey, err = crypto.GenerateKey()
-	require.NoError(err)
-	addr = prvKey.PublicKey().Address()
-	require.NotNil(addr)
-	require.False(IsSignerExist(client, addr.String()))
-	addrString, err = storeKey(client, prvKey.HexString(), config.ReadConfig.Wallet, passwd)
-	require.NoError(err)
-	require.Equal(addr.String(), addrString)
-	t.Log(addr.String())
-	require.True(IsSignerExist(client, addr.String()))
+		// valid private key
+		prvKey, err := keyStoreAccountToPrivateKey(client, addr.String(), passwd)
+		require.NoError(err)
+		// import the existed account addr
+		addrString, err = storeKey(client, prvKey.HexString(), config.ReadConfig.Wallet, passwd)
+		require.Error(err)
+		require.Contains(err.Error(), "failed to import private key into keystore")
+		require.Equal("", addrString)
 
-	// test CryptoSm2 is true
-	CryptoSm2 = true
-	priKey2, err := crypto.GenerateKeySm2()
-	require.NoError(err)
-	addr2 := priKey2.PublicKey().Address()
-	require.NotNil(addr2)
-	require.False(IsSignerExist(client, addr2.String()))
+		// import the unexisted account addr
+		prvKey, err = crypto.GenerateKey()
+		require.NoError(err)
+		addr = prvKey.PublicKey().Address()
+		require.NotNil(addr)
+		require.False(IsSignerExist(client, addr.String()))
+		addrString, err = storeKey(client, prvKey.HexString(), config.ReadConfig.Wallet, passwd)
+		require.NoError(err)
+		require.Equal(addr.String(), addrString)
+		t.Log(addr.String())
+		require.True(IsSignerExist(client, addr.String()))
+	})
 
-	pemFilePath := sm2KeyPath(addr2)
-	require.NoError(crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), passwd))
-	require.True(IsSignerExist(client, addr2.String()))
+	t.Run("CryptoSm2 is true", func(t *testing.T) {
+		client.EXPECT().GetCryptoSm2().Return(true).Times(2)
+		priKey2, err := crypto.GenerateKeySm2()
+		require.NoError(err)
+		addr2 := priKey2.PublicKey().Address()
+		require.NotNil(addr2)
+		require.False(IsSignerExist(client, addr2.String()))
 
-	addrString2, err := storeKey(client, priKey2.HexString(), config.ReadConfig.Wallet, passwd)
-	require.NoError(err)
-	require.Equal(addr2.String(), addrString2)
-	CryptoSm2 = oldCryptoSm2
+		pemFilePath := sm2KeyPath(addr2)
+		require.NoError(crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), passwd))
+		require.True(IsSignerExist(client, addr2.String()))
+
+		addrString2, err := storeKey(client, priKey2.HexString(), config.ReadConfig.Wallet, passwd)
+		require.NoError(err)
+		require.Equal(addr2.String(), addrString2)
+	})
 }
 
 func newTestAccount() (string, *keystore.KeyStore, string, string, error) {

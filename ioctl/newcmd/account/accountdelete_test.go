@@ -27,17 +27,13 @@ func TestNewAccountDelete(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
-		config.English).AnyTimes()
+		config.English).Times(27)
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 	require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
 	defer func() {
 		require.NoError(t, os.RemoveAll(testAccountFolder))
 	}()
-	ks := keystore.NewKeyStore(testAccountFolder,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	acc, _ := ks.NewAccount("test")
-	accAddr, _ := address.FromBytes(acc.Address.Bytes())
 
 	client.EXPECT().GetAliasMap().DoAndReturn(
 		func() map[string]string {
@@ -47,36 +43,41 @@ func TestNewAccountDelete(t *testing.T) {
 			}
 			return aliases
 		}).Times(2)
-
 	client.EXPECT().Config().DoAndReturn(
 		func() config.Config {
 			config.ReadConfig.Wallet = testAccountFolder
 			return config.ReadConfig
 		}).Times(5)
 
-	oldCryptoSm2 := CryptoSm2
-	CryptoSm2 = false
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
-	client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
-	cmd := NewAccountDelete(client)
-	_, err := util.ExecuteCmd(cmd)
-	require.NoError(t, err)
+	t.Run("CryptoSm2 is false", func(t *testing.T) {
+		client.EXPECT().GetCryptoSm2().Return(false).Times(2)
+		ks := keystore.NewKeyStore(testAccountFolder,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		acc, _ := ks.NewAccount("test")
+		accAddr, _ := address.FromBytes(acc.Address.Bytes())
+		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
+		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
+		cmd := NewAccountDelete(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.NoError(t, err)
 
-	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-	cmd = NewAccountDelete(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.NoError(t, err)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		cmd = NewAccountDelete(client)
+		_, err = util.ExecuteCmd(cmd)
+		require.NoError(t, err)
+	})
 
-	CryptoSm2 = true
-	priKey2, _ := crypto.GenerateKeySm2()
-	addr2 := priKey2.PublicKey().Address()
-	pemFilePath := sm2KeyPath(addr2)
-	crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
-	client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
-	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-	cmd = NewAccountDelete(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.NoError(t, err)
-	CryptoSm2 = oldCryptoSm2
+	t.Run("CryptoSm2 is true", func(t *testing.T) {
+		client.EXPECT().GetCryptoSm2().Return(true).Times(1)
+		priKey2, _ := crypto.GenerateKeySm2()
+		addr2 := priKey2.PublicKey().Address()
+		pemFilePath := sm2KeyPath(addr2)
+		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
+		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		cmd := NewAccountDelete(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.NoError(t, err)
+	})
 }

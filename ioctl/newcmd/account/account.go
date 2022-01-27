@@ -62,9 +62,6 @@ var (
 	ErrPasswdNotMatch = errors.New("password doesn't match")
 )
 
-// CryptoSm2 is a flag for sm2 cryptographic algorithm
-var CryptoSm2 bool
-
 // NewAccountCmd represents the account command
 func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	accountUses, _ := client.SelectTranslation(accountCmdUses)
@@ -129,7 +126,7 @@ func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (
 		return nil, fmt.Errorf("invalid account #%s, addr %s", signer, addrString)
 	}
 
-	if CryptoSm2 {
+	if client.GetCryptoSm2() {
 		// find the account in pem files
 		pemFilePath := sm2KeyPath(addr)
 		prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
@@ -146,7 +143,6 @@ func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (
 			}
 		}
 	}
-
 	return nil, fmt.Errorf("account #%s does not match all local keys", signer)
 }
 
@@ -219,7 +215,7 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 		return false
 	}
 
-	if CryptoSm2 {
+	if client.GetCryptoSm2() {
 		// find the account in pem files
 		_, err = findSm2PemFile(addr)
 		return err == nil
