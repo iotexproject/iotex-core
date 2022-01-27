@@ -35,7 +35,7 @@ func TestNewAccountList(t *testing.T) {
 		ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
 		_, _ = ks.NewAccount("test")
 		_, _ = ks.NewAccount("test2")
-		
+
 		client.EXPECT().GetAliasMap().DoAndReturn(
 			func() map[string]string {
 				aliases := make(map[string]string)
