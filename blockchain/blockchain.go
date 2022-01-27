@@ -303,10 +303,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 		)
 	}
 
-	if !blk.Header.VerifySignature() {
-		return errors.Errorf("failed to verify block's signature with public key: %x", blk.PublicKey())
-	}
-	if err := blk.VerifyTxRoot(); err != nil {
+	if err := blk.VerifySignatureAndTxRoot(); err != nil {
 		return err
 	}
 

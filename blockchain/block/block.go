@@ -148,3 +148,11 @@ func (b *Block) ActionHashs() []string {
 	}
 	return actHash
 }
+
+// VerifySignatureAndTxRoot verifies the block signature and tx root
+func (b *Block) VerifySignatureAndTxRoot() error {
+	if !b.Header.VerifySignature() {
+		return errors.Errorf("failed to verify block's signature with public key: %x", b.PublicKey())
+	}
+	return b.VerifyTxRoot()
+}
