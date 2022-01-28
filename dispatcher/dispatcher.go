@@ -269,7 +269,6 @@ func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
 	if !ok {
 		return nil
 	}
-
 	return subscriber
 }
 
@@ -354,7 +353,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 		}
 		l++
 	} else {
-		log.L().Warn("dispatcher action chan is full, drop an event.")
+		log.L().Warn("dispatcher action channel is full, drop an event.")
 	}
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_ACTION, float32(l)/float32(c))
 }
@@ -382,7 +381,7 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer
 		}
 		l++
 	} else {
-		log.L().Warn("dispatcher block chan is full, drop an event.")
+		log.L().Warn("dispatcher block channel is full, drop an event.")
 	}
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK, float32(l)/float32(c))
 }
@@ -410,7 +409,7 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		}
 		l++
 	} else {
-		log.L().Warn("dispatcher sync chan is full, drop an event.")
+		log.L().Warn("dispatcher sync channel is full, drop an event.")
 	}
 	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(l)/float32(c))
 }
@@ -421,10 +420,8 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
 	}
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[chainID]
-	d.subscribersMU.RUnlock()
-	if !ok {
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", chainID))
 		return
 	}
