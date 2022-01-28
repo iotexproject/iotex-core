@@ -12,17 +12,21 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
 func TestNewAccountCreate(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
-		config.English).AnyTimes()
+		config.English).Times(5)
+	client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
+		output.PrintResult(info)
+	}).Times(1)
 	cmd := NewAccountCreate(client)
 	result, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, result)

@@ -67,6 +67,7 @@ func defaultConfig() Genesis {
 			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    13816441,
 			LordHoweBlockHeight:     13979161,
+			MidwayBlockHeight:       33816441,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -200,6 +201,12 @@ type (
 		// 1. recover the smart contracts affected by snapshot order
 		// 2. clear snapshots in Revert()
 		LordHoweBlockHeight uint64 `yaml:"lordHoweHeight"`
+		// MidwayBlockHeight is the start height to
+		// 1. allow correct and default ChainID
+		// 2. fix GetHashFunc in EVM
+		// 3. correct tx/log index for transaction receipt and EVM log
+		// 4. revert logs upon tx reversion in EVM
+		MidwayBlockHeight uint64 `yaml:"midwayHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
@@ -498,6 +505,11 @@ func (g *Blockchain) IsKamchatka(height uint64) bool {
 // IsLordHowe checks whether height is equal to or larger than lordHowe height
 func (g *Blockchain) IsLordHowe(height uint64) bool {
 	return g.isPost(g.LordHoweBlockHeight, height)
+}
+
+// IsMidway checks whether height is equal to or larger than midway height
+func (g *Blockchain) IsMidway(height uint64) bool {
+	return g.isPost(g.MidwayBlockHeight, height)
 }
 
 // IsToBeEnabled checks whether height is equal to or larger than toBeEnabled height

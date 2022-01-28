@@ -35,7 +35,7 @@ func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
 	}
 }
 
-func (b *blockBuffer) Delete(height uint64) []*peerBlock {
+func (b *blockBuffer) Pop(height uint64) []*peerBlock {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	queue, ok := b.blockQueues[height]
