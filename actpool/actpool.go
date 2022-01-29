@@ -373,17 +373,9 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 	if queue == nil {
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
-
-		// Initialize pending nonce for new account
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
-		// Initialize balance for new account
-		state, err := accountutil.AccountState(ap.sf, addr)
-		if err != nil {
-			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
-			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
-		}
-		queue.SetPendingBalance(state.Balance)
+		// Initialize pending nonce and balance for new account
+		queue.SetPendingNonce(confirmedNonce + 1)
+		queue.SetPendingBalance(confirmedState.Balance)
 	}
 
 	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {

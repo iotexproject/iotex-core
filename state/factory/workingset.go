@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -124,7 +123,9 @@ func (ws *workingSet) runActions(
 			receipts = append(receipts, receipt)
 		}
 	}
-
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	return receipts, nil
 }
 
@@ -159,14 +160,9 @@ func (ws *workingSet) runAction(
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
-	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsToBeEnabled(ws.height) {
-		if elp.ChainID() != blkChainCtx.ChainID {
-			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
-		}
+	if err := validateChainID(ctx, elp.ChainID()); err != nil {
+		return nil, err
 	}
-
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
@@ -191,6 +187,15 @@ func (ws *workingSet) runAction(
 	}
 	// TODO (zhi): return error
 	return nil, nil
+}
+
+func validateChainID(ctx context.Context, chainID uint32) error {
+	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.AllowCorrectDefaultChainID && (chainID != blkChainCtx.ChainID && chainID != 0) {
+		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
+	}
+	return nil
 }
 
 func (ws *workingSet) finalize() error {
@@ -404,6 +409,7 @@ func (ws *workingSet) pickAndRunActions(
 
 	// initial action iterator
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	ctxWithBlockContext := ctx
 	if ap != nil {
 		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
 		for {
@@ -415,10 +421,11 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+			actionCtx, err := withActionCtx(ctxWithBlockContext, nextAction)
+			if err == nil {
 				for _, p := range reg.All() {
 					if validator, ok := p.(protocol.ActionValidator); ok {
-						if err = validator.Validate(ctx, nextAction.Action(), ws); err != nil {
+						if err = validator.Validate(actionCtx, nextAction.Action(), ws); err != nil {
 							break
 						}
 					}
@@ -433,7 +440,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			}
-			receipt, err := ws.runAction(ctx, nextAction)
+			receipt, err := ws.runAction(actionCtx, nextAction)
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
@@ -451,7 +458,7 @@ func (ws *workingSet) pickAndRunActions(
 			}
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
-				ctx = protocol.WithBlockCtx(ctx, blkCtx)
+				ctxWithBlockContext = protocol.WithBlockCtx(ctx, blkCtx)
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, nextAction)
@@ -465,10 +472,11 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	for _, selp := range postSystemActions {
-		if ctx, err = withActionCtx(ctx, selp); err != nil {
+		actionCtx, err := withActionCtx(ctxWithBlockContext, selp)
+		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctx, selp)
+		receipt, err := ws.runAction(actionCtx, selp)
 		if err != nil {
 			return nil, err
 		}
@@ -477,9 +485,20 @@ func (ws *workingSet) pickAndRunActions(
 		}
 		executedActions = append(executedActions, selp)
 	}
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize()
+}
+
+func updateReceiptIndex(receipts []*action.Receipt) {
+	var txIndex, logIndex uint32
+	for _, r := range receipts {
+		logIndex = r.UpdateIndex(txIndex, logIndex)
+		txIndex++
+	}
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {

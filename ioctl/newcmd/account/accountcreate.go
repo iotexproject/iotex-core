@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -57,15 +57,18 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
 				private, err := crypto.GenerateKey()
 				if err != nil {
-					return output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err)
+					c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
+					return nil
 				}
 				addr := private.PublicKey().Address()
 				if addr == nil {
-					return output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil)
+					c.PrintError(output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil))
+					return nil
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),
@@ -76,14 +79,11 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			}
 
 			message := createMessage{Accounts: newAccounts}
-
-			fmt.Println(message.String())
+			c.PrintInfo(message.String())
 			return nil
-
 		},
 	}
 	ac.Flags().UintVarP(&numAccounts, "num", "n", 1, usage)
-
 	return ac
 }
 

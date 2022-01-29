@@ -3,12 +3,15 @@ package api
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -24,6 +27,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -266,12 +271,46 @@ func (svr *GRPCServer) EstimateGasForAction(ctx context.Context, in *iotexapi.Es
 }
 
 // EstimateActionGasConsumption estimate gas consume for action without signature
-func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (respone *iotexapi.EstimateActionGasConsumptionResponse, err error) {
-	ret, err := svr.coreService.EstimateActionGasConsumption(ctx, in)
-	if err != nil {
-		return nil, err
+func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+	if in.GetExecution() != nil {
+		callerAddr, err := address.FromString(in.GetCallerAddress())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, in.GetExecution(), callerAddr)
+		if err != nil {
+			return nil, err
+		}
+		return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
 	}
-	return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
+	var intrinsicGas, payloadGas, payloadSize uint64
+	switch {
+	case in.GetTransfer() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(in.GetTransfer().Payload))
+	case in.GetStakeCreate() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas, uint64(len(in.GetStakeCreate().Payload))
+	case in.GetStakeUnstake() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(in.GetStakeUnstake().Payload))
+	case in.GetStakeWithdraw() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(in.GetStakeWithdraw().Payload))
+	case in.GetStakeAddDeposit() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas, uint64(len(in.GetStakeAddDeposit().Payload))
+	case in.GetStakeRestake() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.RestakeBaseIntrinsicGas, action.RestakePayloadGas, uint64(len(in.GetStakeRestake().Payload))
+	case in.GetStakeChangeCandidate() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(in.GetStakeChangeCandidate().Payload))
+	case in.GetStakeTransferOwnership() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(in.GetStakeTransferOwnership().Payload))
+	case in.GetCandidateRegister() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas, uint64(len(in.GetCandidateRegister().Payload))
+	case in.GetCandidateUpdate() != nil:
+		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 0, 0
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid argument")
+	}
+	return &iotexapi.EstimateActionGasConsumptionResponse{
+		Gas: svr.coreService.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize),
+	}, nil
 }
 
 // GetEpochMeta gets epoch metadata
@@ -379,4 +418,74 @@ func (svr *GRPCServer) ReadContractStorage(ctx context.Context, in *iotexapi.Rea
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.ReadContractStorageResponse{Data: b}, nil
+}
+
+// TraceTransactionStructLogs get trace transaction struct logs
+func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotexapi.TraceTransactionStructLogsRequest) (*iotexapi.TraceTransactionStructLogsResponse, error) {
+	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(in.GetActionHash()), false)
+	if err != nil {
+		return nil, err
+	}
+	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
+	}
+
+	amount, _ := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
+	callerAddr, err := address.FromString(actInfo.Sender)
+	if err != nil {
+		return nil, err
+	}
+	state, err := accountutil.AccountState(svr.coreService.sf, callerAddr)
+	if err != nil {
+		return nil, err
+	}
+	ctx, err = svr.coreService.bc.Context(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tracer := vm.NewStructLogger(nil)
+	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
+		Debug:     true,
+		Tracer:    tracer,
+		NoBaseFee: true,
+	})
+	sc, _ := action.NewExecution(
+		exec.Execution.GetContract(),
+		state.Nonce+1,
+		amount,
+		svr.coreService.cfg.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		exec.Execution.GetData(),
+	)
+
+	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	structLogs := make([]*iotextypes.TransactionStructLog, 0)
+	for _, log := range tracer.StructLogs() {
+		var stack []string
+		for _, s := range log.Stack {
+			stack = append(stack, s.String())
+		}
+		structLogs = append(structLogs, &iotextypes.TransactionStructLog{
+			Pc:         log.Pc,
+			Op:         uint64(log.Op),
+			Gas:        log.Gas,
+			GasCost:    log.GasCost,
+			Memory:     fmt.Sprintf("%#x", log.Memory),
+			MemSize:    int32(log.MemorySize),
+			Stack:      stack,
+			ReturnData: fmt.Sprintf("%#x", log.ReturnData),
+			Depth:      int32(log.Depth),
+			Refund:     log.RefundCounter,
+			OpName:     log.OpName(),
+			Error:      log.ErrorString(),
+		})
+	}
+	return &iotexapi.TraceTransactionStructLogsResponse{
+		StructLogs: structLogs,
+	}, nil
 }

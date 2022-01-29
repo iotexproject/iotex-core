@@ -75,6 +75,7 @@ func accountDelete(arg string) error {
 		for _, v := range ks.Accounts() {
 			if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 				filePath = v.URL.Path
+				break
 			}
 		}
 	}

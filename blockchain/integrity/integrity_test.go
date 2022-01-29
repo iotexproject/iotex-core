@@ -42,7 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -396,6 +395,10 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
+	setHash, err = ex1.Hash()
+	if err != nil {
+		return err
+	}
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
@@ -441,6 +444,10 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	data, _ = hex.DecodeString("c2bc2efc")
 	data = append(data, getTopic...)
 	ex1, err = action.SignedExecution(contract, priKey2, 3, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	sarHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -513,6 +520,25 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), tsf8); err != nil {
 		return err
 	}
+	// call set() to set storedData = 0x1f40
+	data, _ = hex.DecodeString("60fe47b1")
+	data = append(data, setTopic...)
+	ex1, err = action.SignedExecution(contract, priKey2, 4, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), ex1); err != nil {
+		return err
+	}
+	data, _ = hex.DecodeString("c2bc2efc")
+	data = append(data, getTopic...)
+	ex1, err = action.SignedExecution(contract, priKey2, 5, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), ex1); err != nil {
+		return err
+	}
 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
@@ -557,7 +583,6 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NotNil(bc)
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
-	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
@@ -576,7 +601,8 @@ func TestGetBlockHash(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.HawaiiBlockHeight = 3
+	cfg.Genesis.HawaiiBlockHeight = 4
+	cfg.Genesis.MidwayBlockHeight = 9
 	cfg.ActPool.MinGasPriceStr = "0"
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash(&config.Default.Genesis)
@@ -608,15 +634,14 @@ func TestGetBlockHash(t *testing.T) {
 	require.NotNil(bc)
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
-	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
 
-	addTestingGetBlockHash(t, cfg.Genesis.HawaiiBlockHeight, bc, dao, ap)
+	addTestingGetBlockHash(t, cfg.Genesis, bc, dao, ap)
 }
 
-func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
+func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
 	require := require.New(t)
 	priKey0 := identityset.PrivateKey(27)
 
@@ -677,7 +702,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		return ex1Hash, nil
 	}
 
-	getBlockHash := func(x int64) []byte {
+	getBlockHashCallData := func(x int64) []byte {
 		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
 		// convert block number to uint256 (32-bytes)
 		blockNumber := hash.BytesToHash256(big.NewInt(x).Bytes())
@@ -686,48 +711,53 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 
 	var (
 		zero     = big.NewInt(0)
+		nonce    = uint64(2)
 		gasLimit = testutil.TestGasLimit * 5
 		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
+		bcHash   hash.Hash256
 	)
-
-	acHash2, err := addOneBlock(contract, 2, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to all zero
-	require.NoError(err)
-	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to block 2
-	require.NoError(err)
-	acHash4, err := addOneBlock(contract, 4, zero, gasLimit, gasPrice, getBlockHash(1)) // equal to block 2
-	require.NoError(err)
-	acHash5, err := addOneBlock(contract, 5, zero, gasLimit, gasPrice, getBlockHash(3)) // equal to block 1
-	require.NoError(err)
-	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, getBlockHash(2)) // equal to block 3
-	require.NoError(err)
-	acHash7, err := addOneBlock(contract, 7, zero, gasLimit, gasPrice, getBlockHash(6)) // equal to genesis block
-	require.NoError(err)
-
 	tests := []struct {
-		acHash       hash.Hash256
-		commitHeight uint64
-		targetHeight uint64
+		commitHeight  uint64
+		getHashHeight uint64
 	}{
-		{acHash2, 2, 0},
-		{acHash3, 3, 2},
-		{acHash4, 4, 2},
-		{acHash5, 5, 1},
-		{acHash6, 6, 3},
-		{acHash7, 7, 0},
+		{2, 0},
+		{3, 5},
+		{4, 1},
+		{5, 3},
+		{6, 0},
+		{7, 6},
+		{8, 9},
+		{9, 3},
+		{10, 9},
+		{11, 1},
+		{12, 4},
+		{13, 0},
+		{14, 100},
+		{15, 15},
 	}
 	for _, test := range tests {
-		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
+		h, err := addOneBlock(contract, nonce, zero, gasLimit, gasPrice, getBlockHashCallData(int64(test.getHashHeight)))
 		require.NoError(err)
-		var bcHash hash.Hash256
-		if test.commitHeight < hawaiiHeight {
+		r, err := dao.GetReceiptByActionHash(h, test.commitHeight)
+		require.NoError(err)
+		if test.getHashHeight >= test.commitHeight {
+			bcHash = hash.ZeroHash256
+		} else if test.commitHeight < g.HawaiiBlockHeight {
 			// before hawaii it mistakenly return zero hash
 			// see https://github.com/iotexproject/iotex-core/commit/2585b444214f9009b6356fbaf59c992e8728fc01
 			bcHash = hash.ZeroHash256
 		} else {
-			bcHash, err = dao.GetBlockHash(test.targetHeight)
+			var targetHeight uint64
+			if test.commitHeight < g.MidwayBlockHeight {
+				targetHeight = test.commitHeight - (test.getHashHeight + 1)
+			} else {
+				targetHeight = test.getHashHeight
+			}
+			bcHash, err = dao.GetBlockHash(targetHeight)
 			require.NoError(err)
 		}
 		require.Equal(r.Logs()[0].Topics[0], bcHash)
+		nonce++
 	}
 }
 
@@ -946,41 +976,49 @@ func TestConstantinople(t *testing.T) {
 		// at that time, the test is run with both EVM version (Byzantium vs. Constantinople), and it generates the
 		// same exact block hash, so these values stood as gatekeeper for backward-compatibility
 		hashTopic := []struct {
+			height  uint64
 			h       hash.Hash256
 			blkHash string
 			topic   []byte
 		}{
 			{
+				1,
 				deployHash,
 				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
 				nil,
 			},
 			{
+				2,
 				setHash,
 				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
 				setTopic,
 			},
 			{
+				3,
 				shrHash,
 				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
 				shrTopic,
 			},
 			{
+				4,
 				shlHash,
 				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
 				shlTopic,
 			},
 			{
+				5,
 				sarHash,
 				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
 				sarTopic,
 			},
 			{
+				6,
 				extHash,
 				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
 				extTopic,
 			},
 			{
+				7,
 				crt2Hash,
 				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
 				crt2Topic,
@@ -988,37 +1026,40 @@ func TestConstantinople(t *testing.T) {
 		}
 
 		// test getReceipt
-		for i := range hashTopic {
-			actHash := hashTopic[i].h
-			ai, err := indexer.GetActionIndex(actHash[:])
+		for _, v := range hashTopic {
+			ai, err := indexer.GetActionIndex(v.h[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(actHash, ai.BlockHeight())
+			require.Equal(v.height, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(v.h, v.height)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
-			require.Equal(actHash, r.ActionHash)
-			require.Equal(uint64(i)+1, r.BlockHeight)
-			a, _, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
+			require.Equal(v.h, r.ActionHash)
+			require.Equal(v.height, r.BlockHeight)
+			if v.height == 1 {
+				require.Equal("io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn", r.ContractAddress)
+			} else {
+				require.Empty(r.ContractAddress)
+			}
+			a, _, err := dao.GetActionByActionHash(v.h, v.height)
 			require.NoError(err)
 			require.NotNil(a)
 			aHash, err := a.Hash()
 			require.NoError(err)
-			require.Equal(actHash, aHash)
+			require.Equal(v.h, aHash)
 
-			actIndex, err := indexer.GetActionIndex(actHash[:])
+			blkHash, err := dao.GetBlockHash(v.height)
 			require.NoError(err)
-			blkHash, err := dao.GetBlockHash(actIndex.BlockHeight())
-			require.NoError(err)
-			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
+			require.Equal(v.blkHash, hex.EncodeToString(blkHash[:]))
 
-			if hashTopic[i].topic != nil {
+			if v.topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
-				blk, err := dao.GetBlockByHeight(1 + uint64(i))
+				blk, err := dao.GetBlockByHeight(v.height)
 				require.NoError(err)
 				f := blk.Header.LogsBloomfilter()
 				require.NotNil(f)
 				require.True(f.Exist(funcSig[:]))
-				require.True(f.Exist(hashTopic[i].topic))
+				require.True(f.Exist(v.topic))
 			}
 		}
 
@@ -1291,6 +1332,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(setTopic))
+			r, err = dao.GetReceiptByActionHash(setHash, 3)
+			require.NoError(err)
+			require.EqualValues(1, r.Status)
+			require.EqualValues(3, r.BlockHeight)
+			require.Empty(r.ContractAddress)
 
 			// 3 topics in block 4 calling get()
 			funcSig = hash.Hash256b([]byte("Get(address,uint256)"))
@@ -1301,6 +1347,16 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(setTopic))
 			require.True(f.Exist(getTopic))
+			r, err = dao.GetReceiptByActionHash(sarHash, 4)
+			require.NoError(err)
+			require.EqualValues(1, r.Status)
+			require.EqualValues(4, r.BlockHeight)
+			require.Empty(r.ContractAddress)
+
+			// txIndex/logIndex corrected in block 5
+			blk, err = dao.GetBlockByHeight(5)
+			require.NoError(err)
+			verifyTxLogIndex(require, dao, blk, 10, 2)
 
 			// verify genesis block index
 			bi, err := indexer.GetBlockIndex(0)
@@ -1378,10 +1434,39 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = "308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6"
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
+	cfg.Genesis.MidwayBlockHeight = 5
 
 	t.Run("load blockchain from DB", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
+}
+
+// verify the block contains all tx/log indices up to txIndex and logIndex
+func verifyTxLogIndex(r *require.Assertions, dao blockdao.BlockDAO, blk *block.Block, txIndex int, logIndex uint32) {
+	r.Equal(txIndex, len(blk.Actions))
+	receipts, err := dao.GetReceipts(blk.Height())
+	r.NoError(err)
+	r.Equal(txIndex, len(receipts))
+
+	logs := make(map[uint32]bool)
+	for i := uint32(0); i < logIndex; i++ {
+		logs[i] = true
+	}
+	for i, v := range receipts {
+		r.EqualValues(1, v.Status)
+		r.EqualValues(i, v.TxIndex)
+		h, err := blk.Actions[i].Hash()
+		r.NoError(err)
+		r.Equal(h, v.ActionHash)
+		// verify log index
+		for _, l := range v.Logs() {
+			r.Equal(h, l.ActionHash)
+			r.EqualValues(i, l.TxIndex)
+			r.True(logs[l.Index])
+			delete(logs, l.Index)
+		}
+	}
+	r.Zero(len(logs))
 }
 
 func TestBlockchainInitialCandidate(t *testing.T) {
@@ -1685,7 +1770,7 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, kv, dao, ap := newChain(t, statetx)
+	bc, sf, _, dao, ap := newChain(t, statetx)
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, ap, t)
@@ -1695,7 +1780,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err := accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the original balance
-	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
+	balance := BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
 	expect, ok := big.NewInt(0).SetString("2000000000000000000000000000", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1704,7 +1789,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err = accountutil.AccountState(sf, contractAddr)
 	require.NoError(err)
 	// check the balance after transfer
-	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
+	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
 	expect, ok = big.NewInt(0).SetString("1999999999999999999999999999", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1714,9 +1799,10 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
 		require.True(errors.Cause(err) == factory.ErrNotSupported)
 	} else {
-		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contractAddr)
+		sr := factory.NewHistoryStateReader(sf, bc.TipHeight()-1)
+		account, err = accountutil.AccountState(sr, contractAddr)
 		require.NoError(err)
-		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
+		balance = BalanceOfContract(contract, genesisAccount, sr, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
 		require.True(ok)
 		require.Equal(expect, balance)
@@ -1751,13 +1837,12 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 	return r.ContractAddress
 }
 
-func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testing.T, root hash.Hash256) *big.Int {
+func BalanceOfContract(contract, genesisAccount string, sr protocol.StateReader, t *testing.T, root hash.Hash256) *big.Int {
 	require := require.New(t)
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	dbForTrie, err := trie.NewKVStore(evm.ContractKVNameSpace, kv)
-	require.NoError(err)
+	dbForTrie := protocol.NewKVStoreForTrieWithStateReader(evm.ContractKVNameSpace, sr)
 	options := []mptrie.Option{
 		mptrie.KVStoreOption(dbForTrie),
 		mptrie.KeyLengthOption(len(hash.Hash256{})),

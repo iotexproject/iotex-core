@@ -8,15 +8,16 @@ package alias
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
@@ -81,7 +82,7 @@ func EtherAddress(in string) (common.Address, error) {
 	if err != nil {
 		return common.Address{}, output.NewError(output.AddressError, "", err)
 	}
-	return util.IoAddrToEvmAddr(addr)
+	return addrutil.IoAddrToEvmAddr(addr)
 }
 
 // Alias returns the alias corresponding to address

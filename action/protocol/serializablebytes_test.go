@@ -4,23 +4,21 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package evm
+package protocol
 
-// SerializableBytes defines a type of serializable bytes
-type SerializableBytes []byte
+import (
+	"bytes"
+	"testing"
 
-// Serialize copies and return bytes
-func (sb SerializableBytes) Serialize() ([]byte, error) {
-	data := make([]byte, len(sb))
-	copy(data, sb)
+	"github.com/stretchr/testify/require"
+)
 
-	return data, nil
-}
-
-// Deserialize copies data into bytes
-func (sb *SerializableBytes) Deserialize(data []byte) error {
-	*sb = make([]byte, len(data))
-	copy(*sb, data)
-
-	return nil
+func TestSerializableBytes(t *testing.T) {
+	require := require.New(t)
+	data := []byte("some data")
+	var sb SerializableBytes
+	require.NoError(sb.Deserialize(data))
+	c, err := sb.Serialize()
+	require.NoError(err)
+	require.True(bytes.Equal(data, c))
 }

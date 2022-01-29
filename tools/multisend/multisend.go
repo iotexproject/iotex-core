@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func multiSend(args []string) (string, error) {
 	recipients := make([]common.Address, 0)
 	amounts := make([]*big.Int, 0)
 	for _, target := range targetSet.Targets {
-		recipient, err := util.IoAddrToEvmAddr(target.Recipient)
+		recipient, err := addrutil.IoAddrToEvmAddr(target.Recipient)
 		if err != nil {
 			return "", err
 		}
