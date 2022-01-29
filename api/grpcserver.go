@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -337,9 +338,29 @@ func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 
 // GetLogs get logs filtered by contract address and topics
 func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
-	ret, err := svr.coreService.Logs(in)
+	if in.GetFilter() == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty filter")
+	}
+	var (
+		ret []*iotextypes.Log
+		err error
+	)
+	switch {
+	case in.GetByBlock() != nil:
+		var blkHeight uint64
+		blkHeight, err = svr.coreService.dao.GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+		}
+		ret, err = svr.coreService.GetLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), blkHeight)
+	case in.GetByRange() != nil:
+		req := in.GetByRange()
+		ret, err = svr.coreService.GetLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
+	}
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &iotexapi.GetLogsResponse{Logs: ret}, err
 }
