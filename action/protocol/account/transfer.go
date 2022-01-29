@@ -127,11 +127,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	receipt := &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
+		Status:      uint64(iotextypes.ReceiptStatus_Success),
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+		GasConsumed: actionCtx.IntrinsicGas,
 	}
 	receipt.AddTransactionLogs(&action.TransactionLog{
 		Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
