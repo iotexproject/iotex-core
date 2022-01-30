@@ -88,6 +88,21 @@ func (ex *Execution) TotalSize() uint32 {
 	return size + uint32(len(ex.data))
 }
 
+// SetGasLimit sets gaslimit
+func (ex *Execution) SetGasLimit(val uint64) {
+	ex.gasLimit = val
+}
+
+// SetNonce sets gaslimit
+func (ex *Execution) SetNonce(val uint64) {
+	ex.nonce = val
+}
+
+// SetGasPrice sets gaslimit
+func (ex *Execution) SetGasPrice(val *big.Int) {
+	ex.gasPrice = val
+}
+
 // Serialize returns a raw byte stream of this Transfer
 func (ex *Execution) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ex.Proto()))
@@ -125,7 +140,7 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 // IntrinsicGas returns the intrinsic gas of an execution
 func (ex *Execution) IntrinsicGas() (uint64, error) {
 	dataSize := uint64(len(ex.Data()))
-	return calculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, dataSize)
+	return CalculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, dataSize)
 }
 
 // Cost returns the cost of an execution

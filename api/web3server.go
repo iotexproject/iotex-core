@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -175,6 +176,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			method = web3Req.Get("method").Value()
 		)
 		switch method {
+		case "eth_accounts":
+			res, err = svr.ethAccounts()
 		case "eth_gasPrice":
 			res, err = svr.gasPrice()
 		case "eth_getBlockByHash":
@@ -245,7 +248,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
-		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
+		case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
@@ -314,6 +317,10 @@ func packAPIResult(res interface{}, err error, id int) interface{} {
 		ID:      id,
 		Result:  res,
 	}
+}
+
+func (svr *Web3Server) ethAccounts() (interface{}, error) {
+	return []string{}, nil
 }
 
 func (svr *Web3Server) gasPrice() (interface{}, error) {
@@ -409,15 +416,8 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 	if to == metamaskBalanceContractAddr {
 		return nil, nil
 	}
-	ret, _, err := svr.coreService.ReadContract(context.Background(),
-		&iotextypes.Execution{
-			Amount:   value.String(),
-			Contract: to,
-			Data:     data,
-		},
-		callerAddr,
-		gasLimit,
-	)
+	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -425,30 +425,24 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 }
 
 func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
-	from, to, _, value, data, err := parseCallObject(in)
+	from, to, gasLimit, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
 
 	var estimatedGas uint64
-	isContract, _ := svr.isContractAddr(to)
-	// TODO: support more types of actions
-	switch isContract {
-	case true:
-		// execution
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(),
-			&iotextypes.Execution{
-				Amount:   value.String(),
-				Contract: to,
-				Data:     data,
-			}, from)
+	if isContract, _ := svr.isContractAddr(to); isContract {
+		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 		if err != nil {
 			return nil, err
 		}
-	case false:
-		// transfer
-		estimatedGas = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas,
-			action.TransferPayloadGas, uint64(len(data)))
+	} else {
+		// TODO: support staking actions
+		estimatedGas, err = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(data)))
+		if err != nil {
+			return nil, err
+		}
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000

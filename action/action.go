@@ -118,7 +118,7 @@ func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
 	return tsfs, exes
 }
 
-func calculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
+func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
 	if payloadGas == 0 {
 		panic("payload gas price cannot be zero")
 	}

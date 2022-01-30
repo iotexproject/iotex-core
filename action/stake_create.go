@@ -133,7 +133,7 @@ func (cs *CreateStake) LoadProto(pbAct *iotextypes.StakeCreate) error {
 // IntrinsicGas returns the intrinsic gas of a CreateStake
 func (cs *CreateStake) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(cs.Payload()))
-	return calculateIntrinsicGas(CreateStakeBaseIntrinsicGas, CreateStakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(CreateStakeBaseIntrinsicGas, CreateStakePayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a CreateStake
