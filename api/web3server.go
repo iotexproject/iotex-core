@@ -474,8 +474,8 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	chainID := svr.coreService.EVMNetworkID()
-	tx, isEthEncoding, err := action.DecodeRawTx(dataStr, chainID)
+	evmNetworkID := svr.coreService.EVMNetworkID()
+	tx, sig, isEthEncoding, err := action.DecodeRawTx(dataStr, evmNetworkID)
 	if err != nil {
 		return nil, err
 	}
@@ -499,9 +499,9 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 			Nonce:    tx.Nonce(),
 			GasLimit: tx.Gas(),
 			GasPrice: gasPrice,
-			// TODO: change the chainid to svr.coreService.ChainID()
-			ChainID: 0,
+			ChainID:  svr.coreService.ChainID(),
 		},
+		Signature: sig,
 	}
 
 	// TODO: process special staking action
@@ -526,15 +526,10 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		}
 	}
 
-	// extract signature from tx
-	if req.Signature, err = action.GetSignatureFromEthTX(tx, chainID); err != nil {
-		return nil, err
-	}
-
 	var rawHash []byte
 	if isEthEncoding {
 		req.Encoding = iotextypes.Encoding_ETHEREUM_RLP
-		h := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+		h := types.NewEIP155Signer(big.NewInt(int64(evmNetworkID))).Hash(tx)
 		rawHash = h[:]
 	} else {
 		req.Encoding = iotextypes.Encoding_IOTEX_PROTOBUF

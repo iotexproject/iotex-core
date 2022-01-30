@@ -23,6 +23,17 @@ type rlpTransaction interface {
 	Payload() []byte
 }
 
+type ActionType uint32
+
+const (
+	unsupportedTxType ActionType = 0
+
+	legacyTxType ActionType = 1
+
+	ledgerTxType ActionType = 2
+	ledgerTxByte byte       = 0x71 // TODO: to be dertermined
+)
+
 func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
 	rawTx, err := rlpToEthTx(tx)
 	if err != nil {
@@ -81,26 +92,26 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 }
 
 // DecodeRawTx decodes raw data string into eth tx
-func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, bool, error) {
+func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, []byte, bool, error) {
 	//remove Hex prefix and decode string to byte
-	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
+	dataInBytes, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	// decode raw data into rlp tx
-	unwrapper := &transactionUnwrapper{}
-	if err = rlp.DecodeBytes(dataInString, unwrapper); err != nil {
-		return nil, false, err
+	// handle special action if transactionType(eip-2718) is set
+	actType, dataInBytes := handleSpecialActionType(dataInBytes)
+	if actType == unsupportedTxType {
+		return nil, nil, false, errors.New("unsupported action type")
 	}
-	return unwrapper.tx, unwrapper.isEthEncoding, nil
-}
 
-// GetSignatureFromEthTX calculates signature from tx
-func GetSignatureFromEthTX(tx *types.Transaction, chainID uint32) ([]byte, error) {
-	if tx == nil {
-		return nil, errors.New("pointer is nil")
+	// decode raw data into eth tx
+	tx := &types.Transaction{}
+	if rlp.DecodeBytes(dataInBytes, tx) != nil {
+		return nil, nil, false, err
 	}
+
+	// extract signature
 	v, r, s := tx.RawSignatureValues()
 	recID := uint32(v.Int64()) - 2*chainID - 8
 	sig := make([]byte, 64, 65)
@@ -109,67 +120,21 @@ func GetSignatureFromEthTX(tx *types.Transaction, chainID uint32) ([]byte, error
 	sSize := len(s.Bytes())
 	copy(sig[64-sSize:], s.Bytes())
 	sig = append(sig, byte(recID))
-	return sig, nil
+
+	return tx, sig, actType == legacyTxType, nil
 }
 
-type (
-	// transactionUnwrapper is a unwrapper for the Ethereum transaction.
-	transactionUnwrapper struct {
-		tx            *types.Transaction
-		isEthEncoding bool
+func handleSpecialActionType(data []byte) (ActionType, []byte) {
+	if len(data) == 0 {
+		return legacyTxType, data
 	}
-
-	legacyTxWithEncodingType struct {
-		// data fields of legacy transaction.
-		Nonce    uint64
-		GasPrice *big.Int
-		Gas      uint64
-		To       *common.Address `rlp:"nil"`
-		Value    *big.Int
-		Data     []byte
-		V, R, S  *big.Int
-		// extra field to identify tx signed from ledgers which use native signing method
-		EncodingType []byte `rlp:"optional"`
+	if data[0] > 0x7f {
+		return legacyTxType, data
 	}
-)
-
-// DecodeRLP implements eth.rlp.Decoder
-func (unwrapper *transactionUnwrapper) DecodeRLP(s *rlp.Stream) error {
-	kind, _, err := s.Kind()
-	if err != nil {
-		return err
-	}
-	switch kind {
-	case rlp.List:
-		outter := legacyTxWithEncodingType{}
-		if err := s.Decode(&outter); err != nil {
-			return err
-		}
-		unwrapper.tx = types.NewTx(outter.exportLegacyTx())
-		unwrapper.isEthEncoding = outter.isEthEncoding()
-		return nil
+	switch data[0] {
+	case ledgerTxByte:
+		return ledgerTxType, data[1:]
 	default:
-		return rlp.ErrExpectedList
+		return unsupportedTxType, data
 	}
-}
-
-func (tx *legacyTxWithEncodingType) exportLegacyTx() *types.LegacyTx {
-	return &types.LegacyTx{
-		Nonce:    tx.Nonce,
-		GasPrice: tx.GasPrice,
-		Gas:      tx.Gas,
-		To:       tx.To,
-		Value:    tx.Value,
-		Data:     tx.Data,
-		V:        tx.V,
-		R:        tx.R,
-		S:        tx.S,
-	}
-}
-
-func (tx *legacyTxWithEncodingType) isEthEncoding() bool {
-	if len(tx.EncodingType) > 0 && hex.EncodeToString(tx.EncodingType) == "01" {
-		return false
-	}
-	return true
 }
