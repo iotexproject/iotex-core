@@ -27,11 +27,10 @@ type ActionType uint32
 
 const (
 	unsupportedTxType ActionType = 0
+	legacyTxType      ActionType = 1
+	ledgerTxType      ActionType = 2
 
-	legacyTxType ActionType = 1
-
-	ledgerTxType ActionType = 2
-	ledgerTxByte byte       = 0x71 // TODO: to be dertermined
+	ledgerTxByte byte = 0x71 // TODO: to be dertermined
 )
 
 func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
