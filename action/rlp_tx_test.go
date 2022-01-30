@@ -2,6 +2,7 @@ package action
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -71,7 +73,7 @@ func TestGenerateRlp(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		_, err := generateRlpTx(v.act)
+		_, err := rlpToEthTx(v.act)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -90,20 +92,21 @@ func TestRlpDecodeVerify(t *testing.T) {
 	require := require.New(t)
 
 	rlpTests := []struct {
-		raw     string
-		nonce   uint64
-		limit   uint64
-		price   string
-		amount  string
-		to      string
-		isTsf   bool
-		dataLen int
-		hash    string
-		pubkey  string
-		pkhash  string
+		testName string
+		raw      string
+		nonce    uint64
+		limit    uint64
+		price    string
+		amount   string
+		to       string
+		isTsf    bool
+		dataLen  int
+		hash     string
+		pubkey   string
+		pkhash   string
 	}{
-		// transfer
 		{
+			"TestTransfer",
 			"f86e8085e8d4a51000825208943141df3f2e4415533bb6d6be2a351b2db9ee84ef88016345785d8a0000808224c6a0204d25fc0d7d8b3fdf162c6ee820f888f5533b1c382d79d5cbc8ec1d9091a9a8a016f1a58d7e0d0fd24be800f64a2d6433c5fcb31e3fc7562b7fbe62bc382a95bb",
 			0,
 			21000,
@@ -116,8 +119,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
 			"87eea07540789af85b64947aea21a3f00400b597",
 		},
-		// execution
 		{
+			"TestExecution",
 			"f8ab0d85e8d4a5100082520894ac7ac39de679b19aae042c0ce19facb86e0a411780b844a9059cbb0000000000000000000000003141df3f2e4415533bb6d6be2a351b2db9ee84ef000000000000000000000000000000000000000000000000000000003b9aca008224c5a0fac4e25db03c99fec618b74a962d322a334234696eb62c7e5b9889132ff4f4d7a02c88e451572ca36b6f690ce23ff9d6695dd71e888521fa706a8fc8c279099a61",
 			13,
 			21000,
@@ -130,8 +133,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
 			"87eea07540789af85b64947aea21a3f00400b597",
 		},
-		// execution
 		{
+			"TestContractCreate",
 			"f9024f2e830f42408381b3208080b901fc608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555061019c806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c8063445df0ac146100465780638da5cb5b14610064578063fdacd576146100ae575b600080fd5b61004e6100dc565b6040518082815260200191505060405180910390f35b61006c6100e2565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6100da600480360360208110156100c457600080fd5b8101908080359060200190929190505050610107565b005b60015481565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141561016457806001819055505b5056fea265627a7a72315820e54fe55a78b9d8bec22b4d3e6b94b7e59799daee3940423eb1aa30fe643eeb9a64736f6c634300051000328224c5a0439310c2d5509fc42486171b910cf8107542c86e23202a3a8ba43129cabcdbfea038966d36b41916f619c64bdc8c3ddcb021b35ea95d44875eb8201e9422fd98f0",
 			46,
 			8500000,
@@ -144,8 +147,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"049c6567f527f8fc98c0875d3d80097fcb4d5b7bfe037fc9dd5dbeaf563d58d7ff17a4f2b85df9734ecdb276622738e28f0b7cf224909ab7b128c5ca748729b0d2",
 			"1904bfcb93edc9bf961eead2e5c0de81dcc1d37d",
 		},
-		// stake create
 		{
+			"TestStakeCreate",
 			"f87402830f424082520894000000000000007374616b696e67437265617465809012033130302a090102030405060708098224c5a01f1eb2b9dd9b9af61b68e9e2dae9c65421e0c6e84bc2bf77c1528d3d795cd054a01a8f4b78a7f0e96d578bf2c3b2c3bfe48b24d026e7cadf2ccd6d2e332ed2128f",
 			2,
 			21000,
@@ -158,8 +161,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"0468f50e1da7d0430b01d81ff24714cef5aea6a7a2b96271c7fff60c6a67896d201547001b8ee6ca0166e219f7303b62236c36ad5e79f6012e8e7eea4aaa99ded8",
 			"d301e82c10561c6048f2d72a6630bfa87a8703f2",
 		},
-		// stake add deposit
 		{
+			"TestStakeAddDeposit",
 			"f87602830f4240825208940000007374616b696e674164644465706f7369748092080112033130301a090102030405060708098224c5a0a4aed9fd71e6c791660ea1387005c2955aa9a898554756bbeafa2a47aa896059a04eaf04155845678374a4f5bf2f574874609a912fb02d88c6125cc7422c96a7ec",
 			2,
 			21000,
@@ -172,8 +175,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"04c175e6f0470c3f372cb4b5ea38ac18cb957c7b9a96402d640ab24964e5642055b743a0bf7c90a43052c877f62668e05c968ba88a19b0b869553c19a6d7950934",
 			"b2721edbd35f2fb19910cc8d6105bf35f3514785",
 		},
-		// stake change candidate
 		{
+			"TestStakeChangeCandidate",
 			"f87702830f4240825208940000007374616b696e674368616e676543616e64809308011204746573741a090102030405060708098224c5a0305710c930636bf395fc5551ed61f3c0cc10c68a105fa6982da4f2687d29fc09a03879c1d182c36f5dd71578851dee43c5f38914b8b921a0fff0e1871c25ad834f",
 			2,
 			21000,
@@ -186,8 +189,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"04d56527007d0655441b79a460e04a4eb60ae830394dbe3ea6155b604702c103a6bbdf8a6fb3df3c7b5a8f84e666d17eb55f4a032282b116102737a9a85a39dbd9",
 			"a3f31665c7bf5435f8d1c5814290998bfdc91cfc",
 		},
-		// stake unstake
 		{
+			"TestUnstake",
 			"f87102830f4240825208940000000000007374616b696e67556e7374616b65808d080112090102030405060708098224c5a0914abd6dec1c4393348ebee59de14c60f249109923c4c54a6f0825cc1039fe28a02ddf1698d3dd1887d1cea8fb3acba99ddfbdd15b331c302b2211f528b54b08f1",
 			2,
 			21000,
@@ -200,8 +203,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"049413ebb87a801a8f5f08d033180ae02b43566983fcb710ea070d37c2759e9d055b4952822fab93ea310de3e68ec334abbe5d25feaf098a2bd80389f6a4873493",
 			"7da86cdbeb81059ce8b0a58d36360b0a2fbb9bfd",
 		},
-		// stake withdraw stake
 		{
+			"TestWithdrawStake",
 			"f87102830f42408252089400000000007374616b696e675769746864726177808d080112090102030405060708098224c6a0128f64bf0b9aa994c2216dd783359af176c6a01e9014e4e2f3fb9838fc4a2c36a05a78b25dec739cb33a8fcc5f4f134b63bf7a3df20bd9c7d5db53cef46d6b38ca",
 			2,
 			21000,
@@ -214,8 +217,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"045d1b360af12b4f97a714530bcf3cde06cb89749604fc22418d0e3b26b63e07878eb50d6fbbc35e62aa103fd0b75e722328ee11932b82b6eadae01cef658e031a",
 			"fefc74b9c11bfdb0fd1db767e35e7d1f943be9fb",
 		},
-		// stake restake
 		{
+			"TestRestake",
 			"f87302830f4240825208940000000000007374616b696e6752657374616b65808f0801100a22090102030405060708098224c6a0d4c6731cbc8e08dc8fe82dac7fc226b2f9561414c05a66ac152cbd44bd822ebea01c0f8b9985d84d73e8a5221c465944e29af5b524e82ab9eb4f3b89ff6720cb86",
 			2,
 			21000,
@@ -228,8 +231,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"0474571cdde1f8ac340aad09fb9c20f01ae7c4686c40520ed00e529636421b2bb4d278527d757218c25a489ff37f1c11fcb670432fd310e4eeb67169f6c509145f",
 			"a903703f05d42a7235d88bfb327f7fe9bf09c08e",
 		},
-		// stake transfer
 		{
+			"TestStakeTransfer",
 			"f89d02830f42408252089400000000007374616b696e675472616e7366657280b83808011229696f313433617638383078307863653474737939737877723861766870687135736768756d373763741a090102030405060708098224c5a088b51f422f5d52cc195aeeb48420b72daccf20236e3cfba253a1c6e5d182bd11a07324d43e047f66764105b469b40b1760ac25b0644b4fc45466becc9ea615c76d",
 			2,
 			21000,
@@ -242,8 +245,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"044d93a3ddf6b9e3a9c14112850fa67174933198fa06c283e3069f9b91af63ceeeac828c1409615d9e3a1a2187b06d91d9a95115cc327a6f9310a8c99adecd023e",
 			"b5c7dc76be22680743eff409f2fbdfaff1286bd4",
 		},
-		// stake candidate register
 		{
+			"TestStakeCandidateRegister",
 			"f9010102830f4240830186a094007374616b696e67526567697374657243616e6480b89b0a5c0a04746573741229696f313433617638383078307863653474737939737877723861766870687135736768756d373763741a29696f317839716137306577677332347877616b36366c7a3564676d396b7537617038307677333037301203313030180a2a29696f316d666c70396d366863676d327163676863687364716a337a33656363726e656b783970306d7332090102030405060708098224c6a04648492f928753fa39c3aac5865be6e37515577cf1debecd629dde93f0e5aaffa00dcccd54bf329e7d11a51053a23ddd1cf9329e5ae01c4d39d596c736dd215196",
 			2,
 			100000,
@@ -256,8 +259,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"04b8b3978dad1591e511199cfb926eda5c8d8b3bef34febde233565887f3ee548e70a688c0241a5531f28fa20ee9cddb70c884b62a91ef945137f95864ee8865c7",
 			"faf3c23ff653bc1f0139cb3ab4b92578d636c6c0",
 		},
-		// stake candidate update
 		{
+			"TestStakeCandidateUpdate",
 			"f8c202830f4240830186a0940000007374616b696e6755706461746543616e6480b85c0a04746573741229696f313433617638383078307863653474737939737877723861766870687135736768756d373763741a29696f317839716137306577677332347877616b36366c7a3564676d396b7537617038307677333037308224c5a0245f4874b1bb86dfae869b5f35daa07faa735bdfa1d42c0d7a7ec669835b40eea065d9ab7b7f94da4a80258b694359bcb604aee74540e6e4dbca0caf102f89940f",
 			2,
 			100000,
@@ -272,68 +275,126 @@ func TestRlpDecodeVerify(t *testing.T) {
 		},
 	}
 
+	chainID := config.EVMNetworkID()
 	for _, v := range rlpTests {
-		encoded, err := hex.DecodeString(v.raw)
-		require.NoError(err)
+		t.Run(v.testName, func(t *testing.T) {
+			tx, sig, isEthSigned, err := DecodeRawTx(v.raw, chainID)
+			require.NoError(err)
+			require.True(isEthSigned)
+			rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
+			require.NoError(err)
+			// convert to native Execution
+			pb := &iotextypes.Action{
+				Encoding: iotextypes.Encoding_ETHEREUM_RLP,
+			}
+			pb.Core = convertToNativeProto(tx, v.isTsf)
+			require.NoError(err)
+			pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
+			require.NoError(err)
+			require.Equal(v.pubkey, pubkey.HexString())
+			require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
 
-		// decode received RLP tx
-		tx := types.Transaction{}
-		require.NoError(rlp.DecodeBytes(encoded, &tx))
+			pb.SenderPubKey = pubkey.Bytes()
+			pb.Signature = sig
 
-		// extract signature and recover pubkey
-		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
-		sig := make([]byte, 64, 65)
-		rSize := len(r.Bytes())
-		copy(sig[32-rSize:32], r.Bytes())
-		sSize := len(s.Bytes())
-		copy(sig[64-sSize:], s.Bytes())
-		sig = append(sig, byte(recID))
+			// send on wire
+			bs, err := proto.Marshal(pb)
+			require.NoError(err)
 
-		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(&tx)
-		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
-		require.NoError(err)
-		require.Equal(v.pubkey, pubkey.HexString())
-		require.Equal(v.pkhash, hex.EncodeToString(pubkey.Hash()))
+			// receive from API
+			proto.Unmarshal(bs, pb)
+			selp := SealedEnvelope{}
+			require.NoError(selp.LoadProto(pb))
+			rlpTx, err := actionToRLP(selp.Action())
+			require.NoError(err)
 
-		// convert to our Execution
-		pb := &iotextypes.Action{
-			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
-		}
-		pb.Core = convertToNativeProto(&tx, v.isTsf)
-		pb.SenderPubKey = pubkey.Bytes()
-		pb.Signature = sig
-
-		// send on wire
-		bs, err := proto.Marshal(pb)
-		require.NoError(err)
-
-		// receive from API
-		proto.Unmarshal(bs, pb)
-		selp := SealedEnvelope{}
-		require.NoError(selp.LoadProto(pb))
-		rlpTx, err := actionToRLP(selp.Action())
-		require.NoError(err)
-
-		// verify against original tx
-		require.Equal(v.nonce, rlpTx.Nonce())
-		require.Equal(v.price, rlpTx.GasPrice().String())
-		require.Equal(v.limit, rlpTx.GasLimit())
-		require.Equal(v.to, rlpTx.Recipient())
-		require.Equal(v.amount, rlpTx.Amount().String())
-		require.Equal(v.dataLen, len(rlpTx.Payload()))
-		h, err := selp.Hash()
-		require.NoError(err)
-		require.Equal(v.hash, hex.EncodeToString(h[:]))
-		require.Equal(pubkey, selp.SrcPubkey())
-		require.True(bytes.Equal(sig, selp.signature))
-		raw, err := selp.envelopeHash()
-		require.NoError(err)
-		require.True(bytes.Equal(rawHash[:], raw[:]))
-		require.NotEqual(raw, h)
-		require.NoError(Verify(selp))
+			// verify against original tx
+			require.Equal(v.nonce, rlpTx.Nonce())
+			require.Equal(v.price, rlpTx.GasPrice().String())
+			require.Equal(v.limit, rlpTx.GasLimit())
+			require.Equal(v.to, rlpTx.Recipient())
+			require.Equal(v.amount, rlpTx.Amount().String())
+			require.Equal(v.dataLen, len(rlpTx.Payload()))
+			h, err := selp.Hash()
+			require.NoError(err)
+			require.Equal(v.hash, hex.EncodeToString(h[:]))
+			require.Equal(pubkey, selp.SrcPubkey())
+			require.True(bytes.Equal(sig, selp.signature))
+			raw, err := selp.envelopeHash()
+			require.NoError(err)
+			require.True(bytes.Equal(rawHash[:], raw[:]))
+			require.NotEqual(raw, h)
+			require.NoError(Verify(selp))
+		})
 	}
+}
+
+func TestEncodeDecodeRawTx(t *testing.T) {
+	require := require.New(t)
+	pvk, _ := crypto.GenerateKey()
+	var testGasLimit, testGasPrice, testAmount, testNonce uint64 = 100000, 1000000, 100, 2
+	toAddr := "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070"
+	ab := AbstractAction{
+		version:   1,
+		nonce:     testNonce,
+		gasLimit:  testGasLimit,
+		gasPrice:  big.NewInt(int64(testGasPrice)),
+		srcPubkey: pvk.PublicKey(),
+	}
+	testData := []struct {
+		act     Action
+		chainID uint32
+	}{
+		{
+			&Transfer{
+				AbstractAction: ab,
+				amount:         big.NewInt(int64(testAmount)),
+				payload:        signByte,
+				recipient:      toAddr,
+			},
+			4689,
+		},
+		{
+			&Execution{
+				AbstractAction: ab,
+				amount:         big.NewInt(int64(testAmount)),
+				data:           signByte,
+				contract:       toAddr,
+			},
+			4690,
+		},
+	}
+
+	for _, v := range testData {
+		txStr, err := encodeRawTx(v.act, pvk, v.chainID)
+		require.NoError(err)
+		tx, _, _, err := DecodeRawTx(txStr, v.chainID)
+		require.NoError(err)
+		require.Equal(testAmount, tx.Value().Uint64())
+		require.Equal(testGasLimit, tx.Gas())
+		require.Equal(testGasPrice, tx.GasPrice().Uint64())
+		require.Equal(testNonce, tx.Nonce())
+		addr2, _ := address.FromBytes(tx.To().Bytes())
+		addr1, _ := address.FromString(toAddr)
+		require.Equal(addr1, addr2)
+	}
+}
+
+func TestDecodeTxFromLedger(t *testing.T) {
+	t.Skip()
+	require := require.New(t)
+	chainID := uint32(4689)
+	txStr := "f870819185e8d4a5100082271094173553c179bbf5af39d8db41f0b60e4fc631066a880de0b6b3a7640000808224c6a0f4e0e8eaea379de2eea23fc0f42c753b06a587b621e377d568826b9bea5ee9afa0535a409481ab0202e0e1584fe9e36bc33963aa50e10b7fbeb6eb58df187490ed01"
+	tx, _, isEthEncoding, err := DecodeRawTx(txStr, chainID)
+	require.NoError(err)
+	require.False(isEthEncoding)
+	require.Equal("1000000000000000000", tx.Value().String())
+	require.Equal(uint64(10000), tx.Gas())
+	require.Equal("1000000000000", tx.GasPrice().String())
+	require.Equal(uint64(145), tx.Nonce())
+	addr2, _ := address.FromBytes(tx.To().Bytes())
+	addr1, _ := address.FromString("io1zu648steh0667wwcmdqlpdswflrrzpn2c3cu00")
+	require.Equal(addr1, addr2)
 }
 
 func convertToNativeProto(tx *types.Transaction, isTsf bool) *iotextypes.ActionCore {
@@ -374,4 +435,31 @@ func convertToNativeProto(tx *types.Transaction, isTsf bool) *iotextypes.ActionC
 		}
 	}
 	return &pb
+}
+
+// encodeRawTx encodes action into the data string of eth tx
+func encodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, error) {
+	rlpAct, err := actionToRLP(act)
+	if err != nil {
+		return "", err
+	}
+	rawTx, err := rlpToEthTx(rlpAct)
+	if err != nil {
+		return "", err
+	}
+	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	if !ok {
+		return "", errors.New("private key is invalid")
+	}
+
+	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
+	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
+	if err != nil {
+		return "", err
+	}
+	encodedTx, err := rlp.EncodeToBytes(signedTx)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(encodedTx[:]), nil
 }
