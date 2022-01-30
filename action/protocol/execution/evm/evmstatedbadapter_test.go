@@ -233,7 +233,7 @@ func TestReadContractStorage(t *testing.T) {
 
 	ctx := protocol.WithBlockchainCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), genesis.Default),
-		protocol.BlockCtx{BlockHeight: genesis.Default.ToBeEnabledBlockHeight})),
+		protocol.BlockCtx{BlockHeight: genesis.Default.MidwayBlockHeight})),
 		protocol.BlockchainCtx{})
 	for k, v := range kvs {
 		b, err := ReadContractStorage(ctx, sm, addr, k[:])
