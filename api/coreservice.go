@@ -1221,8 +1221,8 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	return res
 }
 
-// GetLogsInBlock filter logs in the block x
-func (core *coreService) GetLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+// LogsInBlock filter logs in the block x
+func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
@@ -1245,8 +1245,8 @@ func (core *coreService) GetLogsInBlock(filter *logfilter.LogFilter, blockNumber
 	return filter.MatchLogs(receipts, h), nil
 }
 
-// GetLogsInBlock filter logs among [start, end] blocks
-func (core *coreService) GetLogsInRange(filter *logfilter.LogFilter, start, end, maxPaginationSize uint64) ([]*iotextypes.Log, error) {
+// LogsInRange filter logs among [start, end] blocks
+func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, maxPaginationSize uint64) ([]*iotextypes.Log, error) {
 	start, end, err := core.correctLogsRange(start, end)
 	if err != nil {
 		return nil, err
@@ -1256,27 +1256,28 @@ func (core *coreService) GetLogsInRange(filter *logfilter.LogFilter, start, end,
 	if err != nil {
 		return nil, err
 	}
-	// TODO: improve getLogsInBlock using goroutine
-	logs := make([][]*iotextypes.Log, len(blockNumbers))
-	for i := range blockNumbers {
-		logsInBlock, err := core.GetLogsInBlock(filter, blockNumbers[i])
+
+	// TODO: improve using goroutine
+	if maxPaginationSize == 0 {
+		maxPaginationSize = 1000
+	}
+	if maxPaginationSize > 5000 {
+		maxPaginationSize = 5000
+	}
+	logs := []*iotextypes.Log{}
+	for _, i := range blockNumbers {
+		logsInBlock, err := core.LogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
 		}
-		logs[i] = logsInBlock
-	}
-
-	if maxPaginationSize == 0 || maxPaginationSize > 5000 {
-		maxPaginationSize = 5000
-	}
-	ret := make([]*iotextypes.Log, 0, maxPaginationSize)
-	for i, k := 0, 0; i < len(logs) && k < int(maxPaginationSize); i++ {
-		for j := 0; j < len(logs[i]) && k < int(maxPaginationSize); j++ {
-			ret = append(ret, logs[i][j])
-			k++
+		for _, log := range logsInBlock {
+			logs = append(logs, log)
+			if len(logs) >= int(maxPaginationSize) {
+				return logs, nil
+			}
 		}
 	}
-	return ret, nil
+	return logs, nil
 }
 
 func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, error) {

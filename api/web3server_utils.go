@@ -356,7 +356,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 			Topic: topic,
 		})
 	}
-	logs, err := svr.coreService.GetLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
+	logs, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
 	if err != nil {
 		return nil, err
 	}
