@@ -314,7 +314,7 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 	case in.GetCandidateRegister() != nil:
 		intrinsicGas, payloadGas, payloadSize = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas, uint64(len(in.GetCandidateRegister().Payload))
 	case in.GetCandidateUpdate() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 100, 0 // payloadGas can't be 0 in CalculateGasConsumption()
+		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 0, 0
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}

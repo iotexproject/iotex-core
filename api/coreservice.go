@@ -333,6 +333,7 @@ func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt,
 
 // ReadContract reads the state in a contract address specified by the slot
 func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
+	log.L().Debug("receive read smart contract request")
 	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {

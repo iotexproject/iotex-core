@@ -88,21 +88,6 @@ func (ex *Execution) TotalSize() uint32 {
 	return size + uint32(len(ex.data))
 }
 
-// SetGasLimit sets gaslimit
-func (ex *Execution) SetGasLimit(val uint64) {
-	ex.gasLimit = val
-}
-
-// SetNonce sets gaslimit
-func (ex *Execution) SetNonce(val uint64) {
-	ex.nonce = val
-}
-
-// SetGasPrice sets gaslimit
-func (ex *Execution) SetGasPrice(val *big.Int) {
-	ex.gasPrice = val
-}
-
 // Serialize returns a raw byte stream of this Transfer
 func (ex *Execution) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ex.Proto()))

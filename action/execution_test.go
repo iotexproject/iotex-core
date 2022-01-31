@@ -78,30 +78,3 @@ func TestExecutionSanityCheck(t *testing.T) {
 		require.Equal(ErrNegativeValue, errors.Cause(ex.SanityCheck()))
 	})
 }
-
-func TestExecutionSetter(t *testing.T) {
-	require := require.New(t)
-	t.Run("set nonce", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
-		require.NoError(err)
-		require.Equal(uint64(1), ex.nonce)
-		ex.SetNonce(2)
-		require.Equal(uint64(2), ex.nonce)
-	})
-
-	t.Run("set gaslimit", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
-		require.NoError(err)
-		require.Equal(uint64(0), ex.gasLimit)
-		ex.SetGasLimit(10000)
-		require.Equal(uint64(10000), ex.gasLimit)
-	})
-
-	t.Run("set gasPrice", func(t *testing.T) {
-		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(10), []byte{})
-		require.NoError(err)
-		require.Equal(big.NewInt(10), ex.gasPrice)
-		ex.SetGasPrice(big.NewInt(0))
-		require.Equal(big.NewInt(0), ex.gasPrice)
-	})
-}
