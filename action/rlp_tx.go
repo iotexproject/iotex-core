@@ -23,12 +23,12 @@ type rlpTransaction interface {
 	Payload() []byte
 }
 
-type ActionType uint32
+type actionType uint32
 
 const (
-	unsupportedTxType ActionType = 0
-	legacyTxType      ActionType = 1
-	ledgerTxType      ActionType = 2
+	unsupportedTxType actionType = 0
+	legacyTxType      actionType = 1
+	ledgerTxType      actionType = 2
 
 	ledgerTxByte byte = 0x71 // TODO: to be dertermined
 )
@@ -123,7 +123,7 @@ func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, []byte, bo
 	return tx, sig, actType == legacyTxType, nil
 }
 
-func handleSpecialActionType(data []byte) (ActionType, []byte) {
+func handleSpecialActionType(data []byte) (actionType, []byte) {
 	if len(data) == 0 {
 		return legacyTxType, data
 	}
