@@ -20,8 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -324,17 +322,6 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 		return
 	}
 	to, err = svr.parseBlockNumber(toStr)
-	if err != nil {
-		return
-	}
-	tipHeight := svr.coreService.bc.TipHeight()
-	if from > tipHeight {
-		err = status.Error(codes.InvalidArgument, "start block > tip height")
-		return
-	}
-	if to > tipHeight {
-		to = tipHeight
-	}
 	return
 }
 
@@ -376,7 +363,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 			Topic: topic,
 		})
 	}
-	logs, err := svr.coreService.getLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 1000)
+	logs, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
 	if err != nil {
 		return nil, err
 	}
