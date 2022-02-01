@@ -1246,7 +1246,7 @@ func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber ui
 }
 
 // LogsInRange filter logs among [start, end] blocks
-func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, maxPaginationSize uint64) ([]*iotextypes.Log, error) {
+func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
 	start, end, err := core.correctLogsRange(start, end)
 	if err != nil {
 		return nil, err
@@ -1258,11 +1258,11 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, ma
 	}
 
 	// TODO: improve using goroutine
-	if maxPaginationSize == 0 {
-		maxPaginationSize = 1000
+	if paginationSize == 0 {
+		paginationSize = 1000
 	}
-	if maxPaginationSize > 5000 {
-		maxPaginationSize = 5000
+	if paginationSize > 5000 {
+		paginationSize = 5000
 	}
 	logs := []*iotextypes.Log{}
 	for _, i := range blockNumbers {
@@ -1272,7 +1272,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, ma
 		}
 		for _, log := range logsInBlock {
 			logs = append(logs, log)
-			if len(logs) >= int(maxPaginationSize) {
+			if len(logs) >= int(paginationSize) {
 				return logs, nil
 			}
 		}
