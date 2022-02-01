@@ -118,9 +118,10 @@ func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
 	return tsfs, exes
 }
 
-func calculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
-	if payloadGas == 0 {
-		panic("payload gas price cannot be zero")
+// CalculateIntrinsicGas returns the intrinsic gas of an action
+func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
+	if payloadGas == 0 && payloadSize == 0 {
+		return baseIntrinsicGas, nil
 	}
 	if (math.MaxUint64-baseIntrinsicGas)/payloadGas < payloadSize {
 		return 0, ErrInsufficientFunds

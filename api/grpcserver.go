@@ -247,7 +247,13 @@ func (svr *GRPCServer) ReadContract(ctx context.Context, in *iotexapi.ReadContra
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	data, receipt, err := svr.coreService.ReadContract(ctx, in.Execution, callerAddr, in.GasLimit)
+	sc := &action.Execution{}
+	if err := sc.LoadProto(in.GetExecution()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	sc.SetGasLimit(in.GetGasLimit())
+
+	data, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, sc)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +284,11 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, in.GetExecution(), callerAddr)
+		sc := &action.Execution{}
+		if err := sc.LoadProto(in.GetExecution()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -309,9 +319,11 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}
-	return &iotexapi.EstimateActionGasConsumptionResponse{
-		Gas: svr.coreService.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize),
-	}, nil
+	gas, err := svr.coreService.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &iotexapi.EstimateActionGasConsumptionResponse{Gas: gas}, nil
 }
 
 // GetEpochMeta gets epoch metadata
