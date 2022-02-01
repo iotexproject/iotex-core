@@ -528,52 +528,6 @@ func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipt
 	return res, nil
 }
 
-// Logs get logs filtered by contract address and topics
-func (core *coreService) Logs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log, error) {
-	if in.GetFilter() == nil {
-		return nil, status.Error(codes.InvalidArgument, "empty filter")
-	}
-
-	var (
-		logs []*iotextypes.Log
-		err  error
-	)
-	switch {
-	case in.GetByBlock() != nil:
-		req := in.GetByBlock()
-		startBlock, err := core.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
-		}
-		logs, err = core.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
-		if err != nil {
-			return nil, err
-		}
-	case in.GetByRange() != nil:
-		req := in.GetByRange()
-		startBlock := req.GetFromBlock()
-		if startBlock > core.bc.TipHeight() {
-			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
-		}
-		endBlock := req.GetToBlock()
-		if endBlock > core.bc.TipHeight() || endBlock == 0 {
-			endBlock = core.bc.TipHeight()
-		}
-		paginationSize := req.GetPaginationSize()
-		if paginationSize == 0 {
-			paginationSize = 1000
-		}
-		if paginationSize > 5000 {
-			paginationSize = 5000
-		}
-		logs, err = core.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
-	default:
-		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
-	}
-
-	return logs, err
-}
-
 // StreamBlocks streams blocks
 func (core *coreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)
@@ -1257,45 +1211,52 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	return res
 }
 
-func (core *coreService) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+// LogsInBlock filter logs in the block x
+func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
-		return nil, nil
+		return []*iotextypes.Log{}, nil
 	}
+
 	receipts, err := core.dao.GetReceipts(blockNumber)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	h, err := core.dao.GetBlockHash(blockNumber)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	return filter.MatchLogs(receipts, h), nil
 }
 
-// TODO: improve using goroutine
-func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
-	if start > end {
-		return nil, errors.New("invalid start and end height")
+// LogsInRange filter logs among [start, end] blocks
+func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+	start, end, err := core.correctLogsRange(start, end)
+	if err != nil {
+		return nil, err
 	}
-	if start == 0 {
-		start = 1
-	}
-
-	logs := []*iotextypes.Log{}
 	// getLogs via range Blooom filter [start, end]
 	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: improve using goroutine
+	if paginationSize == 0 {
+		paginationSize = 1000
+	}
+	if paginationSize > 5000 {
+		paginationSize = 5000
+	}
+	logs := []*iotextypes.Log{}
 	for _, i := range blockNumbers {
-		logsInBlock, err := core.getLogsInBlock(filter, i)
+		logsInBlock, err := core.LogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
 		}
@@ -1306,8 +1267,23 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 			}
 		}
 	}
-
 	return logs, nil
+}
+
+func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, error) {
+	if start > end {
+		return 0, 0, errors.New("invalid start and end height")
+	}
+	if start == 0 {
+		start = 1
+	}
+	if start > core.bc.TipHeight() {
+		return 0, 0, errors.New("start block > tip height")
+	}
+	if end > core.bc.TipHeight() || end == 0 {
+		end = core.bc.TipHeight()
+	}
+	return start, end, nil
 }
 
 // CalculateGasConsumption estimate gas consumption for actions except execution
