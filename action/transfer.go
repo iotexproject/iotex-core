@@ -120,7 +120,7 @@ func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 // IntrinsicGas returns the intrinsic gas of a transfer
 func (tsf *Transfer) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(tsf.Payload()))
-	return calculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
+	return CalculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a transfer

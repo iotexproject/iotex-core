@@ -332,12 +332,8 @@ func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt,
 }
 
 // ReadContract reads the state in a contract address specified by the slot
-func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execution, callerAddr address.Address, gasLimit uint64) (string, *iotextypes.Receipt, error) {
+func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
 	log.L().Debug("receive read smart contract request")
-	sc := &action.Execution{}
-	if err := sc.LoadProto(in); err != nil {
-		return "", nil, status.Error(codes.InvalidArgument, err.Error())
-	}
 	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {
@@ -353,18 +349,12 @@ func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execut
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-
-	if gasLimit == 0 || core.cfg.Genesis.BlockGasLimit < gasLimit {
-		gasLimit = core.cfg.Genesis.BlockGasLimit
+	sc.SetNonce(state.Nonce + 1)
+	if sc.GasLimit() == 0 || core.cfg.Genesis.BlockGasLimit < sc.GasLimit() {
+		sc.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
 	}
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		gasLimit,
-		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
-		sc.Data(),
-	)
+	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
+
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
@@ -1321,22 +1311,20 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 }
 
 // CalculateGasConsumption estimate gas consumption for actions except execution
-func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
-	return payloadGas*payloadSize + intrinsicGas
+func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error) {
+	return action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
-func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, exec *iotextypes.Execution, callerAddr address.Address) (uint64, error) {
-	sc := &action.Execution{}
-	if err := sc.LoadProto(exec); err != nil {
-		return 0, status.Error(codes.InvalidArgument, err.Error())
-	}
+func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
 	state, err := accountutil.AccountState(core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	nonce := state.Nonce + 1
-	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, nonce, core.cfg.Genesis.BlockGasLimit)
+	sc.SetNonce(state.Nonce + 1)
+	sc.SetGasPrice(big.NewInt(0))
+	sc.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
+	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1347,7 +1335,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, ex
 		return 0, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
+	sc.SetGasLimit(estimatedGas)
+	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1356,7 +1345,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, ex
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
+			sc.SetGasLimit(mid)
+			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1376,19 +1366,9 @@ func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
-	nonce uint64,
-	gasLimit uint64,
 ) (bool, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		nonce,
-		sc.Amount(),
-		gasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
 	ctx, err := core.bc.Context(ctx)
 	if err != nil {
 		return false, nil, err
