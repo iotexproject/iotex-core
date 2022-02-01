@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -415,15 +416,8 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 	if to == metamaskBalanceContractAddr {
 		return nil, nil
 	}
-	ret, _, err := svr.coreService.ReadContract(context.Background(),
-		&iotextypes.Execution{
-			Amount:   value.String(),
-			Contract: to,
-			Data:     data,
-		},
-		callerAddr,
-		gasLimit,
-	)
+	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -431,30 +425,24 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 }
 
 func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
-	from, to, _, value, data, err := parseCallObject(in)
+	from, to, gasLimit, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
 
 	var estimatedGas uint64
-	isContract, _ := svr.isContractAddr(to)
-	// TODO: support more types of actions
-	switch isContract {
-	case true:
-		// execution
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(),
-			&iotextypes.Execution{
-				Amount:   value.String(),
-				Contract: to,
-				Data:     data,
-			}, from)
+	if isContract, _ := svr.isContractAddr(to); isContract {
+		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 		if err != nil {
 			return nil, err
 		}
-	case false:
-		// transfer
-		estimatedGas = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas,
-			action.TransferPayloadGas, uint64(len(data)))
+	} else {
+		// TODO: support staking actions
+		estimatedGas, err = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(data)))
+		if err != nil {
+			return nil, err
+		}
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000

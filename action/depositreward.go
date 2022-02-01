@@ -65,7 +65,7 @@ func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardin
 // IntrinsicGas returns the intrinsic gas of a deposit action
 func (d *DepositToRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(d.Data()))
-	return calculateIntrinsicGas(DepositToRewardingFundBaseGas, DepositToRewardingFundGasPerByte, dataLen)
+	return CalculateIntrinsicGas(DepositToRewardingFundBaseGas, DepositToRewardingFundGasPerByte, dataLen)
 }
 
 // Cost returns the total cost of a deposit action

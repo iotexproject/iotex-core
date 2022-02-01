@@ -200,7 +200,7 @@ func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) erro
 // IntrinsicGas returns the intrinsic gas of a CandidateRegister
 func (cr *CandidateRegister) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(cr.Payload()))
-	return calculateIntrinsicGas(CandidateRegisterBaseIntrinsicGas, CandidateRegisterPayloadGas, payloadSize)
+	return CalculateIntrinsicGas(CandidateRegisterBaseIntrinsicGas, CandidateRegisterPayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a CandidateRegister
