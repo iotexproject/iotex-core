@@ -105,9 +105,9 @@ var (
 	errInvalidFiterID = errors.New("filter not found")
 	errInvalidBlock   = errors.New("invalid block")
 
-	pendingBlockNumber  = "pending"
-	latestBlockNumber   = "latest"
-	earliestBlockNumber = "earliest"
+	_pendingBlockNumber  = "pending"
+	_latestBlockNumber   = "latest"
+	_earliestBlockNumber = "earliest"
 )
 
 func init() {
@@ -255,7 +255,6 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			return packAPIResult(nil, err, 0)
 		}
 		if err != nil {
-			// temporally used for monitor and debug
 			log.L().Error("web3server",
 				zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 				zap.Error(err))
@@ -393,7 +392,7 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	if blkNum == pendingBlockNumber {
+	if blkNum == _pendingBlockNumber {
 		pendingNonce, err := svr.coreService.ap.GetPendingNonce(ioAddr.String())
 		if err != nil {
 			return nil, err
@@ -606,7 +605,7 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 		}
 		return nil, err
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos)
+	return svr.getTransactionFromActionInfo(actionInfos)
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
@@ -658,6 +657,12 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		return nil, err
 	}
 
+	// acquire logsBloom from blockMeta
+	blkMeta, err := svr.coreService.BlockMetaByHash(blkHash)
+	if err != nil {
+		return nil, err
+	}
+
 	// parse logs from receipt
 	logs := make([]logsObject, 0)
 	for _, v := range receipt.Logs() {
@@ -688,7 +693,7 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
 		From:              tx.From,
 		GasUsed:           uint64ToHex(receipt.GasConsumed),
-		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+		LogsBloom:         getLogsBloomFromBlkMeta(blkMeta),
 		Status:            uint64ToHex(receipt.Status),
 		To:                tx.To,
 		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
@@ -741,7 +746,7 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if len(actionInfos) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
+	return svr.getTransactionFromActionInfo(actionInfos[0])
 }
 
 func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (interface{}, error) {
@@ -783,7 +788,7 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	if len(actionInfos) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
+	return svr.getTransactionFromActionInfo(actionInfos[0])
 }
 
 func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {
