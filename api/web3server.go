@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -430,18 +431,34 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	}
 
 	var estimatedGas uint64
-	if isContract, _ := svr.isContractAddr(to); isContract {
+	actType, err := svr.actionTypeByAddr(to)
+	if err != nil {
+		return nil, err
+	}
+	switch actType {
+	case _executionAction:
 		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
+	case _transferAction:
+		estimatedGas, err = svr.coreService.EstimateGGas(&action.Transfer{}, uint64(len(data)))
+	case _stakingAction:
+		if len(data) <= 4 {
+			return nil, errInvalidFormat
+		}
+		var method *abi.Method
+		method, err = action.StakingInterface.MethodById(data[:4])
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		// TODO: support staking actions
-		estimatedGas, err = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(data)))
-		if err != nil {
-			return nil, err
+		switch method.Name {
+		case "createStake":
+			estimatedGas, err = svr.coreService.EstimateGGas(&action.CreateStake{}, uint64(len(data)))
+		default:
+			return nil, errInvalidFormat
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
@@ -486,33 +503,30 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
 
-	switch to {
-	// TODO: process special staking action
-	// this is staking
-	case "io1qqqqqqqqqqq8xarpdd5kue6rwfjkzar9k0wk6t":
-		err := addStakingAction(tx.Data(), req.Core)
-		if err != nil {
-			return nil, err
+	actType, err := svr.actionTypeByAddr(to)
+	if err != nil {
+		return nil, err
+	}
+	switch actType {
+	case _executionAction:
+		req.Core.Action = &iotextypes.ActionCore_Execution{
+			Execution: &iotextypes.Execution{
+				Contract: to,
+				Data:     tx.Data(),
+				Amount:   value,
+			},
 		}
-	default:
-		if isContract, _ := svr.isContractAddr(to); !isContract {
-			// transfer
-			req.Core.Action = &iotextypes.ActionCore_Transfer{
-				Transfer: &iotextypes.Transfer{
-					Recipient: to,
-					Payload:   tx.Data(),
-					Amount:    value,
-				},
-			}
-		} else {
-			// execution
-			req.Core.Action = &iotextypes.ActionCore_Execution{
-				Execution: &iotextypes.Execution{
-					Contract: to,
-					Data:     tx.Data(),
-					Amount:   value,
-				},
-			}
+	case _transferAction:
+		req.Core.Action = &iotextypes.ActionCore_Transfer{
+			Transfer: &iotextypes.Transfer{
+				Recipient: to,
+				Payload:   tx.Data(),
+				Amount:    value,
+			},
+		}
+	case _stakingAction:
+		if err := loadStakingAction(tx.Data(), req.Core); err != nil {
+			return nil, err
 		}
 	}
 

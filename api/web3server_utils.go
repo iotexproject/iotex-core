@@ -74,10 +74,15 @@ type (
 		ChainID          string  `json:"chainId"`
 		PublicKey        string  `json:"publicKey"`
 	}
+
+	actionType string
 )
 
 const (
-	_zeroLogsBloom = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	_zeroLogsBloom              = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	_stakingAction   actionType = "staking"
+	_transferAction  actionType = "transfer"
+	_executionAction actionType = "execution"
 )
 
 func hexStringToNumber(hexStr string) (uint64, error) {
@@ -308,41 +313,44 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 	return
 }
 
-func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
+func (svr *Web3Server) actionTypeByAddr(addr string) (actionType, error) {
+	if addr == address.StakingCreateAddr {
+		return _stakingAction, nil
+	}
 	if addr == "" {
-		return true, nil
+		return _executionAction, nil
 	}
 	ioAddr, err := address.FromString(addr)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	accountMeta, _, err := svr.coreService.Account(ioAddr)
-	if err != nil {
-		return false, err
+	if err != nil && accountMeta.IsContract {
+		return _executionAction, nil
 	}
-	return accountMeta.IsContract, nil
+	return _transferAction, nil
 }
 
-func addStakingAction(data []byte, core *iotextypes.ActionCore) error {
+func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
 	var (
 		method *abi.Method
 		err    error
 	)
-	if len(data) <= 5 {
+	if len(data) <= 4 {
 		return errInvalidFormat
 	}
-	method, err = action.StakingInterface.MethodById(data[1:5])
+	method, err = action.StakingInterface.MethodById(data[:4])
 	if err != nil {
 		return err
 	}
 	switch method.Name {
 	case "createStake":
 		var act action.CreateStake
-		err = act.DecodingABIBinary(method, data[5:])
+		err = act.DecodingABIBinary(method, data[4:])
 		if err != nil {
 			return err
 		}
-		core.Action, err = act.ConvertProto()
+		core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
 	default:
 		return errInvalidFormat
 	}
