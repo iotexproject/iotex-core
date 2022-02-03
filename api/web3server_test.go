@@ -643,6 +643,18 @@ func setupTestServer(t *testing.T) (*ServerV2, func()) {
 		}
 }
 
+func TestEthAccounts(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+	config.SetEVMNetworkID(1)
+	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+	res, _ := svr.web3Server.ethAccounts()
+	require.Equal(0, len(res.([]string)))
+}
+
 func TestTraceCall(t *testing.T) {
 	require := require.New(t)
 	svr, cleanCallback := setupTestServer(t)
