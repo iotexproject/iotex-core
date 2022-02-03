@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,7 +27,8 @@ import (
 )
 
 const (
-	contentType = "application/json"
+	contentType                 = "application/json"
+	metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 )
 
 type (
@@ -103,9 +105,9 @@ var (
 	errInvalidFiterID = errors.New("filter not found")
 	errInvalidBlock   = errors.New("invalid block")
 
-	pendingBlockNumber  = "pending"
-	latestBlockNumber   = "latest"
-	earliestBlockNumber = "earliest"
+	_pendingBlockNumber  = "pending"
+	_latestBlockNumber   = "latest"
+	_earliestBlockNumber = "earliest"
 )
 
 func init() {
@@ -174,6 +176,8 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			method = web3Req.Get("method").Value()
 		)
 		switch method {
+		case "eth_accounts":
+			res, err = svr.ethAccounts()
 		case "eth_gasPrice":
 			res, err = svr.gasPrice()
 		case "eth_getBlockByHash":
@@ -244,16 +248,15 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
-		case "eth_coinbase", "eth_accounts", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
+		case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
 			err := errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 			return packAPIResult(nil, err, 0)
 		}
 		if err != nil {
-			// temporally used for monitor and debug
-			log.L().Error("web3 server err",
-				zap.String("input", fmt.Sprintf("%+v", web3Req)),
+			log.L().Error("web3server",
+				zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 				zap.Error(err))
 		}
 		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
@@ -313,6 +316,10 @@ func packAPIResult(res interface{}, err error, id int) interface{} {
 		ID:      id,
 		Result:  res,
 	}
+}
+
+func (svr *Web3Server) ethAccounts() (interface{}, error) {
+	return []string{}, nil
 }
 
 func (svr *Web3Server) gasPrice() (interface{}, error) {
@@ -385,7 +392,7 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	if blkNum == pendingBlockNumber {
+	if blkNum == _pendingBlockNumber {
 		pendingNonce, err := svr.coreService.ap.GetPendingNonce(ioAddr.String())
 		if err != nil {
 			return nil, err
@@ -401,26 +408,15 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 }
 
 func (svr *Web3Server) call(in interface{}) (interface{}, error) {
-	from, to, gasLimit, value, data, err := parseCallObject(in)
+	callerAddr, to, gasLimit, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
-	if to == "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr" {
+	if to == metamaskBalanceContractAddr {
 		return nil, nil
 	}
-	callerAddr, err := address.FromString(from)
-	if err != nil {
-		return nil, errors.Wrapf(errUnkownType, "from: %s", from)
-	}
-	ret, _, err := svr.coreService.ReadContract(context.Background(),
-		&iotextypes.Execution{
-			Amount:   value.String(),
-			Contract: to,
-			Data:     data,
-		},
-		callerAddr,
-		gasLimit,
-	)
+	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -428,29 +424,24 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 }
 
 func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
-	from, to, _, value, data, err := parseCallObject(in)
+	from, to, gasLimit, value, data, err := parseCallObject(in)
 	if err != nil {
 		return nil, err
 	}
 
 	var estimatedGas uint64
-	isContract, _ := svr.isContractAddr(to)
-	// TODO: support more types of actions
-	switch isContract {
-	case true:
-		// execution
-		estimatedGas, err = svr.coreService.estimateActionGasConsumptionForExecution(context.Background(),
-			&iotextypes.Execution{
-				Amount:   value.String(),
-				Contract: to,
-				Data:     data,
-			}, from)
+	if isContract, _ := svr.isContractAddr(to); isContract {
+		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 		if err != nil {
 			return nil, err
 		}
-	case false:
-		// transfer
-		estimatedGas = uint64(len(data))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
+	} else {
+		// TODO: support staking actions
+		estimatedGas, err = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(data)))
+		if err != nil {
+			return nil, err
+		}
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
@@ -622,7 +613,7 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 		}
 		return nil, err
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos)
+	return svr.getTransactionFromActionInfo(actionInfos)
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
@@ -674,6 +665,12 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		return nil, err
 	}
 
+	// acquire logsBloom from blockMeta
+	blkMeta, err := svr.coreService.BlockMetaByHash(blkHash)
+	if err != nil {
+		return nil, err
+	}
+
 	// parse logs from receipt
 	logs := make([]logsObject, 0)
 	for _, v := range receipt.Logs() {
@@ -681,14 +678,14 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		for _, tpc := range v.Topics {
 			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
 		}
-		addr := ""
-		if contractAddr != nil {
-			addr = *contractAddr
+		addr, err := ioAddrToEthAddr(v.Address)
+		if err != nil {
+			return nil, err
 		}
 		log := logsObject{
 			BlockHash:        "0x" + blkHash,
-			TransactionHash:  actHashStr,
-			TransactionIndex: tx.TransactionIndex,
+			TransactionHash:  "0x" + hex.EncodeToString(actHash[:]),
+			TransactionIndex: uint64ToHex(uint64(v.TxIndex)),
 			LogIndex:         uint64ToHex(uint64(v.Index)),
 			BlockNumber:      uint64ToHex(v.BlockHeight),
 			Address:          addr,
@@ -704,10 +701,10 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
 		From:              tx.From,
 		GasUsed:           uint64ToHex(receipt.GasConsumed),
-		LogsBloom:         "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+		LogsBloom:         getLogsBloomFromBlkMeta(blkMeta),
 		Status:            uint64ToHex(receipt.Status),
 		To:                tx.To,
-		TransactionHash:   actHashStr,
+		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
 		TransactionIndex:  tx.TransactionIndex,
 		Logs:              logs,
 	}, nil
@@ -757,7 +754,7 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if len(actionInfos) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
+	return svr.getTransactionFromActionInfo(actionInfos[0])
 }
 
 func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (interface{}, error) {
@@ -799,7 +796,7 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	if len(actionInfos) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionCreateFromActionInfo(actionInfos[0])
+	return svr.getTransactionFromActionInfo(actionInfos[0])
 }
 
 func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {

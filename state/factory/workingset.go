@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -124,7 +123,9 @@ func (ws *workingSet) runActions(
 			receipts = append(receipts, receipt)
 		}
 	}
-
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	return receipts, nil
 }
 
@@ -159,14 +160,9 @@ func (ws *workingSet) runAction(
 		return nil, action.ErrGasLimit
 	}
 	// Reject execution of chainID not equal the node's chainID
-	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
-	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsToBeEnabled(ws.height) {
-		if elp.ChainID() != blkChainCtx.ChainID {
-			return nil, errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, elp.ChainID())
-		}
+	if err := validateChainID(ctx, elp.ChainID()); err != nil {
+		return nil, err
 	}
-
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
@@ -191,6 +187,15 @@ func (ws *workingSet) runAction(
 	}
 	// TODO (zhi): return error
 	return nil, nil
+}
+
+func validateChainID(ctx context.Context, chainID uint32) error {
+	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.AllowCorrectDefaultChainID && (chainID != blkChainCtx.ChainID && chainID != 0) {
+		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
+	}
+	return nil
 }
 
 func (ws *workingSet) finalize() error {
@@ -480,9 +485,20 @@ func (ws *workingSet) pickAndRunActions(
 		}
 		executedActions = append(executedActions, selp)
 	}
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
+	}
 	ws.receipts = receipts
 
 	return executedActions, ws.finalize()
+}
+
+func updateReceiptIndex(receipts []*action.Receipt) {
+	var txIndex, logIndex uint32
+	for _, r := range receipts {
+		logIndex = r.UpdateIndex(txIndex, logIndex)
+		txIndex++
+	}
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {

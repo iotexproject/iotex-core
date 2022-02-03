@@ -23,28 +23,36 @@ import (
 )
 
 type nonceWithTTL struct {
+	idx      int
 	nonce    uint64
 	deadline time.Time
 }
 
-type noncePriorityQueue []nonceWithTTL
+type noncePriorityQueue []*nonceWithTTL
 
 func (h noncePriorityQueue) Len() int           { return len(h) }
 func (h noncePriorityQueue) Less(i, j int) bool { return h[i].nonce < h[j].nonce }
-func (h noncePriorityQueue) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h noncePriorityQueue) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].idx = i
+	h[j].idx = j
+}
 
 func (h *noncePriorityQueue) Push(x interface{}) {
-	in, ok := x.(nonceWithTTL)
-	if !ok {
-		return
+	if in, ok := x.(*nonceWithTTL); ok {
+		in.idx = len(*h)
+		*h = append(*h, in)
 	}
-	*h = append(*h, in)
 }
 
 func (h *noncePriorityQueue) Pop() interface{} {
 	old := *h
 	n := len(old)
+	if n == 0 {
+		return nil
+	}
 	x := old[n-1]
+	old[n-1] = nil // avoid memory leak
 	*h = old[0 : n-1]
 	return x
 }
@@ -121,7 +129,7 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 		}
 		return nil
 	}
-	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
+	heap.Push(&q.index, &nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
 	q.items[nonce] = act
 	return nil
 }
@@ -131,7 +139,7 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 	var removed []action.SealedEnvelope
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0].nonce < threshold {
-		nonce := heap.Pop(&q.index).(nonceWithTTL).nonce
+		nonce := heap.Pop(&q.index).(*nonceWithTTL).nonce
 		removed = append(removed, q.items[nonce])
 		delete(q.items, nonce)
 	}
@@ -139,25 +147,34 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 }
 
 func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
-	removedFromQueue := make([]action.SealedEnvelope, 0)
-	for i := 0; i < len(q.index); i++ {
-		if q.clock.Now().After(q.index[i].deadline) {
-			// remove
+	if q.ttl == 0 {
+		return []action.SealedEnvelope{}
+	}
+	var (
+		removedFromQueue = make([]action.SealedEnvelope, 0)
+		timeNow          = q.clock.Now()
+		size             = len(q.index)
+	)
+	for i := 0; i < size; {
+		if timeNow.After(q.index[i].deadline) {
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
-			q.index = append(q.index[:i], q.index[i+1:]...)
+			q.index[i] = q.index[size-1]
+			size--
+			continue
 		}
+		i++
 	}
+	q.index = q.index[:size]
+	// using heap.Init is better here, more detail to see BenchmarkHeapInitAndRemove
+	heap.Init(&q.index)
 	return removedFromQueue
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
 func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
-	removedFromQueue := make([]action.SealedEnvelope, 0)
 	// First remove all timed out actions
-	if q.ttl != 0 {
-		removedFromQueue = append(removedFromQueue, q.cleanTimeout()...)
-	}
+	removedFromQueue := q.cleanTimeout()
 
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce
 	// while updating pending balance if actions are payable

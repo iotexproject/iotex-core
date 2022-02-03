@@ -106,7 +106,7 @@ func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 // IntrinsicGas returns the intrinsic gas of a DepositToStake
 func (ds *DepositToStake) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(ds.Payload()))
-	return calculateIntrinsicGas(DepositToStakeBaseIntrinsicGas, DepositToStakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(DepositToStakeBaseIntrinsicGas, DepositToStakePayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a DepositToStake
