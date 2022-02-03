@@ -25,6 +25,10 @@ const (
 	CreateStakeBaseIntrinsicGas = uint64(10000)
 )
 
+var (
+	errDecodeFailure = errors.New("failed to decode the data")
+)
+
 // CreateStake defines the action of CreateStake creation
 type CreateStake struct {
 	AbstractAction
@@ -155,12 +159,12 @@ func (cs *CreateStake) SanityCheck() error {
 	return cs.AbstractAction.SanityCheck()
 }
 
-// EncodingABIBinary encodes data into abi encoding
+// EncodingABIBinary encodes data in abi encoding
 func (cs *CreateStake) EncodingABIBinary(stakeABI *abi.ABI) ([]byte, error) {
 	return stakeABI.Pack("createStake", cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
 }
 
-// EncodingABIBinary encodes data into abi encoding
+// DecodingABIBinary decodes data into createStake action
 func (cs *CreateStake) DecodingABIBinary(method *abi.Method, data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
@@ -170,24 +174,19 @@ func (cs *CreateStake) DecodingABIBinary(method *abi.Method, data []byte) error 
 		return err
 	}
 	if cs.candName, ok = paramsMap["candName"].(string); !ok {
-		panic(ok)
+		return errDecodeFailure
 	}
 	if cs.amount, ok = paramsMap["amount"].(*big.Int); !ok {
-		panic(ok)
+		return errDecodeFailure
 	}
 	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
-		panic(ok)
+		return errDecodeFailure
 	}
 	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
-		panic(ok)
+		return errDecodeFailure
 	}
 	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
-		panic(ok)
+		return errDecodeFailure
 	}
 	return nil
-}
-
-// EncodingABIBinary encodes data into abi encoding
-func (cs *CreateStake) ConvertProto() (*iotextypes.ActionCore_StakeCreate, error) {
-	return nil, nil
 }

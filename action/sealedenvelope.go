@@ -1,6 +1,8 @@
 package action
 
 import (
+	"math/big"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -146,7 +148,7 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 		if err != nil {
 			return nil, err
 		}
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddrHash[:], data)
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddr, data)
 	// case *DepositToStake:
 	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingAddDepositAddrHash[:], act.Proto())
 	// case *ChangeCandidate:
@@ -169,14 +171,11 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	return tx, err
 }
 
-func wrapStakingActionIntoExecution(ab AbstractAction, toAddr []byte, data []byte) (rlpTransaction, error) {
-	addr, err := address.FromBytes(toAddr[:])
-	if err != nil {
-		return nil, err
-	}
+func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (rlpTransaction, error) {
 	return &Execution{
 		AbstractAction: ab,
-		contract:       addr.String(),
+		contract:       toAddr,
+		amount:         big.NewInt(0),
 		data:           data,
 	}, nil
 }

@@ -1487,3 +1487,20 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	}
 	return core.sf.ReadContractStorage(ctx, addr, key)
 }
+
+func (core *coreService) EstimateGGas(actType action.Action, payloadSize uint64) (uint64, error) {
+	var intrinsicGas, payloadGas uint64
+	switch act := actType.(type) {
+	case *action.Transfer:
+		intrinsicGas, payloadGas = action.TransferBaseIntrinsicGas, action.TransferPayloadGas
+	case *action.CreateStake:
+		intrinsicGas, payloadGas = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas
+	default:
+		return 0, errors.Errorf("invalid action type %T not supported", act)
+	}
+	gas, err := core.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize)
+	if err != nil {
+		return 0, err
+	}
+	return gas, err
+}
