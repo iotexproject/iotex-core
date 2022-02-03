@@ -95,7 +95,7 @@ func NewUnstake(
 // IntrinsicGas returns the intrinsic gas of a Unstake
 func (su *Unstake) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(su.Payload()))
-	return calculateIntrinsicGas(ReclaimStakeBaseIntrinsicGas, ReclaimStakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(ReclaimStakeBaseIntrinsicGas, ReclaimStakePayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a Unstake
@@ -138,7 +138,7 @@ func NewWithdrawStake(
 // IntrinsicGas returns the intrinsic gas of a WithdrawStake
 func (sw *WithdrawStake) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(sw.Payload()))
-	return calculateIntrinsicGas(ReclaimStakeBaseIntrinsicGas, ReclaimStakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(ReclaimStakeBaseIntrinsicGas, ReclaimStakePayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a WithdrawStake
