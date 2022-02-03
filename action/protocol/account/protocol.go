@@ -46,6 +46,16 @@ func NewProtocol(depositGas DepositGas) *Protocol {
 	return &Protocol{addr: addr, depositGas: depositGas}
 }
 
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	h := hash.Hash160b([]byte(protocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
+	}
+	return addr
+}
+
 // FindProtocol finds the registered protocol from registry
 func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {

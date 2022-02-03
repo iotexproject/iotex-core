@@ -639,11 +639,11 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 
 	// read contract address from receipt
 	var contractAddr *string
-	if len(receipt.ContractAddress) > 0 {
-		res, err := ioAddrToEthAddr(receipt.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
+	res, err := getExecutionContractAddr(receipt.ContractAddress)
+	if err != nil {
+		return nil, err
+	}
+	if len(res) > 0 {
 		contractAddr = &res
 	}
 

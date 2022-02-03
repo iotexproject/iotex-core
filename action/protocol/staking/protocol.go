@@ -130,6 +130,16 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 	}, nil
 }
 
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	h := hash.Hash160b([]byte(protocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
+	}
+	return addr
+}
+
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
