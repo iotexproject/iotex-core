@@ -248,6 +248,20 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			}
 		case "eth_newBlockFilter":
 			res, err = svr.newBlockFilter()
+		case "trace_call":
+			res, err = svr.traceCall(params)
+		case "trace_callMany":
+			resp := make([]interface{}, 0)
+			for _, req := range web3Req.Get("params").Array() {
+				callRes, err := svr.traceCall(req)
+				if err != nil {
+					break
+				}
+				resp = append(resp, callRes)
+			}
+			res = resp
+		case "trace_rawTransaction":
+			res, err = svr.traceRawTransaction(params)
 		case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 			res, err = svr.unimplemented()
 		default:
@@ -954,6 +968,41 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	return svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
+}
+
+func (svr *Web3Server) traceCall(in interface{}) (interface{}, error) {
+	callerAddr, to, gasLimit, value, data, err := parseCallObject(in)
+	if err != nil {
+		return nil, err
+	}
+	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+	output, _, err := svr.coreService.SimulateExecution(callerAddr, *exec)
+	if err != nil {
+		return nil, err
+	}
+	return packTraceResult(callerAddr, exec, output, 0)
+}
+
+func (svr *Web3Server) traceRawTransaction(in interface{}) (interface{}, error) {
+	dataStr, err := getStringFromArray(in, 0)
+	if err != nil {
+		return nil, err
+	}
+	tx, _, _, err := action.DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
+	if err != nil {
+		return nil, err
+	}
+	ioAddr, err := ethAddrToIoAddr(tx.To().String())
+	if err != nil {
+		return nil, err
+	}
+	callerAddr, _ := address.FromString(address.ZeroAddress)
+	exec, _ := action.NewExecution(ioAddr.String(), 0, tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+	data, receipt, err := svr.coreService.SimulateExecution(callerAddr, *exec)
+	if err != nil {
+		return nil, err
+	}
+	return packTraceResult(callerAddr, exec, data, receipt.GasConsumed)
 }
 
 func (svr *Web3Server) unimplemented() (interface{}, error) {

@@ -371,6 +371,23 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 	return res.Data, res.Receipt, nil
 }
 
+// SimulateExecution simulates the execution locally without broadcasting to the network
+func (core *coreService) SimulateExecution(callerAddr address.Address, sc action.Execution) ([]byte, *action.Receipt, error) {
+	state, err := accountutil.AccountState(core.sf, callerAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, err := core.bc.Context(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+	sc.SetNonce(state.Nonce + 1)
+	if sc.GasLimit() == 0 || core.cfg.Genesis.BlockGasLimit < sc.GasLimit() {
+		sc.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
+	}
+	return core.sf.SimulateExecution(ctx, callerAddr, &sc, core.dao.GetBlockHash)
+}
+
 // ReadState reads state on blockchain
 func (core *coreService) ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error) {
 	p, ok := core.registry.Find(protocolID)

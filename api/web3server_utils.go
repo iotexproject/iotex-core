@@ -21,6 +21,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
@@ -71,6 +72,35 @@ type (
 		Creates          *string `json:"creates"`
 		ChainID          string  `json:"chainId"`
 		PublicKey        string  `json:"publicKey"`
+	}
+
+	traceResult struct {
+		Output    string        `json:"output"`
+		StateDiff *string       `json:"stateDiff"`
+		Trace     []traceObject `json:"trace"`
+		VmTrace   *string       `json:"vmTrace"`
+	}
+
+	traceObject struct {
+		Action       traceAction       `json:"action"`
+		Result       traceActionResult `json:"result"`
+		Subtraces    uint64            `json:"subtraces"`
+		TraceAddress []string          `json:"traceAddress"`
+		TraceType    string            `json:"type"`
+	}
+
+	traceAction struct {
+		CallType string `json:"callType"`
+		From     string `json:"from"`
+		To       string `json:"to"`
+		Gas      string `json:"gas"`
+		Value    string `json:"value"`
+		Input    string `json:"input"`
+	}
+
+	traceActionResult struct {
+		GasUsed string `json:"stateDiff"`
+		Output  string `json:"output"`
 	}
 )
 
@@ -438,7 +468,7 @@ func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int,
 	}
 	callObj := struct {
 		From     string `json:"from,omitempty"`
-		To       string `json:"to,omitempty"`
+		To       string `json:"to"`
 		Gas      string `json:"gas,omitempty"`
 		GasPrice string `json:"gasPrice,omitempty"`
 		Value    string `json:"value,omitempty"`
@@ -475,6 +505,36 @@ func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int,
 	}
 	data = common.FromHex(callObj.Data)
 	return from, to, gasLimit, value, data, nil
+}
+
+func packTraceResult(callerAddr address.Address, act *action.Execution, data []byte, gas uint64) (interface{}, error) {
+	output := "0x" + hex.EncodeToString(data)
+	to, err := ioAddrToEthAddr(act.Contract())
+	if err != nil {
+		return nil, err
+	}
+	value, err := intStrToHex(act.Amount().String())
+	if err != nil {
+		return nil, err
+	}
+	return traceResult{
+		Output: output,
+		Trace: []traceObject{{
+			Action: traceAction{
+				CallType: "call",
+				From:     callerAddr.Hex(),
+				To:       to,
+				Gas:      uint64ToHex(act.GasLimit()),
+				Value:    value,
+				Input:    "0x" + hex.EncodeToString(act.Data()),
+			},
+			Result: traceActionResult{
+				GasUsed: uint64ToHex(gas),
+				Output:  output,
+			},
+			TraceType: "call",
+		}},
+	}, nil
 }
 
 func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
