@@ -78,7 +78,7 @@ type (
 		Output    string        `json:"output"`
 		StateDiff *string       `json:"stateDiff"`
 		Trace     []traceObject `json:"trace"`
-		VmTrace   *string       `json:"vmTrace"`
+		VMTrace   *string       `json:"vmTrace"`
 	}
 
 	traceObject struct {
