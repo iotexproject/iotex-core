@@ -988,7 +988,7 @@ func (svr *Web3Server) traceRawTransaction(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	tx, _, _, err := action.DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
+	tx, _, pubkey, err := action.DecodeRawTx(dataStr, svr.coreService.EVMNetworkID())
 	if err != nil {
 		return nil, err
 	}
@@ -996,13 +996,12 @@ func (svr *Web3Server) traceRawTransaction(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	callerAddr, _ := address.FromString(address.ZeroAddress)
 	exec, _ := action.NewExecution(ioAddr.String(), 0, tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
-	data, receipt, err := svr.coreService.SimulateExecution(callerAddr, *exec)
+	data, receipt, err := svr.coreService.SimulateExecution(pubkey.Address(), *exec)
 	if err != nil {
 		return nil, err
 	}
-	return packTraceResult(callerAddr, exec, data, receipt.GasConsumed)
+	return packTraceResult(pubkey.Address(), exec, data, receipt.GasConsumed)
 }
 
 func (svr *Web3Server) unimplemented() (interface{}, error) {
