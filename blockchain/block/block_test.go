@@ -222,7 +222,7 @@ func makeBlock(tb testing.TB, n int) *Block {
 	return &blk
 }
 
-func TestVerifySignatureAndTxRoot(t *testing.T) {
+func TestVerifyBlock(t *testing.T) {
 	require := require.New(t)
 
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
@@ -241,11 +241,13 @@ func TestVerifySignatureAndTxRoot(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	t.Run("success", func(t *testing.T) {
-		require.NoError(blk.VerifySignatureAndTxRoot())
+		require.True(blk.Header.VerifySignature())
+		require.NoError(blk.VerifyTxRoot())
 	})
 
 	t.Run("wrong root hash", func(t *testing.T) {
 		blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-		require.Error(blk.VerifySignatureAndTxRoot())
+		require.True(blk.Header.VerifySignature())
+		require.Error(blk.VerifyTxRoot())
 	})
 }

@@ -89,7 +89,7 @@ func (b *Block) Deserialize(buf []byte) error {
 func (b *Block) VerifyTxRoot() error {
 	root, err := b.CalculateTxRoot()
 	if err != nil {
-		log.L().Debug("error in getting hash ", zap.Error(err))
+		log.L().Debug("error in getting hash", zap.Error(err))
 		return err
 	}
 	if !b.Header.VerifyTransactionRoot(root) {
@@ -147,12 +147,4 @@ func (b *Block) ActionHashs() []string {
 		actHash[i] = hex.EncodeToString(h[:])
 	}
 	return actHash
-}
-
-// VerifySignatureAndTxRoot verifies the block signature and tx root
-func (b *Block) VerifySignatureAndTxRoot() error {
-	if !b.Header.VerifySignature() {
-		return errors.Errorf("failed to verify block's signature with public key: %x", b.PublicKey())
-	}
-	return b.VerifyTxRoot()
 }

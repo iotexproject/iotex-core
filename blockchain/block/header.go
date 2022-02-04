@@ -192,7 +192,7 @@ func (h *Header) VerifyReceiptRoot(root hash.Hash256) bool {
 	return h.receiptRoot == root
 }
 
-// VerifyDeltaStateDigest verifies the delta state digest in header
+// VerifyTransactionRoot verifies the delta state digest in header
 func (h *Header) VerifyTransactionRoot(root hash.Hash256) bool {
 	return h.txRoot == root
 }
