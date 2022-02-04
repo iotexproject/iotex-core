@@ -6,35 +6,36 @@ package mock_sealed_envelope_validator
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
-	reflect "reflect"
 )
 
-// MockSealedEnvelopeValidator is a mock of SealedEnvelopeValidator interface
+// MockSealedEnvelopeValidator is a mock of SealedEnvelopeValidator interface.
 type MockSealedEnvelopeValidator struct {
 	ctrl     *gomock.Controller
 	recorder *MockSealedEnvelopeValidatorMockRecorder
 }
 
-// MockSealedEnvelopeValidatorMockRecorder is the mock recorder for MockSealedEnvelopeValidator
+// MockSealedEnvelopeValidatorMockRecorder is the mock recorder for MockSealedEnvelopeValidator.
 type MockSealedEnvelopeValidatorMockRecorder struct {
 	mock *MockSealedEnvelopeValidator
 }
 
-// NewMockSealedEnvelopeValidator creates a new mock instance
+// NewMockSealedEnvelopeValidator creates a new mock instance.
 func NewMockSealedEnvelopeValidator(ctrl *gomock.Controller) *MockSealedEnvelopeValidator {
 	mock := &MockSealedEnvelopeValidator{ctrl: ctrl}
 	mock.recorder = &MockSealedEnvelopeValidatorMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSealedEnvelopeValidator) EXPECT() *MockSealedEnvelopeValidatorMockRecorder {
 	return m.recorder
 }
 
-// Validate mocks base method
+// Validate mocks base method.
 func (m *MockSealedEnvelopeValidator) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
@@ -42,7 +43,7 @@ func (m *MockSealedEnvelopeValidator) Validate(arg0 context.Context, arg1 action
 	return ret0
 }
 
-// Validate indicates an expected call of Validate
+// Validate indicates an expected call of Validate.
 func (mr *MockSealedEnvelopeValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockSealedEnvelopeValidator)(nil).Validate), arg0, arg1)

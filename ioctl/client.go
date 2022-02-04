@@ -10,18 +10,15 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -43,7 +40,7 @@ type (
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
-		AskToConfirm() bool
+		AskToConfirm(string) bool
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
 		// Execute a bash command
@@ -58,6 +55,10 @@ type (
 		GetAliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
+		// PrintError print the error message
+		PrintError(error)
+		// PrintInfo print the command result or the question query
+		PrintInfo(string)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -65,6 +66,7 @@ type (
 		Endpoint string
 		Insecure bool
 	}
+
 	client struct {
 		cfg  config.Config
 		conn *grpc.ClientConn
@@ -73,16 +75,16 @@ type (
 	}
 )
 
+var confirmMessages = map[config.Language]string{
+	config.English: "Do you want to continue? [yes/NO]",
+	config.Chinese: "是否继续？【是/否】",
+}
+
 // NewClient creates a new ioctl client
 func NewClient() Client {
 	return &client{
 		cfg: config.ReadConfig,
 	}
-}
-
-var confirmMessages = map[config.Language]string{
-	config.English: "Do you want to continue? [yes/NO]",
-	config.Chinese: "是否继续？【是/否】",
 }
 
 func (c *client) Start(context.Context) error {
@@ -103,17 +105,12 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
-func (c *client) AskToConfirm() bool {
-	msg, lang := c.SelectTranslation(confirmMessages)
-	fmt.Println(msg)
+func (c *client) AskToConfirm(info string) bool {
+	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	fmt.Println(message.String())
 	var confirm string
 	fmt.Scanf("%s", &confirm)
-	switch lang {
-	case config.Chinese:
-		return strings.EqualFold(confirm, "是")
-	default: // config.English
-		return strings.EqualFold(confirm, "yes")
-	}
+	return strings.EqualFold(confirm, "yes")
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
@@ -141,6 +138,10 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 			return nil, err
 		}
 	}
+	if cfg.Endpoint == "" {
+		return nil, output.NewError(output.ConfigError, `use "ioctl config set endpoint" to config endpoint first`, nil)
+	}
+
 	var err error
 	if cfg.Insecure {
 		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithInsecure())
@@ -162,7 +163,7 @@ func (c *client) GetAddress(in string) (string, error) {
 	if err != nil {
 		return "", output.NewError(output.AddressError, "", err)
 	}
-	return address(addr)
+	return c.Address(addr)
 }
 
 func (c *client) Address(in string) (string, error) {
@@ -172,7 +173,7 @@ func (c *client) Address(in string) (string, error) {
 		}
 		return in, nil
 	}
-	addr, ok := config.ReadConfig.Aliases[in]
+	addr, ok := c.cfg.Aliases[in]
 	if ok {
 		return addr, nil
 	}
@@ -185,7 +186,7 @@ func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyS
 
 func (c *client) GetAliasMap() map[string]string {
 	aliases := make(map[string]string)
-	for name, addr := range config.ReadConfig.Aliases {
+	for name, addr := range c.cfg.Aliases {
 		aliases[addr] = name
 	}
 	return aliases
@@ -196,23 +197,19 @@ func (c *client) WriteConfig(cfg config.Config) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	return nil
 }
 
-func address(in string) (string, error) {
-	if len(in) >= validator.IoAddrLen {
-		if err := validator.ValidateAddress(in); err != nil {
-			return "", output.NewError(output.ValidationError, "", err)
-		}
-		return in, nil
+func (c *client) PrintError(err error) {
+	if err := output.PrintError(err); err != nil {
+		fmt.Println("Error:", err.Error())
 	}
-	addr, ok := config.ReadConfig.Aliases[in]
-	if ok {
-		return addr, nil
-	}
-	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+}
+
+func (c *client) PrintInfo(info string) {
+	output.PrintResult(info)
 }

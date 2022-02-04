@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -29,6 +30,8 @@ type (
 	featureContextKey struct{}
 
 	featureWithHeightContextKey struct{}
+
+	vmConfigContextKey struct{}
 
 	// TipInfo contains the tip block information
 	TipInfo struct {
@@ -95,7 +98,9 @@ type (
 		CurrentEpochProductivity    bool
 		FixSnapshotOrder            bool
 		AllowCorrectDefaultChainID  bool
-		ContractAddressInReceipt    bool
+		CorrectGetHashFn            bool
+		CorrectTxLogIndex           bool
+		RevertLog                   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -219,8 +224,10 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			UpdateBlockMeta:             g.IsGreenland(height),
 			CurrentEpochProductivity:    g.IsGreenland(height),
 			FixSnapshotOrder:            g.IsKamchatka(height),
-			AllowCorrectDefaultChainID:  g.IsToBeEnabled(height),
-			ContractAddressInReceipt:    g.IsToBeEnabled(height),
+			AllowCorrectDefaultChainID:  g.IsMidway(height),
+			CorrectGetHashFn:            g.IsMidway(height),
+			CorrectTxLogIndex:           g.IsMidway(height),
+			RevertLog:                   g.IsMidway(height),
 		},
 	)
 }
@@ -287,4 +294,15 @@ func MustGetFeatureWithHeightCtx(ctx context.Context) FeatureWithHeightCtx {
 		log.S().Panic("Miss feature context")
 	}
 	return fc
+}
+
+// WithVMConfigCtx adds vm config to context
+func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
+	return context.WithValue(ctx, vmConfigContextKey{}, vmConfig)
+}
+
+// GetVMConfigCtx returns the vm config from context
+func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
+	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
+	return cfg, ok
 }

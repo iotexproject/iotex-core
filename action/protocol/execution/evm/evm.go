@@ -110,18 +110,28 @@ func newParams(
 	}
 
 	var getHashFn vm.GetHashFunc
-	if !featureCtx.FixGetHashFnHeight {
+	switch {
+	case featureCtx.CorrectGetHashFn:
 		getHashFn = func(n uint64) common.Hash {
-			hash, err := getBlockHash(stateDB.blockHeight - n)
-			if err != nil {
+			hash, err := getBlockHash(n)
+			if err == nil {
 				return common.BytesToHash(hash[:])
 			}
 			return common.Hash{}
 		}
-	} else {
+	case featureCtx.FixGetHashFnHeight:
 		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - (n + 1))
 			if err == nil {
+				return common.BytesToHash(hash[:])
+			}
+			return common.Hash{}
+		}
+	default:
+		getHashFn = func(n uint64) common.Hash {
+			hash, err := getBlockHash(stateDB.blockHeight - n)
+			if err != nil {
+				// initial implementation did wrong, should return common.Hash{} in case of error
 				return common.BytesToHash(hash[:])
 			}
 			return common.Hash{}
@@ -191,12 +201,9 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, g.Blockchain, blkCtx.GasLimit, blkCtx.BlockHeight)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB, g.Blockchain, blkCtx.GasLimit, blkCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
-	}
-	if featureCtx.ContractAddressInReceipt && len(contractAddress) == 0 {
-		contractAddress = execution.Contract()
 	}
 	receipt := &action.Receipt{
 		GasConsumed:     ps.gas - remainingGas,
@@ -236,12 +243,12 @@ func ExecuteContract(
 	if err := stateDB.CommitContracts(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
-	stateDB.clear()
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
 		featureCtx.AddOutOfGasToTransactionLog && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
+	stateDB.clear()
 
 	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
@@ -292,6 +299,10 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) *StateDBAdapt
 	if featureCtx.FixSnapshotOrder {
 		opts = append(opts, FixSnapshotOrderOption())
 	}
+	if featureCtx.RevertLog {
+		opts = append(opts, RevertLogOption())
+	}
+
 	return NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
@@ -316,13 +327,16 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
+func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
+	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
+		config = vmCfg
+	}
 	chainConfig := getChainConfig(g, blockHeight)
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)

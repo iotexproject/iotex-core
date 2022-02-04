@@ -13,9 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -23,6 +23,7 @@ import (
 
 func TestNewAccountDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
@@ -36,10 +37,16 @@ func TestNewAccountDelete(t *testing.T) {
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	acc, _ := ks.NewAccount("test")
 	accAddr, _ := address.FromBytes(acc.Address.Bytes())
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
-
+	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
+	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 	cmd := NewAccountDelete(client)
 	_, err := util.ExecuteCmd(cmd)
+	require.NoError(t, err)
+
+	client.EXPECT().Config().Return(config.ReadConfig)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+	cmd = NewAccountDelete(client)
+	_, err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 }

@@ -13,12 +13,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -231,7 +233,7 @@ func TestReadContractStorage(t *testing.T) {
 
 	ctx := protocol.WithBlockchainCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), genesis.Default),
-		protocol.BlockCtx{BlockHeight: genesis.Default.ToBeEnabledBlockHeight})),
+		protocol.BlockCtx{BlockHeight: genesis.Default.MidwayBlockHeight})),
 		protocol.BlockchainCtx{})
 	for k, v := range kvs {
 		b, err := ReadContractStorage(ctx, sm, addr, k[:])
@@ -278,6 +280,14 @@ var tests = []stateDBTest{
 			{common.BytesToHash(v1[:]), []byte("cat")},
 			{common.BytesToHash(v2[:]), []byte("dog")},
 		},
+		[]*types.Log{
+			newTestLog(c3), newTestLog(c2), newTestLog(c1),
+		},
+		[]*action.TransactionLog{
+			newTestTxLog(c3), newTestTxLog(c1),
+		},
+		3, 2,
+		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 	{
 		[]bal{
@@ -299,6 +309,14 @@ var tests = []stateDBTest{
 		[]image{
 			{common.BytesToHash(v3[:]), []byte("hen")},
 		},
+		[]*types.Log{
+			newTestLog(C4),
+		},
+		[]*action.TransactionLog{
+			newTestTxLog(c2), newTestTxLog(c1), newTestTxLog(C4),
+		},
+		4, 5,
+		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 	},
 	{
 		nil,
@@ -313,11 +331,17 @@ var tests = []stateDBTest{
 		[]image{
 			{common.BytesToHash(v4[:]), []byte("fox")},
 		},
+		[]*types.Log{
+			newTestLog(c1), newTestLog(c2),
+		},
+		nil,
+		6, 5,
+		"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 	},
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot bool) {
+	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot, revertLog bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -331,6 +355,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		}
 		if fixSnapshot {
 			opt = append(opt, FixSnapshotOrderOption())
+		}
+		if revertLog {
+			opt = append(opt, RevertLogOption())
 		}
 		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
 
@@ -358,6 +385,17 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, e := range test.preimage {
 				stateDB.AddPreimage(e.hash, e.v)
 			}
+			// set logs and txLogs
+			for _, l := range test.logs {
+				stateDB.AddLog(l)
+			}
+			for _, l := range test.txLogs {
+				stateDB.transactionLogs = append(stateDB.transactionLogs, l)
+			}
+			require.Equal(test.logSize, len(stateDB.logs))
+			require.Equal(test.txLogSize, len(stateDB.transactionLogs))
+			require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
+			require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
 			require.Equal(i, stateDB.Snapshot())
 		}
 
@@ -386,6 +424,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte("fox")},
 				},
+				nil, nil,
+				6, 5,
+				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 			},
 			{
 				[]bal{
@@ -406,6 +447,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte(nil)},
 				},
+				nil, nil,
+				4, 5,
+				"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
 			},
 			{
 				[]bal{
@@ -430,6 +474,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte(nil)},
 					{common.BytesToHash(v4[:]), []byte(nil)},
 				},
+				nil, nil,
+				3, 2,
+				"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 			},
 		}
 
@@ -463,6 +510,18 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
 				require.Equal(e.exist, stateDB.Exist(e.addr))
 			}
+			// test logs
+			if revertLog {
+				require.Equal(test.logSize, len(stateDB.logs))
+				require.Equal(test.txLogSize, len(stateDB.transactionLogs))
+				require.Equal(test.logAddr, stateDB.logs[test.logSize-1].Address)
+				require.Equal(test.txLogAddr, stateDB.transactionLogs[test.txLogSize-1].Sender)
+			} else {
+				require.Equal(6, len(stateDB.logs))
+				require.Equal(5, len(stateDB.transactionLogs))
+				require.Equal("io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", stateDB.logs[5].Address)
+				require.Equal("io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", stateDB.transactionLogs[4].Sender)
+			}
 		}
 
 		// snapshot after revert
@@ -482,21 +541,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
 	}
 
-	t.Run("contract snapshot/revert/commit in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, true)
+		testSnapshotAndRevert(cfg, t, false, true, false)
 	})
-	t.Run("contract snapshot/revert/commit without bug fix in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit w/o bug fix and revert log", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, false)
+		testSnapshotAndRevert(cfg, t, false, false, true)
 	})
-	t.Run("contract snapshot/revert/commit with async trie in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit with async trie and revert log", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, true)
+		testSnapshotAndRevert(cfg, t, true, true, true)
 	})
-	t.Run("contract snapshot/revert/commit with async trie and without bug fix in memory DB", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit with async trie and w/o bug fix", func(t *testing.T) {
 		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, false)
+		testSnapshotAndRevert(cfg, t, true, false, false)
 	})
 }
 
@@ -509,6 +568,7 @@ func TestClearSnapshots(t *testing.T) {
 		require.NoError(err)
 		opts := []StateDBAdapterOption{
 			NotFixTopicCopyBugOption(),
+			RevertLogOption(),
 		}
 		if async {
 			opts = append(opts, AsyncContractTrieOption())
@@ -547,6 +607,7 @@ func TestClearSnapshots(t *testing.T) {
 
 		// revert to snapshot 1
 		stateDB.RevertToSnapshot(1)
+		require.Equal(1, len(stateDB.logsSnapshot))
 
 		if stateDB.fixSnapshotOrder {
 			// snapshot 1, 2 cleared, only 0 left in map
@@ -558,6 +619,7 @@ func TestClearSnapshots(t *testing.T) {
 			require.Equal(2, len(stateDB.suicideSnapshot))
 			require.Equal(2, len(stateDB.contractSnapshot))
 			require.Equal(2, len(stateDB.preimageSnapshot))
+			require.Equal(2, len(stateDB.logsSnapshot))
 		} else {
 			// snapshot not cleared
 			require.Equal(3, len(stateDB.suicideSnapshot))
@@ -568,7 +630,10 @@ func TestClearSnapshots(t *testing.T) {
 			require.Equal(3, len(stateDB.suicideSnapshot))
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
+			// log snapshot added after fixSnapshotOrder, so it is cleared and 1 remains
+			require.Equal(1, len(stateDB.logsSnapshot))
 		}
+
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
 		cfg := config.Default

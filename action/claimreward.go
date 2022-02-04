@@ -65,7 +65,7 @@ func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingF
 // IntrinsicGas returns the intrinsic gas of a claim action
 func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(c.Data()))
-	return calculateIntrinsicGas(ClaimFromRewardingFundBaseGas, ClaimFromRewardingFundGasPerByte, dataLen)
+	return CalculateIntrinsicGas(ClaimFromRewardingFundBaseGas, ClaimFromRewardingFundGasPerByte, dataLen)
 }
 
 // Cost returns the total cost of a claim action
