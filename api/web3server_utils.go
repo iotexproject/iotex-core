@@ -521,7 +521,7 @@ func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64)
 func loadFilterFromCache(c apiCache, filterID string) (filterObject, error) {
 	dataStr, isFound := c.Get(filterID)
 	if !isFound {
-		return filterObject{}, errInvalidFiterID
+		return filterObject{}, errInvalidFilterID
 	}
 	var filterObj filterObject
 	if err := json.Unmarshal([]byte(dataStr), &filterObj); err != nil {

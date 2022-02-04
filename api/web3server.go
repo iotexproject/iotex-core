@@ -101,7 +101,7 @@ var (
 	errNullPointer       = errors.New("null pointer")
 	errInvalidFormat     = errors.New("invalid format of request")
 	errNotImplemented    = errors.New("method not implemented")
-	errInvalidFiterID    = errors.New("filter not found")
+	errInvalidFilterID   = errors.New("filter not found")
 	errInvalidBlock      = errors.New("invalid block")
 	errUnsupportedAction = errors.New("the type of action is not supported")
 
@@ -949,7 +949,7 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if filterObj.FilterType != "log" {
-		return nil, errInvalidFiterID
+		return nil, errInvalidFilterID
 	}
 	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
 	if err != nil {
