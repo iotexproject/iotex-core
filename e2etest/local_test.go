@@ -523,7 +523,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.API.Port = testutil.RandomPort()
 	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.ToBeEnabledBlockHeight = 1
+	cfg.Genesis.MidwayBlockHeight = 1
 	sk, err := crypto.GenerateKey()
 
 	if err != nil {
