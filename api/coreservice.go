@@ -258,7 +258,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
-	log.L().Debug("receive send action request")
+	log.Logger("api").Debug("receive send action request")
 	var selp action.SealedEnvelope
 	if err := selp.LoadProto(in); err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
@@ -275,7 +275,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if err != nil {
 		return "", err
 	}
-	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
+	l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)
 		if serErr != nil {
@@ -295,7 +295,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		}
 		st, err := st.WithDetails(br)
 		if err != nil {
-			log.S().Panicf("Unexpected error attaching metadata: %v", err)
+			log.Logger("api").Panic("Unexpected error attaching metadata", zap.Error(err))
 		}
 		return "", st.Err()
 	}
@@ -333,7 +333,7 @@ func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt,
 
 // ReadContract reads the state in a contract address specified by the slot
 func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
-	log.L().Debug("receive read smart contract request")
+	log.Logger("api").Debug("receive read smart contract request")
 	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {
@@ -1165,7 +1165,7 @@ func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) [
 		selp := blk.Actions[i]
 		actHash, err := selp.Hash()
 		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
 		sender := selp.SrcPubkey().Address()
@@ -1194,7 +1194,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 		selp := blk.Actions[ri]
 		actHash, err := selp.Hash()
 		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
 		sender := selp.SrcPubkey().Address()

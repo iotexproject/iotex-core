@@ -169,6 +169,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 
 	web3Resps := make([]interface{}, 0)
 	for _, web3Req := range web3Reqs {
+		log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 		var (
 			res    interface{}
 			err    error
@@ -255,9 +256,11 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 			return packAPIResult(nil, err, 0)
 		}
 		if err != nil {
-			log.L().Error("web3server",
+			log.Logger("api").Error("web3server",
 				zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 				zap.Error(err))
+		} else {
+			log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 		}
 		web3Resps = append(web3Resps, packAPIResult(res, err, int(web3Req.Get("id").Int())))
 		web3ServerMtc.WithLabelValues(method.(string)).Inc()
