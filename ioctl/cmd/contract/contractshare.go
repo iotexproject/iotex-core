@@ -8,7 +8,6 @@ package contract
 
 import (
 	"flag"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -199,7 +198,7 @@ func share(args []string) error {
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
 				getPayloadPath := getPayload["path"].(string)
-				upload, err := ioutil.ReadFile(givenPath + "/" + getPayloadPath)
+				upload, err := os.ReadFile(givenPath + "/" + getPayloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
 				}
@@ -231,7 +230,7 @@ func share(args []string) error {
 				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
 				setPath := setPayload["path"].(string)
 				content := setPayload["content"].(string)
-				err := ioutil.WriteFile(givenPath+"/"+setPath, []byte(content), 0777)
+				err := os.WriteFile(givenPath+"/"+setPath, []byte(content), 0777)
 				if err != nil {
 					log.Println("set file failed: ", err)
 				}

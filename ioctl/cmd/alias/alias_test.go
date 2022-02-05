@@ -7,7 +7,6 @@
 package alias
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -77,7 +76,7 @@ func testInit() error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return err
 	}
 	return nil
