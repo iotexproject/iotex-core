@@ -64,7 +64,7 @@ func TestAlias(t *testing.T) {
 }
 
 func testInit() error {
-	testPathd, _ := ioutil.TempDir(os.TempDir(), "kstest")
+	testPathd, _ := os.MkdirTemp(os.TempDir(), "kstest")
 	config.ConfigDir = testPathd
 	var err error
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
