@@ -271,7 +271,7 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 	return packAPIResult(res, err, int(web3Req.Get("id").Int()))
 }
 
-func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
+func parseWeb3Reqs(req *http.Request) (gjson.Result, error) {
 	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return gjson.Result{}, err
