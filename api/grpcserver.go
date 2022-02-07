@@ -101,6 +101,8 @@ func (svr *GRPCServer) SuggestGasPrice(ctx context.Context, in *iotexapi.Suggest
 
 // GetAccount returns the metadata of an account
 func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
 	addr, err := address.FromString(in.Address)
 	if err != nil {
 		return nil, err
@@ -109,6 +111,8 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 	if err != nil {
 		return nil, err
 	}
+	span.AddEvent("response")
+	span.SetAttributes(attribute.String("addr", in.Address))
 	return &iotexapi.GetAccountResponse{
 		AccountMeta:     accountMeta,
 		BlockIdentifier: blockIdentifier,
