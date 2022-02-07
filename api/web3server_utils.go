@@ -20,8 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -74,6 +72,10 @@ type (
 		ChainID          string  `json:"chainId"`
 		PublicKey        string  `json:"publicKey"`
 	}
+)
+
+const (
+	_zeroLogsBloom = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 )
 
 func hexStringToNumber(hexStr string) (uint64, error) {
@@ -142,7 +144,6 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 }
 
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
-	transactionsRoot := "0x"
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
 		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
@@ -156,22 +157,13 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
 					continue
 				}
-				transactions = append(transactions, *tx)
+				transactions = append(transactions, tx)
 			} else {
 				transactions = append(transactions, "0x"+info.ActHash)
 			}
 		}
-		transactionsRoot = "0x" + blkMeta.TxRoot
 	}
 
-	// TODO: the value is the same as Babel's. It will be corrected in next pr
-	if len(transactions) == 0 {
-		transactionsRoot = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
-	}
-	bloom := "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-	if len(blkMeta.LogsBloom) > 0 {
-		bloom = blkMeta.LogsBloom
-	}
 	producerAddr, err := ioAddrToEthAddr(blkMeta.ProducerAddress)
 	if err != nil {
 		return blockObject{}, err
@@ -183,8 +175,8 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 		Hash:             "0x" + blkMeta.Hash,
 		ParentHash:       "0x" + blkMeta.PreviousBlockHash,
 		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-		LogsBloom:        "0x" + bloom,
-		TransactionsRoot: transactionsRoot,
+		LogsBloom:        getLogsBloomFromBlkMeta(blkMeta),
+		TransactionsRoot: "0x" + blkMeta.TxRoot,
 		StateRoot:        "0x" + blkMeta.DeltaStateDigest,
 		ReceiptsRoot:     "0x" + blkMeta.TxRoot,
 		Miner:            producerAddr,
@@ -202,43 +194,60 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) (*transactionObject, error) {
+func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
 	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
-		return nil, errNullPointer
+		return transactionObject{}, errNullPointer
 	}
 	var (
-		to    *string
-		value = "0x0"
-		data  = "0x"
-		err   error
+		to     *string
+		create *string
+		value  = "0x0"
+		data   = "0x"
+		err    error
 	)
 	switch act := actInfo.Action.Core.Action.(type) {
 	case *iotextypes.ActionCore_Transfer:
 		value, err = intStrToHex(act.Transfer.GetAmount())
 		if err != nil {
-			return nil, err
+			return transactionObject{}, err
 		}
 		toTmp, err := ioAddrToEthAddr(act.Transfer.GetRecipient())
 		if err != nil {
-			return nil, err
+			return transactionObject{}, err
 		}
 		to = &toTmp
 	case *iotextypes.ActionCore_Execution:
 		value, err = intStrToHex(act.Execution.GetAmount())
 		if err != nil {
-			return nil, err
+			return transactionObject{}, err
 		}
 		if len(act.Execution.GetContract()) > 0 {
 			toTmp, err := ioAddrToEthAddr(act.Execution.GetContract())
 			if err != nil {
-				return nil, err
+				return transactionObject{}, err
 			}
 			to = &toTmp
 		}
 		data = byteToHex(act.Execution.GetData())
+		// recipient is empty when contract is created
+		if to == nil {
+			actHash, err := hash.HexStringToHash256(actInfo.ActHash)
+			if err != nil {
+				return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", actInfo.ActHash)
+			}
+			receipt, _, err := svr.coreService.ReceiptByAction(actHash)
+			if err != nil {
+				return transactionObject{}, err
+			}
+			addr, err := ioAddrToEthAddr(receipt.ContractAddress)
+			if err != nil {
+				return transactionObject{}, err
+			}
+			create = &addr
+		}
 	// TODO: support other type actions
 	default:
-		return nil, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
+		return transactionObject{}, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
@@ -248,13 +257,13 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 
 	from, err := ioAddrToEthAddr(actInfo.Sender)
 	if err != nil {
-		return nil, err
+		return transactionObject{}, err
 	}
 	gasPrice, err := intStrToHex(actInfo.Action.Core.GasPrice)
 	if err != nil {
-		return nil, err
+		return transactionObject{}, err
 	}
-	return &transactionObject{
+	return transactionObject{
 		Hash:             "0x" + actInfo.ActHash,
 		Nonce:            uint64ToHex(actInfo.Action.Core.Nonce),
 		BlockHash:        "0x" + actInfo.BlkHash,
@@ -271,40 +280,17 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		V:                uint64ToHex(vVal),
 		// TODO: the value is the same as Babel's. It will be corrected in next pr
 		StandardV: uint64ToHex(vVal),
+		Creates:   create,
 		ChainID:   uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
 		PublicKey: byteToHex(actInfo.Action.SenderPubKey),
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionCreateFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
-	tx, err := svr.getTransactionFromActionInfo(actInfo)
-	if err != nil {
-		return transactionObject{}, err
-	}
-
-	if tx.To == nil {
-		actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(tx.Hash))
-		if err != nil {
-			return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", tx.Hash)
-		}
-		receipt, _, err := svr.coreService.ReceiptByAction(actHash)
-		if err != nil {
-			return transactionObject{}, err
-		}
-		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
-		if err != nil {
-			return transactionObject{}, err
-		}
-		tx.Creates = &addr
-	}
-	return *tx, nil
-}
-
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	switch str {
-	case earliestBlockNumber:
+	case _earliestBlockNumber:
 		return 1, nil
-	case "", pendingBlockNumber, latestBlockNumber:
+	case "", _pendingBlockNumber, _latestBlockNumber:
 		return svr.coreService.bc.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
@@ -317,17 +303,6 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 		return
 	}
 	to, err = svr.parseBlockNumber(toStr)
-	if err != nil {
-		return
-	}
-	tipHeight := svr.coreService.bc.TipHeight()
-	if from > tipHeight {
-		err = status.Error(codes.InvalidArgument, "start block > tip height")
-		return
-	}
-	if to > tipHeight {
-		to = tipHeight
-	}
 	return
 }
 
@@ -365,11 +340,9 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 			}
 			topic = append(topic, b)
 		}
-		filter.Topics = append(filter.Topics, &iotexapi.Topics{
-			Topic: topic,
-		})
+		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
-	logs, err := svr.coreService.getLogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 1000)
+	logs, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -386,12 +359,11 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 			return nil, err
 		}
 		ret = append(ret, logsObject{
-			BlockHash:       byteToHex(l.BlkHash),
-			TransactionHash: byteToHex(l.ActHash),
-			LogIndex:        uint64ToHex(uint64(l.Index)),
-			BlockNumber:     uint64ToHex(l.BlkHeight),
-			// TransactionIndex bug will be fixed in the next
-			TransactionIndex: "0x1",
+			BlockHash:        byteToHex(l.BlkHash),
+			TransactionHash:  byteToHex(l.ActHash),
+			LogIndex:         uint64ToHex(uint64(l.Index)),
+			BlockNumber:      uint64ToHex(l.BlkHeight),
+			TransactionIndex: uint64ToHex(uint64(l.TxIndex)),
 			Address:          contractAddr,
 			Data:             byteToHex(l.Data),
 			Topics:           topics,
@@ -410,6 +382,13 @@ func hexToBytes(str string) ([]byte, error) {
 		str = "0" + str
 	}
 	return hex.DecodeString(str)
+}
+
+func getLogsBloomFromBlkMeta(blkMeta *iotextypes.BlockMeta) string {
+	if len(blkMeta.LogsBloom) == 0 {
+		return _zeroLogsBloom
+	}
+	return "0x" + blkMeta.LogsBloom
 }
 
 func parseLogRequest(in gjson.Result) (*filterObject, error) {

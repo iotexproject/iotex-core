@@ -104,7 +104,7 @@ func (rs *Restake) LoadProto(pbAct *iotextypes.StakeRestake) error {
 // IntrinsicGas returns the intrinsic gas of a Restake
 func (rs *Restake) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(rs.Payload()))
-	return calculateIntrinsicGas(RestakeBaseIntrinsicGas, RestakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(RestakeBaseIntrinsicGas, RestakePayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a Restake
