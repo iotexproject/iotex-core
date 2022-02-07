@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -271,8 +271,8 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 	return packAPIResult(res, err, int(web3Req.Get("id").Int()))
 }
 
-func parseWeb3Reqs(req *http.Request) (gjson.Result, error) {
-	data, err := ioutil.ReadAll(req.Body)
+func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return gjson.Result{}, err
 	}

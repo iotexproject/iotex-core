@@ -59,6 +59,10 @@ type (
 		PrintError(error)
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
+		// SetCryptoSm2 set the flag of sm2 cryptographic algorithm
+		SetCryptoSm2(bool)
+		// HasCryptoSm2 get the flag of sm2 cryptographic algorithm
+		HasCryptoSm2() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -68,8 +72,10 @@ type (
 	}
 
 	client struct {
-		cfg  config.Config
-		conn *grpc.ClientConn
+		cfg       config.Config
+		conn      *grpc.ClientConn
+		cryptoSm2 bool
+
 		// TODO: merge into config
 		lang config.Language
 	}
@@ -212,4 +218,12 @@ func (c *client) PrintError(err error) {
 
 func (c *client) PrintInfo(info string) {
 	output.PrintResult(info)
+}
+
+func (c *client) SetCryptoSm2(flag bool) {
+	c.cryptoSm2 = flag
+}
+
+func (c *client) HasCryptoSm2() bool {
+	return c.cryptoSm2
 }

@@ -8,7 +8,7 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
@@ -37,7 +37,7 @@ var createConfigCmd = &cobra.Command{
 			priKeyBytes,
 			pubKeyBytes,
 		)
-		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
+		if err := os.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
 			log.L().Fatal("failed to write file", zap.Error(err))
 		}
 	},
