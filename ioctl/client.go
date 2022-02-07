@@ -61,8 +61,8 @@ type (
 		PrintInfo(string)
 		// SetCryptoSm2 set the flag of sm2 cryptographic algorithm
 		SetCryptoSm2(bool)
-		// GetCryptoSm2 get the flag of sm2 cryptographic algorithm
-		GetCryptoSm2() bool
+		// HasCryptoSm2 get the flag of sm2 cryptographic algorithm
+		HasCryptoSm2() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -72,12 +72,12 @@ type (
 	}
 
 	client struct {
-		cfg  config.Config
-		conn *grpc.ClientConn
+		cfg       config.Config
+		conn      *grpc.ClientConn
+		cryptoSm2 bool
+
 		// TODO: merge into config
 		lang config.Language
-		// cryptoSm2 is a flag for sm2 cryptographic algorithm
-		cryptoSm2 bool
 	}
 )
 
@@ -224,6 +224,6 @@ func (c *client) SetCryptoSm2(flag bool) {
 	c.cryptoSm2 = flag
 }
 
-func (c *client) GetCryptoSm2() bool {
+func (c *client) HasCryptoSm2() bool {
 	return c.cryptoSm2
 }

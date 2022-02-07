@@ -69,7 +69,7 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
-				if !c.GetCryptoSm2() {
+				if !c.HasCryptoSm2() {
 					private, err = crypto.GenerateKey()
 					if err != nil {
 						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))

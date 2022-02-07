@@ -139,18 +139,18 @@ func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
 }
 
-// GetCryptoSm2 mocks base method.
-func (m *MockClient) GetCryptoSm2() bool {
+// HasCryptoSm2 mocks base method.
+func (m *MockClient) HasCryptoSm2() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCryptoSm2")
+	ret := m.ctrl.Call(m, "HasCryptoSm2")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// GetCryptoSm2 indicates an expected call of GetCryptoSm2.
-func (mr *MockClientMockRecorder) GetCryptoSm2() *gomock.Call {
+// HasCryptoSm2 indicates an expected call of HasCryptoSm2.
+func (mr *MockClientMockRecorder) HasCryptoSm2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCryptoSm2", reflect.TypeOf((*MockClient)(nil).GetCryptoSm2))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasCryptoSm2", reflect.TypeOf((*MockClient)(nil).HasCryptoSm2))
 }
 
 // NewKeyStore mocks base method.

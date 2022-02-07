@@ -27,7 +27,7 @@ func TestNewAccountList(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
 	t.Run("When NewAccountList returns no error", func(t *testing.T) {
-		client.EXPECT().GetCryptoSm2().Return(false)
+		client.EXPECT().HasCryptoSm2().Return(false)
 		testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 		require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
 		defer func() {
@@ -53,7 +53,7 @@ func TestNewAccountList(t *testing.T) {
 	})
 
 	t.Run("When NewAccountList returns error", func(t *testing.T) {
-		client.EXPECT().GetCryptoSm2().Return(true)
+		client.EXPECT().HasCryptoSm2().Return(true)
 		config.ReadConfig.Wallet = ""
 
 		client.EXPECT().GetAliasMap().DoAndReturn(
