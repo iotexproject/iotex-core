@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -271,7 +271,7 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 }
 
 func parseWeb3Reqs(req *http.Request) ([]gjson.Result, error) {
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
 	}
