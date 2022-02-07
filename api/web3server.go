@@ -371,7 +371,7 @@ func (svr *Web3Server) getBalance(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(context.Background(), ioAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 		return uint64ToHex(pendingNonce), nil
 	}
 	// TODO: returns the nonce in given block height after archive mode is supported
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(context.Background(), ioAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +524,7 @@ func (svr *Web3Server) getCode(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(context.Background(), ioAddr)
 	if err != nil {
 		return nil, err
 	}

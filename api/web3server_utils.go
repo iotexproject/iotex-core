@@ -314,7 +314,7 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	accountMeta, _, err := svr.coreService.Account(context.Background(), ioAddr)
 	if err != nil {
 		return false, err
 	}

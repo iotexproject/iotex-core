@@ -125,23 +125,31 @@ func newCoreService(
 }
 
 // Account returns the metadata of an account
-func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+func (core *coreService) Account(ctx context.Context, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(ctx, "coreService.Account")
+	defer span.End()
 	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
 		return core.getProtocolAccount(context.Background(), addrStr)
 	}
+	ctx, span1 := tracer.NewSpan(ctx, "accountutil.AccountStateWithHeight")
 	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
+	span1.End()
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	ctx, span2 := tracer.NewSpan(ctx, "ap.GetPendingNonce")
 	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
+	span2.End()
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
 	}
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
+	ctx, span3 := tracer.NewSpan(ctx, "indexer.GetActionCount")
 	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
+	span3.End()
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -161,7 +169,9 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		}
 		accountMeta.ContractByteCode = code
 	}
+	ctx, span4 := tracer.NewSpan(ctx, "bc.BlockHeaderByHeight")
 	header, err := core.bc.BlockHeaderByHeight(tipHeight)
+	span4.End()
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}

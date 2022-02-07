@@ -105,7 +105,7 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 	if err != nil {
 		return nil, err
 	}
-	accountMeta, blockIdentifier, err := svr.coreService.Account(addr)
+	accountMeta, blockIdentifier, err := svr.coreService.Account(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
