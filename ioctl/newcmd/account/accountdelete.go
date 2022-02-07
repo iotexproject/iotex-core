@@ -110,23 +110,6 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 						filePath = v.URL.Path
 						break
 					}
-
-					aliases := make(map[string]string)
-					for name, addr := range c.Config().Aliases {
-						aliases[addr] = name
-					}
-
-					delete(config.ReadConfig.Aliases, aliases[addr])
-					out, err := yaml.Marshal(&config.ReadConfig)
-					if err != nil {
-						return output.NewError(output.SerializationError, "", err)
-					}
-					if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-						return output.NewError(output.WriteFileError,
-							fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
-					}
-					output.PrintResult(fmt.Sprintf(resultSuccess, addr))
-					return nil
 				}
 			}
 
