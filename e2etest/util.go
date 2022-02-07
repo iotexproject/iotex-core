@@ -8,17 +8,16 @@ package e2etest
 
 import (
 	"context"
-	"io/ioutil"
 	"math/big"
-
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/test/identityset"
+	"os"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -252,11 +251,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 }
 
 func copyDB(srcDB, dstDB string) error {
-	input, err := ioutil.ReadFile(srcDB)
+	input, err := os.ReadFile(srcDB)
 	if err != nil {
 		return errors.Wrap(err, "failed to read source db file")
 	}
-	if err := ioutil.WriteFile(dstDB, input, 0644); err != nil {
+	if err := os.WriteFile(dstDB, input, 0644); err != nil {
 		return errors.Wrap(err, "failed to copy db file")
 	}
 	return nil
