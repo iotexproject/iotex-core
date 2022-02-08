@@ -12,7 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"os"
 	"testing"
@@ -217,7 +217,7 @@ func NewSmartContractTest(t *testing.T, file string) {
 	require := require.New(t)
 	jsonFile, err := os.Open(file)
 	require.NoError(err)
-	sctBytes, err := ioutil.ReadAll(jsonFile)
+	sctBytes, err := io.ReadAll(jsonFile)
 	require.NoError(err)
 	sct := &SmartContractTest{}
 	require.NoError(json.Unmarshal(sctBytes, sct))

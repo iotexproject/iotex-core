@@ -9,7 +9,7 @@ package contract
 import (
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -105,7 +105,7 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 }
 
 func readAbiFile(abiFile string) (*abi.ABI, error) {
-	abiBytes, err := ioutil.ReadFile(abiFile)
+	abiBytes, err := os.ReadFile(abiFile)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
 	}
