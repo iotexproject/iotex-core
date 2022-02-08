@@ -7,7 +7,7 @@
 package contract
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -46,7 +46,7 @@ func init() {
 }
 
 func contractDeployBin(args []string) error {
-	bin, err := ioutil.ReadFile(args[0])
+	bin, err := os.ReadFile(args[0])
 	if err != nil {
 		return output.NewError(output.ReadFileError, "failed to read bin file", err)
 	}
