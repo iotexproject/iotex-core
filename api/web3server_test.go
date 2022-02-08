@@ -1,12 +1,11 @@
 package api
 
 import (
-	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -18,8 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/stretchr/testify/require"
 
@@ -700,51 +697,33 @@ func TestWeb3Staking(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
-	client, err := ethclient.Dial("http://api.nightly-cluster-2.iotex.one:15014")
-	if err != nil {
-		log.Fatalf("connect rpc server error: %v", err)
-	}
+	pvk := identityset.PrivateKey(28)
+	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	require.True(ok)
 
-	keyBytes, err := hex.DecodeString("replace by your private key")
-	if err != nil {
-		log.Fatalf("decode private key error: %v", err)
-	}
-	key, err := crypto.ToECDSA(keyBytes)
-	if err != nil {
-		log.Fatalf("create esdsa private key from key bytes error: %v", err)
-	}
-	from := crypto.PubkeyToAddress(key.PublicKey)
-	nonce, err := client.NonceAt(context.Background(), from, nil)
-	if err != nil {
-		log.Fatalf("get account nonce error: %v", err)
-	}
-
+	// encoding stake data
 	act, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
 	data, err := act.EncodingABIBinary(action.StakingInterface)
 	require.NoError(err)
 
+	// create tx
 	rawTx := types.NewTransaction(
-		nonce,
+		9,
 		common.HexToAddress("0x000000000000007374616b696e67437265617465"),
 		big.NewInt(0),
 		100000,
-		big.NewInt(1000000000000),
+		big.NewInt(0),
 		data,
 	)
-
-	sig, err := crypto.Sign(rawTx.Hash().Bytes(), key)
-	if err != nil {
-		log.Fatalf("sign tx error: %v", err)
-	}
-	signer := types.NewEIP155Signer(big.NewInt(1))
-	tx, err := rawTx.WithSignature(signer, sig)
+	tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(1)), ecdsaPvk)
 	require.NoError(err)
-	err = client.SendTransaction(context.Background(), tx)
-	if err != nil {
-		log.Fatalf("send tx error: %v", err)
-	}
+	BinaryData, err := tx.MarshalBinary()
+	require.NoError(err)
 
-	res, _ := svr.web3Server.ethAccounts()
-	require.Equal(0, len(res.([]string)))
+	// send tx
+	rawData := []interface{}{hex.EncodeToString(BinaryData)}
+	_, err = svr.web3Server.sendRawTransaction(rawData)
+	require.NoError(err)
+
 }
