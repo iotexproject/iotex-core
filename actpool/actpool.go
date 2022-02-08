@@ -437,6 +437,7 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 	span.AddEvent("queue.PendingNonce")
 	nonce := queue.PendingNonce()
 	if actNonce == nonce {
+		span.AddEvent("ap.updateAccount")
 		ap.updateAccount(sender)
 	}
 	return nil

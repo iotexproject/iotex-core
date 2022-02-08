@@ -125,8 +125,8 @@ func newCoreService(
 }
 
 // Account returns the metadata of an account
-func (core *coreService) Account(ctx context.Context, addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
-	ctx, span := tracer.NewSpan(ctx, "coreService.Account")
+func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
 	defer span.End()
 	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
