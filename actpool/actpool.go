@@ -196,6 +196,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 		return action.ErrTxPoolOverflow
 	}
+	span.AddEvent("act.IntrinsicGas")
 	intrinsicGas, err := act.IntrinsicGas()
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedGetIntrinsicGas").Inc()
@@ -230,7 +231,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	if caller == nil {
 		return action.ErrAddress
 	}
-	return ap.enqueueAction(caller, act, hash, act.Nonce())
+	return ap.enqueueAction(ctx, caller, act, hash, act.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -347,6 +348,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		return nil
 	}
 	for _, ev := range ap.actionEnvelopeValidators {
+		span.AddEvent("ev.Validate")
 		if err := ev.Validate(ctx, selp); err != nil {
 			return err
 		}
@@ -358,7 +360,9 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 //======================================
 // private functions
 //======================================
-func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
+func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
 	confirmedState, err := accountutil.AccountState(ap.sf, addr)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
@@ -371,6 +375,7 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 	sender := addr.String()
 	queue := ap.accountActs[sender]
 	if queue == nil {
+		span.AddEvent("new queue")
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
 
@@ -396,6 +401,7 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 		return action.ErrNonceTooHigh
 	}
 
+	span.AddEvent("act cost")
 	cost, err := act.Cost()
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetCost").Inc()
@@ -413,6 +419,7 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 		return action.ErrInsufficientFunds
 	}
 
+	span.AddEvent("queue put")
 	if err := queue.Put(act); err != nil {
 		actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
 		log.L().Info("failed put action into ActQueue",
@@ -431,11 +438,14 @@ func (ap *actPool) enqueueAction(addr address.Address, act action.SealedEnvelope
 		ap.accountDesActs[desAddress][actHash] = act
 	}
 
+	span.AddEvent("act.IntrinsicGas")
 	intrinsicGas, _ := act.IntrinsicGas()
 	ap.gasInPool += intrinsicGas
 	// If the pending nonce equals this nonce, update queue
+	span.AddEvent("queue.PendingNonce")
 	nonce := queue.PendingNonce()
 	if actNonce == nonce {
+		span.AddEvent("ap.updateAccount")
 		ap.updateAccount(sender)
 	}
 	return nil
