@@ -8,9 +8,11 @@ package blockindex
 
 import (
 	"context"
+	"runtime"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	filter "github.com/iotexproject/iotex-core/api/logfilter"
@@ -19,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 )
@@ -204,29 +207,47 @@ func (bfx *bloomfilterIndexer) RangeFilterByHeight(height uint64) (bloom.BloomFi
 
 // FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
 func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64) ([]uint64, error) {
+	memMetrics()
 	if start == 0 || end == 0 || end < start {
 		return nil, errors.New("start/end height should be bigger than zero")
 	}
 
-	br, err := bfx.getRangeFilters(start, end)
+	b, err := bfx.totalRange.Get(start)
 	if err != nil {
 		return nil, err
 	}
+	startIndex := byteutil.BytesToUint64BigEndian(b)
+	if b, err = bfx.totalRange.Get(end); err != nil {
+		return nil, err
+	}
+	endIndex := byteutil.BytesToUint64BigEndian(b)
 
 	blockNumbers := make([]uint64, 0)
-	for i := range br {
-		bigBloom := br[i].BloomFilter
-		if l.ExistInBloomFilterv2(bigBloom) {
-			searchStart, searchEnd := br[i].Start(), br[i].End()
-			if i == 0 {
+	for ; startIndex <= endIndex; startIndex++ {
+		bfKey := byteutil.Uint64ToBytesBigEndian(startIndex)
+		bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
+		if err != nil {
+			return nil, err
+		}
+		br, err := bloomRangeFromBytes(bfBytes)
+		if err != nil {
+			return nil, err
+		}
+		bfBytes = nil // mark data from database can be free
+		if l.ExistInBloomFilterv2(br.BloomFilter) {
+			searchStart := br.Start()
+			if start > searchStart {
 				searchStart = start
 			}
-			if i == len(br)-1 {
+			searchEnd := br.End()
+			if end < searchEnd {
 				searchEnd = end
 			}
-			blockNumbers = append(blockNumbers, l.SelectBlocksFromRangeBloomFilter(bigBloom, searchStart, searchEnd)...)
+			blockNumbers = append(blockNumbers, l.SelectBlocksFromRangeBloomFilter(br.BloomFilter, searchStart, searchEnd)...)
 		}
+		runtime.GC()
 	}
+	memMetrics()
 	return blockNumbers, nil
 }
 
@@ -290,6 +311,7 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 }
 
 func (bfx *bloomfilterIndexer) getRangeFilters(start, end uint64) ([]*bloomRange, error) {
+	memMetrics()
 	b, err := bfx.totalRange.Get(start)
 	if err != nil {
 		return nil, err
@@ -312,6 +334,29 @@ func (bfx *bloomfilterIndexer) getRangeFilters(start, end uint64) ([]*bloomRange
 			return nil, err
 		}
 		br = append(br, bf)
+
+		// bb := unsafe.Sizeof(bf)
+		// fmt.Println(bb)
+		// memMetrics()
 	}
+	memMetrics()
 	return br, nil
+}
+
+func memMetrics() {
+	bToMb := func(b uint64) uint64 {
+		return b / 1024
+	}
+	var memStat runtime.MemStats
+	runtime.ReadMemStats(&memStat)
+	log.L().Info("MemInfo",
+		zap.Uint64("allocatedHeapObjects", bToMb(memStat.Alloc)),
+		zap.Uint64("totalAllocatedHeapObjects", bToMb(memStat.TotalAlloc)),
+		zap.Uint64("stackInUse", bToMb(memStat.StackInuse)),
+		zap.Uint64("stackFromOS", bToMb(memStat.StackSys)),
+		zap.Uint64("heapInUse", bToMb(memStat.HeapInuse)),
+		zap.Uint64("heapFromOS", bToMb(memStat.HeapSys)),
+		zap.Uint64("heapIdle", bToMb(memStat.HeapIdle)),
+		zap.Uint64("heapReleased", bToMb(memStat.HeapReleased)),
+	)
 }

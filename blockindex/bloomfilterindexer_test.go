@@ -8,8 +8,8 @@ package blockindex
 
 import (
 	"context"
-	"hash/fnv"
-	"math/big"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -44,18 +44,6 @@ func newTestLog(addr string, topics []hash.Hash256) *action.Log {
 }
 
 func getTestLogBlocks(t *testing.T) []*block.Block {
-	amount := uint64(50 << 22)
-	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(28), 1, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
-	require.NoError(t, err)
-
-	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), 2, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
-	require.NoError(t, err)
-
-	// create testing executions
-	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 1, big.NewInt(1), 0, big.NewInt(0), nil)
-	require.NoError(t, err)
-	execution2, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
-	require.NoError(t, err)
 
 	testLog1 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data1})
 	receipt1 := &action.Receipt{}
@@ -77,57 +65,32 @@ func getTestLogBlocks(t *testing.T) []*block.Block {
 	receipt5 := &action.Receipt{}
 	receipt5.AddLogs(testLog5)
 
-	hash1 := hash.Hash256{}
-	fnv.New32().Sum(hash1[:])
 	blk1, err := block.NewTestingBuilder().
 		SetHeight(1).
-		SetPrevBlockHash(hash1).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf2, execution1).
 		SetReceipts([]*action.Receipt{receipt1}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
-	hash2 := hash.Hash256{}
-	fnv.New32().Sum(hash2[:])
 	blk2, err := block.NewTestingBuilder().
 		SetHeight(2).
-		SetPrevBlockHash(hash2).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, execution2).
 		SetReceipts([]*action.Receipt{receipt2}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
-	hash3 := hash.Hash256{}
-	fnv.New32().Sum(hash3[:])
 	blk3, err := block.NewTestingBuilder().
 		SetHeight(3).
-		SetPrevBlockHash(hash3).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf2, execution2).
 		SetReceipts([]*action.Receipt{receipt3}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
-	hash4 := hash.Hash256{}
-	fnv.New32().Sum(hash4[:])
 	blk4, err := block.NewTestingBuilder().
 		SetHeight(4).
-		SetPrevBlockHash(hash4).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf2, execution1, execution2).
 		SetReceipts([]*action.Receipt{receipt4}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
-	hash5 := hash.Hash256{}
-	fnv.New32().Sum(hash5[:])
 	blk5, err := block.NewTestingBuilder().
 		SetHeight(5).
-		SetPrevBlockHash(hash5).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, execution1).
 		SetReceipts([]*action.Receipt{receipt5}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
@@ -189,14 +152,6 @@ func TestBloomfilterIndexer(t *testing.T) {
 		false,
 	}
 
-	expectedCount := []uint64{
-		4,
-		12,
-		16,
-		4,
-		10,
-	}
-
 	expectedRes2 := [][]uint64{
 		[]uint64{1, 2, 3, 4, 5},
 		[]uint64{1, 2, 5},
@@ -249,12 +204,6 @@ func TestBloomfilterIndexer(t *testing.T) {
 			blockLevelbf, err := indexer.BlockFilterByHeight(blks[i].Height())
 			require.NoError(err)
 			require.Equal(expectedRes[i], testinglf.ExistInBloomFilterv2(blockLevelbf))
-
-			rangeLevelBf, err := indexer.RangeFilterByHeight(blks[i].Height())
-			require.NoError(err)
-			require.Equal(cfg.RangeBloomFilterSize, rangeLevelBf.Size())
-			require.Equal(cfg.RangeBloomFilterNumHash, rangeLevelBf.NumHash())
-			require.Equal(expectedCount[i], rangeLevelBf.NumElements())
 		}
 
 		for i, l := range testFilter {
@@ -272,25 +221,115 @@ func TestBloomfilterIndexer(t *testing.T) {
 			require.NoError(err)
 			require.Equal(expectedRes4[i], res)
 		}
-
-		bfs, err := indexer.(*bloomfilterIndexer).getRangeFilters(1, 5)
-		require.NoError(err)
-		require.Equal(2, len(bfs))
-		require.EqualValues(1, bfs[0].Start())
-		require.EqualValues(3, bfs[0].End())
-		require.EqualValues(4, bfs[1].Start())
-		require.EqualValues(5, bfs[1].End())
 	}
 
-	path := "test-indexer"
-	testPath, err := testutil.PathOfTempFile(path)
-	require.NoError(err)
-	cfg := db.DefaultConfig
-	cfg.DbPath = testPath
-
 	t.Run("Bolt DB indexer", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
+		testPath, err := testutil.PathOfTempFile("test-indexer")
+		require.NoError(err)
 		defer testutil.CleanupPath(t, testPath)
+		cfg := db.DefaultConfig
+		cfg.DbPath = testPath
+
 		testIndexer(db.NewBoltDB(cfg), t)
 	})
+}
+
+func BenchmarkBloomfilterIndexer(b *testing.B) {
+	require := require.New(b)
+
+	indexerCfg := config.Default.Indexer
+	indexerCfg.RangeBloomFilterNumElements = 16
+	indexerCfg.RangeBloomFilterSize = 4096
+	indexerCfg.RangeBloomFilterNumHash = 4
+
+	testFilter := iotexapi.LogsFilter{
+		Address: []string{identityset.Address(28).String()},
+		Topics: []*iotexapi.Topics{
+			{
+				Topic: [][]byte{
+					data2[:],
+				},
+			},
+		},
+	}
+	testinglf := logfilter.NewLogFilter(&testFilter, nil, nil)
+
+	var (
+		blkNum           = 2000
+		receiptNumPerBlk = 1000
+		// logPerReceipt    = 10
+		blks = make([]block.Block, blkNum)
+		wg   sync.WaitGroup
+	)
+	for i := 0; i < blkNum; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			receipts := make([]*action.Receipt, receiptNumPerBlk)
+			for j := 0; j < receiptNumPerBlk; j++ {
+				receipt := &action.Receipt{}
+				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
+				// for k := 0; k < logPerReceipt; k++ {
+				receipt.AddLogs(testLog)
+				// }
+				receipts[j] = receipt
+			}
+			blk, err := block.NewTestingBuilder().
+				SetHeight(uint64(i + 1)).
+				SetReceipts(receipts).
+				SignAndBuild(identityset.PrivateKey(27))
+			if err != nil {
+				panic("fail")
+			}
+			blks[i] = blk
+		}(i)
+	}
+	wg.Wait()
+
+	// for n := 0; n < b.N; n++ {
+	testPath, err := testutil.PathOfTempFile("test-indexer")
+	require.NoError(err)
+	dbCfg := db.DefaultConfig
+	dbCfg.DbPath = testPath
+	defer testutil.CleanupPathV2(testPath)
+	indexer, err := NewBloomfilterIndexer(db.NewBoltDB(dbCfg), indexerCfg)
+	require.NoError(err)
+	ctx := context.Background()
+	require.NoError(indexer.Start(ctx))
+	defer func() {
+		require.NoError(indexer.Stop(ctx))
+	}()
+	for i := 0; i < len(blks); i++ {
+		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))
+		// height, err := indexer.Height()
+		// require.NoError(err)
+		// require.Equal(blks[i].Height(), height)
+
+		// blockLevelbf, err := indexer.BlockFilterByHeight(blks[i].Height())
+		// require.NoError(err)
+		// require.True(testinglf.ExistInBloomFilterv2(blockLevelbf))
+	}
+	runtime.GC()
+	memMetrics()
+	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1))
+	require.NoError(err)
+	require.Equal(blkNum-1, len(res))
+	// }
+
+	// for i, l := range testFilter {
+	// 	lf := logfilter.NewLogFilter(l, nil, nil)
+
+	// 	res, err := indexer.FilterBlocksInRange(lf, 1, 5)
+	// 	require.NoError(err)
+	// 	require.Equal(expectedRes2[i], res)
+
+	// 	res, err = indexer.FilterBlocksInRange(lf, 4, 5)
+	// 	require.NoError(err)
+	// 	require.Equal(expectedRes3[i], res)
+
+	// 	res, err = indexer.FilterBlocksInRange(lf, 1, 3)
+	// 	require.NoError(err)
+	// 	require.Equal(expectedRes4[i], res)
+	// }
+
 }
