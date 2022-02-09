@@ -126,14 +126,18 @@ func newCoreService(
 
 // Account returns the metadata of an account
 func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
+	defer span.End()
 	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
-		return core.getProtocolAccount(context.Background(), addrStr)
+		return core.getProtocolAccount(ctx, addrStr)
 	}
+	span.AddEvent("accountutil.AccountStateWithHeight")
 	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	span.AddEvent("ap.GetPendingNonce")
 	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
@@ -141,6 +145,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
+	span.AddEvent("indexer.GetActionCount")
 	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
@@ -161,11 +166,13 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		}
 		accountMeta.ContractByteCode = code
 	}
+	span.AddEvent("bc.BlockHeaderByHeight")
 	header, err := core.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
 	hash := header.HashBlock()
+	span.AddEvent("coreService.Account.End")
 	return accountMeta, &iotextypes.BlockIdentifier{
 		Hash:   hex.EncodeToString(hash[:]),
 		Height: tipHeight,
@@ -1395,6 +1402,8 @@ func (core *coreService) getProductivityByEpoch(
 }
 
 func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
 	var (
 		balance string
 		out     *iotexapi.ReadStateResponse

@@ -107,14 +107,23 @@ func TestServeHTTP(t *testing.T) {
 	response5 := getServerResp(svr, request5)
 	bodyBytes5, _ := io.ReadAll(response5.Body)
 	var web3Reqs []web3Resp
-	_ = json.Unmarshal(bodyBytes5, &web3Reqs)
+	err := json.Unmarshal(bodyBytes5, &web3Reqs)
+	require.NoError(err)
 	require.Equal(len(web3Reqs), 2)
 
-	// web3 req without params
-	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	// multiple web3 req2
+	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}]`))
 	response6 := getServerResp(svr, request6)
 	bodyBytes6, _ := io.ReadAll(response6.Body)
-	require.Contains(string(bodyBytes6), "result")
+	err = json.Unmarshal(bodyBytes6, &web3Reqs)
+	require.NoError(err)
+	require.Equal(len(web3Reqs), 1)
+
+	// web3 req without params
+	request7, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	response7 := getServerResp(svr, request7)
+	bodyBytes7, _ := io.ReadAll(response7.Body)
+	require.Contains(string(bodyBytes7), "result")
 }
 
 func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {

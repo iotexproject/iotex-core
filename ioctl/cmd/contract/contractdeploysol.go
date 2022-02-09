@@ -9,7 +9,7 @@ package contract
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -54,7 +54,7 @@ func contractDeploySol(args []string) error {
 
 	files := args[1:]
 	if len(files) == 0 {
-		dirInfo, err := ioutil.ReadDir("./")
+		dirInfo, err := os.ReadDir("./")
 		if err != nil {
 			return output.NewError(output.ReadFileError, "failed to get current directory", err)
 		}

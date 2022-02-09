@@ -9,8 +9,8 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
@@ -79,7 +79,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 	resultSuccess, _ := c.SelectTranslation(resultSuccess)
 	failToFindAccount, _ := c.SelectTranslation(failToFindAccount)
 
-	ad := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.RangeArgs(0, 1),
@@ -97,39 +97,48 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if err != nil {
 				return output.NewError(output.ConvertError, failToConvertStringIntoAddress, nil)
 			}
-			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-			for _, v := range ks.Accounts() {
-				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-					if !c.AskToConfirm(infoWarn) {
-						output.PrintResult("quit")
-						return nil
-					}
 
-					if err := os.Remove(v.URL.Path); err != nil {
-						return output.NewError(output.WriteFileError, failToRemoveKeystoreFile, err)
+			var filePath string
+			if c.HasCryptoSm2() {
+				if filePath == "" {
+					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
+				}
+			} else {
+				ks := c.NewKeyStore(c.Config().Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				for _, v := range ks.Accounts() {
+					if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
+						filePath = v.URL.Path
+						break
 					}
-
-					aliases := make(map[string]string)
-					for name, addr := range c.Config().Aliases {
-						aliases[addr] = name
-					}
-
-					delete(config.ReadConfig.Aliases, aliases[addr])
-					out, err := yaml.Marshal(&config.ReadConfig)
-					if err != nil {
-						return output.NewError(output.SerializationError, "", err)
-					}
-					if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-						return output.NewError(output.WriteFileError,
-							fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
-					}
-					output.PrintResult(fmt.Sprintf(resultSuccess, addr))
-					return nil
 				}
 			}
-			return output.NewError(output.ValidationError, fmt.Sprintf(failToFindAccount, addr), nil)
+
+			// check whether crypto file exists
+			if _, err = os.Stat(filePath); err != nil {
+				return output.NewError(output.ReadFileError, fmt.Sprintf(failToFindAccount, addr), nil)
+			}
+			if !c.AskToConfirm(infoWarn) {
+				output.PrintResult("quit")
+				return nil
+			}
+
+			if err := os.Remove(filePath); err != nil {
+				return output.NewError(output.ReadFileError, failToRemoveKeystoreFile, err)
+			}
+
+			aliases := c.GetAliasMap()
+			cfg := c.Config()
+			delete(cfg.Aliases, aliases[addr])
+			out, err := yaml.Marshal(&cfg)
+			if err != nil {
+				return output.NewError(output.SerializationError, "", err)
+			}
+			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+				return output.NewError(output.WriteFileError,
+					fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
+			}
+			output.PrintResult(fmt.Sprintf(resultSuccess, addr))
+			return nil
 		},
 	}
-
-	return ad
 }

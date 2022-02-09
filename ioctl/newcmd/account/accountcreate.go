@@ -37,6 +37,10 @@ var (
 		config.English: "failed to generate new private key",
 		config.Chinese: "生成新私钥失败",
 	}
+	failToGenerateNewPrivateKeySm2 = map[config.Language]string{
+		config.English: "failed to generate new sm2 private key",
+		config.Chinese: "生成新sm2私钥失败",
+	}
 	failToConvertPublicKeyIntoAddress = map[config.Language]string{
 		config.English: "failed to convert public key into address",
 		config.Chinese: "将公钥转换为地址失败",
@@ -50,21 +54,35 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 	short, _ := c.SelectTranslation(createShorts)
 	usage, _ := c.SelectTranslation(createFlagUsages)
 	failToGenerateNewPrivateKey, _ := c.SelectTranslation(failToGenerateNewPrivateKey)
+	failToGenerateNewPrivateKeySm2, _ := c.SelectTranslation(failToGenerateNewPrivateKeySm2)
 	failToConvertPublicKeyIntoAddress, _ := c.SelectTranslation(failToConvertPublicKeyIntoAddress)
-	ac := &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
+			var err error
+			var private crypto.PrivateKey
+
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
-				private, err := crypto.GenerateKey()
-				if err != nil {
-					c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
-					return nil
+				if !c.HasCryptoSm2() {
+					private, err = crypto.GenerateKey()
+					if err != nil {
+						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
+						return nil
+					}
+				} else {
+					private, err = crypto.GenerateKeySm2()
+					if err != nil {
+						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKeySm2, err))
+						return nil
+					}
 				}
+
 				addr := private.PublicKey().Address()
 				if addr == nil {
 					c.PrintError(output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil))
@@ -79,12 +97,13 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			}
 
 			message := createMessage{Accounts: newAccounts}
+
 			c.PrintInfo(message.String())
 			return nil
 		},
 	}
-	ac.Flags().UintVarP(&numAccounts, "num", "n", 1, usage)
-	return ac
+	cmd.Flags().UintVarP(&numAccounts, "num", "n", 1, usage)
+	return cmd
 }
 
 type createMessage struct {
