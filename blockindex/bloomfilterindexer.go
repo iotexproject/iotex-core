@@ -207,25 +207,19 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 	if start == 0 || end == 0 || end < start {
 		return nil, errors.New("start/end height should be bigger than zero")
 	}
-
-	b, err := bfx.totalRange.Get(start)
-	if err != nil {
+	var (
+		startIndex, endIndex uint64
+		blockNumbers         = make([]uint64, 0)
+		err                  error
+	)
+	if startIndex, err = bfx.getIndexByHeight(start); err != nil {
 		return nil, err
 	}
-	startIndex := byteutil.BytesToUint64BigEndian(b)
-	if b, err = bfx.totalRange.Get(end); err != nil {
+	if endIndex, err = bfx.getIndexByHeight(end); err != nil {
 		return nil, err
 	}
-	endIndex := byteutil.BytesToUint64BigEndian(b)
-
-	blockNumbers := make([]uint64, 0)
 	for ; startIndex <= endIndex; startIndex++ {
-		bfKey := byteutil.Uint64ToBytesBigEndian(startIndex)
-		bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
-		if err != nil {
-			return nil, err
-		}
-		br, err := bloomRangeFromBytes(bfBytes)
+		br, err := bfx.getBloomRangeByIndex(startIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -301,4 +295,21 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 			}
 		}
 	}
+}
+
+func (bfx *bloomfilterIndexer) getBloomRangeByIndex(idx uint64) (*bloomRange, error) {
+	bfKey := byteutil.Uint64ToBytesBigEndian(idx)
+	bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
+	if err != nil {
+		return nil, err
+	}
+	return bloomRangeFromBytes(bfBytes)
+}
+
+func (bfx *bloomfilterIndexer) getIndexByHeight(height uint64) (uint64, error) {
+	val, err := bfx.totalRange.Get(height)
+	if err != nil {
+		return 0, err
+	}
+	return byteutil.BytesToUint64BigEndian(val), nil
 }
