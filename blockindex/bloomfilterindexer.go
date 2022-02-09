@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/bloom"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	filter "github.com/iotexproject/iotex-core/api/logfilter"
@@ -21,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 )
@@ -207,7 +205,6 @@ func (bfx *bloomfilterIndexer) RangeFilterByHeight(height uint64) (bloom.BloomFi
 
 // FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
 func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64) ([]uint64, error) {
-	memMetrics()
 	if start == 0 || end == 0 || end < start {
 		return nil, errors.New("start/end height should be bigger than zero")
 	}
@@ -247,7 +244,6 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 		}
 		runtime.GC()
 	}
-	memMetrics()
 	return blockNumbers, nil
 }
 
@@ -308,55 +304,4 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 			}
 		}
 	}
-}
-
-func (bfx *bloomfilterIndexer) getRangeFilters(start, end uint64) ([]*bloomRange, error) {
-	memMetrics()
-	b, err := bfx.totalRange.Get(start)
-	if err != nil {
-		return nil, err
-	}
-	startIndex := byteutil.BytesToUint64BigEndian(b)
-	if b, err = bfx.totalRange.Get(end); err != nil {
-		return nil, err
-	}
-	endIndex := byteutil.BytesToUint64BigEndian(b)
-
-	var br []*bloomRange
-	for ; startIndex <= endIndex; startIndex++ {
-		bfKey := byteutil.Uint64ToBytesBigEndian(startIndex)
-		bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
-		if err != nil {
-			return nil, err
-		}
-		bf, err := bloomRangeFromBytes(bfBytes)
-		if err != nil {
-			return nil, err
-		}
-		br = append(br, bf)
-
-		// bb := unsafe.Sizeof(bf)
-		// fmt.Println(bb)
-		// memMetrics()
-	}
-	memMetrics()
-	return br, nil
-}
-
-func memMetrics() {
-	bToMb := func(b uint64) uint64 {
-		return b / 1024
-	}
-	var memStat runtime.MemStats
-	runtime.ReadMemStats(&memStat)
-	log.L().Info("MemInfo",
-		zap.Uint64("allocatedHeapObjects", bToMb(memStat.Alloc)),
-		zap.Uint64("totalAllocatedHeapObjects", bToMb(memStat.TotalAlloc)),
-		zap.Uint64("stackInUse", bToMb(memStat.StackInuse)),
-		zap.Uint64("stackFromOS", bToMb(memStat.StackSys)),
-		zap.Uint64("heapInUse", bToMb(memStat.HeapInuse)),
-		zap.Uint64("heapFromOS", bToMb(memStat.HeapSys)),
-		zap.Uint64("heapIdle", bToMb(memStat.HeapIdle)),
-		zap.Uint64("heapReleased", bToMb(memStat.HeapReleased)),
-	)
 }
