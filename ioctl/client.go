@@ -55,6 +55,14 @@ type (
 		GetAliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
+		// PrintError print the error message
+		PrintError(error)
+		// PrintInfo print the command result or the question query
+		PrintInfo(string)
+		// SetCryptoSm2 set the flag of sm2 cryptographic algorithm
+		SetCryptoSm2(bool)
+		// HasCryptoSm2 get the flag of sm2 cryptographic algorithm
+		HasCryptoSm2() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -64,8 +72,10 @@ type (
 	}
 
 	client struct {
-		cfg  config.Config
-		conn *grpc.ClientConn
+		cfg       config.Config
+		conn      *grpc.ClientConn
+		cryptoSm2 bool
+
 		// TODO: merge into config
 		lang config.Language
 	}
@@ -198,4 +208,22 @@ func (c *client) WriteConfig(cfg config.Config) error {
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	return nil
+}
+
+func (c *client) PrintError(err error) {
+	if err := output.PrintError(err); err != nil {
+		fmt.Println("Error:", err.Error())
+	}
+}
+
+func (c *client) PrintInfo(info string) {
+	output.PrintResult(info)
+}
+
+func (c *client) SetCryptoSm2(flag bool) {
+	c.cryptoSm2 = flag
+}
+
+func (c *client) HasCryptoSm2() bool {
+	return c.cryptoSm2
 }

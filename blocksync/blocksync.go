@@ -142,9 +142,6 @@ func NewBlockSyncer(
 }
 
 func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
-	if blks == nil {
-		return false
-	}
 	for _, blk := range blks {
 		if blk == nil {
 			continue
@@ -225,8 +222,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		return errors.New("block is nil")
 	}
 
-	_, ok := bs.peerBlockList.Load(peer)
-	if ok {
+	if _, ok := bs.peerBlockList.Load(peer); ok {
 		log.L().Info("peer in block list.")
 		return nil
 	}
@@ -243,7 +239,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	}
 	syncedHeight := tip
 	for {
-		if !bs.commitBlocks(bs.buf.Delete(syncedHeight + 1)) {
+		if !bs.commitBlocks(bs.buf.Pop(syncedHeight + 1)) {
 			break
 		}
 		syncedHeight++

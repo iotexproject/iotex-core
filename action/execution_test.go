@@ -49,6 +49,10 @@ func TestExecutionSignVerify(t *testing.T) {
 
 	// verify signature
 	require.NoError(Verify(selp))
+}
+
+func TestExecutionSanityCheck(t *testing.T) {
+	require := require.New(t)
 	t.Run("Negative amount", func(t *testing.T) {
 		ex, err := NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
 		require.NoError(err)

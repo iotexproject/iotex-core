@@ -8,7 +8,7 @@ package hdwallet
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
@@ -73,7 +73,7 @@ func hdwalletCreate() error {
 		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
 	}
 
-	if err := ioutil.WriteFile(hdWalletConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(hdWalletConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", hdWalletConfigFile), err)
 	}

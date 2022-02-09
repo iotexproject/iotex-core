@@ -97,7 +97,7 @@ func (ts *TransferStake) LoadProto(pbAct *iotextypes.StakeTransferOwnership) err
 // IntrinsicGas returns the intrinsic gas of a TransferStake
 func (ts *TransferStake) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(ts.Payload()))
-	return calculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
 }
 
 // Cost returns the tstal cost of a TransferStake

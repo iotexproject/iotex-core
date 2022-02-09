@@ -139,6 +139,20 @@ func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
 }
 
+// HasCryptoSm2 mocks base method.
+func (m *MockClient) HasCryptoSm2() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasCryptoSm2")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasCryptoSm2 indicates an expected call of HasCryptoSm2.
+func (mr *MockClientMockRecorder) HasCryptoSm2() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasCryptoSm2", reflect.TypeOf((*MockClient)(nil).HasCryptoSm2))
+}
+
 // NewKeyStore mocks base method.
 func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore {
 	m.ctrl.T.Helper()
@@ -151,6 +165,30 @@ func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore
 func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
+}
+
+// PrintError mocks base method.
+func (m *MockClient) PrintError(arg0 error) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PrintError", arg0)
+}
+
+// PrintError indicates an expected call of PrintError.
+func (mr *MockClientMockRecorder) PrintError(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintError", reflect.TypeOf((*MockClient)(nil).PrintError), arg0)
+}
+
+// PrintInfo mocks base method.
+func (m *MockClient) PrintInfo(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PrintInfo", arg0)
+}
+
+// PrintInfo indicates an expected call of PrintInfo.
+func (mr *MockClientMockRecorder) PrintInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintInfo", reflect.TypeOf((*MockClient)(nil).PrintInfo), arg0)
 }
 
 // ReadSecret mocks base method.
@@ -181,6 +219,18 @@ func (m *MockClient) SelectTranslation(arg0 map[config.Language]string) (string,
 func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
+}
+
+// SetCryptoSm2 mocks base method.
+func (m *MockClient) SetCryptoSm2(arg0 bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCryptoSm2", arg0)
+}
+
+// SetCryptoSm2 indicates an expected call of SetCryptoSm2.
+func (mr *MockClientMockRecorder) SetCryptoSm2(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCryptoSm2", reflect.TypeOf((*MockClient)(nil).SetCryptoSm2), arg0)
 }
 
 // Start mocks base method.

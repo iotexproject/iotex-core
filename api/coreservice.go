@@ -126,14 +126,18 @@ func newCoreService(
 
 // Account returns the metadata of an account
 func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
+	defer span.End()
 	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
-		return core.getProtocolAccount(context.Background(), addrStr)
+		return core.getProtocolAccount(ctx, addrStr)
 	}
+	span.AddEvent("accountutil.AccountStateWithHeight")
 	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	span.AddEvent("ap.GetPendingNonce")
 	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
@@ -141,6 +145,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
+	span.AddEvent("indexer.GetActionCount")
 	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
@@ -161,11 +166,13 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		}
 		accountMeta.ContractByteCode = code
 	}
+	span.AddEvent("bc.BlockHeaderByHeight")
 	header, err := core.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
 	hash := header.HashBlock()
+	span.AddEvent("coreService.Account.End")
 	return accountMeta, &iotextypes.BlockIdentifier{
 		Hash:   hex.EncodeToString(hash[:]),
 		Height: tipHeight,
@@ -332,12 +339,8 @@ func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt,
 }
 
 // ReadContract reads the state in a contract address specified by the slot
-func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execution, callerAddr address.Address, gasLimit uint64) (string, *iotextypes.Receipt, error) {
+func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
 	log.L().Debug("receive read smart contract request")
-	sc := &action.Execution{}
-	if err := sc.LoadProto(in); err != nil {
-		return "", nil, status.Error(codes.InvalidArgument, err.Error())
-	}
 	key := hash.Hash160b(append([]byte(sc.Contract()), sc.Data()...))
 	// TODO: either moving readcache into the upper layer or change the storage format
 	if d, ok := core.readCache.Get(key); ok {
@@ -353,18 +356,12 @@ func (core *coreService) ReadContract(ctx context.Context, in *iotextypes.Execut
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-
-	if gasLimit == 0 || core.cfg.Genesis.BlockGasLimit < gasLimit {
-		gasLimit = core.cfg.Genesis.BlockGasLimit
+	sc.SetNonce(state.Nonce + 1)
+	if sc.GasLimit() == 0 || core.cfg.Genesis.BlockGasLimit < sc.GasLimit() {
+		sc.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
 	}
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		gasLimit,
-		big.NewInt(0), // ReadContract() is read-only, use 0 to prevent insufficient gas
-		sc.Data(),
-	)
+	sc.SetGasPrice(big.NewInt(0)) // ReadContract() is read-only, use 0 to prevent insufficient gas
+
 	retval, receipt, err := core.sf.SimulateExecution(ctx, callerAddr, sc, core.dao.GetBlockHash)
 	if err != nil {
 		return "", nil, status.Error(codes.Internal, err.Error())
@@ -536,52 +533,6 @@ func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipt
 		})
 	}
 	return res, nil
-}
-
-// Logs get logs filtered by contract address and topics
-func (core *coreService) Logs(in *iotexapi.GetLogsRequest) ([]*iotextypes.Log, error) {
-	if in.GetFilter() == nil {
-		return nil, status.Error(codes.InvalidArgument, "empty filter")
-	}
-
-	var (
-		logs []*iotextypes.Log
-		err  error
-	)
-	switch {
-	case in.GetByBlock() != nil:
-		req := in.GetByBlock()
-		startBlock, err := core.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
-		}
-		logs, err = core.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
-		if err != nil {
-			return nil, err
-		}
-	case in.GetByRange() != nil:
-		req := in.GetByRange()
-		startBlock := req.GetFromBlock()
-		if startBlock > core.bc.TipHeight() {
-			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
-		}
-		endBlock := req.GetToBlock()
-		if endBlock > core.bc.TipHeight() || endBlock == 0 {
-			endBlock = core.bc.TipHeight()
-		}
-		paginationSize := req.GetPaginationSize()
-		if paginationSize == 0 {
-			paginationSize = 1000
-		}
-		if paginationSize > 5000 {
-			paginationSize = 5000
-		}
-		logs, err = core.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
-	default:
-		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
-	}
-
-	return logs, err
 }
 
 // StreamBlocks streams blocks
@@ -1267,45 +1218,52 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	return res
 }
 
-func (core *coreService) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+// LogsInBlock filter logs in the block x
+func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
-		return nil, nil
+		return []*iotextypes.Log{}, nil
 	}
+
 	receipts, err := core.dao.GetReceipts(blockNumber)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	h, err := core.dao.GetBlockHash(blockNumber)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	return filter.MatchLogs(receipts, h), nil
 }
 
-// TODO: improve using goroutine
-func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
-	if start > end {
-		return nil, errors.New("invalid start and end height")
+// LogsInRange filter logs among [start, end] blocks
+func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+	start, end, err := core.correctLogsRange(start, end)
+	if err != nil {
+		return nil, err
 	}
-	if start == 0 {
-		start = 1
-	}
-
-	logs := []*iotextypes.Log{}
 	// getLogs via range Blooom filter [start, end]
 	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: improve using goroutine
+	if paginationSize == 0 {
+		paginationSize = 1000
+	}
+	if paginationSize > 5000 {
+		paginationSize = 5000
+	}
+	logs := []*iotextypes.Log{}
 	for _, i := range blockNumbers {
-		logsInBlock, err := core.getLogsInBlock(filter, i)
+		logsInBlock, err := core.LogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
 		}
@@ -1316,27 +1274,40 @@ func (core *coreService) getLogsInRange(filter *logfilter.LogFilter, start, end,
 			}
 		}
 	}
-
 	return logs, nil
 }
 
+func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, error) {
+	if start > end {
+		return 0, 0, errors.New("invalid start and end height")
+	}
+	if start == 0 {
+		start = 1
+	}
+	if start > core.bc.TipHeight() {
+		return 0, 0, errors.New("start block > tip height")
+	}
+	if end > core.bc.TipHeight() || end == 0 {
+		end = core.bc.TipHeight()
+	}
+	return start, end, nil
+}
+
 // CalculateGasConsumption estimate gas consumption for actions except execution
-func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) uint64 {
-	return payloadGas*payloadSize + intrinsicGas
+func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error) {
+	return action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
-func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, exec *iotextypes.Execution, callerAddr address.Address) (uint64, error) {
-	sc := &action.Execution{}
-	if err := sc.LoadProto(exec); err != nil {
-		return 0, status.Error(codes.InvalidArgument, err.Error())
-	}
+func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
 	state, err := accountutil.AccountState(core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	nonce := state.Nonce + 1
-	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc, nonce, core.cfg.Genesis.BlockGasLimit)
+	sc.SetNonce(state.Nonce + 1)
+	sc.SetGasPrice(big.NewInt(0))
+	sc.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
+	enough, receipt, err := core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1347,7 +1318,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, ex
 		return 0, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, estimatedGas)
+	sc.SetGasLimit(estimatedGas)
+	enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
 	if err != nil && err != action.ErrInsufficientFunds {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1356,7 +1328,8 @@ func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, ex
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc, nonce, mid)
+			sc.SetGasLimit(mid)
+			enough, _, err = core.isGasLimitEnough(ctx, callerAddr, sc)
 			if err != nil && err != action.ErrInsufficientFunds {
 				return 0, status.Error(codes.Internal, err.Error())
 			}
@@ -1376,19 +1349,9 @@ func (core *coreService) isGasLimitEnough(
 	ctx context.Context,
 	caller address.Address,
 	sc *action.Execution,
-	nonce uint64,
-	gasLimit uint64,
 ) (bool, *action.Receipt, error) {
 	ctx, span := tracer.NewSpan(ctx, "Server.isGasLimitEnough")
 	defer span.End()
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		nonce,
-		sc.Amount(),
-		gasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
 	ctx, err := core.bc.Context(ctx)
 	if err != nil {
 		return false, nil, err
@@ -1422,6 +1385,8 @@ func (core *coreService) getProductivityByEpoch(
 }
 
 func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
 	var (
 		balance string
 		out     *iotexapi.ReadStateResponse
