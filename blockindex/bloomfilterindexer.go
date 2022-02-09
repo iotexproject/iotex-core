@@ -8,9 +8,11 @@ package blockindex
 
 import (
 	"context"
+	"runtime"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/bloom"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	filter "github.com/iotexproject/iotex-core/api/logfilter"
@@ -19,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 )
@@ -45,8 +48,6 @@ type (
 		RangeBloomFilterNumElements() uint64
 		// BlockFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
 		BlockFilterByHeight(uint64) (bloom.BloomFilter, error)
-		// RangeFilterByHeight returns the range bloomfilter for the height
-		RangeFilterByHeight(uint64) (bloom.BloomFilter, error)
 		// FilterBlocksInRange returns the block numbers by given logFilter in range from start to end
 		FilterBlocksInRange(*filter.LogFilter, uint64, uint64) ([]uint64, error)
 	}
@@ -119,8 +120,10 @@ func (bfx *bloomfilterIndexer) initRangeBloomFilter(height uint64) error {
 		// totalRange.Get() is called and err-checked in rangeBloomFilter() above
 		bfx.currRangeBfKey, _ = bfx.totalRange.Get(height)
 	} else {
-		bf, _ := bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
-		bfx.curRangeBloomfilter = newBloomRange(1, bf)
+		if bfx.curRangeBloomfilter, err = newBloomRange(bfx.bfSize, bfx.bfNumHash); err != nil {
+			return err
+		}
+		bfx.curRangeBloomfilter.SetStart(1)
 		bfx.currRangeBfKey = zero8Bytes
 	}
 	return nil
@@ -156,11 +159,10 @@ func (bfx *bloomfilterIndexer) PutBlock(ctx context.Context, blk *block.Block) (
 		if err := bfx.totalRange.Insert(blk.Height()+1, bfx.currRangeBfKey); err != nil {
 			return errors.Wrapf(err, "failed to write next bloomfilter index")
 		}
-		bf, err := bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create new bloomfilter")
+		if bfx.curRangeBloomfilter, err = newBloomRange(bfx.bfSize, bfx.bfNumHash); err != nil {
+			return err
 		}
-		bfx.curRangeBloomfilter = newBloomRange(blk.Height()+1, bf)
+		bfx.curRangeBloomfilter.SetStart(blk.Height() + 1)
 	}
 	return nil
 }
@@ -190,43 +192,68 @@ func (bfx *bloomfilterIndexer) BlockFilterByHeight(height uint64) (bloom.BloomFi
 	if err != nil {
 		return nil, err
 	}
-	return bloom.BloomFilterFromBytes(bfBytes)
-}
-
-// RangeFilterByHeight returns the range bloomfilter for the height
-func (bfx *bloomfilterIndexer) RangeFilterByHeight(height uint64) (bloom.BloomFilter, error) {
-	br, err := bfx.rangeBloomFilter(height)
+	bf, err := bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
 	if err != nil {
 		return nil, err
 	}
-	return br.BloomFilter, nil
+	// load data into dummy bloomFilter
+	if err := bf.FromBytes(bfBytes); err != nil {
+		return nil, err
+	}
+
+	return bf, nil
 }
 
 // FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
+// TODO: pass pagination argument in
 func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64) ([]uint64, error) {
+	memMetrics()
 	if start == 0 || end == 0 || end < start {
 		return nil, errors.New("start/end height should be bigger than zero")
 	}
 
-	br, err := bfx.getRangeFilters(start, end)
+	b, err := bfx.totalRange.Get(start)
 	if err != nil {
 		return nil, err
 	}
+	startIndex := byteutil.BytesToUint64BigEndian(b)
+	if b, err = bfx.totalRange.Get(end); err != nil {
+		return nil, err
+	}
+	endIndex := byteutil.BytesToUint64BigEndian(b)
 
 	blockNumbers := make([]uint64, 0)
-	for i := range br {
-		bigBloom := br[i].BloomFilter
-		if l.ExistInBloomFilterv2(bigBloom) {
-			searchStart, searchEnd := br[i].Start(), br[i].End()
-			if i == 0 {
+	br, err := newBloomRange(bfx.bfSize, bfx.bfNumHash)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: optimized with goroutine, br to be opt with sync.Pool
+	// TODO: endIndex + 1 needs to be considered
+	for ; startIndex <= endIndex; startIndex++ {
+		bfKey := byteutil.Uint64ToBytesBigEndian(startIndex)
+		bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
+		if err != nil {
+			return nil, err
+		}
+		if err := br.FromBytes(bfBytes); err != nil {
+			return nil, err
+		}
+		bfBytes = nil // mark data from database can be free
+		// runtime.GC()
+
+		if l.ExistInBloomFilterv2(br.BloomFilter) {
+			searchStart := br.Start()
+			if start > searchStart {
 				searchStart = start
 			}
-			if i == len(br)-1 {
+			searchEnd := br.End()
+			if end < searchEnd {
 				searchEnd = end
 			}
-			blockNumbers = append(blockNumbers, l.SelectBlocksFromRangeBloomFilter(bigBloom, searchStart, searchEnd)...)
+			blockNumbers = append(blockNumbers, l.SelectBlocksFromRangeBloomFilter(br.BloomFilter, searchStart, searchEnd)...)
 		}
 	}
+	memMetrics()
 	return blockNumbers, nil
 }
 
@@ -239,16 +266,23 @@ func (bfx *bloomfilterIndexer) rangeBloomFilter(blockNumber uint64) (*bloomRange
 	if err != nil {
 		return nil, err
 	}
-	return bloomRangeFromBytes(bfBytes)
+	br, err := newBloomRange(bfx.bfSize, bfx.bfNumHash)
+	if err != nil {
+		return nil, err
+	}
+	if err := br.FromBytes(bfBytes); err != nil {
+		return nil, err
+	}
+	return br, nil
 }
-
 func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
 	// TODO: remove delete from indexer interface
 	return bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(blockNumber))
 }
 
 func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.BloomFilter) error {
-	bfBytes, err := bfx.curRangeBloomfilter.SetEnd(blockNumber).Bytes()
+	bfx.curRangeBloomfilter.SetEnd(blockNumber)
+	bfBytes, err := bfx.curRangeBloomfilter.Bytes()
 	if err != nil {
 		return err
 	}
@@ -261,6 +295,7 @@ func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.B
 	return bfx.kvStore.WriteBatch(b)
 }
 
+// TODO: improve performance
 func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, receipts []*action.Receipt) bloom.BloomFilter {
 	bloom, _ := bloom.NewBloomFilter(2048, 3)
 	for _, receipt := range receipts {
@@ -274,6 +309,7 @@ func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, re
 	return bloom
 }
 
+// TODO: improve performance
 func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, blockNumber uint64, receipts []*action.Receipt) {
 	Heightkey := append([]byte(filter.BlockHeightPrefix), byteutil.Uint64ToBytes(blockNumber)...)
 
@@ -289,29 +325,20 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 	}
 }
 
-func (bfx *bloomfilterIndexer) getRangeFilters(start, end uint64) ([]*bloomRange, error) {
-	b, err := bfx.totalRange.Get(start)
-	if err != nil {
-		return nil, err
+func memMetrics() {
+	bToMb := func(b uint64) uint64 {
+		return b / 1024
 	}
-	startIndex := byteutil.BytesToUint64BigEndian(b)
-	if b, err = bfx.totalRange.Get(end); err != nil {
-		return nil, err
-	}
-	endIndex := byteutil.BytesToUint64BigEndian(b)
-
-	var br []*bloomRange
-	for ; startIndex <= endIndex; startIndex++ {
-		bfKey := byteutil.Uint64ToBytesBigEndian(startIndex)
-		bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, bfKey)
-		if err != nil {
-			return nil, err
-		}
-		bf, err := bloomRangeFromBytes(bfBytes)
-		if err != nil {
-			return nil, err
-		}
-		br = append(br, bf)
-	}
-	return br, nil
+	var memStat runtime.MemStats
+	runtime.ReadMemStats(&memStat)
+	log.L().Info("MemInfo",
+		zap.Uint64("allocatedHeapObjects", bToMb(memStat.Alloc)),
+		zap.Uint64("totalAllocatedHeapObjects", bToMb(memStat.TotalAlloc)),
+		zap.Uint64("stackInUse", bToMb(memStat.StackInuse)),
+		zap.Uint64("stackFromOS", bToMb(memStat.StackSys)),
+		zap.Uint64("heapInUse", bToMb(memStat.HeapInuse)),
+		zap.Uint64("heapFromOS", bToMb(memStat.HeapSys)),
+		zap.Uint64("heapIdle", bToMb(memStat.HeapIdle)),
+		zap.Uint64("heapReleased", bToMb(memStat.HeapReleased)),
+	)
 }

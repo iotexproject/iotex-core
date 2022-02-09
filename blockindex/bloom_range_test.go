@@ -3,16 +3,17 @@ package blockindex
 import (
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewBloomRange(t *testing.T) {
 	require := require.New(t)
 
-	br, err := bloomRangeFromBytes(make([]byte, 16))
-	require.Error(err)
-	require.Nil(br)
+	t.Run("unenough data", func(t *testing.T) {
+		var br bloomRange
+		err := br.FromBytes(make([]byte, 16))
+		require.Error(err)
+	})
 
 	tests := []struct {
 		start, end uint64
@@ -24,20 +25,22 @@ func TestNewBloomRange(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		bf, err := bloom.NewBloomFilter(64, 3)
-		bf.Add([]byte("test"))
+		newBr, err := newBloomRange(64, 3)
 		require.NoError(err)
+		newBr.BloomFilter.Add([]byte("test"))
+		newBr.SetStart(v.start)
+		newBr.SetEnd(v.end)
 
-		data, err := newBloomRange(v.start, bf).SetEnd(v.end).Bytes()
+		data, err := newBr.Bytes()
 		if !v.success {
 			require.Error(err)
 			continue
+		} else {
+			require.NoError(err)
 		}
-
-		br, err = bloomRangeFromBytes(data)
+		err = newBr.FromBytes(data)
 		require.NoError(err)
-		require.Equal(v.start, br.Start())
-		require.Equal(v.end, br.End())
-		require.Equal(bf, br.BloomFilter)
+		require.Equal(v.start, newBr.Start())
+		require.Equal(v.end, newBr.End())
 	}
 }

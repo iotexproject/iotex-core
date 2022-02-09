@@ -11,24 +11,30 @@ type bloomRange struct {
 	bloom.BloomFilter
 }
 
-func newBloomRange(start uint64, bf bloom.BloomFilter) *bloomRange {
-	return &bloomRange{
-		start:       start,
-		BloomFilter: bf,
+func newBloomRange(bfSize, bfNumHash uint64) (*bloomRange, error) {
+	bf, err := bloom.NewBloomFilter(bfSize, bfNumHash)
+	if err != nil {
+		return nil, err
 	}
+	return &bloomRange{
+		BloomFilter: bf,
+	}, nil
 }
 
 func (br *bloomRange) Start() uint64 {
 	return br.start
 }
 
+func (br *bloomRange) SetStart(start uint64) {
+	br.start = start
+}
+
 func (br *bloomRange) End() uint64 {
 	return br.end
 }
 
-func (br *bloomRange) SetEnd(end uint64) *bloomRange {
+func (br *bloomRange) SetEnd(end uint64) {
 	br.end = end
-	return br
 }
 
 func (br *bloomRange) Bytes() ([]byte, error) {
@@ -42,23 +48,20 @@ func (br *bloomRange) Bytes() ([]byte, error) {
 	return b, nil
 }
 
-func bloomRangeFromBytes(data []byte) (*bloomRange, error) {
+func (br *bloomRange) FromBytes(data []byte) error {
 	length := len(data)
 	if length <= 16 {
-		return nil, errors.New("not enough data")
+		return errors.New("not enough data")
 	}
-
 	// data = bf.Bytes() + start (8-byte) + end (8-byte)
-	end := byteutil.BytesToUint64BigEndian(data[length-8:])
-	start := byteutil.BytesToUint64BigEndian(data[length-16 : length-8])
-	bf, err := bloom.BloomFilterFromBytes(data[:length-16])
-	if err != nil {
-		return nil, err
+	if br.BloomFilter == nil {
+		return errors.New("the bloomFilter of bloomRange is nil")
 	}
 
-	return &bloomRange{
-		start:       start,
-		end:         end,
-		BloomFilter: bf,
-	}, nil
+	if err := br.BloomFilter.FromBytes(data[:length-16]); err != nil {
+		return err
+	}
+	br.end = byteutil.BytesToUint64BigEndian(data[length-8:])
+	br.start = byteutil.BytesToUint64BigEndian(data[length-16 : length-8])
+	return nil
 }
