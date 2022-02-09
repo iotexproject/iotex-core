@@ -8,7 +8,6 @@ package blockindex
 
 import (
 	"context"
-	"runtime"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/bloom"
@@ -230,7 +229,6 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 		if err != nil {
 			return nil, err
 		}
-		bfBytes = nil // mark data from database can be free
 		if l.ExistInBloomFilterv2(br.BloomFilter) {
 			searchStart := br.Start()
 			if start > searchStart {
@@ -242,7 +240,6 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 			}
 			blockNumbers = append(blockNumbers, l.SelectBlocksFromRangeBloomFilter(br.BloomFilter, searchStart, searchEnd)...)
 		}
-		runtime.GC()
 	}
 	return blockNumbers, nil
 }
