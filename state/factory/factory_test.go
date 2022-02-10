@@ -84,6 +84,7 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		defer testutil.CleanupPathV2(testTriePath)
 	}()
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
@@ -94,6 +95,7 @@ func TestSnapshot(t *testing.T) {
 func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
 	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	defer testutil.CleanupPathV2(testStateDBPath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -336,6 +338,7 @@ func testCandidates(sf Factory, t *testing.T) {
 
 func TestState(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
+	defer testutil.CleanupPathV2(testTriePath)
 	require.NoError(t, err)
 
 	cfg := config.Default
@@ -378,6 +381,9 @@ func TestHistoryState(t *testing.T) {
 	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
+	defer func() {
+		testutil.CleanupPathV2(cfg.Chain.TrieDBPath)
+	}()
 }
 
 func TestFactoryStates(t *testing.T) {
@@ -398,11 +404,13 @@ func TestFactoryStates(t *testing.T) {
 	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
+	defer testutil.CleanupPathV2(cfg.Chain.TrieDBPath)
 }
 
 func TestSDBState(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -669,6 +677,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 func TestNonce(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -680,6 +689,7 @@ func TestNonce(t *testing.T) {
 func TestSDBNonce(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -775,6 +785,7 @@ func testNonce(sf Factory, t *testing.T) {
 func TestLoadStoreHeight(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -787,6 +798,7 @@ func TestLoadStoreHeight(t *testing.T) {
 func TestLoadStoreHeightInMem(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -798,6 +810,7 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 func TestSDBLoadStoreHeight(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -810,6 +823,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 func TestSDBLoadStoreHeightInMem(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testDBPath)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
@@ -872,6 +886,7 @@ func TestRunActions(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPathV2(testTriePath)
 	}()
 	testCommit(sf, t)
 }
@@ -898,6 +913,7 @@ func TestSTXRunActions(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPathV2(testStateDBPath)
 	}()
 	testCommit(sdb, t)
 }
@@ -978,6 +994,7 @@ func TestPickAndRunActions(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPathV2(testTriePath)
 	}()
 	testNewBlockBuilder(sf, t)
 }
@@ -1004,6 +1021,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPathV2(testStateDBPath)
 	}()
 	testNewBlockBuilder(sdb, t)
 }
@@ -1084,6 +1102,7 @@ func TestSimulateExecution(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
+		testutil.CleanupPathV2(testTriePath)
 	}()
 	testSimulateExecution(ctx, sf, t)
 }
@@ -1113,6 +1132,7 @@ func TestSTXSimulateExecution(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPathV2(testStateDBPath)
 	}()
 	testSimulateExecution(ctx, sdb, t)
 }
@@ -1276,6 +1296,8 @@ func TestStateDBPatch(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
+		testutil.CleanupPathV2(patchFile)
+		testutil.CleanupPathV2(testDBPath)
 	}()
 	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{

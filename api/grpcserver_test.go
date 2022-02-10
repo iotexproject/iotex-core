@@ -2667,6 +2667,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -2715,12 +2716,16 @@ func newConfig(t *testing.T) config.Config {
 	cfg := config.Default
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
+	defer testutil.CleanupPathV2(testTriePath)
 	r.NoError(err)
 	testDBPath, err := testutil.PathOfTempFile("db")
+	defer testutil.CleanupPathV2(testDBPath)
 	r.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
+	defer testutil.CleanupPathV2(testIndexPath)
 	r.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+	defer testutil.CleanupPathV2(testSystemLogPath)
 	r.NoError(err)
 
 	cfg.Plugins[config.GatewayPlugin] = true

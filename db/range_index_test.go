@@ -36,7 +36,7 @@ func TestRangeIndex(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 
 	kv := NewBoltDB(cfg)
 	require.NotNil(kv)
@@ -165,7 +165,7 @@ func TestRangeIndex2(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 
 	kv := NewBoltDB(cfg)
 	require.NotNil(kv)

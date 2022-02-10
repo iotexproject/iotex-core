@@ -88,7 +88,7 @@ func TestNewFileDAOv2(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-newfd")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -251,7 +251,7 @@ func TestNewFdInterface(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-interface")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -334,7 +334,7 @@ func TestNewFdStart(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-start")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := db.DefaultConfig

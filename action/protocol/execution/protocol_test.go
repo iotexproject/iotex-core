@@ -352,6 +352,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	testTriePath, err := testutil.PathOfTempFile("trie")
+	defer testutil.CleanupPathV2(testTriePath)
 	r.NoError(err)
 
 	cfg.Chain.TrieDBPath = testTriePath
@@ -582,10 +583,13 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 
 		testTriePath, err := testutil.PathOfTempFile("trie")
+		defer testutil.CleanupPathV2(testTriePath)
 		require.NoError(err)
 		testDBPath, err := testutil.PathOfTempFile("db")
+		defer testutil.CleanupPathV2(testDBPath)
 		require.NoError(err)
 		testIndexPath, err := testutil.PathOfTempFile("index")
+		defer testutil.CleanupPathV2(testIndexPath)
 		require.NoError(err)
 
 		cfg.Plugins[config.GatewayPlugin] = true

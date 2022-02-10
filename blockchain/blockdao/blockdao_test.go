@@ -369,9 +369,8 @@ func TestBlockDAO(t *testing.T) {
 
 	testPath, err := testutil.PathOfTempFile("test-kv-store")
 	require.NoError(err)
-	testutil.CleanupPath(t, testPath)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	daoList := []struct {
@@ -442,6 +441,8 @@ func BenchmarkBlockCache(b *testing.B) {
 		defer func() {
 			require.NoError(b, os.RemoveAll(testPath))
 			require.NoError(b, os.RemoveAll(indexPath))
+			testutil.CleanupPathV2(testPath)
+			testutil.CleanupPathV2(indexPath)
 		}()
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath

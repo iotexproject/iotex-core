@@ -28,8 +28,8 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	require.NoError(err)
 	testutil.CleanupPath(t, triePath)
 	defer func() {
-		testutil.CleanupPath(t, dbPath)
-		testutil.CleanupPath(t, triePath)
+		testutil.CleanupPathV2(dbPath)
+		testutil.CleanupPathV2(triePath)
 	}()
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()

@@ -152,7 +152,7 @@ func TestCountingIndex(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
