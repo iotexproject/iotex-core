@@ -1175,7 +1175,6 @@ func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) [
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
-	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
 	lastAction := start + count
 	if count == math.MaxUint64 {
@@ -1193,14 +1192,21 @@ func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) [
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
+		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+		if err != nil {
+			log.L().Debug("Skipping action due to failing to get receipt", zap.Error(err))
+			continue
+		}
+		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SrcPubkey().Address()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
-			Timestamp: ts,
+			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
+			GasFee:    gas.String(),
 			Index:     uint32(i),
 		})
 	}
@@ -1211,7 +1217,6 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
-	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
 	var res []*iotexapi.ActionInfo
 	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
@@ -1222,14 +1227,21 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
+		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+		if err != nil {
+			log.L().Debug("Skipping action due to failing to get receipt", zap.Error(err))
+			continue
+		}
+		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SrcPubkey().Address()
 		res = append([]*iotexapi.ActionInfo{{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
-			Timestamp: ts,
+			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
+			GasFee:    gas.String(),
 			Index:     uint32(ri),
 		}}, res...)
 	}
