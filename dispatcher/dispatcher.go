@@ -269,6 +269,7 @@ func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
 	if !ok {
 		return nil
 	}
+
 	return subscriber
 }
 
