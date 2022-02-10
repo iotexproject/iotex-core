@@ -270,6 +270,11 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 		res = resp
 	case "trace_rawTransaction":
 		res, err = svr.traceRawTransaction(params)
+	case "trace_filter":
+		var filter *traceFilterObject
+		if filter, err = parseTraceFilterRequest(web3Req.Get("params")); err == nil {
+			res, err = svr.traceFilter(filter)
+		}
 	case "eth_coinbase", "eth_getUncleCountByBlockHash", "eth_getUncleCountByBlockNumber", "eth_sign", "eth_signTransaction", "eth_sendTransaction", "eth_getUncleByBlockHashAndIndex", "eth_getUncleByBlockNumberAndIndex", "eth_pendingTransactions":
 		res, err = svr.unimplemented()
 	default:
@@ -1003,6 +1008,39 @@ func (svr *Web3Server) traceRawTransaction(in interface{}) (interface{}, error) 
 		return nil, err
 	}
 	return packTraceResult(pubkey.Address(), exec, data, receipt.GasConsumed)
+}
+
+func (svr *Web3Server) traceFilter(filter *traceFilterObject) (interface{}, error) {
+	from, to, err := svr.parseBlockRange(filter.FromBlock, filter.ToBlock)
+	if err != nil {
+		return nil, err
+	}
+	fromAddrSet, err := buildAddrSet(filter.FromAddress)
+	if err != nil {
+		return nil, err
+	}
+	toAddrSet, err := buildAddrSet(filter.ToAddress)
+	if err != nil {
+		return nil, err
+	}
+	selps, receipts, blkHash, err := svr.coreService.FilterTxInRange(fromAddrSet, toAddrSet, from, to)
+	if err != nil {
+		return nil, err
+	}
+	return packTraceFilterResult(filter.After, filter.Count, selps, receipts, blkHash)
+
+}
+
+func buildAddrSet(in []string) (map[string]struct{}, error) {
+	ret := make(map[string]struct{})
+	for _, v := range in {
+		ioAddr, err := ethAddrToIoAddr(v)
+		if err != nil {
+			return nil, err
+		}
+		ret[ioAddr.String()] = struct{}{}
+	}
+	return ret, nil
 }
 
 func (svr *Web3Server) unimplemented() (interface{}, error) {

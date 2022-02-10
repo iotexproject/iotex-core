@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -1494,4 +1495,80 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.sf.ReadContractStorage(ctx, addr, key)
+}
+
+// FilterTxInRange supports trace_filter api of parity
+func (core *coreService) FilterTxInRange(fromAddress, toAddress map[string]struct{}, start, end uint64,
+) ([]action.SealedEnvelope, []*action.Receipt, []hash.Hash256, error) {
+	maxBlockRange := 50000
+	if end-start > uint64(maxBlockRange) {
+		return nil, nil, nil, errors.Errorf("Only block range(end - start) under %d is currently supported", maxBlockRange)
+	}
+	ansWithMtx := struct {
+		mu       sync.Mutex
+		selps    []action.SealedEnvelope
+		receipts []*action.Receipt
+		blkHash  []hash.Hash256
+	}{}
+	for i := start; i <= end; i++ {
+		blk, err := core.dao.GetBlockByHeight(i)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		receipts, err := core.dao.GetReceipts(i)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		receiptMap := buildReceiptMap(receipts)
+		acts := blk.Actions
+		var wg sync.WaitGroup
+		for j := range acts {
+			if _, ok := acts[j].Action().(*action.Execution); !ok {
+				continue
+			}
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				selp := acts[j]
+				actHash, err := selp.Hash()
+				if err != nil {
+					return
+				}
+
+				if len(fromAddress) > 0 {
+					sender := selp.SrcPubkey().Address()
+					if _, exist := fromAddress[sender.String()]; !exist {
+						return
+					}
+				}
+				if len(toAddress) > 0 {
+					recipient, exist := selp.Destination()
+					if !exist {
+						return
+					}
+					if _, exist := toAddress[recipient]; !exist {
+						return
+					}
+				}
+				if _, exist := receiptMap[actHash]; !exist {
+					return
+				}
+				ansWithMtx.mu.Lock()
+				ansWithMtx.selps = append(ansWithMtx.selps, selp)
+				ansWithMtx.receipts = append(ansWithMtx.receipts, receiptMap[actHash])
+				ansWithMtx.blkHash = append(ansWithMtx.blkHash, blk.HashBlock())
+				ansWithMtx.mu.Unlock()
+			}(j)
+		}
+		wg.Wait()
+	}
+	return ansWithMtx.selps, ansWithMtx.receipts, ansWithMtx.blkHash, nil
+}
+
+func buildReceiptMap(receipts []*action.Receipt) map[hash.Hash256]*action.Receipt {
+	ret := make(map[hash.Hash256]*action.Receipt)
+	for _, receipt := range receipts {
+		ret[receipt.ActionHash] = receipt
+	}
+	return ret
 }

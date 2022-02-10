@@ -703,3 +703,45 @@ func TestTraceTransaction(t *testing.T) {
 	require.NoError(err)
 	require.Equal("0x2710", res.(traceResult).Trace[0].Result.GasUsed)
 }
+
+func TestTraceFilter(t *testing.T) {
+	require := require.New(t)
+	svr, cleanCallback := setupTestServer(t)
+	defer cleanCallback()
+
+	testData := []struct {
+		data   *traceFilterObject
+		logLen int
+	}{
+		{
+			&traceFilterObject{FromBlock: "0x1"},
+			3,
+		},
+		{
+			// empty log
+			&traceFilterObject{FromAddress: []string{"0x8ce313ab12bf7aed8136ab36c623ff98c8eaad34"}},
+			0,
+		},
+		{
+			&traceFilterObject{
+				FromBlock: "0x1",
+				ToAddress: []string{identityset.Address(31).Hex()},
+			},
+			3,
+		},
+		{
+			&traceFilterObject{
+				FromBlock:   "0x1",
+				FromAddress: []string{identityset.Address(30).Hex()},
+			},
+			2,
+		},
+	}
+	for i, v := range testData {
+		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
+			ret, err := svr.web3Server.traceFilter(v.data)
+			require.NoError(err)
+			require.Equal(len(ret.([]traceFilterResult)), v.logLen)
+		})
+	}
+}

@@ -99,8 +99,29 @@ type (
 	}
 
 	traceActionResult struct {
-		GasUsed string `json:"stateDiff"`
+		GasUsed string `json:"gasUsed"`
 		Output  string `json:"output"`
+	}
+
+	traceFilterObject struct {
+		FromBlock   string
+		ToBlock     string
+		FromAddress []string
+		ToAddress   []string
+		After       uint64
+		Count       uint64
+	}
+
+	traceFilterResult struct {
+		Action              traceAction       `json:"action"`
+		BlockHash           string            `json:"blockHash"`
+		BlockNumber         uint64            `json:"blockNumber"`
+		Result              traceActionResult `json:"result"`
+		Subtraces           uint64            `json:"subtraces"`
+		TraceAddress        []string          `json:"traceAddress"`
+		TransactionHash     string            `json:"transactionHash"`
+		TransactionPosition uint64            `json:"transactionPosition"`
+		TraceType           string            `json:"type"`
 	}
 )
 
@@ -445,6 +466,24 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 	return &logReq, nil
 }
 
+func parseTraceFilterRequest(in gjson.Result) (*traceFilterObject, error) {
+	var logReq traceFilterObject
+	if len(in.Array()) > 0 {
+		req := in.Array()[0]
+		logReq.FromBlock = req.Get("fromBlock").String()
+		logReq.ToBlock = req.Get("toBlock").String()
+		for _, addr := range req.Get("fromAddress").Array() {
+			logReq.FromAddress = append(logReq.FromAddress, addr.String())
+		}
+		for _, addr := range req.Get("toAddress").Array() {
+			logReq.ToAddress = append(logReq.ToAddress, addr.String())
+		}
+		logReq.After = req.Get("after").Uint()
+		logReq.Count = req.Get("count").Uint()
+	}
+	return &logReq, nil
+}
+
 func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int, []byte, error) {
 	var (
 		from     address.Address
@@ -535,6 +574,55 @@ func packTraceResult(callerAddr address.Address, act *action.Execution, data []b
 			TraceType: "call",
 		}},
 	}, nil
+}
+
+func packTraceFilterResult(startIdx, count uint64, selps []action.SealedEnvelope, receipts []*action.Receipt, blkHashes []hash.Hash256) (interface{}, error) {
+	ret := make([]traceFilterResult, 0)
+	if startIdx > 0 && startIdx >= uint64(len(selps)) {
+		return nil, errors.New("The offset trace number is too large")
+	}
+	selps = selps[startIdx:]
+	receipts = receipts[startIdx:]
+	if count == 0 {
+		count = uint64(len(selps))
+	}
+	for i := 0; i < len(selps) && count > 0; i++ {
+		selp, receipt, blkHash := selps[i], receipts[i], blkHashes[i]
+		tx, ok := selp.Action().(*action.Execution)
+		if !ok {
+			continue
+		}
+		toAddr := tx.Recipient()
+		to, err := ioAddrToEthAddr(toAddr)
+		if err != nil {
+			return nil, err
+		}
+		value, err := intStrToHex(tx.Amount().String())
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, traceFilterResult{
+			Action: traceAction{
+				CallType: "call",
+				From:     selp.SrcPubkey().Address().Hex(),
+				To:       to,
+				Gas:      uint64ToHex(selp.GasLimit()),
+				Value:    value,
+				Input:    "0x" + hex.EncodeToString(tx.Payload()),
+			},
+			BlockHash:   "0x" + hex.EncodeToString(blkHash[:]),
+			BlockNumber: receipt.BlockHeight,
+			Result: traceActionResult{
+				GasUsed: uint64ToHex(receipt.GasConsumed),
+				Output:  "0x",
+			},
+			TransactionHash:     "0x" + hex.EncodeToString(receipt.ActionHash[:]),
+			TransactionPosition: uint64(receipt.TxIndex),
+			TraceType:           "call",
+		})
+		count--
+	}
+	return ret, nil
 }
 
 func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
