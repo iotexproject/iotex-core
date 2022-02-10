@@ -9,7 +9,7 @@ package compress
 import (
 	"bytes"
 	"compress/gzip"
-	"io/ioutil"
+	"io"
 
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
@@ -78,7 +78,7 @@ func DecompGzip(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	r.Close()
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 
 // CompSnappy uses Snappy to compress the input bytes

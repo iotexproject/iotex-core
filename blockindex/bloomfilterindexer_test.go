@@ -10,6 +10,8 @@ import (
 	"context"
 	"hash/fnv"
 	"math/big"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -272,14 +274,6 @@ func TestBloomfilterIndexer(t *testing.T) {
 			require.NoError(err)
 			require.Equal(expectedRes4[i], res)
 		}
-
-		bfs, err := indexer.(*bloomfilterIndexer).getRangeFilters(1, 5)
-		require.NoError(err)
-		require.Equal(2, len(bfs))
-		require.EqualValues(1, bfs[0].Start())
-		require.EqualValues(3, bfs[0].End())
-		require.EqualValues(4, bfs[1].Start())
-		require.EqualValues(5, bfs[1].End())
 	}
 
 	path := "test-indexer"
@@ -293,4 +287,75 @@ func TestBloomfilterIndexer(t *testing.T) {
 		defer testutil.CleanupPath(t, testPath)
 		testIndexer(db.NewBoltDB(cfg), t)
 	})
+}
+
+func BenchmarkBloomfilterIndexer(b *testing.B) {
+	require := require.New(b)
+
+	indexerCfg := config.Default.Indexer
+	indexerCfg.RangeBloomFilterNumElements = 16
+	indexerCfg.RangeBloomFilterSize = 4096
+	indexerCfg.RangeBloomFilterNumHash = 4
+
+	testFilter := iotexapi.LogsFilter{
+		Address: []string{identityset.Address(28).String()},
+		Topics: []*iotexapi.Topics{
+			{
+				Topic: [][]byte{
+					data2[:],
+				},
+			},
+		},
+	}
+	testinglf := logfilter.NewLogFilter(&testFilter, nil, nil)
+
+	var (
+		blkNum           = 2000
+		receiptNumPerBlk = 1000
+		blks             = make([]block.Block, blkNum)
+		wg               sync.WaitGroup
+	)
+	for i := 0; i < blkNum; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			receipts := make([]*action.Receipt, receiptNumPerBlk)
+			for j := 0; j < receiptNumPerBlk; j++ {
+				receipt := &action.Receipt{}
+				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
+				receipt.AddLogs(testLog)
+				receipts[j] = receipt
+			}
+			blk, err := block.NewTestingBuilder().
+				SetHeight(uint64(i + 1)).
+				SetReceipts(receipts).
+				SignAndBuild(identityset.PrivateKey(27))
+			if err != nil {
+				panic("fail")
+			}
+			blks[i] = blk
+		}(i)
+	}
+	wg.Wait()
+
+	// for n := 0; n < b.N; n++ {
+	testPath, err := testutil.PathOfTempFile("test-indexer")
+	require.NoError(err)
+	dbCfg := db.DefaultConfig
+	dbCfg.DbPath = testPath
+	defer testutil.CleanupPathV2(testPath)
+	indexer, err := NewBloomfilterIndexer(db.NewBoltDB(dbCfg), indexerCfg)
+	require.NoError(err)
+	ctx := context.Background()
+	require.NoError(indexer.Start(ctx))
+	defer func() {
+		require.NoError(indexer.Stop(ctx))
+	}()
+	for i := 0; i < len(blks); i++ {
+		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))
+	}
+	runtime.GC()
+	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1))
+	require.NoError(err)
+	require.Equal(blkNum-1, len(res))
 }
