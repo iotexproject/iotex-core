@@ -7,8 +7,11 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -23,7 +26,73 @@ const (
 	ReclaimStakePayloadGas = uint64(100)
 	// ReclaimStakeBaseIntrinsicGas represents the base intrinsic gas for stake reclaim
 	ReclaimStakeBaseIntrinsicGas = uint64(10000)
+
+	reclaimStakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "unstake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "withdrawStake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
 )
+
+var (
+	// UnstakeMethodID is the method ID of Unstake Method
+	UnstakeMethodID [4]byte
+	// WithdrawStakeMethodID is the method ID of WithdrawStake Method
+	WithdrawStakeMethodID [4]byte
+	// _reclaimStakeInterface is the interface of the abi encoding of stake action
+	_reclaimStakeInterface abi.ABI
+)
+
+func init() {
+	var err error
+	_reclaimStakeInterface, err = abi.JSON(strings.NewReader(reclaimStakeInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	method, ok := _reclaimStakeInterface.Methods["unstake"]
+	if !ok {
+		panic("fail to load the method")
+	}
+	copy(UnstakeMethodID[:], method.ID)
+	method, ok = _reclaimStakeInterface.Methods["withdrawStake"]
+	if !ok {
+		panic("fail to load the method")
+	}
+	copy(WithdrawStakeMethodID[:], method.ID)
+}
 
 // reclaimStake defines the action of stake restake/withdraw
 type reclaimStake struct {
@@ -108,6 +177,33 @@ func (su *Unstake) Cost() (*big.Int, error) {
 	return unstakeFee, nil
 }
 
+// EncodingABIBinary encodes data in abi encoding
+func (cs *Unstake) EncodingABIBinary() ([]byte, error) {
+	return _reclaimStakeInterface.Pack("unstake", cs.bucketIndex, cs.payload)
+}
+
+// DecodingABIBinary decodes data into WithdrawStake action
+func (cs *Unstake) DecodingABIBinary(data []byte) error {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(UnstakeMethodID[:], data[:4]) {
+		return errDecodeFailure
+	}
+	if err := _reclaimStakeInterface.Methods["unstake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return err
+	}
+	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return errDecodeFailure
+	}
+	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+		return errDecodeFailure
+	}
+	return nil
+}
+
 // WithdrawStake defines the action of stake withdraw
 type WithdrawStake struct {
 	reclaimStake
@@ -149,4 +245,31 @@ func (sw *WithdrawStake) Cost() (*big.Int, error) {
 	}
 	withdrawFee := big.NewInt(0).Mul(sw.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return withdrawFee, nil
+}
+
+// EncodingABIBinary encodes data in abi encoding
+func (cs *WithdrawStake) EncodingABIBinary() ([]byte, error) {
+	return _reclaimStakeInterface.Pack("withdrawStake", cs.bucketIndex, cs.payload)
+}
+
+// DecodingABIBinary decodes data into WithdrawStake action
+func (cs *WithdrawStake) DecodingABIBinary(data []byte) error {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(WithdrawStakeMethodID[:], data[:4]) {
+		return errDecodeFailure
+	}
+	if err := _reclaimStakeInterface.Methods["withdrawStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return err
+	}
+	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return errDecodeFailure
+	}
+	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+		return errDecodeFailure
+	}
+	return nil
 }

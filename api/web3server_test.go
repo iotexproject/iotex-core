@@ -706,6 +706,18 @@ func TestWeb3Staking(t *testing.T) {
 	require.NoError(err)
 	testData = append(testData, stakeData{"changeCandidate", data3})
 
+	act4, err := action.NewUnstake(4, 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data4, err := act4.EncodingABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"unstake", data4})
+
+	act5, err := action.NewUnstake(5, 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data5, err := act5.EncodingABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"withdrawStake", data5})
+
 	for i, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
 			// estimate gas
