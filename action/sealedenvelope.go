@@ -167,9 +167,9 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	case *CandidateRegister:
 		ab = act.AbstractAction
 		data, err = act.EncodingABIBinary()
-	// case *CandidateUpdate:
-	// 	ab = act.AbstractAction
-	// 	data, err = act.EncodingABIBinary()
+	case *CandidateUpdate:
+		ab = act.AbstractAction
+		data, err = act.EncodingABIBinary()
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
