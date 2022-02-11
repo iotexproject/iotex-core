@@ -123,7 +123,7 @@ func TestCreateStake(t *testing.T) {
 
 }
 
-func TestABIEncodeAndDecode(t *testing.T) {
+func TestCreateStakeABIEncodeAndDecode(t *testing.T) {
 	require := require.New(t)
 	test := stakeCreateTestParams[0]
 	stake, err := NewCreateStake(test.Nonce, test.CanAddress, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)

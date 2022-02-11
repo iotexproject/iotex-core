@@ -149,8 +149,12 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 			return nil, err
 		}
 		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddr, data)
-	// case *DepositToStake:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingAddDepositAddrHash[:], act.Proto())
+	case *DepositToStake:
+		data, err = act.EncodingABIBinary()
+		if err != nil {
+			return nil, err
+		}
+		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddr, data)
 	// case *ChangeCandidate:
 	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingChangeCandAddrHash[:], act.Proto())
 	// case *Unstake:

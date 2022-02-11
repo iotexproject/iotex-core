@@ -343,6 +343,12 @@ func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
 			return err
 		}
 		core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
+	case action.DepositToStakeMethodID:
+		var act action.DepositToStake
+		if err := act.DecodingABIBinary(data); err != nil {
+			return err
+		}
+		core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
 	default:
 		return errInvalidFormat
 	}
