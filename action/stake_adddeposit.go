@@ -27,7 +27,7 @@ const (
 	// DepositToStakeBaseIntrinsicGas represents the base intrinsic gas for DepositToStake
 	DepositToStakeBaseIntrinsicGas = uint64(10000)
 
-	DepositToStakeInterfaceABI = `[
+	depositToStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -72,7 +72,7 @@ type DepositToStake struct {
 
 func init() {
 	var err error
-	_depositToStakeInterface, err = abi.JSON(strings.NewReader(DepositToStakeInterfaceABI))
+	_depositToStakeInterface, err = abi.JSON(strings.NewReader(depositToStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
@@ -178,12 +178,12 @@ func (ds *DepositToStake) SanityCheck() error {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *DepositToStake) EncodingABIBinary() ([]byte, error) {
-	return _depositToStakeInterface.Pack("depositToStake", cs.bucketIndex, cs.amount, cs.payload)
+func (ds *DepositToStake) EncodingABIBinary() ([]byte, error) {
+	return _depositToStakeInterface.Pack("depositToStake", ds.bucketIndex, ds.amount, ds.payload)
 }
 
 // DecodingABIBinary decodes data into depositToStake action
-func (cs *DepositToStake) DecodingABIBinary(data []byte) error {
+func (ds *DepositToStake) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -195,13 +195,13 @@ func (cs *DepositToStake) DecodingABIBinary(data []byte) error {
 	if err := _depositToStakeInterface.Methods["depositToStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+	if ds.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
 		return errDecodeFailure
 	}
-	if cs.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+	if ds.amount, ok = paramsMap["amount"].(*big.Int); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if ds.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil

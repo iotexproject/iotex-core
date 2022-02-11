@@ -296,23 +296,23 @@ func (cr *CandidateRegister) SanityCheck() error {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *CandidateRegister) EncodingABIBinary() ([]byte, error) {
-	operatorEthAddr := common.BytesToAddress(cs.operatorAddress.Bytes())
-	rewardEthAddr := common.BytesToAddress(cs.rewardAddress.Bytes())
-	ownerEthAddr := common.BytesToAddress(cs.ownerAddress.Bytes())
+func (cr *CandidateRegister) EncodingABIBinary() ([]byte, error) {
+	operatorEthAddr := common.BytesToAddress(cr.operatorAddress.Bytes())
+	rewardEthAddr := common.BytesToAddress(cr.rewardAddress.Bytes())
+	ownerEthAddr := common.BytesToAddress(cr.ownerAddress.Bytes())
 	return _candidateRegisterInterface.Pack("candidateRegister",
-		cs.name,
+		cr.name,
 		operatorEthAddr,
 		rewardEthAddr,
 		ownerEthAddr,
-		cs.amount,
-		cs.duration,
-		cs.autoStake,
-		cs.payload)
+		cr.amount,
+		cr.duration,
+		cr.autoStake,
+		cr.payload)
 }
 
 // DecodingABIBinary decodes data into CandidateRegister action
-func (cs *CandidateRegister) DecodingABIBinary(data []byte) error {
+func (cr *CandidateRegister) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -325,28 +325,28 @@ func (cs *CandidateRegister) DecodingABIBinary(data []byte) error {
 	if err := _candidateRegisterInterface.Methods["candidateRegister"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.name, ok = paramsMap["name"].(string); !ok {
+	if cr.name, ok = paramsMap["name"].(string); !ok {
 		return errDecodeFailure
 	}
-	if cs.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
+	if cr.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
 		return err
 	}
-	if cs.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
+	if cr.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
 		return err
 	}
-	if cs.ownerAddress, err = ethAddrToNativeAddr(paramsMap["ownerAddress"]); err != nil {
+	if cr.ownerAddress, err = ethAddrToNativeAddr(paramsMap["ownerAddress"]); err != nil {
 		return err
 	}
-	if cs.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+	if cr.amount, ok = paramsMap["amount"].(*big.Int); !ok {
 		return errDecodeFailure
 	}
-	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
+	if cr.duration, ok = paramsMap["duration"].(uint32); !ok {
 		return errDecodeFailure
 	}
-	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+	if cr.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if cr.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil

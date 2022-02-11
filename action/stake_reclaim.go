@@ -178,12 +178,12 @@ func (su *Unstake) Cost() (*big.Int, error) {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *Unstake) EncodingABIBinary() ([]byte, error) {
-	return _reclaimStakeInterface.Pack("unstake", cs.bucketIndex, cs.payload)
+func (su *Unstake) EncodingABIBinary() ([]byte, error) {
+	return _reclaimStakeInterface.Pack("unstake", su.bucketIndex, su.payload)
 }
 
 // DecodingABIBinary decodes data into WithdrawStake action
-func (cs *Unstake) DecodingABIBinary(data []byte) error {
+func (su *Unstake) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -195,10 +195,10 @@ func (cs *Unstake) DecodingABIBinary(data []byte) error {
 	if err := _reclaimStakeInterface.Methods["unstake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+	if su.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if su.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil
@@ -248,12 +248,12 @@ func (sw *WithdrawStake) Cost() (*big.Int, error) {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *WithdrawStake) EncodingABIBinary() ([]byte, error) {
-	return _reclaimStakeInterface.Pack("withdrawStake", cs.bucketIndex, cs.payload)
+func (sw *WithdrawStake) EncodingABIBinary() ([]byte, error) {
+	return _reclaimStakeInterface.Pack("withdrawStake", sw.bucketIndex, sw.payload)
 }
 
 // DecodingABIBinary decodes data into WithdrawStake action
-func (cs *WithdrawStake) DecodingABIBinary(data []byte) error {
+func (sw *WithdrawStake) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -265,10 +265,10 @@ func (cs *WithdrawStake) DecodingABIBinary(data []byte) error {
 	if err := _reclaimStakeInterface.Methods["withdrawStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+	if sw.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if sw.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil
