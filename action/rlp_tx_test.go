@@ -2,9 +2,7 @@ package action
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -261,105 +258,12 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 			Execution: ex.Proto(),
 		}
 	case "stakeCreate":
-		method, _ := StakingInterface.MethodById(tx.Data()[:4])
 		var act CreateStake
-		_ = act.DecodingABIBinary(method, tx.Data()[4:])
+		_ = act.DecodingABIBinary(tx.Data())
 		act.AbstractAction = ab
 		pb.Action = &iotextypes.ActionCore_StakeCreate{
 			StakeCreate: act.Proto(),
 		}
 	}
 	return &pb
-}
-
-// Temp added for generating test data
-func TestEncodeDecodeRawTx(t *testing.T) {
-	require := require.New(t)
-	pvk, _ := crypto.GenerateKey()
-	// pvk := identityset.PrivateKey(28)
-	var testGasLimit, testGasPrice, testAmount, testNonce uint64 = 20000, 1000000, 100, 9
-	toAddr := "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070"
-	ab := AbstractAction{
-		version:   1,
-		nonce:     testNonce,
-		gasLimit:  testGasLimit,
-		gasPrice:  big.NewInt(int64(testGasPrice)),
-		srcPubkey: pvk.PublicKey(),
-	}
-	testData := []struct {
-		act     Action
-		chainID uint32
-	}{
-		{
-			&Transfer{
-				AbstractAction: ab,
-				amount:         big.NewInt(int64(testAmount)),
-				payload:        signByte,
-				recipient:      toAddr,
-			},
-			4689,
-		},
-		{
-			&Execution{
-				AbstractAction: ab,
-				amount:         big.NewInt(int64(testAmount)),
-				data:           signByte,
-				contract:       toAddr,
-			},
-			4689,
-		},
-		// {
-		// 	&CreateStake{
-		// 		AbstractAction: ab,
-		// 		candName:       "test",
-		// 		amount:         big.NewInt(int64(testAmount)),
-		// 		duration:       100,
-		// 		autoStake:      true,
-		// 		payload:        []byte{1, 2, 3},
-		// 	},
-		// 	1,
-		// },
-	}
-
-	for _, v := range testData {
-		txStr, err := encodeRawTx(v.act, pvk, v.chainID)
-		fmt.Println(txStr)
-		require.NoError(err)
-		tx, _, _, err := DecodeRawTx(txStr, v.chainID)
-		require.NoError(err)
-		// require.Equal(testAmount, tx.Value().Uint64())
-		require.Equal(testGasLimit, tx.Gas())
-		require.Equal(testGasPrice, tx.GasPrice().Uint64())
-		require.Equal(testNonce, tx.Nonce())
-		addr2, _ := address.FromBytes(tx.To().Bytes())
-		addr1, _ := address.FromString(toAddr)
-		require.Equal(addr1, addr2)
-	}
-}
-
-// encodeRawTx encodes action into the data string of eth tx
-func encodeRawTx(act Action, pvk crypto.PrivateKey, chainID uint32) (string, error) {
-	rlpAct, err := actionToRLP(act)
-	if err != nil {
-		return "", err
-	}
-	rawTx, err := generateRlpTx(rlpAct)
-	if err != nil {
-		return "", err
-	}
-	ecdsaPvk, ok := pvk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-	if !ok {
-		return "", errors.New("private key is invalid")
-	}
-
-	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
-	signedTx, err := types.SignTx(rawTx, signer, ecdsaPvk)
-	if err != nil {
-		return "", err
-	}
-	encodedTx, err := rlp.EncodeToBytes(signedTx)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(encodedTx[:]), nil
 }

@@ -144,7 +144,7 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	case *Execution:
 		tx = (*Execution)(act)
 	case *CreateStake:
-		data, err = act.EncodingABIBinary(StakingInterface)
+		data, err = act.EncodingABIBinary()
 		if err != nil {
 			return nil, err
 		}
