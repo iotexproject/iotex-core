@@ -159,12 +159,12 @@ func (cc *ChangeCandidate) Cost() (*big.Int, error) {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *ChangeCandidate) EncodingABIBinary() ([]byte, error) {
-	return _changeCandidateInterface.Pack("changeCandidate", cs.candidateName, cs.bucketIndex, cs.payload)
+func (cc *ChangeCandidate) EncodingABIBinary() ([]byte, error) {
+	return _changeCandidateInterface.Pack("changeCandidate", cc.candidateName, cc.bucketIndex, cc.payload)
 }
 
 // DecodingABIBinary decodes data into ChangeCandidate action
-func (cs *ChangeCandidate) DecodingABIBinary(data []byte) error {
+func (cc *ChangeCandidate) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -176,13 +176,13 @@ func (cs *ChangeCandidate) DecodingABIBinary(data []byte) error {
 	if err := _changeCandidateInterface.Methods["changeCandidate"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.candidateName, ok = paramsMap["candName"].(string); !ok {
+	if cc.candidateName, ok = paramsMap["candName"].(string); !ok {
 		return errDecodeFailure
 	}
-	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+	if cc.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if cc.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil

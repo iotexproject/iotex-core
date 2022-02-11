@@ -163,13 +163,13 @@ func (ts *TransferStake) Cost() (*big.Int, error) {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *TransferStake) EncodingABIBinary() ([]byte, error) {
-	voterEthAddr := common.BytesToAddress(cs.voterAddress.Bytes())
-	return _transferStakeInterface.Pack("transferStake", voterEthAddr, cs.bucketIndex, cs.payload)
+func (ts *TransferStake) EncodingABIBinary() ([]byte, error) {
+	voterEthAddr := common.BytesToAddress(ts.voterAddress.Bytes())
+	return _transferStakeInterface.Pack("transferStake", voterEthAddr, ts.bucketIndex, ts.payload)
 }
 
 // DecodingABIBinary decodes data into TransferStake action
-func (cs *TransferStake) DecodingABIBinary(data []byte) error {
+func (ts *TransferStake) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -182,18 +182,13 @@ func (cs *TransferStake) DecodingABIBinary(data []byte) error {
 	if err := _transferStakeInterface.Methods["transferStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if voterEthAddr, ok := paramsMap["voterAddress"].(common.Address); !ok {
-		return errDecodeFailure
-	} else {
-		cs.voterAddress, err = address.FromBytes(voterEthAddr.Bytes())
-		if err != nil {
-			return err
-		}
+	if ts.voterAddress, err = ethAddrToNativeAddr(paramsMap["voterAddress"]); err != nil {
+		return err
 	}
-	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+	if ts.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if ts.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil

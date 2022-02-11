@@ -189,14 +189,14 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *CandidateUpdate) EncodingABIBinary() ([]byte, error) {
-	operatorEthAddr := common.BytesToAddress(cs.operatorAddress.Bytes())
-	rewardEthAddr := common.BytesToAddress(cs.rewardAddress.Bytes())
-	return _candidateUpdateInterface.Pack("candidateUpdate", cs.name, operatorEthAddr, rewardEthAddr)
+func (cu *CandidateUpdate) EncodingABIBinary() ([]byte, error) {
+	operatorEthAddr := common.BytesToAddress(cu.operatorAddress.Bytes())
+	rewardEthAddr := common.BytesToAddress(cu.rewardAddress.Bytes())
+	return _candidateUpdateInterface.Pack("candidateUpdate", cu.name, operatorEthAddr, rewardEthAddr)
 }
 
 // DecodingABIBinary decodes data into CandidateUpdate action
-func (cs *CandidateUpdate) DecodingABIBinary(data []byte) error {
+func (cu *CandidateUpdate) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -209,13 +209,13 @@ func (cs *CandidateUpdate) DecodingABIBinary(data []byte) error {
 	if err := _candidateUpdateInterface.Methods["candidateUpdate"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.name, ok = paramsMap["name"].(string); !ok {
+	if cu.name, ok = paramsMap["name"].(string); !ok {
 		return errDecodeFailure
 	}
-	if cs.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
+	if cu.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
 		return err
 	}
-	if cs.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
+	if cu.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
 		return err
 	}
 	return nil

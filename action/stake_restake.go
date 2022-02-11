@@ -172,12 +172,12 @@ func (rs *Restake) Cost() (*big.Int, error) {
 }
 
 // EncodingABIBinary encodes data in abi encoding
-func (cs *Restake) EncodingABIBinary() ([]byte, error) {
-	return _restakeInterface.Pack("restake", cs.bucketIndex, cs.duration, cs.autoStake, cs.payload)
+func (rs *Restake) EncodingABIBinary() ([]byte, error) {
+	return _restakeInterface.Pack("restake", rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
 }
 
 // DecodingABIBinary decodes data into Restake action
-func (cs *Restake) DecodingABIBinary(data []byte) error {
+func (rs *Restake) DecodingABIBinary(data []byte) error {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
@@ -189,16 +189,16 @@ func (cs *Restake) DecodingABIBinary(data []byte) error {
 	if err := _restakeInterface.Methods["restake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
 		return err
 	}
-	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+	if rs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
 		return errDecodeFailure
 	}
-	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
+	if rs.duration, ok = paramsMap["duration"].(uint32); !ok {
 		return errDecodeFailure
 	}
-	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+	if rs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
 		return errDecodeFailure
 	}
-	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+	if rs.payload, ok = paramsMap["data"].([]byte); !ok {
 		return errDecodeFailure
 	}
 	return nil
