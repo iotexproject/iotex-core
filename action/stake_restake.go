@@ -7,8 +7,11 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -23,6 +26,44 @@ const (
 	RestakePayloadGas = uint64(100)
 	// RestakeBaseIntrinsicGas represents the base intrinsic gas for stake again
 	RestakeBaseIntrinsicGas = uint64(10000)
+
+	restakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint32",
+					"name": "duration",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bool",
+					"name": "autoStake",
+					"type": "bool"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "restake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// RestakeMethodID is the method ID of Restake Method
+	RestakeMethodID [4]byte
+	// _restakeInterface is the interface of the abi encoding of stake action
+	_restakeInterface abi.ABI
 )
 
 // Restake defines the action of stake again
@@ -33,6 +74,19 @@ type Restake struct {
 	duration    uint32
 	autoStake   bool
 	payload     []byte
+}
+
+func init() {
+	var err error
+	_restakeInterface, err = abi.JSON(strings.NewReader(restakeInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	method, ok := _restakeInterface.Methods["restake"]
+	if !ok {
+		panic("fail to load the method")
+	}
+	copy(RestakeMethodID[:], method.ID)
 }
 
 // NewRestake returns a Restake instance
@@ -115,4 +169,37 @@ func (rs *Restake) Cost() (*big.Int, error) {
 	}
 	restakeFee := big.NewInt(0).Mul(rs.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return restakeFee, nil
+}
+
+// EncodingABIBinary encodes data in abi encoding
+func (cs *Restake) EncodingABIBinary() ([]byte, error) {
+	return _restakeInterface.Pack("restake", cs.bucketIndex, cs.duration, cs.autoStake, cs.payload)
+}
+
+// DecodingABIBinary decodes data into Restake action
+func (cs *Restake) DecodingABIBinary(data []byte) error {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(RestakeMethodID[:], data[:4]) {
+		return errDecodeFailure
+	}
+	if err := _restakeInterface.Methods["restake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return err
+	}
+	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return errDecodeFailure
+	}
+	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
+		return errDecodeFailure
+	}
+	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+		return errDecodeFailure
+	}
+	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+		return errDecodeFailure
+	}
+	return nil
 }
