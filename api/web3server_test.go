@@ -685,22 +685,32 @@ func TestWeb3Staking(t *testing.T) {
 		stakeEncodedData []byte
 	}
 	testData := []stakeData{}
+	toAddr := "0x000000000000007374616b696e67437265617465"
 
 	// encoding stake data
-	act, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
+	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data, err := act.EncodingABIBinary()
+	data, err := act1.EncodingABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"createStake", data})
+	act2, err := action.NewDepositToStake(2, 7, "100", []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data2, err := act2.EncodingABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"depositToStake", data2})
 
 	for i, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
+			// estimate gas
+			gasLimit, err := estimateStakeGas(svr, identityset.Address(28).Hex(), toAddr, data)
+			require.NoError(err)
+
 			// create tx
 			rawTx := types.NewTransaction(
 				uint64(9+i),
-				common.HexToAddress("0x000000000000007374616b696e67437265617465"),
+				common.HexToAddress(toAddr),
 				big.NewInt(0),
-				100000,
+				gasLimit,
 				big.NewInt(0),
 				data,
 			)
@@ -715,4 +725,20 @@ func TestWeb3Staking(t *testing.T) {
 			require.NoError(err)
 		})
 	}
+}
+
+func estimateStakeGas(svr *ServerV2, fromAddr, toAddr string, data []byte) (uint64, error) {
+	ret, err := svr.web3Server.estimateGas([]interface{}{
+		map[string]interface{}{
+			"from":     fromAddr,
+			"to":       toAddr,
+			"gas":      "0x0",
+			"gasPrice": "0x0",
+			"value":    "0x0",
+			"data":     hex.EncodeToString(data)},
+		1})
+	if err != nil {
+		panic(err)
+	}
+	return hexStringToNumber(ret.(string))
 }
