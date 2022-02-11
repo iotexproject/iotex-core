@@ -722,13 +722,30 @@ func TestWeb3Staking(t *testing.T) {
 	require.NoError(err)
 	data6, err := act6.EncodingABIBinary()
 	require.NoError(err)
-	testData = append(testData, stakeData{"withdrawStake", data6})
+	testData = append(testData, stakeData{"restake", data6})
 
-	act7, err := action.NewTransferStake(6, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
+	act7, err := action.NewTransferStake(7, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
 	data7, err := act7.EncodingABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"transferStake", data7})
+
+	act8, err := action.NewCandidateRegister(
+		8,
+		"test",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"100",
+		7,
+		false,
+		[]byte{},
+		1000000,
+		big.NewInt(0))
+	require.NoError(err)
+	data8, err := act8.EncodingABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"candidateRegister", data8})
 
 	for i, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
