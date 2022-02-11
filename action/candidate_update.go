@@ -7,8 +7,12 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -18,8 +22,43 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
-const CandidateUpdateBaseIntrinsicGas = uint64(10000)
+const (
+	// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
+	CandidateUpdateBaseIntrinsicGas = uint64(10000)
+
+	candidateUpdateInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "name",
+					"type": "string"
+				},
+				{
+					"internalType": "address",
+					"name": "operatorAddress",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "rewardAddress",
+					"type": "address"
+				}
+			],
+			"name": "candidateUpdate",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// CandidateUpdateMethodID is the method ID of CandidateUpdate Method
+	CandidateUpdateMethodID [4]byte
+	// _candidateUpdateInterface is the interface of the abi encoding of stake action
+	_candidateUpdateInterface abi.ABI
+)
 
 // CandidateUpdate is the action to update a candidate
 type CandidateUpdate struct {
@@ -28,6 +67,19 @@ type CandidateUpdate struct {
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
+}
+
+func init() {
+	var err error
+	_candidateUpdateInterface, err = abi.JSON(strings.NewReader(candidateUpdateInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	method, ok := _candidateUpdateInterface.Methods["candidateUpdate"]
+	if !ok {
+		panic("fail to load the method")
+	}
+	copy(CandidateUpdateMethodID[:], method.ID)
 }
 
 // NewCandidateUpdate creates a CandidateUpdate instance
@@ -134,4 +186,37 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// EncodingABIBinary encodes data in abi encoding
+func (cs *CandidateUpdate) EncodingABIBinary() ([]byte, error) {
+	operatorEthAddr := common.BytesToAddress(cs.operatorAddress.Bytes())
+	rewardEthAddr := common.BytesToAddress(cs.rewardAddress.Bytes())
+	return _candidateUpdateInterface.Pack("candidateUpdate", cs.name, operatorEthAddr, rewardEthAddr)
+}
+
+// DecodingABIBinary decodes data into CandidateUpdate action
+func (cs *CandidateUpdate) DecodingABIBinary(data []byte) error {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		err       error
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(CandidateUpdateMethodID[:], data[:4]) {
+		return errDecodeFailure
+	}
+	if err := _candidateUpdateInterface.Methods["candidateUpdate"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return err
+	}
+	if cs.name, ok = paramsMap["name"].(string); !ok {
+		return errDecodeFailure
+	}
+	if cs.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
+		return err
+	}
+	if cs.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
+		return err
+	}
+	return nil
 }

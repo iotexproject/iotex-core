@@ -385,6 +385,12 @@ func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
 			return err
 		}
 		core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
+	case action.CandidateUpdateMethodID:
+		var act action.CandidateUpdate
+		if err := act.DecodingABIBinary(data); err != nil {
+			return err
+		}
+		core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
 	default:
 		return errInvalidFormat
 	}
