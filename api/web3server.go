@@ -460,6 +460,8 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 			estimatedGas, err = svr.coreService.EstimateGGas(&action.WithdrawStake{}, uint64(len(data)))
 		case action.RestakeMethodID:
 			estimatedGas, err = svr.coreService.EstimateGGas(&action.Restake{}, uint64(len(data)))
+		case action.TransferStakeMethodID:
+			estimatedGas, err = svr.coreService.EstimateGGas(&action.TransferStake{}, uint64(len(data)))
 		default:
 			return nil, errInvalidFormat
 		}
