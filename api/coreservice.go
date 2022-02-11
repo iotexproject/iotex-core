@@ -1497,6 +1497,8 @@ func (core *coreService) EstimateGGas(actType action.Action, payloadSize uint64)
 		intrinsicGas, payloadGas = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas
 	case *action.DepositToStake:
 		intrinsicGas, payloadGas = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas
+	case *action.ChangeCandidate:
+		intrinsicGas, payloadGas = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas
 	default:
 		return 0, errors.Errorf("invalid action type %T not supported", act)
 	}

@@ -135,28 +135,23 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 func actionToRLP(action Action) (rlpTransaction, error) {
 	var (
 		err  error
-		tx   rlpTransaction
 		data []byte
+		ab   AbstractAction
 	)
 	switch act := action.(type) {
 	case *Transfer:
-		tx = (*Transfer)(act)
+		return (*Transfer)(act), nil
 	case *Execution:
-		tx = (*Execution)(act)
+		return (*Execution)(act), nil
 	case *CreateStake:
+		ab = act.AbstractAction
 		data, err = act.EncodingABIBinary()
-		if err != nil {
-			return nil, err
-		}
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddr, data)
 	case *DepositToStake:
+		ab = act.AbstractAction
 		data, err = act.EncodingABIBinary()
-		if err != nil {
-			return nil, err
-		}
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddr, data)
-	// case *ChangeCandidate:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingChangeCandAddrHash[:], act.Proto())
+	case *ChangeCandidate:
+		ab = act.AbstractAction
+		data, err = act.EncodingABIBinary()
 	// case *Unstake:
 	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUnstakeAddrHash[:], act.Proto())
 	// case *WithdrawStake:
@@ -172,7 +167,10 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
-	return tx, err
+	if err != nil {
+		return nil, err
+	}
+	return wrapStakingActionIntoExecution(ab, address.StakingCreateAddr, data)
 }
 
 func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (rlpTransaction, error) {
