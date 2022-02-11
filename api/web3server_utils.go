@@ -379,6 +379,12 @@ func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
 			return err
 		}
 		core.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
+	case action.CandidateRegisterMethodID:
+		var act action.CandidateRegister
+		if err := act.DecodingABIBinary(data); err != nil {
+			return err
+		}
+		core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
 	default:
 		return errInvalidFormat
 	}
