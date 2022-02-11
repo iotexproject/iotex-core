@@ -82,6 +82,19 @@ func TestUnstakeSignVerify(t *testing.T) {
 	require.NoError(Verify(selp))
 }
 
+func TestUnstakeABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewUnstake(nonce, index, payload, gaslimit, gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodingABIBinary()
+	require.NoError(err)
+	err = stake.DecodingABIBinary(data)
+	require.NoError(err)
+	require.Equal(index, stake.bucketIndex)
+	require.Equal(payload, stake.payload)
+}
+
 func TestWithdraw(t *testing.T) {
 	require := require.New(t)
 	stake, err := NewWithdrawStake(nonce, index, payload, gaslimit, gasprice)
@@ -136,4 +149,17 @@ func TestWithdrawSignVerify(t *testing.T) {
 	require.Equal("28049348cf34f1aa927caa250e7a1b08778c44efaf73b565b6fa9abe843871b4", hex.EncodeToString(hash[:]))
 	// verify signature
 	require.NoError(Verify(selp))
+}
+
+func TestWithdrawABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewWithdrawStake(nonce, index, payload, gaslimit, gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodingABIBinary()
+	require.NoError(err)
+	err = stake.DecodingABIBinary(data)
+	require.NoError(err)
+	require.Equal(index, stake.bucketIndex)
+	require.Equal(payload, stake.payload)
 }

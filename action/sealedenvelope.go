@@ -152,18 +152,24 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	case *ChangeCandidate:
 		ab = act.AbstractAction
 		data, err = act.EncodingABIBinary()
-	// case *Unstake:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUnstakeAddrHash[:], act.Proto())
-	// case *WithdrawStake:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingWithdrawAddrHash[:], act.Proto())
+	case *Unstake:
+		ab = act.AbstractAction
+		data, err = act.EncodingABIBinary()
+	case *WithdrawStake:
+		ab = act.AbstractAction
+		data, err = act.EncodingABIBinary()
 	// case *Restake:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRestakeAddrHash[:], act.Proto())
+	// 	ab = act.AbstractAction
+	// 	data, err = act.EncodingABIBinary()
 	// case *TransferStake:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingTransferAddrHash[:], act.Proto())
+	// 	ab = act.AbstractAction
+	// 	data, err = act.EncodingABIBinary()
 	// case *CandidateRegister:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRegisterCandAddrHash[:], act.Proto())
+	// 	ab = act.AbstractAction
+	// 	data, err = act.EncodingABIBinary()
 	// case *CandidateUpdate:
-	// 	tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUpdateCandAddrHash[:], act.Proto())
+	// 	ab = act.AbstractAction
+	// 	data, err = act.EncodingABIBinary()
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}

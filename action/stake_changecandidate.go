@@ -72,7 +72,7 @@ type ChangeCandidate struct {
 
 func init() {
 	var err error
-	_changeCandidateInterface, err = abi.JSON(strings.NewReader(ChangeCandidateInterfaceABI))
+	_changeCandidateInterface, err = abi.JSON(strings.NewReader(changeCandidateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}

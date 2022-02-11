@@ -355,6 +355,18 @@ func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
 			return err
 		}
 		core.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
+	case action.UnstakeMethodID:
+		var act action.Unstake
+		if err := act.DecodingABIBinary(data); err != nil {
+			return err
+		}
+		core.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
+	case action.WithdrawStakeMethodID:
+		var act action.WithdrawStake
+		if err := act.DecodingABIBinary(data); err != nil {
+			return err
+		}
+		core.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
 	default:
 		return errInvalidFormat
 	}
