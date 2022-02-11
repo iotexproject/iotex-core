@@ -63,3 +63,17 @@ func TestStakingTransferSignVerify(t *testing.T) {
 	// verify signature
 	require.NoError(Verify(selp))
 }
+
+func TestStakingTransferABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewTransferStake(nonce, canAddress, index, payload, gaslimit, gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodingABIBinary()
+	require.NoError(err)
+	err = stake.DecodingABIBinary(data)
+	require.NoError(err)
+	require.Equal(canAddress, stake.voterAddress.String())
+	require.Equal(index, stake.bucketIndex)
+	require.Equal(payload, stake.payload)
+}

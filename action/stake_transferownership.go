@@ -7,8 +7,12 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -19,6 +23,41 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
+const (
+	transferStakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "voterAddress",
+					"type": "address"
+				},
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "transferStake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// TransferStakeMethodID is the method ID of TransferStake Method
+	TransferStakeMethodID [4]byte
+	// _transferStakeInterface is the interface of the abi encoding of stake action
+	_transferStakeInterface abi.ABI
+)
+
 // TransferStake defines the action of transfering stake ownership ts the other
 type TransferStake struct {
 	AbstractAction
@@ -26,6 +65,19 @@ type TransferStake struct {
 	voterAddress address.Address
 	bucketIndex  uint64
 	payload      []byte
+}
+
+func init() {
+	var err error
+	_transferStakeInterface, err = abi.JSON(strings.NewReader(transferStakeInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	method, ok := _transferStakeInterface.Methods["transferStake"]
+	if !ok {
+		panic("fail to load the method")
+	}
+	copy(TransferStakeMethodID[:], method.ID)
 }
 
 // NewTransferStake returns a TransferStake instance
@@ -108,4 +160,41 @@ func (ts *TransferStake) Cost() (*big.Int, error) {
 	}
 	transferStakeFee := big.NewInt(0).Mul(ts.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return transferStakeFee, nil
+}
+
+// EncodingABIBinary encodes data in abi encoding
+func (cs *TransferStake) EncodingABIBinary() ([]byte, error) {
+	voterEthAddr := common.BytesToAddress(cs.voterAddress.Bytes())
+	return _transferStakeInterface.Pack("transferStake", voterEthAddr, cs.bucketIndex, cs.payload)
+}
+
+// DecodingABIBinary decodes data into TransferStake action
+func (cs *TransferStake) DecodingABIBinary(data []byte) error {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		err       error
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(TransferStakeMethodID[:], data[:4]) {
+		return errDecodeFailure
+	}
+	if err := _transferStakeInterface.Methods["transferStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return err
+	}
+	if voterEthAddr, ok := paramsMap["voterAddress"].(common.Address); !ok {
+		return errDecodeFailure
+	} else {
+		cs.voterAddress, err = address.FromBytes(voterEthAddr.Bytes())
+		if err != nil {
+			return err
+		}
+	}
+	if cs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return errDecodeFailure
+	}
+	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+		return errDecodeFailure
+	}
+	return nil
 }
