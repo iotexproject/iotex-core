@@ -158,9 +158,9 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	case *WithdrawStake:
 		ab = act.AbstractAction
 		data, err = act.EncodingABIBinary()
-	// case *Restake:
-	// 	ab = act.AbstractAction
-	// 	data, err = act.EncodingABIBinary()
+	case *Restake:
+		ab = act.AbstractAction
+		data, err = act.EncodingABIBinary()
 	// case *TransferStake:
 	// 	ab = act.AbstractAction
 	// 	data, err = act.EncodingABIBinary()
