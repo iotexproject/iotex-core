@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -446,13 +445,10 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		if len(data) <= 4 {
 			return nil, errInvalidFormat
 		}
-		var method *abi.Method
-		method, err = action.StakingInterface.MethodById(data[:4])
-		if err != nil {
-			return nil, err
-		}
-		switch method.Name {
-		case "createStake":
+		var methodID [4]byte
+		copy(methodID[:], data[:4])
+		switch methodID {
+		case action.CreateStakeMethodID:
 			estimatedGas, err = svr.coreService.EstimateGGas(&action.CreateStake{}, uint64(len(data)))
 		default:
 			return nil, errInvalidFormat

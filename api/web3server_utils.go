@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
@@ -332,30 +331,20 @@ func (svr *Web3Server) actionTypeByAddr(addr string) (actionType, error) {
 }
 
 func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
-	var (
-		method *abi.Method
-		err    error
-	)
 	if len(data) <= 4 {
 		return errInvalidFormat
 	}
-	method, err = action.StakingInterface.MethodById(data[:4])
-	if err != nil {
-		return err
-	}
-	switch method.Name {
-	case "createStake":
+	var methodID [4]byte
+	copy(methodID[:], data[:4])
+	switch methodID {
+	case action.CreateStakeMethodID:
 		var act action.CreateStake
-		err = act.DecodingABIBinary(method, data[4:])
-		if err != nil {
+		if err := act.DecodingABIBinary(data); err != nil {
 			return err
 		}
 		core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
 	default:
 		return errInvalidFormat
-	}
-	if err != nil {
-		return err
 	}
 	return nil
 }
