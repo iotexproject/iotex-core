@@ -56,7 +56,7 @@ func TestGenerateRlp(t *testing.T) {
 	}
 	hE2, _ := hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")
 	rlpTests := []struct {
-		act  rlpTransaction
+		act  RlpTransaction
 		sig  []byte
 		err  string
 		hash hash.Hash256
@@ -199,7 +199,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
 		require.NoError(selp.LoadProto(pb))
-		rlpTx, err := actionToRLP(selp.Action())
+		rlpTx, err := ToRLP(selp.Action())
 		require.NoError(err)
 
 		// verify against original tx

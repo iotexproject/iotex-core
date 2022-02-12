@@ -28,7 +28,7 @@ type SealedEnvelope struct {
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
-		tx, err := actionToRLP(sealed.Action())
+		tx, err := ToRLP(sealed.Action())
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -45,7 +45,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
-		tx, err := actionToRLP(sealed.Action())
+		tx, err := ToRLP(sealed.Action())
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -108,7 +108,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	switch encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
-		tx, err := actionToRLP(elp.Action())
+		tx, err := ToRLP(elp.Action())
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,8 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	return nil
 }
 
-func actionToRLP(action Action) (rlpTransaction, error) {
+// ToRLP converts native to RlpTransaction
+func ToRLP(action Action) (RlpTransaction, error) {
 	var (
 		err  error
 		data []byte
@@ -179,7 +180,7 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 	return wrapStakingActionIntoExecution(ab, address.StakingCreateAddr, data)
 }
 
-func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (rlpTransaction, error) {
+func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (RlpTransaction, error) {
 	return &Execution{
 		AbstractAction: ab,
 		contract:       toAddr,

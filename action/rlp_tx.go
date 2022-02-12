@@ -15,7 +15,8 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-type rlpTransaction interface {
+// RlpTransaction is an interface which makes native action compatible with eth tx
+type RlpTransaction interface {
 	Nonce() uint64
 	GasPrice() *big.Int
 	GasLimit() uint64
@@ -24,7 +25,7 @@ type rlpTransaction interface {
 	Payload() []byte
 }
 
-func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
+func rlpRawHash(tx RlpTransaction, chainID uint32) (hash.Hash256, error) {
 	rawTx, err := generateRlpTx(tx)
 	if err != nil {
 		return hash.ZeroHash256, err
@@ -33,7 +34,7 @@ func rlpRawHash(tx rlpTransaction, chainID uint32) (hash.Hash256, error) {
 	return hash.BytesToHash256(h[:]), nil
 }
 
-func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256, error) {
+func rlpSignedHash(tx RlpTransaction, chainID uint32, sig []byte) (hash.Hash256, error) {
 	signedTx, err := reconstructSignedRlpTxFromSig(tx, chainID, sig)
 	if err != nil {
 		return hash.ZeroHash256, err
@@ -43,7 +44,7 @@ func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256,
 	return hash.BytesToHash256(h.Sum(nil)), nil
 }
 
-func generateRlpTx(act rlpTransaction) (*types.Transaction, error) {
+func generateRlpTx(act RlpTransaction) (*types.Transaction, error) {
 	if act == nil {
 		return nil, errors.New("nil action to generate RLP tx")
 	}
@@ -60,7 +61,7 @@ func generateRlpTx(act rlpTransaction) (*types.Transaction, error) {
 	return types.NewContractCreation(act.Nonce(), act.Amount(), act.GasLimit(), act.GasPrice(), act.Payload()), nil
 }
 
-func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte) (*types.Transaction, error) {
+func reconstructSignedRlpTxFromSig(tx RlpTransaction, chainID uint32, sig []byte) (*types.Transaction, error) {
 	if len(sig) != 65 {
 		return nil, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
 	}
