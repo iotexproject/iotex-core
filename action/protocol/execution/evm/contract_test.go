@@ -226,8 +226,9 @@ func TestLoadStoreCommit(t *testing.T) {
 	t.Run("contract load/store with trie, sync mode", func(t *testing.T) {
 		testTriePath2, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
-		defer testutil.CleanupPath(t, testTriePath2)
-
+		defer func() {
+			testutil.CleanupPath(t, testTriePath2)
+		}()
 		cfg.Chain.EnableTrielessStateDB = false
 		cfg.Chain.TrieDBPath = testTriePath2
 		testLoadStoreCommit(cfg, t, false)

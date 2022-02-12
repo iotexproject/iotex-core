@@ -52,6 +52,7 @@ func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 	return res
 }
 
+// TODO: replace by calculateBlockBloomFilter() in bloomfilterindexer.go
 func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.BloomFilter {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)

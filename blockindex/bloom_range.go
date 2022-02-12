@@ -53,15 +53,15 @@ func (br *bloomRange) FromBytes(data []byte) error {
 	if length <= 16 {
 		return errors.New("not enough data")
 	}
-	// data = bf.Bytes() + start (8-byte) + end (8-byte)
 	if br.BloomFilter == nil {
 		return errors.New("the bloomFilter of bloomRange is nil")
 	}
 
+	// data = bf.Bytes() + start (8-byte) + end (8-byte)
 	if err := br.BloomFilter.FromBytes(data[:length-16]); err != nil {
 		return err
 	}
-	br.end = byteutil.BytesToUint64BigEndian(data[length-8:])
 	br.start = byteutil.BytesToUint64BigEndian(data[length-16 : length-8])
+	br.end = byteutil.BytesToUint64BigEndian(data[length-8:])
 	return nil
 }
