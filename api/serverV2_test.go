@@ -29,11 +29,6 @@ func TestServerV2Start(t *testing.T) {
 	})
 	require.NoError(err)
 
-	svr.core.chainListener = nil
-	err = svr.Start()
-	require.Error(err)
-	require.Contains(err.Error(), "failed to add chainListener")
-
 	svr.tracer = &tracesdk.TracerProvider{}
 	err = svr.Stop()
 	require.Error(err)
