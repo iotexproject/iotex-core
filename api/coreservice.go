@@ -126,14 +126,18 @@ func newCoreService(
 
 // Account returns the metadata of an account
 func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	ctx, span := tracer.NewSpan(context.Background(), "coreService.Account")
+	defer span.End()
 	addrStr := addr.String()
 	if addrStr == address.RewardingPoolAddr || addrStr == address.StakingBucketPoolAddr {
-		return core.getProtocolAccount(context.Background(), addrStr)
+		return core.getProtocolAccount(ctx, addrStr)
 	}
+	span.AddEvent("accountutil.AccountStateWithHeight")
 	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	span.AddEvent("ap.GetPendingNonce")
 	pendingNonce, err := core.ap.GetPendingNonce(addrStr)
 	if err != nil {
 		return nil, nil, status.Error(codes.Internal, err.Error())
@@ -141,6 +145,7 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if core.indexer == nil {
 		return nil, nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
+	span.AddEvent("indexer.GetActionCount")
 	numActions, err := core.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
@@ -161,11 +166,13 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		}
 		accountMeta.ContractByteCode = code
 	}
+	span.AddEvent("bc.BlockHeaderByHeight")
 	header, err := core.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
 	hash := header.HashBlock()
+	span.AddEvent("coreService.Account.End")
 	return accountMeta, &iotextypes.BlockIdentifier{
 		Hash:   hex.EncodeToString(hash[:]),
 		Height: tipHeight,
@@ -1150,7 +1157,6 @@ func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) [
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
-	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
 	lastAction := start + count
 	if count == math.MaxUint64 {
@@ -1168,14 +1174,21 @@ func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) [
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
+		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+		if err != nil {
+			log.L().Debug("Skipping action due to failing to get receipt", zap.Error(err))
+			continue
+		}
+		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SrcPubkey().Address()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
-			Timestamp: ts,
+			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
+			GasFee:    gas.String(),
 			Index:     uint32(i),
 		})
 	}
@@ -1186,7 +1199,6 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
-	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
 	var res []*iotexapi.ActionInfo
 	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
@@ -1197,14 +1209,21 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
 		}
+		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+		if err != nil {
+			log.L().Debug("Skipping action due to failing to get receipt", zap.Error(err))
+			continue
+		}
+		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SrcPubkey().Address()
 		res = append([]*iotexapi.ActionInfo{{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
-			Timestamp: ts,
+			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
+			GasFee:    gas.String(),
 			Index:     uint32(ri),
 		}}, res...)
 	}
@@ -1378,6 +1397,8 @@ func (core *coreService) getProductivityByEpoch(
 }
 
 func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
 	var (
 		balance string
 		out     *iotexapi.ReadStateResponse

@@ -257,9 +257,8 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 	var (
 		blkNum           = 2000
 		receiptNumPerBlk = 1000
-		// logPerReceipt    = 10
-		blks = make([]block.Block, blkNum)
-		wg   sync.WaitGroup
+		blks             = make([]block.Block, blkNum)
+		wg               sync.WaitGroup
 	)
 	for i := 0; i < blkNum; i++ {
 		wg.Add(1)
@@ -269,9 +268,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 			for j := 0; j < receiptNumPerBlk; j++ {
 				receipt := &action.Receipt{}
 				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
-				// for k := 0; k < logPerReceipt; k++ {
 				receipt.AddLogs(testLog)
-				// }
 				receipts[j] = receipt
 			}
 			blk, err := block.NewTestingBuilder().
@@ -301,34 +298,9 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 	}()
 	for i := 0; i < len(blks); i++ {
 		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))
-		// height, err := indexer.Height()
-		// require.NoError(err)
-		// require.Equal(blks[i].Height(), height)
-
-		// blockLevelbf, err := indexer.BlockFilterByHeight(blks[i].Height())
-		// require.NoError(err)
-		// require.True(testinglf.ExistInBloomFilterv2(blockLevelbf))
 	}
 	runtime.GC()
 	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1))
 	require.NoError(err)
 	require.Equal(blkNum-1, len(res))
-	// }
-
-	// for i, l := range testFilter {
-	// 	lf := logfilter.NewLogFilter(l, nil, nil)
-
-	// 	res, err := indexer.FilterBlocksInRange(lf, 1, 5)
-	// 	require.NoError(err)
-	// 	require.Equal(expectedRes2[i], res)
-
-	// 	res, err = indexer.FilterBlocksInRange(lf, 4, 5)
-	// 	require.NoError(err)
-	// 	require.Equal(expectedRes3[i], res)
-
-	// 	res, err = indexer.FilterBlocksInRange(lf, 1, 3)
-	// 	require.NoError(err)
-	// 	require.Equal(expectedRes4[i], res)
-	// }
-
 }
