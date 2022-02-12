@@ -84,7 +84,7 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
-		defer testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testTriePath)
 	}()
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
@@ -95,8 +95,8 @@ func TestSnapshot(t *testing.T) {
 func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
 	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
-	defer testutil.CleanupPathV2(testStateDBPath)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testStateDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPatchFile = ""
@@ -338,8 +338,8 @@ func testCandidates(sf Factory, t *testing.T) {
 
 func TestState(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
-	defer testutil.CleanupPathV2(testTriePath)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath

@@ -2716,17 +2716,19 @@ func newConfig(t *testing.T) config.Config {
 	cfg := config.Default
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
-	defer testutil.CleanupPathV2(testTriePath)
 	r.NoError(err)
 	testDBPath, err := testutil.PathOfTempFile("db")
-	defer testutil.CleanupPathV2(testDBPath)
 	r.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
-	defer testutil.CleanupPathV2(testIndexPath)
 	r.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
-	defer testutil.CleanupPathV2(testSystemLogPath)
 	r.NoError(err)
+	defer func() {
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
+		testutil.CleanupPathV2(testSystemLogPath)
+	}()
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath

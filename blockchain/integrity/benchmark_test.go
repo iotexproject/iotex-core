@@ -198,19 +198,16 @@ func injectExecution(nonceMap map[string]uint64, ap actpool.ActPool) error {
 func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg := config.Default
 	testTriePath, err := testutil.PathOfTempFile("trie")
-	defer testutil.CleanupPathV2(testTriePath)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer testutil.CleanupPathV2(testTriePath)
 	testDBPath, err := testutil.PathOfTempFile("db")
-	defer testutil.CleanupPathV2(testDBPath)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer testutil.CleanupPathV2(testDBPath)
 	testIndexPath, err := testutil.PathOfTempFile("index")
-	defer testutil.CleanupPathV2(testIndexPath)
 	if err != nil {
 		return nil, nil, err
 	}

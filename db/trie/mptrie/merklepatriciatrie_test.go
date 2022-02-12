@@ -450,8 +450,8 @@ func TestHistoryTrie(t *testing.T) {
 	AccountKVNamespace := "Account"
 	path := "test-history-trie.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
-	defer testutil.CleanupPathV2(testPath)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testPath)
 
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{

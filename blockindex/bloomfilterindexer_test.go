@@ -278,8 +278,8 @@ func TestBloomfilterIndexer(t *testing.T) {
 
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
-	defer testutil.CleanupPathV2(testPath)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 

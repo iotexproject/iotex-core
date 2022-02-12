@@ -79,8 +79,8 @@ func TestBucketExists(t *testing.T) {
 func BenchmarkBoltDB_Get(b *testing.B) {
 	runBenchmark := func(b *testing.B, size int) {
 		path, err := testutil.PathOfTempFile("boltdb")
-		defer testutil.CleanupPathV2(path)
 		require.NoError(b, err)
+		defer testutil.CleanupPathV2(path)
 		db := BoltDB{
 			path:   path,
 			config: DefaultConfig,

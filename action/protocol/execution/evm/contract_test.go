@@ -31,8 +31,8 @@ func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	testTriePath, err := testutil.PathOfTempFile("trie")
-	defer testutil.CleanupPathV2(testTriePath)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
