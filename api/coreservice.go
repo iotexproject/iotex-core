@@ -692,12 +692,6 @@ func (core *coreService) TransactionLogByBlockHeight(blockHeight uint64) (*iotex
 
 // Start starts the API server
 func (core *coreService) Start() error {
-	if err := core.bc.AddSubscriber(core.readCache); err != nil {
-		return errors.Wrap(err, "failed to add readCache")
-	}
-	if err := core.bc.AddSubscriber(core.chainListener); err != nil {
-		return errors.Wrap(err, "failed to add chainListener")
-	}
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
