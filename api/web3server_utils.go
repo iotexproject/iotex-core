@@ -207,53 +207,41 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 	var (
 		to     *string
 		create *string
-		value  = "0x0"
-		data   = "0x"
 		err    error
 	)
-	switch act := actInfo.Action.Core.Action.(type) {
-	case *iotextypes.ActionCore_Transfer:
-		value, err = intStrToHex(act.Transfer.GetAmount())
+
+	// convert the protobuf of action to eth-compatible tx
+	selp := action.SealedEnvelope{}
+	if err := selp.LoadProto(actInfo.GetAction()); err != nil {
+		return transactionObject{}, err
+	}
+	ethTx, err := action.ToRLP(selp.Action())
+	if err != nil {
+		// depending
+		return transactionObject{}, err
+	}
+
+	// recipient is empty when contract is created
+	if exec, ok := selp.Action().(*action.Execution); ok && len(exec.Contract()) == 0 {
+		actHash, err := hash.HexStringToHash256(actInfo.ActHash)
+		if err != nil {
+			return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", actInfo.ActHash)
+		}
+		receipt, _, err := svr.coreService.ReceiptByAction(actHash)
 		if err != nil {
 			return transactionObject{}, err
 		}
-		toTmp, err := ioAddrToEthAddr(act.Transfer.GetRecipient())
+		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
+		if err != nil {
+			return transactionObject{}, err
+		}
+		to, create = nil, &addr
+	} else {
+		toTmp, err := ioAddrToEthAddr(ethTx.Recipient())
 		if err != nil {
 			return transactionObject{}, err
 		}
 		to = &toTmp
-	case *iotextypes.ActionCore_Execution:
-		value, err = intStrToHex(act.Execution.GetAmount())
-		if err != nil {
-			return transactionObject{}, err
-		}
-		if len(act.Execution.GetContract()) > 0 {
-			toTmp, err := ioAddrToEthAddr(act.Execution.GetContract())
-			if err != nil {
-				return transactionObject{}, err
-			}
-			to = &toTmp
-		}
-		data = byteToHex(act.Execution.GetData())
-		// recipient is empty when contract is created
-		if to == nil {
-			actHash, err := hash.HexStringToHash256(actInfo.ActHash)
-			if err != nil {
-				return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", actInfo.ActHash)
-			}
-			receipt, _, err := svr.coreService.ReceiptByAction(actHash)
-			if err != nil {
-				return transactionObject{}, err
-			}
-			addr, err := ioAddrToEthAddr(receipt.ContractAddress)
-			if err != nil {
-				return transactionObject{}, err
-			}
-			create = &addr
-		}
-	// TODO: support other type actions
-	default:
-		return transactionObject{}, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
@@ -269,6 +257,10 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 	if err != nil {
 		return transactionObject{}, err
 	}
+	value, err := intStrToHex(ethTx.Amount().String())
+	if err != nil {
+		return transactionObject{}, err
+	}
 	return transactionObject{
 		Hash:             "0x" + actInfo.ActHash,
 		Nonce:            uint64ToHex(actInfo.Action.Core.Nonce),
@@ -280,7 +272,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		Value:            value,
 		GasPrice:         gasPrice,
 		Gas:              uint64ToHex(actInfo.Action.Core.GasLimit),
-		Input:            data,
+		Input:            byteToHex(ethTx.Payload()),
 		R:                byteToHex(actInfo.Action.Signature[:32]),
 		S:                byteToHex(actInfo.Action.Signature[32:64]),
 		V:                uint64ToHex(vVal),
