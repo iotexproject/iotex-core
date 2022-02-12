@@ -1488,7 +1488,9 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	return core.sf.ReadContractStorage(ctx, addr, key)
 }
 
-func (core *coreService) EstimateGGas(actType action.Action, payloadSize uint64) (uint64, error) {
+// TODO: use EstimateGasV2 in grpcserver.go
+// EstimateGasV2 estimates action gas except execution
+func (core *coreService) EstimateGasV2(actType action.Action, payloadSize uint64) (uint64, error) {
 	var intrinsicGas, payloadGas uint64
 	switch act := actType.(type) {
 	case *action.Transfer:

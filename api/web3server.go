@@ -440,7 +440,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 	case _transferAction:
-		estimatedGas, err = svr.coreService.EstimateGGas(&action.Transfer{}, uint64(len(data)))
+		estimatedGas, err = svr.coreService.EstimateGasV2(&action.Transfer{}, uint64(len(data)))
 	case _stakingAction:
 		if len(data) <= 4 {
 			return nil, errInvalidFormat
@@ -449,23 +449,23 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		copy(methodID[:], data[:4])
 		switch methodID {
 		case action.CreateStakeMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.CreateStake{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.CreateStake{}, uint64(len(data)))
 		case action.DepositToStakeMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.DepositToStake{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.DepositToStake{}, uint64(len(data)))
 		case action.ChangeCandidateMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.ChangeCandidate{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.ChangeCandidate{}, uint64(len(data)))
 		case action.UnstakeMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.Unstake{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.Unstake{}, uint64(len(data)))
 		case action.WithdrawStakeMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.WithdrawStake{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.WithdrawStake{}, uint64(len(data)))
 		case action.RestakeMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.Restake{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.Restake{}, uint64(len(data)))
 		case action.TransferStakeMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.TransferStake{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.TransferStake{}, uint64(len(data)))
 		case action.CandidateRegisterMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.CandidateRegister{}, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.CandidateRegister{}, uint64(len(data)))
 		case action.CandidateUpdateMethodID:
-			estimatedGas, err = svr.coreService.EstimateGGas(&action.CandidateUpdate{}, 0)
+			estimatedGas, err = svr.coreService.EstimateGasV2(&action.CandidateUpdate{}, 0)
 		default:
 			return nil, errInvalidFormat
 		}

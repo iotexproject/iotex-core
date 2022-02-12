@@ -26,13 +26,41 @@ const (
 	// CreateStakeBaseIntrinsicGas represents the base intrinsic gas for CreateStake
 	CreateStakeBaseIntrinsicGas = uint64(10000)
 
-	/**
-	 * pragma solidity ^0.8.0;
-	 * interface StakingEncoding {
-	 * 		function createStake(string calldata candName, uint256 amount, uint32 duration, bool autoStake, uint8[] calldata data) external;
-	 * }
-	 */
-	createStakeInterfaceABI = `[{"inputs":[{"internalType":"string","name":"candName","type":"string"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint32","name":"duration","type":"uint32"},{"internalType":"bool","name":"autoStake","type":"bool"},{"internalType":"uint8[]","name":"data","type":"uint8[]"}],"name":"createStake","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+	createStakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "candName",
+					"type": "string"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint32",
+					"name": "duration",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bool",
+					"name": "autoStake",
+					"type": "bool"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "createStake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
 )
 
 var (
