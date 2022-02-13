@@ -9,7 +9,6 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,6 +74,7 @@ func accountDelete(arg string) error {
 		for _, v := range ks.Accounts() {
 			if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 				filePath = v.URL.Path
+				break
 			}
 		}
 	}
@@ -107,7 +107,7 @@ func accountDelete(arg string) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "", err)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile), err)
 	}

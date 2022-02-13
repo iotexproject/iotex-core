@@ -290,30 +290,35 @@ var (
 		start      uint64
 		count      uint64
 		numActions int
+		firstTxGas string
 	}{
 		{
 			2,
 			0,
 			7,
 			7,
+			"0",
 		},
 		{
 			4,
 			2,
 			5,
 			3,
+			"0",
 		},
 		{
 			3,
 			0,
 			0,
 			0,
+			"",
 		},
 		{
 			1,
 			0,
 			math.MaxUint64,
 			2,
+			"0",
 		},
 	}
 
@@ -1014,6 +1019,18 @@ func TestGrpcServer_GetAction(t *testing.T) {
 			require.Equal(uint64(0), act.BlkHeight)
 		}
 	}
+
+	// failure: invalid hash
+	_, err = svr.GrpcServer.GetActions(context.Background(),
+		&iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash:   "0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e",
+					CheckPending: true,
+				},
+			},
+		})
+	require.Error(err)
 }
 
 func TestGrpcServer_GetActionsByAddress(t *testing.T) {
@@ -1125,6 +1142,9 @@ func TestGrpcServer_GetActionsByBlock(t *testing.T) {
 		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions > 0 {
+			require.Equal(test.firstTxGas, res.ActionInfo[0].GasFee)
+		}
 		for _, v := range res.ActionInfo {
 			require.Equal(test.blkHeight, v.BlkHeight)
 			require.Equal(blkHash[test.blkHeight], v.BlkHash)
@@ -1178,6 +1198,20 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	}
 	// failure: empty request
 	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+	require.Error(err)
+
+	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{Start: 10, Count: 1},
+		},
+	})
+	require.Error(err)
+
+	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: "0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"},
+		},
+	})
 	require.Error(err)
 }
 
@@ -1294,7 +1328,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 			return nil
 		},
 	}
-	core.cfg.Genesis.ToBeEnabledBlockHeight = 10
+	core.cfg.Genesis.MidwayBlockHeight = 10
 	svr := NewGRPCServer(core, 141014)
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
@@ -2301,7 +2335,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, err := svr.core.ActionByActionHash(test.h)
+		ret, _, _, _, err := svr.core.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
@@ -2947,4 +2981,51 @@ func TestChainlinkErrTest(t *testing.T) {
 			require.True(test.errRegex.MatchString(s.Message()))
 		})
 	}
+}
+
+func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, bfIndexFile, err := createServerV2(cfg, true)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
+
+	request := &iotexapi.TraceTransactionStructLogsRequest{
+		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
+	}
+	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	require.Error(err)
+
+	//unsupport type
+	request.ActionHash = hex.EncodeToString(transferHash1[:])
+	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	require.Error(err)
+
+	// deploy a contract
+	contractCode := "6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032"
+
+	data, _ := hex.DecodeString(contractCode)
+	ex1, err := action.SignedExecution(action.EmptyAddress, identityset.PrivateKey(13), 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	require.NoError(err)
+	svr.core.ap.Add(context.Background(), ex1)
+	require.NoError(err)
+	blk, err := svr.core.bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	svr.core.bc.CommitBlock(blk)
+	require.NoError(err)
+	svr.core.ap.Reset()
+	ex1Hash, _ := ex1.Hash()
+	request.ActionHash = hex.EncodeToString(ex1Hash[:])
+	ret, err := svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	require.NoError(err)
+	require.Equal(len(ret.StructLogs), 17)
+	log := ret.StructLogs[0]
+	require.Equal(log.Depth, int32(1))
+	require.Equal(log.Gas, uint64(0x4bc1c0))
+	require.Equal(log.GasCost, uint64(0x3))
+	require.Equal(log.Op, uint64(0x60))
+	require.Equal(log.OpName, "PUSH1")
 }

@@ -398,7 +398,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(9)
+	}).Times(8)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))
@@ -799,7 +799,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(9)
+	}).Times(8)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))
@@ -831,6 +831,8 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 
 	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
 	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
@@ -842,7 +844,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(8)
+	}).Times(10)
 
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf3))
@@ -855,6 +857,11 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	nonce, err = ap.GetPendingNonce(addr1)
 	require.NoError(err)
 	require.Equal(uint64(2), nonce)
+
+	require.NoError(ap.Add(context.Background(), tsf2))
+	nonce, err = ap.GetPendingNonce(addr1)
+	require.NoError(err)
+	require.Equal(uint64(5), nonce)
 }
 
 func TestActPool_GetUnconfirmedActs(t *testing.T) {
@@ -977,7 +984,7 @@ func TestActPool_GetSize(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(9)
+	}).Times(8)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))

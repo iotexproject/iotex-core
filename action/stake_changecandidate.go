@@ -96,7 +96,7 @@ func (cc *ChangeCandidate) LoadProto(pbAct *iotextypes.StakeChangeCandidate) err
 // IntrinsicGas returns the intrinsic gas of a ChangeCandidate
 func (cc *ChangeCandidate) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(cc.Payload()))
-	return calculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
+	return CalculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
 }
 
 // Cost returns the tstal cost of a ChangeCandidate

@@ -8,7 +8,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -38,13 +37,13 @@ func makePathAndWriteFile(cfgStr, flagForPath string) (err error) {
 	switch flagForPath {
 	case overwritePath:
 		_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
-		err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+		err = os.WriteFile(_overwritePath, []byte(cfgStr), 0666)
 	case secretPath:
 		_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
-		err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
+		err = os.WriteFile(_secretPath, []byte(cfgStr), 0666)
 	case subChainPath:
 		_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
-		err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
+		err = os.WriteFile(_subChainPath, []byte(cfgStr), 0666)
 	}
 	return err
 }
@@ -381,6 +380,9 @@ func TestValidateForkHeights(t *testing.T) {
 			"Kamchatka", ErrInvalidCfg, "Kamchatka is heigher than LordHowe",
 		},
 		{
+			"LordHowe", ErrInvalidCfg, "LordHowe is heigher than Midway",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -424,6 +426,8 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.JutlandBlockHeight = cfg.Genesis.KamchatkaBlockHeight + 1
 	case "Kamchatka":
 		cfg.Genesis.KamchatkaBlockHeight = cfg.Genesis.LordHoweBlockHeight + 1
+	case "LordHowe":
+		cfg.Genesis.LordHoweBlockHeight = cfg.Genesis.MidwayBlockHeight + 1
 	}
 	return cfg
 }

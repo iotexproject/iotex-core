@@ -9,15 +9,13 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -50,6 +48,7 @@ var (
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
+
 	failToRemoveKeystoreFile = map[config.Language]string{
 		config.English: "failed to remove keystore file",
 		config.Chinese: "移除keystore文件失败",
@@ -70,7 +69,6 @@ var (
 
 // NewAccountDelete represents the account delete command
 func NewAccountDelete(c ioctl.Client) *cobra.Command {
-
 	use, _ := c.SelectTranslation(deleteUses)
 	short, _ := c.SelectTranslation(deleteShorts)
 	failToGetAddress, _ := c.SelectTranslation(failToGetAddress)
@@ -81,7 +79,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 	resultSuccess, _ := c.SelectTranslation(resultSuccess)
 	failToFindAccount, _ := c.SelectTranslation(failToFindAccount)
 
-	ad := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.RangeArgs(0, 1),
@@ -99,43 +97,48 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if err != nil {
 				return output.NewError(output.ConvertError, failToConvertStringIntoAddress, nil)
 			}
-			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-			for _, v := range ks.Accounts() {
-				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-					var confirm string
-					message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
-					fmt.Println(message.String())
-					fmt.Scanf("%s", &confirm)
-					if !strings.EqualFold(confirm, "yes") {
-						output.PrintResult("quit")
-						return nil
-					}
 
-					if err := os.Remove(v.URL.Path); err != nil {
-						return output.NewError(output.WriteFileError, failToRemoveKeystoreFile, err)
+			var filePath string
+			if c.HasCryptoSm2() {
+				if filePath == "" {
+					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
+				}
+			} else {
+				ks := c.NewKeyStore(c.Config().Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				for _, v := range ks.Accounts() {
+					if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
+						filePath = v.URL.Path
+						break
 					}
-
-					aliases := make(map[string]string)
-					for name, addr := range c.Config().Aliases {
-						aliases[addr] = name
-					}
-
-					delete(config.ReadConfig.Aliases, aliases[addr])
-					out, err := yaml.Marshal(&config.ReadConfig)
-					if err != nil {
-						return output.NewError(output.SerializationError, "", err)
-					}
-					if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-						return output.NewError(output.WriteFileError,
-							fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
-					}
-					output.PrintResult(fmt.Sprintf(resultSuccess, addr))
-					return nil
 				}
 			}
-			return output.NewError(output.ValidationError, fmt.Sprintf(failToFindAccount, addr), nil)
+
+			// check whether crypto file exists
+			if _, err = os.Stat(filePath); err != nil {
+				return output.NewError(output.ReadFileError, fmt.Sprintf(failToFindAccount, addr), nil)
+			}
+			if !c.AskToConfirm(infoWarn) {
+				output.PrintResult("quit")
+				return nil
+			}
+
+			if err := os.Remove(filePath); err != nil {
+				return output.NewError(output.ReadFileError, failToRemoveKeystoreFile, err)
+			}
+
+			aliases := c.GetAliasMap()
+			cfg := c.Config()
+			delete(cfg.Aliases, aliases[addr])
+			out, err := yaml.Marshal(&cfg)
+			if err != nil {
+				return output.NewError(output.SerializationError, "", err)
+			}
+			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+				return output.NewError(output.WriteFileError,
+					fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
+			}
+			output.PrintResult(fmt.Sprintf(resultSuccess, addr))
+			return nil
 		},
 	}
-
-	return ad
 }

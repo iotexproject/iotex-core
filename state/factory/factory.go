@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -417,19 +416,10 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 	}
 	if sf.saveHistory {
 		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() != batch.Delete {
-				return wi
+			if wi.WriteType() == batch.Delete && wi.Namespace() == ArchiveTrieNamespace {
+				return nil
 			}
-			oldKey := wi.Key()
-			newKey := byteutil.Uint64ToBytesBigEndian(height)
-			return batch.NewWriteInfo(
-				batch.Put,
-				strings.Join([]string{ArchiveNamespacePrefix, wi.Namespace()}, "-"),
-				append(newKey, oldKey...),
-				wi.Value(),
-				wi.ErrorFormat(),
-				wi.ErrorArgs(),
-			)
+			return wi
 		}))
 	}
 

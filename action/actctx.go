@@ -31,8 +31,18 @@ func (act *AbstractAction) ChainID() uint32 { return act.chainID }
 // Nonce returns the nonce
 func (act *AbstractAction) Nonce() uint64 { return act.nonce }
 
+// SetNonce sets gaslimit
+func (act *AbstractAction) SetNonce(val uint64) {
+	act.nonce = val
+}
+
 // GasLimit returns the gas limit
 func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
+
+// SetGasLimit sets gaslimit
+func (act *AbstractAction) SetGasLimit(val uint64) {
+	act.gasLimit = val
+}
 
 // GasPrice returns the gas price
 func (act *AbstractAction) GasPrice() *big.Int {
@@ -41,6 +51,11 @@ func (act *AbstractAction) GasPrice() *big.Int {
 		return p
 	}
 	return p.Set(act.gasPrice)
+}
+
+// SetGasPrice sets gaslimit
+func (act *AbstractAction) SetGasPrice(val *big.Int) {
+	act.gasPrice = val
 }
 
 // BasicActionSize returns the basic size of action

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"os/signal"
@@ -18,16 +17,12 @@ import (
 	"strings"
 	"syscall"
 
-	"google.golang.org/grpc/metadata"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/iotexproject/iotex-address/address"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -106,15 +101,6 @@ func RauToString(amount *big.Int, numDecimals int) string {
 	return amountInt.String()
 }
 
-// IoAddrToEvmAddr converts IoTeX address into evm address
-func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
-	address, err := address.FromString(ioAddr)
-	if err != nil {
-		return common.Address{}, output.NewError(output.ConvertError, "", err)
-	}
-	return common.BytesToAddress(address.Bytes()), nil
-}
-
 // StringToIOTX converts Rau string to Iotx string
 func StringToIOTX(amount string) (string, error) {
 	amountInt, err := StringToRau(amount, 0)
@@ -183,7 +169,7 @@ func Address(in string) (string, error) {
 // JwtAuth used for ioctl set auth and send for every grpc request
 func JwtAuth() (jwt metadata.MD, err error) {
 	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
-	jwtString, err := ioutil.ReadFile(jwtFile)
+	jwtString, err := os.ReadFile(jwtFile)
 	if err != nil {
 		return nil, err
 	}

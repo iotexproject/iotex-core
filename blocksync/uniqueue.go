@@ -13,13 +13,13 @@ import (
 // uniQueue is not threadsafe
 type uniQueue struct {
 	blocks []*peerBlock
-	hashes map[hash.Hash256]bool
+	hashes map[hash.Hash256]struct{}
 }
 
 func newUniQueue() *uniQueue {
 	return &uniQueue{
 		blocks: []*peerBlock{},
-		hashes: map[hash.Hash256]bool{},
+		hashes: map[hash.Hash256]struct{}{},
 	}
 }
 
@@ -28,17 +28,15 @@ func (uq *uniQueue) enque(blk *peerBlock) {
 	if _, ok := uq.hashes[h]; ok {
 		return
 	}
-	uq.hashes[h] = true
+	uq.hashes[h] = struct{}{}
 	uq.blocks = append(uq.blocks, blk)
 }
 
 func (uq *uniQueue) dequeAll() []*peerBlock {
-	if len(uq.blocks) == 0 {
-		return nil
-	}
 	blks := uq.blocks
-	uq.blocks = []*peerBlock{}
-	uq.hashes = map[hash.Hash256]bool{}
-
+	if len(uq.blocks) > 0 {
+		uq.blocks = []*peerBlock{}
+		uq.hashes = map[hash.Hash256]struct{}{}
+	}
 	return blks
 }

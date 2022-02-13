@@ -12,7 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"os"
 	"testing"
@@ -103,7 +103,7 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 }
 
 func readCode(sr protocol.StateReader, addr []byte) ([]byte, error) {
-	var c evm.SerializableBytes
+	var c protocol.SerializableBytes
 	account, err := accountutil.LoadAccountByHash160(sr, hash.BytesToHash160(addr))
 	if err != nil {
 		return nil, err
@@ -217,7 +217,7 @@ func NewSmartContractTest(t *testing.T, file string) {
 	require := require.New(t)
 	jsonFile, err := os.Open(file)
 	require.NoError(err)
-	sctBytes, err := ioutil.ReadAll(jsonFile)
+	sctBytes, err := io.ReadAll(jsonFile)
 	require.NoError(err)
 	sct := &SmartContractTest{}
 	require.NoError(json.Unmarshal(sctBytes, sct))

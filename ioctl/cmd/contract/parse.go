@@ -17,12 +17,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // ErrInvalidArg indicates argument is invalid
@@ -138,7 +137,7 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 		if common.IsHexAddress(addrString) {
 			arg = common.HexToAddress(addrString)
 		} else {
-			arg, err = util.IoAddrToEvmAddr(addrString)
+			arg, err = addrutil.IoAddrToEvmAddr(addrString)
 			if err != nil {
 				return nil, err
 			}
