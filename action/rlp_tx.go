@@ -81,26 +81,21 @@ func reconstructSignedRlpTxFromSig(tx rlpTransaction, chainID uint32, sig []byte
 }
 
 // DecodeRawTx decodes raw data string into eth tx
-func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, bool, error) {
+func DecodeRawTx(rawData string, chainID uint32) (*types.Transaction, []byte, bool, error) {
 	//remove Hex prefix and decode string to byte
 	dataInString, err := hex.DecodeString(util.Remove0xPrefix(rawData))
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
 	// decode raw data into rlp tx
 	unwrapper := &transactionUnwrapper{}
 	if err = rlp.DecodeBytes(dataInString, unwrapper); err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
-	return unwrapper.tx, unwrapper.isEthEncoding, nil
-}
+	tx := unwrapper.tx
 
-// GetSignatureFromEthTX calculates signature from tx
-func GetSignatureFromEthTX(tx *types.Transaction, chainID uint32) ([]byte, error) {
-	if tx == nil {
-		return nil, errors.New("pointer is nil")
-	}
+	// extract signature
 	v, r, s := tx.RawSignatureValues()
 	recID := uint32(v.Int64()) - 2*chainID - 8
 	sig := make([]byte, 64, 65)
@@ -109,7 +104,8 @@ func GetSignatureFromEthTX(tx *types.Transaction, chainID uint32) ([]byte, error
 	sSize := len(s.Bytes())
 	copy(sig[64-sSize:], s.Bytes())
 	sig = append(sig, byte(recID))
-	return sig, nil
+
+	return tx, sig, unwrapper.isEthEncoding, nil
 }
 
 type (
@@ -141,12 +137,12 @@ func (unwrapper *transactionUnwrapper) DecodeRLP(s *rlp.Stream) error {
 	}
 	switch kind {
 	case rlp.List:
-		outter := legacyTxWithEncodingType{}
-		if err := s.Decode(&outter); err != nil {
+		ledgerTx := legacyTxWithEncodingType{}
+		if err := s.Decode(&ledgerTx); err != nil {
 			return err
 		}
-		unwrapper.tx = types.NewTx(outter.exportLegacyTx())
-		unwrapper.isEthEncoding = outter.isEthEncoding()
+		unwrapper.tx = types.NewTx(ledgerTx.exportLegacyTx())
+		unwrapper.isEthEncoding = ledgerTx.isEthEncoding()
 		return nil
 	default:
 		return rlp.ErrExpectedList

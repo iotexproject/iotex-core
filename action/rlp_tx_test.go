@@ -276,7 +276,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 	chainID := config.EVMNetworkID()
 	for _, v := range rlpTests {
-		tx, isEthSigned, err := DecodeRawTx(v.raw, chainID)
+		tx, sig, isEthSigned, err := DecodeRawTx(v.raw, chainID)
 		require.NoError(err)
 		require.True(isEthSigned)
 		rawHash := types.NewEIP155Signer(big.NewInt(int64(chainID))).Hash(tx)
@@ -286,7 +286,6 @@ func TestRlpDecodeVerify(t *testing.T) {
 			Encoding: iotextypes.Encoding_ETHEREUM_RLP,
 		}
 		pb.Core = convertToNativeProto(tx, v.isTsf)
-		sig, err := GetSignatureFromEthTX(tx, chainID)
 		require.NoError(err)
 		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
@@ -361,21 +360,12 @@ func TestEncodeDecodeRawTx(t *testing.T) {
 			},
 			4690,
 		},
-		{
-			&Execution{
-				AbstractAction: ab,
-				amount:         big.NewInt(int64(testAmount)),
-				data:           signByte,
-				contract:       toAddr,
-			},
-			999999,
-		},
 	}
 
 	for _, v := range testData {
 		txStr, err := encodeRawTx(v.act, pvk, v.chainID)
 		require.NoError(err)
-		tx, _, err := DecodeRawTx(txStr, v.chainID)
+		tx, _, _, err := DecodeRawTx(txStr, v.chainID)
 		require.NoError(err)
 		require.Equal(testAmount, tx.Value().Uint64())
 		require.Equal(testGasLimit, tx.Gas())
@@ -391,7 +381,7 @@ func TestDecodeTxFromLedger(t *testing.T) {
 	require := require.New(t)
 	chainID := uint32(4689)
 	txStr := "f870819185e8d4a5100082271094173553c179bbf5af39d8db41f0b60e4fc631066a880de0b6b3a7640000808224c6a0f4e0e8eaea379de2eea23fc0f42c753b06a587b621e377d568826b9bea5ee9afa0535a409481ab0202e0e1584fe9e36bc33963aa50e10b7fbeb6eb58df187490ed01"
-	tx, isEthEncoding, err := DecodeRawTx(txStr, chainID)
+	tx, _, isEthEncoding, err := DecodeRawTx(txStr, chainID)
 	require.NoError(err)
 	require.False(isEthEncoding)
 	require.Equal("1000000000000000000", tx.Value().String())
