@@ -160,7 +160,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 			if isDetailed {
 				tx, err := svr.getTransactionFromActionInfo(info)
 				if err != nil {
-					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
+					log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
 					continue
 				}
 				transactions = append(transactions, tx)
