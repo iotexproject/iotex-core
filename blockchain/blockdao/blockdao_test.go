@@ -4,7 +4,6 @@ import (
 	"context"
 	"hash/fnv"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -439,8 +438,6 @@ func BenchmarkBlockCache(b *testing.B) {
 			NumRetries: 1,
 		}
 		defer func() {
-			require.NoError(b, os.RemoveAll(testPath))
-			require.NoError(b, os.RemoveAll(indexPath))
 			testutil.CleanupPathV2(testPath)
 			testutil.CleanupPathV2(indexPath)
 		}()
