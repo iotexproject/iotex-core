@@ -29,14 +29,14 @@ func TestNewAccountCreate(t *testing.T) {
 	}).Times(2)
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(false).Times(1)
+		client.EXPECT().IsCryptoSm2().Return(false).Times(1)
 		cmd := NewAccountCreate(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)
 	})
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(true).Times(1)
+		client.EXPECT().IsCryptoSm2().Return(true).Times(1)
 		cmd := NewAccountCreate(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)
