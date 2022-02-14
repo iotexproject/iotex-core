@@ -35,7 +35,7 @@ type (
 	// Web3Server contains web3 server and the pointer to api coreservice
 	Web3Server struct {
 		web3Server  *http.Server
-		coreService *coreService
+		coreService CoreService
 		cache       apiCache
 	}
 
@@ -115,7 +115,7 @@ func init() {
 }
 
 // NewWeb3Server creates a new web3 server
-func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server {
+func NewWeb3Server(core CoreService, httpPort int, cacheURL string) *Web3Server {
 	svr := &Web3Server{
 		web3Server: &http.Server{
 			Addr: ":" + strconv.Itoa(httpPort),
@@ -336,7 +336,7 @@ func (svr *Web3Server) getChainID() (interface{}, error) {
 }
 
 func (svr *Web3Server) getBlockNumber() (interface{}, error) {
-	return uint64ToHex(svr.coreService.bc.TipHeight()), nil
+	return uint64ToHex(svr.coreService.BlockChain().TipHeight()), nil
 }
 
 func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
@@ -394,7 +394,7 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 		return nil, err
 	}
 	if blkNum == _pendingBlockNumber {
-		pendingNonce, err := svr.coreService.ap.GetPendingNonce(ioAddr.String())
+		pendingNonce, err := svr.coreService.ActPool().GetPendingNonce(ioAddr.String())
 		if err != nil {
 			return nil, err
 		}
@@ -855,7 +855,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 func (svr *Web3Server) newBlockFilter() (interface{}, error) {
 	filterObj := filterObject{
 		FilterType: "block",
-		LogHeight:  svr.coreService.bc.TipHeight(),
+		LogHeight:  svr.coreService.BlockChain().TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
 	keyHash := hash.Hash256b(objInByte)
@@ -888,7 +888,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	var (
 		ret          interface{}
 		newLogHeight uint64
-		tipHeight    = svr.coreService.bc.TipHeight()
+		tipHeight    = svr.coreService.BlockChain().TipHeight()
 	)
 	switch filterObj.FilterType {
 	case "log":
@@ -912,8 +912,8 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 			return []string{}, nil
 		}
 		queryCount := tipHeight - filterObj.LogHeight + 1
-		if queryCount > svr.coreService.cfg.API.RangeQueryLimit {
-			queryCount = svr.coreService.cfg.API.RangeQueryLimit
+		if queryCount > svr.coreService.Config().API.RangeQueryLimit {
+			queryCount = svr.coreService.Config().API.RangeQueryLimit
 		}
 		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, queryCount)
 		if err != nil {

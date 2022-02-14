@@ -21,7 +21,7 @@ import (
 
 // ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
-	core       *coreService
+	core       CoreService
 	GrpcServer *GRPCServer
 	web3Server *Web3Server
 	tracer     *tracesdk.TracerProvider

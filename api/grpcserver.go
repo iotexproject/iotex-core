@@ -39,11 +39,11 @@ import (
 type GRPCServer struct {
 	port        string
 	grpcServer  *grpc.Server
-	coreService *coreService
+	coreService CoreService
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core *coreService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -121,7 +121,7 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 
 // GetActions returns actions
 func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
-	if (!svr.coreService.hasActionIndex || svr.coreService.indexer == nil) && (in.GetByHash() != nil || in.GetByAddr() != nil) {
+	if (!svr.coreService.HasActionIndex() || svr.coreService.Indexer() == nil) && (in.GetByHash() != nil || in.GetByAddr() != nil) {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 	var (
@@ -365,7 +365,7 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 	case in.GetByBlock() != nil:
 		var blkHeight uint64
 		// TODO: add GetBlockHeight in coreService
-		blkHeight, err = svr.coreService.dao.GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
+		blkHeight, err = svr.coreService.BlockDao().GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
@@ -474,11 +474,11 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if err != nil {
 		return nil, err
 	}
-	state, err := accountutil.AccountState(svr.coreService.sf, callerAddr)
+	state, err := accountutil.AccountState(svr.coreService.StateFactory(), callerAddr)
 	if err != nil {
 		return nil, err
 	}
-	ctx, err = svr.coreService.bc.Context(ctx)
+	ctx, err = svr.coreService.BlockChain().Context(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -492,12 +492,12 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		exec.Execution.GetContract(),
 		state.Nonce+1,
 		amount,
-		svr.coreService.cfg.Genesis.BlockGasLimit,
+		svr.coreService.Config().Genesis.BlockGasLimit,
 		big.NewInt(0),
 		exec.Execution.GetData(),
 	)
 
-	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
+	_, _, err = svr.coreService.StateFactory().SimulateExecution(ctx, callerAddr, sc, svr.coreService.BlockDao().GetBlockHash)
 	if err != nil {
 		return nil, err
 	}

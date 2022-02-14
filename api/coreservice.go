@@ -86,7 +86,7 @@ func newCoreService(
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
-) (*coreService, error) {
+) (CoreService, error) {
 	apiCfg := Config{}
 	for _, opt := range opts {
 		if err := opt(&apiCfg); err != nil {
@@ -1477,4 +1477,44 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.sf.ReadContractStorage(ctx, addr, key)
+}
+
+// BlockChain returns the member bc
+func (core *coreService) BlockChain() blockchain.Blockchain {
+	return core.bc
+}
+
+// StateFactory return the member sf
+func (core *coreService) StateFactory() factory.Factory {
+	return core.sf
+}
+
+// BlockDao return the member dao
+func (core *coreService) BlockDao() blockdao.BlockDAO {
+	return core.dao
+}
+
+// Indexer return the member indexer
+func (core *coreService) Indexer() blockindex.Indexer {
+	return core.indexer
+}
+
+// ActPool return the member ap
+func (core *coreService) ActPool() actpool.ActPool {
+	return core.ap
+}
+
+// Config return the member cfg
+func (core *coreService) Config() config.Config {
+	return core.cfg
+}
+
+// Registry return the member registry
+func (core *coreService) Registry() *protocol.Registry {
+	return core.registry
+}
+
+// HasActionIndex return the member hasActionIndex
+func (core *coreService) HasActionIndex() bool {
+	return core.hasActionIndex
 }

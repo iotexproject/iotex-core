@@ -29,7 +29,11 @@ func TestServerV2Start(t *testing.T) {
 	})
 	require.NoError(err)
 
-	svr.core.chainListener = nil
+	coreService, ok := svr.core.(*coreService)
+	if !ok {
+		require.Error(err)
+	}
+	coreService.chainListener = nil
 	err = svr.Start()
 	require.Error(err)
 	require.Contains(err.Error(), "failed to add chainListener")
