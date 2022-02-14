@@ -291,30 +291,35 @@ var (
 		start      uint64
 		count      uint64
 		numActions int
+		firstTxGas string
 	}{
 		{
 			2,
 			0,
 			7,
 			7,
+			"0",
 		},
 		{
 			4,
 			2,
 			5,
 			3,
+			"0",
 		},
 		{
 			3,
 			0,
 			0,
 			0,
+			"",
 		},
 		{
 			1,
 			0,
 			math.MaxUint64,
 			2,
+			"0",
 		},
 	}
 
@@ -1142,6 +1147,9 @@ func TestGrpcServer_GetActionsByBlock(t *testing.T) {
 		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions > 0 {
+			require.Equal(test.firstTxGas, res.ActionInfo[0].GasFee)
+		}
 		for _, v := range res.ActionInfo {
 			require.Equal(test.blkHeight, v.BlkHeight)
 			require.Equal(blkHash[test.blkHeight], v.BlkHash)
