@@ -1176,7 +1176,7 @@ func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) [
 		}
 		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
 		if err != nil {
-			log.L().Debug("Skipping action due to failing to get receipt", zap.Error(err))
+			log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
@@ -1211,7 +1211,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 		}
 		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
 		if err != nil {
-			log.L().Debug("Skipping action due to failing to get receipt", zap.Error(err))
+			log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
