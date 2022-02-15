@@ -99,7 +99,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			}
 
 			var filePath string
-			if c.HasCryptoSm2() {
+			if c.IsCryptoSm2() {
 				if filePath == "" {
 					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
 				}

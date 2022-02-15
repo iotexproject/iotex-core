@@ -50,7 +50,7 @@ func TestNewAccountDelete(t *testing.T) {
 		}).Times(5)
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(false).Times(2)
+		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
 		ks := keystore.NewKeyStore(testAccountFolder,
 			keystore.StandardScryptN, keystore.StandardScryptP)
 		acc, _ := ks.NewAccount("test")
@@ -69,7 +69,7 @@ func TestNewAccountDelete(t *testing.T) {
 	})
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(true).Times(1)
+		client.EXPECT().IsCryptoSm2().Return(true).Times(1)
 		priKey2, _ := crypto.GenerateKeySm2()
 		addr2 := priKey2.PublicKey().Address()
 		pemFilePath := sm2KeyPath(addr2)
