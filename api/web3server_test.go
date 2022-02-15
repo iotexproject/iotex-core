@@ -690,43 +690,43 @@ func TestWeb3Staking(t *testing.T) {
 	// encoding stake data
 	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data, err := act1.EncodingABIBinary()
+	data, err := act1.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"createStake", data})
 
 	act2, err := action.NewDepositToStake(2, 7, "100", []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data2, err := act2.EncodingABIBinary()
+	data2, err := act2.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"depositToStake", data2})
 
 	act3, err := action.NewChangeCandidate(3, "test", 7, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data3, err := act3.EncodingABIBinary()
+	data3, err := act3.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"changeCandidate", data3})
 
 	act4, err := action.NewUnstake(4, 7, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data4, err := act4.EncodingABIBinary()
+	data4, err := act4.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"unstake", data4})
 
 	act5, err := action.NewUnstake(5, 7, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data5, err := act5.EncodingABIBinary()
+	data5, err := act5.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"withdrawStake", data5})
 
 	act6, err := action.NewRestake(6, 7, 7, false, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data6, err := act6.EncodingABIBinary()
+	data6, err := act6.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"restake", data6})
 
 	act7, err := action.NewTransferStake(7, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
-	data7, err := act7.EncodingABIBinary()
+	data7, err := act7.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"transferStake", data7})
 
@@ -743,7 +743,7 @@ func TestWeb3Staking(t *testing.T) {
 		1000000,
 		big.NewInt(0))
 	require.NoError(err)
-	data8, err := act8.EncodingABIBinary()
+	data8, err := act8.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"candidateRegister", data8})
 
@@ -755,7 +755,7 @@ func TestWeb3Staking(t *testing.T) {
 		1000000,
 		big.NewInt(0))
 	require.NoError(err)
-	data9, err := act9.EncodingABIBinary()
+	data9, err := act9.EncodeABIBinary()
 	require.NoError(err)
 	testData = append(testData, stakeData{"candidateRegister", data9})
 

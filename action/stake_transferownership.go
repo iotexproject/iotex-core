@@ -52,10 +52,8 @@ const (
 )
 
 var (
-	// TransferStakeMethodID is the method ID of TransferStake Method
-	TransferStakeMethodID [4]byte
-	// _transferStakeInterface is the interface of the abi encoding of stake action
-	_transferStakeInterface abi.ABI
+	// _transferStakeMethod is the interface of the abi encoding of stake action
+	_transferStakeMethod abi.Method
 )
 
 // TransferStake defines the action of transfering stake ownership ts the other
@@ -68,16 +66,15 @@ type TransferStake struct {
 }
 
 func init() {
-	var err error
-	_transferStakeInterface, err = abi.JSON(strings.NewReader(transferStakeInterfaceABI))
+	transferStakeInterface, err := abi.JSON(strings.NewReader(transferStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _transferStakeInterface.Methods["transferStake"]
+	var ok bool
+	_transferStakeMethod, ok = transferStakeInterface.Methods["transferStake"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(TransferStakeMethodID[:], method.ID)
 }
 
 // NewTransferStake returns a TransferStake instance
@@ -162,34 +159,39 @@ func (ts *TransferStake) Cost() (*big.Int, error) {
 	return transferStakeFee, nil
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (ts *TransferStake) EncodingABIBinary() ([]byte, error) {
+// EncodeABIBinary encodes data in abi encoding
+func (ts *TransferStake) EncodeABIBinary() ([]byte, error) {
 	voterEthAddr := common.BytesToAddress(ts.voterAddress.Bytes())
-	return _transferStakeInterface.Pack("transferStake", voterEthAddr, ts.bucketIndex, ts.payload)
+	data, err := _transferStakeMethod.Inputs.Pack(voterEthAddr, ts.bucketIndex, ts.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_transferStakeMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into TransferStake action
-func (ts *TransferStake) DecodingABIBinary(data []byte) error {
+// NewTransferStakeFromABIBinary decodes data into TransferStake action
+func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
 		err       error
+		ts        TransferStake
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(TransferStakeMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_transferStakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _transferStakeInterface.Methods["transferStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _transferStakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if ts.voterAddress, err = ethAddrToNativeAddr(paramsMap["voterAddress"]); err != nil {
-		return err
+		return nil, err
 	}
 	if ts.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if ts.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &ts, nil
 }

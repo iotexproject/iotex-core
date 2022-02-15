@@ -146,31 +146,31 @@ func ToRLP(action Action) (RlpTransaction, error) {
 		return (*Execution)(act), nil
 	case *CreateStake:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *DepositToStake:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *ChangeCandidate:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *Unstake:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *WithdrawStake:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *Restake:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *TransferStake:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *CandidateRegister:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	case *CandidateUpdate:
 		ab = act.AbstractAction
-		data, err = act.EncodingABIBinary()
+		data, err = act.EncodeABIBinary()
 	default:
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}

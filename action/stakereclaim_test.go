@@ -87,9 +87,9 @@ func TestUnstakeABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewUnstake(nonce, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
-	data, err := stake.EncodingABIBinary()
+	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
-	err = stake.DecodingABIBinary(data)
+	stake, err = NewUnstakeFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(index, stake.bucketIndex)
 	require.Equal(payload, stake.payload)
@@ -156,9 +156,9 @@ func TestWithdrawABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewWithdrawStake(nonce, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
-	data, err := stake.EncodingABIBinary()
+	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
-	err = stake.DecodingABIBinary(data)
+	stake, err = NewWithdrawStakeFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(index, stake.bucketIndex)
 	require.Equal(payload, stake.payload)

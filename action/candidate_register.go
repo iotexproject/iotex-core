@@ -81,10 +81,8 @@ const (
 )
 
 var (
-	// CandidateRegisterMethodID is the method ID of CandidateRegister Method
-	CandidateRegisterMethodID [4]byte
 	// _candidateRegisterInterface is the interface of the abi encoding of stake action
-	_candidateRegisterInterface abi.ABI
+	_candidateRegisterMethod abi.Method
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
@@ -105,16 +103,15 @@ type CandidateRegister struct {
 }
 
 func init() {
-	var err error
-	_candidateRegisterInterface, err = abi.JSON(strings.NewReader(candidateRegisterInterfaceABI))
+	candidateRegisterInterface, err := abi.JSON(strings.NewReader(candidateRegisterInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _candidateRegisterInterface.Methods["candidateRegister"]
+	var ok bool
+	_candidateRegisterMethod, ok = candidateRegisterInterface.Methods["candidateRegister"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(CandidateRegisterMethodID[:], method.ID)
 }
 
 // NewCandidateRegister creates a CandidateRegister instance
@@ -295,12 +292,12 @@ func (cr *CandidateRegister) SanityCheck() error {
 	return cr.AbstractAction.SanityCheck()
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (cr *CandidateRegister) EncodingABIBinary() ([]byte, error) {
+// EncodeABIBinary encodes data in abi encoding
+func (cr *CandidateRegister) EncodeABIBinary() ([]byte, error) {
 	operatorEthAddr := common.BytesToAddress(cr.operatorAddress.Bytes())
 	rewardEthAddr := common.BytesToAddress(cr.rewardAddress.Bytes())
 	ownerEthAddr := common.BytesToAddress(cr.ownerAddress.Bytes())
-	return _candidateRegisterInterface.Pack("candidateRegister",
+	data, err := _candidateRegisterMethod.Inputs.Pack(
 		cr.name,
 		operatorEthAddr,
 		rewardEthAddr,
@@ -309,47 +306,52 @@ func (cr *CandidateRegister) EncodingABIBinary() ([]byte, error) {
 		cr.duration,
 		cr.autoStake,
 		cr.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_candidateRegisterMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into CandidateRegister action
-func (cr *CandidateRegister) DecodingABIBinary(data []byte) error {
+// NewCandidateRegisterFromABIBinary decodes data into CandidateRegister action
+func NewCandidateRegisterFromABIBinary(data []byte) (*CandidateRegister, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
 		err       error
+		cr        CandidateRegister
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(CandidateRegisterMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_candidateRegisterMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _candidateRegisterInterface.Methods["candidateRegister"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _candidateRegisterMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if cr.name, ok = paramsMap["name"].(string); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cr.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
-		return err
+		return nil, err
 	}
 	if cr.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
-		return err
+		return nil, err
 	}
 	if cr.ownerAddress, err = ethAddrToNativeAddr(paramsMap["ownerAddress"]); err != nil {
-		return err
+		return nil, err
 	}
 	if cr.amount, ok = paramsMap["amount"].(*big.Int); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cr.duration, ok = paramsMap["duration"].(uint32); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cr.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cr.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &cr, nil
 }
 
 func ethAddrToNativeAddr(in interface{}) (address.Address, error) {

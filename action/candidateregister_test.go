@@ -133,9 +133,9 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewCandidateRegister(test.Nonce, test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
 	require.NoError(err)
 
-	data, err := stake.EncodingABIBinary()
+	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
-	err = stake.DecodingABIBinary(data)
+	stake, err = NewCandidateRegisterFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(test.Name, stake.Name())
 	require.Equal(test.OperatorAddrStr, stake.OperatorAddress().String())

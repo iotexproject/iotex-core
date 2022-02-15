@@ -55,10 +55,8 @@ const (
 )
 
 var (
-	// DepositToStakeMethodID is the method ID of depositToStake Method
-	DepositToStakeMethodID [4]byte
-	// _depositToStakeInterface is the interface of the abi encoding of stake action
-	_depositToStakeInterface abi.ABI
+	// _depositToStakeMethod is the interface of the abi encoding of stake action
+	_depositToStakeMethod abi.Method
 )
 
 // DepositToStake defines the action of stake add deposit
@@ -71,16 +69,15 @@ type DepositToStake struct {
 }
 
 func init() {
-	var err error
-	_depositToStakeInterface, err = abi.JSON(strings.NewReader(depositToStakeInterfaceABI))
+	depositToStakeInterface, err := abi.JSON(strings.NewReader(depositToStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _depositToStakeInterface.Methods["depositToStake"]
+	var ok bool
+	_depositToStakeMethod, ok = depositToStakeInterface.Methods["depositToStake"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(DepositToStakeMethodID[:], method.ID)
 }
 
 // NewDepositToStake returns a DepositToStake instance
@@ -177,32 +174,37 @@ func (ds *DepositToStake) SanityCheck() error {
 	return ds.AbstractAction.SanityCheck()
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (ds *DepositToStake) EncodingABIBinary() ([]byte, error) {
-	return _depositToStakeInterface.Pack("depositToStake", ds.bucketIndex, ds.amount, ds.payload)
+// EncodeABIBinary encodes data in abi encoding
+func (ds *DepositToStake) EncodeABIBinary() ([]byte, error) {
+	data, err := _depositToStakeMethod.Inputs.Pack(ds.bucketIndex, ds.amount, ds.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_depositToStakeMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into depositToStake action
-func (ds *DepositToStake) DecodingABIBinary(data []byte) error {
+// NewDepositToStakeFromABIBinary decodes data into depositToStake action
+func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
+		ds        DepositToStake
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(DepositToStakeMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_depositToStakeMethod.ID[:], data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _depositToStakeInterface.Methods["depositToStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _depositToStakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if ds.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if ds.amount, ok = paramsMap["amount"].(*big.Int); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if ds.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &ds, nil
 }

@@ -258,8 +258,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 			Execution: ex.Proto(),
 		}
 	case "stakeCreate":
-		var act CreateStake
-		_ = act.DecodingABIBinary(tx.Data())
+		act, _ := NewCreateStakeFromABIBinary(tx.Data())
 		act.AbstractAction = ab
 		pb.Action = &iotextypes.ActionCore_StakeCreate{
 			StakeCreate: act.Proto(),

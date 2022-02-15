@@ -55,10 +55,8 @@ const (
 )
 
 var (
-	// ChangeCandidateMethodID is the method ID of ChangeCandidate Method
-	ChangeCandidateMethodID [4]byte
-	// _changeCandidateInterface is the interface of the abi encoding of stake action
-	_changeCandidateInterface abi.ABI
+	// _changeCandidateMethod is the interface of the abi encoding of stake action
+	_changeCandidateMethod abi.Method
 )
 
 // ChangeCandidate defines the action of changing stake candidate ts the other
@@ -72,15 +70,15 @@ type ChangeCandidate struct {
 
 func init() {
 	var err error
-	_changeCandidateInterface, err = abi.JSON(strings.NewReader(changeCandidateInterfaceABI))
+	changeCandidateInterface, err := abi.JSON(strings.NewReader(changeCandidateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _changeCandidateInterface.Methods["changeCandidate"]
+	var ok bool
+	_changeCandidateMethod, ok = changeCandidateInterface.Methods["changeCandidate"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(ChangeCandidateMethodID[:], method.ID)
 }
 
 // NewChangeCandidate returns a ChangeCandidate instance
@@ -158,32 +156,37 @@ func (cc *ChangeCandidate) Cost() (*big.Int, error) {
 	return changeCandidateFee, nil
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (cc *ChangeCandidate) EncodingABIBinary() ([]byte, error) {
-	return _changeCandidateInterface.Pack("changeCandidate", cc.candidateName, cc.bucketIndex, cc.payload)
+// EncodeABIBinary encodes data in abi encoding
+func (cc *ChangeCandidate) EncodeABIBinary() ([]byte, error) {
+	data, err := _changeCandidateMethod.Inputs.Pack(cc.candidateName, cc.bucketIndex, cc.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_changeCandidateMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into ChangeCandidate action
-func (cc *ChangeCandidate) DecodingABIBinary(data []byte) error {
+// NewChangeCandidateFromABIBinary decodes data into ChangeCandidate action
+func NewChangeCandidateFromABIBinary(data []byte) (*ChangeCandidate, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
+		cc        ChangeCandidate
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(ChangeCandidateMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_changeCandidateMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _changeCandidateInterface.Methods["changeCandidate"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _changeCandidateMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if cc.candidateName, ok = paramsMap["candName"].(string); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cc.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cc.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &cc, nil
 }

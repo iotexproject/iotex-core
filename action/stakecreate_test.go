@@ -129,9 +129,9 @@ func TestCreateStakeABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewCreateStake(test.Nonce, test.CanAddress, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
 	require.NoError(err)
 
-	data, err := stake.EncodingABIBinary()
+	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
-	err = stake.DecodingABIBinary(data)
+	stake, err = NewCreateStakeFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(test.CanAddress, stake.candName)
 	require.Equal(test.AmountStr, stake.amount.String())

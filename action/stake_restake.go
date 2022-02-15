@@ -60,10 +60,8 @@ const (
 )
 
 var (
-	// RestakeMethodID is the method ID of Restake Method
-	RestakeMethodID [4]byte
-	// _restakeInterface is the interface of the abi encoding of stake action
-	_restakeInterface abi.ABI
+	// _restakeMethod is the interface of the abi encoding of stake action
+	_restakeMethod abi.Method
 )
 
 // Restake defines the action of stake again
@@ -77,16 +75,15 @@ type Restake struct {
 }
 
 func init() {
-	var err error
-	_restakeInterface, err = abi.JSON(strings.NewReader(restakeInterfaceABI))
+	restakeInterface, err := abi.JSON(strings.NewReader(restakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _restakeInterface.Methods["restake"]
+	var ok bool
+	_restakeMethod, ok = restakeInterface.Methods["restake"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(RestakeMethodID[:], method.ID)
 }
 
 // NewRestake returns a Restake instance
@@ -171,35 +168,40 @@ func (rs *Restake) Cost() (*big.Int, error) {
 	return restakeFee, nil
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (rs *Restake) EncodingABIBinary() ([]byte, error) {
-	return _restakeInterface.Pack("restake", rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
+// EncodeABIBinary encodes data in abi encoding
+func (rs *Restake) EncodeABIBinary() ([]byte, error) {
+	data, err := _restakeMethod.Inputs.Pack(rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_restakeMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into Restake action
-func (rs *Restake) DecodingABIBinary(data []byte) error {
+// NewRestakeFromABIBinary decodes data into Restake action
+func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
+		rs        Restake
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(RestakeMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_restakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _restakeInterface.Methods["restake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _restakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if rs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if rs.duration, ok = paramsMap["duration"].(uint32); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if rs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if rs.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &rs, nil
 }

@@ -83,9 +83,9 @@ func TestChangeCandidateABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
-	data, err := stake.EncodingABIBinary()
+	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
-	err = stake.DecodingABIBinary(data)
+	stake, err = NewChangeCandidateFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(canAddress, stake.candidateName)
 	require.Equal(index, stake.bucketIndex)

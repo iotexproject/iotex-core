@@ -54,10 +54,8 @@ const (
 )
 
 var (
-	// CandidateUpdateMethodID is the method ID of CandidateUpdate Method
-	CandidateUpdateMethodID [4]byte
-	// _candidateUpdateInterface is the interface of the abi encoding of stake action
-	_candidateUpdateInterface abi.ABI
+	// _candidateUpdateMethod is the interface of the abi encoding of stake action
+	_candidateUpdateMethod abi.Method
 )
 
 // CandidateUpdate is the action to update a candidate
@@ -70,16 +68,15 @@ type CandidateUpdate struct {
 }
 
 func init() {
-	var err error
-	_candidateUpdateInterface, err = abi.JSON(strings.NewReader(candidateUpdateInterfaceABI))
+	candidateUpdateInterface, err := abi.JSON(strings.NewReader(candidateUpdateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _candidateUpdateInterface.Methods["candidateUpdate"]
+	var ok bool
+	_candidateUpdateMethod, ok = candidateUpdateInterface.Methods["candidateUpdate"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(CandidateUpdateMethodID[:], method.ID)
 }
 
 // NewCandidateUpdate creates a CandidateUpdate instance
@@ -188,35 +185,40 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 	return fee, nil
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (cu *CandidateUpdate) EncodingABIBinary() ([]byte, error) {
+// EncodeABIBinary encodes data in abi encoding
+func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
 	operatorEthAddr := common.BytesToAddress(cu.operatorAddress.Bytes())
 	rewardEthAddr := common.BytesToAddress(cu.rewardAddress.Bytes())
-	return _candidateUpdateInterface.Pack("candidateUpdate", cu.name, operatorEthAddr, rewardEthAddr)
+	data, err := _candidateUpdateMethod.Inputs.Pack(cu.name, operatorEthAddr, rewardEthAddr)
+	if err != nil {
+		return nil, err
+	}
+	return append(_candidateUpdateMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into CandidateUpdate action
-func (cu *CandidateUpdate) DecodingABIBinary(data []byte) error {
+// NewCandidateUpdateFromABIBinary decodes data into CandidateUpdate action
+func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
 		err       error
+		cu        CandidateUpdate
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(CandidateUpdateMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_candidateUpdateMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _candidateUpdateInterface.Methods["candidateUpdate"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _candidateUpdateMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if cu.name, ok = paramsMap["name"].(string); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cu.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
-		return err
+		return nil, err
 	}
 	if cu.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &cu, nil
 }

@@ -64,10 +64,8 @@ const (
 )
 
 var (
-	// CreateStakeMethodID is the method ID of createStake Method
-	CreateStakeMethodID [4]byte
-	// _createStakeInterface is the interface of the abi encoding of stake action
-	_createStakeInterface abi.ABI
+	// _createStakeMethod is the interface of the abi encoding of stake action
+	_createStakeMethod abi.Method
 
 	errDecodeFailure = errors.New("failed to decode the data")
 )
@@ -84,16 +82,15 @@ type CreateStake struct {
 }
 
 func init() {
-	var err error
-	_createStakeInterface, err = abi.JSON(strings.NewReader(createStakeInterfaceABI))
+	createStakeInterface, err := abi.JSON(strings.NewReader(createStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	createStakeMethod, ok := _createStakeInterface.Methods["createStake"]
+	var ok bool
+	_createStakeMethod, ok = createStakeInterface.Methods["createStake"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(CreateStakeMethodID[:], createStakeMethod.ID)
 }
 
 // NewCreateStake returns a CreateStake instance
@@ -215,38 +212,43 @@ func (cs *CreateStake) SanityCheck() error {
 	return cs.AbstractAction.SanityCheck()
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (cs *CreateStake) EncodingABIBinary() ([]byte, error) {
-	return _createStakeInterface.Pack("createStake", cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
+// EncodeABIBinary encodes data in abi encoding
+func (cs *CreateStake) EncodeABIBinary() ([]byte, error) {
+	data, err := _createStakeMethod.Inputs.Pack(cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_createStakeMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into createStake action
-func (cs *CreateStake) DecodingABIBinary(data []byte) error {
+// NewCreateStakeFromABIBinary decodes data into createStake action
+func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
+		cs        CreateStake
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(CreateStakeMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_createStakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _createStakeInterface.Methods["createStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _createStakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if cs.candName, ok = paramsMap["candName"].(string); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cs.amount, ok = paramsMap["amount"].(*big.Int); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &cs, nil
 }

@@ -68,30 +68,26 @@ const (
 )
 
 var (
-	// UnstakeMethodID is the method ID of Unstake Method
-	UnstakeMethodID [4]byte
-	// WithdrawStakeMethodID is the method ID of WithdrawStake Method
-	WithdrawStakeMethodID [4]byte
-	// _reclaimStakeInterface is the interface of the abi encoding of stake action
-	_reclaimStakeInterface abi.ABI
+	// _unstakeMethod is the interface of the abi encoding of unstake action
+	_unstakeMethod abi.Method
+	// _withdrawStakeMethod is the interface of the abi encoding of withdrawStake action
+	_withdrawStakeMethod abi.Method
 )
 
 func init() {
-	var err error
-	_reclaimStakeInterface, err = abi.JSON(strings.NewReader(reclaimStakeInterfaceABI))
+	reclaimStakeInterface, err := abi.JSON(strings.NewReader(reclaimStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
-	method, ok := _reclaimStakeInterface.Methods["unstake"]
+	var ok bool
+	_unstakeMethod, ok = reclaimStakeInterface.Methods["unstake"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(UnstakeMethodID[:], method.ID)
-	method, ok = _reclaimStakeInterface.Methods["withdrawStake"]
+	_withdrawStakeMethod, ok = reclaimStakeInterface.Methods["withdrawStake"]
 	if !ok {
 		panic("fail to load the method")
 	}
-	copy(WithdrawStakeMethodID[:], method.ID)
 }
 
 // reclaimStake defines the action of stake restake/withdraw
@@ -177,31 +173,36 @@ func (su *Unstake) Cost() (*big.Int, error) {
 	return unstakeFee, nil
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (su *Unstake) EncodingABIBinary() ([]byte, error) {
-	return _reclaimStakeInterface.Pack("unstake", su.bucketIndex, su.payload)
+// EncodeABIBinary encodes data in abi encoding
+func (su *Unstake) EncodeABIBinary() ([]byte, error) {
+	data, err := _unstakeMethod.Inputs.Pack(su.bucketIndex, su.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_unstakeMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into WithdrawStake action
-func (su *Unstake) DecodingABIBinary(data []byte) error {
+// NewUnstakeFromABIBinary decodes data into WithdrawStake action
+func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
+		su        Unstake
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(UnstakeMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_unstakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _reclaimStakeInterface.Methods["unstake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _unstakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if su.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if su.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &su, nil
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -247,29 +248,34 @@ func (sw *WithdrawStake) Cost() (*big.Int, error) {
 	return withdrawFee, nil
 }
 
-// EncodingABIBinary encodes data in abi encoding
-func (sw *WithdrawStake) EncodingABIBinary() ([]byte, error) {
-	return _reclaimStakeInterface.Pack("withdrawStake", sw.bucketIndex, sw.payload)
+// EncodeABIBinary encodes data in abi encoding
+func (sw *WithdrawStake) EncodeABIBinary() ([]byte, error) {
+	data, err := _withdrawStakeMethod.Inputs.Pack(sw.bucketIndex, sw.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_withdrawStakeMethod.ID, data...), nil
 }
 
-// DecodingABIBinary decodes data into WithdrawStake action
-func (sw *WithdrawStake) DecodingABIBinary(data []byte) error {
+// NewWithdrawStakeFromABIBinary decodes data into WithdrawStake action
+func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 	var (
 		paramsMap = map[string]interface{}{}
 		ok        bool
+		sw        WithdrawStake
 	)
 	// sanity check
-	if len(data) <= 4 || !bytes.Equal(WithdrawStakeMethodID[:], data[:4]) {
-		return errDecodeFailure
+	if len(data) <= 4 || !bytes.Equal(_withdrawStakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
 	}
-	if err := _reclaimStakeInterface.Methods["withdrawStake"].Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
-		return err
+	if err := _withdrawStakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
 	}
 	if sw.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if sw.payload, ok = paramsMap["data"].([]byte); !ok {
-		return errDecodeFailure
+		return nil, errDecodeFailure
 	}
-	return nil
+	return &sw, nil
 }

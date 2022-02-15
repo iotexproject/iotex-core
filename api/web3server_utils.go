@@ -326,67 +326,43 @@ func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
 	if len(data) <= 4 {
 		return errInvalidFormat
 	}
-	var methodID [4]byte
-	copy(methodID[:], data[:4])
-	switch methodID {
-	case action.CreateStakeMethodID:
-		var act action.CreateStake
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
+	if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
 		core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
-	case action.DepositToStakeMethodID:
-		var act action.DepositToStake
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
-	case action.ChangeCandidateMethodID:
-		var act action.ChangeCandidate
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
-	case action.UnstakeMethodID:
-		var act action.Unstake
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
-	case action.WithdrawStakeMethodID:
-		var act action.WithdrawStake
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
-	case action.RestakeMethodID:
-		var act action.Restake
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
-	case action.TransferStakeMethodID:
-		var act action.TransferStake
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
-	case action.CandidateRegisterMethodID:
-		var act action.CandidateRegister
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
-	case action.CandidateUpdateMethodID:
-		var act action.CandidateUpdate
-		if err := act.DecodingABIBinary(data); err != nil {
-			return err
-		}
-		core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
-	default:
-		return errInvalidFormat
+		return nil
 	}
-	return nil
+	if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewRestakeFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
+		return nil
+	}
+	if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
+		core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
+		return nil
+	}
+	return errInvalidFormat
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {

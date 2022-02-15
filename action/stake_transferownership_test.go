@@ -69,9 +69,9 @@ func TestStakingTransferABIEncodeAndDecode(t *testing.T) {
 	stake, err := NewTransferStake(nonce, canAddress, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
-	data, err := stake.EncodingABIBinary()
+	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
-	err = stake.DecodingABIBinary(data)
+	stake, err = NewTransferStakeFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(canAddress, stake.voterAddress.String())
 	require.Equal(index, stake.bucketIndex)
