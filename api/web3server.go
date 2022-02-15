@@ -183,6 +183,7 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 		params = web3Req.Get("params").Value()
 		method = web3Req.Get("method").Value()
 	)
+	log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	switch method {
 	case "eth_accounts":
 		res, err = svr.ethAccounts()
@@ -262,9 +263,11 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
 	if err != nil {
-		log.L().Error("web3server",
+		log.Logger("api").Error("web3server",
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 			zap.Error(err))
+	} else {
+		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
 	web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	web3ServerMtc.WithLabelValues("requests_total").Inc()
