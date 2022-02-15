@@ -63,7 +63,7 @@ func TestSign(t *testing.T) {
 		func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
 			return keystore.NewKeyStore(keydir, scryptN, scryptP)
 		}).Times(15)
-	client.EXPECT().HasCryptoSm2().Return(false).Times(15)
+	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
 
 	account, err := ks.NewAccount(passwd)
 	require.NoError(err)
@@ -129,7 +129,7 @@ func TestAccount(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(false).Times(2)
+		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
 		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
 				return keystore.NewKeyStore(keydir, scryptN, scryptP)
@@ -161,7 +161,7 @@ func TestAccount(t *testing.T) {
 	})
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(true).Times(4)
+		client.EXPECT().IsCryptoSm2().Return(true).Times(4)
 		// test store unexisted key
 		account2, err := crypto.GenerateKeySm2()
 		require.NoError(err)
@@ -287,7 +287,7 @@ func TestStoreKey(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(false).Times(4)
+		client.EXPECT().IsCryptoSm2().Return(false).Times(4)
 		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
 				return keystore.NewKeyStore(keydir, scryptN, scryptP)
@@ -329,7 +329,7 @@ func TestStoreKey(t *testing.T) {
 	})
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(true).Times(2)
+		client.EXPECT().IsCryptoSm2().Return(true).Times(2)
 		priKey2, err := crypto.GenerateKeySm2()
 		require.NoError(err)
 		addr2 := priKey2.PublicKey().Address()
