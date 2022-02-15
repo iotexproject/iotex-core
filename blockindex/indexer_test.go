@@ -314,6 +314,7 @@ func TestIndexer(t *testing.T) {
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 

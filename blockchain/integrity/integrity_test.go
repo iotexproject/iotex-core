@@ -1142,9 +1142,9 @@ func TestConstantinople(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -1392,9 +1392,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
 	}()
 
 	cfg := config.Default
@@ -1418,9 +1418,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
-		testutil.CleanupPath(t, testIndexPath2)
+		testutil.CleanupPathV2(testTriePath2)
+		testutil.CleanupPathV2(testDBPath2)
+		testutil.CleanupPathV2(testIndexPath2)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -1512,6 +1512,9 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
 	}()
 	candidate, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(err)
@@ -1580,6 +1583,9 @@ func TestBlocks(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
 	}()
 
 	gasLimit := testutil.TestGasLimit
@@ -1654,6 +1660,9 @@ func TestActions(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
 	}()
 
 	gasLimit := testutil.TestGasLimit
@@ -1879,6 +1888,11 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
+	}()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

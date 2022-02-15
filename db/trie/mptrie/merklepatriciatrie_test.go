@@ -451,6 +451,7 @@ func TestHistoryTrie(t *testing.T) {
 	path := "test-history-trie.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testPath)
 
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{

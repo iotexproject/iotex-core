@@ -8,9 +8,10 @@ package db
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"math/rand"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/db/batch"
 
 	"github.com/stretchr/testify/require"
 
@@ -61,7 +62,7 @@ func TestBucketExists(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-bucket")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := DefaultConfig
@@ -79,6 +80,7 @@ func BenchmarkBoltDB_Get(b *testing.B) {
 	runBenchmark := func(b *testing.B, size int) {
 		path, err := testutil.PathOfTempFile("boltdb")
 		require.NoError(b, err)
+		defer testutil.CleanupPathV2(path)
 		db := BoltDB{
 			path:   path,
 			config: DefaultConfig,
