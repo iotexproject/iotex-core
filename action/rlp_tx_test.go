@@ -199,7 +199,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
 		require.NoError(selp.LoadProto(pb))
-		rlpTx, err := ToRLP(selp.Action())
+		rlpTx, err := selp.ToRLP()
 		require.NoError(err)
 
 		// verify against original tx

@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -28,7 +27,7 @@ type SealedEnvelope struct {
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
-		tx, err := ToRLP(sealed.Action())
+		tx, err := sealed.ToRLP()
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -45,7 +44,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
-		tx, err := ToRLP(sealed.Action())
+		tx, err := sealed.ToRLP()
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -108,7 +107,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	switch encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
-		tx, err := ToRLP(elp.Action())
+		tx, err := elp.ToRLP()
 		if err != nil {
 			return err
 		}
@@ -130,54 +129,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.encoding = encoding
 	elp.Action().SetEnvelopeContext(*sealed)
 	return nil
-}
-
-// ToRLP converts native to RlpTransaction
-func ToRLP(action Action) (RlpTransaction, error) {
-	var (
-		err  error
-		data []byte
-		ab   AbstractAction
-	)
-	switch act := action.(type) {
-	case *Transfer:
-		return (*Transfer)(act), nil
-	case *Execution:
-		return (*Execution)(act), nil
-	case *CreateStake:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *DepositToStake:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *ChangeCandidate:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *Unstake:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *WithdrawStake:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *Restake:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *TransferStake:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *CandidateRegister:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	case *CandidateUpdate:
-		ab = act.AbstractAction
-		data, err = act.EncodeABIBinary()
-	default:
-		return nil, errors.Errorf("invalid action type %T not supported", act)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return wrapStakingActionIntoExecution(ab, address.StakingCreateAddr, data)
 }
 
 func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (RlpTransaction, error) {

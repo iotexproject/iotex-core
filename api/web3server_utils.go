@@ -200,6 +200,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}, nil
 }
 
+// TODO: pass SealedEnvelope instead of actInfo
 func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
 	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
 		return transactionObject{}, errNullPointer
@@ -215,7 +216,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 	if err := selp.LoadProto(actInfo.GetAction()); err != nil {
 		return transactionObject{}, err
 	}
-	ethTx, err := action.ToRLP(selp.Action())
+	ethTx, err := selp.ToRLP()
 	if err != nil {
 		// depending
 		return transactionObject{}, err

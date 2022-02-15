@@ -443,38 +443,38 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 	case _transferAction:
-		estimatedGas, err = svr.coreService.EstimateGasV2(&action.Transfer{}, uint64(len(data)))
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(&action.Transfer{}, uint64(len(data)))
 	case _stakingAction:
 		if len(data) <= 4 {
 			return nil, errInvalidFormat
 		}
 		var err error
 		if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewRestakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasV2(act, uint64(len(data)))
+			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, uint64(len(data)))
 		}
 		if err != nil {
 			return nil, errInvalidFormat
