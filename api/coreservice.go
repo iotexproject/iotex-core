@@ -691,7 +691,7 @@ func (core *coreService) TransactionLogByBlockHeight(blockHeight uint64) (*iotex
 }
 
 // Start starts the API server
-func (core *coreService) Start() error {
+func (core *coreService) Start(ctx context.Context) error {
 	if err := core.bc.AddSubscriber(core.readCache); err != nil {
 		return errors.Wrap(err, "failed to add readCache")
 	}
@@ -705,7 +705,7 @@ func (core *coreService) Start() error {
 }
 
 // Stop stops the API server
-func (core *coreService) Stop() error {
+func (core *coreService) Stop(ctx context.Context) error {
 	return core.chainListener.Stop()
 }
 

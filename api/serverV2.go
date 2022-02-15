@@ -90,31 +90,31 @@ func NewServerV2(
 }
 
 // Start starts the CoreService and the GRPC server
-func (svr *ServerV2) Start() error {
-	if err := svr.core.Start(); err != nil {
+func (svr *ServerV2) Start(ctx context.Context) error {
+	if err := svr.core.Start(ctx); err != nil {
 		return err
 	}
-	if err := svr.GrpcServer.Start(); err != nil {
+	if err := svr.GrpcServer.Start(ctx); err != nil {
 		return err
 	}
-	svr.web3Server.Start()
+	svr.web3Server.Start(ctx)
 	return nil
 }
 
 // Stop stops the GRPC server and the CoreService
-func (svr *ServerV2) Stop() error {
+func (svr *ServerV2) Stop(ctx context.Context) error {
 	if svr.tracer != nil {
 		if err := svr.tracer.Shutdown(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to shutdown api tracer")
 		}
 	}
-	if err := svr.web3Server.Stop(); err != nil {
+	if err := svr.web3Server.Stop(ctx); err != nil {
 		return err
 	}
-	if err := svr.GrpcServer.Stop(); err != nil {
+	if err := svr.GrpcServer.Stop(ctx); err != nil {
 		return err
 	}
-	if err := svr.core.Stop(); err != nil {
+	if err := svr.core.Stop(ctx); err != nil {
 		return err
 	}
 	return nil

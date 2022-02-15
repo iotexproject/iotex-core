@@ -942,9 +942,8 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 		svrDisableIndex := svr
 		coreService, ok := svrDisableIndex.core.(*coreService)
-		if !ok {
-			require.Error(err)
-		}
+		require.True(ok)
+		// TODO: create a core service with hasActionIndex disabled to test
 		coreService.hasActionIndex = false
 		res, err = svrDisableIndex.GrpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
@@ -1304,9 +1303,8 @@ func TestGrpcServer_GetChainMeta(t *testing.T) {
 			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
 			mbc.EXPECT().ChainID().Return(uint32(1)).Times(1)
 			coreService, ok := svr.core.(*coreService)
-			if !ok {
-				require.Error(err)
-			}
+			require.True(ok)
+			// TODO: create a core service with empty chain to test
 			coreService.bc = mbc
 		}
 		res, err := svr.GrpcServer.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
@@ -1519,21 +1517,6 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 }
 
 func TestGrpcServer_SuggestGasPrice(t *testing.T) {
-	// Todo: move to e2e or integrity test
-	// require := require.New(t)
-	// cfg := newConfig(t)
-	// for _, test := range suggestGasPriceTests {
-	// 	cfg.API.GasStation.DefaultGas = test.defaultGasPrice
-	// 	svr, bfIndexFile, err := createServerV2(cfg, false)
-	// 	require.NoError(err)
-	// 	defer func() {
-	// 		testutil.CleanupPath(t, bfIndexFile)
-	// 	}()
-	// 	res, err := svr.GrpcServer.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
-	// 	require.NoError(err)
-	// 	require.Equal(test.suggestedGasPrice, res.GasPrice)
-	// }
-
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -2172,16 +2155,13 @@ func TestGrpcServer_GetEpochMeta(t *testing.T) {
 				return &block.Header{}, errors.Errorf("invalid block height %d", height)
 			}).AnyTimes()
 			coreService, ok := svr.core.(*coreService)
-			if !ok {
-				require.Error(err)
-			}
+			require.True(ok)
+			// TODO: create a core service to test
 			coreService.bc = mbc
 		}
-		
+
 		coreService, ok := svr.core.(*coreService)
-		if !ok {
-			require.Error(err)
-		}
+		require.True(ok)
 		coreService.readCache.Clear()
 		res, err := svr.GrpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)

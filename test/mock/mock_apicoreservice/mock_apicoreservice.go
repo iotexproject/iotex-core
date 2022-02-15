@@ -561,17 +561,17 @@ func (mr *MockCoreServiceMockRecorder) ServerMeta() *gomock.Call {
 }
 
 // Start mocks base method.
-func (m *MockCoreService) Start() error {
+func (m *MockCoreService) Start(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start")
+	ret := m.ctrl.Call(m, "Start", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start.
-func (mr *MockCoreServiceMockRecorder) Start() *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) Start(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockCoreService)(nil).Start))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockCoreService)(nil).Start), ctx)
 }
 
 // StateFactory mocks base method.
@@ -589,17 +589,17 @@ func (mr *MockCoreServiceMockRecorder) StateFactory() *gomock.Call {
 }
 
 // Stop mocks base method.
-func (m *MockCoreService) Stop() error {
+func (m *MockCoreService) Stop(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stop")
+	ret := m.ctrl.Call(m, "Stop", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Stop indicates an expected call of Stop.
-func (mr *MockCoreServiceMockRecorder) Stop() *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) Stop(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCoreService)(nil).Stop))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCoreService)(nil).Stop), ctx)
 }
 
 // StreamBlocks mocks base method.

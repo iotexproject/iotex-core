@@ -142,13 +142,6 @@ func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorde
 }
 
 func TestGasPrice(t *testing.T) {
-	// Todo: move to e2e or integrity test
-	// require := require.New(t)
-	// svr, cleanCallback := setupTestServer(t)
-	// defer cleanCallback()
-	// ret, _ := svr.web3Server.gasPrice()
-	// require.Equal(uint64ToHex(1000000000000), ret)
-
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

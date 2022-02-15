@@ -514,7 +514,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	}
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
-		if err := cs.api.Start(); err != nil {
+		if err := cs.api.Start(ctx); err != nil {
 			return errors.Wrap(err, "err when starting API server")
 		}
 	}
@@ -531,7 +531,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	}
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
-		if err := cs.api.Stop(); err != nil {
+		if err := cs.api.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping API server")
 		}
 	}

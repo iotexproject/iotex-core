@@ -64,9 +64,9 @@ type CoreService interface {
 	TransactionLogByBlockHeight(blockHeight uint64) (*iotextypes.BlockIdentifier, *iotextypes.TransactionLogs, error)
 
 	// Start starts the API server
-	Start() error
+	Start(ctx context.Context) error
 	// Stop stops the API server
-	Stop() error
+	Stop(ctx context.Context) error
 	// Actions returns actions within the range
 	Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 	// Action returns action by action hash
