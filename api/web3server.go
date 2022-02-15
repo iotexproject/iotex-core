@@ -142,7 +142,7 @@ func (svr *Web3Server) Start(ctx context.Context) error {
 
 // Stop stops the API server
 func (svr *Web3Server) Stop(ctx context.Context) error {
-	return svr.web3Server.Shutdown(ctx)
+	return svr.web3Server.Shutdown(context.Background())
 }
 
 func (svr *Web3Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
