@@ -51,7 +51,7 @@ type (
 		Address(in string) (string, error)
 		// doing
 		NewKeyStore(string, int, int) *keystore.KeyStore
-		// AliasMap returns the alias map
+		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error

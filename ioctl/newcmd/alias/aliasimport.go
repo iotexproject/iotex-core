@@ -11,9 +11,8 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"

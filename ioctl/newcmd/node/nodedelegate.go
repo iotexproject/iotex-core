@@ -7,11 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl"

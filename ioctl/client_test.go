@@ -169,9 +169,9 @@ func TestAliasMap(t *testing.T) {
 	config.ReadConfig = cfgload
 
 	exprAliases := map[string]string{
-		cfg.Aliases["aaa"]: "aaa",
-		cfg.Aliases["bbb"]: "bbb",
-		cfg.Aliases["ccc"]: "ccc",
+		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
+		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
+		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
 	c := NewClient(false)
 	defer c.Stop(context.Background())
