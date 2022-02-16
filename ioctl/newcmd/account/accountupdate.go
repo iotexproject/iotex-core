@@ -58,7 +58,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				return output.NewError(output.ConvertError, "failed to convert string into addr", err)
 			}
 
-			if CryptoSm2 {
+			if client.IsCryptoSm2() {
 				// find the pem file and update
 				filePath, err := findSm2PemFile(addr)
 				if err != nil {
