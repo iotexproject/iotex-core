@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -169,4 +170,25 @@ func (h *HeartbeatHandler) Log() {
 		heartbeatMtc.WithLabelValues("goVersion", version.GoVersion).Set(1)
 	}
 
+	// Mem metrics
+	memMetrics()
+}
+
+func memMetrics() {
+	bToMb := func(b uint64) uint64 {
+		return b / 1024 / 1024
+	}
+	var memStat runtime.MemStats
+	runtime.ReadMemStats(&memStat)
+	heartbeatMtc.WithLabelValues("allocatedHeapObjects", "node").Set(float64(bToMb(memStat.Alloc)))
+	heartbeatMtc.WithLabelValues("totalAllocatedHeapObjects", "node").Set(float64(bToMb(memStat.TotalAlloc)))
+	heartbeatMtc.WithLabelValues("stackInUse", "node").Set(float64(bToMb(memStat.StackInuse)))
+	heartbeatMtc.WithLabelValues("stackFromOS", "node").Set(float64(bToMb(memStat.StackSys)))
+	heartbeatMtc.WithLabelValues("totalFromOS", "node").Set(float64(bToMb(memStat.Sys)))
+	heartbeatMtc.WithLabelValues("heapInUse", "node").Set(float64(bToMb(memStat.HeapInuse)))
+	heartbeatMtc.WithLabelValues("heapFromOS", "node").Set(float64(bToMb(memStat.HeapSys)))
+	heartbeatMtc.WithLabelValues("heapIdle", "node").Set(float64(bToMb(memStat.HeapIdle)))
+	heartbeatMtc.WithLabelValues("heapReleased", "node").Set(float64(bToMb(memStat.HeapReleased)))
+	heartbeatMtc.WithLabelValues("numberOfGC", "node").Set(float64(memStat.NumGC))
+	heartbeatMtc.WithLabelValues("numberOfRoutines", "node").Set(float64(runtime.NumGoroutine()))
 }
