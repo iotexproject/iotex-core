@@ -77,6 +77,9 @@ type (
 		// TODO: merge into config
 		lang config.Language
 	}
+
+	// Option sets client construction parameter
+	Option func(*client) error
 )
 
 var confirmMessages = map[config.Language]string{
@@ -84,12 +87,25 @@ var confirmMessages = map[config.Language]string{
 	config.Chinese: "是否继续？【是/否】",
 }
 
-// NewClient creates a new ioctl client
-func NewClient(cryptoSm2 bool) Client {
-	return &client{
-		cfg:       config.ReadConfig,
-		cryptoSm2: cryptoSm2,
+// EnableCryptoSm2 enables to use sm2 cryptographic algorithm
+func EnableCryptoSm2() Option {
+	return func(c *client) error {
+		c.cryptoSm2 = true
+		return nil
 	}
+}
+
+// NewClient creates a new ioctl client
+func NewClient(cfg config.Config, opts ...Option) (Client, error) {
+	c := &client{
+		cfg: cfg,
+	}
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
 }
 
 func (c *client) Start(context.Context) error {
