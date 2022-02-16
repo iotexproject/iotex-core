@@ -152,7 +152,7 @@ func TestNewKeyStore(t *testing.T) {
 	}
 }
 
-func TestGetAliasMap(t *testing.T) {
+func TestAliasMap(t *testing.T) {
 	r := require.New(t)
 	cfg := config.Config{
 		Aliases: map[string]string{
@@ -175,7 +175,7 @@ func TestGetAliasMap(t *testing.T) {
 	}
 	c := NewClient(false)
 	defer c.Stop(context.Background())
-	result := c.GetAliasMap()
+	result := c.AliasMap()
 	r.Equal(exprAliases, result)
 }
 

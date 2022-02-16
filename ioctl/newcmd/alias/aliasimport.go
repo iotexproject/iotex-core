@@ -74,7 +74,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 					return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
 				}
 			}
-			aliases := GetAliasMap()
+			aliases := c.AliasMap()
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 			for _, importedAlias := range importedAliases.Aliases {
 				if !forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
@@ -83,7 +83,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 				}
 				for aliases[importedAlias.Address] != "" {
 					delete(config.ReadConfig.Aliases, aliases[importedAlias.Address])
-					aliases = GetAliasMap()
+					aliases = c.AliasMap()
 				}
 				config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
 				message.Imported = append(message.Imported, importedAlias)

@@ -35,14 +35,12 @@ func TestNewAccountDelete(t *testing.T) {
 		require.NoError(t, os.RemoveAll(testAccountFolder))
 	}()
 
-	client.EXPECT().GetAliasMap().DoAndReturn(
-		func() map[string]string {
-			aliases := make(map[string]string)
-			for name, addr := range config.ReadConfig.Aliases {
-				aliases[addr] = name
-			}
-			return aliases
-		}).Times(2)
+	client.EXPECT().AliasMap().Return(map[string]string{
+		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+	}).Times(2)
 	client.EXPECT().Config().DoAndReturn(
 		func() config.Config {
 			config.ReadConfig.Wallet = testAccountFolder
