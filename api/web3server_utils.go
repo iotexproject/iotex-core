@@ -305,65 +305,22 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 	return
 }
 
-func (svr *Web3Server) actionTypeByAddr(addr string) (actionType, error) {
+func (svr *Web3Server) actionTypeByAddr(addr string) (int, error) {
 	if addr == address.StakingProtocolAddr {
-		return _stakingAction, nil
+		return action.StakingActionType, nil
 	}
 	if addr == "" {
-		return _executionAction, nil
+		return action.ExecutionActionType, nil
 	}
 	ioAddr, err := address.FromString(addr)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	accountMeta, _, err := svr.coreService.Account(ioAddr)
 	if err != nil && accountMeta.IsContract {
-		return _executionAction, nil
+		return action.ExecutionActionType, nil
 	}
-	return _transferAction, nil
-}
-
-func loadStakingAction(data []byte, core *iotextypes.ActionCore) error {
-	if len(data) <= 4 {
-		return errInvalidFormat
-	}
-	if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewRestakeFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
-		return nil
-	}
-	if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
-		core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
-		return nil
-	}
-	return errInvalidFormat
+	return action.TransferActionType, nil
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {

@@ -1531,8 +1531,9 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 
 // TODO: use EstimateGasForNonExecution in grpcserver.go
 // EstimateGasForNonExecution estimates action gas except execution
-func (core *coreService) EstimateGasForNonExecution(actType action.Action, payloadSize uint64) (uint64, error) {
+func (core *coreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
 	var intrinsicGas, payloadGas uint64
+	payloadSize := uint64(len(payload))
 	switch act := actType.(type) {
 	case *action.Transfer:
 		intrinsicGas, payloadGas = action.TransferBaseIntrinsicGas, action.TransferPayloadGas

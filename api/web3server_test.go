@@ -454,8 +454,10 @@ func TestGetTransactionReceipt(t *testing.T) {
 	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, strings.ToLower(fromAddr))
-	require.Equal(*ans.To, toAddr)
+	require.Equal(strings.ToLower(fromAddr), ans.From)
+	require.Equal(toAddr, *ans.To)
+	require.Equal(uint64ToHex(10000), ans.GasUsed)
+	require.Equal(uint64ToHex(1), ans.BlockNumber)
 
 	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
 	ret, err = svr.web3Server.getTransactionReceipt(testData2)
@@ -674,7 +676,7 @@ func TestEthAccounts(t *testing.T) {
 func TestWeb3Staking(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-	config.SetEVMNetworkID(1)
+	config.SetEVMNetworkID(4689)
 	svr, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
@@ -691,7 +693,7 @@ func TestWeb3Staking(t *testing.T) {
 	toAddr, err := ioAddrToEthAddr(address.StakingProtocolAddr)
 	require.NoError(err)
 
-	// encoding stake data
+	// encode stake data
 	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
 	data, err := act1.EncodeABIBinary()
@@ -716,7 +718,7 @@ func TestWeb3Staking(t *testing.T) {
 	require.NoError(err)
 	testData = append(testData, stakeData{"unstake", data4})
 
-	act5, err := action.NewUnstake(5, 7, []byte{}, 1000000, big.NewInt(0))
+	act5, err := action.NewWithdrawStake(5, 7, []byte{}, 1000000, big.NewInt(0))
 	require.NoError(err)
 	data5, err := act5.EncodeABIBinary()
 	require.NoError(err)
@@ -761,12 +763,12 @@ func TestWeb3Staking(t *testing.T) {
 	require.NoError(err)
 	data9, err := act9.EncodeABIBinary()
 	require.NoError(err)
-	testData = append(testData, stakeData{"candidateRegister", data9})
+	testData = append(testData, stakeData{"candidateUpdate", data9})
 
 	for i, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
 			// estimate gas
-			gasLimit, err := estimateStakeGas(svr, identityset.Address(28).Hex(), toAddr, data)
+			gasLimit, err := estimateStakeGas(svr, identityset.Address(28).Hex(), toAddr, test.stakeEncodedData)
 			require.NoError(err)
 
 			// create tx
@@ -776,14 +778,15 @@ func TestWeb3Staking(t *testing.T) {
 				big.NewInt(0),
 				gasLimit,
 				big.NewInt(0),
-				data,
+				test.stakeEncodedData,
 			)
-			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(1)), ecdsaPvk)
+			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))), ecdsaPvk)
 			require.NoError(err)
 			BinaryData, err := tx.MarshalBinary()
 			require.NoError(err)
 
 			// send tx
+			fmt.Println(hex.EncodeToString(BinaryData))
 			rawData := []interface{}{hex.EncodeToString(BinaryData)}
 			_, err = svr.web3Server.sendRawTransaction(rawData)
 			require.NoError(err)
