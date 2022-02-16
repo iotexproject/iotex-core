@@ -296,5 +296,5 @@ func (elp *envelope) ToRLP() (RlpTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapStakingActionIntoExecution(ab, address.StakingCreateAddr, data)
+	return wrapStakingActionIntoExecution(ab, address.StakingProtocolAddr, data)
 }

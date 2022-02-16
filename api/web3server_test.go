@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/util"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -687,7 +688,8 @@ func TestWeb3Staking(t *testing.T) {
 		stakeEncodedData []byte
 	}
 	testData := []stakeData{}
-	toAddr := "0x000000000000007374616b696e67437265617465"
+	toAddr, err := ioAddrToEthAddr(address.StakingProtocolAddr)
+	require.NoError(err)
 
 	// encoding stake data
 	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))

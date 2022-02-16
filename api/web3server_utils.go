@@ -306,7 +306,7 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 }
 
 func (svr *Web3Server) actionTypeByAddr(addr string) (actionType, error) {
-	if addr == address.StakingCreateAddr {
+	if addr == address.StakingProtocolAddr {
 		return _stakingAction, nil
 	}
 	if addr == "" {
