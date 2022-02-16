@@ -40,6 +40,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	require.NoError(err)
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
+	client.EXPECT().IsCryptoSm2().Return(false).Times(3)
 
 	t.Run("invalid_current_password", func(t *testing.T) {
 		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
@@ -104,12 +105,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	defer func() {
 		require.NoError(os.Remove(skPemPath))
 	}()
-
-	oldCryptoSm2 := CryptoSm2
-	CryptoSm2 = true
-	defer func() {
-		CryptoSm2 = oldCryptoSm2
-	}()
+	client.EXPECT().IsCryptoSm2().Return(true).Times(3)
 
 	t.Run("invalid_current_password", func(t *testing.T) {
 		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
