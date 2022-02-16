@@ -279,6 +279,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 
@@ -350,6 +351,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 	require.NoError(indexer.Start(ctx))
 	defer func() {
 		require.NoError(indexer.Stop(ctx))
+		testutil.CleanupPathV2(testPath)
 	}()
 	for i := 0; i < len(blks); i++ {
 		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))

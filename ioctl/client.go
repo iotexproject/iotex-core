@@ -59,10 +59,8 @@ type (
 		PrintError(error)
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
-		// SetCryptoSm2 set the flag of sm2 cryptographic algorithm
-		SetCryptoSm2(bool)
-		// HasCryptoSm2 get the flag of sm2 cryptographic algorithm
-		HasCryptoSm2() bool
+		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
+		IsCryptoSm2() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -87,9 +85,10 @@ var confirmMessages = map[config.Language]string{
 }
 
 // NewClient creates a new ioctl client
-func NewClient() Client {
+func NewClient(cryptoSm2 bool) Client {
 	return &client{
-		cfg: config.ReadConfig,
+		cfg:       config.ReadConfig,
+		cryptoSm2: cryptoSm2,
 	}
 }
 
@@ -220,10 +219,6 @@ func (c *client) PrintInfo(info string) {
 	output.PrintResult(info)
 }
 
-func (c *client) SetCryptoSm2(flag bool) {
-	c.cryptoSm2 = flag
-}
-
-func (c *client) HasCryptoSm2() bool {
+func (c *client) IsCryptoSm2() bool {
 	return c.cryptoSm2
 }

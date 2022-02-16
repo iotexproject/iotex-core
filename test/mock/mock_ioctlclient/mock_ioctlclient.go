@@ -139,18 +139,18 @@ func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
 }
 
-// HasCryptoSm2 mocks base method.
-func (m *MockClient) HasCryptoSm2() bool {
+// IsCryptoSm2 mocks base method.
+func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasCryptoSm2")
+	ret := m.ctrl.Call(m, "IsCryptoSm2")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// HasCryptoSm2 indicates an expected call of HasCryptoSm2.
-func (mr *MockClientMockRecorder) HasCryptoSm2() *gomock.Call {
+// IsCryptoSm2 indicates an expected call of IsCryptoSm2.
+func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasCryptoSm2", reflect.TypeOf((*MockClient)(nil).HasCryptoSm2))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
 }
 
 // NewKeyStore mocks base method.
@@ -219,18 +219,6 @@ func (m *MockClient) SelectTranslation(arg0 map[config.Language]string) (string,
 func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
-}
-
-// SetCryptoSm2 mocks base method.
-func (m *MockClient) SetCryptoSm2(arg0 bool) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetCryptoSm2", arg0)
-}
-
-// SetCryptoSm2 indicates an expected call of SetCryptoSm2.
-func (mr *MockClientMockRecorder) SetCryptoSm2(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCryptoSm2", reflect.TypeOf((*MockClient)(nil).SetCryptoSm2), arg0)
 }
 
 // Start mocks base method.
