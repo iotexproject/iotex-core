@@ -22,6 +22,7 @@ func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := CQLITE3{
 		SQLite3File: testPath,
 	}
@@ -34,6 +35,7 @@ func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := CQLITE3{
 		SQLite3File: testPath,
 	}

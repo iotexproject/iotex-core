@@ -11,9 +11,8 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/spf13/cobra"
-
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -44,7 +43,7 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 			listmessage := listMessage{}
 			aliases := c.GetAliasMap()
 
-			if CryptoSm2 {
+			if c.IsCryptoSm2() {
 				sm2Accounts, err := listSm2Account()
 				if err != nil {
 					return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)

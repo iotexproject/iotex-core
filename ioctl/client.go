@@ -59,6 +59,8 @@ type (
 		PrintError(error)
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
+		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
+		IsCryptoSm2() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -68,8 +70,10 @@ type (
 	}
 
 	client struct {
-		cfg  config.Config
-		conn *grpc.ClientConn
+		cfg       config.Config
+		conn      *grpc.ClientConn
+		cryptoSm2 bool
+
 		// TODO: merge into config
 		lang config.Language
 	}
@@ -81,9 +85,10 @@ var confirmMessages = map[config.Language]string{
 }
 
 // NewClient creates a new ioctl client
-func NewClient() Client {
+func NewClient(cryptoSm2 bool) Client {
 	return &client{
-		cfg: config.ReadConfig,
+		cfg:       config.ReadConfig,
+		cryptoSm2: cryptoSm2,
 	}
 }
 
@@ -212,4 +217,8 @@ func (c *client) PrintError(err error) {
 
 func (c *client) PrintInfo(info string) {
 	output.PrintResult(info)
+}
+
+func (c *client) IsCryptoSm2() bool {
+	return c.cryptoSm2
 }

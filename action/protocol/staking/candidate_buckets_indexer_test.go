@@ -18,7 +18,7 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-candidate")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -152,9 +152,7 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 
 	testPath, err := testutil.PathOfTempFile("test-bucket")
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(t, testPath)
-	}()
+	defer testutil.CleanupPathV2(testPath)
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
