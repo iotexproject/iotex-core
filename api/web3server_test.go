@@ -453,7 +453,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
+	require.Equal(ans.From, strings.ToLower(fromAddr))
 	require.Equal(*ans.To, toAddr)
 
 	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
@@ -492,14 +492,15 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
+	require.Equal(ans.From, strings.ToLower(fromAddr))
 	require.Equal(*ans.To, toAddr)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
 	testData2 := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x10"}
-	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", "0x0"}
 	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData3)
@@ -519,14 +520,15 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
+	require.Equal(ans.From, strings.ToLower(fromAddr))
 	require.Equal(*ans.To, toAddr)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
 	testData2 := []interface{}{"0x1", "0x10"}
-	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := []interface{}{"0x10", "0x0"}
 	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData3)

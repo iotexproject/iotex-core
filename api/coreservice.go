@@ -74,6 +74,11 @@ type coreService struct {
 	readCache         *ReadCache
 }
 
+var (
+	// ErrNotFound indicates the record isn't found
+	ErrNotFound = errors.New("not found")
+)
+
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
 	cfg config.Config,
@@ -845,6 +850,23 @@ func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi
 	return act, nil
 }
 
+// ActionByHash returns sealedEnvelope and receipt by action hash
+func (core *coreService) ActionByHash(actionHash string) (hash.Hash256, action.SealedEnvelope, *action.Receipt, error) {
+	actHash, err := hash.HexStringToHash256(actionHash)
+	if err != nil {
+		return hash.ZeroHash256, action.SealedEnvelope{}, nil, err
+	}
+	selp, blkHash, blkHeight, _, err := core.ActionByActionHash(actHash)
+	if err != nil {
+		return hash.ZeroHash256, action.SealedEnvelope{}, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
+	if err != nil {
+		return hash.ZeroHash256, action.SealedEnvelope{}, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return blkHash, selp, receipt, nil
+}
+
 // ActionsByAddress returns all actions associated with an address
 func (core *coreService) ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	if count == 0 {
@@ -950,6 +972,24 @@ func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint
 	}
 
 	return core.actionsInBlock(blk, start, count), nil
+}
+
+// TODO: replace ActionsByBlock with AllActionsInBlockByHash
+// AllActionsInBlockByHash returns all sealedEnvelopes and receipts in the block
+func (core *coreService) AllActionsInBlockByHash(blkHash string) ([]action.SealedEnvelope, []*action.Receipt, error) {
+	hash, err := hash.HexStringToHash256(blkHash)
+	if err != nil {
+		return nil, nil, err
+	}
+	blk, err := core.dao.GetBlock(hash)
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	receipts, err := core.dao.GetReceipts(blk.Height())
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return blk.Actions, receipts, nil
 }
 
 // BlockMetas returns blockmetas response within the height range

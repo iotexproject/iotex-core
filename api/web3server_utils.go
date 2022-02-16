@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -152,20 +151,25 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
+		selps, receipts, err := svr.coreService.AllActionsInBlockByHash(blkMeta.Hash)
 		if err != nil {
 			return blockObject{}, err
 		}
-		for _, info := range actionInfos {
+		for i, selp := range selps {
 			if isDetailed {
-				tx, err := svr.getTransactionFromActionInfo(info)
+				tx, err := svr.getTransactionFromActionInfo(blkMeta.Hash, selp, receipts[i])
 				if err != nil {
-					log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
+					h, _ := selp.Hash()
+					log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("actHash", hex.EncodeToString(h[:])))
 					continue
 				}
 				transactions = append(transactions, tx)
 			} else {
-				transactions = append(transactions, "0x"+info.ActHash)
+				actHash, err := selp.Hash()
+				if err != nil {
+					return blockObject{}, err
+				}
+				transactions = append(transactions, "0x"+hex.EncodeToString(actHash[:]))
 			}
 		}
 	}
@@ -200,61 +204,32 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}, nil
 }
 
-// TODO: pass SealedEnvelope instead of actInfo
-func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo) (transactionObject, error) {
-	if actInfo.GetAction() == nil || actInfo.GetAction().GetCore() == nil {
-		return transactionObject{}, errNullPointer
+func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (transactionObject, error) {
+	// sanity check
+	if receipt == nil {
+		return transactionObject{}, errors.New("receipt is empty")
 	}
-	var (
-		to     *string
-		create *string
-		err    error
-	)
-
-	// convert the protobuf of action to eth-compatible tx
-	selp := action.SealedEnvelope{}
-	if err := selp.LoadProto(actInfo.GetAction()); err != nil {
-		return transactionObject{}, err
+	actHash, err := selp.Hash()
+	if err != nil || actHash != receipt.ActionHash {
+		return transactionObject{}, errors.New("receipt doesn't match")
 	}
 	ethTx, err := selp.ToRLP()
 	if err != nil {
 		// depending
 		return transactionObject{}, err
 	}
-
-	// recipient is empty when contract is created
-	if exec, ok := selp.Action().(*action.Execution); ok && len(exec.Contract()) == 0 {
-		actHash, err := hash.HexStringToHash256(actInfo.ActHash)
-		if err != nil {
-			return transactionObject{}, errors.Wrapf(errUnkownType, "txHash: %s", actInfo.ActHash)
-		}
-		receipt, _, err := svr.coreService.ReceiptByAction(actHash)
-		if err != nil {
-			return transactionObject{}, err
-		}
-		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
-		if err != nil {
-			return transactionObject{}, err
-		}
-		to, create = nil, &addr
-	} else {
-		toTmp, err := ioAddrToEthAddr(ethTx.Recipient())
-		if err != nil {
-			return transactionObject{}, err
-		}
-		to = &toTmp
+	to, create, err := getRecipientAndContractAddrFromAction(selp, receipt)
+	if err != nil {
+		return transactionObject{}, err
 	}
 
-	vVal := uint64(actInfo.Action.Signature[64])
+	sig := selp.Signature()
+	vVal := uint64(sig[64])
 	if vVal < 27 {
 		vVal += 27
 	}
 
-	from, err := ioAddrToEthAddr(actInfo.Sender)
-	if err != nil {
-		return transactionObject{}, err
-	}
-	gasPrice, err := intStrToHex(actInfo.Action.Core.GasPrice)
+	gasPrice, err := intStrToHex(ethTx.GasPrice().String())
 	if err != nil {
 		return transactionObject{}, err
 	}
@@ -263,26 +238,51 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		return transactionObject{}, err
 	}
 	return transactionObject{
-		Hash:             "0x" + actInfo.ActHash,
-		Nonce:            uint64ToHex(actInfo.Action.Core.Nonce),
-		BlockHash:        "0x" + actInfo.BlkHash,
-		BlockNumber:      uint64ToHex(actInfo.BlkHeight),
-		TransactionIndex: uint64ToHex(uint64(actInfo.Index)),
-		From:             from,
+		Hash:             "0x" + hex.EncodeToString(receipt.ActionHash[:]),
+		Nonce:            uint64ToHex(ethTx.Nonce()),
+		BlockHash:        "0x" + blkHash,
+		BlockNumber:      uint64ToHex(receipt.BlockHeight),
+		TransactionIndex: uint64ToHex(uint64(receipt.TxIndex)),
+		From:             selp.SrcPubkey().Address().Hex(),
 		To:               to,
 		Value:            value,
 		GasPrice:         gasPrice,
-		Gas:              uint64ToHex(actInfo.Action.Core.GasLimit),
+		Gas:              uint64ToHex(ethTx.GasLimit()),
 		Input:            byteToHex(ethTx.Payload()),
-		R:                byteToHex(actInfo.Action.Signature[:32]),
-		S:                byteToHex(actInfo.Action.Signature[32:64]),
+		R:                byteToHex(sig[:32]),
+		S:                byteToHex(sig[32:64]),
 		V:                uint64ToHex(vVal),
 		// TODO: the value is the same as Babel's. It will be corrected in next pr
 		StandardV: uint64ToHex(vVal),
 		Creates:   create,
 		ChainID:   uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
-		PublicKey: byteToHex(actInfo.Action.SenderPubKey),
+		PublicKey: byteToHex(selp.SrcPubkey().Bytes()),
 	}, nil
+}
+
+func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
+	ethTx, err := selp.ToRLP()
+	if err != nil {
+		// depending
+		return nil, nil, err
+	}
+
+	// recipient is empty when contract is created
+	var to, create *string
+	if exec, ok := selp.Action().(*action.Execution); ok && len(exec.Contract()) == 0 {
+		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
+		if err != nil {
+			return nil, nil, err
+		}
+		to, create = nil, &addr
+	} else {
+		toTmp, err := ioAddrToEthAddr(ethTx.Recipient())
+		if err != nil {
+			return nil, nil, err
+		}
+		to, create = &toTmp, nil
+	}
+	return to, create, nil
 }
 
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {

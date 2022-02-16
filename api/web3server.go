@@ -642,15 +642,14 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), false)
+	blkHash, selp, receipt, err := svr.coreService.ActionByHash(util.Remove0xPrefix(h))
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.Unavailable {
+		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(actionInfos)
+	return svr.getTransactionFromActionInfo(hex.EncodeToString(blkHash[:]), selp, receipt)
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
@@ -673,36 +672,20 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	if err != nil {
 		return nil, errors.Wrapf(errUnkownType, "actHash: %s", actHashStr)
 	}
-	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
+	blockHash, selp, receipt, err := svr.coreService.ActionByHash(util.Remove0xPrefix(actHashStr))
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
+		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-
-	// read contract address from receipt
-	var contractAddr *string
-	if len(receipt.ContractAddress) > 0 {
-		res, err := ioAddrToEthAddr(receipt.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
-		contractAddr = &res
-	}
-
-	// acquire transaction index by action hash
-	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(actHashStr), true)
-	if err != nil {
-		return nil, err
-	}
-	tx, err := svr.getTransactionFromActionInfo(actInfo)
+	to, contractAddr, err := getRecipientAndContractAddrFromAction(selp, receipt)
 	if err != nil {
 		return nil, err
 	}
 
 	// acquire logsBloom from blockMeta
+	blkHash := hex.EncodeToString(blockHash[:])
 	blkMeta, err := svr.coreService.BlockMetaByHash(blkHash)
 	if err != nil {
 		return nil, err
@@ -736,13 +719,13 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		BlockNumber:       uint64ToHex(receipt.BlockHeight),
 		ContractAddress:   contractAddr,
 		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
-		From:              tx.From,
+		From:              selp.SrcPubkey().Address().Hex(),
 		GasUsed:           uint64ToHex(receipt.GasConsumed),
 		LogsBloom:         getLogsBloomFromBlkMeta(blkMeta),
 		Status:            uint64ToHex(receipt.Status),
-		To:                tx.To,
+		To:                to,
 		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
-		TransactionIndex:  tx.TransactionIndex,
+		TransactionIndex:  uint64ToHex(uint64(receipt.TxIndex)),
 		Logs:              logs,
 	}, nil
 
@@ -780,18 +763,15 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.ActionsByBlock(util.Remove0xPrefix(blkHash), idx, 1)
-	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if len(actionInfos) == 0 {
+	blkHash = util.Remove0xPrefix(blkHash)
+	selps, receipts, err := svr.coreService.AllActionsInBlockByHash(blkHash)
+	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionFromActionInfo(actionInfos[0])
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionFromActionInfo(blkHash, selps[idx], receipts[idx])
 }
 
 func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (interface{}, error) {
@@ -822,18 +802,14 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	if len(blkMetas) == 0 {
 		return nil, nil
 	}
-	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
-	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if len(actionInfos) == 0 {
+	selps, receipts, err := svr.coreService.AllActionsInBlockByHash(blkMetas[0].Hash)
+	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionFromActionInfo(actionInfos[0])
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionFromActionInfo(blkMetas[0].Hash, selps[idx], receipts[idx])
 }
 
 func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {
