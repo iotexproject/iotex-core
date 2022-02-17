@@ -136,8 +136,7 @@ func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (
 		}
 	} else {
 		// find the account in keystore
-		ks := client.NewKeyStore(config.ReadConfig.Wallet,
-			keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := client.NewKeyStore()
 		for _, account := range ks.Accounts() {
 			if bytes.Equal(addr.Bytes(), account.Address.Bytes()) {
 				return crypto.KeystoreToPrivateKey(account, password)
@@ -223,8 +222,7 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 	}
 
 	// find the account in keystore
-	ks := client.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := client.NewKeyStore()
 	for _, ksAccount := range ks.Accounts() {
 		if address.Equal(addr, ksAccount.Address) {
 			return true
@@ -248,7 +246,7 @@ func newAccount(client ioctl.Client, alias string) (string, error) {
 	if password != passwordAgain {
 		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
-	ks := client.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := client.NewKeyStore()
 	account, err := ks.NewAccount(password)
 	if err != nil {
 		return "", output.NewError(output.KeystoreError, "failed to create new keystore", err)
@@ -355,7 +353,7 @@ func storeKey(client ioctl.Client, privateKey, walletDir, password string) (stri
 
 	switch sk := priKey.EcdsaPrivateKey().(type) {
 	case *ecdsa.PrivateKey:
-		ks := client.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := client.NewKeyStore()
 		if _, err := ks.ImportECDSA(sk, password); err != nil {
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}

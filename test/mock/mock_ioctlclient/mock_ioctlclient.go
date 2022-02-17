@@ -154,17 +154,17 @@ func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 }
 
 // NewKeyStore mocks base method.
-func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore {
+func (m *MockClient) NewKeyStore() *keystore.KeyStore {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewKeyStore", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewKeyStore")
 	ret0, _ := ret[0].(*keystore.KeyStore)
 	return ret0
 }
 
 // NewKeyStore indicates an expected call of NewKeyStore.
-func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
 }
 
 // PrintError mocks base method.

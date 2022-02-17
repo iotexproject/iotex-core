@@ -42,7 +42,7 @@ func TestNewAccountDelete(t *testing.T) {
 		acc, _ := ks.NewAccount("test")
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())
 		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
-		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).Times(2)
+		client.EXPECT().NewKeyStore().Return(ks).Times(2)
 
 		client.EXPECT().AliasMap().Return(map[string]string{
 			accAddr.String(): "aaa",
@@ -58,7 +58,7 @@ func TestNewAccountDelete(t *testing.T) {
 					"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
 				}
 				return config.ReadConfig
-			}).Times(3)
+			})
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 		cmd := NewAccountDelete(client)

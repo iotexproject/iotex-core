@@ -59,10 +59,8 @@ func TestSign(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-			return keystore.NewKeyStore(keydir, scryptN, scryptP)
-		}).Times(15)
+	config.ReadConfig.Wallet = testWallet
+	client.EXPECT().NewKeyStore().Return(ks).Times(15)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
 
 	account, err := ks.NewAccount(passwd)
@@ -130,10 +128,7 @@ func TestAccount(t *testing.T) {
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
-		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-				return keystore.NewKeyStore(keydir, scryptN, scryptP)
-			}).Times(2)
+		client.EXPECT().NewKeyStore().Return(ks).Times(2)
 
 		// test new account by ks
 		account, err := ks.NewAccount(passwd)
@@ -288,10 +283,7 @@ func TestStoreKey(t *testing.T) {
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(4)
-		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-				return keystore.NewKeyStore(keydir, scryptN, scryptP)
-			}).Times(6)
+		client.EXPECT().NewKeyStore().Return(ks).Times(6)
 
 		account, err := ks.NewAccount(passwd)
 		require.NoError(err)

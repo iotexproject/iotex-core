@@ -49,8 +49,8 @@ type (
 		GetAddress(in string) (string, error)
 		// doing
 		Address(in string) (string, error)
-		// doing
-		NewKeyStore(string, int, int) *keystore.KeyStore
+		// NewKeyStore creates a keystore by default walletdir
+		NewKeyStore() *keystore.KeyStore
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
 		// doing
@@ -185,8 +185,8 @@ func (c *client) Address(in string) (string, error) {
 	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
 
-func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-	return keystore.NewKeyStore(keydir, scryptN, scryptP)
+func (c *client) NewKeyStore() *keystore.KeyStore {
+	return keystore.NewKeyStore(c.cfg.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 }
 
 func (c *client) AliasMap() map[string]string {
