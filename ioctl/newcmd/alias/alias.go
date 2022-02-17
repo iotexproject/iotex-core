@@ -97,12 +97,3 @@ func Alias(address string) (string, error) {
 	}
 	return "", output.NewError(output.AddressError, ErrNoAliasFound.Error(), nil)
 }
-
-// GetAliasMap gets the map from address to alias
-func GetAliasMap() map[string]string {
-	aliases := make(map[string]string)
-	for name, addr := range config.ReadConfig.Aliases {
-		aliases[addr] = name
-	}
-	return aliases
-}

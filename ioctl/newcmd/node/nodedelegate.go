@@ -7,15 +7,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -83,7 +81,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 	flagEpochNumUsage, _ := c.SelectTranslation(flagEpochNumUsages)
 	flagNextEpochUsage, _ := c.SelectTranslation(flagNextEpochUsages)
 
-	nd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
@@ -158,7 +156,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				for _, abp := range ABPs {
 					isActive[abp.Address] = true
 				}
-				aliases := alias.GetAliasMap()
+				aliases := c.AliasMap()
 				for rank, bp := range BPs {
 					votes := big.NewInt(0).SetBytes(bp.Votes.Bytes())
 					message.Delegates = append(message.Delegates, delegate{
@@ -185,7 +183,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					return output.NewError(0, "failed to get epoch meta", err)
 				}
 				epochData := response.EpochData
-				aliases := alias.GetAliasMap()
+				aliases := c.AliasMap()
 				message := delegatesMessage{
 					Epoch:       int(epochData.Num),
 					StartBlock:  int(epochData.Height),
@@ -228,13 +226,13 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 			return output.PrintError(err)
 		},
 	}
-	nd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
+	cmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
 		flagEpochNumUsage)
-	nd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
+	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		flagNextEpochUsage)
 	nodeStatus = map[bool]string{true: "active", false: ""}
 	probatedStatus = map[bool]string{true: "probated", false: ""}
-	return nd
+	return cmd
 }
 
 func (m *nextDelegatesMessage) String() string {
