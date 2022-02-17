@@ -51,8 +51,8 @@ type (
 		Address(in string) (string, error)
 		// doing
 		NewKeyStore(string, int, int) *keystore.KeyStore
-		// doing
-		GetAliasMap() map[string]string
+		// AliasMap returns the alias map: accountAddr-aliasName
+		AliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
 		// PrintError print the error message
@@ -189,7 +189,7 @@ func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyS
 	return keystore.NewKeyStore(keydir, scryptN, scryptP)
 }
 
-func (c *client) GetAliasMap() map[string]string {
+func (c *client) AliasMap() map[string]string {
 	aliases := make(map[string]string)
 	for name, addr := range c.cfg.Aliases {
 		aliases[addr] = name

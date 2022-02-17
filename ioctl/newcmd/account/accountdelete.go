@@ -126,7 +126,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 				return output.NewError(output.ReadFileError, failToRemoveKeystoreFile, err)
 			}
 
-			aliases := c.GetAliasMap()
+			aliases := c.AliasMap()
 			cfg := c.Config()
 			delete(cfg.Aliases, aliases[addr])
 			out, err := yaml.Marshal(&cfg)
