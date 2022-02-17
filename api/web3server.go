@@ -445,40 +445,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	case action.TransferActionType:
 		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(&action.Transfer{}, data)
 	case action.StakingActionType:
-		if len(data) <= 4 {
-			return nil, errInvalidFormat
-		}
-		var err error
-		if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewRestakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-		}
-		if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
-			estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, []byte{})
-		}
-		if err != nil {
-			return nil, errInvalidFormat
-		}
+		estimatedGas, err = svr.estimateStakingGas(data)
 	}
 	if err != nil {
 		return nil, err
@@ -487,6 +454,40 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		estimatedGas = 21000
 	}
 	return uint64ToHex(estimatedGas), nil
+}
+
+func (svr *Web3Server) estimateStakingGas(data []byte) (uint64, error) {
+	if len(data) <= 4 {
+		return 0, errInvalidFormat
+	}
+	if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewRestakeFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
+	}
+	if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
+		return svr.coreService.EstimateGasForNonExecution(act, []byte{})
+	}
+	return 0, errInvalidFormat
 }
 
 func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
@@ -514,7 +515,7 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		Signature:    sig,
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
-	req.Core, err = action.EthTxExportToNativeProto(svr.coreService.ChainID(), actType, tx)
+	req.Core, err = action.EthTxToNativeProto(svr.coreService.ChainID(), actType, tx)
 	if err != nil {
 		return nil, err
 	}

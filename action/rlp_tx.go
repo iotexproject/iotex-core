@@ -130,8 +130,8 @@ func DecodeRawTx(rawData string, chainID uint32) (tx *types.Transaction, sig []b
 	return
 }
 
-// EthTxExportToNativeProto converts eth tx to protobuf type ActionCore
-func EthTxExportToNativeProto(chainID uint32, actType int, tx *types.Transaction) (*iotextypes.ActionCore, error) {
+// EthTxToNativeProto converts eth tx to protobuf type ActionCore
+func EthTxToNativeProto(chainID uint32, actType int, tx *types.Transaction) (*iotextypes.ActionCore, error) {
 	if tx == nil {
 		return nil, errInvalidAct
 	}

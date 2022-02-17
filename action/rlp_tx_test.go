@@ -332,12 +332,12 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	)
 	switch actType {
 	case "transfer":
-		core, err = EthTxExportToNativeProto(1, TransferActionType, tx)
+		core, err = EthTxToNativeProto(1, TransferActionType, tx)
 	case "execution":
-		core, err = EthTxExportToNativeProto(1, ExecutionActionType, tx)
+		core, err = EthTxToNativeProto(1, ExecutionActionType, tx)
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate":
-		core, err = EthTxExportToNativeProto(1, StakingActionType, tx)
+		core, err = EthTxToNativeProto(1, StakingActionType, tx)
 	default:
 		panic("unsupported")
 	}
