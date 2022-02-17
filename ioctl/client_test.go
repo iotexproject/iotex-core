@@ -22,7 +22,7 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c, err := NewClient(config.ReadConfig, []Option{EnableCryptoSm2()}...)
+	c, err := NewClient(config.ReadConfig, EnableCryptoSm2())
 	r.NoError(err)
 	_, err = c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
