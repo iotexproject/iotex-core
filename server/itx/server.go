@@ -117,6 +117,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.p2pAgent.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping P2P agent")
 	}
+	// notest
 	if err := s.dispatcher.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping dispatcher")
 	}
@@ -129,6 +130,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
+// notest
 func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

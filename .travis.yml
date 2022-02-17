@@ -25,6 +25,8 @@ go:
 
 # before_install:
 #   - go get -v golang.org/x/lint/golint
+install:
+- go get -u github.com/dave/courtney
 before_script:
 - if [[ $TRAVIS_OS_NAME == windows ]]; then
   mkdir -p ${TRAVIS_HOME}/gopath/src/github.com/$USER/$REPO;
@@ -35,6 +37,7 @@ before_script:
 script:
 - pwd
 - ./go.test.sh
+- courtney
 after_success:
 - bash <(curl -s https://codecov.io/bash)
   # - go test -cpu=1,2 -v -tags integration ./...
