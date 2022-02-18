@@ -79,10 +79,7 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.Receipts = nil
 
 	// verify merkle root can match after deserialize
-	if err := b.VerifyTxRoot(); err != nil {
-		return err
-	}
-	return nil
+	return b.VerifyTxRoot()
 }
 
 // VerifyTxRoot verifies the transaction root hash
