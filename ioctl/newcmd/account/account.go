@@ -305,7 +305,7 @@ func newAccountByKey(client ioctl.Client, alias string, privateKey string, walle
 		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
 
-	return storeKey(client, privateKey, walletDir, password)
+	return storeKey(client, privateKey, password)
 }
 
 func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
@@ -339,7 +339,7 @@ func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath stri
 	return newAccountByKey(client, alias, prvKey.HexString(), walletDir)
 }
 
-func storeKey(client ioctl.Client, privateKey, walletDir, password string) (string, error) {
+func storeKey(client ioctl.Client, privateKey, password string) (string, error) {
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
 		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
