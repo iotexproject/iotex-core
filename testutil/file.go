@@ -7,7 +7,6 @@
 package testutil
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -16,7 +15,7 @@ import (
 
 // PathOfTempFile returns path of a new temporary file
 func PathOfTempFile(dirName string) (string, error) {
-	tempFile, err := ioutil.TempFile(os.TempDir(), dirName)
+	tempFile, err := os.CreateTemp(os.TempDir(), dirName)
 	if err != nil {
 		return "", err
 	}
@@ -27,5 +26,13 @@ func PathOfTempFile(dirName string) (string, error) {
 func CleanupPath(t *testing.T, path string) {
 	if fileutil.FileExists(path) && os.RemoveAll(path) != nil {
 		t.Error("Fail to remove testDB file")
+	}
+}
+
+// CleanupPathV2 detects the existence of test DB file and removes it if found
+// Todo: replace CleanupPath with CleanupPathV2 for compatibility
+func CleanupPathV2(path string) {
+	if fileutil.FileExists(path) && os.RemoveAll(path) != nil {
+		panic("Fail to remove testDB file")
 	}
 }

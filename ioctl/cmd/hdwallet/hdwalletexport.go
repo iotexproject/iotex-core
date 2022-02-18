@@ -9,7 +9,7 @@ package hdwallet
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -55,7 +55,7 @@ func hdwalletExport() error {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
 
-	enctxt, err := ioutil.ReadFile(hdWalletConfigFile)
+	enctxt, err := os.ReadFile(hdWalletConfigFile)
 	if err != nil {
 		return output.NewError(output.InputError, "failed to read config", err)
 	}

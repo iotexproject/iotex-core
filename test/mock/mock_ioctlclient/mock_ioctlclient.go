@@ -68,6 +68,20 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockClient)(nil).Address), in)
 }
 
+// AliasMap mocks base method.
+func (m *MockClient) AliasMap() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AliasMap")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// AliasMap indicates an expected call of AliasMap.
+func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliasMap", reflect.TypeOf((*MockClient)(nil).AliasMap))
+}
+
 // AskToConfirm mocks base method.
 func (m *MockClient) AskToConfirm(arg0 string) bool {
 	m.ctrl.T.Helper()
@@ -125,18 +139,18 @@ func (mr *MockClientMockRecorder) GetAddress(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockClient)(nil).GetAddress), in)
 }
 
-// GetAliasMap mocks base method.
-func (m *MockClient) GetAliasMap() map[string]string {
+// IsCryptoSm2 mocks base method.
+func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAliasMap")
-	ret0, _ := ret[0].(map[string]string)
+	ret := m.ctrl.Call(m, "IsCryptoSm2")
+	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// GetAliasMap indicates an expected call of GetAliasMap.
-func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
+// IsCryptoSm2 indicates an expected call of IsCryptoSm2.
+func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
 }
 
 // NewKeyStore mocks base method.

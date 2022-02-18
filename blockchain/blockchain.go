@@ -302,8 +302,12 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			tip.Hash,
 		)
 	}
-	if err := block.VerifyBlock(blk); err != nil {
-		return errors.Wrap(err, "failed to verify block's signature and merkle root")
+
+	if !blk.Header.VerifySignature() {
+		return errors.Errorf("failed to verify block's signature with public key: %x", blk.PublicKey())
+	}
+	if err := blk.VerifyTxRoot(); err != nil {
+		return err
 	}
 
 	producerAddr := blk.PublicKey().Address()

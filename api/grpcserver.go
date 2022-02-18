@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -100,6 +101,8 @@ func (svr *GRPCServer) SuggestGasPrice(ctx context.Context, in *iotexapi.Suggest
 
 // GetAccount returns the metadata of an account
 func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
 	addr, err := address.FromString(in.Address)
 	if err != nil {
 		return nil, err
@@ -108,6 +111,8 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 	if err != nil {
 		return nil, err
 	}
+	span.AddEvent("response")
+	span.SetAttributes(attribute.String("addr", in.Address))
 	return &iotexapi.GetAccountResponse{
 		AccountMeta:     accountMeta,
 		BlockIdentifier: blockIdentifier,
@@ -246,7 +251,13 @@ func (svr *GRPCServer) ReadContract(ctx context.Context, in *iotexapi.ReadContra
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	data, receipt, err := svr.coreService.ReadContract(ctx, in.Execution, callerAddr, in.GasLimit)
+	sc := &action.Execution{}
+	if err := sc.LoadProto(in.GetExecution()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	sc.SetGasLimit(in.GetGasLimit())
+
+	data, receipt, err := svr.coreService.ReadContract(ctx, callerAddr, sc)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +288,11 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, in.GetExecution(), callerAddr)
+		sc := &action.Execution{}
+		if err := sc.LoadProto(in.GetExecution()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -308,9 +323,11 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}
-	return &iotexapi.EstimateActionGasConsumptionResponse{
-		Gas: svr.coreService.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize),
-	}, nil
+	gas, err := svr.coreService.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &iotexapi.EstimateActionGasConsumptionResponse{Gas: gas}, nil
 }
 
 // GetEpochMeta gets epoch metadata
@@ -337,9 +354,30 @@ func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 
 // GetLogs get logs filtered by contract address and topics
 func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
-	ret, err := svr.coreService.Logs(in)
+	if in.GetFilter() == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty filter")
+	}
+	var (
+		ret []*iotextypes.Log
+		err error
+	)
+	switch {
+	case in.GetByBlock() != nil:
+		var blkHeight uint64
+		// TODO: add GetBlockHeight in coreService
+		blkHeight, err = svr.coreService.dao.GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+		}
+		ret, err = svr.coreService.LogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), blkHeight)
+	case in.GetByRange() != nil:
+		req := in.GetByRange()
+		ret, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
+	}
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &iotexapi.GetLogsResponse{Logs: ret}, err
 }

@@ -8,7 +8,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -209,7 +209,7 @@ func writeConfig() error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", DefaultConfigFile), err)
 	}

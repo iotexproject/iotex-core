@@ -12,7 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"os"
 	"testing"
@@ -217,7 +217,7 @@ func NewSmartContractTest(t *testing.T, file string) {
 	require := require.New(t)
 	jsonFile, err := os.Open(file)
 	require.NoError(err)
-	sctBytes, err := ioutil.ReadAll(jsonFile)
+	sctBytes, err := io.ReadAll(jsonFile)
 	require.NoError(err)
 	sct := &SmartContractTest{}
 	require.NoError(json.Unmarshal(sctBytes, sct))
@@ -353,6 +353,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Genesis.EnableGravityChainVoting = false
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -587,6 +588,11 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		testIndexPath, err := testutil.PathOfTempFile("index")
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPathV2(testTriePath)
+			testutil.CleanupPathV2(testDBPath)
+			testutil.CleanupPathV2(testIndexPath)
+		}()
 
 		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath

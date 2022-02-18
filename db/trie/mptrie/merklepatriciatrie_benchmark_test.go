@@ -38,6 +38,7 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 	if withDB {
 		testPath, err := testutil.PathOfTempFile(fmt.Sprintf("test-kv-store-%t.bolt", async))
 		require.NoError(err)
+		defer testutil.CleanupPathV2(testPath)
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		dao := db.NewBoltDB(cfg)

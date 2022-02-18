@@ -65,9 +65,9 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, indexDBPath)
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(indexDBPath)
 	}()
 
 	// create server
@@ -143,6 +143,11 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPathV2(testTriePath2)
+		testutil.CleanupPathV2(testDBPath2)
+		testutil.CleanupPathV2(indexDBPath2)
+	}()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -316,9 +321,9 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, indexDBPath)
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(indexDBPath)
 	}()
 
 	// bootnode
@@ -375,9 +380,9 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
 	defer func() {
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
-		testutil.CleanupPath(t, indexDBPath2)
+		testutil.CleanupPathV2(testTriePath2)
+		testutil.CleanupPathV2(testDBPath2)
+		testutil.CleanupPathV2(indexDBPath2)
 	}()
 
 	// Create client
@@ -449,9 +454,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NotNil(cs.BlockDAO())
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc, ap))

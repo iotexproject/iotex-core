@@ -125,7 +125,7 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 // IntrinsicGas returns the intrinsic gas of an execution
 func (ex *Execution) IntrinsicGas() (uint64, error) {
 	dataSize := uint64(len(ex.Data()))
-	return calculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, dataSize)
+	return CalculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, dataSize)
 }
 
 // Cost returns the cost of an execution

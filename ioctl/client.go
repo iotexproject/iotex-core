@@ -51,14 +51,16 @@ type (
 		Address(in string) (string, error)
 		// doing
 		NewKeyStore(string, int, int) *keystore.KeyStore
-		// doing
-		GetAliasMap() map[string]string
+		// AliasMap returns the alias map: accountAddr-aliasName
+		AliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
 		// PrintError print the error message
 		PrintError(error)
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
+		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
+		IsCryptoSm2() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -68,8 +70,10 @@ type (
 	}
 
 	client struct {
-		cfg  config.Config
-		conn *grpc.ClientConn
+		cfg       config.Config
+		conn      *grpc.ClientConn
+		cryptoSm2 bool
+
 		// TODO: merge into config
 		lang config.Language
 	}
@@ -81,9 +85,10 @@ var confirmMessages = map[config.Language]string{
 }
 
 // NewClient creates a new ioctl client
-func NewClient() Client {
+func NewClient(cryptoSm2 bool) Client {
 	return &client{
-		cfg: config.ReadConfig,
+		cfg:       config.ReadConfig,
+		cryptoSm2: cryptoSm2,
 	}
 }
 
@@ -184,7 +189,7 @@ func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyS
 	return keystore.NewKeyStore(keydir, scryptN, scryptP)
 }
 
-func (c *client) GetAliasMap() map[string]string {
+func (c *client) AliasMap() map[string]string {
 	aliases := make(map[string]string)
 	for name, addr := range c.cfg.Aliases {
 		aliases[addr] = name
@@ -212,4 +217,8 @@ func (c *client) PrintError(err error) {
 
 func (c *client) PrintInfo(info string) {
 	output.PrintResult(info)
+}
+
+func (c *client) IsCryptoSm2() bool {
+	return c.cryptoSm2
 }
