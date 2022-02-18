@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -309,25 +308,11 @@ func newAccountByKey(client ioctl.Client, alias string, privateKey string, walle
 }
 
 func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	privateKey, err := client.DecryptPrivateKey(passwordOfKeyStore, keyStorePath)
 	if err != nil {
-		return "", output.NewError(output.ReadFileError,
-			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+		return "", err
 	}
-	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
-	if key != nil && key.PrivateKey != nil {
-		// clear private key in memory prevent from attack
-		defer func(k *ecdsa.PrivateKey) {
-			b := k.D.Bits()
-			for i := range b {
-				b[i] = 0
-			}
-		}(key.PrivateKey)
-	}
-	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to decrypt key", err)
-	}
-	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
+	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(privateKey)), walletDir)
 }
 
 func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string, walletDir string) (string, error) {

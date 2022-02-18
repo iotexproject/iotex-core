@@ -6,6 +6,7 @@ package mock_ioctlclient
 
 import (
 	context "context"
+	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -108,6 +109,21 @@ func (m *MockClient) Config() config.Config {
 func (mr *MockClientMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
+}
+
+// DecryptPrivateKey mocks base method.
+func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecryptPrivateKey", arg0, arg1)
+	ret0, _ := ret[0].(*ecdsa.PrivateKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DecryptPrivateKey indicates an expected call of DecryptPrivateKey.
+func (mr *MockClientMockRecorder) DecryptPrivateKey(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptPrivateKey", reflect.TypeOf((*MockClient)(nil).DecryptPrivateKey), arg0, arg1)
 }
 
 // Execute mocks base method.

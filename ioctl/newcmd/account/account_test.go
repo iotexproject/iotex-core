@@ -245,6 +245,13 @@ func TestAccountError(t *testing.T) {
 	testWallet, _, _, _, _ := newTestAccount()
 	defer testutil.CleanupPath(t, testWallet)
 
+	client.EXPECT().DecryptPrivateKey(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
+			_, err := os.ReadFile(keyStorePath)
+			require.Error(err)
+			return nil, output.NewError(output.ReadFileError,
+				fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+		})
 	result, err := newAccountByKeyStore(client, alias, passwordOfKeyStore, keyStorePath, walletDir)
 	require.Error(err)
 	require.Contains(err.Error(), fmt.Sprintf("keystore file \"%s\" read error", keyStorePath))
