@@ -25,6 +25,7 @@ jobs:
       - checkout
       - run: go get -u golang.org/x/lint/golint
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
+      - run: go get -u github.com/dave/courtney
       - run: ./go.test.sh
 #       - run: go test -v -p 4 ./... |grep -v vendor 
       - run: bash <(curl -s https://codecov.io/bash)
