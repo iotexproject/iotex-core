@@ -27,7 +27,7 @@ type RecurringTask struct {
 	t        Task
 	interval time.Duration
 	ticker   *clock.Ticker
-	ch       chan interface{}
+	done     chan bool
 	clock    clock.Clock
 }
 
@@ -36,7 +36,7 @@ func NewRecurringTask(t Task, i time.Duration, ops ...RecurringTaskOption) *Recu
 	rt := &RecurringTask{
 		t:        t,
 		interval: i,
-		ch:       make(chan interface{}, 1),
+		done:     make(chan bool),
 		clock:    clock.New(),
 	}
 	for _, opt := range ops {
@@ -46,32 +46,27 @@ func NewRecurringTask(t Task, i time.Duration, ops ...RecurringTaskOption) *Recu
 }
 
 // Start starts the timer
-func (t *RecurringTask) Start(ctx context.Context) error {
+func (t *RecurringTask) Start(_ context.Context) error {
 	t.ticker = t.clock.Ticker(t.interval)
-	ready := make(chan struct{})
 	go func() {
-		close(ready)
 		for {
 			select {
-			// TODO (soy) we can not cancel on ctx.Done, seems there is something cause context timeout of recurring task unexpected
-			case <-t.ch:
+			case <-t.done:
 				return
 			case <-t.ticker.C:
 				t.t()
 			}
 		}
 	}()
-
-	<-ready
 	return nil
 }
 
 // Stop stops the timer
 func (t *RecurringTask) Stop(_ context.Context) error {
-	// TODO: actually this happens when stop is called before init/start. We should prevent this from happening
+	// prevent stop is called before start.
 	if t.ticker != nil {
 		t.ticker.Stop()
 	}
-	t.ch <- struct{}{}
+	t.done <- true
 	return nil
 }

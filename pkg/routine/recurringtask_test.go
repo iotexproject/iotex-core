@@ -37,7 +37,5 @@ func TestRecurringTask(t *testing.T) {
 	task.Start(ctx)
 	ck.Add(600 * time.Millisecond)
 	task.Stop(ctx)
-	h.mu.RLock()
 	assert.True(t, h.Count >= 5)
-	h.mu.RUnlock()
 }

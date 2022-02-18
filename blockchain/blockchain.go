@@ -177,7 +177,6 @@ func ClockOption(clk clock.Clock) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-// TODO: replace sf with blockbuilderfactory
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{

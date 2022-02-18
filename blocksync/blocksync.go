@@ -86,7 +86,7 @@ func newPeerBlock(pid string, blk *block.Block) *peerBlock {
 	}
 }
 
-// NewDummyBlockSyncer creates a new
+// NewDummyBlockSyncer creates a dummy BlockSync
 func NewDummyBlockSyncer() BlockSync {
 	return &dummyBlockSync{}
 }
