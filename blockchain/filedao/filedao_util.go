@@ -9,7 +9,6 @@ package filedao
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -91,7 +90,7 @@ func checkAuxFiles(filename, fileType string) (uint64, []string) {
 	}
 
 	dir := path.Dir(filename)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return 0, nil
 	}

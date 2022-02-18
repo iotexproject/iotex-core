@@ -13,9 +13,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +112,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 }
 
 func (p *injectProcessor) loadAccounts(keypairsPath string) error {
-	keyPairBytes, err := ioutil.ReadFile(keypairsPath)
+	keyPairBytes, err := os.ReadFile(keypairsPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to read key pairs file")
 	}

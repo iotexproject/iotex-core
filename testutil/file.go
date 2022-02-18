@@ -7,7 +7,6 @@
 package testutil
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -16,7 +15,7 @@ import (
 
 // PathOfTempFile returns path of a new temporary file
 func PathOfTempFile(dirName string) (string, error) {
-	tempFile, err := ioutil.TempFile(os.TempDir(), dirName)
+	tempFile, err := os.CreateTemp(os.TempDir(), dirName)
 	if err != nil {
 		return "", err
 	}

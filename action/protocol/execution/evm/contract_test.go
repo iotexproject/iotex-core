@@ -32,6 +32,7 @@ func TestCreateContract(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
+	defer testutil.CleanupPathV2(testTriePath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -205,7 +206,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		testTriePath, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, testTriePath)
+			testutil.CleanupPathV2(testTriePath)
 		}()
 
 		cfg.Chain.TrieDBPath = testTriePath
@@ -215,7 +216,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		testTriePath, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, testTriePath)
+			testutil.CleanupPathV2(testTriePath)
 		}()
 
 		cfg := config.Default
@@ -227,7 +228,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		testTriePath2, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, testTriePath2)
+			testutil.CleanupPathV2(testTriePath2)
 		}()
 		cfg.Chain.EnableTrielessStateDB = false
 		cfg.Chain.TrieDBPath = testTriePath2
@@ -237,7 +238,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		testTriePath2, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, testTriePath2)
+			testutil.CleanupPathV2(testTriePath2)
 		}()
 		cfg.Chain.EnableTrielessStateDB = false
 		cfg.Chain.TrieDBPath = testTriePath2
