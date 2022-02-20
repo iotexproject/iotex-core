@@ -99,18 +99,18 @@ func TestNativeStaking(t *testing.T) {
 		cand2Addr := identityset.Address(1)
 		cand2PriKey := identityset.PrivateKey(1)
 
-		register1, err := action.SignedCandidateRegister(1, candidate1Name, cand1Addr.String(), cand1Addr.String(),
-			cand1Addr.String(), selfStake.String(), 91, true, nil, gasLimit, gasPrice, cand1PriKey)
-		require.NoError(err)
-		register2, err := action.SignedCandidateRegister(1, candidate2Name, cand2Addr.String(), cand2Addr.String(),
-			cand2Addr.String(), selfStake.String(), 1, false, nil, gasLimit, gasPrice, cand2PriKey)
-		require.NoError(err)
+		addOneTx := func(tx action.SealedEnvelope, err error) action.SealedEnvelope {
+			fixedTime := time.Unix(cfg.Genesis.Timestamp, 0)
+			require.NoError(err)
+			require.NoError(ap.Add(context.Background(), tx))
+			require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+			return tx
+		}
 
-		fixedTime := time.Unix(cfg.Genesis.Timestamp, 0)
-		require.NoError(ap.Add(context.Background(), register1))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
-		require.NoError(ap.Add(context.Background(), register2))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		register1 := addOneTx(action.SignedCandidateRegister(1, candidate1Name, cand1Addr.String(), cand1Addr.String(),
+			cand1Addr.String(), selfStake.String(), 91, true, nil, gasLimit, gasPrice, cand1PriKey))
+		register2 := addOneTx(action.SignedCandidateRegister(1, candidate2Name, cand2Addr.String(), cand2Addr.String(),
+			cand2Addr.String(), selfStake.String(), 1, false, nil, gasLimit, gasPrice, cand2PriKey))
 
 		// check candidate state
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
@@ -139,15 +139,10 @@ func TestNativeStaking(t *testing.T) {
 		voter2Addr := identityset.Address(3)
 		voter2PriKey := identityset.PrivateKey(3)
 
-		cs1, err := action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
-			nil, gasLimit, gasPrice, voter1PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), cs1))
-		cs2, err := action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
-			nil, gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), cs2))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		cs1 := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
+			nil, gasLimit, gasPrice, voter1PriKey))
+		cs2 := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
+			nil, gasLimit, gasPrice, voter2PriKey))
 
 		// check candidate state
 		expectedVotes := big.NewInt(0).Add(cand1Votes, big.NewInt(0).Mul(vote, big.NewInt(2)))
@@ -181,11 +176,8 @@ func TestNativeStaking(t *testing.T) {
 		voter2BucketIndex := byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:])
 
 		// change candidate
-		cc, err := action.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
-			gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), cc))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		cc := addOneTx(action.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
+			gasLimit, gasPrice, voter2PriKey))
 
 		ccHash, err := cc.Hash()
 		require.NoError(err)
@@ -206,10 +198,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate2Name, cand2Addr.String(), selfStake, expectedVotes, cand2Addr))
 
 		// transfer stake
-		ts, err := action.SignedTransferStake(2, voter2Addr.String(), voter1BucketIndex, nil, gasLimit, gasPrice, voter1PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), ts))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		ts := addOneTx(action.SignedTransferStake(2, voter2Addr.String(), voter1BucketIndex, nil, gasLimit, gasPrice, voter1PriKey))
 
 		tsHash, err := ts.Hash()
 		require.NoError(err)
@@ -238,10 +227,7 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(voter1BucketIndex, bis[1])
 
 		// deposit to stake
-		ds, err := action.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), ds))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		ds := addOneTx(action.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey))
 
 		dsHash, err := ds.Hash()
 		require.NoError(err)
@@ -256,11 +242,8 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand2Addr.Bytes()), logs[0].Topics[3])
 
 		// restake
-		rs, err := action.SignedRestake(4, voter2BucketIndex, 1, true, nil,
-			gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), rs))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		rs := addOneTx(action.SignedRestake(4, voter2BucketIndex, 1, true, nil,
+			gasLimit, gasPrice, voter2PriKey))
 
 		rsHash, err := rs.Hash()
 		require.NoError(err)
@@ -278,19 +261,13 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate2Name, cand2Addr.String(), selfStake, expectedVotes, cand2Addr))
 
 		// deposit to stake again
-		ds, err = action.SignedDepositToStake(5, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), ds))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		ds = addOneTx(action.SignedDepositToStake(5, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey))
 
 		// check voter account state
 		require.NoError(checkAccountState(cfg, sf, ds, false, big.NewInt(0).Sub(initBalance, vote), voter2Addr))
 
 		// unstake voter stake
-		us, err := action.SignedReclaimStake(false, 6, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), us))
-		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		us := addOneTx(action.SignedReclaimStake(false, 6, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey))
 
 		usHash, err := us.Hash()
 		require.NoError(err)
@@ -303,12 +280,17 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(voter1BucketIndex, byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:]))
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
+		addOneTx = func(tx action.SealedEnvelope, err error) action.SealedEnvelope {
+			fixedTime := time.Unix(cfg.Genesis.Timestamp, 0)
+			unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
+			require.NoError(err)
+			require.NoError(ap.Add(context.Background(), tx))
+			require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
+			return tx
+		}
+
 		// unstake with correct timestamp
-		unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
-		us, err = action.SignedReclaimStake(false, 7, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), us))
-		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
+		us = addOneTx(action.SignedReclaimStake(false, 7, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey))
 
 		usHash, err = us.Hash()
 		require.NoError(err)
@@ -325,10 +307,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
 
 		// unstake self stake
-		us, err = action.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), us))
-		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
+		us = addOneTx(action.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
 
 		usHash, err = us.Hash()
 		require.NoError(err)
@@ -345,10 +324,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
 
 		// withdraw stake
-		ws, err := action.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), ws))
-		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
+		ws := addOneTx(action.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
 
 		wsHash, err := ws.Hash()
 		require.NoError(err)
@@ -362,10 +338,7 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
 		// withdraw	with correct timestamp
-		ws, err = action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
-		require.NoError(err)
-		require.NoError(ap.Add(context.Background(), ws))
-		require.NoError(createAndCommitBlock(bc, ap, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
+		ws = addOneTx(action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
 
 		wsHash, err = ws.Hash()
 		require.NoError(err)
