@@ -1484,3 +1484,8 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	}
 	return core.sf.ReadContractStorage(ctx, addr, key)
 }
+
+func (core *coreService) receiveBlock(blk *block.Block) error {
+	core.readCache.Clear()
+	return core.chainListener.ReceiveBlock(blk)
+}

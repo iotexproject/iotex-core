@@ -123,6 +123,5 @@ func (svr *ServerV2) Stop() error {
 
 // ReceiveBlock receives the new block
 func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
-	svr.core.readCache.Clear()
-	return svr.core.chainListener.ReceiveBlock(blk)
+	return svr.core.receiveBlock(blk)
 }
