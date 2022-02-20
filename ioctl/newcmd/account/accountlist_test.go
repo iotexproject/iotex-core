@@ -21,13 +21,18 @@ import (
 )
 
 func TestNewAccountList(t *testing.T) {
-
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().AliasMap().Return(map[string]string{
+		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+	}).Times(4)
 
 	t.Run("When NewAccountList returns no error", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(false)
+		client.EXPECT().IsCryptoSm2().Return(false)
 		testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 		require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
 		defer func() {
@@ -37,15 +42,6 @@ func TestNewAccountList(t *testing.T) {
 		_, _ = ks.NewAccount("test")
 		_, _ = ks.NewAccount("test2")
 
-		client.EXPECT().GetAliasMap().DoAndReturn(
-			func() map[string]string {
-				aliases := make(map[string]string)
-				for name, addr := range config.ReadConfig.Aliases {
-					aliases[addr] = name
-				}
-				return aliases
-			}).Times(2)
-
 		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)
@@ -53,21 +49,11 @@ func TestNewAccountList(t *testing.T) {
 	})
 
 	t.Run("When NewAccountList returns error", func(t *testing.T) {
-		client.EXPECT().HasCryptoSm2().Return(true)
+		client.EXPECT().IsCryptoSm2().Return(true)
 		config.ReadConfig.Wallet = ""
-
-		client.EXPECT().GetAliasMap().DoAndReturn(
-			func() map[string]string {
-				aliases := make(map[string]string)
-				for name, addr := range config.ReadConfig.Aliases {
-					aliases[addr] = name
-				}
-				return aliases
-			}).Times(2)
 
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Error(t, err)
 	})
-
 }

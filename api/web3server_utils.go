@@ -154,7 +154,9 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 			if isDetailed {
 				tx, err := svr.getTransactionFromActionInfo(info)
 				if err != nil {
-					log.L().Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
+					if errors.Cause(err) != errUnsupportedAction {
+						log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
+					}
 					continue
 				}
 				transactions = append(transactions, tx)
@@ -247,7 +249,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		}
 	// TODO: support other type actions
 	default:
-		return transactionObject{}, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
+		return transactionObject{}, errors.Wrapf(errUnsupportedAction, "actHash: %s", actInfo.ActHash)
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
@@ -498,7 +500,7 @@ func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64)
 func loadFilterFromCache(c apiCache, filterID string) (filterObject, error) {
 	dataStr, isFound := c.Get(filterID)
 	if !isFound {
-		return filterObject{}, errInvalidFiterID
+		return filterObject{}, errInvalidFilterID
 	}
 	var filterObj filterObject
 	if err := json.Unmarshal([]byte(dataStr), &filterObj); err != nil {

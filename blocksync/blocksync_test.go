@@ -477,6 +477,10 @@ func newTestConfig() (config.Config, error) {
 	if err != nil {
 		return config.Config{}, err
 	}
+	defer func() {
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+	}()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath

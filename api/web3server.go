@@ -98,12 +98,13 @@ var (
 		Help: "web3 api metrics.",
 	}, []string{"method"})
 
-	errUnkownType     = errors.New("wrong type of params")
-	errNullPointer    = errors.New("null pointer")
-	errInvalidFormat  = errors.New("invalid format of request")
-	errNotImplemented = errors.New("method not implemented")
-	errInvalidFiterID = errors.New("filter not found")
-	errInvalidBlock   = errors.New("invalid block")
+	errUnkownType        = errors.New("wrong type of params")
+	errNullPointer       = errors.New("null pointer")
+	errInvalidFormat     = errors.New("invalid format of request")
+	errNotImplemented    = errors.New("method not implemented")
+	errInvalidFilterID   = errors.New("filter not found")
+	errInvalidBlock      = errors.New("invalid block")
+	errUnsupportedAction = errors.New("the type of action is not supported")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -183,6 +184,7 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 		params = web3Req.Get("params").Value()
 		method = web3Req.Get("method").Value()
 	)
+	log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	switch method {
 	case "eth_accounts":
 		res, err = svr.ethAccounts()
@@ -262,9 +264,11 @@ func (svr *Web3Server) handleWeb3Req(web3Req gjson.Result) interface{} {
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
 	if err != nil {
-		log.L().Error("web3server",
+		log.Logger("api").Error("web3server",
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 			zap.Error(err))
+	} else {
+		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
 	web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	web3ServerMtc.WithLabelValues("requests_total").Inc()
@@ -948,7 +952,7 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if filterObj.FilterType != "log" {
-		return nil, errInvalidFiterID
+		return nil, errInvalidFilterID
 	}
 	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
 	if err != nil {
