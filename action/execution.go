@@ -117,7 +117,10 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 
 	ex.contract = pbAct.GetContract()
 	ex.amount = &big.Int{}
-	ex.amount.SetString(pbAct.GetAmount(), 10)
+	_, ok := ex.amount.SetString(pbAct.GetAmount(), 10)
+	if !ok {
+		return errors.New("failed to set proto amount")
+	}
 	ex.data = pbAct.GetData()
 	return nil
 }

@@ -469,7 +469,10 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
 
-	amount, _ := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
+	amount, ok := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
+	if !ok {
+		return errors.New("failed to set execution amount")
+	}
 	callerAddr, err := address.FromString(actInfo.Sender)
 	if err != nil {
 		return nil, err

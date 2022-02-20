@@ -476,7 +476,10 @@ func checkAccountState(
 		return err
 	}
 	if registrationFee {
-		regFee, _ := new(big.Int).SetString(cfg.Genesis.RegistrationConsts.Fee, 10)
+		regFee, ok := new(big.Int).SetString(cfg.Genesis.RegistrationConsts.Fee, 10)
+		if !ok {
+			return errors.New("failed to set genesis registration fee")
+		}
 		cost.Add(cost, regFee)
 	}
 	acct1, err := accountutil.LoadAccount(sr, accountAddr)

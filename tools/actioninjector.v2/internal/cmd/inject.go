@@ -392,7 +392,10 @@ func inject(_ []string) string {
 	transferGasPrice := big.NewInt(rawInjectCfg.transferGasPrice)
 	executionGasPrice := big.NewInt(rawInjectCfg.executionGasPrice)
 	executionAmount := big.NewInt(rawInjectCfg.executionAmount)
-	loadTokenAmount, _ := big.NewInt(0).SetString(rawInjectCfg.loadTokenAmount, 10)
+	loadTokenAmount, ok := big.NewInt(0).SetString(rawInjectCfg.loadTokenAmount, 10)
+	if !ok {
+		errors.New("failed to load token amount")
+	}
 
 	injectCfg.configPath = rawInjectCfg.configPath
 	injectCfg.serverAddr = rawInjectCfg.serverAddr

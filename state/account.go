@@ -63,7 +63,10 @@ func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
 	if acPb.Balance != "" {
-		st.Balance.SetString(acPb.Balance, 10)
+		_, ok := st.Balance.SetString(acPb.Balance, 10)
+		if !ok {
+			errors.New("failed to set protobuf's account")
+		}
 	}
 	copy(st.Root[:], acPb.Root)
 	st.CodeHash = nil

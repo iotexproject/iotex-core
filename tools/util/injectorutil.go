@@ -668,7 +668,10 @@ func GetAllBalanceMap(
 				return err
 			}
 			balanceMap[addr] = big.NewInt(0)
-			balanceMap[addr].SetString(acctDetails.GetAccountMeta().Balance, 10)
+			_, ok := balanceMap[addr].SetString(acctDetails.GetAccountMeta().Balance, 10)
+			if !ok {
+				return errors.New("failed to set all balance")
+			}
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -705,7 +708,10 @@ func CheckPendingActionList(
 			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				pbAct := actInfo.GetAction().GetCore()
 				gasLimit := actInfo.GetAction().Core.GetGasLimit()
-				gasPrice, _ := new(big.Int).SetString(actInfo.GetAction().Core.GetGasPrice(), 10)
+				gasPrice, ok := new(big.Int).SetString(actInfo.GetAction().Core.GetGasPrice(), 10)
+				if !ok {
+					return errors.New("failed to set gas price")
+				}
 				switch {
 				case pbAct.GetTransfer() != nil:
 					act := &action.Transfer{}

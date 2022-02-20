@@ -97,7 +97,10 @@ func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	ds.payload = pbAct.GetPayload()
 	ds.amount = big.NewInt(0)
 	if len(pbAct.GetAmount()) > 0 {
-		ds.amount.SetString(pbAct.GetAmount(), 10)
+		_, ok := ds.amount.SetString(pbAct.GetAmount(), 10)
+		if !ok {
+			return errors.New("failed to set proto amount")
+		}
 	}
 
 	return nil
