@@ -9,11 +9,10 @@ import (
 func TestNewBloomRange(t *testing.T) {
 	require := require.New(t)
 
-	t.Run("unenough data", func(t *testing.T) {
-		var br bloomRange
-		err := br.FromBytes(make([]byte, 16))
-		require.Error(err)
-	})
+	// unenough data
+	var br bloomRange
+	err := br.FromBytes(make([]byte, 16))
+	require.Error(err)
 
 	tests := []struct {
 		start, end uint64
