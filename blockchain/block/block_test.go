@@ -221,3 +221,33 @@ func makeBlock(tb testing.TB, n int) *Block {
 	require.NoError(tb, err)
 	return &blk
 }
+
+func TestVerifyBlock(t *testing.T) {
+	require := require.New(t)
+
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
+	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
+	blkhash, err := tsf1.Hash()
+	require.NoError(err)
+	blk, err := NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(blkhash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf1, tsf2).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	t.Run("success", func(t *testing.T) {
+		require.True(blk.Header.VerifySignature())
+		require.NoError(blk.VerifyTxRoot())
+	})
+
+	t.Run("wrong root hash", func(t *testing.T) {
+		blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
+		require.True(blk.Header.VerifySignature())
+		require.Error(blk.VerifyTxRoot())
+	})
+}
