@@ -141,7 +141,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.gasLimit = pbAct.GetGasLimit()
 	elp.gasPrice = &big.Int{}
 	_, ok := elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
-	if ok {
+	if !ok {
 		return errors.New("failed to set proto gas price")
 	}
 
