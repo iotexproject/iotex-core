@@ -471,7 +471,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 
 	amount, ok := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
 	if !ok {
-		return errors.New("failed to set execution amount")
+		return nil, errors.New("failed to set execution amount")
 	}
 	callerAddr, err := address.FromString(actInfo.Sender)
 	if err != nil {
