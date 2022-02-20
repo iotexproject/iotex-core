@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
+	iotexcrypto "github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -245,7 +246,18 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 
 func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) error {
 	ctx := context.Background()
-	addOneTx := func(tx action.SealedEnvelope, err error) error {
+	addOneTsf := func(recipientAddr string, senderPriKey iotexcrypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) error {
+		tx, err := action.SignedTransfer(recipientAddr, senderPriKey, nonce, amount, payload, gasLimit, gasPrice)
+		if err != nil {
+			return err
+		}
+		if err := ap.Add(ctx, tx); err != nil {
+			return err
+		}
+		return nil
+	}
+	addOneExec := func(contractAddr string, executorPriKey iotexcrypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) error {
+		tx, err := action.SignedExecution(contractAddr, executorPriKey, nonce, amount, gasLimit, gasPrice, data)
 		if err != nil {
 			return err
 		}
@@ -256,7 +268,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	}
 	// Add block 1
 	addr0 := identityset.Address(27).String()
-	if err := addOneTx(action.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -282,22 +294,22 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	addr6 := identityset.Address(33).String()
 	// Add block 2
 	// test --> A, B, C, D, E, F
-	if err := addOneTx(action.SignedTransfer(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr2, priKey0, 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr2, priKey0, 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr3, priKey0, 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr3, priKey0, 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr4, priKey0, 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr4, priKey0, 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr5, priKey0, 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr5, priKey0, 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr6, priKey0, 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr6, priKey0, 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	// deploy simple smart contract
@@ -335,19 +347,19 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 3
 	// Charlie --> A, B, D, E, test
-	if err := addOneTx(action.SignedTransfer(addr1, priKey3, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr1, priKey3, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr2, priKey3, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr2, priKey3, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr4, priKey3, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr4, priKey3, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr5, priKey3, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr5, priKey3, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr0, priKey3, 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr0, priKey3, 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	// call set() to set storedData = 0x1f40
@@ -375,16 +387,16 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 4
 	// Delta --> B, E, F, test
-	if err := addOneTx(action.SignedTransfer(addr2, priKey4, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr2, priKey4, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr5, priKey4, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr5, priKey4, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr6, priKey4, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr6, priKey4, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr0, priKey4, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr0, priKey4, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	data, _ = hex.DecodeString("c2bc2efc")
@@ -410,39 +422,39 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 
 	// Add block 5
 	// Delta --> A, B, C, D, F, test
-	if err := addOneTx(action.SignedTransfer(addr1, priKey5, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr1, priKey5, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr2, priKey5, 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr2, priKey5, 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr3, priKey5, 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr3, priKey5, 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr4, priKey5, 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr4, priKey5, 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr6, priKey5, 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr6, priKey5, 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr0, priKey5, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr0, priKey5, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr3, priKey3, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr3, priKey3, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
-	if err := addOneTx(action.SignedTransfer(addr1, priKey1, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))); err != nil {
+	if err := addOneTsf(addr1, priKey1, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64)); err != nil {
 		return err
 	}
 	// call set() to set storedData = 0x1f40
 	data, _ = hex.DecodeString("60fe47b1")
 	data = append(data, setTopic...)
-	if err := addOneTx(action.SignedExecution(contract, priKey2, 4, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)); err != nil {
+	if err := addOneExec(contract, priKey2, 4, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data); err != nil {
 		return err
 	}
 	data, _ = hex.DecodeString("c2bc2efc")
 	data = append(data, getTopic...)
-	if err := addOneTx(action.SignedExecution(contract, priKey2, 5, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)); err != nil {
+	if err := addOneExec(contract, priKey2, 5, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data); err != nil {
 		return err
 	}
 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
