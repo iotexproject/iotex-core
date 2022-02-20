@@ -146,9 +146,10 @@ func TestNativeStaking(t *testing.T) {
 		voter2Addr := identityset.Address(3)
 		voter2PriKey := identityset.PrivateKey(3)
 
-		cs1, err := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
-			nil, gasLimit, gasPrice, voter1PriKey))
+		cs1, err := action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
+			nil, gasLimit, gasPrice, voter1PriKey)
 		require.NoError(err)
+		require.NoError(ap.Add(context.Background(), cs1))
 		cs2, err := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter2PriKey))
 		require.NoError(err)
