@@ -115,9 +115,10 @@ func TestNativeStaking(t *testing.T) {
 
 		register1, err := addOneTx(action.SignedCandidateRegister(1, candidate1Name, cand1Addr.String(), cand1Addr.String(),
 			cand1Addr.String(), selfStake.String(), 91, true, nil, gasLimit, gasPrice, cand1PriKey))
+		require.NoError(err)
 		register2, err := addOneTx(action.SignedCandidateRegister(1, candidate2Name, cand2Addr.String(), cand2Addr.String(),
 			cand2Addr.String(), selfStake.String(), 1, false, nil, gasLimit, gasPrice, cand2PriKey))
-
+		require.NoError(err)
 		// check candidate state
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
 		require.NoError(checkCandidateState(sf, candidate2Name, cand2Addr.String(), selfStake, selfStake, cand2Addr))
@@ -147,8 +148,10 @@ func TestNativeStaking(t *testing.T) {
 
 		cs1, err := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter1PriKey))
+		require.NoError(err)
 		cs2, err := addOneTx(action.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		// check candidate state
 		expectedVotes := big.NewInt(0).Add(cand1Votes, big.NewInt(0).Mul(vote, big.NewInt(2)))
@@ -184,6 +187,7 @@ func TestNativeStaking(t *testing.T) {
 		// change candidate
 		cc, err := addOneTx(action.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
 			gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		ccHash, err := cc.Hash()
 		require.NoError(err)
@@ -205,6 +209,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// transfer stake
 		ts, err := addOneTx(action.SignedTransferStake(2, voter2Addr.String(), voter1BucketIndex, nil, gasLimit, gasPrice, voter1PriKey))
+		require.NoError(err)
 
 		tsHash, err := ts.Hash()
 		require.NoError(err)
@@ -234,6 +239,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// deposit to stake
 		ds, err := addOneTx(action.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		dsHash, err := ds.Hash()
 		require.NoError(err)
@@ -250,6 +256,7 @@ func TestNativeStaking(t *testing.T) {
 		// restake
 		rs, err := addOneTx(action.SignedRestake(4, voter2BucketIndex, 1, true, nil,
 			gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		rsHash, err := rs.Hash()
 		require.NoError(err)
@@ -268,12 +275,14 @@ func TestNativeStaking(t *testing.T) {
 
 		// deposit to stake again
 		ds, err = addOneTx(action.SignedDepositToStake(5, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		// check voter account state
 		require.NoError(checkAccountState(cfg, sf, ds, false, big.NewInt(0).Sub(initBalance, vote), voter2Addr))
 
 		// unstake voter stake
 		us, err := addOneTx(action.SignedReclaimStake(false, 6, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		usHash, err := us.Hash()
 		require.NoError(err)
@@ -302,6 +311,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// unstake with correct timestamp
 		us, err = addOneTx(action.SignedReclaimStake(false, 7, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey))
+		require.NoError(err)
 
 		usHash, err = us.Hash()
 		require.NoError(err)
@@ -319,6 +329,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// unstake self stake
 		us, err = addOneTx(action.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
+		require.NoError(err)
 
 		usHash, err = us.Hash()
 		require.NoError(err)
@@ -336,6 +347,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// withdraw stake
 		ws, err := addOneTx(action.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
+		require.NoError(err)
 
 		wsHash, err := ws.Hash()
 		require.NoError(err)
@@ -350,6 +362,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// withdraw	with correct timestamp
 		ws, err = addOneTx(action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
+		require.NoError(err)
 
 		wsHash, err = ws.Hash()
 		require.NoError(err)
