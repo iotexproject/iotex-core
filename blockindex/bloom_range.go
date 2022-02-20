@@ -49,12 +49,12 @@ func (br *bloomRange) Bytes() ([]byte, error) {
 }
 
 func (br *bloomRange) FromBytes(data []byte) error {
+	if br.BloomFilter == nil {
+		return errors.New("the bloomFilter of bloomRange is nil")
+	}
 	length := len(data)
 	if length <= 16 {
 		return errors.New("not enough data")
-	}
-	if br.BloomFilter == nil {
-		return errors.New("the bloomFilter of bloomRange is nil")
 	}
 
 	// data = bf.Bytes() + start (8-byte) + end (8-byte)

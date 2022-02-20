@@ -8,6 +8,8 @@ package blockindex
 
 import (
 	"context"
+	"hash/fnv"
+	"math/big"
 	"runtime"
 	"sync"
 	"testing"
@@ -44,6 +46,18 @@ func newTestLog(addr string, topics []hash.Hash256) *action.Log {
 }
 
 func getTestLogBlocks(t *testing.T) []*block.Block {
+	amount := uint64(50 << 22)
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(28), 1, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	require.NoError(t, err)
+
+	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), 2, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	require.NoError(t, err)
+
+	// create testing executions
+	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 1, big.NewInt(1), 0, big.NewInt(0), nil)
+	require.NoError(t, err)
+	execution2, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
+	require.NoError(t, err)
 
 	testLog1 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data1})
 	receipt1 := &action.Receipt{}
@@ -65,32 +79,57 @@ func getTestLogBlocks(t *testing.T) []*block.Block {
 	receipt5 := &action.Receipt{}
 	receipt5.AddLogs(testLog5)
 
+	hash1 := hash.Hash256{}
+	fnv.New32().Sum(hash1[:])
 	blk1, err := block.NewTestingBuilder().
 		SetHeight(1).
+		SetPrevBlockHash(hash1).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf1, tsf2, execution1).
 		SetReceipts([]*action.Receipt{receipt1}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
+	hash2 := hash.Hash256{}
+	fnv.New32().Sum(hash2[:])
 	blk2, err := block.NewTestingBuilder().
 		SetHeight(2).
+		SetPrevBlockHash(hash2).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf1, execution2).
 		SetReceipts([]*action.Receipt{receipt2}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
+	hash3 := hash.Hash256{}
+	fnv.New32().Sum(hash3[:])
 	blk3, err := block.NewTestingBuilder().
 		SetHeight(3).
+		SetPrevBlockHash(hash3).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf2, execution2).
 		SetReceipts([]*action.Receipt{receipt3}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
+	hash4 := hash.Hash256{}
+	fnv.New32().Sum(hash4[:])
 	blk4, err := block.NewTestingBuilder().
 		SetHeight(4).
+		SetPrevBlockHash(hash4).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf1, tsf2, execution1, execution2).
 		SetReceipts([]*action.Receipt{receipt4}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
+	hash5 := hash.Hash256{}
+	fnv.New32().Sum(hash5[:])
 	blk5, err := block.NewTestingBuilder().
 		SetHeight(5).
+		SetPrevBlockHash(hash5).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(tsf1, execution1).
 		SetReceipts([]*action.Receipt{receipt5}).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)

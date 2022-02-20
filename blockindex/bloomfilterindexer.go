@@ -193,11 +193,9 @@ func (bfx *bloomfilterIndexer) BlockFilterByHeight(height uint64) (bloom.BloomFi
 	if err != nil {
 		return nil, err
 	}
-	// load data into dummy bloomFilter
 	if err := bf.FromBytes(bfBytes); err != nil {
 		return nil, err
 	}
-
 	return bf, nil
 }
 
