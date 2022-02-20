@@ -57,8 +57,7 @@ func TestKVStorePutGet(t *testing.T) {
 	path := "test-kv-store.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
@@ -116,8 +115,7 @@ func TestBatchRollback(t *testing.T) {
 	path := "test-batch-rollback.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
@@ -239,8 +237,7 @@ func TestDBBatch(t *testing.T) {
 	path := "test-batch-commit.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
@@ -292,8 +289,7 @@ func TestCacheKV(t *testing.T) {
 	path := "test-cache-kv.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
@@ -338,8 +334,7 @@ func TestDeleteBucket(t *testing.T) {
 	path := "test-delete.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
@@ -440,8 +435,7 @@ func TestFilter(t *testing.T) {
 	path := "test-filter.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testutil.CleanupPath(t, testPath)
-	defer testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPathV2(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 

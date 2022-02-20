@@ -156,11 +156,9 @@ func TestIndexBuilder(t *testing.T) {
 	require.NoError(err)
 	indexPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testutil.CleanupPath(t, testPath)
-	testutil.CleanupPath(t, indexPath)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
-		testutil.CleanupPath(t, indexPath)
+		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPathV2(indexPath)
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath

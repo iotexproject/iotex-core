@@ -9,11 +9,12 @@ package alias
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -48,10 +49,10 @@ func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 				return output.NewError(output.ValidationError, "invalid address", err)
 			}
 			addr := args[1]
-			aliases := GetAliasMap()
+			aliases := c.AliasMap()
 			for aliases[addr] != "" {
 				delete(c.Config().Aliases, aliases[addr])
-				aliases = GetAliasMap()
+				aliases = c.AliasMap()
 			}
 			c.Config().Aliases[alias] = addr
 			if err := c.WriteConfig(c.Config()); err != nil {

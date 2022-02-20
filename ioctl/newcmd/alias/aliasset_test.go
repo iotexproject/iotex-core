@@ -28,7 +28,7 @@ func TestNewAliasSetCmd(t *testing.T) {
 	}
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", config.English).Times(2)
-	client.EXPECT().GetAliasMap().Return(cfg.Aliases).MaxTimes(2)
+	client.EXPECT().AliasMap().Return(cfg.Aliases).MaxTimes(2)
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 	client.EXPECT().WriteConfig(cfg).Return(nil).Times(1)
 
@@ -36,5 +36,4 @@ func TestNewAliasSetCmd(t *testing.T) {
 	result, err := util.ExecuteCmd(cmd, "d", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
 	require.NoError(t, err)
 	require.NotNil(t, result)
-
 }

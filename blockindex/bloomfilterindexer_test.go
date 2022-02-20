@@ -265,7 +265,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 	t.Run("Bolt DB indexer", func(t *testing.T) {
 		testPath, err := testutil.PathOfTempFile("test-indexer")
 		require.NoError(err)
-		defer testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPathV2(testPath)
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 
@@ -334,6 +334,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 	require.NoError(indexer.Start(ctx))
 	defer func() {
 		require.NoError(indexer.Stop(ctx))
+		testutil.CleanupPathV2(testPath)
 	}()
 	for i := 0; i < len(blks); i++ {
 		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))
