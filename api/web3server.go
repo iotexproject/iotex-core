@@ -132,7 +132,7 @@ func NewWeb3Server(core CoreService, httpPort int, cacheURL string) *Web3Server 
 }
 
 // Start starts the API server
-func (svr *Web3Server) Start(ctx context.Context) error {
+func (svr *Web3Server) Start(_ context.Context) error {
 	go func() {
 		if err := svr.web3Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
@@ -142,7 +142,7 @@ func (svr *Web3Server) Start(ctx context.Context) error {
 }
 
 // Stop stops the API server
-func (svr *Web3Server) Stop(ctx context.Context) error {
+func (svr *Web3Server) Stop(_ context.Context) error {
 	return svr.web3Server.Shutdown(context.Background())
 }
 

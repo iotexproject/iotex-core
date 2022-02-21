@@ -69,7 +69,7 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 }
 
 // Start starts the GRPC server
-func (svr *GRPCServer) Start(ctx context.Context) error {
+func (svr *GRPCServer) Start(_ context.Context) error {
 	lis, err := net.Listen("tcp", svr.port)
 	if err != nil {
 		log.L().Error("grpc server failed to listen.", zap.Error(err))
@@ -85,7 +85,7 @@ func (svr *GRPCServer) Start(ctx context.Context) error {
 }
 
 // Stop stops the GRPC server
-func (svr *GRPCServer) Stop(ctx context.Context) error {
+func (svr *GRPCServer) Stop(_ context.Context) error {
 	svr.grpcServer.Stop()
 	return nil
 }
