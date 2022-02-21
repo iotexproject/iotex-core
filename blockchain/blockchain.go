@@ -177,7 +177,6 @@ func ClockOption(clk clock.Clock) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-// TODO: replace sf with blockbuilderfactory
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
@@ -302,8 +301,12 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 			tip.Hash,
 		)
 	}
-	if err := block.VerifyBlock(blk); err != nil {
-		return errors.Wrap(err, "failed to verify block's signature and merkle root")
+
+	if !blk.Header.VerifySignature() {
+		return errors.Errorf("failed to verify block's signature with public key: %x", blk.PublicKey())
+	}
+	if err := blk.VerifyTxRoot(); err != nil {
+		return err
 	}
 
 	producerAddr := blk.PublicKey().Address()

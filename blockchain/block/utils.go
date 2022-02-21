@@ -7,16 +7,14 @@
 package block
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func calculateTxRoot(acts []action.SealedEnvelope) (hash.Hash256, error) {
@@ -46,30 +44,4 @@ func calculateTransferAmount(acts []action.SealedEnvelope) *big.Int {
 		transferAmount.Add(transferAmount, transfer.Amount())
 	}
 	return transferAmount
-}
-
-// VerifyBlock verifies the block signature and tx root
-func VerifyBlock(blk *Block) error {
-	// verify new block's signature is correct
-	if !blk.VerifySignature() {
-		return errors.Errorf(
-			"failed to verify block's signature with public key: %x",
-			blk.PublicKey(),
-		)
-	}
-
-	hashExpect := blk.TxRoot()
-	hashActual, err := blk.CalculateTxRoot()
-	if err != nil {
-		log.L().Debug("error in getting hash", zap.Error(err))
-		return err
-	}
-	if !bytes.Equal(hashExpect[:], hashActual[:]) {
-		return errors.Errorf(
-			"wrong tx hash %x, expecting %x",
-			hashActual,
-			hashExpect,
-		)
-	}
-	return nil
 }
