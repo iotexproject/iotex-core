@@ -338,7 +338,7 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-	bs, err := createBlockSyner(
+	bs, err := createBlockSyncer(
 		cfg.Consensus.Scheme == config.StandaloneScheme,
 		cfg.BlockSync,
 		cons,
@@ -588,7 +588,7 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
-func createBlockSyner(
+func createBlockSyncer(
 	isDummyBlockSyncer bool,
 	cfgBS config.BlockSync,
 	cons consensus.Consensus,
