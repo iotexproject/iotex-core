@@ -587,6 +587,7 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
+// TODO: replace isDummyBlockSyncer by declaring BlockSyncerMode in blocksyncer package
 func createBlockSyncer(
 	isDummyBlockSyncer bool,
 	cfgBS config.BlockSync,
