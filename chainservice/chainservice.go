@@ -214,8 +214,7 @@ func New(
 	}
 
 	// Create ActPool
-	actOpts := make([]actpool.Option, 0)
-	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
+	actPool, err := actpool.NewActPool(sf, cfg.ActPool)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}

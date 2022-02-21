@@ -41,7 +41,7 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			listmessage := listMessage{}
-			aliases := c.GetAliasMap()
+			aliases := c.AliasMap()
 
 			if c.IsCryptoSm2() {
 				sm2Accounts, err := listSm2Account()
