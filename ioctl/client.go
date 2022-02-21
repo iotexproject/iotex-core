@@ -200,6 +200,9 @@ func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ec
 	}
 
 	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
+	if err != nil {
+		return nil, output.NewError(output.KeystoreError, "failed to decrypt key", err)
+	}
 	if key != nil && key.PrivateKey != nil {
 		// clear private key in memory prevent from attack
 		defer func(k *ecdsa.PrivateKey) {
@@ -208,9 +211,6 @@ func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ec
 				b[i] = 0
 			}
 		}(key.PrivateKey)
-	}
-	if err != nil {
-		return nil, output.NewError(output.KeystoreError, "failed to decrypt key", err)
 	}
 	return key.PrivateKey, nil
 }
