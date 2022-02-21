@@ -68,9 +68,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
 	if testing {
-		opts = []chainservice.Option{
-			chainservice.WithTesting(),
-		}
+		opts = append(opts, chainservice.WithTesting())
 	}
 	cs, err = chainservice.New(cfg, p2pAgent, opts...)
 	if err != nil {
