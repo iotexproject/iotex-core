@@ -8,6 +8,7 @@ package ioctl
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -49,8 +50,10 @@ type (
 		GetAddress(in string) (string, error)
 		// doing
 		Address(in string) (string, error)
-		// doing
-		NewKeyStore(string, int, int) *keystore.KeyStore
+		// NewKeyStore creates a keystore by default walletdir
+		NewKeyStore() *keystore.KeyStore
+		// DecryptPrivateKey returns privateKey from a json blob
+		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
 		// doing
@@ -201,8 +204,31 @@ func (c *client) Address(in string) (string, error) {
 	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
 
-func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-	return keystore.NewKeyStore(keydir, scryptN, scryptP)
+func (c *client) NewKeyStore() *keystore.KeyStore {
+	return keystore.NewKeyStore(c.cfg.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+}
+
+func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
+	keyJSON, err := os.ReadFile(keyStorePath)
+	if err != nil {
+		return nil, output.NewError(output.ReadFileError,
+			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+	}
+
+	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
+	if err != nil {
+		return nil, output.NewError(output.KeystoreError, "failed to decrypt key", err)
+	}
+	if key != nil && key.PrivateKey != nil {
+		// clear private key in memory prevent from attack
+		defer func(k *ecdsa.PrivateKey) {
+			b := k.D.Bits()
+			for i := range b {
+				b[i] = 0
+			}
+		}(key.PrivateKey)
+	}
+	return key.PrivateKey, nil
 }
 
 func (c *client) AliasMap() map[string]string {
