@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
@@ -134,22 +133,17 @@ func TestNewKeyStore(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
 
+	config.ReadConfig.Wallet = testWallet
 	c := NewClient(false)
 	defer c.Stop(context.Background())
 
-	tests := [][]int{
-		{keystore.StandardScryptN, keystore.StandardScryptP},
-		{keystore.LightScryptN, keystore.LightScryptP},
-	}
-	for _, test := range tests {
-		ks := c.NewKeyStore(testWallet, test[0], test[1])
-		acc, err := ks.NewAccount("test")
-		r.NoError(err)
-		_, err = os.Stat(acc.URL.Path)
-		r.NoError(err)
-		r.True(strings.HasPrefix(acc.URL.Path, testWallet))
-		r.True(ks.HasAddress(acc.Address))
-	}
+	ks := c.NewKeyStore()
+	acc, err := ks.NewAccount("test")
+	r.NoError(err)
+	_, err = os.Stat(acc.URL.Path)
+	r.NoError(err)
+	r.True(strings.HasPrefix(acc.URL.Path, testWallet))
+	r.True(ks.HasAddress(acc.Address))
 }
 
 func TestAliasMap(t *testing.T) {
