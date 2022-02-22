@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -83,7 +82,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				}
 			} else {
 				// find the keystore and update
-				ks := client.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
 						if err = readSecretAndUpdate(client, acc,
