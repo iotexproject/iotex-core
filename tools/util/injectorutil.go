@@ -667,10 +667,13 @@ func GetAllBalanceMap(
 			if err != nil {
 				return err
 			}
-			balanceMap[addr] = big.NewInt(0)
-			_, ok := balanceMap[addr].SetString(acctDetails.GetAccountMeta().Balance, 10)
-			if !ok {
-				return errors.New("failed to set all balance")
+			if acctDetails.GetAccountMeta().Balance == "" {
+				balanceMap[addr] = big.NewInt(0)
+			} else {
+				_, ok := balanceMap[addr].SetString(acctDetails.GetAccountMeta().Balance, 10)
+				if !ok {
+					return errors.New("failed to set all balance")
+				}
 			}
 			return nil
 		}, backoff.NewExponentialBackOff())
