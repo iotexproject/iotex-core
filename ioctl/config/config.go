@@ -8,7 +8,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -138,7 +137,7 @@ func LoadConfig() (Config, error) {
 	ReadConfig := Config{
 		Aliases: make(map[string]string),
 	}
-	in, err := ioutil.ReadFile(DefaultConfigFile)
+	in, err := os.ReadFile(DefaultConfigFile)
 	if err == nil {
 		if err := yaml.Unmarshal(in, &ReadConfig); err != nil {
 			return ReadConfig, err

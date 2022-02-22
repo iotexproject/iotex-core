@@ -70,7 +70,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("filedao-legacy")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := db.DefaultConfig

@@ -23,7 +23,7 @@ func TestNewAliasImportCmd(t *testing.T) {
 	}
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", config.English).Times(4)
-	client.EXPECT().GetAliasMap().Return(map[string]string{
+	client.EXPECT().AliasMap().Return(map[string]string{
 		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
@@ -65,7 +65,6 @@ name: mhs2
 	result, err = util.ExecuteCmd(cmd, "-f", "test", "test")
 	require.Error(t, err)
 	require.NotNil(t, result)
-
 }
 
 // test for list message display

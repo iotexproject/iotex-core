@@ -6,6 +6,7 @@ package mock_ioctlclient
 
 import (
 	context "context"
+	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -68,6 +69,20 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockClient)(nil).Address), in)
 }
 
+// AliasMap mocks base method.
+func (m *MockClient) AliasMap() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AliasMap")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// AliasMap indicates an expected call of AliasMap.
+func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliasMap", reflect.TypeOf((*MockClient)(nil).AliasMap))
+}
+
 // AskToConfirm mocks base method.
 func (m *MockClient) AskToConfirm(arg0 string) bool {
 	m.ctrl.T.Helper()
@@ -94,6 +109,21 @@ func (m *MockClient) Config() config.Config {
 func (mr *MockClientMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
+}
+
+// DecryptPrivateKey mocks base method.
+func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DecryptPrivateKey", arg0, arg1)
+	ret0, _ := ret[0].(*ecdsa.PrivateKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DecryptPrivateKey indicates an expected call of DecryptPrivateKey.
+func (mr *MockClientMockRecorder) DecryptPrivateKey(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptPrivateKey", reflect.TypeOf((*MockClient)(nil).DecryptPrivateKey), arg0, arg1)
 }
 
 // Execute mocks base method.
@@ -125,32 +155,32 @@ func (mr *MockClientMockRecorder) GetAddress(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockClient)(nil).GetAddress), in)
 }
 
-// GetAliasMap mocks base method.
-func (m *MockClient) GetAliasMap() map[string]string {
+// IsCryptoSm2 mocks base method.
+func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAliasMap")
-	ret0, _ := ret[0].(map[string]string)
+	ret := m.ctrl.Call(m, "IsCryptoSm2")
+	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// GetAliasMap indicates an expected call of GetAliasMap.
-func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
+// IsCryptoSm2 indicates an expected call of IsCryptoSm2.
+func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
 }
 
 // NewKeyStore mocks base method.
-func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore {
+func (m *MockClient) NewKeyStore() *keystore.KeyStore {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewKeyStore", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewKeyStore")
 	ret0, _ := ret[0].(*keystore.KeyStore)
 	return ret0
 }
 
 // NewKeyStore indicates an expected call of NewKeyStore.
-func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
 }
 
 // PrintError mocks base method.
