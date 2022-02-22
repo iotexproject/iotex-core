@@ -137,7 +137,6 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	copy(h.deltaStateDigest[:], pb.GetDeltaStateDigest())
 	copy(h.receiptRoot[:], pb.GetReceiptRoot())
 	if pb.GetLogsBloom() != nil {
-		// TODO: move the number(2048, 3) to top as const or params of the struct
 		var err error
 		h.logsBloom, err = bloom.NewBloomFilterLegacy(2048, 3)
 		if err != nil {
