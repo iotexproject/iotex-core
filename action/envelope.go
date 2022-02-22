@@ -3,6 +3,7 @@ package action
 import (
 	"math/big"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -25,6 +26,7 @@ type (
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
 		SetChainID(chainID uint32)
+		ToRLP() (RlpTransaction, error)
 	}
 
 	envelope struct {
@@ -248,3 +250,60 @@ func (elp *envelope) ChainID() uint32 { return elp.chainID }
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
+
+// ToRLP converts native to RlpTransaction
+func (elp *envelope) ToRLP() (RlpTransaction, error) {
+	var (
+		err  error
+		data []byte
+		ab   AbstractAction
+	)
+	switch act := elp.payload.(type) {
+	case *Transfer:
+		return (*Transfer)(act), nil
+	case *Execution:
+		return (*Execution)(act), nil
+	case *CreateStake:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *DepositToStake:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *ChangeCandidate:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *Unstake:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *WithdrawStake:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *Restake:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *TransferStake:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *CandidateRegister:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	case *CandidateUpdate:
+		ab = act.AbstractAction
+		data, err = act.EncodeABIBinary()
+	default:
+		return nil, errors.Errorf("invalid action type %T not supported", act)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return wrapStakingActionIntoExecution(ab, address.StakingProtocolAddr, data)
+}
+
+func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (RlpTransaction, error) {
+	return &Execution{
+		AbstractAction: ab,
+		contract:       toAddr,
+		amount:         big.NewInt(0),
+		data:           data,
+	}, nil
+}
