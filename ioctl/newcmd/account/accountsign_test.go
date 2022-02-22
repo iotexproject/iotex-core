@@ -33,7 +33,7 @@ func TestNewAccountSign(t *testing.T) {
 		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
 	t.Run("invalid_account", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
