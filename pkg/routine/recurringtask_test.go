@@ -40,3 +40,16 @@ func TestRecurringTask(t *testing.T) {
 	task.Stop(ctx)
 	require.Equal(uint(6), h.Count)
 }
+
+func TestRecurringTaskStopBeforeStart(t *testing.T) {
+	require := require.New(t)
+	h := &MockHandler{Count: 0}
+	ctx := context.Background()
+	ck := clock.NewMock()
+	task := routine.NewRecurringTask(h.Do, 100*time.Millisecond, routine.WithClock(ck))
+	task.Stop(ctx)
+	task.Start(ctx)
+	ck.Add(600 * time.Millisecond)
+	task.Stop(ctx)
+	require.Equal(uint(6), h.Count)
+}
