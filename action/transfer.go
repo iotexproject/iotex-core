@@ -115,11 +115,12 @@ func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	if pbAct.GetAmount() == "" {
 		tsf.amount = big.NewInt(0)
 	} else {
-		_, ok := tsf.amount.SetString(pbAct.GetAmount(), 10)
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
 		// tsf amount gets zero when pbAct.GetAmount is empty string
 		if !ok && pbAct.GetAmount() != "" {
 			return errors.New("failed to set amount")
 		}
+		tsf.amount = amount
 	}
 	return nil
 }

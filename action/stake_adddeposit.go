@@ -98,10 +98,11 @@ func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	if pbAct.GetAmount() == "" {
 		ds.amount = big.NewInt(0)
 	} else {
-		_, ok := ds.amount.SetString(pbAct.GetAmount(), 10)
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
 		if !ok {
 			return errors.New("failed to set proto amount")
 		}
+		ds.amount = amount
 	}
 
 	return nil

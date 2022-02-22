@@ -119,10 +119,11 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	if pbAct.GetAmount() == "" {
 		ex.amount = big.NewInt(0)
 	} else {
-		_, ok := ex.amount.SetString(pbAct.GetAmount(), 10)
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
 		if !ok {
 			return errors.New("failed to set proto amount")
 		}
+		ex.amount = amount
 	}
 	ex.data = pbAct.GetData()
 	return nil

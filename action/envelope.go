@@ -142,10 +142,11 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if pbAct.GetGasPrice() == "" {
 		elp.gasPrice = big.NewInt(0)
 	} else {
-		_, ok := elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
+		gp, ok := new(big.Int).SetString(pbAct.GetGasPrice(), 10)
 		if !ok && pbAct.GetGasPrice() != "" {
 			return errors.New("failed to set proto gas price")
 		}
+		elp.gasPrice = gp
 	}
 
 	switch {
