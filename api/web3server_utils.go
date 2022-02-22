@@ -380,9 +380,8 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 // contract addr is only returned when a contract was created, otherwise an empty string is returned
 func getExecutionContractAddr(addr string) (string, error) {
 	switch addr {
-	case "":
-		fallthrough
-	case account.ProtocolAddr().String(),
+	case "",
+		account.ProtocolAddr().String(),
 		poll.ProtocolAddr().String(),
 		rewarding.ProtocolAddr().String(),
 		rolldpos.ProtocolAddr().String(),

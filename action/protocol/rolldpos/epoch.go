@@ -11,9 +11,7 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -97,12 +95,7 @@ func NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs uint64, opts 
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	h := hash.Hash160b([]byte(protocolID))
-	addr, err := address.FromBytes(h[:])
-	if err != nil {
-		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
-	}
-	return addr
+	return protocol.HashStringToAddress(protocolID)
 }
 
 // Handle handles a modification

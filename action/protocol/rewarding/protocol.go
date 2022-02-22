@@ -70,12 +70,7 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	h := hash.Hash160b([]byte(protocolID))
-	addr, err := address.FromBytes(h[:])
-	if err != nil {
-		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
-	}
-	return addr
+	return protocol.HashStringToAddress(protocolID)
 }
 
 // verify that foundation bonus extension epochs are in increasing order
