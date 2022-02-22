@@ -672,7 +672,7 @@ func GetAllBalanceMap(
 			} else {
 				baddr, ok := new(big.Int).SetString(acctDetails.GetAccountMeta().Balance, 10)
 				if !ok {
-					return errors.New("failed to set all balance")
+					return errors.Errorf("invalid balance %s", acctDetails.GetAccountMeta().Balance)
 				}
 				balanceMap[addr] = baddr
 			}
