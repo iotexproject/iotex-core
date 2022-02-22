@@ -42,7 +42,7 @@ func TestNewAccountList(t *testing.T) {
 		_, _ = ks.NewAccount("test")
 		_, _ = ks.NewAccount("test2")
 
-		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
+		client.EXPECT().NewKeyStore().Return(ks)
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)

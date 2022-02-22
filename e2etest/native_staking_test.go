@@ -296,8 +296,8 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(voter1BucketIndex, byteutil.BytesToUint64BigEndian(logs[0].Topics[1][24:]))
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
+		unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
 		addOneTx = func(tx action.SealedEnvelope, err error) (action.SealedEnvelope, error) {
-			unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
 			if err != nil {
 				return tx, err
 			}
@@ -362,6 +362,7 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
 		// withdraw	with correct timestamp
+		unstakeTime = unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)
 		ws, err = addOneTx(action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey))
 		require.NoError(err)
 

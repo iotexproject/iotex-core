@@ -7,12 +7,14 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -23,6 +25,49 @@ const (
 	CreateStakePayloadGas = uint64(100)
 	// CreateStakeBaseIntrinsicGas represents the base intrinsic gas for CreateStake
 	CreateStakeBaseIntrinsicGas = uint64(10000)
+
+	createStakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "candName",
+					"type": "string"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint32",
+					"name": "duration",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bool",
+					"name": "autoStake",
+					"type": "bool"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "createStake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// _createStakeMethod is the interface of the abi encoding of stake action
+	_createStakeMethod abi.Method
+
+	errDecodeFailure = errors.New("failed to decode the data")
 )
 
 // CreateStake defines the action of CreateStake creation
@@ -34,6 +79,18 @@ type CreateStake struct {
 	duration  uint32
 	autoStake bool
 	payload   []byte
+}
+
+func init() {
+	createStakeInterface, err := abi.JSON(strings.NewReader(createStakeInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_createStakeMethod, ok = createStakeInterface.Methods["createStake"]
+	if !ok {
+		panic("fail to load the method")
+	}
 }
 
 // NewCreateStake returns a CreateStake instance
@@ -153,4 +210,45 @@ func (cs *CreateStake) SanityCheck() error {
 	}
 
 	return cs.AbstractAction.SanityCheck()
+}
+
+// EncodeABIBinary encodes data in abi encoding
+func (cs *CreateStake) EncodeABIBinary() ([]byte, error) {
+	data, err := _createStakeMethod.Inputs.Pack(cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_createStakeMethod.ID, data...), nil
+}
+
+// NewCreateStakeFromABIBinary decodes data into createStake action
+func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		cs        CreateStake
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_createStakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _createStakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if cs.candName, ok = paramsMap["candName"].(string); !ok {
+		return nil, errDecodeFailure
+	}
+	if cs.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+		return nil, errDecodeFailure
+	}
+	if cs.duration, ok = paramsMap["duration"].(uint32); !ok {
+		return nil, errDecodeFailure
+	}
+	if cs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+		return nil, errDecodeFailure
+	}
+	if cs.payload, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &cs, nil
 }
