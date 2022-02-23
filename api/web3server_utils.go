@@ -146,7 +146,7 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
+		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.Config().API.RangeQueryLimit)
 		if err != nil {
 			return blockObject{}, err
 		}
@@ -293,7 +293,7 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	case _earliestBlockNumber:
 		return 1, nil
 	case "", _pendingBlockNumber, _latestBlockNumber:
-		return svr.coreService.bc.TipHeight(), nil
+		return svr.coreService.BlockChain().TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
 	}
