@@ -61,12 +61,14 @@ func (st Account) Serialize() ([]byte, error) {
 // FromProto converts from protobuf's Account
 func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.Nonce = acPb.Nonce
-	st.Balance = big.NewInt(0)
-	if acPb.Balance != "" {
-		_, ok := new(big.Int).SetString(acPb.Balance, 10)
+	if acPb.Balance == "" {
+		st.Balance = big.NewInt(0)
+	} else {
+		balance, ok := new(big.Int).SetString(acPb.Balance, 10)
 		if !ok {
-			errors.New("failed to set protobuf's account")
+			errors.Errorf("invalid balance %s", acPb.Balance)
 		}
+		st.Balance = balance
 	}
 	copy(st.Root[:], acPb.Root)
 	st.CodeHash = nil
