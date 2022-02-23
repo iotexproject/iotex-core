@@ -63,7 +63,7 @@ func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
 	if acPb.Balance != "" {
-		_, ok := st.Balance.SetString(acPb.Balance, 10)
+		_, ok := new(big.Int).SetString(acPb.Balance, 10)
 		if !ok {
 			errors.New("failed to set protobuf's account")
 		}
