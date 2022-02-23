@@ -82,7 +82,7 @@ type (
 	}
 
 	// Option sets client construction parameter
-	Option func(*client) error
+	Option func(*client)
 )
 
 var confirmMessages = map[config.Language]string{
@@ -92,23 +92,20 @@ var confirmMessages = map[config.Language]string{
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
 func EnableCryptoSm2() Option {
-	return func(c *client) error {
+	return func(c *client) {
 		c.cryptoSm2 = true
-		return nil
 	}
 }
 
 // NewClient creates a new ioctl client
-func NewClient(cfg config.Config, opts ...Option) (Client, error) {
+func NewClient(cfg config.Config, opts ...Option) Client {
 	c := &client{
 		cfg: cfg,
 	}
 	for _, opt := range opts {
-		if err := opt(c); err != nil {
-			return nil, err
-		}
+		opt(c)
 	}
-	return c, nil
+	return c
 }
 
 func (c *client) Start(context.Context) error {
