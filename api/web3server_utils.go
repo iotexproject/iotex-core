@@ -105,7 +105,7 @@ func uint64ToHex(val uint64) string {
 }
 
 func intStrToHex(str string) (string, error) {
-	amount, ok := big.NewInt(0).SetString(str, 10)
+	amount, ok := new(big.Int).SetString(str, 10)
 	if !ok {
 		return "", errors.Wrapf(errUnkownType, "int: %s", str)
 	}
@@ -463,7 +463,7 @@ func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int,
 		return nil, "", 0, nil, nil, err
 	}
 	if callObj.Value != "" {
-		value, ok = big.NewInt(0).SetString(util.Remove0xPrefix(callObj.Value), 16)
+		value, ok = new(big.Int).SetString(util.Remove0xPrefix(callObj.Value), 16)
 		if !ok {
 			return nil, "", 0, nil, nil, errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
 		}

@@ -196,7 +196,7 @@ func TestGetBalance(t *testing.T) {
 
 	testData := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1}
 	ret, _ := svr.web3Server.getBalance(testData)
-	ans, _ := big.NewInt(0).SetString("9999999999999999999999999991", 10)
+	ans, _ := new(big.Int).SetString("9999999999999999999999999991", 10)
 	require.Equal("0x"+fmt.Sprintf("%x", ans), ret)
 }
 

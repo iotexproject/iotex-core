@@ -40,11 +40,11 @@ const (
 )
 
 var (
-	selfStake, _     = big.NewInt(0).SetString("1200000000000000000000000", 10)
-	cand1Votes, _    = big.NewInt(0).SetString("1635067133824581908640994", 10)
-	vote, _          = big.NewInt(0).SetString("100000000000000000000", 10)
-	autoStakeVote, _ = big.NewInt(0).SetString("103801784016923925869", 10)
-	initBalance, _   = big.NewInt(0).SetString("100000000000000000000000000", 10)
+	selfStake, _     = new(big.Int).SetString("1200000000000000000000000", 10)
+	cand1Votes, _    = new(big.Int).SetString("1635067133824581908640994", 10)
+	vote, _          = new(big.Int).SetString("100000000000000000000", 10)
+	autoStakeVote, _ = new(big.Int).SetString("103801784016923925869", 10)
+	initBalance, _   = new(big.Int).SetString("100000000000000000000000000", 10)
 )
 
 var (

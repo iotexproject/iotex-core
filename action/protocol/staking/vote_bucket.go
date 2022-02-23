@@ -70,7 +70,7 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 }
 
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
-	vote, ok := big.NewInt(0).SetString(pb.GetStakedAmount(), 10)
+	vote, ok := new(big.Int).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
 		return ErrInvalidAmount
 	}

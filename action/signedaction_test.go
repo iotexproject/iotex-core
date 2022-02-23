@@ -24,7 +24,7 @@ var (
 	cand1Addr    = identityset.Address(12).String()
 	cand2PriKey  = identityset.PrivateKey(13)
 	cand2Addr    = identityset.Address(14).String()
-	selfStake, _ = big.NewInt(0).SetString("1200000000000000000000000", 10)
+	selfStake, _ = new(big.Int).SetString("1200000000000000000000000", 10)
 )
 
 var (
