@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -19,23 +20,27 @@ func TestServerV2Start(t *testing.T) {
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
+	ctx := context.Background()
 
-	err := svr.Start()
+	err := svr.Start(ctx)
 	require.NoError(err)
 
 	err = testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
-		err = svr.Stop()
+		err = svr.Stop(ctx)
 		return err == nil, err
 	})
 	require.NoError(err)
 
-	svr.core.chainListener = nil
-	err = svr.Start()
+	coreService, ok := svr.core.(*coreService)
+	require.True(ok)
+	// TODO: move to unit test in coreservice
+	coreService.chainListener = nil
+	err = svr.Start(ctx)
 	require.Error(err)
 	require.Contains(err.Error(), "failed to add chainListener")
 
 	svr.tracer = &tracesdk.TracerProvider{}
-	err = svr.Stop()
+	err = svr.Stop(ctx)
 	require.Error(err)
 	require.Contains(err.Error(), "failed to shutdown api tracer")
 }
