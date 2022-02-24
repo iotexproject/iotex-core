@@ -63,13 +63,13 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 					return output.NewError(output.ConvertError, "failed to set account balance", err)
 				}
 			}
-			ethAddr, err := address.FromString(addr)
+			decodeAddr, err := address.FromString(addr)
 			if err != nil {
-				return output.NewError(output.ConvertError, "failed to convert address to eth address", err)
+				return output.NewError(output.ConvertError, "failed to decodes an encoded address string into an address struct", err)
 			}
 			message := infoMessage{
 				Address:          addr,
-				EthAddress:       ethAddr.Hex(),
+				DecodeAddress:    decodeAddr.Hex(),
 				Balance:          util.RauToString(balance, util.IotxDecimalNum),
 				Nonce:            int(accountMeta.Nonce),
 				PendingNonce:     int(accountMeta.PendingNonce),
@@ -88,7 +88,7 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 
 type infoMessage struct {
 	Address          string `json:"address"`
-	EthAddress       string `json:"ethAddress"`
+	DecodeAddress    string `json:"decodeAddress"`
 	Balance          string `json:"balance"`
 	Nonce            int    `json:"nonce"`
 	PendingNonce     int    `json:"pendingNonce"`
