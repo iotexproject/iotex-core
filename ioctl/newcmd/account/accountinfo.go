@@ -32,7 +32,7 @@ var (
 	}
 )
 
-// // NewAccountInfo represents account info command
+// NewAccountInfo represents the account info command
 func NewAccountInfo(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(infoCmdUses)
 	short, _ := client.SelectTranslation(infoCmdShorts)
