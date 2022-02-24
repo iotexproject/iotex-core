@@ -46,6 +46,7 @@ func TestNewAccountInfo(t *testing.T) {
 
 	t.Run("retrieve account information successfully", func(t *testing.T) {
 		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().PrintInfo(gomock.Any()).Return()
 
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 

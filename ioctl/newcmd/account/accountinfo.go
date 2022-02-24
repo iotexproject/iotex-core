@@ -78,7 +78,7 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 				ContractByteCode: hex.EncodeToString(accountMeta.ContractByteCode),
 			}
 
-			fmt.Println(message.String())
+			client.PrintInfo(message.String())
 			return nil
 		},
 	}
