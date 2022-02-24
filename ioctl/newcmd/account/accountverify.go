@@ -29,6 +29,7 @@ var (
 	}
 )
 
+// NewAccountVerify represents the account verify command
 func NewAccountVerify(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(verifyCmdUses)
 	short, _ := client.SelectTranslation(verifyCmdShorts)
