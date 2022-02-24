@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,12 +33,11 @@ func TestNewAccountVerify(t *testing.T) {
 
 	t.Run("verify account successfully", func(t *testing.T) {
 		RawPrivateKey := "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1"
+		client.EXPECT().PrintInfo(gomock.Any()).Return().AnyTimes()
 
 		cmd := NewAccountVerify(client)
-		result, err := util.ExecuteCmd(cmd, RawPrivateKey)
-		fmt.Println("Result: ", result)
+		_, err := util.ExecuteCmd(cmd, RawPrivateKey)
 		require.NoError(t, err)
-
 	})
 
 	t.Run("failed to generate private key from hex string", func(t *testing.T) {

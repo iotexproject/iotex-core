@@ -58,7 +58,7 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 				PublicKey: fmt.Sprintf("%x", priKey.PublicKey().Bytes()),
 			}
 			priKey.Zero()
-			fmt.Println(message.String())
+			client.PrintInfo(message.String())
 			return nil
 		},
 	}
