@@ -32,7 +32,7 @@ var (
 	}
 )
 
-// info gets information of an IoTeX blockchain address
+// // NewAccountInfo represents account info command
 func NewAccountInfo(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(infoCmdUses)
 	short, _ := client.SelectTranslation(infoCmdShorts)
