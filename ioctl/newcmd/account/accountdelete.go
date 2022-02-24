@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -104,7 +103,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
 				}
 			} else {
-				ks := c.NewKeyStore(c.Config().Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := c.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 						filePath = v.URL.Path

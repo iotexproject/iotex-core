@@ -34,7 +34,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 	const pwd = "test"
 	acc, err := ks.NewAccount(pwd)
 	require.NoError(err)
@@ -83,7 +83,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 	const pwd = "test"
 	acc, err := ks.NewAccount(pwd)
 	require.NoError(err)
