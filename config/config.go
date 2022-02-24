@@ -542,7 +542,7 @@ func generateRandomKey(scheme string) string {
 
 // MinGasPrice returns the minimal gas price threshold
 func (ap ActPool) MinGasPrice() *big.Int {
-	mgp, ok := big.NewInt(0).SetString(ap.MinGasPriceStr, 10)
+	mgp, ok := new(big.Int).SetString(ap.MinGasPriceStr, 10)
 	if !ok {
 		log.S().Panicf("Error when parsing minimal gas price string: %s", ap.MinGasPriceStr)
 	}

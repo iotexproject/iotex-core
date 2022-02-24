@@ -102,7 +102,7 @@ func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	amount, ok := big.NewInt(0).SetString(s.cfg.Transfer.AmountInRau, 10)
+	amount, ok := new(big.Int).SetString(s.cfg.Transfer.AmountInRau, 10)
 	if !ok {
 		err = errors.New("amount convert error")
 		return

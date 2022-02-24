@@ -50,15 +50,15 @@ func (a *admin) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	blockReward, ok := big.NewInt(0).SetString(gen.BlockReward, 10)
+	blockReward, ok := new(big.Int).SetString(gen.BlockReward, 10)
 	if !ok {
 		return errors.New("failed to set block reward")
 	}
-	epochReward, ok := big.NewInt(0).SetString(gen.EpochReward, 10)
+	epochReward, ok := new(big.Int).SetString(gen.EpochReward, 10)
 	if !ok {
 		return errors.New("failed to set epoch reward")
 	}
-	foundationBonus, ok := big.NewInt(0).SetString(gen.FoundationBonus, 10)
+	foundationBonus, ok := new(big.Int).SetString(gen.FoundationBonus, 10)
 	if !ok {
 		return errors.New("failed to set bootstrap bonus")
 	}
