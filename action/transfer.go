@@ -117,7 +117,7 @@ func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	} else {
 		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
 		// tsf amount gets zero when pbAct.GetAmount is empty string
-		if !ok && pbAct.GetAmount() != "" {
+		if !ok {
 			return errors.Errorf("invalid amount %s", pbAct.GetAmount())
 		}
 		tsf.amount = amount
