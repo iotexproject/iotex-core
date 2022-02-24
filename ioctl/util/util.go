@@ -74,7 +74,7 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	}
 	zeroString := strings.Repeat("0", numDecimals)
 	amountStrings[0] += zeroString
-	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
+	amountRau, ok := new(big.Int).SetString(amountStrings[0], 10)
 	if !ok {
 		return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}

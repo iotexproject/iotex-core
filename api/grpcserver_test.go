@@ -1755,7 +1755,7 @@ func TestGrpcServer_ReadUnclaimedBalance(t *testing.T) {
 			continue
 		}
 		require.NoError(err)
-		val, ok := big.NewInt(0).SetString(string(out.Data), 10)
+		val, ok := new(big.Int).SetString(string(out.Data), 10)
 		require.True(ok)
 		require.Equal(test.balance, val)
 	}
@@ -1777,7 +1777,7 @@ func TestGrpcServer_TotalBalance(t *testing.T) {
 		Arguments:  nil,
 	})
 	require.NoError(err)
-	val, ok := big.NewInt(0).SetString(string(out.Data), 10)
+	val, ok := new(big.Int).SetString(string(out.Data), 10)
 	require.True(ok)
 	require.Equal(unit.ConvertIotxToRau(200000000), val)
 }
@@ -1798,7 +1798,7 @@ func TestGrpcServer_AvailableBalance(t *testing.T) {
 		Arguments:  nil,
 	})
 	require.NoError(err)
-	val, ok := big.NewInt(0).SetString(string(out.Data), 10)
+	val, ok := new(big.Int).SetString(string(out.Data), 10)
 	require.True(ok)
 	require.Equal(unit.ConvertIotxToRau(199999936), val)
 }

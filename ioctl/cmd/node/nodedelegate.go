@@ -152,7 +152,7 @@ func delegates() error {
 		return delegatesV2(probationList, response, &message)
 	}
 	for rank, bp := range response.BlockProducersInfo {
-		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
+		votes, ok := new(big.Int).SetString(bp.Votes, 10)
 		if !ok {
 			return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
 		}
