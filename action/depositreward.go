@@ -53,7 +53,7 @@ func (d *DepositToRewardingFund) Proto() *iotextypes.DepositToRewardingFund {
 // LoadProto converts a deposit action protobuf to a deposit action struct
 func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardingFund) error {
 	*d = DepositToRewardingFund{}
-	amount, ok := big.NewInt(0).SetString(deposit.Amount, 10)
+	amount, ok := new(big.Int).SetString(deposit.Amount, 10)
 	if !ok {
 		return errors.New("failed to set deposit amount")
 	}

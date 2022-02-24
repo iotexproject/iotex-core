@@ -534,7 +534,7 @@ func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
 			log.L().Panic("Error when decoding the account protocol init balance address from string.", zap.Error(err))
 		}
 		addrs = append(addrs, addr)
-		amount, ok := big.NewInt(0).SetString(a.InitBalanceMap[addrStr], 10)
+		amount, ok := new(big.Int).SetString(a.InitBalanceMap[addrStr], 10)
 		if !ok {
 			log.S().Panicf("Error when casting init balance string %s into big int", a.InitBalanceMap[addrStr])
 		}
@@ -566,7 +566,7 @@ func (d *Delegate) RewardAddr() address.Address {
 
 // Votes returns the votes
 func (d *Delegate) Votes() *big.Int {
-	val, ok := big.NewInt(0).SetString(d.VotesStr, 10)
+	val, ok := new(big.Int).SetString(d.VotesStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting votes string %s into big int", d.VotesStr)
 	}
@@ -575,7 +575,7 @@ func (d *Delegate) Votes() *big.Int {
 
 // InitBalance returns the init balance of the rewarding fund
 func (r *Rewarding) InitBalance() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.InitBalanceStr, 10)
+	val, ok := new(big.Int).SetString(r.InitBalanceStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting init balance string %s into big int", r.InitBalanceStr)
 	}
@@ -584,7 +584,7 @@ func (r *Rewarding) InitBalance() *big.Int {
 
 // BlockReward returns the block reward amount
 func (r *Rewarding) BlockReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.BlockRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.BlockRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.BlockRewardStr)
 	}
@@ -593,7 +593,7 @@ func (r *Rewarding) BlockReward() *big.Int {
 
 // EpochReward returns the epoch reward amount
 func (r *Rewarding) EpochReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.EpochRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.EpochRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
@@ -602,7 +602,7 @@ func (r *Rewarding) EpochReward() *big.Int {
 
 // AleutianEpochReward returns the epoch reward amount after Aleutian fork
 func (r *Rewarding) AleutianEpochReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.AleutianEpochRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.AleutianEpochRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
@@ -611,7 +611,7 @@ func (r *Rewarding) AleutianEpochReward() *big.Int {
 
 // DardanellesBlockReward returns the block reward amount after dardanelles fork
 func (r *Rewarding) DardanellesBlockReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.DardanellesBlockRewardStr, 10)
+	val, ok := new(big.Int).SetString(r.DardanellesBlockRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.EpochRewardStr)
 	}
@@ -633,7 +633,7 @@ func (r *Rewarding) ExemptAddrsFromEpochReward() []address.Address {
 
 // FoundationBonus returns the bootstrap bonus amount rewarded per epoch
 func (r *Rewarding) FoundationBonus() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.FoundationBonusStr, 10)
+	val, ok := new(big.Int).SetString(r.FoundationBonusStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting bootstrap bonus string %s into big int", r.EpochRewardStr)
 	}
