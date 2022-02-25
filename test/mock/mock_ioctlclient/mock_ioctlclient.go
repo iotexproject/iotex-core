@@ -183,18 +183,6 @@ func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
 }
 
-// PrintError mocks base method.
-func (m *MockClient) PrintError(arg0 error) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "PrintError", arg0)
-}
-
-// PrintError indicates an expected call of PrintError.
-func (mr *MockClientMockRecorder) PrintError(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintError", reflect.TypeOf((*MockClient)(nil).PrintError), arg0)
-}
-
 // PrintInfo mocks base method.
 func (m *MockClient) PrintInfo(arg0 string) {
 	m.ctrl.T.Helper()
