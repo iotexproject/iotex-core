@@ -128,7 +128,7 @@ func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (
 
 	if client.IsCryptoSm2() {
 		// find the account in pem files
-		pemFilePath := sm2KeyPath(addr)
+		pemFilePath := sm2KeyPath(client, addr)
 		prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
 		if err == nil {
 			return prvKey, nil
@@ -216,7 +216,7 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 
 	if client.IsCryptoSm2() {
 		// find the account in pem files
-		_, err = findSm2PemFile(addr)
+		_, err = findSm2PemFile(client, addr)
 		return err == nil
 	}
 
@@ -281,7 +281,7 @@ func newAccountSm2(client ioctl.Client, alias string) (string, error) {
 		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 
-	pemFilePath := sm2KeyPath(addr)
+	pemFilePath := sm2KeyPath(client, addr)
 	if err := crypto.WritePrivateKeyToPem(pemFilePath, priKey.(*crypto.P256sm2PrvKey), password); err != nil {
 		return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 	}
@@ -343,7 +343,7 @@ func storeKey(client ioctl.Client, privateKey, password string) (string, error) 
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}
 	case *crypto.P256sm2PrvKey:
-		pemFilePath := sm2KeyPath(addr)
+		pemFilePath := sm2KeyPath(client, addr)
 		if err := crypto.WritePrivateKeyToPem(pemFilePath, sk, password); err != nil {
 			return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 		}
@@ -354,12 +354,12 @@ func storeKey(client ioctl.Client, privateKey, password string) (string, error) 
 	return addr.String(), nil
 }
 
-func sm2KeyPath(addr address.Address) string {
-	return filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+addr.String()+".pem")
+func sm2KeyPath(client ioctl.Client, addr address.Address) string {
+	return filepath.Join(client.Config().Wallet, "sm2sk-"+addr.String()+".pem")
 }
 
-func findSm2PemFile(addr address.Address) (string, error) {
-	filePath := sm2KeyPath(addr)
+func findSm2PemFile(client ioctl.Client, addr address.Address) (string, error) {
+	filePath := sm2KeyPath(client, addr)
 	_, err := os.Stat(filePath)
 	if err != nil {
 		return "", output.NewError(output.ReadFileError, "crypto file not found", err)
@@ -367,9 +367,9 @@ func findSm2PemFile(addr address.Address) (string, error) {
 	return filePath, nil
 }
 
-func listSm2Account() ([]string, error) {
+func listSm2Account(client ioctl.Client) ([]string, error) {
 	sm2Accounts := make([]string, 0)
-	files, err := os.ReadDir(config.ReadConfig.Wallet)
+	files, err := os.ReadDir(client.Config().Wallet)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
 	}

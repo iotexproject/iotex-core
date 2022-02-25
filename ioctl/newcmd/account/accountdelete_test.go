@@ -75,9 +75,6 @@ func TestNewAccountDelete(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true).Times(1)
 		priKey2, _ := crypto.GenerateKeySm2()
 		addr2 := priKey2.PublicKey().Address()
-		pemFilePath := sm2KeyPath(addr2)
-		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
-		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
 
 		client.EXPECT().AliasMap().Return(map[string]string{
 			addr2.String(): "aaa",
@@ -93,7 +90,11 @@ func TestNewAccountDelete(t *testing.T) {
 					"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
 				}
 				return config.ReadConfig
-			}).Times(2)
+			}).Times(3)
+
+		pemFilePath := sm2KeyPath(client, addr2)
+		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
+		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		cmd := NewAccountDelete(client)
