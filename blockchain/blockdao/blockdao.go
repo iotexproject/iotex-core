@@ -102,7 +102,8 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
+	// return dao.checkIndexers(ctx)
+	return nil
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
