@@ -41,7 +41,7 @@ func TestRauToString(t *testing.T) {
 	GasString := []string{"0.000000000001", "0", "1", "0.2", "0.03", "1.004",
 		"999999999999999.999999939987", "100090907.0000300001"}
 	for i, testString := range inputString {
-		testBigInt, ok := big.NewInt(0).SetString(testString, 10)
+		testBigInt, ok := new(big.Int).SetString(testString, 10)
 		require.True(ok)
 		res := RauToString(testBigInt, IotxDecimalNum)
 		require.Equal(IotxString[i], res)

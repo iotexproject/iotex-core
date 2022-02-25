@@ -1503,7 +1503,7 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 		if out, err = core.ReadState("rewarding", "", []byte("TotalBalance"), nil); err != nil {
 			return nil, nil, err
 		}
-		val, ok := big.NewInt(0).SetString(string(out.GetData()), 10)
+		val, ok := new(big.Int).SetString(string(out.GetData()), 10)
 		if !ok {
 			return nil, nil, errors.New("balance convert error")
 		}
