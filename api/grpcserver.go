@@ -359,13 +359,7 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 	)
 	switch {
 	case in.GetByBlock() != nil:
-		var blkHeight uint64
-		// TODO: add GetBlockHeight in coreService
-		blkHeight, err = svr.coreService.BlockDao().GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
-		}
-		ret, err = svr.coreService.LogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), blkHeight)
+		ret, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter(), nil, nil), hash.BytesToHash256(in.GetByBlock().BlockHash))
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		ret, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
