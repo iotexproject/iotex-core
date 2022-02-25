@@ -157,6 +157,12 @@ func TestAccount(t *testing.T) {
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true).Times(4)
+		client.EXPECT().Config().DoAndReturn(
+			func() config.Config {
+				config.ReadConfig.Wallet = testWallet
+				return config.ReadConfig
+			}).Times(8)
+
 		// test store unexisted key
 		account2, err := crypto.GenerateKeySm2()
 		require.NoError(err)
@@ -166,19 +172,19 @@ func TestAccount(t *testing.T) {
 		require.False(IsSignerExist(client, addr2.String()))
 		_, err = keyStoreAccountToPrivateKey(client, addr2.String(), passwd)
 		require.Contains(err.Error(), "does not match all local keys")
-		filePath := sm2KeyPath(addr2)
+		filePath := sm2KeyPath(client, addr2)
 		addrString, err := storeKey(client, account2.HexString(), passwd)
 		require.NoError(err)
 		require.Equal(addr2.String(), addrString)
 		require.True(IsSignerExist(client, addr2.String()))
 
 		// test findSm2PemFile
-		path, err := findSm2PemFile(addr2)
+		path, err := findSm2PemFile(client, addr2)
 		require.NoError(err)
 		require.Equal(filePath, path)
 
 		// test listSm2Account
-		accounts, err := listSm2Account()
+		accounts, err := listSm2Account(client)
 		require.NoError(err)
 		require.Equal(1, len(accounts))
 		require.Equal(addr2.String(), accounts[0])
@@ -266,13 +272,22 @@ func TestAccountError(t *testing.T) {
 
 	addr2, err := address.FromString("io1aqazxjx4d6useyhdsq02ah5effg6293wumtldh")
 	require.NoError(err)
-	path, err := findSm2PemFile(addr2)
+	client.EXPECT().Config().DoAndReturn(
+		func() config.Config {
+			config.ReadConfig.Wallet = testWallet
+			return config.ReadConfig
+		}).Times(1)
+	path, err := findSm2PemFile(client, addr2)
 	require.Error(err)
 	require.Contains(err.Error(), "crypto file not found")
 	require.Equal("", path)
 
-	config.ReadConfig.Wallet = ""
-	accounts, err := listSm2Account()
+	client.EXPECT().Config().DoAndReturn(
+		func() config.Config {
+			config.ReadConfig.Wallet = ""
+			return config.ReadConfig
+		}).Times(1)
+	accounts, err := listSm2Account(client)
 	require.Error(err)
 	require.Contains(err.Error(), "failed to read files in wallet")
 	require.Equal(0, len(accounts))
@@ -329,13 +344,19 @@ func TestStoreKey(t *testing.T) {
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true).Times(2)
+		client.EXPECT().Config().DoAndReturn(
+			func() config.Config {
+				config.ReadConfig.Wallet = testWallet
+				return config.ReadConfig
+			}).Times(4)
+
 		priKey2, err := crypto.GenerateKeySm2()
 		require.NoError(err)
 		addr2 := priKey2.PublicKey().Address()
 		require.NotNil(addr2)
 		require.False(IsSignerExist(client, addr2.String()))
 
-		pemFilePath := sm2KeyPath(addr2)
+		pemFilePath := sm2KeyPath(client, addr2)
 		require.NoError(crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), passwd))
 		require.True(IsSignerExist(client, addr2.String()))
 

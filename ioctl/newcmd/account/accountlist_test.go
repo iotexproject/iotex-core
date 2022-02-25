@@ -50,7 +50,11 @@ func TestNewAccountList(t *testing.T) {
 
 	t.Run("When NewAccountList returns error", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true)
-		config.ReadConfig.Wallet = ""
+		client.EXPECT().Config().DoAndReturn(
+			func() config.Config {
+				config.ReadConfig.Wallet = ""
+				return config.ReadConfig
+			}).Times(1)
 
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)
