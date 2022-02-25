@@ -98,7 +98,7 @@ type infoMessage struct {
 }
 
 func (m *infoMessage) String() string {
-	if output.Format == "" {
+	if !IsOutputFormat() {
 		return fmt.Sprintf("%s:\n%s", m.Address, output.JSONString(m))
 	}
 	return output.FormatString(output.Result, m)

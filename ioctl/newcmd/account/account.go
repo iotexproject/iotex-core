@@ -385,3 +385,8 @@ func listSm2Account() ([]string, error) {
 	}
 	return sm2Accounts, nil
 }
+
+// IsOutputFormat checks whether output format is given
+func IsOutputFormat() bool {
+	return output.Format != ""
+}
