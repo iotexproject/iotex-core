@@ -12,11 +12,11 @@ import (
 	"log"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -63,7 +63,6 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			cmd.SilenceErrors = true
 			var err error
 			var private crypto.PrivateKey
 
@@ -72,21 +71,18 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 				if !c.IsCryptoSm2() {
 					private, err = crypto.GenerateKey()
 					if err != nil {
-						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
-						return nil
+						return errors.Wrap(err, failToGenerateNewPrivateKey)
 					}
 				} else {
 					private, err = crypto.GenerateKeySm2()
 					if err != nil {
-						c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKeySm2, err))
-						return nil
+						return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 					}
 				}
 
 				addr := private.PublicKey().Address()
 				if addr == nil {
-					c.PrintError(output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil))
-					return nil
+					return errors.New(failToConvertPublicKeyIntoAddress)
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),
@@ -97,7 +93,6 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			}
 
 			message := createMessage{Accounts: newAccounts}
-
 			c.PrintInfo(message.String())
 			return nil
 		},
@@ -117,12 +112,9 @@ type generatedAccount struct {
 }
 
 func (m *createMessage) String() string {
-	if output.Format == "" {
-		byteAsJSON, err := json.MarshalIndent(m, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		return fmt.Sprint(string(byteAsJSON))
+	byteAsJSON, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		log.Panic(err)
 	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprint(string(byteAsJSON))
 }
