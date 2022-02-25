@@ -71,7 +71,7 @@ type verifyMessage struct {
 }
 
 func (m *verifyMessage) String() string {
-	if output.Format == "" {
+	if !IsOutputFormat() {
 		return fmt.Sprintf("Address:\t%s\nPublic Key:\t%s", m.Address, m.PublicKey)
 	}
 	return output.FormatString(output.Result, m)
