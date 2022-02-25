@@ -916,9 +916,6 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 			return []string{}, nil
 		}
 		queryCount := tipHeight - filterObj.LogHeight + 1
-		if queryCount > svr.coreService.Config().API.RangeQueryLimit {
-			queryCount = svr.coreService.Config().API.RangeQueryLimit
-		}
 		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, queryCount)
 		if err != nil {
 			return nil, err
