@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"net"
 	"strconv"
 
@@ -28,7 +27,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -469,20 +467,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if !ok {
 		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
-
-	amount, ok := new(big.Int).SetString(exec.Execution.GetAmount(), 10)
-	if !ok {
-		return nil, errors.New("failed to set execution amount")
-	}
 	callerAddr, err := address.FromString(actInfo.Sender)
-	if err != nil {
-		return nil, err
-	}
-	state, err := accountutil.AccountState(svr.coreService.StateFactory(), callerAddr)
-	if err != nil {
-		return nil, err
-	}
-	ctx, err = svr.coreService.BlockChain().Context(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -492,16 +477,8 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	sc, _ := action.NewExecution(
-		exec.Execution.GetContract(),
-		state.Nonce+1,
-		amount,
-		svr.coreService.Config().Genesis.BlockGasLimit,
-		big.NewInt(0),
-		exec.Execution.GetData(),
-	)
 
-	_, _, err = svr.coreService.StateFactory().SimulateExecution(ctx, callerAddr, sc, svr.coreService.BlockDao().GetBlockHash)
+	_, _, err = svr.coreService.SimulateExecution(ctx, callerAddr, exec.Execution)
 	if err != nil {
 		return nil, err
 	}

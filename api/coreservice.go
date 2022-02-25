@@ -129,11 +129,11 @@ type (
 		ChainID() uint32
 		// ReadContractStorage reads contract's storage
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
+		// SimulateExecution simulates execution
+		SimulateExecution(context.Context, address.Address, *iotextypes.Execution) ([]byte, *action.Receipt, error)
 
 		// BlockChain returns the member bc
 		BlockChain() blockchain.Blockchain
-		// StateFactory return the member sf
-		StateFactory() factory.Factory
 		// BlockDao return the member dao
 		BlockDao() blockdao.BlockDAO
 		// Indexer return the member indexer
@@ -1590,9 +1590,31 @@ func (core *coreService) BlockChain() blockchain.Blockchain {
 	return core.bc
 }
 
-// StateFactory return the member sf
-func (core *coreService) StateFactory() factory.Factory {
-	return core.sf
+func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *iotextypes.Execution) ([]byte, *action.Receipt, error) {
+	amount, ok := new(big.Int).SetString(exec.GetAmount(), 10)
+	if !ok {
+		return nil, nil, errors.New("failed to set execution amount")
+	}
+	state, err := accountutil.AccountState(core.sf, addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	sc, err := action.NewExecution(
+		exec.GetContract(),
+		state.Nonce+1,
+		amount,
+		core.cfg.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		exec.GetData(),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return core.sf.SimulateExecution(ctx, addr, sc, core.dao.GetBlockHash)
 }
 
 // BlockDao return the member dao

@@ -19,7 +19,6 @@ import (
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	blockindex "github.com/iotexproject/iotex-core/blockindex"
 	config "github.com/iotexproject/iotex-core/config"
-	factory "github.com/iotexproject/iotex-core/state/factory"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -560,6 +559,22 @@ func (mr *MockCoreServiceMockRecorder) ServerMeta() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerMeta", reflect.TypeOf((*MockCoreService)(nil).ServerMeta))
 }
 
+// SimulateExecution mocks base method.
+func (m *MockCoreService) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *iotextypes.Execution) ([]byte, *action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SimulateExecution indicates an expected call of SimulateExecution.
+func (mr *MockCoreServiceMockRecorder) SimulateExecution(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockCoreService)(nil).SimulateExecution), arg0, arg1, arg2)
+}
+
 // Start mocks base method.
 func (m *MockCoreService) Start(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -572,20 +587,6 @@ func (m *MockCoreService) Start(ctx context.Context) error {
 func (mr *MockCoreServiceMockRecorder) Start(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockCoreService)(nil).Start), ctx)
-}
-
-// StateFactory mocks base method.
-func (m *MockCoreService) StateFactory() factory.Factory {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateFactory")
-	ret0, _ := ret[0].(factory.Factory)
-	return ret0
-}
-
-// StateFactory indicates an expected call of StateFactory.
-func (mr *MockCoreServiceMockRecorder) StateFactory() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateFactory", reflect.TypeOf((*MockCoreService)(nil).StateFactory))
 }
 
 // Stop mocks base method.
