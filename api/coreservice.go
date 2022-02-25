@@ -130,7 +130,7 @@ type (
 		// ReadContractStorage reads contract's storage
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
 		// SimulateExecution simulates execution
-		SimulateExecution(context.Context, address.Address, *iotextypes.Execution) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 
 		// BlockChain returns the member bc
 		BlockChain() blockchain.Blockchain
@@ -1590,11 +1590,7 @@ func (core *coreService) BlockChain() blockchain.Blockchain {
 	return core.bc
 }
 
-func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *iotextypes.Execution) ([]byte, *action.Receipt, error) {
-	amount, ok := new(big.Int).SetString(exec.GetAmount(), 10)
-	if !ok {
-		return nil, nil, errors.New("failed to set execution amount")
-	}
+func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
 	state, err := accountutil.AccountState(core.sf, addr)
 	if err != nil {
 		return nil, nil, err
@@ -1603,18 +1599,13 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	if err != nil {
 		return nil, nil, err
 	}
-	sc, err := action.NewExecution(
-		exec.GetContract(),
-		state.Nonce+1,
-		amount,
-		core.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		exec.GetData(),
-	)
+	// TODO (liuhaai): Use original nonce and gas limit properly
+	exec.SetNonce(state.Nonce + 1)
 	if err != nil {
 		return nil, nil, err
 	}
-	return core.sf.SimulateExecution(ctx, addr, sc, core.dao.GetBlockHash)
+	exec.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
+	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
 }
 
 // BlockDao return the member dao

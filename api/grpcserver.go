@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net"
 	"strconv"
 
@@ -477,8 +478,23 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
+	amount, ok := new(big.Int).SetString(exec.Execution.GetAmount(), 10)
+	if !ok {
+		return nil, errors.New("failed to set execution amount")
+	}
+	sc, err := action.NewExecution(
+		exec.Execution.GetContract(),
+		actInfo.Action.Core.Nonce,
+		amount,
+		actInfo.Action.Core.GasLimit,
+		big.NewInt(0),
+		exec.Execution.GetData(),
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	_, _, err = svr.coreService.SimulateExecution(ctx, callerAddr, exec.Execution)
+	_, _, err = svr.coreService.SimulateExecution(ctx, callerAddr, sc)
 	if err != nil {
 		return nil, err
 	}

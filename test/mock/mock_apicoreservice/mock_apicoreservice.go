@@ -560,7 +560,7 @@ func (mr *MockCoreServiceMockRecorder) ServerMeta() *gomock.Call {
 }
 
 // SimulateExecution mocks base method.
-func (m *MockCoreService) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *iotextypes.Execution) ([]byte, *action.Receipt, error) {
+func (m *MockCoreService) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)
