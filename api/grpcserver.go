@@ -139,7 +139,8 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
-		addr, err := address.FromString(request.Address)
+		var addr address.Address
+		addr, err = address.FromString(request.Address)
 		if err != nil {
 			return nil, err
 		}
