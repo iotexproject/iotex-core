@@ -81,7 +81,7 @@ type ethaddrMessage struct {
 }
 
 func (m *ethaddrMessage) String() string {
-	if output.Format == "" {
+	if !IsOutputFormat() {
 		return fmt.Sprintf("%s - %s", m.IOAddr, m.EthAddr)
 	}
 	return output.FormatString(output.Result, m)
