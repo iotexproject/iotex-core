@@ -45,8 +45,7 @@ func TestNewAccountCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
 	cmd := NewAccountCmd(client)
-	result, err := util.ExecuteCmd(cmd)
-	require.NotNil(result)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(err)
 }
 

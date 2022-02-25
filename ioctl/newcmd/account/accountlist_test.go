@@ -44,7 +44,7 @@ func TestNewAccountList(t *testing.T) {
 
 		client.EXPECT().NewKeyStore().Return(ks)
 		cmd := NewAccountList(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)
 	})
 
@@ -57,7 +57,7 @@ func TestNewAccountList(t *testing.T) {
 			}).Times(1)
 
 		cmd := NewAccountList(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.Error(t, err)
 	})
 }

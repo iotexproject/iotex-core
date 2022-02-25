@@ -33,7 +33,6 @@ func TestNewAliasSetCmd(t *testing.T) {
 	client.EXPECT().WriteConfig(cfg).Return(nil).Times(1)
 
 	cmd := NewAliasSetCmd(client)
-	result, err := util.ExecuteCmd(cmd, "d", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
+	err := util.ExecuteCmd(cmd, "d", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
 	require.NoError(t, err)
-	require.NotNil(t, result)
 }

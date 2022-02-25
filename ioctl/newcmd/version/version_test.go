@@ -10,10 +10,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -34,6 +33,6 @@ func TestVersionCommand(t *testing.T) {
 	apiClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).Times(1)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiClient, nil).Times(1)
 	cmd := NewVersionCmd(client)
-	_, err := util.ExecuteCmd(cmd)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 }

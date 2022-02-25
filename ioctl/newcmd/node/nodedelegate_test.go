@@ -82,7 +82,6 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 
 	cmd := NewNodeDelegateCmd(client)
 
-	result, err := util.ExecuteCmd(cmd)
-	require.NotNil(t, result)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 }

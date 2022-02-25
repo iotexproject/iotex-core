@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -18,8 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // test for bc info command
@@ -45,13 +45,13 @@ func TestNewBCBlockCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(3)
 
 	cmd := NewBCBlockCmd(client)
-	_, err := util.ExecuteCmd(cmd)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
-	_, err = util.ExecuteCmd(cmd, "1")
+	err = util.ExecuteCmd(cmd, "1")
 	require.NoError(t, err)
 
-	_, err = util.ExecuteCmd(cmd, "abcd")
+	err = util.ExecuteCmd(cmd, "abcd")
 	require.NoError(t, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
@@ -61,8 +61,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedError).Times(1)
 
 	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Equal(t, expectedError, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
@@ -76,8 +75,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	err = output.ErrorMessage{}
 
 	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd, "0")
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd, "0")
 	require.Equal(t, expectedErr, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
@@ -87,8 +85,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
 
 	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Equal(t, expectedError, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
@@ -105,8 +102,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	}
 
 	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd, "--verbose")
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd, "--verbose")
 	require.Equal(t, expectedErr, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
@@ -145,7 +141,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(rawBlocksResponse, nil).Times(1)
 
 	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd, "--verbose")
+	err = util.ExecuteCmd(cmd, "--verbose")
 	require.NoError(t, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
@@ -161,7 +157,6 @@ func TestNewBCBlockCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(nil, err).Times(1)
 
 	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Equal(t, expectedErr, err)
 }

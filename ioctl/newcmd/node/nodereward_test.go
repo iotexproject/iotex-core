@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -23,12 +22,9 @@ import (
 
 func TestNewNodeRewardCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
-
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-
 	client.EXPECT().Address(gomock.Any()).Return("test_address", nil).Times(1)
-
 	apiClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 
 	apiClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
@@ -55,20 +51,15 @@ func TestNewNodeRewardCmd(t *testing.T) {
 
 	var endpoint string
 	var insecure bool
-
 	client.EXPECT().APIServiceClient(ioctl.APIServiceConfig{
 		Endpoint: endpoint,
 		Insecure: insecure,
 	}).Return(apiClient, nil).AnyTimes()
 
 	cmd := NewNodeRewardCmd(client)
-
-	result, err := util.ExecuteCmd(cmd, "test")
-	require.NotNil(t, result)
+	err := util.ExecuteCmd(cmd, "test")
 	require.NoError(t, err)
 
-	result, err = util.ExecuteCmd(cmd)
-	require.NotNil(t, result)
+	err = util.ExecuteCmd(cmd)
 	require.NoError(t, err)
-
 }

@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -17,8 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // test for bc info command
@@ -36,7 +36,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
 
 	cmd := NewBCInfoCmd(client)
-	_, err := util.ExecuteCmd(cmd)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
@@ -46,8 +46,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
 
 	cmd = NewBCInfoCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Equal(t, expectedErr, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
@@ -58,7 +57,6 @@ func TestNewBCInfoCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
 
 	cmd = NewBCInfoCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Equal(t, expectedErr, err)
 }

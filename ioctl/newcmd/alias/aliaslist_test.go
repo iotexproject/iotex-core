@@ -1,12 +1,14 @@
 package alias
 
 import (
+	"testing"
+
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // test for alias list command
@@ -23,8 +25,7 @@ func TestNewAliasListCmd(t *testing.T) {
 	}
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 	cmd := NewAliasListCmd(client)
-	res, err := util.ExecuteCmd(cmd)
-	require.NotNil(t, res)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 }
 

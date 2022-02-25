@@ -39,7 +39,7 @@ func TestNewAccountSign(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
 		cmd := NewAccountSign(client)
 		require.NoError(cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph"))
-		_, err := util.ExecuteCmd(cmd, "1234")
+		err := util.ExecuteCmd(cmd, "1234")
 		require.Equal("failed to sign message: invalid address #io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph", err.Error())
 	})
 
@@ -51,7 +51,7 @@ func TestNewAccountSign(t *testing.T) {
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		cmd := NewAccountSign(client)
 		require.NoError(cmd.Flag("signer").Value.Set(accAddr.String()))
-		_, err := util.ExecuteCmd(cmd, "1234")
+		err := util.ExecuteCmd(cmd, "1234")
 		require.NoError(err)
 	})
 }

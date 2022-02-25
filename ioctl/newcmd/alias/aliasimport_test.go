@@ -32,21 +32,16 @@ func TestNewAliasImportCmd(t *testing.T) {
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	cmd := NewAliasImportCmd(client)
-
-	result, err := util.ExecuteCmd(cmd, `{"name":"test","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
-
+	err := util.ExecuteCmd(cmd, `{"name":"test","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
 	require.NoError(t, err)
-	require.NotNil(t, result)
 
-	result, err = util.ExecuteCmd(cmd, "-F", `{"name":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
+	err = util.ExecuteCmd(cmd, "-F", `{"name":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
 	require.NoError(t, err)
-	require.NotNil(t, result)
 
-	result, err = util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
+	err = util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
 	require.Error(t, err)
-	require.NotNil(t, result)
 
-	result, err = util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
+	err = util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
 - name: mhs2
   address: io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks
 - name: yqr
@@ -54,17 +49,14 @@ func TestNewAliasImportCmd(t *testing.T) {
 - name: mhs
   address: io1tyc2yt68qx7hmxl2rhssm99jxnhrccz9sneh08`)
 	require.NoError(t, err)
-	require.NotNil(t, result)
 
-	result, err = util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
+	err = util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
 name: mhs2
   address: io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks`)
 	require.Error(t, err)
-	require.NotNil(t, result)
 
-	result, err = util.ExecuteCmd(cmd, "-f", "test", "test")
+	err = util.ExecuteCmd(cmd, "-f", "test", "test")
 	require.Error(t, err)
-	require.NotNil(t, result)
 }
 
 // test for list message display

@@ -7,7 +7,6 @@
 package util
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"math/big"
@@ -38,13 +37,9 @@ const (
 )
 
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
-func ExecuteCmd(cmd *cobra.Command, args ...string) (string, error) {
-	buf := new(bytes.Buffer)
-	cmd.SetOutput(buf)
+func ExecuteCmd(cmd *cobra.Command, args ...string) error {
 	cmd.SetArgs(args)
-	_, err := cmd.ExecuteC()
-
-	return buf.String(), err
+	return cmd.Execute()
 }
 
 // ConnectToEndpoint starts a new connection

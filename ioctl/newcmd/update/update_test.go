@@ -26,13 +26,12 @@ func TestNewUpdateCmd(t *testing.T) {
 	cmd := NewUpdateCmd(client)
 	client.EXPECT().Execute(gomock.Any()).Return(nil).Times(1)
 	client.EXPECT().ReadSecret().Return("abc", nil).Times(1)
-	res, err := util.ExecuteCmd(cmd)
-	require.NotNil(t, res)
+	err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
 	expectedError := errors.New("failed to execute bash command")
 	client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
 	client.EXPECT().ReadSecret().Return("abc", nil).AnyTimes()
-	_, err = util.ExecuteCmd(cmd)
+	err = util.ExecuteCmd(cmd)
 	require.EqualError(t, err, "mockTranslationResult: "+expectedError.Error())
 }

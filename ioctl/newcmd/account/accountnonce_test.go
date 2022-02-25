@@ -69,17 +69,15 @@ func TestNewAccountNonce(t *testing.T) {
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 
 		cmd := NewAccountNonce(client)
-		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
+		err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
 		require.NoError(t, err)
-		require.Equal(t, "", result)
 	}
 
 	expectedErr := output.NewError(output.NetworkError, "failed to dial grpc connection", nil)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
 
 	cmd := NewAccountNonce(client)
-	_, err := util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err := util.ExecuteCmd(cmd)
 	require.Equal(t, expectedErr, err)
 
 	expectedErr = output.NewError(output.NetworkError, "failed to invoke GetAccount api", nil)
@@ -87,7 +85,6 @@ func TestNewAccountNonce(t *testing.T) {
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 	cmd = NewAccountNonce(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Contains(t, err.Error(), expectedErr.Error())
 }

@@ -62,12 +62,12 @@ func TestNewAccountDelete(t *testing.T) {
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 		cmd := NewAccountDelete(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		cmd = NewAccountDelete(client)
-		_, err = util.ExecuteCmd(cmd)
+		err = util.ExecuteCmd(cmd)
 		require.NoError(t, err)
 	})
 
@@ -98,7 +98,7 @@ func TestNewAccountDelete(t *testing.T) {
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		cmd := NewAccountDelete(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)
 	})
 }

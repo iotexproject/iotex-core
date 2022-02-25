@@ -46,7 +46,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.Equal("error occurs when checking current password: could not decrypt key with given password", err.Error())
 	})
 
@@ -56,7 +56,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.Error(ErrPasswdNotMatch, err)
 	})
 
@@ -66,7 +66,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 	})
 }
@@ -110,7 +110,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.Equal("error occurs when checking current password: pkcs8: incorrect password", err.Error())
 	})
 
@@ -120,7 +120,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.Error(ErrPasswdNotMatch, err)
 	})
 
@@ -130,7 +130,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 	})
 }

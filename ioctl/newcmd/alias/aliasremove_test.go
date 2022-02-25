@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewAliasRemoveCmd(t *testing.T) {
@@ -35,8 +36,7 @@ func TestNewAliasRemoveCmd(t *testing.T) {
 	}
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 	cmd := NewAliasRemove(client)
-	res, err := util.ExecuteCmd(cmd, "a")
-	require.NotNil(t, res)
+	err := util.ExecuteCmd(cmd, "a")
 	require.NoError(t, err)
 
 	// read config file check aliases
