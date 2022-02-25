@@ -38,7 +38,7 @@ var (
 func init() {
 	zapCfg := zap.NewDevelopmentConfig()
 	zapCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	zapCfg.Level.SetLevel(zap.InfoLevel)
+	zapCfg.Level.SetLevel(zap.ErrorLevel)
 	l, err := zapCfg.Build()
 	if err != nil {
 		log.Println("Failed to init zap global logger, no zap log will be shown till zap is properly initialized: ", err)
