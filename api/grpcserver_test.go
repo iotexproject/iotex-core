@@ -940,19 +940,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 			require.Equal(test.numActions, len(res.ActionInfo))
 		}
 
-		svrDisableIndex := svr
-		coreService, ok := svrDisableIndex.core.(*coreService)
-		require.True(ok)
-		// TODO: create a core service with hasActionIndex disabled to test
-		coreService.hasActionIndex = false
-		res, err = svrDisableIndex.GrpcServer.GetActions(context.Background(), request)
-		if test.count == 0 {
-			require.Error(err)
-		} else {
-			require.NoError(err)
-			require.Equal(test.numActions, len(res.ActionInfo))
-		}
-
+		// TODO (huof6829): create a core service with hasActionIndex disabled to test
 	}
 
 	// failure: empty request
@@ -2681,7 +2669,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
 	}
 	defer func() {
-		delete(cfg.Plugins, config.GatewayPlugin)
 		testutil.CleanupPathV2(testPath)
 	}()
 
@@ -2790,11 +2777,6 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, string, err
 	if err != nil {
 		return nil, "", err
 	}
-	coreService, ok := svr.core.(*coreService)
-	if !ok {
-		return nil, "", errors.New("fail to cast coreService")
-	}
-	coreService.hasActionIndex = true
 	return svr, bfIndexFile, nil
 }
 

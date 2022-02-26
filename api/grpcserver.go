@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -120,9 +119,6 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 
 // GetActions returns actions
 func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
-	if (!svr.coreService.HasActionIndex() || svr.coreService.Indexer() == nil) && (in.GetByHash() != nil || in.GetByAddr() != nil) {
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
 	var (
 		ret []*iotexapi.ActionInfo
 		err error

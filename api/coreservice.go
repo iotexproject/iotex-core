@@ -144,8 +144,6 @@ type (
 		Config() config.Config
 		// Registry return the member registry
 		Registry() *protocol.Registry
-		// HasActionIndex return the member hasActionIndex
-		HasActionIndex() bool
 	}
 
 	// coreService implements the CoreService interface
@@ -877,6 +875,9 @@ func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) 
 
 // Actions returns actions within the range
 func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -930,6 +931,9 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 
 // Action returns action by action hash
 func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -943,6 +947,9 @@ func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi
 
 // ActionsByAddress returns all actions associated with an address
 func (core *coreService) ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -981,7 +988,7 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 
 // ActionByActionHash returns action by action hash
 func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if err := core.checkActionIndex(); err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
@@ -1027,6 +1034,9 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 
 // ActionsByBlock returns all actions in a block
 func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1089,6 +1099,13 @@ func (core *coreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta,
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.getBlockMetaByHeight(height)
+}
+
+func (core *coreService) checkActionIndex() error {
+	if !core.hasActionIndex || core.indexer == nil {
+		return errors.New("no action index")
+	}
+	return nil
 }
 
 // getBlockMetaByHeight gets BlockMeta by height

@@ -362,20 +362,6 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(in interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForAction", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForAction), in)
 }
 
-// HasActionIndex mocks base method.
-func (m *MockCoreService) HasActionIndex() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasActionIndex")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// HasActionIndex indicates an expected call of HasActionIndex.
-func (mr *MockCoreServiceMockRecorder) HasActionIndex() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasActionIndex", reflect.TypeOf((*MockCoreService)(nil).HasActionIndex))
-}
-
 // Indexer mocks base method.
 func (m *MockCoreService) Indexer() blockindex.Indexer {
 	m.ctrl.T.Helper()
