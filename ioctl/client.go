@@ -58,8 +58,6 @@ type (
 		AliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
-		// PrintError print the error message
-		PrintError(error)
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
@@ -248,14 +246,8 @@ func (c *client) WriteConfig(cfg config.Config) error {
 	return nil
 }
 
-func (c *client) PrintError(err error) {
-	if err := output.PrintError(err); err != nil {
-		fmt.Println("Error:", err.Error())
-	}
-}
-
 func (c *client) PrintInfo(info string) {
-	output.PrintResult(info)
+	fmt.Println(info)
 }
 
 func (c *client) IsCryptoSm2() bool {

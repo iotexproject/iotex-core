@@ -157,7 +157,7 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 	}
 
 	if password == "" {
-		output.PrintQuery(fmt.Sprintf("Enter password for #%s:\n", signer))
+		client.PrintInfo(fmt.Sprintf("Enter password for #%s:\n", signer))
 		password, err = client.ReadSecret()
 		if err != nil {
 			return nil, output.NewError(output.InputError, "failed to get password", err)
@@ -232,12 +232,12 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 }
 
 func newAccount(client ioctl.Client, alias string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
@@ -258,12 +258,12 @@ func newAccount(client ioctl.Client, alias string) (string, error) {
 }
 
 func newAccountSm2(client ioctl.Client, alias string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
@@ -289,13 +289,13 @@ func newAccountSm2(client ioctl.Client, alias string) (string, error) {
 	return addr.String(), nil
 }
 
-func newAccountByKey(client ioctl.Client, alias string, privateKey string, walletDir string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+func newAccountByKey(client ioctl.Client, alias string, privateKey string) (string, error) {
+	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
@@ -307,21 +307,21 @@ func newAccountByKey(client ioctl.Client, alias string, privateKey string, walle
 	return storeKey(client, privateKey, password)
 }
 
-func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
+func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string) (string, error) {
 	privateKey, err := client.DecryptPrivateKey(passwordOfKeyStore, keyStorePath)
 	if err != nil {
 		return "", err
 	}
-	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(privateKey)), walletDir)
+	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(privateKey)))
 }
 
-func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string, walletDir string) (string, error) {
+func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string) (string, error) {
 	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, passwordOfPem)
 	if err != nil {
 		return "", output.NewError(output.CryptoError, "failed to read private key from pem file", err)
 	}
 
-	return newAccountByKey(client, alias, prvKey.HexString(), walletDir)
+	return newAccountByKey(client, alias, prvKey.HexString())
 }
 
 func storeKey(client ioctl.Client, privateKey, password string) (string, error) {
