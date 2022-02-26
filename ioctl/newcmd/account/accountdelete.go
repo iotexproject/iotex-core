@@ -9,17 +9,16 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -48,7 +47,10 @@ var (
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
-
+	infoQuit = map[config.Language]string{
+		config.English: "quit",
+		config.Chinese: "退出",
+	}
 	failToRemoveKeystoreFile = map[config.Language]string{
 		config.English: "failed to remove keystore file",
 		config.Chinese: "移除keystore文件失败",
@@ -78,8 +80,9 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 	failToWriteToConfigFile, _ := c.SelectTranslation(failToWriteToConfigFile)
 	resultSuccess, _ := c.SelectTranslation(resultSuccess)
 	failToFindAccount, _ := c.SelectTranslation(failToFindAccount)
+	infoQuit, _ := c.SelectTranslation(infoQuit)
 
-	ad := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.RangeArgs(0, 1),
@@ -89,47 +92,55 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if len(args) == 1 {
 				arg = args[0]
 			}
+
 			addr, err := c.GetAddress(arg)
 			if err != nil {
-				return output.NewError(output.AddressError, failToGetAddress, err)
+				return errors.Wrap(err, failToGetAddress)
 			}
 			account, err := address.FromString(addr)
 			if err != nil {
-				return output.NewError(output.ConvertError, failToConvertStringIntoAddress, nil)
+				return errors.Wrap(err, failToConvertStringIntoAddress)
 			}
-			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
-			for _, v := range ks.Accounts() {
-				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-					if !c.AskToConfirm(infoWarn) {
-						output.PrintResult("quit")
-						return nil
-					}
 
-					if err := os.Remove(v.URL.Path); err != nil {
-						return output.NewError(output.WriteFileError, failToRemoveKeystoreFile, err)
+			var filePath string
+			if c.IsCryptoSm2() {
+				if filePath == "" {
+					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
+				}
+			} else {
+				ks := c.NewKeyStore()
+				for _, v := range ks.Accounts() {
+					if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
+						filePath = v.URL.Path
+						break
 					}
-
-					aliases := make(map[string]string)
-					for name, addr := range c.Config().Aliases {
-						aliases[addr] = name
-					}
-
-					delete(config.ReadConfig.Aliases, aliases[addr])
-					out, err := yaml.Marshal(&config.ReadConfig)
-					if err != nil {
-						return output.NewError(output.SerializationError, "", err)
-					}
-					if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-						return output.NewError(output.WriteFileError,
-							fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
-					}
-					output.PrintResult(fmt.Sprintf(resultSuccess, addr))
-					return nil
 				}
 			}
-			return output.NewError(output.ValidationError, fmt.Sprintf(failToFindAccount, addr), nil)
+
+			// check whether crypto file exists
+			if _, err = os.Stat(filePath); err != nil {
+				return errors.Wrapf(err, failToFindAccount, addr)
+			}
+			if !c.AskToConfirm(infoWarn) {
+				c.PrintInfo(infoQuit)
+				return nil
+			}
+			if err := os.Remove(filePath); err != nil {
+				return errors.Wrap(err, failToRemoveKeystoreFile)
+			}
+
+			aliases := c.AliasMap()
+			cfg := c.Config()
+			delete(cfg.Aliases, aliases[addr])
+			out, err := yaml.Marshal(&cfg)
+			if err != nil {
+				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+			}
+			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+			}
+			c.PrintInfo(fmt.Sprintf(resultSuccess, addr))
+			return nil
 		},
 	}
-
-	return ad
 }

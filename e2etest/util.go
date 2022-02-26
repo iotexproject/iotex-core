@@ -9,8 +9,8 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
 	"math/big"
+	"os"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -194,11 +194,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 }
 
 func copyDB(srcDB, dstDB string) error {
-	input, err := ioutil.ReadFile(srcDB)
+	input, err := os.ReadFile(srcDB)
 	if err != nil {
 		return errors.Wrap(err, "failed to read source db file")
 	}
-	if err := ioutil.WriteFile(dstDB, input, 0644); err != nil {
+	if err := os.WriteFile(dstDB, input, 0644); err != nil {
 		return errors.Wrap(err, "failed to copy db file")
 	}
 	return nil

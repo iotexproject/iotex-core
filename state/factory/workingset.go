@@ -514,11 +514,11 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if err != nil {
 		return err
 	}
-	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
-		return errors.Wrap(err, "failed to verify delta state digest")
+	if !blk.VerifyDeltaStateDigest(digest) {
+		return block.ErrDeltaStateMismatch
 	}
-	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(ws.receipts)); err != nil {
-		return errors.Wrap(err, "Failed to verify receipt root")
+	if !blk.VerifyReceiptRoot(calculateReceiptRoot(ws.receipts)) {
+		return block.ErrReceiptRootMismatch
 	}
 
 	return nil

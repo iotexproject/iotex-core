@@ -9,7 +9,7 @@ package contract
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -68,7 +68,7 @@ func compile(args []string) error {
 
 	files := args[1:]
 	if len(files) == 0 {
-		dirInfo, err := ioutil.ReadDir("./")
+		dirInfo, err := os.ReadDir("./")
 		if err != nil {
 			return output.NewError(output.ReadFileError, "failed to get current directory", err)
 		}
@@ -119,13 +119,13 @@ func compile(args []string) error {
 
 	if binOut != "" {
 		// bin file starts with "0x" prefix
-		if err := ioutil.WriteFile(binOut, []byte(contract.Code), 0600); err != nil {
+		if err := os.WriteFile(binOut, []byte(contract.Code), 0600); err != nil {
 			return output.NewError(output.WriteFileError, "failed to write bin file", err)
 		}
 	}
 
 	if abiOut != "" {
-		if err := ioutil.WriteFile(abiOut, abiByte, 0600); err != nil {
+		if err := os.WriteFile(abiOut, abiByte, 0600); err != nil {
 			return output.NewError(output.WriteFileError, "failed to write abi file", err)
 		}
 	}

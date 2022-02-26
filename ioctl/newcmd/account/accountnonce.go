@@ -9,11 +9,11 @@ package account
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -32,6 +32,7 @@ var (
 func NewAccountNonce(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(nonceCmdUses)
 	short, _ := client.SelectTranslation(nonceCmdShorts)
+	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -46,9 +47,8 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 
 			addr, err := client.GetAddress(arg)
 			if err != nil {
-				return err
+				return errors.Wrap(err, failToGetAddress)
 			}
-
 			accountMeta, err := GetAccountMeta(addr, client)
 			if err != nil {
 				return err
@@ -59,7 +59,7 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 				Nonce:        int(accountMeta.Nonce),
 				PendingNonce: int(accountMeta.PendingNonce),
 			}
-			fmt.Println(message.String())
+			client.PrintInfo(message.String())
 			return nil
 		},
 	}
@@ -73,9 +73,6 @@ type nonceMessage struct {
 }
 
 func (m *nonceMessage) String() string {
-	if output.Format == "" {
-		return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-			m.Address, m.Nonce, m.PendingNonce)
-	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
+		m.Address, m.Nonce, m.PendingNonce)
 }

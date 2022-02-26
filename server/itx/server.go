@@ -68,9 +68,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
 	if testing {
-		opts = []chainservice.Option{
-			chainservice.WithTesting(),
-		}
+		opts = append(opts, chainservice.WithTesting())
 	}
 	cs, err = chainservice.New(cfg, p2pAgent, opts...)
 	if err != nil {
@@ -115,9 +113,11 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
 	if err := s.p2pAgent.Stop(ctx); err != nil {
+		// notest
 		return errors.Wrap(err, "error when stopping P2P agent")
 	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
+		// notest
 		return errors.Wrap(err, "error when stopping dispatcher")
 	}
 	for _, cs := range s.chainservices {
@@ -129,7 +129,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
-func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
+func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error { // notest
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.newSubChainService(cfg, opts...)

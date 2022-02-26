@@ -130,5 +130,13 @@ information. Development guide documentation is [here](https://github.com/iotexp
 For any major protocol level changes, we use [IIP](https://github.com/iotexproject/iips) to track the proposal, decision
 and etc.
 
+## Contributors
+
+Thank you for considering contributing to the IoTeX framework!
+
+<a href="https://github.com/iotexproject/iotex-core/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=iotexproject/iotex-core" />
+</a>
+
 ## License
 This project is licensed under the [Apache License 2.0](LICENSE).

@@ -33,7 +33,7 @@ func NewErc721Token(exp string) Erc721Token {
 }
 
 func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
-	TokenID, ok := big.NewInt(0).SetString(tokenid, 10)
+	TokenID, ok := new(big.Int).SetString(tokenid, 10)
 	if !ok {
 		return "", errors.Errorf("invalid tokenid = %s", tokenid)
 	}
@@ -55,7 +55,7 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 
 //
 func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid string) (string, error) {
-	TokenID, ok := big.NewInt(0).SetString(tokenid, 10)
+	TokenID, ok := new(big.Int).SetString(tokenid, 10)
 	if !ok {
 		return "", errors.Errorf("invalid tokenid = %s", tokenid)
 	}

@@ -4,10 +4,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -23,6 +22,12 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return(
 		"mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().AliasMap().Return(map[string]string{
+		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+	}).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
@@ -22,7 +21,7 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c := NewClient()
+	c := NewClient(config.ReadConfig, EnableCryptoSm2())
 	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
 	err = c.Stop(context.Background())
@@ -31,7 +30,7 @@ func TestStop(t *testing.T) {
 
 func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
-	c := NewClient()
+	c := NewClient(config.ReadConfig)
 	defer c.Stop(context.Background())
 	blang := c.AskToConfirm("test")
 	// no input
@@ -40,7 +39,7 @@ func TestAskToConfirm(t *testing.T) {
 
 func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
-	c := NewClient()
+	c := NewClient(config.ReadConfig)
 	defer c.Stop(context.Background())
 	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
@@ -119,7 +118,7 @@ func TestGetAddress(t *testing.T) {
 		r.NoError(err)
 		defer testutil.CleanupPath(t, config.ConfigDir)
 		config.ReadConfig = cfg
-		c := NewClient()
+		c := NewClient(config.ReadConfig)
 		out, err := c.GetAddress(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
@@ -134,25 +133,20 @@ func TestNewKeyStore(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
 
-	c := NewClient()
+	config.ReadConfig.Wallet = testWallet
+	c := NewClient(config.ReadConfig)
 	defer c.Stop(context.Background())
 
-	tests := [][]int{
-		{keystore.StandardScryptN, keystore.StandardScryptP},
-		{keystore.LightScryptN, keystore.LightScryptP},
-	}
-	for _, test := range tests {
-		ks := c.NewKeyStore(testWallet, test[0], test[1])
-		acc, err := ks.NewAccount("test")
-		r.NoError(err)
-		_, err = os.Stat(acc.URL.Path)
-		r.NoError(err)
-		r.True(strings.HasPrefix(acc.URL.Path, testWallet))
-		r.True(ks.HasAddress(acc.Address))
-	}
+	ks := c.NewKeyStore()
+	acc, err := ks.NewAccount("test")
+	r.NoError(err)
+	_, err = os.Stat(acc.URL.Path)
+	r.NoError(err)
+	r.True(strings.HasPrefix(acc.URL.Path, testWallet))
+	r.True(ks.HasAddress(acc.Address))
 }
 
-func TestGetAliasMap(t *testing.T) {
+func TestAliasMap(t *testing.T) {
 	r := require.New(t)
 	cfg := config.Config{
 		Aliases: map[string]string{
@@ -169,13 +163,13 @@ func TestGetAliasMap(t *testing.T) {
 	config.ReadConfig = cfgload
 
 	exprAliases := map[string]string{
-		cfg.Aliases["aaa"]: "aaa",
-		cfg.Aliases["bbb"]: "bbb",
-		cfg.Aliases["ccc"]: "ccc",
+		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
+		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
+		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
-	c := NewClient()
+	c := NewClient(config.ReadConfig)
 	defer c.Stop(context.Background())
-	result := c.GetAliasMap()
+	result := c.AliasMap()
 	r.Equal(exprAliases, result)
 }
 
@@ -208,7 +202,7 @@ func TestWriteConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		c := NewClient()
+		c := NewClient(config.ReadConfig)
 		err = c.WriteConfig(test)
 		cfgload, err := config.LoadConfig()
 		r.NoError(err)

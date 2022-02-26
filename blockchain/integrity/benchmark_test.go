@@ -201,17 +201,19 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	defer testutil.CleanupPathV2(testTriePath)
 	testDBPath, err := testutil.PathOfTempFile("db")
 	if err != nil {
 		return nil, nil, err
 	}
-	defer testutil.CleanupPathV2(testDBPath)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	if err != nil {
 		return nil, nil, err
 	}
-	defer testutil.CleanupPathV2(testIndexPath)
+	defer func() {
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
+	}()
 
 	cfg.DB.DbPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

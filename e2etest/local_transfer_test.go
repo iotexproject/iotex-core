@@ -303,12 +303,12 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
-		testutil.CleanupPath(t, testSystemLogPath)
-		testutil.CleanupPath(t, testBloomfilterIndexPath)
-		testutil.CleanupPath(t, testCandidateIndexPath)
+		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPathV2(testIndexPath)
+		testutil.CleanupPathV2(testSystemLogPath)
+		testutil.CleanupPathV2(testBloomfilterIndexPath)
+		testutil.CleanupPathV2(testCandidateIndexPath)
 	}()
 
 	networkPort := 4689

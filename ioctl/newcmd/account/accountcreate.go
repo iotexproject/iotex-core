@@ -12,11 +12,11 @@ import (
 	"log"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -37,6 +37,10 @@ var (
 		config.English: "failed to generate new private key",
 		config.Chinese: "生成新私钥失败",
 	}
+	failToGenerateNewPrivateKeySm2 = map[config.Language]string{
+		config.English: "failed to generate new sm2 private key",
+		config.Chinese: "生成新sm2私钥失败",
+	}
 	failToConvertPublicKeyIntoAddress = map[config.Language]string{
 		config.English: "failed to convert public key into address",
 		config.Chinese: "将公钥转换为地址失败",
@@ -50,25 +54,35 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 	short, _ := c.SelectTranslation(createShorts)
 	usage, _ := c.SelectTranslation(createFlagUsages)
 	failToGenerateNewPrivateKey, _ := c.SelectTranslation(failToGenerateNewPrivateKey)
+	failToGenerateNewPrivateKeySm2, _ := c.SelectTranslation(failToGenerateNewPrivateKeySm2)
 	failToConvertPublicKeyIntoAddress, _ := c.SelectTranslation(failToConvertPublicKeyIntoAddress)
-	ac := &cobra.Command{
+
+	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			cmd.SilenceErrors = true
+			var err error
+			var private crypto.PrivateKey
+
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
-				private, err := crypto.GenerateKey()
-				if err != nil {
-					c.PrintError(output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err))
-					return nil
+				if !c.IsCryptoSm2() {
+					private, err = crypto.GenerateKey()
+					if err != nil {
+						return errors.Wrap(err, failToGenerateNewPrivateKey)
+					}
+				} else {
+					private, err = crypto.GenerateKeySm2()
+					if err != nil {
+						return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
+					}
 				}
+
 				addr := private.PublicKey().Address()
 				if addr == nil {
-					c.PrintError(output.NewError(output.AddressError, failToConvertPublicKeyIntoAddress, nil))
-					return nil
+					return errors.New(failToConvertPublicKeyIntoAddress)
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),
@@ -83,8 +97,8 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	ac.Flags().UintVarP(&numAccounts, "num", "n", 1, usage)
-	return ac
+	cmd.Flags().UintVarP(&numAccounts, "num", "n", 1, usage)
+	return cmd
 }
 
 type createMessage struct {
@@ -98,12 +112,9 @@ type generatedAccount struct {
 }
 
 func (m *createMessage) String() string {
-	if output.Format == "" {
-		byteAsJSON, err := json.MarshalIndent(m, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		return fmt.Sprint(string(byteAsJSON))
+	byteAsJSON, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		log.Panic(err)
 	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprint(string(byteAsJSON))
 }

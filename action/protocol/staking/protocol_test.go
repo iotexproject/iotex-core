@@ -236,7 +236,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-bucket")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPathV2(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -276,7 +276,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 
-	selfStake, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
+	selfStake, _ := new(big.Int).SetString("1200000000000000000000000", 10)
 	cfg := genesis.Default.Staking
 
 	testBootstrapCandidates := []struct {

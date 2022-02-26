@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"os/signal"
@@ -75,7 +74,7 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	}
 	zeroString := strings.Repeat("0", numDecimals)
 	amountStrings[0] += zeroString
-	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
+	amountRau, ok := new(big.Int).SetString(amountStrings[0], 10)
 	if !ok {
 		return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
@@ -170,7 +169,7 @@ func Address(in string) (string, error) {
 // JwtAuth used for ioctl set auth and send for every grpc request
 func JwtAuth() (jwt metadata.MD, err error) {
 	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
-	jwtString, err := ioutil.ReadFile(jwtFile)
+	jwtString, err := os.ReadFile(jwtFile)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@ package alias
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
@@ -97,7 +97,7 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}

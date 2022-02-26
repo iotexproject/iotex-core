@@ -81,7 +81,7 @@ type bucket struct {
 }
 
 func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
-	amount, ok := big.NewInt(0).SetString(bucketpb.StakedAmount, 10)
+	amount, ok := new(big.Int).SetString(bucketpb.StakedAmount, 10)
 	if !ok {
 		return nil, output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
 	}
