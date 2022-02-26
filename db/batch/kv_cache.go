@@ -6,6 +6,8 @@
 
 package batch
 
+import "github.com/ulule/deepcopier"
+
 type (
 	// KVStoreCache is a local cache of batched <k, v> for fast query
 	KVStoreCache interface {
@@ -13,8 +15,8 @@ type (
 		Read(*kvCacheKey) ([]byte, error)
 		// Write puts a record into cache
 		Write(*kvCacheKey, []byte)
-		// WriteIfNotExist puts a record into cache only if it doesn't exist, otherwise return ErrAlreadyExist
-		WriteIfNotExist(*kvCacheKey, []byte) error
+		// // WriteIfNotExist puts a record into cache only if it doesn't exist, otherwise return ErrAlreadyExist
+		// WriteIfNotExist(*kvCacheKey, []byte) error
 		// Evict deletes a record from cache
 		Evict(*kvCacheKey)
 		// Clear clear the cache
@@ -27,6 +29,11 @@ type (
 	kvCacheKey struct {
 		key1 string
 		key2 string
+	}
+
+	node struct {
+		value []byte
+		dirty bool
 	}
 
 	// kvCache implements KVStoreCache interface
@@ -61,15 +68,15 @@ func (c *kvCache) Write(key *kvCacheKey, v []byte) {
 	c.removedDelete(key)
 }
 
-// WriteIfNotExist puts a record into cache only if it doesn't exist, otherwise return ErrAlreadyExist
-func (c *kvCache) WriteIfNotExist(key *kvCacheKey, v []byte) error {
-	if _, exist := c.cacheGet(key); exist {
-		return ErrAlreadyExist
-	}
-	c.cachePut(key, v)
-	c.removedDelete(key)
-	return nil
-}
+// // WriteIfNotExist puts a record into cache only if it doesn't exist, otherwise return ErrAlreadyExist
+// func (c *kvCache) WriteIfNotExist(key *kvCacheKey, v []byte) error {
+// 	if _, exist := c.cacheGet(key); exist {
+// 		return ErrAlreadyExist
+// 	}
+// 	c.cachePut(key, v)
+// 	c.removedDelete(key)
+// 	return nil
+// }
 
 // Evict deletes a record from cache
 func (c *kvCache) Evict(key *kvCacheKey) {
@@ -86,24 +93,33 @@ func (c *kvCache) Clear() {
 
 // Clone clones the cache
 func (c *kvCache) Clone() KVStoreCache {
-	clone := kvCache{
-		cache:   make(map[string]map[string][]byte),
-		removed: make(map[string]map[string]struct{}),
+	// clone := kvCache{
+	// 	cache:   make(map[string]map[string][]byte, len(c.cache)),
+	// 	removed: make(map[string]map[string]struct{}, len(c.removed)),
+	// }
+	// // clone entries in map
+	// for k1, v1 := range c.cache {
+	// 	clone.cache[k1] = make(map[string][]byte, len(v1))
+	// 	for k2, v2 := range v1 {
+	// 		clone.cache[k1][k2] = v2
+	// 	}
+	// }
+	// for k1, v1 := range c.removed {
+	// 	clone.removed[k1] = make(map[string]struct{}, len(v1))
+	// 	for k2, v2 := range v1 {
+	// 		clone.removed[k1][k2] = v2
+	// 	}
+	// }
+
+	clone := &kvCache{}
+
+	err := deepcopier.Copy(c).To(clone)
+	if err != nil {
+		panic(err)
 	}
-	// clone entries in map
-	for k1, v1 := range c.cache {
-		clone.cache[k1] = make(map[string][]byte)
-		for k2, v2 := range v1 {
-			clone.cache[k1][k2] = v2
-		}
-	}
-	for k1, v1 := range c.removed {
-		clone.removed[k1] = make(map[string]struct{})
-		for k2, v2 := range v1 {
-			clone.removed[k1][k2] = v2
-		}
-	}
-	return &clone
+	return clone
+
+	// return &clone
 }
 
 func (c *kvCache) cachePut(key *kvCacheKey, v []byte) {
