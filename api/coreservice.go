@@ -129,11 +129,11 @@ type (
 		ChainID() uint32
 		// ReadContractStorage reads contract's storage
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
+		// SimulateExecution simulates execution
+		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 
 		// BlockChain returns the member bc
 		BlockChain() blockchain.Blockchain
-		// StateFactory return the member sf
-		StateFactory() factory.Factory
 		// BlockDao return the member dao
 		BlockDao() blockdao.BlockDAO
 		// Indexer return the member indexer
@@ -1590,9 +1590,22 @@ func (core *coreService) BlockChain() blockchain.Blockchain {
 	return core.bc
 }
 
-// StateFactory return the member sf
-func (core *coreService) StateFactory() factory.Factory {
-	return core.sf
+func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
+	state, err := accountutil.AccountState(core.sf, addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO (liuhaai): Use original nonce and gas limit properly
+	exec.SetNonce(state.Nonce + 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	exec.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
+	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
 }
 
 // BlockDao return the member dao
