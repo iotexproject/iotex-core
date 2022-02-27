@@ -1103,13 +1103,6 @@ func (core *coreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta,
 	return core.getBlockMetaByHeight(height)
 }
 
-func (core *coreService) checkActionIndex() error {
-	if !core.hasActionIndex || core.indexer == nil {
-		return errors.New("no action index")
-	}
-	return nil
-}
-
 // getBlockMetaByHeight gets BlockMeta by height
 func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	blk, err := core.dao.GetBlockByHeight(height)
