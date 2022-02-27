@@ -7,6 +7,9 @@
 package account
 
 import (
+	"encoding/hex"
+	"encoding/json"
+	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -28,12 +31,12 @@ func TestNewAccountInfo(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 
-	accAddr := identityset.Address(28).String()
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr, nil).AnyTimes()
+	accAddr := identityset.Address(28)
+	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).AnyTimes()
 	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
 
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
-		Address:          accAddr,
+		Address:          accAddr.String(),
 		Balance:          "20000000132432000",
 		Nonce:            uint64(0),
 		PendingNonce:     uint64(1),
@@ -53,7 +56,26 @@ func TestNewAccountInfo(t *testing.T) {
 		cmd := NewAccountInfo(client)
 		result, err := util.ExecuteCmd(cmd, "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7")
 		require.NoError(t, err)
-		require.Equal(t, "", result)
+
+		msg := &infoMessage{}
+		err = json.Unmarshal([]byte(result), msg)
+		require.NoError(t, err)
+
+		metab, err := strconv.ParseFloat(accountResponse.AccountMeta.Balance, 64)
+		require.NoError(t, err)
+		msgb, err := strconv.ParseFloat(msg.Balance, 64)
+		require.NoError(t, err)
+		msgc, err := hex.DecodeString(msg.ContractByteCode)
+		require.NoError(t, err)
+
+		require.Equal(t, msg.Address, accAddr.String())
+		require.Equal(t, msg.DecodeAddress, accAddr.Hex())
+		require.Equal(t, msgb, metab/10e17)
+		require.Equal(t, msg.Nonce, 0)
+		require.Equal(t, msg.PendingNonce, 1)
+		require.Equal(t, msg.NumActions, 2)
+		require.Equal(t, msg.IsContract, true)
+		require.Equal(t, msgc, accountResponse.AccountMeta.ContractByteCode)
 	})
 
 	t.Run("failed to dial grpc connection", func(t *testing.T) {

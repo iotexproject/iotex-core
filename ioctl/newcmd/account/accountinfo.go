@@ -8,7 +8,6 @@ package account
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -79,6 +78,7 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 			}
 
 			client.PrintInfo(message.String())
+			cmd.Println(message.String())
 			return nil
 		},
 	}
@@ -99,7 +99,7 @@ type infoMessage struct {
 
 func (m *infoMessage) String() string {
 	if !IsOutputFormat() {
-		return fmt.Sprintf("%s:\n%s", m.Address, output.JSONString(m))
+		return output.JSONString(m)
 	}
 	return output.FormatString(output.Result, m)
 }
