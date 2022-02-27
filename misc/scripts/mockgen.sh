@@ -138,6 +138,6 @@ mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
 
 mkdir -p ./test/mock/mock_apicoreservice
 mockgen -destination=./test/mock/mock_apicoreservice/mock_apicoreservice.go  \
-        -source=./api/apitestcoreservice.go \
+        -source=./api/coreservice.go \
         -package=mock_apicoreservice \
         CoreService
