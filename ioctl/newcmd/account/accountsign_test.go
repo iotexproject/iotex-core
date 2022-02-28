@@ -7,6 +7,7 @@
 package account
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,6 +38,9 @@ func TestNewAccountSign(t *testing.T) {
 
 	t.Run("invalid_account", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
+		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
+			fmt.Println(info)
+		}).Times(1)
 		cmd := NewAccountSign(client)
 		require.NoError(cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph"))
 		err := util.ExecuteCmd(cmd, "1234")
