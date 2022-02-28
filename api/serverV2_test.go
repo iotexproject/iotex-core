@@ -16,7 +16,7 @@ func TestServerV2Start(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	config.SetEVMNetworkID(1)
-	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	svr, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
