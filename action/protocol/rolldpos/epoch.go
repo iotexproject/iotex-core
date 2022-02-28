@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -90,6 +91,11 @@ func NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs uint64, opts 
 		}
 	}
 	return p
+}
+
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	return protocol.HashStringToAddress(protocolID)
 }
 
 // Handle handles a modification
