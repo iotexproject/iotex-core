@@ -76,7 +76,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 				}
 
-				availableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				availableRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 				if !ok {
 					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 				}
@@ -95,7 +95,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 					}
 					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 				}
-				totalRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				totalRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 				if !ok {
 					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 				}
@@ -135,7 +135,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 					}
 					return output.NewError(output.NetworkError, "failed to get version from server", err)
 				}
-				rewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				rewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 				if !ok {
 					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 				}

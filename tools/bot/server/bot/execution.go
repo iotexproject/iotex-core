@@ -139,7 +139,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	data += strings.Repeat("0", 64-len(lenOfAddress)) + lenOfAddress
 	for _, amount := range s.cfg.Execution.To.Amount {
-		amo, ok := big.NewInt(0).SetString(amount, 10)
+		amo, ok := new(big.Int).SetString(amount, 10)
 		if !ok {
 			err = errors.New("amount convert error")
 			return
@@ -151,7 +151,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	amount, ok := big.NewInt(0).SetString(s.cfg.Execution.Amount, 10)
+	amount, ok := new(big.Int).SetString(s.cfg.Execution.Amount, 10)
 	if !ok {
 		err = errors.New("amount convert error")
 		return

@@ -110,7 +110,7 @@ func uint64ToHex(val uint64) string {
 }
 
 func intStrToHex(str string) (string, error) {
-	amount, ok := big.NewInt(0).SetString(str, 10)
+	amount, ok := new(big.Int).SetString(str, 10)
 	if !ok {
 		return "", errors.Wrapf(errUnkownType, "int: %s", str)
 	}
@@ -151,7 +151,7 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
+		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.Config().API.RangeQueryLimit)
 		if err != nil {
 			return blockObject{}, err
 		}
@@ -298,7 +298,7 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	case _earliestBlockNumber:
 		return 1, nil
 	case "", _pendingBlockNumber, _latestBlockNumber:
-		return svr.coreService.bc.TipHeight(), nil
+		return svr.coreService.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
 	}
@@ -483,7 +483,7 @@ func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int,
 		return nil, "", 0, nil, nil, err
 	}
 	if callObj.Value != "" {
-		value, ok = big.NewInt(0).SetString(util.Remove0xPrefix(callObj.Value), 16)
+		value, ok = new(big.Int).SetString(util.Remove0xPrefix(callObj.Value), 16)
 		if !ok {
 			return nil, "", 0, nil, nil, errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
 		}
