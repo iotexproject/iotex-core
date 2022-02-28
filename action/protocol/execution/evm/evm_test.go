@@ -235,10 +235,14 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
 		require.Equal(isIceland, chainRules.IsIstanbul)
 
-		require.False(evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		// enable Berlin
+		isBerlin := g.IsToBeEnabled(e.height)
+		require.Equal(isBerlin, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		require.Equal(isBerlin, chainRules.IsBerlin)
 		require.False(evmChainConfig.IsLondon(evm.Context.BlockNumber))
-		require.False(chainRules.IsBerlin)
 		require.False(chainRules.IsLondon)
+		require.False(evmChainConfig.IsCatalyst(evm.Context.BlockNumber))
+		require.False(chainRules.IsCatalyst)
 	}
 }
 
@@ -288,30 +292,29 @@ func TestGasEstimate(t *testing.T) {
 	require := require.New(t)
 
 	for _, v := range []struct {
-		gas, consume, refund uint64
-		data                 []byte
+		gas, consume, refund, size uint64
 	}{
-		{config.Default.Genesis.BlockGasLimit, 8200300, 1000000, make([]byte, 20000)},
-		{1000000, 245600, 100000, make([]byte, 5600)},
-		{500000, 21000, 10000, make([]byte, 36)},
+		{config.Default.Genesis.BlockGasLimit, 8200300, 1000000, 20000},
+		{1000000, 245600, 100000, 5600},
+		{500000, 21000, 10000, 36},
 	} {
-		evmLeftOver, remainingGas, err := gasExecuteInEVM(v.gas, v.consume, v.refund, v.data)
+		evmLeftOver, remainingGas, err := gasExecuteInEVM(v.gas, v.consume, v.refund, v.size)
 		require.NoError(err)
 		gasConsumed := v.gas - remainingGas
 		require.Equal(v.gas-evmLeftOver, gasConsumed+v.refund)
 
 		// if we use gasConsumed + refund, EVM will consume the exact amount of gas
-		evmLeftOver, _, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.data)
+		evmLeftOver, _, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.size)
 		require.NoError(err)
 		require.Zero(evmLeftOver)
 	}
 }
 
 // gasExecuteInEVM performs gas calculation during EVM execution
-func gasExecuteInEVM(gas, consume, refund uint64, data []byte) (uint64, uint64, error) {
+func gasExecuteInEVM(gas, consume, refund, size uint64) (uint64, uint64, error) {
 	remainingGas := gas
 
-	intriGas, err := intrinsicGas(data)
+	intriGas, err := intrinsicGas(size, nil)
 	if err != nil {
 		return 0, 0, err
 	}
