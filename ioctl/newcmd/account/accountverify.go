@@ -27,6 +27,14 @@ var (
 		config.English: "verify",
 		config.Chinese: "verify 验证",
 	}
+	enterPrivateKey = map[config.Language]string{
+		config.English: "Enter private key:",
+		config.Chinese: "输入私钥:",
+	}
+	failToGetPrivateKey = map[config.Language]string{
+		config.English: "failed to get private key",
+		config.Chinese: "获取私钥失败",
+	}
 	failToCovertHexStringToPrivateKey = map[config.Language]string{
 		config.English: "failed to covert hex string to private key",
 		config.Chinese: "十六进制字符串转换私钥失败",
@@ -37,16 +45,24 @@ var (
 func NewAccountVerify(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(verifyCmdUses)
 	short, _ := client.SelectTranslation(verifyCmdShorts)
+	enterPrivateKey, _ := client.SelectTranslation(enterPrivateKey)
+	failToGetPrivateKey, _ := client.SelectTranslation(failToGetPrivateKey)
 	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(failToConvertPublicKeyIntoAddress)
 	failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(failToCovertHexStringToPrivateKey)
 
 	return &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			priKey, err := crypto.HexStringToPrivateKey(args[0])
+
+			client.PrintInfo(enterPrivateKey)
+			privateKey, err := client.ReadSecret()
+			if err != nil {
+				return errors.Wrap(err, failToGetPrivateKey)
+			}
+			priKey, err := crypto.HexStringToPrivateKey(privateKey)
 			if err != nil {
 				return errors.Wrap(err, failToCovertHexStringToPrivateKey)
 			}
@@ -54,6 +70,7 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 			if addr == nil {
 				return errors.New(failToConvertPublicKeyIntoAddress)
 			}
+
 			message := verifyMessage{
 				Address:   addr.String(),
 				PublicKey: fmt.Sprintf("%x", priKey.PublicKey().Bytes()),

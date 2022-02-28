@@ -26,18 +26,28 @@ func TestNewAccountVerify(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
 	t.Run("verify account successfully", func(t *testing.T) {
+		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
+			fmt.Println("enter private key:")
+		})
+		client.EXPECT().ReadSecret().Return("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", nil)
 		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
 			fmt.Println(info)
 		})
+
 		cmd := NewAccountVerify(client)
-		_, err := util.ExecuteCmd(cmd, "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1")
+		_, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 	})
 
 	t.Run("failed to covert hex string to private key", func(t *testing.T) {
+		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
+			fmt.Println("enter private key:")
+		})
+		client.EXPECT().ReadSecret().Return("1234", nil)
 		expectedErr := errors.New("invalid private key")
+
 		cmd := NewAccountVerify(client)
-		_, err := util.ExecuteCmd(cmd, "1234")
+		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 }
