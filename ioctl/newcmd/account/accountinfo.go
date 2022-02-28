@@ -8,14 +8,17 @@ package account
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -29,14 +32,26 @@ var (
 		config.English: "Display an account's information",
 		config.Chinese: "显示账号信息",
 	}
+	invalidAccountBalance = map[config.Language]string{
+		config.English: "invalid account balance",
+		config.Chinese: "无效的账户余额",
+	}
+	failToGetAccountMeta = map[config.Language]string{
+		config.English: "failed to get account meta",
+		config.Chinese: "获取账户信息失败",
+	}
 )
 
 // NewAccountInfo represents the account info command
 func NewAccountInfo(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(infoCmdUses)
 	short, _ := client.SelectTranslation(infoCmdShorts)
+	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
+	failToConvertStringIntoAddress, _ := client.SelectTranslation(failToConvertStringIntoAddress)
+	invalidAccountBalance, _ := client.SelectTranslation(invalidAccountBalance)
+	failToGetAccountMeta, _ := client.SelectTranslation(failToGetAccountMeta)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(1),
@@ -47,28 +62,26 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 				var err error
 				addr, err = client.GetAddress(addr)
 				if err != nil {
-					return output.NewError(output.AddressError, "failed to get address", err)
+					return errors.Wrap(err, failToGetAddress)
 				}
 			}
-			accountMeta, err := GetAccountMeta(addr, client)
+
+			accountMeta, err := GetAccountMeta(client, addr)
 			if err != nil {
-				return output.NewError(output.APIError, "failed to get account meta", err)
+				return errors.Wrap(err, failToGetAccountMeta)
 			}
-			balance := big.NewInt(0)
-			if accountMeta.Balance != "" {
-				var ok bool
-				balance, ok = new(big.Int).SetString(accountMeta.Balance, 10)
-				if !ok {
-					return output.NewError(output.ConvertError, "failed to set account balance", err)
-				}
+			balance, ok := new(big.Int).SetString(accountMeta.Balance, 10)
+			if !ok {
+				return errors.New(invalidAccountBalance)
 			}
-			decodeAddr, err := address.FromString(addr)
+			ethAddr, err := address.FromString(addr)
 			if err != nil {
-				return output.NewError(output.ConvertError, "failed to decodes an encoded address string into an address struct", err)
+				return errors.Wrap(err, failToConvertStringIntoAddress)
 			}
+
 			message := infoMessage{
 				Address:          addr,
-				DecodeAddress:    decodeAddr.Hex(),
+				EthAddress:       ethAddr.Hex(),
 				Balance:          util.RauToString(balance, util.IotxDecimalNum),
 				Nonce:            int(accountMeta.Nonce),
 				PendingNonce:     int(accountMeta.PendingNonce),
@@ -76,19 +89,15 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 				IsContract:       accountMeta.IsContract,
 				ContractByteCode: hex.EncodeToString(accountMeta.ContractByteCode),
 			}
-
 			client.PrintInfo(message.String())
-			cmd.Println(message.String())
 			return nil
 		},
 	}
-
-	return cmd
 }
 
 type infoMessage struct {
 	Address          string `json:"address"`
-	DecodeAddress    string `json:"decodeAddress"`
+	EthAddress       string `json:"ethAddress"`
 	Balance          string `json:"balance"`
 	Nonce            int    `json:"nonce"`
 	PendingNonce     int    `json:"pendingNonce"`
@@ -98,8 +107,9 @@ type infoMessage struct {
 }
 
 func (m *infoMessage) String() string {
-	if !IsOutputFormat() {
-		return output.JSONString(m)
+	byteAsJSON, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		log.Panic(err)
 	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprint(string(byteAsJSON))
 }

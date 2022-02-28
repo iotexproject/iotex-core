@@ -80,6 +80,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountList(client))
 	ac.AddCommand(NewAccountSign(client))
 	ac.AddCommand(NewAccountUpdate(client))
+	ac.AddCommand(NewAccountInfo(client))
 
 	flagEndpointUsage, _ := client.SelectTranslation(flagEndpoint)
 	flagInsecureUsage, _ := client.SelectTranslation(flagInsecure)
@@ -179,7 +180,7 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 }
 
 // GetAccountMeta gets account metadata
-func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, error) {
+func GetAccountMeta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
 	endpoint := client.Config().Endpoint
 	insecure := client.Config().SecureConnect && !config.Insecure
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
@@ -384,9 +385,4 @@ func listSm2Account(client ioctl.Client) ([]string, error) {
 		}
 	}
 	return sm2Accounts, nil
-}
-
-// IsOutputFormat checks whether output format is given
-func IsOutputFormat() bool {
-	return output.Format != ""
 }
