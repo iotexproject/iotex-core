@@ -121,6 +121,8 @@ type (
 		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
 		// LogsInBlock filter logs in the block x
 		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error)
+		// LogsInBlockByHash filter logs in the block by hash
+		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
 		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error)
 		// EVMNetworkID returns the network id of evm
@@ -131,21 +133,15 @@ type (
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
 		// SimulateExecution simulates execution
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		// TipHeight returns the tip of the chain
+		TipHeight() uint64
 
-		// BlockChain returns the member bc
-		BlockChain() blockchain.Blockchain
-		// BlockDao return the member dao
-		BlockDao() blockdao.BlockDAO
-		// Indexer return the member indexer
-		Indexer() blockindex.Indexer
 		// ActPool return the member ap
 		ActPool() actpool.ActPool
 		// Config return the member cfg
 		Config() config.Config
 		// Registry return the member registry
 		Registry() *protocol.Registry
-		// HasActionIndex return the member hasActionIndex
-		HasActionIndex() bool
 	}
 
 	// coreService implements the CoreService interface
@@ -784,6 +780,10 @@ func (core *coreService) TransactionLogByBlockHeight(blockHeight uint64) (*iotex
 	return blockIdentifier, sysLog, nil
 }
 
+func (core *coreService) TipHeight() uint64 {
+	return core.bc.TipHeight()
+}
+
 // Start starts the API server
 func (core *coreService) Start(_ context.Context) error {
 	if err := core.bc.AddSubscriber(core.readCache); err != nil {
@@ -877,6 +877,9 @@ func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) 
 
 // Actions returns actions within the range
 func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -930,6 +933,9 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 
 // Action returns action by action hash
 func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -943,6 +949,9 @@ func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi
 
 // ActionsByAddress returns all actions associated with an address
 func (core *coreService) ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -981,7 +990,7 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 
 // ActionByActionHash returns action by action hash
 func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if err := core.checkActionIndex(); err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
@@ -1027,6 +1036,9 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 
 // ActionsByBlock returns all actions in a block
 func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1324,8 +1336,20 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	return res
 }
 
+func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error) {
+	blkHeight, err := core.dao.GetBlockHeight(blockHash)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+	}
+	return core.logsInBlock(filter, blkHeight)
+}
+
 // LogsInBlock filter logs in the block x
 func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+	return core.logsInBlock(filter, blockNumber)
+}
+
+func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
@@ -1488,6 +1512,13 @@ func (core *coreService) getProductivityByEpoch(
 		}
 	}
 	return num, produce, nil
+}
+
+func (core *coreService) checkActionIndex() error {
+	if !core.hasActionIndex || core.indexer == nil {
+		return errors.New("no action index")
+	}
+	return nil
 }
 
 func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {

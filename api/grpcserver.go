@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -120,9 +119,6 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 
 // GetActions returns actions
 func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
-	if (!svr.coreService.HasActionIndex() || svr.coreService.Indexer() == nil) && (in.GetByHash() != nil || in.GetByAddr() != nil) {
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
 	var (
 		ret []*iotexapi.ActionInfo
 		err error
@@ -363,13 +359,7 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 	)
 	switch {
 	case in.GetByBlock() != nil:
-		var blkHeight uint64
-		// TODO: add GetBlockHeight in coreService
-		blkHeight, err = svr.coreService.BlockDao().GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
-		}
-		ret, err = svr.coreService.LogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), blkHeight)
+		ret, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter(), nil, nil), hash.BytesToHash256(in.GetByBlock().BlockHash))
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		ret, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
