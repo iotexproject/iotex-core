@@ -80,6 +80,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountList(client))
 	ac.AddCommand(NewAccountSign(client))
 	ac.AddCommand(NewAccountUpdate(client))
+	ac.AddCommand(NewAccountVerify(client))
 
 	flagEndpointUsage, _ := client.SelectTranslation(flagEndpoint)
 	flagInsecureUsage, _ := client.SelectTranslation(flagInsecure)
@@ -327,7 +328,8 @@ func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath stri
 func storeKey(client ioctl.Client, privateKey, password string) (string, error) {
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
-		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
+		failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(failToCovertHexStringToPrivateKey)
+		return "", output.NewError(output.CryptoError, failToCovertHexStringToPrivateKey, err)
 	}
 	defer priKey.Zero()
 
@@ -384,9 +386,4 @@ func listSm2Account(client ioctl.Client) ([]string, error) {
 		}
 	}
 	return sm2Accounts, nil
-}
-
-// IsOutputFormat checks whether output format is given
-func IsOutputFormat() bool {
-	return output.Format != ""
 }

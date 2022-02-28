@@ -7,45 +7,45 @@
 package account
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
 func TestNewAccountVerify(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountSign")
-	require.NoError(t, os.MkdirAll(testAccountFolder, os.ModePerm))
+	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
 	defer func() {
-		require.NoError(t, os.RemoveAll(testAccountFolder))
+		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 
 	t.Run("verify account successfully", func(t *testing.T) {
-		RawPrivateKey := "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1"
-		client.EXPECT().PrintInfo(gomock.Any()).Return().AnyTimes()
-
+		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
+			fmt.Println(info)
+		})
 		cmd := NewAccountVerify(client)
-		_, err := util.ExecuteCmd(cmd, RawPrivateKey)
-		require.NoError(t, err)
+		_, err := util.ExecuteCmd(cmd, "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1")
+		require.NoError(err)
 	})
 
-	t.Run("failed to generate private key from hex string", func(t *testing.T) {
-		expectedErr := output.NewError(output.CryptoError, "failed to generate private key from hex string: invalid private key", nil)
-
+	t.Run("failed to covert hex string to private key", func(t *testing.T) {
+		expectedErr := errors.New("invalid private key")
 		cmd := NewAccountVerify(client)
 		_, err := util.ExecuteCmd(cmd, "1234")
-		require.Error(t, err)
-		require.Equal(t, expectedErr, err)
+		require.Contains(err.Error(), expectedErr.Error())
 	})
 }

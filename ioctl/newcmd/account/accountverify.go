@@ -9,12 +9,12 @@ package account
 import (
 	"fmt"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -27,12 +27,18 @@ var (
 		config.English: "verify",
 		config.Chinese: "verify 验证",
 	}
+	failToCovertHexStringToPrivateKey = map[config.Language]string{
+		config.English: "failed to covert hex string to private key",
+		config.Chinese: "十六进制字符串转换私钥失败",
+	}
 )
 
 // NewAccountVerify represents the account verify command
 func NewAccountVerify(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(verifyCmdUses)
 	short, _ := client.SelectTranslation(verifyCmdShorts)
+	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(failToConvertPublicKeyIntoAddress)
+	failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(failToCovertHexStringToPrivateKey)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -40,18 +46,13 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var arg string
-			if len(args) == 1 {
-				arg = args[0]
-			}
-
-			priKey, err := crypto.HexStringToPrivateKey(arg)
+			priKey, err := crypto.HexStringToPrivateKey(args[0])
 			if err != nil {
-				return output.NewError(output.CryptoError, "failed to generate private key from hex string", err)
+				return errors.Wrap(err, failToCovertHexStringToPrivateKey)
 			}
 			addr := priKey.PublicKey().Address()
 			if addr == nil {
-				return output.NewError(output.ConvertError, "failed to convert public key into address", nil)
+				return errors.New(failToConvertPublicKeyIntoAddress)
 			}
 			message := verifyMessage{
 				Address:   addr.String(),
@@ -71,8 +72,5 @@ type verifyMessage struct {
 }
 
 func (m *verifyMessage) String() string {
-	if !IsOutputFormat() {
-		return fmt.Sprintf("Address:\t%s\nPublic Key:\t%s", m.Address, m.PublicKey)
-	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprintf("Address:\t%s\nPublic Key:\t%s", m.Address, m.PublicKey)
 }
