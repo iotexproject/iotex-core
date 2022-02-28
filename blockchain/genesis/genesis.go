@@ -67,7 +67,7 @@ func defaultConfig() Genesis {
 			JutlandBlockHeight:      13685401,
 			KamchatkaBlockHeight:    13816441,
 			LordHoweBlockHeight:     13979161,
-			MidwayBlockHeight:       33816441,
+			MidwayBlockHeight:       16509241,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
