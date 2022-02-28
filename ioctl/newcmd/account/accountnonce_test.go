@@ -88,8 +88,7 @@ func TestNewAccountNonce(t *testing.T) {
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr, nil)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	err = util.ExecuteCmd(cmd)
 	require.Contains(t, err.Error(), expectedErr.Error())
 
 	// fail to invoke grpc api

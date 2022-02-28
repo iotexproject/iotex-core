@@ -68,7 +68,7 @@ func TestNewAccountDelete(t *testing.T) {
 		})
 		cmd := NewAccountDelete(client)
 		err := util.ExecuteCmd(cmd)
-		require.NoError(t, err)
+		require.NoError(err)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
@@ -76,7 +76,7 @@ func TestNewAccountDelete(t *testing.T) {
 		})
 		cmd = NewAccountDelete(client)
 		err = util.ExecuteCmd(cmd)
-		require.NoError(t, err)
+		require.NoError(err)
 	})
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
@@ -110,6 +110,6 @@ func TestNewAccountDelete(t *testing.T) {
 		})
 		cmd := NewAccountDelete(client)
 		err := util.ExecuteCmd(cmd)
-		require.NoError(t, err)
+		require.NoError(err)
 	})
 }
