@@ -11,12 +11,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
@@ -37,33 +36,29 @@ func NewAccountEthAddr(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(ethaddrCmdUses)
 	short, _ := client.SelectTranslation(ethaddrCmdShorts)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var arg string
-			if len(args) == 1 {
-				arg = args[0]
-			}
-
 			var ethAddress common.Address
-			ioAddr, err := util.Address(arg)
+			ioAddr, err := client.Address(args[0])
 			if err != nil {
-				if ok := common.IsHexAddress(arg); !ok {
-					return output.NewError(output.AddressError, "", err)
+				if ok := common.IsHexAddress(args[0]); !ok {
+					return errors.Wrap(err, "the input address is invalid")
 				}
-				ethAddress = common.HexToAddress(arg)
-				ioAddress, err := address.FromBytes(ethAddress.Bytes())
+				ethAddress = common.HexToAddress(args[0])
+				var ioAddress address.Address
+				ioAddress, err = address.FromBytes(ethAddress.Bytes())
 				if err != nil {
-					return output.NewError(output.AddressError, "failed to form IoTeX address from ETH address", nil)
+					return errors.Wrap(err, "failed to convert ETH address to IoTeX address")
 				}
 				ioAddr = ioAddress.String()
 			} else {
 				ethAddress, err = addrutil.IoAddrToEvmAddr(ioAddr)
 				if err != nil {
-					return output.NewError(output.AddressError, "", err)
+					return err
 				}
 			}
 			message := ethaddrMessage{IOAddr: ioAddr, EthAddr: ethAddress.String()}
@@ -71,8 +66,6 @@ func NewAccountEthAddr(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-
-	return cmd
 }
 
 type ethaddrMessage struct {
@@ -81,8 +74,5 @@ type ethaddrMessage struct {
 }
 
 func (m *ethaddrMessage) String() string {
-	if !IsOutputFormat() {
-		return fmt.Sprintf("%s - %s", m.IOAddr, m.EthAddr)
-	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprintf("%s - %s", m.IOAddr, m.EthAddr)
 }
