@@ -114,3 +114,18 @@ func TestDeposit(t *testing.T) {
 		require.NoError(Verify(selp))
 	}
 }
+
+func TestDepositToStakeABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	test := stakeDepositTestParams[0]
+	stake, err := NewDepositToStake(test.Nonce, test.Index, test.Amount, test.Payload, test.GasLimit, test.GasPrice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewDepositToStakeFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(test.Index, stake.bucketIndex)
+	require.Equal(test.Amount, stake.amount.String())
+	require.Equal(test.Payload, stake.payload)
+}
