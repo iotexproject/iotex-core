@@ -55,24 +55,114 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// coreService provides api for user to interact with blockchain data
-type coreService struct {
-	bc                blockchain.Blockchain
-	bs                blocksync.BlockSync
-	sf                factory.Factory
-	dao               blockdao.BlockDAO
-	indexer           blockindex.Indexer
-	bfIndexer         blockindex.BloomFilterIndexer
-	ap                actpool.ActPool
-	gs                *gasstation.GasStation
-	broadcastHandler  BroadcastOutbound
-	cfg               config.Config
-	registry          *protocol.Registry
-	chainListener     Listener
-	hasActionIndex    bool
-	electionCommittee committee.Committee
-	readCache         *ReadCache
-}
+type (
+	// CoreService provides api interface for user to interact with blockchain data
+	CoreService interface {
+		// Account returns the metadata of an account
+		Account(addr address.Address) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error)
+		// ChainMeta returns blockchain metadata
+		ChainMeta() (*iotextypes.ChainMeta, string, error)
+		// ServerMeta gets the server metadata
+		ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string)
+		// SendAction is the API to send an action to blockchain.
+		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
+		// ReceiptByAction gets receipt with corresponding action hash
+		ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error)
+		// ReadContract reads the state in a contract address specified by the slot
+		ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error)
+		// ReadState reads state on blockchain
+		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
+		// SuggestGasPrice suggests gas price
+		SuggestGasPrice() (uint64, error)
+		// EstimateGasForAction estimates gas for action
+		EstimateGasForAction(in *iotextypes.Action) (uint64, error)
+		// EpochMeta gets epoch metadata
+		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
+		// RawBlocks gets raw block data
+		RawBlocks(startHeight uint64, count uint64, withReceipts bool, withTransactionLogs bool) ([]*iotexapi.BlockInfo, error)
+		// StreamBlocks streams blocks
+		StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error
+		// StreamLogs streams logs that match the filter condition
+		StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error
+		// ElectionBuckets returns the native election buckets.
+		ElectionBuckets(epochNum uint64) ([]*iotextypes.ElectionBucket, error)
+		// ReceiptByActionHash returns receipt by action hash
+		ReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
+		// TransactionLogByActionHash returns transaction log by action hash
+		TransactionLogByActionHash(actHash string) (*iotextypes.TransactionLog, error)
+		// TransactionLogByBlockHeight returns transaction log by block height
+		TransactionLogByBlockHeight(blockHeight uint64) (*iotextypes.BlockIdentifier, *iotextypes.TransactionLogs, error)
+
+		// Start starts the API server
+		Start(ctx context.Context) error
+		// Stop stops the API server
+		Stop(ctx context.Context) error
+		// Actions returns actions within the range
+		Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// Action returns action by action hash
+		Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error)
+		// ActionsByAddress returns all actions associated with an address
+		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// ActionByActionHash returns action by action hash
+		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		// ActionsByBlock returns all actions in a block
+		ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// ActPoolActions returns the all Transaction Identifiers in the mempool
+		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
+		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
+		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// CalculateGasConsumption estimate gas consumption for actions except execution
+		CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error)
+		// EstimateExecutionGasConsumption estimate gas consumption for execution action
+		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
+		// BlockMetas returns blockmetas response within the height range
+		BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error)
+		// BlockMetaByHash returns blockmeta response by block hash
+		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
+		// LogsInBlock filter logs in the block x
+		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error)
+		// LogsInBlockByHash filter logs in the block by hash
+		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error)
+		// LogsInRange filter logs among [start, end] blocks
+		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error)
+		// EVMNetworkID returns the network id of evm
+		EVMNetworkID() uint32
+		// ChainID returns the chain id of evm
+		ChainID() uint32
+		// ReadContractStorage reads contract's storage
+		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
+		// SimulateExecution simulates execution
+		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		// TipHeight returns the tip of the chain
+		TipHeight() uint64
+
+		// ActPool return the member ap
+		ActPool() actpool.ActPool
+		// Config return the member cfg
+		Config() config.Config
+		// Registry return the member registry
+		Registry() *protocol.Registry
+	}
+
+	// coreService implements the CoreService interface
+	coreService struct {
+		bc                blockchain.Blockchain
+		bs                blocksync.BlockSync
+		sf                factory.Factory
+		dao               blockdao.BlockDAO
+		indexer           blockindex.Indexer
+		bfIndexer         blockindex.BloomFilterIndexer
+		ap                actpool.ActPool
+		gs                *gasstation.GasStation
+		broadcastHandler  BroadcastOutbound
+		cfg               config.Config
+		registry          *protocol.Registry
+		chainListener     Listener
+		hasActionIndex    bool
+		electionCommittee committee.Committee
+		readCache         *ReadCache
+	}
+)
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
@@ -86,7 +176,7 @@ func newCoreService(
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
-) (*coreService, error) {
+) (CoreService, error) {
 	apiCfg := Config{}
 	for _, opt := range opts {
 		if err := opt(&apiCfg); err != nil {
@@ -690,8 +780,12 @@ func (core *coreService) TransactionLogByBlockHeight(blockHeight uint64) (*iotex
 	return blockIdentifier, sysLog, nil
 }
 
+func (core *coreService) TipHeight() uint64 {
+	return core.bc.TipHeight()
+}
+
 // Start starts the API server
-func (core *coreService) Start() error {
+func (core *coreService) Start(_ context.Context) error {
 	if err := core.bc.AddSubscriber(core.readCache); err != nil {
 		return errors.Wrap(err, "failed to add readCache")
 	}
@@ -705,7 +799,7 @@ func (core *coreService) Start() error {
 }
 
 // Stop stops the API server
-func (core *coreService) Stop() error {
+func (core *coreService) Stop(_ context.Context) error {
 	return core.chainListener.Stop()
 }
 
@@ -783,6 +877,9 @@ func (core *coreService) getActionsFromIndex(totalActions, start, count uint64) 
 
 // Actions returns actions within the range
 func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -836,6 +933,9 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 
 // Action returns action by action hash
 func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -849,6 +949,9 @@ func (core *coreService) Action(actionHash string, checkPending bool) (*iotexapi
 
 // ActionsByAddress returns all actions associated with an address
 func (core *coreService) ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -887,7 +990,7 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 
 // ActionByActionHash returns action by action hash
 func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if err := core.checkActionIndex(); err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
@@ -933,6 +1036,9 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 
 // ActionsByBlock returns all actions in a block
 func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+	if err := core.checkActionIndex(); err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1230,8 +1336,20 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	return res
 }
 
+func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error) {
+	blkHeight, err := core.dao.GetBlockHeight(blockHash)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+	}
+	return core.logsInBlock(filter, blkHeight)
+}
+
 // LogsInBlock filter logs in the block x
 func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+	return core.logsInBlock(filter, blockNumber)
+}
+
+func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
@@ -1396,6 +1514,13 @@ func (core *coreService) getProductivityByEpoch(
 	return num, produce, nil
 }
 
+func (core *coreService) checkActionIndex() error {
+	if !core.hasActionIndex || core.indexer == nil {
+		return errors.New("no action index")
+	}
+	return nil
+}
+
 func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*iotextypes.AccountMeta, *iotextypes.BlockIdentifier, error) {
 	span := tracer.SpanFromContext(ctx)
 	defer span.End()
@@ -1409,7 +1534,7 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 		if out, err = core.ReadState("rewarding", "", []byte("TotalBalance"), nil); err != nil {
 			return nil, nil, err
 		}
-		val, ok := big.NewInt(0).SetString(string(out.GetData()), 10)
+		val, ok := new(big.Int).SetString(string(out.GetData()), 10)
 		if !ok {
 			return nil, nil, errors.New("balance convert error")
 		}
@@ -1489,4 +1614,57 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.sf.ReadContractStorage(ctx, addr, key)
+}
+
+// BlockChain returns the member bc
+func (core *coreService) BlockChain() blockchain.Blockchain {
+	return core.bc
+}
+
+func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
+	state, err := accountutil.AccountState(core.sf, addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, err = core.bc.Context(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO (liuhaai): Use original nonce and gas limit properly
+	exec.SetNonce(state.Nonce + 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	exec.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
+	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
+}
+
+// BlockDao return the member dao
+func (core *coreService) BlockDao() blockdao.BlockDAO {
+	return core.dao
+}
+
+// Indexer return the member indexer
+func (core *coreService) Indexer() blockindex.Indexer {
+	return core.indexer
+}
+
+// ActPool return the member ap
+func (core *coreService) ActPool() actpool.ActPool {
+	return core.ap
+}
+
+// Config return the member cfg
+func (core *coreService) Config() config.Config {
+	return core.cfg
+}
+
+// Registry return the member registry
+func (core *coreService) Registry() *protocol.Registry {
+	return core.registry
+}
+
+// HasActionIndex return the member hasActionIndex
+func (core *coreService) HasActionIndex() bool {
+	return core.hasActionIndex
 }

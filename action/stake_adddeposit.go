@@ -141,9 +141,14 @@ func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 
 	ds.bucketIndex = pbAct.GetBucketIndex()
 	ds.payload = pbAct.GetPayload()
-	ds.amount = big.NewInt(0)
-	if len(pbAct.GetAmount()) > 0 {
-		ds.amount.SetString(pbAct.GetAmount(), 10)
+	if pbAct.GetAmount() == "" {
+		ds.amount = big.NewInt(0)
+	} else {
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
+		if !ok {
+			return errors.Errorf("invalid amount %s", pbAct.GetAmount())
+		}
+		ds.amount = amount
 	}
 
 	return nil

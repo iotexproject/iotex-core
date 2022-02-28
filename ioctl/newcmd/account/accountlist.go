@@ -43,7 +43,7 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 			aliases := c.AliasMap()
 
 			if c.IsCryptoSm2() {
-				sm2Accounts, err := listSm2Account()
+				sm2Accounts, err := listSm2Account(c)
 				if err != nil {
 					return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)
 				}

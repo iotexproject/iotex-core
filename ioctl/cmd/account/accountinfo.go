@@ -68,7 +68,7 @@ func info(arg string) error {
 	if err != nil {
 		return output.NewError(output.APIError, "", err)
 	}
-	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	balance, ok := new(big.Int).SetString(accountMeta.Balance, 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "", err)
 	}
