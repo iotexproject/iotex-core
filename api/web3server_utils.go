@@ -105,7 +105,7 @@ func uint64ToHex(val uint64) string {
 }
 
 func intStrToHex(str string) (string, error) {
-	amount, ok := big.NewInt(0).SetString(str, 10)
+	amount, ok := new(big.Int).SetString(str, 10)
 	if !ok {
 		return "", errors.Wrapf(errUnkownType, "int: %s", str)
 	}
@@ -146,7 +146,7 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.cfg.API.RangeQueryLimit)
+		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.Config().API.RangeQueryLimit)
 		if err != nil {
 			return blockObject{}, err
 		}
@@ -154,7 +154,9 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 			if isDetailed {
 				tx, err := svr.getTransactionFromActionInfo(info)
 				if err != nil {
-					log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
+					if errors.Cause(err) != errUnsupportedAction {
+						log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("info", fmt.Sprintf("%+v", info)))
+					}
 					continue
 				}
 				transactions = append(transactions, tx)
@@ -247,7 +249,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 		}
 	// TODO: support other type actions
 	default:
-		return transactionObject{}, errors.Errorf("the type of action %s is not supported", actInfo.ActHash)
+		return transactionObject{}, errors.Wrapf(errUnsupportedAction, "actHash: %s", actInfo.ActHash)
 	}
 
 	vVal := uint64(actInfo.Action.Signature[64])
@@ -291,7 +293,7 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	case _earliestBlockNumber:
 		return 1, nil
 	case "", _pendingBlockNumber, _latestBlockNumber:
-		return svr.coreService.bc.TipHeight(), nil
+		return svr.coreService.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
 	}
@@ -461,7 +463,7 @@ func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int,
 		return nil, "", 0, nil, nil, err
 	}
 	if callObj.Value != "" {
-		value, ok = big.NewInt(0).SetString(util.Remove0xPrefix(callObj.Value), 16)
+		value, ok = new(big.Int).SetString(util.Remove0xPrefix(callObj.Value), 16)
 		if !ok {
 			return nil, "", 0, nil, nil, errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
 		}
@@ -498,7 +500,7 @@ func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64)
 func loadFilterFromCache(c apiCache, filterID string) (filterObject, error) {
 	dataStr, isFound := c.Get(filterID)
 	if !isFound {
-		return filterObject{}, errInvalidFiterID
+		return filterObject{}, errInvalidFilterID
 	}
 	var filterObj filterObject
 	if err := json.Unmarshal([]byte(dataStr), &filterObj); err != nil {

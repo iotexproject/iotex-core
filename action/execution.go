@@ -159,8 +159,15 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	*ex = Execution{}
 
 	ex.contract = pbAct.GetContract()
-	ex.amount = &big.Int{}
-	ex.amount.SetString(pbAct.GetAmount(), 10)
+	if pbAct.GetAmount() == "" {
+		ex.amount = big.NewInt(0)
+	} else {
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
+		if !ok {
+			return errors.Errorf("invalid amount %s", pbAct.GetAmount())
+		}
+		ex.amount = amount
+	}
 	ex.data = pbAct.GetData()
 	ex.accessList = fromAccessListProto(pbAct.AccessList)
 	return nil

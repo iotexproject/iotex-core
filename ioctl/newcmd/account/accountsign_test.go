@@ -7,6 +7,7 @@
 package account
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,10 +34,13 @@ func TestNewAccountSign(t *testing.T) {
 		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
 	t.Run("invalid_account", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
+		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
+			fmt.Println(info)
+		}).Times(1)
 		cmd := NewAccountSign(client)
 		require.NoError(cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph"))
 		_, err := util.ExecuteCmd(cmd, "1234")

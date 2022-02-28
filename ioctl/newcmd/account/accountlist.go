@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
@@ -44,7 +43,7 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 			aliases := c.AliasMap()
 
 			if c.IsCryptoSm2() {
-				sm2Accounts, err := listSm2Account()
+				sm2Accounts, err := listSm2Account(c)
 				if err != nil {
 					return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)
 				}
@@ -55,8 +54,7 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 					})
 				}
 			} else {
-				ks := c.NewKeyStore(config.ReadConfig.Wallet,
-					keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := c.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					addr, err := address.FromBytes(v.Address.Bytes())
 					if err != nil {

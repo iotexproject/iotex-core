@@ -8,6 +8,7 @@ package ioctl
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -49,14 +50,14 @@ type (
 		GetAddress(in string) (string, error)
 		// doing
 		Address(in string) (string, error)
-		// doing
-		NewKeyStore(string, int, int) *keystore.KeyStore
+		// NewKeyStore creates a keystore by default walletdir
+		NewKeyStore() *keystore.KeyStore
+		// DecryptPrivateKey returns privateKey from a json blob
+		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
 		// doing
 		WriteConfig(config.Config) error
-		// PrintError print the error message
-		PrintError(error)
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
@@ -77,6 +78,9 @@ type (
 		// TODO: merge into config
 		lang config.Language
 	}
+
+	// Option sets client construction parameter
+	Option func(*client)
 )
 
 var confirmMessages = map[config.Language]string{
@@ -84,12 +88,22 @@ var confirmMessages = map[config.Language]string{
 	config.Chinese: "是否继续？【是/否】",
 }
 
-// NewClient creates a new ioctl client
-func NewClient(cryptoSm2 bool) Client {
-	return &client{
-		cfg:       config.ReadConfig,
-		cryptoSm2: cryptoSm2,
+// EnableCryptoSm2 enables to use sm2 cryptographic algorithm
+func EnableCryptoSm2() Option {
+	return func(c *client) {
+		c.cryptoSm2 = true
 	}
+}
+
+// NewClient creates a new ioctl client
+func NewClient(cfg config.Config, opts ...Option) Client {
+	c := &client{
+		cfg: cfg,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *client) Start(context.Context) error {
@@ -185,8 +199,31 @@ func (c *client) Address(in string) (string, error) {
 	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
 
-func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-	return keystore.NewKeyStore(keydir, scryptN, scryptP)
+func (c *client) NewKeyStore() *keystore.KeyStore {
+	return keystore.NewKeyStore(c.cfg.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+}
+
+func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
+	keyJSON, err := os.ReadFile(keyStorePath)
+	if err != nil {
+		return nil, output.NewError(output.ReadFileError,
+			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+	}
+
+	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
+	if err != nil {
+		return nil, output.NewError(output.KeystoreError, "failed to decrypt key", err)
+	}
+	if key != nil && key.PrivateKey != nil {
+		// clear private key in memory prevent from attack
+		defer func(k *ecdsa.PrivateKey) {
+			b := k.D.Bits()
+			for i := range b {
+				b[i] = 0
+			}
+		}(key.PrivateKey)
+	}
+	return key.PrivateKey, nil
 }
 
 func (c *client) AliasMap() map[string]string {
@@ -209,14 +246,8 @@ func (c *client) WriteConfig(cfg config.Config) error {
 	return nil
 }
 
-func (c *client) PrintError(err error) {
-	if err := output.PrintError(err); err != nil {
-		fmt.Println("Error:", err.Error())
-	}
-}
-
 func (c *client) PrintInfo(info string) {
-	output.PrintResult(info)
+	fmt.Println(info)
 }
 
 func (c *client) IsCryptoSm2() bool {

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -60,7 +59,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 
 			if client.IsCryptoSm2() {
 				// find the pem file and update
-				filePath, err := findSm2PemFile(addr)
+				filePath, err := findSm2PemFile(client, addr)
 				if err != nil {
 					return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
 				}
@@ -83,7 +82,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				}
 			} else {
 				// find the keystore and update
-				ks := client.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
 						if err = readSecretAndUpdate(client, acc,

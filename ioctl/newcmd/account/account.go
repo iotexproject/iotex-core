@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -129,15 +128,14 @@ func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (
 
 	if client.IsCryptoSm2() {
 		// find the account in pem files
-		pemFilePath := sm2KeyPath(addr)
+		pemFilePath := sm2KeyPath(client, addr)
 		prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
 		if err == nil {
 			return prvKey, nil
 		}
 	} else {
 		// find the account in keystore
-		ks := client.NewKeyStore(config.ReadConfig.Wallet,
-			keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := client.NewKeyStore()
 		for _, account := range ks.Accounts() {
 			if bytes.Equal(addr.Bytes(), account.Address.Bytes()) {
 				return crypto.KeystoreToPrivateKey(account, password)
@@ -159,7 +157,7 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 	}
 
 	if password == "" {
-		output.PrintQuery(fmt.Sprintf("Enter password for #%s:\n", signer))
+		client.PrintInfo(fmt.Sprintf("Enter password for #%s:\n", signer))
 		password, err = client.ReadSecret()
 		if err != nil {
 			return nil, output.NewError(output.InputError, "failed to get password", err)
@@ -218,13 +216,12 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 
 	if client.IsCryptoSm2() {
 		// find the account in pem files
-		_, err = findSm2PemFile(addr)
+		_, err = findSm2PemFile(client, addr)
 		return err == nil
 	}
 
 	// find the account in keystore
-	ks := client.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := client.NewKeyStore()
 	for _, ksAccount := range ks.Accounts() {
 		if address.Equal(addr, ksAccount.Address) {
 			return true
@@ -235,12 +232,12 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 }
 
 func newAccount(client ioctl.Client, alias string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
@@ -248,7 +245,7 @@ func newAccount(client ioctl.Client, alias string) (string, error) {
 	if password != passwordAgain {
 		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
-	ks := client.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := client.NewKeyStore()
 	account, err := ks.NewAccount(password)
 	if err != nil {
 		return "", output.NewError(output.KeystoreError, "failed to create new keystore", err)
@@ -261,12 +258,12 @@ func newAccount(client ioctl.Client, alias string) (string, error) {
 }
 
 func newAccountSm2(client ioctl.Client, alias string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
@@ -284,7 +281,7 @@ func newAccountSm2(client ioctl.Client, alias string) (string, error) {
 		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
 	}
 
-	pemFilePath := sm2KeyPath(addr)
+	pemFilePath := sm2KeyPath(client, addr)
 	if err := crypto.WritePrivateKeyToPem(pemFilePath, priKey.(*crypto.P256sm2PrvKey), password); err != nil {
 		return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 	}
@@ -292,13 +289,13 @@ func newAccountSm2(client ioctl.Client, alias string) (string, error) {
 	return addr.String(), nil
 }
 
-func newAccountByKey(client ioctl.Client, alias string, privateKey string, walletDir string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+func newAccountByKey(client ioctl.Client, alias string, privateKey string) (string, error) {
+	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", output.NewError(output.InputError, "failed to get password", err)
@@ -307,41 +304,27 @@ func newAccountByKey(client ioctl.Client, alias string, privateKey string, walle
 		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
 
-	return storeKey(client, privateKey, walletDir, password)
+	return storeKey(client, privateKey, password)
 }
 
-func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string) (string, error) {
+	privateKey, err := client.DecryptPrivateKey(passwordOfKeyStore, keyStorePath)
 	if err != nil {
-		return "", output.NewError(output.ReadFileError,
-			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+		return "", err
 	}
-	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
-	if key != nil && key.PrivateKey != nil {
-		// clear private key in memory prevent from attack
-		defer func(k *ecdsa.PrivateKey) {
-			b := k.D.Bits()
-			for i := range b {
-				b[i] = 0
-			}
-		}(key.PrivateKey)
-	}
-	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to decrypt key", err)
-	}
-	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
+	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(privateKey)))
 }
 
-func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string, walletDir string) (string, error) {
+func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string) (string, error) {
 	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, passwordOfPem)
 	if err != nil {
 		return "", output.NewError(output.CryptoError, "failed to read private key from pem file", err)
 	}
 
-	return newAccountByKey(client, alias, prvKey.HexString(), walletDir)
+	return newAccountByKey(client, alias, prvKey.HexString())
 }
 
-func storeKey(client ioctl.Client, privateKey, walletDir, password string) (string, error) {
+func storeKey(client ioctl.Client, privateKey, password string) (string, error) {
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
 		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
@@ -355,12 +338,12 @@ func storeKey(client ioctl.Client, privateKey, walletDir, password string) (stri
 
 	switch sk := priKey.EcdsaPrivateKey().(type) {
 	case *ecdsa.PrivateKey:
-		ks := client.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := client.NewKeyStore()
 		if _, err := ks.ImportECDSA(sk, password); err != nil {
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}
 	case *crypto.P256sm2PrvKey:
-		pemFilePath := sm2KeyPath(addr)
+		pemFilePath := sm2KeyPath(client, addr)
 		if err := crypto.WritePrivateKeyToPem(pemFilePath, sk, password); err != nil {
 			return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 		}
@@ -371,12 +354,12 @@ func storeKey(client ioctl.Client, privateKey, walletDir, password string) (stri
 	return addr.String(), nil
 }
 
-func sm2KeyPath(addr address.Address) string {
-	return filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+addr.String()+".pem")
+func sm2KeyPath(client ioctl.Client, addr address.Address) string {
+	return filepath.Join(client.Config().Wallet, "sm2sk-"+addr.String()+".pem")
 }
 
-func findSm2PemFile(addr address.Address) (string, error) {
-	filePath := sm2KeyPath(addr)
+func findSm2PemFile(client ioctl.Client, addr address.Address) (string, error) {
+	filePath := sm2KeyPath(client, addr)
 	_, err := os.Stat(filePath)
 	if err != nil {
 		return "", output.NewError(output.ReadFileError, "crypto file not found", err)
@@ -384,9 +367,9 @@ func findSm2PemFile(addr address.Address) (string, error) {
 	return filePath, nil
 }
 
-func listSm2Account() ([]string, error) {
+func listSm2Account(client ioctl.Client) ([]string, error) {
 	sm2Accounts := make([]string, 0)
-	files, err := os.ReadDir(config.ReadConfig.Wallet)
+	files, err := os.ReadDir(client.Config().Wallet)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
 	}

@@ -35,7 +35,7 @@ type (
 	// Web3Server contains web3 server and the pointer to api coreservice
 	Web3Server struct {
 		web3Server  *http.Server
-		coreService *coreService
+		coreService CoreService
 		cache       apiCache
 	}
 
@@ -98,12 +98,13 @@ var (
 		Help: "web3 api metrics.",
 	}, []string{"method"})
 
-	errUnkownType     = errors.New("wrong type of params")
-	errNullPointer    = errors.New("null pointer")
-	errInvalidFormat  = errors.New("invalid format of request")
-	errNotImplemented = errors.New("method not implemented")
-	errInvalidFiterID = errors.New("filter not found")
-	errInvalidBlock   = errors.New("invalid block")
+	errUnkownType        = errors.New("wrong type of params")
+	errNullPointer       = errors.New("null pointer")
+	errInvalidFormat     = errors.New("invalid format of request")
+	errNotImplemented    = errors.New("method not implemented")
+	errInvalidFilterID   = errors.New("filter not found")
+	errInvalidBlock      = errors.New("invalid block")
+	errUnsupportedAction = errors.New("the type of action is not supported")
 
 	_pendingBlockNumber  = "pending"
 	_latestBlockNumber   = "latest"
@@ -115,7 +116,7 @@ func init() {
 }
 
 // NewWeb3Server creates a new web3 server
-func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server {
+func NewWeb3Server(core CoreService, httpPort int, cacheURL string) *Web3Server {
 	svr := &Web3Server{
 		web3Server: &http.Server{
 			Addr: ":" + strconv.Itoa(httpPort),
@@ -131,7 +132,7 @@ func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server
 }
 
 // Start starts the API server
-func (svr *Web3Server) Start() error {
+func (svr *Web3Server) Start(_ context.Context) error {
 	go func() {
 		if err := svr.web3Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
@@ -141,7 +142,7 @@ func (svr *Web3Server) Start() error {
 }
 
 // Stop stops the API server
-func (svr *Web3Server) Stop() error {
+func (svr *Web3Server) Stop(_ context.Context) error {
 	return svr.web3Server.Shutdown(context.Background())
 }
 
@@ -339,7 +340,7 @@ func (svr *Web3Server) getChainID() (interface{}, error) {
 }
 
 func (svr *Web3Server) getBlockNumber() (interface{}, error) {
-	return uint64ToHex(svr.coreService.bc.TipHeight()), nil
+	return uint64ToHex(svr.coreService.TipHeight()), nil
 }
 
 func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
@@ -397,7 +398,7 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 		return nil, err
 	}
 	if blkNum == _pendingBlockNumber {
-		pendingNonce, err := svr.coreService.ap.GetPendingNonce(ioAddr.String())
+		pendingNonce, err := svr.coreService.ActPool().GetPendingNonce(ioAddr.String())
 		if err != nil {
 			return nil, err
 		}
@@ -858,7 +859,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 func (svr *Web3Server) newBlockFilter() (interface{}, error) {
 	filterObj := filterObject{
 		FilterType: "block",
-		LogHeight:  svr.coreService.bc.TipHeight(),
+		LogHeight:  svr.coreService.TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
 	keyHash := hash.Hash256b(objInByte)
@@ -891,7 +892,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	var (
 		ret          interface{}
 		newLogHeight uint64
-		tipHeight    = svr.coreService.bc.TipHeight()
+		tipHeight    = svr.coreService.TipHeight()
 	)
 	switch filterObj.FilterType {
 	case "log":
@@ -915,9 +916,6 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 			return []string{}, nil
 		}
 		queryCount := tipHeight - filterObj.LogHeight + 1
-		if queryCount > svr.coreService.cfg.API.RangeQueryLimit {
-			queryCount = svr.coreService.cfg.API.RangeQueryLimit
-		}
 		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, queryCount)
 		if err != nil {
 			return nil, err
@@ -951,7 +949,7 @@ func (svr *Web3Server) getFilterLogs(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if filterObj.FilterType != "log" {
-		return nil, errInvalidFiterID
+		return nil, errInvalidFilterID
 	}
 	from, to, err := svr.parseBlockRange(filterObj.FromBlock, filterObj.ToBlock)
 	if err != nil {
