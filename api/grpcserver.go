@@ -28,9 +28,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -39,11 +37,11 @@ import (
 type GRPCServer struct {
 	port        string
 	grpcServer  *grpc.Server
-	coreService *coreService
+	coreService CoreService
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core *coreService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -69,7 +67,7 @@ func NewGRPCServer(core *coreService, grpcPort int) *GRPCServer {
 }
 
 // Start starts the GRPC server
-func (svr *GRPCServer) Start() error {
+func (svr *GRPCServer) Start(_ context.Context) error {
 	lis, err := net.Listen("tcp", svr.port)
 	if err != nil {
 		log.L().Error("grpc server failed to listen.", zap.Error(err))
@@ -85,7 +83,7 @@ func (svr *GRPCServer) Start() error {
 }
 
 // Stop stops the GRPC server
-func (svr *GRPCServer) Stop() error {
+func (svr *GRPCServer) Stop(_ context.Context) error {
 	svr.grpcServer.Stop()
 	return nil
 }
@@ -121,9 +119,6 @@ func (svr *GRPCServer) GetAccount(ctx context.Context, in *iotexapi.GetAccountRe
 
 // GetActions returns actions
 func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
-	if (!svr.coreService.hasActionIndex || svr.coreService.indexer == nil) && (in.GetByHash() != nil || in.GetByAddr() != nil) {
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
 	var (
 		ret []*iotexapi.ActionInfo
 		err error
@@ -139,7 +134,8 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
-		addr, err := address.FromString(request.Address)
+		var addr address.Address
+		addr, err = address.FromString(request.Address)
 		if err != nil {
 			return nil, err
 		}
@@ -363,13 +359,7 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 	)
 	switch {
 	case in.GetByBlock() != nil:
-		var blkHeight uint64
-		// TODO: add GetBlockHeight in coreService
-		blkHeight, err = svr.coreService.dao.GetBlockHeight(hash.BytesToHash256(in.GetByBlock().BlockHash))
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
-		}
-		ret, err = svr.coreService.LogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), blkHeight)
+		ret, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter(), nil, nil), hash.BytesToHash256(in.GetByBlock().BlockHash))
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		ret, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
@@ -468,17 +458,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if !ok {
 		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
-
-	amount, _ := big.NewInt(0).SetString(exec.Execution.GetAmount(), 10)
 	callerAddr, err := address.FromString(actInfo.Sender)
-	if err != nil {
-		return nil, err
-	}
-	state, err := accountutil.AccountState(svr.coreService.sf, callerAddr)
-	if err != nil {
-		return nil, err
-	}
-	ctx, err = svr.coreService.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -488,16 +468,23 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	sc, _ := action.NewExecution(
+	amount, ok := new(big.Int).SetString(exec.Execution.GetAmount(), 10)
+	if !ok {
+		return nil, errors.New("failed to set execution amount")
+	}
+	sc, err := action.NewExecution(
 		exec.Execution.GetContract(),
-		state.Nonce+1,
+		actInfo.Action.Core.Nonce,
 		amount,
-		svr.coreService.cfg.Genesis.BlockGasLimit,
+		actInfo.Action.Core.GasLimit,
 		big.NewInt(0),
 		exec.Execution.GetData(),
 	)
+	if err != nil {
+		return nil, err
+	}
 
-	_, _, err = svr.coreService.sf.SimulateExecution(ctx, callerAddr, sc, svr.coreService.dao.GetBlockHash)
+	_, _, err = svr.coreService.SimulateExecution(ctx, callerAddr, sc)
 	if err != nil {
 		return nil, err
 	}

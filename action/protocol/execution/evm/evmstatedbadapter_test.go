@@ -280,6 +280,9 @@ var tests = []stateDBTest{
 			{common.BytesToHash(v1[:]), []byte("cat")},
 			{common.BytesToHash(v2[:]), []byte("dog")},
 		},
+		[]access{
+			{c1, []common.Hash{k1, k2}, []common.Hash{k3, k4}, false},
+		},
 		[]*types.Log{
 			newTestLog(c3), newTestLog(c2), newTestLog(c1),
 		},
@@ -309,6 +312,10 @@ var tests = []stateDBTest{
 		[]image{
 			{common.BytesToHash(v3[:]), []byte("hen")},
 		},
+		[]access{
+			{c1, []common.Hash{k3, k4}, nil, true},
+			{c2, []common.Hash{k1, k3}, []common.Hash{k2, k4}, false},
+		},
 		[]*types.Log{
 			newTestLog(C4),
 		},
@@ -330,6 +337,9 @@ var tests = []stateDBTest{
 		},
 		[]image{
 			{common.BytesToHash(v4[:]), []byte("fox")},
+		},
+		[]access{
+			{c2, []common.Hash{k2, k4}, nil, true},
 		},
 		[]*types.Log{
 			newTestLog(c1), newTestLog(c2),
@@ -385,6 +395,25 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, e := range test.preimage {
 				stateDB.AddPreimage(e.hash, e.v)
 			}
+			// set access list
+			for _, e := range test.accessList {
+				require.Equal(e.exist, stateDB.AddressInAccessList(e.addr))
+				for _, slot := range e.slots {
+					aOk, sOk := stateDB.SlotInAccessList(e.addr, slot)
+					require.Equal(e.exist, aOk)
+					require.False(sOk)
+					stateDB.AddSlotToAccessList(e.addr, slot)
+					e.exist = true
+					aOk, sOk = stateDB.SlotInAccessList(e.addr, slot)
+					require.True(aOk)
+					require.True(sOk)
+				}
+				for _, slot := range e.nx {
+					aOk, sOk := stateDB.SlotInAccessList(e.addr, slot)
+					require.True(aOk)
+					require.False(sOk)
+				}
+			}
 			// set logs and txLogs
 			for _, l := range test.logs {
 				stateDB.AddLog(l)
@@ -424,6 +453,10 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte("fox")},
 				},
+				[]access{
+					{c1, []common.Hash{k1, k2, k3, k4}, nil, true},
+					{c2, []common.Hash{k1, k2, k3, k4}, nil, true},
+				},
 				nil, nil,
 				6, 5,
 				"io1x3cv7c4w922k6wx5s8p6d8sjrcqlcfrxhkn5xe", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
@@ -446,6 +479,10 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v2[:]), []byte("dog")},
 					{common.BytesToHash(v3[:]), []byte("hen")},
 					{common.BytesToHash(v4[:]), []byte(nil)},
+				},
+				[]access{
+					{c1, []common.Hash{k1, k2, k3, k4}, nil, true},
+					{c2, []common.Hash{k1, k3}, []common.Hash{k2, k4}, true},
 				},
 				nil, nil,
 				4, 5,
@@ -473,6 +510,10 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{common.BytesToHash(v2[:]), []byte("dog")},
 					{common.BytesToHash(v3[:]), []byte(nil)},
 					{common.BytesToHash(v4[:]), []byte(nil)},
+				},
+				[]access{
+					{c1, []common.Hash{k1, k2}, []common.Hash{k3, k4}, true},
+					{c2, nil, []common.Hash{k1, k2, k3, k4}, false},
 				},
 				nil, nil,
 				3, 2,
@@ -503,6 +544,20 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				for _, e := range test.preimage {
 					v := stateDB.preimages[e.hash]
 					require.Equal(e.v, []byte(v))
+				}
+				// test access list
+				for _, e := range test.accessList {
+					require.Equal(e.exist, stateDB.AddressInAccessList(e.addr))
+					for _, slot := range e.slots {
+						aOk, sOk := stateDB.SlotInAccessList(e.addr, slot)
+						require.Equal(e.exist, aOk)
+						require.True(sOk)
+					}
+					for _, slot := range e.nx {
+						aOk, sOk := stateDB.SlotInAccessList(e.addr, slot)
+						require.Equal(e.exist, aOk)
+						require.False(sOk)
+					}
 				}
 			}
 			// test suicide/exist

@@ -111,7 +111,7 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 		return
 	}
 	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
-	amount, ok := big.NewInt(0).SetString(s.cfg.Xrc20.Amount, 10)
+	amount, ok := new(big.Int).SetString(s.cfg.Xrc20.Amount, 10)
 	if !ok {
 		err = errors.New("amount convert error")
 		return

@@ -1708,7 +1708,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	require.NoError(err)
 	// check the original balance
 	balance := BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
-	expect, ok := big.NewInt(0).SetString("2000000000000000000000000000", 10)
+	expect, ok := new(big.Int).SetString("2000000000000000000000000000", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
 	// make a transfer for contract
@@ -1717,7 +1717,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	require.NoError(err)
 	// check the balance after transfer
 	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
-	expect, ok = big.NewInt(0).SetString("1999999999999999999999999999", 10)
+	expect, ok = new(big.Int).SetString("1999999999999999999999999999", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
 
@@ -1730,7 +1730,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 		account, err = accountutil.AccountState(sr, contractAddr)
 		require.NoError(err)
 		balance = BalanceOfContract(contract, genesisAccount, sr, t, account.Root)
-		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
+		expect, ok = new(big.Int).SetString("2000000000000000000000000000", 10)
 		require.True(ok)
 		require.Equal(expect, balance)
 	}

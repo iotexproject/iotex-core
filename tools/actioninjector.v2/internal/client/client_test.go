@@ -85,7 +85,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	apiServer, err := api.NewServerV2(cfg, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
 	require.NoError(err)
-	require.NoError(apiServer.Start())
+	require.NoError(apiServer.Start(ctx))
 	// test New()
 	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.Port)
 	cli, err := New(serverAddr, true)

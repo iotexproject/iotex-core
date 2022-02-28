@@ -7,8 +7,12 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -23,9 +27,63 @@ const (
 	CandidateRegisterPayloadGas = uint64(100)
 	// CandidateRegisterBaseIntrinsicGas represents the base intrinsic gas for CandidateRegister
 	CandidateRegisterBaseIntrinsicGas = uint64(10000)
+
+	candidateRegisterInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "name",
+					"type": "string"
+				},
+				{
+					"internalType": "address",
+					"name": "operatorAddress",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "rewardAddress",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "ownerAddress",
+					"type": "address"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint32",
+					"name": "duration",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bool",
+					"name": "autoStake",
+					"type": "bool"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "candidateRegister",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
 )
 
 var (
+	// _candidateRegisterInterface is the interface of the abi encoding of stake action
+	_candidateRegisterMethod abi.Method
+
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
 )
@@ -42,6 +100,18 @@ type CandidateRegister struct {
 	duration        uint32
 	autoStake       bool
 	payload         []byte
+}
+
+func init() {
+	candidateRegisterInterface, err := abi.JSON(strings.NewReader(candidateRegisterInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_candidateRegisterMethod, ok = candidateRegisterInterface.Methods["candidateRegister"]
+	if !ok {
+		panic("fail to load the method")
+	}
 }
 
 // NewCandidateRegister creates a CandidateRegister instance
@@ -220,4 +290,74 @@ func (cr *CandidateRegister) SanityCheck() error {
 	}
 
 	return cr.AbstractAction.SanityCheck()
+}
+
+// EncodeABIBinary encodes data in abi encoding
+func (cr *CandidateRegister) EncodeABIBinary() ([]byte, error) {
+	operatorEthAddr := common.BytesToAddress(cr.operatorAddress.Bytes())
+	rewardEthAddr := common.BytesToAddress(cr.rewardAddress.Bytes())
+	ownerEthAddr := common.BytesToAddress(cr.ownerAddress.Bytes())
+	data, err := _candidateRegisterMethod.Inputs.Pack(
+		cr.name,
+		operatorEthAddr,
+		rewardEthAddr,
+		ownerEthAddr,
+		cr.amount,
+		cr.duration,
+		cr.autoStake,
+		cr.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_candidateRegisterMethod.ID, data...), nil
+}
+
+// NewCandidateRegisterFromABIBinary decodes data into CandidateRegister action
+func NewCandidateRegisterFromABIBinary(data []byte) (*CandidateRegister, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		err       error
+		cr        CandidateRegister
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_candidateRegisterMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _candidateRegisterMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if cr.name, ok = paramsMap["name"].(string); !ok {
+		return nil, errDecodeFailure
+	}
+	if cr.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
+		return nil, err
+	}
+	if cr.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
+		return nil, err
+	}
+	if cr.ownerAddress, err = ethAddrToNativeAddr(paramsMap["ownerAddress"]); err != nil {
+		return nil, err
+	}
+	if cr.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+		return nil, errDecodeFailure
+	}
+	if cr.duration, ok = paramsMap["duration"].(uint32); !ok {
+		return nil, errDecodeFailure
+	}
+	if cr.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+		return nil, errDecodeFailure
+	}
+	if cr.payload, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &cr, nil
+}
+
+func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
+	ethAddr, ok := in.(common.Address)
+	if !ok {
+		return nil, errDecodeFailure
+	}
+	return address.FromBytes(ethAddr.Bytes())
 }

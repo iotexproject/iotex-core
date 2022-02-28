@@ -74,7 +74,7 @@ func multiSend(args []string) (string, error) {
 			return "", err
 		}
 		recipients = append(recipients, recipient)
-		amount, ok := big.NewInt(0).SetString(target.Amount, 10)
+		amount, ok := new(big.Int).SetString(target.Amount, 10)
 		if !ok {
 			return "", fmt.Errorf("failed to convert string to big int")
 		}

@@ -53,7 +53,7 @@ func (c *ClaimFromRewardingFund) Proto() *iotextypes.ClaimFromRewardingFund {
 // LoadProto converts a claim action protobuf to a claim action struct
 func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingFund) error {
 	*c = ClaimFromRewardingFund{}
-	amount, ok := big.NewInt(0).SetString(claim.Amount, 10)
+	amount, ok := new(big.Int).SetString(claim.Amount, 10)
 	if !ok {
 		return errors.New("failed to set claim amount")
 	}
