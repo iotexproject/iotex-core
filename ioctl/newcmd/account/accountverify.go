@@ -40,7 +40,7 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(failToConvertPublicKeyIntoAddress)
 	failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(failToCovertHexStringToPrivateKey)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(1),
@@ -63,7 +63,6 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
 }
 
 type verifyMessage struct {

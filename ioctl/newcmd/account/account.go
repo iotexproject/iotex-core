@@ -328,8 +328,7 @@ func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath stri
 func storeKey(client ioctl.Client, privateKey, password string) (string, error) {
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
-		failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(failToCovertHexStringToPrivateKey)
-		return "", output.NewError(output.CryptoError, failToCovertHexStringToPrivateKey, err)
+		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
 	}
 	defer priKey.Zero()
 

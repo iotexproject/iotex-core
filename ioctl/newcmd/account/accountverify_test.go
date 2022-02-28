@@ -8,8 +8,6 @@ package account
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,12 +24,6 @@ func TestNewAccountVerify(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-
-	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountSign")
-	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
-	defer func() {
-		require.NoError(os.RemoveAll(testAccountFolder))
-	}()
 
 	t.Run("verify account successfully", func(t *testing.T) {
 		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
