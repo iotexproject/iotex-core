@@ -293,7 +293,7 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	case _earliestBlockNumber:
 		return 1, nil
 	case "", _pendingBlockNumber, _latestBlockNumber:
-		return svr.coreService.BlockChain().TipHeight(), nil
+		return svr.coreService.TipHeight(), nil
 	default:
 		return hexStringToNumber(str)
 	}

@@ -340,7 +340,7 @@ func (svr *Web3Server) getChainID() (interface{}, error) {
 }
 
 func (svr *Web3Server) getBlockNumber() (interface{}, error) {
-	return uint64ToHex(svr.coreService.BlockChain().TipHeight()), nil
+	return uint64ToHex(svr.coreService.TipHeight()), nil
 }
 
 func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
@@ -859,7 +859,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 func (svr *Web3Server) newBlockFilter() (interface{}, error) {
 	filterObj := filterObject{
 		FilterType: "block",
-		LogHeight:  svr.coreService.BlockChain().TipHeight(),
+		LogHeight:  svr.coreService.TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
 	keyHash := hash.Hash256b(objInByte)
@@ -892,7 +892,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	var (
 		ret          interface{}
 		newLogHeight uint64
-		tipHeight    = svr.coreService.BlockChain().TipHeight()
+		tipHeight    = svr.coreService.TipHeight()
 	)
 	switch filterObj.FilterType {
 	case "log":
