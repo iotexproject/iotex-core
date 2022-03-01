@@ -33,6 +33,7 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(nonceCmdUses)
 	short, _ := client.SelectTranslation(nonceCmdShorts)
 	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
+	failToGetAccountMeta, _ := client.SelectTranslation(failToGetAccountMeta)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -49,9 +50,9 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, failToGetAddress)
 			}
-			accountMeta, err := GetAccountMeta(addr, client)
+			accountMeta, err := Meta(client, addr)
 			if err != nil {
-				return err
+				return errors.Wrap(err, failToGetAccountMeta)
 			}
 
 			message := nonceMessage{
