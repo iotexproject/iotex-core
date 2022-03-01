@@ -1322,7 +1322,9 @@ func TestGrpcServer_SendAction(t *testing.T) {
 			return nil
 		},
 	}
-	core.cfg.Genesis.MidwayBlockHeight = 10
+	ge := genesis.Default
+	ge.MidwayBlockHeight = 10
+	chain.EXPECT().Genesis().Return(ge).Times(2)
 	svr := NewGRPCServer(core, 141014)
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
@@ -2059,6 +2061,7 @@ func TestGrpcServer_GetEpochMeta(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			mbc.EXPECT().Genesis().Return(cfg.Genesis).Times(10)
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
@@ -2764,10 +2767,13 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 			return nil, nil, nil, nil, nil, nil, "", err
 		}
 	}
-	svr, err := NewServerV2(cfg, bc, nil, sf, dao, indexer, bfIndexer, ap, registry,
-		WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return nil
-		}))
+	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+		return nil
+	})}
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
+		opts = append(opts, WithActionIndex())
+	}
+	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}
