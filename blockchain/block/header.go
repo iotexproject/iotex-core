@@ -137,7 +137,13 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	copy(h.deltaStateDigest[:], pb.GetDeltaStateDigest())
 	copy(h.receiptRoot[:], pb.GetReceiptRoot())
 	if pb.GetLogsBloom() != nil {
-		h.logsBloom, err = bloom.BloomFilterFromBytesLegacy(pb.GetLogsBloom(), 2048, 3)
+		h.logsBloom, err = bloom.NewBloomFilterLegacy(2048, 3)
+		if err != nil {
+			return err
+		}
+		if err = h.logsBloom.FromBytes(pb.GetLogsBloom()); err != nil {
+			return err
+		}
 	}
 	return err
 }

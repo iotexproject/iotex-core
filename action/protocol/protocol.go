@@ -9,9 +9,13 @@ package protocol
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var (
@@ -83,4 +87,14 @@ func (view View) Read(name string) (interface{}, error) {
 func (view View) Write(name string, v interface{}) error {
 	view[name] = v
 	return nil
+}
+
+// HashStringToAddress generates the contract address from the protocolID of each protocol
+func HashStringToAddress(str string) address.Address {
+	h := hash.Hash160b([]byte(str))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
+	}
+	return addr
 }

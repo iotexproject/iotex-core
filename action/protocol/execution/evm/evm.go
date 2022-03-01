@@ -79,6 +79,7 @@ type (
 		contract           *common.Address
 		gas                uint64
 		data               []byte
+		accessList         types.AccessList
 	}
 )
 
@@ -161,6 +162,7 @@ func newParams(
 		contractAddrPointer,
 		gasLimit,
 		execution.Data(),
+		execution.AccessList(),
 	}, nil
 }
 
@@ -323,6 +325,8 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
+	// enable Berlin
+	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
 	return &chainConfig
 }
 
@@ -333,13 +337,19 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
-	var config vm.Config
+	var (
+		config     vm.Config
+		accessList types.AccessList
+	)
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		config = vmCfg
 	}
 	chainConfig := getChainConfig(g, blockHeight)
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
-	intriGas, err := intrinsicGas(evmParams.data)
+	if g.IsToBeEnabled(blockHeight) {
+		accessList = evmParams.accessList
+	}
+	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList)
 	if err != nil {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
@@ -347,10 +357,17 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrInsufficientFunds
 	}
 	remainingGas -= intriGas
-	contractRawAddress := action.EmptyAddress
-	executor := vm.AccountRef(evmParams.txCtx.Origin)
-	var ret []byte
-	var evmErr error
+
+	// Set up the initial access list
+	if rules := chainConfig.Rules(evm.Context.BlockNumber); rules.IsBerlin {
+		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
+	}
+	var (
+		contractRawAddress = action.EmptyAddress
+		executor           = vm.AccountRef(evmParams.txCtx.Origin)
+		ret                []byte
+		evmErr             error
+	)
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
@@ -475,16 +492,20 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (e
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
-func intrinsicGas(data []byte) (uint64, error) {
+func intrinsicGas(size uint64, list types.AccessList) (uint64, error) {
 	if action.ExecutionDataGas == 0 {
 		panic("payload gas price cannot be zero")
 	}
-	dataSize := uint64(len(data))
-	if (math.MaxInt64-action.ExecutionBaseIntrinsicGas)/action.ExecutionDataGas < dataSize {
+
+	var accessListGas uint64
+	if len(list) > 0 {
+		accessListGas = uint64(len(list)) * action.TxAccessListAddressGas
+		accessListGas += uint64(list.StorageKeys()) * action.TxAccessListStorageKeyGas
+	}
+	if (math.MaxInt64-action.ExecutionBaseIntrinsicGas-accessListGas)/action.ExecutionDataGas < size {
 		return 0, action.ErrInsufficientFunds
 	}
-
-	return dataSize*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas, nil
+	return size*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas + accessListGas, nil
 }
 
 // SimulateExecution simulates the execution in evm

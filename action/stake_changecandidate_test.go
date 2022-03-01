@@ -77,3 +77,17 @@ func TestChangeCandidateSignVerify(t *testing.T) {
 	// verify signature
 	require.NoError(Verify(selp))
 }
+
+func TestChangeCandidateABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewChangeCandidateFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(canAddress, stake.candidateName)
+	require.Equal(index, stake.bucketIndex)
+	require.Equal(payload, stake.payload)
+}
