@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,6 +29,7 @@ func TestNewAccountDelete(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).Times(30)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
@@ -63,16 +63,10 @@ func TestNewAccountDelete(t *testing.T) {
 			})
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
-			fmt.Println("quit")
-		})
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
-			fmt.Printf("Account #%s has been deleted.\n", accAddr.String())
-		})
 		cmd = NewAccountDelete(client)
 		_, err = util.ExecuteCmd(cmd)
 		require.NoError(err)
@@ -104,9 +98,6 @@ func TestNewAccountDelete(t *testing.T) {
 		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
-			fmt.Printf("Account #%s has been deleted.\n", addr2.String())
-		})
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
