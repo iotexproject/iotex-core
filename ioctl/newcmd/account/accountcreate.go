@@ -48,14 +48,14 @@ var (
 )
 
 // NewAccountCreate represents the account create command
-func NewAccountCreate(c ioctl.Client) *cobra.Command {
+func NewAccountCreate(client ioctl.Client) *cobra.Command {
 	var numAccounts uint
-	use, _ := c.SelectTranslation(createUses)
-	short, _ := c.SelectTranslation(createShorts)
-	usage, _ := c.SelectTranslation(createFlagUsages)
-	failToGenerateNewPrivateKey, _ := c.SelectTranslation(failToGenerateNewPrivateKey)
-	failToGenerateNewPrivateKeySm2, _ := c.SelectTranslation(failToGenerateNewPrivateKeySm2)
-	failToConvertPublicKeyIntoAddress, _ := c.SelectTranslation(failToConvertPublicKeyIntoAddress)
+	use, _ := client.SelectTranslation(createUses)
+	short, _ := client.SelectTranslation(createShorts)
+	usage, _ := client.SelectTranslation(createFlagUsages)
+	failToGenerateNewPrivateKey, _ := client.SelectTranslation(failToGenerateNewPrivateKey)
+	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(failToGenerateNewPrivateKeySm2)
+	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(failToConvertPublicKeyIntoAddress)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -68,7 +68,7 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 
 			newAccounts := make([]generatedAccount, 0)
 			for i := 0; i < int(numAccounts); i++ {
-				if !c.IsCryptoSm2() {
+				if !client.IsCryptoSm2() {
 					private, err = crypto.GenerateKey()
 					if err != nil {
 						return errors.Wrap(err, failToGenerateNewPrivateKey)
@@ -93,7 +93,7 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			}
 
 			message := createMessage{Accounts: newAccounts}
-			c.PrintInfo(message.String())
+			client.PrintInfo(message.String())
 			return nil
 		},
 	}
