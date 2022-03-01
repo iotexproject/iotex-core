@@ -66,7 +66,7 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 				}
 			}
 
-			accountMeta, err := GetAccountMeta(client, addr)
+			accountMeta, err := AccountMeta(client, addr)
 			if err != nil {
 				return errors.Wrap(err, failToGetAccountMeta)
 			}

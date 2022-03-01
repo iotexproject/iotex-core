@@ -50,7 +50,7 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, failToGetAddress)
 			}
-			accountMeta, err := GetAccountMeta(client, addr)
+			accountMeta, err := AccountMeta(client, addr)
 			if err != nil {
 				return errors.Wrap(err, failToGetAccountMeta)
 			}
