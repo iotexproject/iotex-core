@@ -310,7 +310,6 @@ func TestStoreKey(t *testing.T) {
 		require.NoError(err)
 		addr, err := address.FromBytes(account.Address.Bytes())
 		require.NoError(err)
-		t.Log(addr.String())
 		require.True(IsSignerExist(client, addr.String()))
 
 		// invalid private key
@@ -337,7 +336,6 @@ func TestStoreKey(t *testing.T) {
 		addrString, err = storeKey(client, prvKey.HexString(), passwd)
 		require.NoError(err)
 		require.Equal(addr.String(), addrString)
-		t.Log(addr.String())
 		require.True(IsSignerExist(client, addr.String()))
 	})
 
