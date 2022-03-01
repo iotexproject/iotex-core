@@ -187,9 +187,16 @@ func TestSnapshot(t *testing.T) {
 	v, err = cb.Get(bucket1, testK2[2])
 	require.NoError(err)
 	require.Equal(testV2[2], v)
+	cb.Put(bucket1, testK2[2], testV2[1], "")
+	v, err = cb.Get(bucket1, testK2[2])
+	require.NoError(err)
+	require.Equal(testV2[1], v)
 
 	// snapshot 1
 	require.NoError(cb.Revert(2))
+	v, err = cb.Get(bucket1, testK2[2])
+	require.NoError(err)
+	require.Equal(testV2[2], v)
 	require.NoError(cb.Revert(1))
 	_, err = cb.Get(bucket1, testK1[0])
 	require.Equal(ErrAlreadyDeleted, err)
@@ -239,5 +246,21 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 		h := cb.SerializeQueue(nil, nil)
 		b.StopTimer()
 		require.NotEqual(b, hash.ZeroHash256, h)
+	}
+}
+
+func BenchmarkCachedBatch_Snapshot(b *testing.B) {
+	cb := NewCachedBatch()
+
+	for i := 0; i < b.N; i++ {
+		k := hash.Hash256b([]byte(strconv.Itoa(i)))
+		var v [1024]byte
+		for i := range v {
+			v[i] = byte(rand.Intn(8))
+		}
+		cb.Put(bucket1, k[:], v[:], "")
+		sn := cb.Snapshot()
+		cb.Delete(bucket1, k[:], "")
+		cb.Revert(sn)
 	}
 }
