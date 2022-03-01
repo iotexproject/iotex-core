@@ -202,7 +202,7 @@ func TestAccount(t *testing.T) {
 	})
 }
 
-func TestGetAccountMeta(t *testing.T) {
+func TestMeta(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -219,13 +219,13 @@ func TestGetAccountMeta(t *testing.T) {
 		PendingNonce: 2,
 	}}
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
-	result, err := GetAccountMeta(accAddr, client)
+	result, err := Meta(client, accAddr)
 	require.NoError(err)
 	require.Equal(accountResponse.AccountMeta, result)
 
 	expectedErr := output.NewError(output.NetworkError, "failed to dial grpc connection", nil)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
-	result, err = GetAccountMeta(accAddr, client)
+	result, err = Meta(client, accAddr)
 	require.Error(err)
 	require.Equal(expectedErr, err)
 	require.Nil(result)
@@ -233,7 +233,7 @@ func TestGetAccountMeta(t *testing.T) {
 	expectedErr = output.NewError(output.NetworkError, "failed to invoke GetAccount api", nil)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
-	result, err = GetAccountMeta(accAddr, client)
+	result, err = Meta(client, accAddr)
 	require.Error(err)
 	require.Contains(err.Error(), expectedErr.Error())
 	require.Nil(result)
