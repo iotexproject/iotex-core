@@ -59,6 +59,7 @@ func TestClient(t *testing.T) {
 		*accountState = state.EmptyAccount()
 	})
 	sf.EXPECT().Height().Return(uint64(10), nil).AnyTimes()
+	bc.EXPECT().Genesis().Return(cfg.Genesis).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
