@@ -12,10 +12,7 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	actpool "github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	config "github.com/iotexproject/iotex-core/config"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -57,20 +54,6 @@ func (m *MockCoreService) Account(addr address.Address) (*iotextypes.AccountMeta
 func (mr *MockCoreServiceMockRecorder) Account(addr interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Account", reflect.TypeOf((*MockCoreService)(nil).Account), addr)
-}
-
-// ActPool mocks base method.
-func (m *MockCoreService) ActPool() actpool.ActPool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActPool")
-	ret0, _ := ret[0].(actpool.ActPool)
-	return ret0
-}
-
-// ActPool indicates an expected call of ActPool.
-func (mr *MockCoreServiceMockRecorder) ActPool() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActPool", reflect.TypeOf((*MockCoreService)(nil).ActPool))
 }
 
 // ActPoolActions mocks base method.
@@ -241,20 +224,6 @@ func (mr *MockCoreServiceMockRecorder) ChainMeta() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainMeta", reflect.TypeOf((*MockCoreService)(nil).ChainMeta))
 }
 
-// Config mocks base method.
-func (m *MockCoreService) Config() config.Config {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(config.Config)
-	return ret0
-}
-
-// Config indicates an expected call of Config.
-func (mr *MockCoreServiceMockRecorder) Config() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCoreService)(nil).Config))
-}
-
 // EVMNetworkID mocks base method.
 func (m *MockCoreService) EVMNetworkID() uint32 {
 	m.ctrl.T.Helper()
@@ -376,6 +345,21 @@ func (mr *MockCoreServiceMockRecorder) LogsInRange(filter, start, end, paginatio
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogsInRange", reflect.TypeOf((*MockCoreService)(nil).LogsInRange), filter, start, end, paginationSize)
 }
 
+// PendingNonce mocks base method.
+func (m *MockCoreService) PendingNonce(arg0 address.Address) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingNonce", arg0)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PendingNonce indicates an expected call of PendingNonce.
+func (mr *MockCoreServiceMockRecorder) PendingNonce(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingNonce", reflect.TypeOf((*MockCoreService)(nil).PendingNonce), arg0)
+}
+
 // RawBlocks mocks base method.
 func (m *MockCoreService) RawBlocks(startHeight, count uint64, withReceipts, withTransactionLogs bool) ([]*iotexapi.BlockInfo, error) {
 	m.ctrl.T.Helper()
@@ -466,20 +450,6 @@ func (m *MockCoreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, 
 func (mr *MockCoreServiceMockRecorder) ReceiptByActionHash(h interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByActionHash", reflect.TypeOf((*MockCoreService)(nil).ReceiptByActionHash), h)
-}
-
-// Registry mocks base method.
-func (m *MockCoreService) Registry() *protocol.Registry {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Registry")
-	ret0, _ := ret[0].(*protocol.Registry)
-	return ret0
-}
-
-// Registry indicates an expected call of Registry.
-func (mr *MockCoreServiceMockRecorder) Registry() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Registry", reflect.TypeOf((*MockCoreService)(nil).Registry))
 }
 
 // SendAction mocks base method.
