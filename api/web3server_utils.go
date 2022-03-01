@@ -21,6 +21,11 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
@@ -241,7 +246,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 			if err != nil {
 				return transactionObject{}, err
 			}
-			addr, err := ioAddrToEthAddr(receipt.ContractAddress)
+			addr, err := getExecutionContractAddr(receipt.ContractAddress)
 			if err != nil {
 				return transactionObject{}, err
 			}
@@ -372,6 +377,21 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		})
 	}
 	return ret, nil
+}
+
+// contract addr is only returned when a contract was created, otherwise an empty string is returned
+func getExecutionContractAddr(addr string) (string, error) {
+	switch addr {
+	case "",
+		account.ProtocolAddr().String(),
+		poll.ProtocolAddr().String(),
+		rewarding.ProtocolAddr().String(),
+		rolldpos.ProtocolAddr().String(),
+		staking.ProtocolAddr().String():
+		return "", nil
+	default:
+		return ioAddrToEthAddr(addr)
+	}
 }
 
 func byteToHex(b []byte) string {
