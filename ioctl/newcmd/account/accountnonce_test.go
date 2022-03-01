@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -67,9 +66,7 @@ func TestNewAccountNonce(t *testing.T) {
 			PendingNonce: uint64(accountNoneTests[i].outPendingNonce),
 		}}
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-			fmt.Println(info)
-		})
+		client.EXPECT().PrintInfo(gomock.Any())
 
 		cmd := NewAccountNonce(client)
 		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
