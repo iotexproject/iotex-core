@@ -469,6 +469,8 @@ func TestGetTransactionReceipt(t *testing.T) {
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
 	require.Equal(ans.From, fromAddr)
 	require.Equal(*ans.To, toAddr)
+	require.Nil(nil, ans.ContractAddress)
+	require.Equal(uint64ToHex(10000), ans.GasUsed)
 
 	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
 	ret, err = svr.web3Server.getTransactionReceipt(testData2)

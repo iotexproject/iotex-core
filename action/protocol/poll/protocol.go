@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 
@@ -220,4 +221,9 @@ func NewProtocol(
 	default:
 		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}
+}
+
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	return protocol.HashStringToAddress(protocolID)
 }
