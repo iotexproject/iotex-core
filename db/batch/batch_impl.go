@@ -222,16 +222,20 @@ func (cb *cachedBatch) Unlock() {
 // ClearAndUnlock clears the write queue and unlocks the batch
 func (cb *cachedBatch) ClearAndUnlock() {
 	defer cb.lock.Unlock()
+	cb.clear()
+}
+
+func (cb *cachedBatch) currentCache() KVStoreCache {
+	return cb.caches[len(cb.caches)-1]
+}
+
+func (cb *cachedBatch) clear() {
 	cb.kvStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
 	cb.batchShots = nil
 	cb.batchShots = make([]int, 0)
 	cb.caches = []KVStoreCache{NewKVCache()}
-}
-
-func (cb *cachedBatch) currentCache() KVStoreCache {
-	return cb.caches[len(cb.caches)-1]
 }
 
 // Put inserts a <key, value> record
@@ -256,12 +260,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 func (cb *cachedBatch) Clear() {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	cb.kvStoreBatch.Clear()
-	// clear all saved snapshots
-	cb.tag = 0
-	cb.batchShots = nil
-	cb.batchShots = make([]int, 0)
-	cb.caches = []KVStoreCache{NewKVCache()}
+	cb.clear()
 }
 
 // Get retrieves a record

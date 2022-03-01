@@ -138,6 +138,8 @@ func TestCachedBatch(t *testing.T) {
 		}
 		return wi
 	}).SerializeQueue(nil, nil)))
+	cb.Clear()
+	require.Equal(0, cb.Size())
 }
 
 func TestSnapshot(t *testing.T) {
