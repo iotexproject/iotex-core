@@ -80,6 +80,9 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountList(client))
 	ac.AddCommand(NewAccountSign(client))
 	ac.AddCommand(NewAccountUpdate(client))
+	ac.AddCommand(NewAccountInfo(client))
+	ac.AddCommand(NewAccountVerify(client))
+	ac.AddCommand(NewAccountEthAddr(client))
 
 	flagEndpointUsage, _ := client.SelectTranslation(flagEndpoint)
 	flagInsecureUsage, _ := client.SelectTranslation(flagInsecure)
@@ -178,8 +181,8 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 	return keyStoreAccountToPrivateKey(client, signer, password)
 }
 
-// GetAccountMeta gets account metadata
-func GetAccountMeta(addr string, client ioctl.Client) (*iotextypes.AccountMeta, error) {
+// Meta gets account metadata
+func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
 	endpoint := client.Config().Endpoint
 	insecure := client.Config().SecureConnect && !config.Insecure
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
