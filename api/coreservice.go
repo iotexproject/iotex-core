@@ -135,13 +135,8 @@ type (
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 		// TipHeight returns the tip of the chain
 		TipHeight() uint64
-
-		// ActPool return the member ap
-		ActPool() actpool.ActPool
-		// Config return the member cfg
-		Config() config.Config
-		// Registry return the member registry
-		Registry() *protocol.Registry
+		// PendingNonce returns the pending nonce of an account
+		PendingNonce(address.Address) (uint64, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -402,6 +397,10 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
+	return core.ap.GetPendingNonce(addr.String())
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
@@ -1616,11 +1615,6 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	return core.sf.ReadContractStorage(ctx, addr, key)
 }
 
-// BlockChain returns the member bc
-func (core *coreService) BlockChain() blockchain.Blockchain {
-	return core.bc
-}
-
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
 	state, err := accountutil.AccountState(core.sf, addr)
 	if err != nil {
@@ -1637,34 +1631,4 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	}
 	exec.SetGasLimit(core.cfg.Genesis.BlockGasLimit)
 	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
-}
-
-// BlockDao return the member dao
-func (core *coreService) BlockDao() blockdao.BlockDAO {
-	return core.dao
-}
-
-// Indexer return the member indexer
-func (core *coreService) Indexer() blockindex.Indexer {
-	return core.indexer
-}
-
-// ActPool return the member ap
-func (core *coreService) ActPool() actpool.ActPool {
-	return core.ap
-}
-
-// Config return the member cfg
-func (core *coreService) Config() config.Config {
-	return core.cfg
-}
-
-// Registry return the member registry
-func (core *coreService) Registry() *protocol.Registry {
-	return core.registry
-}
-
-// HasActionIndex return the member hasActionIndex
-func (core *coreService) HasActionIndex() bool {
-	return core.hasActionIndex
 }

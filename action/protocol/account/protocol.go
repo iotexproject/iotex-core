@@ -46,6 +46,11 @@ func NewProtocol(depositGas DepositGas) *Protocol {
 	return &Protocol{addr: addr, depositGas: depositGas}
 }
 
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	return protocol.HashStringToAddress(protocolID)
+}
+
 // FindProtocol finds the registered protocol from registry
 func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
