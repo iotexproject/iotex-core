@@ -70,23 +70,12 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 			if addr == nil {
 				return errors.New(failToConvertPublicKeyIntoAddress)
 			}
-
-			message := verifyMessage{
-				Address:   addr.String(),
-				PublicKey: fmt.Sprintf("%x", priKey.PublicKey().Bytes()),
-			}
 			priKey.Zero()
-			client.PrintInfo(message.String())
+			client.PrintInfo(fmt.Sprintf("Address:\t%s\nPublic Key:\t%s",
+				addr.String(),
+				fmt.Sprintf("%x", priKey.PublicKey().Bytes())),
+			)
 			return nil
 		},
 	}
-}
-
-type verifyMessage struct {
-	Address   string `json:"address"`
-	PublicKey string `json:"publicKey"`
-}
-
-func (m *verifyMessage) String() string {
-	return fmt.Sprintf("Address:\t%s\nPublic Key:\t%s", m.Address, m.PublicKey)
 }
