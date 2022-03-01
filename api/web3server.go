@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 const (
@@ -433,19 +435,26 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	var estimatedGas uint64
-	actType, err := svr.actionTypeByAddr(to)
+	var tx *types.Transaction
+	if len(to) == 0 {
+		tx = types.NewContractCreation(0, value, gasLimit, big.NewInt(0), data)
+	} else {
+		toAddr, err := addrutil.IoAddrToEvmAddr(to)
+		if err != nil {
+			return "", err
+		}
+		tx = types.NewTransaction(0, toAddr, value, gasLimit, big.NewInt(0), data)
+	}
+	act, err := svr.ethTxToAction(tx)
 	if err != nil {
 		return nil, err
 	}
-	switch actType {
-	case action.ExecutionActionType:
-		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
+
+	var estimatedGas uint64
+	if exec, ok := act.(*action.Execution); ok {
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
-	case action.TransferActionType:
-		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(&action.Transfer{}, data)
-	case action.StakingActionType:
-		estimatedGas, err = svr.estimateStakingGas(data)
+	} else {
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, data)
 	}
 	if err != nil {
 		return nil, err
@@ -454,40 +463,6 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		estimatedGas = 21000
 	}
 	return uint64ToHex(estimatedGas), nil
-}
-
-func (svr *Web3Server) estimateStakingGas(data []byte) (uint64, error) {
-	if len(data) <= 4 {
-		return 0, errInvalidFormat
-	}
-	if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewRestakeFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, act.Payload())
-	}
-	if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
-		return svr.coreService.EstimateGasForNonExecution(act, []byte{})
-	}
-	return 0, errInvalidFormat
 }
 
 func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
@@ -501,21 +476,12 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	to := ""
-	if tx.To() != nil {
-		ioAddr, _ := address.FromBytes(tx.To().Bytes())
-		to = ioAddr.String()
-	}
-	actType, err := svr.actionTypeByAddr(to)
-	if err != nil {
-		return nil, err
-	}
 	req := &iotextypes.Action{
 		SenderPubKey: pubkey.Bytes(),
 		Signature:    sig,
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
-	req.Core, err = action.EthTxToNativeProto(svr.coreService.ChainID(), actType, tx)
+	req.Core, err = svr.ethTxToNativeProto(svr.coreService.ChainID(), tx)
 	if err != nil {
 		return nil, err
 	}

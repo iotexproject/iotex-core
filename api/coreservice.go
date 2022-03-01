@@ -1532,25 +1532,24 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 // TODO: use EstimateGasForNonExecution in grpcserver.go
 // EstimateGasForNonExecution estimates action gas except execution
 func (core *coreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
-	var intrinsicGas, payloadGas uint64
-	payloadSize := uint64(len(payload))
+	var intrinsicGas, payloadGas, payloadSize uint64
 	switch act := actType.(type) {
 	case *action.Transfer:
-		intrinsicGas, payloadGas = action.TransferBaseIntrinsicGas, action.TransferPayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(payload))
 	case *action.CreateStake:
-		intrinsicGas, payloadGas = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas, uint64(len(payload))
 	case *action.DepositToStake:
-		intrinsicGas, payloadGas = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas, uint64(len(payload))
 	case *action.ChangeCandidate, *action.TransferStake:
-		intrinsicGas, payloadGas = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(payload))
 	case *action.Unstake, *action.WithdrawStake:
-		intrinsicGas, payloadGas = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(payload))
 	case *action.Restake:
-		intrinsicGas, payloadGas = action.RestakeBaseIntrinsicGas, action.RestakePayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.RestakeBaseIntrinsicGas, action.RestakePayloadGas, uint64(len(payload))
 	case *action.CandidateRegister:
-		intrinsicGas, payloadGas = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas
+		intrinsicGas, payloadGas, payloadSize = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas, uint64(len(payload))
 	case *action.CandidateUpdate:
-		intrinsicGas, payloadGas = action.CandidateUpdateBaseIntrinsicGas, 0
+		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 0, 0
 	default:
 		return 0, errors.Errorf("invalid action type %T not supported", act)
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/util"
@@ -305,22 +306,104 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 	return
 }
 
-func (svr *Web3Server) actionTypeByAddr(addr string) (int, error) {
-	if addr == address.StakingProtocolAddr {
-		return action.StakingActionType, nil
+// ethTxToNativeProto converts eth tx to protobuf type ActionCore
+func (svr *Web3Server) ethTxToNativeProto(chainID uint32, tx *types.Transaction) (*iotextypes.ActionCore, error) {
+	if tx == nil {
+		return nil, errUnkownType
 	}
-	if addr == "" {
-		return action.ExecutionActionType, nil
+	core := &iotextypes.ActionCore{
+		Version:  1,
+		Nonce:    tx.Nonce(),
+		GasLimit: tx.Gas(),
+		GasPrice: tx.GasPrice().String(),
+		ChainID:  chainID,
 	}
-	ioAddr, err := address.FromString(addr)
+	nativeAction, err := svr.ethTxToAction(tx)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
-	if err != nil && accountMeta.IsContract {
-		return action.ExecutionActionType, nil
+	switch act := nativeAction.(type) {
+	case *action.Transfer:
+		core.Action = &iotextypes.ActionCore_Transfer{Transfer: act.Proto()}
+	case *action.Execution:
+		core.Action = &iotextypes.ActionCore_Execution{Execution: act.Proto()}
+	case *action.CreateStake:
+		core.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
+	case *action.DepositToStake:
+		core.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
+	case *action.ChangeCandidate:
+		core.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
+	case *action.Unstake:
+		core.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
+	case *action.WithdrawStake:
+		core.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
+	case *action.Restake:
+		core.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
+	case *action.TransferStake:
+		core.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
+	case *action.CandidateRegister:
+		core.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: act.Proto()}
+	case *action.CandidateUpdate:
+		core.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: act.Proto()}
+	default:
+		return nil, errUnkownType
 	}
-	return action.TransferActionType, nil
+	return core, nil
+}
+
+func (svr *Web3Server) ethTxToAction(tx *types.Transaction) (action.Action, error) {
+	to := ""
+	if tx.To() != nil {
+		ioAddr, _ := address.FromBytes(tx.To().Bytes())
+		to = ioAddr.String()
+	}
+	switch to {
+	case "":
+		return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+	case address.StakingProtocolAddr:
+		data := tx.Data()
+		if len(data) <= 4 {
+			return nil, errUnkownType
+		}
+		if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewRestakeFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
+			return act, nil
+		}
+		return nil, errUnkownType
+	default:
+		ioAddr, err := address.FromString(to)
+		if err != nil {
+			return nil, err
+		}
+		accountMeta, _, err := svr.coreService.Account(ioAddr)
+		if err == nil && accountMeta.IsContract {
+			return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+		}
+		return action.NewTransfer(tx.Nonce(), tx.Value(), to, tx.Data(), tx.Gas(), tx.GasPrice())
+	}
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {
