@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,9 +23,7 @@ func TestNewAccountCreate(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).Times(12)
-	client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-		fmt.Println(info)
-	}).Times(2)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(1)
