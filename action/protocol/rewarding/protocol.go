@@ -68,6 +68,11 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 	}
 }
 
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	return protocol.HashStringToAddress(protocolID)
+}
+
 // verify that foundation bonus extension epochs are in increasing order
 func validateFoundationBonusExtension(cfg genesis.Rewarding) error {
 	if cfg.FoundationBonusP2StartEpoch > 0 || cfg.FoundationBonusP2EndEpoch > 0 {
