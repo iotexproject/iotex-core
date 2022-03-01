@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -47,9 +46,7 @@ func TestNewAccountInfo(t *testing.T) {
 
 	t.Run("retrieve account information successfully", func(t *testing.T) {
 		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-			fmt.Println(info)
-		})
+		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {})
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 
 		cmd := NewAccountInfo(client)

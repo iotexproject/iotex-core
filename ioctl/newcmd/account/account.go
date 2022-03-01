@@ -179,8 +179,8 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 	return keyStoreAccountToPrivateKey(client, signer, password)
 }
 
-// AccountMeta gets account metadata
-func AccountMeta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
+// Meta gets account metadata
+func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
 	endpoint := client.Config().Endpoint
 	insecure := client.Config().SecureConnect && !config.Insecure
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
