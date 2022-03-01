@@ -23,8 +23,6 @@ type (
 		Evict(hash.Hash160)
 		// Clear clear the cache
 		Clear()
-		// Clone clones the cache
-		Clone() KVStoreCache
 	}
 
 	// kvCache implements KVStoreCache interface
