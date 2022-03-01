@@ -34,6 +34,7 @@ const (
 type (
 	// Web3Server contains web3 server and the pointer to api coreservice
 	Web3Server struct {
+		queryLimit  uint64
 		web3Server  *http.Server
 		coreService CoreService
 		cache       apiCache
@@ -116,12 +117,13 @@ func init() {
 }
 
 // NewWeb3Server creates a new web3 server
-func NewWeb3Server(core CoreService, httpPort int, cacheURL string) *Web3Server {
+func NewWeb3Server(core CoreService, httpPort int, cacheURL string, queryLimit uint64) *Web3Server {
 	svr := &Web3Server{
 		web3Server: &http.Server{
 			Addr: ":" + strconv.Itoa(httpPort),
 		},
 		coreService: core,
+		queryLimit:  queryLimit,
 	}
 
 	mux := http.NewServeMux()
@@ -393,23 +395,13 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	blkNum, err := getStringFromArray(in, 1)
+	// TODO (liuhaai): returns the nonce in given block height after archive mode is supported
+	// blkNum, err := getStringFromArray(in, 1)
+	pendingNonce, err := svr.coreService.PendingNonce(ioAddr)
 	if err != nil {
 		return nil, err
 	}
-	if blkNum == _pendingBlockNumber {
-		pendingNonce, err := svr.coreService.ActPool().GetPendingNonce(ioAddr.String())
-		if err != nil {
-			return nil, err
-		}
-		return uint64ToHex(pendingNonce), nil
-	}
-	// TODO: returns the nonce in given block height after archive mode is supported
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
-	if err != nil {
-		return nil, err
-	}
-	return uint64ToHex(accountMeta.GetPendingNonce()), nil
+	return uint64ToHex(pendingNonce), nil
 }
 
 func (svr *Web3Server) call(in interface{}) (interface{}, error) {
