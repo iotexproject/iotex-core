@@ -61,18 +61,8 @@ func NewAccountEthAddr(client ioctl.Client) *cobra.Command {
 					return err
 				}
 			}
-			message := ethaddrMessage{IOAddr: ioAddr, EthAddr: ethAddress.String()}
-			client.PrintInfo(message.String())
+			client.PrintInfo(fmt.Sprintf("%s - %s", ioAddr, ethAddress.String()))
 			return nil
 		},
 	}
-}
-
-type ethaddrMessage struct {
-	IOAddr  string `json:"ioAddr"`
-	EthAddr string `json:"ethAddr"`
-}
-
-func (m *ethaddrMessage) String() string {
-	return fmt.Sprintf("%s - %s", m.IOAddr, m.EthAddr)
 }
