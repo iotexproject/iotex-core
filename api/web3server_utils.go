@@ -151,7 +151,7 @@ func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.coreService.Config().API.RangeQueryLimit)
+		actionInfos, err := svr.coreService.ActionsByBlock(blkMeta.Hash, 0, svr.queryLimit)
 		if err != nil {
 			return blockObject{}, err
 		}
