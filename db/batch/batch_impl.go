@@ -29,6 +29,8 @@ type (
 		tag          int            // latest snapshot + 1
 		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
 		caches       []KVStoreCache // snapshots of cache
+		keyTags      map[hash.Hash160][]int
+		tagKeys      [][]hash.Hash160
 	}
 )
 
@@ -190,6 +192,8 @@ func NewCachedBatch() CachedBatch {
 		kvStoreBatch: newBaseKVStoreBatch(),
 		batchShots:   make([]int, 0),
 		caches:       []KVStoreCache{NewKVCache()},
+		keyTags:      map[hash.Hash160][]int{},
+		tagKeys:      [][]hash.Hash160{{}},
 	}
 }
 
@@ -238,11 +242,23 @@ func (cb *cachedBatch) clear() {
 	cb.caches = []KVStoreCache{NewKVCache()}
 }
 
+func (cb *cachedBatch) touchKey(h hash.Hash160) {
+	tags, ok := cb.keyTags[h]
+	if !ok {
+		cb.keyTags[h] = []int{cb.tag}
+		return
+	}
+	if tags[len(tags)-1] != cb.tag {
+		cb.keyTags[h] = append(tags, cb.tag)
+	}
+}
+
 // Put inserts a <key, value> record
 func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
+	cb.touchKey(h)
 	cb.currentCache().Write(h, value)
 	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
@@ -252,6 +268,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
+	cb.touchKey(h)
 	cb.currentCache().Evict(h)
 	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
@@ -269,18 +286,20 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	defer cb.lock.RUnlock()
 	h := cb.hash(namespace, key)
 	var v []byte
-	var err error
-	for i := len(cb.caches) - 1; i >= 0; i-- {
-		v, err = cb.caches[i].Read(h)
-		switch errors.Cause(err) {
-		case nil:
-			return v, err
-		case ErrNotExist:
-			// do nothing
-		case ErrAlreadyDeleted:
-			fallthrough
-		default:
-			return v, err
+	err := ErrNotExist
+	if _, ok := cb.keyTags[h]; ok {
+		for i := len(cb.caches) - 1; i >= 0; i-- {
+			v, err = cb.caches[i].Read(h)
+			switch errors.Cause(err) {
+			case nil:
+				return v, err
+			case ErrNotExist:
+				// do nothing
+			case ErrAlreadyDeleted:
+				fallthrough
+			default:
+				return v, err
+			}
 		}
 	}
 	return v, err
@@ -294,6 +313,7 @@ func (cb *cachedBatch) Snapshot() int {
 	// save a copy of current batch/cache
 	cb.batchShots = append(cb.batchShots, cb.kvStoreBatch.Size())
 	cb.caches = append(cb.caches, NewKVCache())
+	cb.tagKeys = append(cb.tagKeys, []hash.Hash160{})
 	return cb.tag
 }
 
@@ -310,6 +330,14 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.kvStoreBatch.truncate(cb.batchShots[snapshot])
 	cb.caches = cb.caches[:cb.tag+1]
 	cb.caches[cb.tag].Clear()
+	for tag := cb.tag; tag < len(cb.tagKeys); tag++ {
+		keys := cb.tagKeys[tag]
+		for _, key := range keys {
+			cb.keyTags[key] = cb.keyTags[key][:len(cb.keyTags[key])-1]
+		}
+	}
+	cb.tagKeys = cb.tagKeys[:cb.tag+1]
+	cb.tagKeys[cb.tag] = []hash.Hash160{}
 	return nil
 }
 
