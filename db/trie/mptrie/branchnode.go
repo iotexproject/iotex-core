@@ -18,7 +18,7 @@ const radix = 256
 
 type branchNode struct {
 	cacheNode
-	children map[byte]node
+	children *sortedList
 	isRoot   bool
 }
 
@@ -34,11 +34,14 @@ func newBranchNode(
 			mpt:   mpt,
 			dirty: true,
 		},
-		children: children,
+		children: NewSortList(),
+	}
+	for k, v := range children {
+		bnode.children.Upsert(k, v)
 	}
 	bnode.cacheNode.serializable = bnode
 
-	if len(bnode.children) != 0 {
+	if bnode.children.Size() != 0 {
 		if !mpt.async {
 			return bnode.store()
 		}
@@ -51,7 +54,7 @@ func newEmptyRootBranchNode(mpt *merklePatriciaTrie) *branchNode {
 		cacheNode: cacheNode{
 			mpt: mpt,
 		},
-		children: make(map[byte]node),
+		children: NewSortList(),
 		isRoot:   true,
 	}
 	bnode.cacheNode.serializable = bnode
@@ -64,10 +67,7 @@ func newBranchNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.BranchPb) *bra
 		cacheNode: cacheNode{
 			mpt: mpt,
 		},
-		children: make(map[byte]node),
-	}
-	for _, n := range pb.Branches {
-		bnode.children[byte(n.Index)] = newHashNode(mpt, n.Path)
+		children: NewSortListFromProtoPb(mpt, pb.Branches),
 	}
 	bnode.cacheNode.serializable = bnode
 	return bnode
@@ -79,14 +79,12 @@ func (b *branchNode) MarkAsRoot() {
 
 func (b *branchNode) Children() []node {
 	trieMtc.WithLabelValues("branchNode", "children").Inc()
-	children := []node{}
-	for index := 0; index < radix; index++ {
-		if c, ok := b.children[byte(index)]; ok {
-			children = append(children, c)
-		}
+	ret := make([]node, 0, b.children.Size())
+	for ptr := b.children.Front(); ptr != nil; ptr = ptr.Next() {
+		tmp := ptr.Value.(*listElement)
+		ret = append(ret, tmp.data)
 	}
-
-	return children
+	return ret
 }
 
 func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
@@ -103,7 +101,7 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 	if newChild != nil || b.isRoot {
 		return b.updateChild(offsetKey, newChild, false)
 	}
-	switch len(b.children) {
+	switch b.children.Size() {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
 	case 2:
@@ -112,10 +110,11 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 		}
 		var orphan node
 		var orphanKey byte
-		for i, n := range b.children {
-			if i != offsetKey {
-				orphanKey = i
-				orphan = n
+		for ptr := b.children.Front(); ptr != nil; ptr = ptr.Next() {
+			val := ptr.Value.(*listElement)
+			if val.idx != int16(offsetKey) {
+				orphanKey = byte(val.idx)
+				orphan = val.data
 				break
 			}
 		}
@@ -173,23 +172,23 @@ func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
 func (b *branchNode) proto(flush bool) (proto.Message, error) {
 	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
 	nodes := []*triepb.BranchNodePb{}
-	for index := 0; index < radix; index++ {
-		if c, ok := b.children[byte(index)]; ok {
-			if flush {
-				if sn, ok := c.(serializable); ok {
-					var err error
-					c, err = sn.store()
-					if err != nil {
-						return nil, err
-					}
+	for ptr := b.children.Front(); ptr != nil; ptr = ptr.Next() {
+		val := ptr.Value.(*listElement)
+		c := val.data
+		if flush {
+			if sn, ok := c.(serializable); ok {
+				var err error
+				c, err = sn.store()
+				if err != nil {
+					return nil, err
 				}
 			}
-			h, err := c.Hash()
-			if err != nil {
-				return nil, err
-			}
-			nodes = append(nodes, &triepb.BranchNodePb{Index: uint32(index), Path: h})
 		}
+		h, err := c.Hash()
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, &triepb.BranchNodePb{Index: uint32(val.idx), Path: h})
 	}
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Branch{
@@ -199,20 +198,18 @@ func (b *branchNode) proto(flush bool) (proto.Message, error) {
 }
 
 func (b *branchNode) child(key byte) (node, error) {
-	c, ok := b.children[key]
-	if !ok {
+	c := b.children.Get(key)
+	if c == nil {
 		return nil, trie.ErrNotExist
 	}
-
 	return c, nil
 }
 
 func (b *branchNode) Flush() error {
-	for index := 0; index < radix; index++ {
-		if c, ok := b.children[byte(index)]; ok {
-			if err := c.Flush(); err != nil {
-				return err
-			}
+	for ptr := b.children.Front(); ptr != nil; ptr = ptr.Next() {
+		c := ptr.Value.(*listElement).data
+		if err := c.Flush(); err != nil {
+			return err
 		}
 	}
 	_, err := b.store()
@@ -225,12 +222,14 @@ func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, err
 	}
 	// update branchnode with new child
 	if child == nil {
-		delete(b.children, key)
+		if err := b.children.Delete(key); err != nil {
+			return nil, err
+		}
 	} else {
-		b.children[key] = child
+		b.children.Upsert(key, child)
 	}
 	b.dirty = true
-	if len(b.children) != 0 {
+	if b.children.Size() != 0 {
 		if !b.mpt.async {
 			hn, err := b.store()
 			if err != nil {
