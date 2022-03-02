@@ -22,10 +22,10 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
@@ -111,9 +111,7 @@ func TestSign(t *testing.T) {
 	require.Nil(prvKey)
 
 	// empty password
-	client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-		fmt.Println(info)
-	})
+	client.EXPECT().PrintInfo(gomock.Any())
 	client.EXPECT().ReadSecret().Return(passwd, nil)
 	_, err = PrivateKeyFromSigner(client, addr.String(), "")
 	require.NoError(err)
@@ -223,14 +221,14 @@ func TestMeta(t *testing.T) {
 	require.NoError(err)
 	require.Equal(accountResponse.AccountMeta, result)
 
-	expectedErr := output.NewError(output.NetworkError, "failed to dial grpc connection", nil)
+	expectedErr := errors.New("failed to dial grpc connection")
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)
 	require.Equal(expectedErr, err)
 	require.Nil(result)
 
-	expectedErr = output.NewError(output.NetworkError, "failed to invoke GetAccount api", nil)
+	expectedErr = errors.New("failed to invoke GetAccount api")
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
@@ -257,8 +255,7 @@ func TestAccountError(t *testing.T) {
 		func(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
 			_, err := os.ReadFile(keyStorePath)
 			require.Error(err)
-			return nil, output.NewError(output.ReadFileError,
-				fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+			return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 		})
 	result, err := newAccountByKeyStore(client, alias, passwordOfKeyStore, keyStorePath)
 	require.Error(err)
@@ -313,7 +310,6 @@ func TestStoreKey(t *testing.T) {
 		require.NoError(err)
 		addr, err := address.FromBytes(account.Address.Bytes())
 		require.NoError(err)
-		t.Log(addr.String())
 		require.True(IsSignerExist(client, addr.String()))
 
 		// invalid private key
@@ -340,7 +336,6 @@ func TestStoreKey(t *testing.T) {
 		addrString, err = storeKey(client, prvKey.HexString(), passwd)
 		require.NoError(err)
 		require.Equal(addr.String(), addrString)
-		t.Log(addr.String())
 		require.True(IsSignerExist(client, addr.String()))
 	})
 
@@ -377,9 +372,7 @@ func TestNewAccount(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-		fmt.Println(info)
-	}).Times(2)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().NewKeyStore().Return(ks)
 
@@ -396,9 +389,7 @@ func TestNewAccountSm2(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-		fmt.Println(info)
-	}).Times(2)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().Config().DoAndReturn(
 		func() config.Config {
@@ -419,9 +410,7 @@ func TestNewAccountByKey(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-		fmt.Println(info)
-	}).Times(2)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().NewKeyStore().Return(ks)
 
