@@ -173,7 +173,7 @@ func TestAliasMap(t *testing.T) {
 	r.Equal(exprAliases, result)
 }
 
-func TestWriteConfig(t *testing.T) {
+func TestWriteAlias(t *testing.T) {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
@@ -192,7 +192,6 @@ func TestWriteConfig(t *testing.T) {
 			},
 			DefaultAccount: config.Context{AddressOrAlias: "ddd"},
 		},
-
 		{
 			Aliases: map[string]string{
 				"": "",
@@ -202,11 +201,17 @@ func TestWriteConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		c := NewClient(config.ReadConfig)
-		err = c.WriteConfig(test)
+		c := NewClient(test)
+		aliases := map[string]string{
+			"ddd": "io1cjh35tq9k8fu0gqcsat4px7yr8t11111111111",
+			"eee": "io1cjh35tq9k8fu0gqcsat4px7yr8t22222222222",
+		}
+		err = c.WriteAlias(aliases)
 		cfgload, err := config.LoadConfig()
 		r.NoError(err)
-		r.Equal(test, cfgload)
+		r.Equal(aliases, cfgload.Aliases)
+		r.Equal(test.Endpoint, cfgload.Endpoint)
+		r.Equal(test.SecureConnect, cfgload.SecureConnect)
 	}
 }
 

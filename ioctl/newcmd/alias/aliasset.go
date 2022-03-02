@@ -55,7 +55,7 @@ func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 				aliases = c.AliasMap()
 			}
 			c.Config().Aliases[alias] = addr
-			if err := c.WriteConfig(c.Config()); err != nil {
+			if err := c.WriteAlias(c.Config().Aliases); err != nil {
 				return output.NewError(output.WriteFileError,
 					fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 			}

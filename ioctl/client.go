@@ -57,7 +57,7 @@ type (
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
 		// doing
-		WriteConfig(config.Config) error
+		WriteAlias(map[string]string) error
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
@@ -233,8 +233,9 @@ func (c *client) AliasMap() map[string]string {
 	return aliases
 }
 
-func (c *client) WriteConfig(cfg config.Config) error {
-	out, err := yaml.Marshal(&cfg)
+func (c *client) WriteAlias(aliases map[string]string) error {
+	c.cfg.Aliases = aliases
+	out, err := yaml.Marshal(&c.cfg)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal config")
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -130,13 +129,8 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 			}
 
 			aliases := client.AliasMap()
-			cfg := client.Config()
-			delete(cfg.Aliases, aliases[addr])
-			out, err := yaml.Marshal(&cfg)
-			if err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
-			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+			delete(client.Config().Aliases, aliases[addr])
+			if err := client.WriteAlias(client.Config().Aliases); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
 			}
 			client.PrintInfo(fmt.Sprintf(resultSuccess, addr))
