@@ -222,6 +222,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 		ChainID: 1,
 	}))
 	for _, f := range factories {
+		require.NoError(f.Start(zctx))
 		for _, test := range tests {
 			require.Equal(test.err, errors.Cause(f.Validate(zctx, test.block)))
 		}
