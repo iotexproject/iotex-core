@@ -1374,6 +1374,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
+		require.NoError(t, sf.Start(ctx))
 		ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)

@@ -66,5 +66,7 @@ type (
 		Upsert([]byte, []byte, []byte) error
 		// Delete deletes an item in layer two
 		Delete([]byte, []byte) error
+		// Clone clones the current trie with new kvstore
+		Clone(KVStore) (TwoLayerTrie, error)
 	}
 )
