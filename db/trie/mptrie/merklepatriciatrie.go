@@ -124,7 +124,11 @@ func (mpt *merklePatriciaTrie) Start(ctx context.Context) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
 
-	emptyRootHash, err := newEmptyRootBranchNode(mpt).Hash()
+	emptyRoot, err := newRootBranchNode(mpt, nil, false)
+	if err != nil {
+		return err
+	}
+	emptyRootHash, err := emptyRoot.Hash()
 	if err != nil {
 		return err
 	}
@@ -205,8 +209,21 @@ func (mpt *merklePatriciaTrie) Delete(key []byte) error {
 	if err != nil {
 		return errors.Wrapf(trie.ErrNotExist, "key %x does not exist", kt)
 	}
-	bn, ok := newRoot.(branch)
-	if !ok {
+	var bn branch
+	switch n := newRoot.(type) {
+	case branch:
+		bn = n
+	case *hashNode:
+		newRoot, err = n.LoadNode()
+		if err != nil {
+			return err
+		}
+		var ok bool
+		bn, ok = newRoot.(branch)
+		if !ok {
+			panic("unexpected new root")
+		}
+	default:
 		panic("unexpected new root")
 	}
 
@@ -240,7 +257,10 @@ func (mpt *merklePatriciaTrie) isEmptyRootHash(h []byte) bool {
 
 func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 	if len(rootHash) == 0 || mpt.isEmptyRootHash(rootHash) {
-		emptyRoot := newEmptyRootBranchNode(mpt)
+		emptyRoot, err := newRootBranchNode(mpt, nil, false)
+		if err != nil {
+			return err
+		}
 		mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
 		return nil
 	}

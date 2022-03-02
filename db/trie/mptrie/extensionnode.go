@@ -178,19 +178,7 @@ func (e *extensionNode) updatePath(path []byte, hashnode bool) (node, error) {
 	if err := e.delete(); err != nil {
 		return nil, err
 	}
-	e.path = path
-	e.dirty = true
-
-	if !e.mpt.async {
-		hn, err := e.store()
-		if err != nil {
-			return nil, err
-		}
-		if hashnode {
-			return hn, nil
-		}
-	}
-	return e, nil
+	return newExtensionNode(e.mpt, path, e.child)
 }
 
 func (e *extensionNode) updateChild(newChild node, hashnode bool) (node, error) {
@@ -198,17 +186,7 @@ func (e *extensionNode) updateChild(newChild node, hashnode bool) (node, error) 
 	if err != nil {
 		return nil, err
 	}
-	e.child = newChild
-	e.dirty = true
-
-	if !e.mpt.async {
-		hn, err := e.store()
-		if err != nil {
-			return nil, err
-		}
-		if hashnode {
-			return hn, nil
-		}
-	}
-	return e, nil
+	path := make([]byte, len(e.path))
+	copy(path, e.path)
+	return newExtensionNode(e.mpt, path, newChild)
 }

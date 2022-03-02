@@ -39,23 +39,34 @@ func newBranchNode(
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
 		if !mpt.async {
-			return bnode.store()
+			if _, err := bnode.store(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return bnode, nil
 }
 
-func newEmptyRootBranchNode(mpt *merklePatriciaTrie) *branchNode {
+func newRootBranchNode(mpt *merklePatriciaTrie, children map[byte]node, dirty bool) (*branchNode, error) {
 	bnode := &branchNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:   mpt,
+			dirty: dirty,
 		},
 		children: make(map[byte]node),
 		indices:  NewSortedList(nil),
 		isRoot:   true,
 	}
 	bnode.cacheNode.serializable = bnode
-	return bnode
+	if len(bnode.children) != 0 {
+		if !mpt.async {
+			_, err := bnode.store()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return bnode, nil
 }
 
 func newBranchNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.BranchPb) *branchNode {
@@ -219,31 +230,29 @@ func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, err
 	if err := b.delete(); err != nil {
 		return nil, err
 	}
+	var children map[byte]node
 	// update branchnode with new child
 	if child == nil {
-		delete(b.children, key)
-		b.indices.Delete(key)
-	} else {
-		if _, exist := b.children[key]; !exist {
-			b.indices.Insert(key)
+		children = make(map[byte]node, len(b.children)-1)
+		for k, v := range b.children {
+			if k != key {
+				children[k] = v
+			}
 		}
-		b.children[key] = child
+	} else {
+		children = make(map[byte]node, len(b.children))
+		for k, v := range b.children {
+			children[k] = v
+		}
+		children[key] = child
 	}
-	b.dirty = true
-	if len(b.children) != 0 {
-		if !b.mpt.async {
-			hn, err := b.store()
-			if err != nil {
-				return nil, err
-			}
-			if !b.isRoot && hashnode {
-				return hn, nil // return hashnode
-			}
-		}
-	} else {
-		if _, err := b.hash(false); err != nil {
+
+	if b.isRoot {
+		bn, err := newRootBranchNode(b.mpt, children, true)
+		if err != nil {
 			return nil, err
 		}
+		return bn, nil
 	}
-	return b, nil // return branchnode
+	return newBranchNode(b.mpt, children)
 }

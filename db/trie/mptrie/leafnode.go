@@ -73,7 +73,10 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 	trieMtc.WithLabelValues("leafNode", "upsert").Inc()
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
-		return l.updateValue(value)
+		if err := l.delete(); err != nil {
+			return nil, err
+		}
+		return newLeafNode(l.mpt, key, value)
 	}
 	// split into another leaf node and create branch/extension node
 	newl, err := newLeafNode(l.mpt, key, value)
@@ -133,16 +136,4 @@ func (l *leafNode) Flush() error {
 	}
 	_, err := l.store()
 	return err
-}
-
-func (l *leafNode) updateValue(value []byte) (node, error) {
-	if err := l.delete(); err != nil {
-		return nil, err
-	}
-	l.value = value
-	l.dirty = true
-	if !l.mpt.async {
-		return l.store()
-	}
-	return l, nil
 }
