@@ -17,6 +17,8 @@ var (
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrOutOfBound indicates an out of bound error
 	ErrOutOfBound = errors.New("out of bound")
+	// ErrUnexpectedType indicates an invalid casting
+	ErrUnexpectedType = errors.New("unexpected type")
 )
 
 type (
@@ -61,11 +63,17 @@ type (
 	// A local cache is added to provide fast retrieval of pending Put/Delete entries
 	CachedBatch interface {
 		KVStoreBatch
+		Snapshot
 		// Get gets a record by (namespace, key)
 		Get(string, []byte) ([]byte, error)
+	}
+
+	Snapshot interface {
 		// Snapshot takes a snapshot of current cached batch
 		Snapshot() int
-		// Revert sets the cached batch to the state at the given snapshot
-		Revert(int) error
+		// RevertSnapshot sets the cached batch to the state at the given snapshot
+		RevertSnapshot(int) error
+		// ResetSnapshots() clears all snapshots
+		ResetSnapshots()
 	}
 )
