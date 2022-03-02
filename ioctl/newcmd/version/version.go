@@ -24,13 +24,13 @@ import (
 
 // Multi-language support
 var (
-	uses = map[config.Language]string{
-		config.English: "version",
-		config.Chinese: "版本",
+	uses = map[ioctl.Language]string{
+		ioctl.English: "version",
+		ioctl.Chinese: "版本",
 	}
-	shorts = map[config.Language]string{
-		config.English: "Print the version of ioctl and node",
-		config.Chinese: "打印ioctl和节点的版本号",
+	shorts = map[ioctl.Language]string{
+		ioctl.English: "Print the version of ioctl and node",
+		ioctl.Chinese: "打印ioctl和节点的版本号",
 	}
 )
 

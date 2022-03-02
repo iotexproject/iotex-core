@@ -22,13 +22,13 @@ import (
 
 // Multi-language support
 var (
-	aliasCmdShorts = map[config.Language]string{
-		config.English: "Manage aliases of IoTeX addresses",
-		config.Chinese: "管理IoTeX的地址别名",
+	aliasCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Manage aliases of IoTeX addresses",
+		ioctl.Chinese: "管理IoTeX的地址别名",
 	}
-	aliasCmdUses = map[config.Language]string{
-		config.English: "alias",
-		config.Chinese: "alias",
+	aliasCmdUses = map[ioctl.Language]string{
+		ioctl.English: "alias",
+		ioctl.Chinese: "alias",
 	}
 )
 

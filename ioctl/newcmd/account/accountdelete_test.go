@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -28,7 +29,7 @@ func TestNewAccountDelete(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
-		config.English).Times(30)
+		ioctl.English).Times(30)
 	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")

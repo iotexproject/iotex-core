@@ -19,19 +19,18 @@ import (
 
 // Multi-language support
 var (
-	setCmdShorts = map[config.Language]string{
-		config.English: "Set alias for address",
-		config.Chinese: "设定地址的别名",
+	setCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Set alias for address",
+		ioctl.Chinese: "设定地址的别名",
 	}
-	setCmdUses = map[config.Language]string{
-		config.English: "set ALIAS ADDRESS",
-		config.Chinese: "set 别名 地址",
+	setCmdUses = map[ioctl.Language]string{
+		ioctl.English: "set ALIAS ADDRESS",
+		ioctl.Chinese: "set 别名 地址",
 	}
 )
 
 // NewAliasSetCmd represents the alias set command
 func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
-
 	use, _ := c.SelectTranslation(setCmdUses)
 	short, _ := c.SelectTranslation(setCmdShorts)
 

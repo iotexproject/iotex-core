@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -26,7 +27,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", ioctl.English).AnyTimes()
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountUpdate")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
@@ -76,7 +77,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", ioctl.English).AnyTimes()
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountUpdate")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))

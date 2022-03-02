@@ -13,13 +13,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // test for bc info command
@@ -38,7 +40,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	}
 	blockMetaResponse := &iotexapi.GetBlockMetasResponse{BlkMetas: blockMeta}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(3)
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
@@ -54,7 +56,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	_, err = util.ExecuteCmd(cmd, "abcd")
 	require.NoError(t, err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 
 	expectedError := errors.New("failed to dial grpc connection")
@@ -65,7 +67,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, expectedError, err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
@@ -80,7 +82,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, expectedErr, err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 	expectedError = errors.New("failed to get chain meta")
@@ -91,7 +93,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, expectedError, err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
@@ -109,7 +111,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, expectedErr, err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
@@ -148,7 +150,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 	_, err = util.ExecuteCmd(cmd, "--verbose")
 	require.NoError(t, err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)

@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -23,7 +24,7 @@ import (
 func TestNewAccountList(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", ioctl.English).AnyTimes()
 	client.EXPECT().AliasMap().Return(map[string]string{
 		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",

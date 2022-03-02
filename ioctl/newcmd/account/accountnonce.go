@@ -13,18 +13,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
 var (
-	nonceCmdShorts = map[config.Language]string{
-		config.English: "Get nonce of an account",
-		config.Chinese: "获取账户的nonce值",
+	nonceCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Get nonce of an account",
+		ioctl.Chinese: "获取账户的nonce值",
 	}
-	nonceCmdUses = map[config.Language]string{
-		config.English: "nonce [ALIAS|ADDRESS]",
-		config.Chinese: "nonce [别名|地址]",
+	nonceCmdUses = map[ioctl.Language]string{
+		ioctl.English: "nonce [ALIAS|ADDRESS]",
+		ioctl.Chinese: "nonce [别名|地址]",
 	}
 )
 

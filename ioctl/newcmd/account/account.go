@@ -36,21 +36,21 @@ import (
 
 // Multi-language support
 var (
-	accountCmdShorts = map[config.Language]string{
-		config.English: "Manage accounts of IoTeX blockchain",
-		config.Chinese: "管理IoTeX区块链上的账号",
+	accountCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Manage accounts of IoTeX blockchain",
+		ioctl.Chinese: "管理IoTeX区块链上的账号",
 	}
-	accountCmdUses = map[config.Language]string{
-		config.English: "account",
-		config.Chinese: "账户",
+	accountCmdUses = map[ioctl.Language]string{
+		ioctl.English: "account",
+		ioctl.Chinese: "账户",
 	}
-	flagEndpoint = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
+	flagEndpoint = map[ioctl.Language]string{
+		ioctl.English: "set endpoint for once",
+		ioctl.Chinese: "一次设置端点",
 	}
-	flagInsecure = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全连接",
+	flagInsecure = map[ioctl.Language]string{
+		ioctl.English: "insecure connection for once",
+		ioctl.Chinese: "一次不安全连接",
 	}
 )
 

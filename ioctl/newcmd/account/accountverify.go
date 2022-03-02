@@ -14,30 +14,29 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
 var (
-	verifyCmdShorts = map[config.Language]string{
-		config.English: "Verify IoTeX public key and address by private key",
-		config.Chinese: "用私钥验证IoTeX的公钥和地址",
+	verifyCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Verify IoTeX public key and address by private key",
+		ioctl.Chinese: "用私钥验证IoTeX的公钥和地址",
 	}
-	verifyCmdUses = map[config.Language]string{
-		config.English: "verify",
-		config.Chinese: "verify 验证",
+	verifyCmdUses = map[ioctl.Language]string{
+		ioctl.English: "verify",
+		ioctl.Chinese: "verify 验证",
 	}
-	enterPrivateKey = map[config.Language]string{
-		config.English: "Enter private key:",
-		config.Chinese: "输入私钥:",
+	enterPrivateKey = map[ioctl.Language]string{
+		ioctl.English: "Enter private key:",
+		ioctl.Chinese: "输入私钥:",
 	}
-	failToGetPrivateKey = map[config.Language]string{
-		config.English: "failed to get private key",
-		config.Chinese: "获取私钥失败",
+	failToGetPrivateKey = map[ioctl.Language]string{
+		ioctl.English: "failed to get private key",
+		ioctl.Chinese: "获取私钥失败",
 	}
-	failToCovertHexStringToPrivateKey = map[config.Language]string{
-		config.English: "failed to covert hex string to private key",
-		config.Chinese: "十六进制字符串转换私钥失败",
+	failToCovertHexStringToPrivateKey = map[ioctl.Language]string{
+		ioctl.English: "failed to covert hex string to private key",
+		ioctl.Chinese: "十六进制字符串转换私钥失败",
 	}
 )
 

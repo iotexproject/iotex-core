@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -23,21 +22,21 @@ import (
 
 // Multi-language support
 var (
-	delegateUses = map[config.Language]string{
-		config.English: "delegate [-e epoch-num|-n]",
-		config.Chinese: "delegate [-e epoch数|-n]",
+	delegateUses = map[ioctl.Language]string{
+		ioctl.English: "delegate [-e epoch-num|-n]",
+		ioctl.Chinese: "delegate [-e epoch数|-n]",
 	}
-	delegateShorts = map[config.Language]string{
-		config.English: "Print consensus delegates information in certain epoch",
-		config.Chinese: "打印在特定epoch内的共识委托信息",
+	delegateShorts = map[ioctl.Language]string{
+		ioctl.English: "Print consensus delegates information in certain epoch",
+		ioctl.Chinese: "打印在特定epoch内的共识委托信息",
 	}
-	flagEpochNumUsages = map[config.Language]string{
-		config.English: "specify specific epoch",
-		config.Chinese: "指定特定epoch",
+	flagEpochNumUsages = map[ioctl.Language]string{
+		ioctl.English: "specify specific epoch",
+		ioctl.Chinese: "指定特定epoch",
 	}
-	flagNextEpochUsages = map[config.Language]string{
-		config.English: "query delegate of upcoming epoch",
-		config.Chinese: "查询即将到来的epoch的委托",
+	flagNextEpochUsages = map[ioctl.Language]string{
+		ioctl.English: "query delegate of upcoming epoch",
+		ioctl.Chinese: "查询即将到来的epoch的委托",
 	}
 )
 

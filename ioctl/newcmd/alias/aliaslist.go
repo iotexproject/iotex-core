@@ -2,23 +2,24 @@ package alias
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/spf13/cobra"
 	"sort"
 	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
 var (
-	listShorts = map[config.Language]string{
-		config.English: "list all alias",
-		config.Chinese: "列出全部别名",
+	listShorts = map[ioctl.Language]string{
+		ioctl.English: "list all alias",
+		ioctl.Chinese: "列出全部别名",
 	}
-	listUses = map[config.Language]string{
-		config.English: "list",
-		config.Chinese: "list",
+	listUses = map[ioctl.Language]string{
+		ioctl.English: "list",
+		ioctl.Chinese: "list",
 	}
 )
 

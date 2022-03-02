@@ -14,29 +14,29 @@ import (
 )
 
 var (
-	removeShorts = map[config.Language]string{
-		config.English: "Remove alias",
-		config.Chinese: "移除别名",
+	removeShorts = map[ioctl.Language]string{
+		ioctl.English: "Remove alias",
+		ioctl.Chinese: "移除别名",
 	}
-	removeUses = map[config.Language]string{
-		config.English: "remove",
-		config.Chinese: "remove",
+	removeUses = map[ioctl.Language]string{
+		ioctl.English: "remove",
+		ioctl.Chinese: "remove",
 	}
-	removeInvalidAlias = map[config.Language]string{
-		config.English: "invalid alias %s",
-		config.Chinese: "不可用别名 %s",
+	removeInvalidAlias = map[ioctl.Language]string{
+		ioctl.English: "invalid alias %s",
+		ioctl.Chinese: "不可用别名 %s",
 	}
-	removeMarshalError = map[config.Language]string{
-		config.English: "failed to marshal config",
-		config.Chinese: "无法序列化配置",
+	removeMarshalError = map[ioctl.Language]string{
+		ioctl.English: "failed to marshal config",
+		ioctl.Chinese: "无法序列化配置",
 	}
-	removeWriteError = map[config.Language]string{
-		config.English: "failed to write to config file %s",
-		config.Chinese: "无法写入配置文件 %s",
+	removeWriteError = map[ioctl.Language]string{
+		ioctl.English: "failed to write to config file %s",
+		ioctl.Chinese: "无法写入配置文件 %s",
 	}
-	removeResult = map[config.Language]string{
-		config.English: "%s is removed",
-		config.Chinese: "%s 已移除",
+	removeResult = map[ioctl.Language]string{
+		ioctl.English: "%s is removed",
+		ioctl.Chinese: "%s 已移除",
 	}
 )
 

@@ -15,19 +15,18 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
 var (
-	ethaddrCmdShorts = map[config.Language]string{
-		config.English: "Translate address between IOTX and ETH",
-		config.Chinese: "在IOTX和ETH间转换地址",
+	ethaddrCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Translate address between IOTX and ETH",
+		ioctl.Chinese: "在IOTX和ETH间转换地址",
 	}
-	ethaddrCmdUses = map[config.Language]string{
-		config.English: "ethaddr (ALIAS|IOTEX_ADDRESS|ETH_ADDRESS)",
-		config.Chinese: "ethaddr (别名|IOTEX_地址|ETH_地址)",
+	ethaddrCmdUses = map[ioctl.Language]string{
+		ioctl.English: "ethaddr (ALIAS|IOTEX_ADDRESS|ETH_ADDRESS)",
+		ioctl.Chinese: "ethaddr (别名|IOTEX_地址|ETH_地址)",
 	}
 )
 

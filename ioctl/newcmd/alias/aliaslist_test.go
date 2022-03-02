@@ -1,19 +1,22 @@
 package alias
 
 import (
+	"testing"
+
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // test for alias list command
 func TestNewAliasListCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", ioctl.English).Times(2)
 	cfg := config.Config{
 		Aliases: map[string]string{
 			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",

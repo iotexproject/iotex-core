@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -27,7 +28,7 @@ func TestNewAliasSetCmd(t *testing.T) {
 		},
 	}
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", config.English).Times(2)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", ioctl.English).Times(2)
 	client.EXPECT().AliasMap().Return(cfg.Aliases).MaxTimes(2)
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 	client.EXPECT().WriteConfig(cfg).Return(nil).Times(1)

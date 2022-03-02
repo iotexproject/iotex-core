@@ -6,17 +6,19 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewAliasRemoveCmd(t *testing.T) {
 	// mock a client
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("%s is removed", config.English).Times(6)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("%s is removed", ioctl.English).Times(6)
 
 	// configuration files to temporary files
 	defaultConfigFile := config.DefaultConfigFile

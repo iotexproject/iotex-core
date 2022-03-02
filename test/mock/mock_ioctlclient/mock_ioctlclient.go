@@ -211,11 +211,11 @@ func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 }
 
 // SelectTranslation mocks base method.
-func (m *MockClient) SelectTranslation(arg0 map[config.Language]string) (string, config.Language) {
+func (m *MockClient) SelectTranslation(arg0 map[ioctl.Language]string) (string, ioctl.Language) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SelectTranslation", arg0)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(config.Language)
+	ret1, _ := ret[1].(ioctl.Language)
 	return ret0, ret1
 }
 

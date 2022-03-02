@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -25,7 +24,7 @@ func TestNewNodeRewardCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", ioctl.English).AnyTimes()
 
 	client.EXPECT().Address(gomock.Any()).Return("test_address", nil).Times(1)
 

@@ -19,21 +19,21 @@ import (
 
 // Multi-language support
 var (
-	shorts = map[config.Language]string{
-		config.English: "Export aliases to either json or yaml format",
-		config.Chinese: "以json或yaml格式导出别名",
+	shorts = map[ioctl.Language]string{
+		ioctl.English: "Export aliases to either json or yaml format",
+		ioctl.Chinese: "以json或yaml格式导出别名",
 	}
-	uses = map[config.Language]string{
-		config.English: "export",
-		config.Chinese: "export",
+	uses = map[ioctl.Language]string{
+		ioctl.English: "export",
+		ioctl.Chinese: "export",
 	}
-	flagUsages = map[config.Language]string{
-		config.English: "set format: json/yaml",
-		config.Chinese: "设置格式：json / yaml",
+	flagUsages = map[ioctl.Language]string{
+		ioctl.English: "set format: json/yaml",
+		ioctl.Chinese: "设置格式：json / yaml",
 	}
-	invalidFlag = map[config.Language]string{
-		config.English: "invalid flag %s",
-		config.Chinese: "不可用的flag参数 %s",
+	invalidFlag = map[ioctl.Language]string{
+		ioctl.English: "invalid flag %s",
+		ioctl.Chinese: "不可用的flag参数 %s",
 	}
 )
 

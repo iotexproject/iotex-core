@@ -17,18 +17,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
 var (
-	updateCmdShorts = map[config.Language]string{
-		config.English: "Update password for IoTeX account",
-		config.Chinese: "为IoTeX账户更新密码",
+	updateCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Update password for IoTeX account",
+		ioctl.Chinese: "为IoTeX账户更新密码",
 	}
-	updateCmdUses = map[config.Language]string{
-		config.English: "update [ALIAS|ADDRESS]",
-		config.Chinese: "update [别名|地址]",
+	updateCmdUses = map[ioctl.Language]string{
+		ioctl.English: "update [ALIAS|ADDRESS]",
+		ioctl.Chinese: "update [别名|地址]",
 	}
 )
 

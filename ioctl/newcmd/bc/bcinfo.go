@@ -16,15 +16,14 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
 var (
-	bcInfoCmdShorts = map[config.Language]string{
-		config.English: "Get current block chain information",
-		config.Chinese: "获取当前区块链信息",
+	bcInfoCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Get current block chain information",
+		ioctl.Chinese: "获取当前区块链信息",
 	}
 )
 

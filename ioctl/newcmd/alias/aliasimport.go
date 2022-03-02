@@ -21,21 +21,21 @@ import (
 
 // Multi-language support
 var (
-	importShorts = map[config.Language]string{
-		config.English: "Import aliases",
-		config.Chinese: "导入别名",
+	importShorts = map[ioctl.Language]string{
+		ioctl.English: "Import aliases",
+		ioctl.Chinese: "导入别名",
 	}
-	importUses = map[config.Language]string{
-		config.English: "import 'DATA'",
-		config.Chinese: "import '数据'",
+	importUses = map[ioctl.Language]string{
+		ioctl.English: "import 'DATA'",
+		ioctl.Chinese: "import '数据'",
 	}
-	flagImportFormatUsages = map[config.Language]string{
-		config.English: "set format: json/yaml",
-		config.Chinese: "设置格式：json/yaml",
+	flagImportFormatUsages = map[ioctl.Language]string{
+		ioctl.English: "set format: json/yaml",
+		ioctl.Chinese: "设置格式：json/yaml",
 	}
-	flagForceImportUsages = map[config.Language]string{
-		config.English: "override existing aliases",
-		config.Chinese: "覆盖现有别名",
+	flagForceImportUsages = map[ioctl.Language]string{
+		ioctl.English: "override existing aliases",
+		ioctl.Chinese: "覆盖现有别名",
 	}
 )
 

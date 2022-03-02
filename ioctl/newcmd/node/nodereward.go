@@ -17,24 +17,23 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
 var (
-	rewardUses = map[config.Language]string{
-		config.English: "reward [ALIAS|DELEGATE_ADDRESS]",
-		config.Chinese: "reward [别名|委托地址]",
+	rewardUses = map[ioctl.Language]string{
+		ioctl.English: "reward [ALIAS|DELEGATE_ADDRESS]",
+		ioctl.Chinese: "reward [别名|委托地址]",
 	}
-	rewardShorts = map[config.Language]string{
-		config.English: "Query rewards",
-		config.Chinese: "查询奖励",
+	rewardShorts = map[ioctl.Language]string{
+		ioctl.English: "Query rewards",
+		ioctl.Chinese: "查询奖励",
 	}
-	rewardPoolMessageTranslations = map[config.Language]string{
-		config.English: "Available Reward: %s IOTX   Total Reward: %s IOTX",
-		config.Chinese: "可用奖金: %s IOTX   总奖金: %s IOTX",
+	rewardPoolMessageTranslations = map[ioctl.Language]string{
+		ioctl.English: "Available Reward: %s IOTX   Total Reward: %s IOTX",
+		ioctl.Chinese: "可用奖金: %s IOTX   总奖金: %s IOTX",
 	}
 )
 

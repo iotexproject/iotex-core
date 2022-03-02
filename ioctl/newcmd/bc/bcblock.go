@@ -28,17 +28,17 @@ import (
 
 // Multi-language support
 var (
-	bcBlockCmdShorts = map[config.Language]string{
-		config.English: "Get block from block chain",
-		config.Chinese: "获取IoTeX区块链中的区块",
+	bcBlockCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Get block from block chain",
+		ioctl.Chinese: "获取IoTeX区块链中的区块",
 	}
-	bcBlockCmdUses = map[config.Language]string{
-		config.English: "block [HEIGHT|HASH] [--verbose]",
-		config.Chinese: "block [高度|哈希] [--verbose]",
+	bcBlockCmdUses = map[ioctl.Language]string{
+		ioctl.English: "block [HEIGHT|HASH] [--verbose]",
+		ioctl.Chinese: "block [高度|哈希] [--verbose]",
 	}
-	flagVerboseUsages = map[config.Language]string{
-		config.English: "returns block info and all actions within this block.",
-		config.Chinese: "返回区块信息和区块内的所有事务",
+	flagVerboseUsages = map[ioctl.Language]string{
+		ioctl.English: "returns block info and all actions within this block.",
+		ioctl.Chinese: "返回区块信息和区块内的所有事务",
 	}
 )
 

@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -19,17 +18,17 @@ var signer string
 
 // Multi-language support
 var (
-	signCmdShorts = map[config.Language]string{
-		config.English: "Sign message with private key from wallet",
-		config.Chinese: "用钱包中的私钥对信息签名",
+	signCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Sign message with private key from wallet",
+		ioctl.Chinese: "用钱包中的私钥对信息签名",
 	}
-	signCmdUses = map[config.Language]string{
-		config.English: "sign MESSAGE [-s SIGNER]",
-		config.Chinese: "sign 信息 [-s 签署人]",
+	signCmdUses = map[ioctl.Language]string{
+		ioctl.English: "sign MESSAGE [-s SIGNER]",
+		ioctl.Chinese: "sign 信息 [-s 签署人]",
 	}
-	flagSignerUsages = map[config.Language]string{
-		config.English: "choose a signing account",
-		config.Chinese: "选择一个签名账户",
+	flagSignerUsages = map[ioctl.Language]string{
+		ioctl.English: "choose a signing account",
+		ioctl.Chinese: "选择一个签名账户",
 	}
 )
 

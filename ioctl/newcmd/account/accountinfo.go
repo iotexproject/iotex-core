@@ -18,27 +18,26 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
 var (
-	infoCmdUses = map[config.Language]string{
-		config.English: "info [ALIAS|ADDRESS]",
-		config.Chinese: "info [别名|地址]",
+	infoCmdUses = map[ioctl.Language]string{
+		ioctl.English: "info [ALIAS|ADDRESS]",
+		ioctl.Chinese: "info [别名|地址]",
 	}
-	infoCmdShorts = map[config.Language]string{
-		config.English: "Display an account's information",
-		config.Chinese: "显示账号信息",
+	infoCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Display an account's information",
+		ioctl.Chinese: "显示账号信息",
 	}
-	invalidAccountBalance = map[config.Language]string{
-		config.English: "invalid account balance",
-		config.Chinese: "无效的账户余额",
+	invalidAccountBalance = map[ioctl.Language]string{
+		ioctl.English: "invalid account balance",
+		ioctl.Chinese: "无效的账户余额",
 	}
-	failToGetAccountMeta = map[config.Language]string{
-		config.English: "failed to get account meta",
-		config.Chinese: "获取账户信息失败",
+	failToGetAccountMeta = map[ioctl.Language]string{
+		ioctl.English: "failed to get account meta",
+		ioctl.Chinese: "获取账户信息失败",
 	}
 )
 

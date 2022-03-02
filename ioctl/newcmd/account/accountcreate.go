@@ -16,34 +16,33 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
 var (
-	createShorts = map[config.Language]string{
-		config.English: "Create N new accounts and print them",
-		config.Chinese: "创建 N 个新账户，并打印",
+	createShorts = map[ioctl.Language]string{
+		ioctl.English: "Create N new accounts and print them",
+		ioctl.Chinese: "创建 N 个新账户，并打印",
 	}
-	createUses = map[config.Language]string{
-		config.English: "create",
-		config.Chinese: "create 创建",
+	createUses = map[ioctl.Language]string{
+		ioctl.English: "create",
+		ioctl.Chinese: "create 创建",
 	}
-	createFlagUsages = map[config.Language]string{
-		config.English: "number of accounts to create",
-		config.Chinese: "指定创建账户的数量",
+	createFlagUsages = map[ioctl.Language]string{
+		ioctl.English: "number of accounts to create",
+		ioctl.Chinese: "指定创建账户的数量",
 	}
-	failToGenerateNewPrivateKey = map[config.Language]string{
-		config.English: "failed to generate new private key",
-		config.Chinese: "生成新私钥失败",
+	failToGenerateNewPrivateKey = map[ioctl.Language]string{
+		ioctl.English: "failed to generate new private key",
+		ioctl.Chinese: "生成新私钥失败",
 	}
-	failToGenerateNewPrivateKeySm2 = map[config.Language]string{
-		config.English: "failed to generate new sm2 private key",
-		config.Chinese: "生成新sm2私钥失败",
+	failToGenerateNewPrivateKeySm2 = map[ioctl.Language]string{
+		ioctl.English: "failed to generate new sm2 private key",
+		ioctl.Chinese: "生成新sm2私钥失败",
 	}
-	failToConvertPublicKeyIntoAddress = map[config.Language]string{
-		config.English: "failed to convert public key into address",
-		config.Chinese: "将公钥转换为地址失败",
+	failToConvertPublicKeyIntoAddress = map[ioctl.Language]string{
+		ioctl.English: "failed to convert public key into address",
+		ioctl.Chinese: "将公钥转换为地址失败",
 	}
 )
 

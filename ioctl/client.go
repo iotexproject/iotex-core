@@ -39,7 +39,7 @@ type (
 		// APIServiceClient returns an API service client
 		APIServiceClient(APIServiceConfig) (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
-		SelectTranslation(map[config.Language]string) (string, config.Language)
+		SelectTranslation(map[Language]string) (string, Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
 		AskToConfirm(string) bool
 		// ReadSecret reads password from terminal
@@ -70,13 +70,16 @@ type (
 		Insecure bool
 	}
 
+	// Language type used to enumerate supported language of ioctl
+	Language int
+
 	client struct {
 		cfg       config.Config
 		conn      *grpc.ClientConn
 		cryptoSm2 bool
 
 		// TODO: merge into config
-		lang config.Language
+		lang Language
 	}
 
 	// Option sets client construction parameter
@@ -87,6 +90,12 @@ type (
 		Info    string   `json:"info"`
 		Options []string `json:"options"`
 	}
+)
+
+// Multi-language support
+const (
+	English Language = iota
+	Chinese
 )
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
@@ -133,17 +142,17 @@ func (c *client) AskToConfirm(info string) bool {
 	return strings.EqualFold(confirm, "yes")
 }
 
-func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
+func (c *client) SelectTranslation(trls map[Language]string) (string, Language) {
 	trl, ok := trls[c.lang]
 	if ok {
 		return trl, c.lang
 	}
 
-	trl, ok = trls[config.English]
+	trl, ok = trls[English]
 	if !ok {
 		panic("failed to pick a translation")
 	}
-	return trl, config.English
+	return trl, English
 }
 
 func (c *client) ReadSecret() (string, error) {

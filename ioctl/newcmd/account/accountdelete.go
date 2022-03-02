@@ -23,49 +23,49 @@ import (
 
 // Multi-language support
 var (
-	deleteShorts = map[config.Language]string{
-		config.English: "Delete an IoTeX account/address from wallet/config",
-		config.Chinese: "从 钱包/配置 中删除一个IoTeX的账户或地址",
+	deleteShorts = map[ioctl.Language]string{
+		ioctl.English: "Delete an IoTeX account/address from wallet/config",
+		ioctl.Chinese: "从 钱包/配置 中删除一个IoTeX的账户或地址",
 	}
-	deleteUses = map[config.Language]string{
-		config.English: "delete [ALIAS|ADDRESS]",
-		config.Chinese: "delete [别名|地址]",
+	deleteUses = map[ioctl.Language]string{
+		ioctl.English: "delete [ALIAS|ADDRESS]",
+		ioctl.Chinese: "delete [别名|地址]",
 	}
-	failToGetAddress = map[config.Language]string{
-		config.English: "failed to get address",
-		config.Chinese: "获取账户地址失败",
+	failToGetAddress = map[ioctl.Language]string{
+		ioctl.English: "failed to get address",
+		ioctl.Chinese: "获取账户地址失败",
 	}
-	failToConvertStringIntoAddress = map[config.Language]string{
-		config.English: "failed to convert string into address",
-		config.Chinese: "转换字符串到账户地址失败",
+	failToConvertStringIntoAddress = map[ioctl.Language]string{
+		ioctl.English: "failed to convert string into address",
+		ioctl.Chinese: "转换字符串到账户地址失败",
 	}
-	infoWarn = map[config.Language]string{
-		config.English: "** This is an irreversible action!\n" +
+	infoWarn = map[ioctl.Language]string{
+		ioctl.English: "** This is an irreversible action!\n" +
 			"Once an account is deleted, all the assets under this account may be lost!\n" +
 			"Type 'YES' to continue, quit for anything else.",
-		config.Chinese: "** 这是一个不可逆转的操作!\n" +
+		ioctl.Chinese: "** 这是一个不可逆转的操作!\n" +
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
-	infoQuit = map[config.Language]string{
-		config.English: "quit",
-		config.Chinese: "退出",
+	infoQuit = map[ioctl.Language]string{
+		ioctl.English: "quit",
+		ioctl.Chinese: "退出",
 	}
-	failToRemoveKeystoreFile = map[config.Language]string{
-		config.English: "failed to remove keystore file",
-		config.Chinese: "移除keystore文件失败",
+	failToRemoveKeystoreFile = map[ioctl.Language]string{
+		ioctl.English: "failed to remove keystore file",
+		ioctl.Chinese: "移除keystore文件失败",
 	}
-	failToWriteToConfigFile = map[config.Language]string{
-		config.English: "Failed to write to config file %s.",
-		config.Chinese: "写入配置文件 %s 失败",
+	failToWriteToConfigFile = map[ioctl.Language]string{
+		ioctl.English: "Failed to write to config file %s.",
+		ioctl.Chinese: "写入配置文件 %s 失败",
 	}
-	resultSuccess = map[config.Language]string{
-		config.English: "Account #%s has been deleted.",
-		config.Chinese: "账户 #%s 已被删除",
+	resultSuccess = map[ioctl.Language]string{
+		ioctl.English: "Account #%s has been deleted.",
+		ioctl.Chinese: "账户 #%s 已被删除",
 	}
-	failToFindAccount = map[config.Language]string{
-		config.English: "account #%s not found",
-		config.Chinese: "账户 #%s 未找到",
+	failToFindAccount = map[ioctl.Language]string{
+		ioctl.English: "account #%s not found",
+		ioctl.Chinese: "账户 #%s 未找到",
 	}
 )
 

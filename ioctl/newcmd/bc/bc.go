@@ -18,27 +18,26 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
 var (
-	bcCmdShorts = map[config.Language]string{
-		config.English: "Deal with blockchain of IoTeX blockchain",
-		config.Chinese: "处理IoTeX区块链上的区块",
+	bcCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "Deal with blockchain of IoTeX blockchain",
+		ioctl.Chinese: "处理IoTeX区块链上的区块",
 	}
-	bcCmdUses = map[config.Language]string{
-		config.English: "bc",
-		config.Chinese: "bc",
+	bcCmdUses = map[ioctl.Language]string{
+		ioctl.English: "bc",
+		ioctl.Chinese: "bc",
 	}
-	flagEndpointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
+	flagEndpointUsages = map[ioctl.Language]string{
+		ioctl.English: "set endpoint for once",
+		ioctl.Chinese: "一次设置端点",
 	}
-	flagInsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全的连接",
+	flagInsecureUsages = map[ioctl.Language]string{
+		ioctl.English: "insecure connection for once",
+		ioctl.Chinese: "一次不安全的连接",
 	}
 )
 

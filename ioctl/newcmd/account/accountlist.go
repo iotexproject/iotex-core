@@ -14,17 +14,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
 var (
-	listCmdShorts = map[config.Language]string{
-		config.English: "List existing account for ioctl",
-		config.Chinese: "列出ioctl中已存在的账户",
+	listCmdShorts = map[ioctl.Language]string{
+		ioctl.English: "List existing account for ioctl",
+		ioctl.Chinese: "列出ioctl中已存在的账户",
 	}
-	listCmdUses = map[config.Language]string{
-		config.English: "list",
+	listCmdUses = map[ioctl.Language]string{
+		ioctl.English: "list",
 	}
 )
 
