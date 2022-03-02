@@ -60,7 +60,7 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 			addr := args[0]
 			if addr != address.StakingBucketPoolAddr && addr != address.RewardingPoolAddr {
 				var err error
-				addr, err = client.GetAddress(addr)
+				addr, err = client.DefaultAddress(addr)
 				if err != nil {
 					return errors.Wrap(err, failToGetAddress)
 				}

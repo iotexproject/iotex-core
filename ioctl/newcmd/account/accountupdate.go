@@ -48,7 +48,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				arg = args[0]
 			}
 
-			acc, err := client.GetAddress(arg)
+			acc, err := client.DefaultAddress(arg)
 			if err != nil {
 				return err
 			}

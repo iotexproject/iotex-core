@@ -43,7 +43,7 @@ func TestNewAccountDelete(t *testing.T) {
 			keystore.StandardScryptN, keystore.StandardScryptP)
 		acc, _ := ks.NewAccount("test")
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
+		client.EXPECT().DefaultAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
 		client.EXPECT().NewKeyStore().Return(ks).Times(2)
 
 		client.EXPECT().AliasMap().Return(map[string]string{
@@ -95,7 +95,7 @@ func TestNewAccountDelete(t *testing.T) {
 
 		pemFilePath := sm2KeyPath(client, addr2)
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
-		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
+		client.EXPECT().DefaultAddress(gomock.Any()).Return(addr2.String(), nil)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		cmd := NewAccountDelete(client)

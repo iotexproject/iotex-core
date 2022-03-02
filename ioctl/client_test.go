@@ -117,9 +117,8 @@ func TestGetAddress(t *testing.T) {
 		cfg, err := config.LoadConfig()
 		r.NoError(err)
 		defer testutil.CleanupPath(t, config.ConfigDir)
-		config.ReadConfig = cfg
-		c := NewClient(config.ReadConfig)
-		out, err := c.GetAddress(test.in)
+		c := NewClient(cfg)
+		out, err := c.DefaultAddress(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
 		}
