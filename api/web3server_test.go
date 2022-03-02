@@ -464,7 +464,8 @@ func TestGetTransactionReceipt(t *testing.T) {
 	testData := []interface{}{"0x" + hex.EncodeToString(transferHash1[:]), 1}
 	ret, err := svr.web3Server.getTransactionReceipt(testData)
 	require.NoError(err)
-	ans := ret.(receiptObject)
+	ans, ok := ret.(receiptObject)
+	require.True(ok)
 	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
