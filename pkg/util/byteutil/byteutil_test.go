@@ -16,16 +16,12 @@ import (
 
 func TestMust(t *testing.T) {
 	t.Run("return identical output when given nil error", func(t *testing.T) {
-		var expectedErr error
-
-		result := Must([]byte{0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x19}, expectedErr)
-
-		require.Equal(t, []byte{0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x19}, result)
+		b := []byte{0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x19}
+		result := Must(b, nil)
+		require.Equal(t, b, result)
 	})
-
 	t.Run("panics when an error was given", func(t *testing.T) {
 		expectedErr := errors.New("an error was given")
-
 		require.Panics(t, func() {
 			Must([]byte{0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x19}, expectedErr)
 		}, expectedErr)
