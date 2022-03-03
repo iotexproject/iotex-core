@@ -118,7 +118,7 @@ func TestGetAddress(t *testing.T) {
 		r.NoError(err)
 		defer testutil.CleanupPath(t, config.ConfigDir)
 		c := NewClient(cfg)
-		out, err := c.DefaultAddress(test.in)
+		out, err := c.AddressWithDefaultIfNotExist(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
 		}

@@ -30,7 +30,7 @@ func TestNewAccountInfo(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 
 	accAddr := identityset.Address(28)
-	client.EXPECT().DefaultAddress(gomock.Any()).Return(accAddr.String(), nil).AnyTimes()
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).AnyTimes()
 	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)

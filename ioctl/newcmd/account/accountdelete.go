@@ -93,7 +93,7 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 				arg = args[0]
 			}
 
-			addr, err := client.DefaultAddress(arg)
+			addr, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
 				return errors.Wrap(err, failToGetAddress)
 			}

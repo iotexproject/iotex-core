@@ -13,22 +13,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
@@ -50,8 +46,8 @@ type (
 		ReadSecret() (string, error)
 		// Execute a bash command
 		Execute(string) error
-		// DefaultAddress returns default address if input empty
-		DefaultAddress(in string) (string, error)
+		// AddressWithDefaultIfNotExist returns default address if input empty
+		AddressWithDefaultIfNotExist(in string) (string, error)
 		// Address returns address if input address|alias
 		Address(in string) (string, error)
 		// NewKeyStore creates a keystore by default walletdir
@@ -151,34 +147,8 @@ func (c *client) SelectTranslation(trls map[config.Language]string) (string, con
 }
 
 func (c *client) ReadSecret() (string, error) {
-	signalListener := make(chan os.Signal, 1)
-	signal.Notify(signalListener, os.Interrupt)
-	routineTerminate := make(chan struct{})
-	sta, err := terminal.GetState(int(syscall.Stdin))
-	if err != nil {
-		return "", err
-	}
-	go func() {
-		for {
-			select {
-			case <-signalListener:
-				err = terminal.Restore(int(syscall.Stdin), sta)
-				if err != nil {
-					log.L().Error("failed restore terminal", zap.Error(err))
-					return
-				}
-				os.Exit(130)
-			case <-routineTerminate:
-				return
-			}
-		}
-	}()
-	bytePass, err := terminal.ReadPassword(int(syscall.Stdin))
-	close(routineTerminate)
-	if err != nil {
-		return "", errors.New("failed to read password")
-	}
-	return string(bytePass), nil
+	// TODO: delete util.ReadSecretFromStdin, and move code to here
+	return util.ReadSecretFromStdin()
 }
 
 func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClient, error) {
@@ -207,7 +177,7 @@ func (c *client) Execute(cmd string) error {
 	return exec.Command("bash", "-c", cmd).Run()
 }
 
-func (c *client) DefaultAddress(in string) (string, error) {
+func (c *client) AddressWithDefaultIfNotExist(in string) (string, error) {
 	var address string
 	if !strings.EqualFold(in, "") {
 		address = in

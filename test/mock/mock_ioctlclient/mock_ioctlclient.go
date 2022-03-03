@@ -69,6 +69,21 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockClient)(nil).Address), in)
 }
 
+// AddressWithDefaultIfNotExist mocks base method.
+func (m *MockClient) AddressWithDefaultIfNotExist(in string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddressWithDefaultIfNotExist", in)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddressWithDefaultIfNotExist indicates an expected call of AddressWithDefaultIfNotExist.
+func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
+}
+
 // AliasMap mocks base method.
 func (m *MockClient) AliasMap() map[string]string {
 	m.ctrl.T.Helper()
@@ -124,21 +139,6 @@ func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, er
 func (mr *MockClientMockRecorder) DecryptPrivateKey(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptPrivateKey", reflect.TypeOf((*MockClient)(nil).DecryptPrivateKey), arg0, arg1)
-}
-
-// DefaultAddress mocks base method.
-func (m *MockClient) DefaultAddress(in string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DefaultAddress", in)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DefaultAddress indicates an expected call of DefaultAddress.
-func (mr *MockClientMockRecorder) DefaultAddress(in interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultAddress", reflect.TypeOf((*MockClient)(nil).DefaultAddress), in)
 }
 
 // Execute mocks base method.
