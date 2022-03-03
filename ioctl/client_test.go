@@ -132,10 +132,9 @@ func TestNewKeyStore(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
 
-	cfg := config.Config{
+	c := NewClient(config.Config{
 		Wallet: testWallet,
-	}
-	c := NewClient(cfg)
+	})
 	defer c.Stop(context.Background())
 
 	ks := c.NewKeyStore()
@@ -221,6 +220,6 @@ func writeTempConfig(t *testing.T, cfg *config.Config) func() {
 	r.NoError(err)
 	r.NoError(os.WriteFile(config.DefaultConfigFile, out, 0600))
 	return func() {
-		defer testutil.CleanupPath(t, testPathd)
+		testutil.CleanupPath(t, testPathd)
 	}
 }
