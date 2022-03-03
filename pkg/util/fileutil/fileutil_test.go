@@ -33,12 +33,11 @@ func TestGetFileAbsPath(t *testing.T) {
 	t.Run("get absolute path in blockchain directory", func(t *testing.T) {
 		pwd, err := os.Getwd()
 		require.NoError(t, err)
+		fileAbsPath := GetFileAbsPath("filename")
 		if runtime.GOOS == "windows" {
-			fileAbsPath := GetFileAbsPath("filename")
 			require.Equal(t, path.Join(pwd, "blockchain/filename"), fileAbsPath)
 		} else {
 			pwd = strings.ReplaceAll(pwd, "pkg/util/fileutil", "")
-			fileAbsPath := GetFileAbsPath("filename")
 			require.Equal(t, path.Join(pwd, "blockchain/filename"), fileAbsPath)
 		}
 	})
