@@ -261,8 +261,16 @@ func BenchmarkCachedBatch_Snapshot(b *testing.B) {
 			v[i] = byte(rand.Intn(8))
 		}
 		cb.Put(bucket1, k[:], v[:], "")
+		value, err := cb.Get(bucket1, k[:])
+		require.NoError(b, err)
+		require.True(b, bytes.Equal(value, v[:]))
 		sn := cb.Snapshot()
 		cb.Delete(bucket1, k[:], "")
+		_, err = cb.Get(bucket1, k[:])
+		require.Error(b, err)
 		cb.Revert(sn)
+		value, err = cb.Get(bucket1, k[:])
+		require.NoError(b, err)
+		require.True(b, bytes.Equal(value, v[:]))
 	}
 }
