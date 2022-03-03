@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -51,13 +52,15 @@ func (mini *miniServer) Factory() factory.Factory {
 }
 
 func loadConfig() config.Config {
-	configPath := "/home/haaai/iotex/iotex-core/tools/blockplayer/cmds/config.yaml"
-	cfg, err := config.New([]string{configPath}, []string{})
+	genesisPath := "/home/haaai/iotex/iotex-core/tools/blockplayer/cmds/genesis.yaml"
+	genesisCfg, err := genesis.New(genesisPath)
+	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
+	block.LoadGenesisHash(&genesisCfg)
 	if err != nil {
 		panic(err)
 	}
-	genesisPath := "/home/haaai/iotex/iotex-core/tools/blockplayer/cmds/genesis.yaml"
-	genesisCfg, err := genesis.New(genesisPath)
+	configPath := "/home/haaai/iotex/iotex-core/tools/blockplayer/cmds/config.yaml"
+	cfg, err := config.New([]string{configPath}, []string{})
 	if err != nil {
 		panic(err)
 	}
