@@ -126,6 +126,20 @@ func (mr *MockClientMockRecorder) DecryptPrivateKey(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptPrivateKey", reflect.TypeOf((*MockClient)(nil).DecryptPrivateKey), arg0, arg1)
 }
 
+// DeleteAlias mocks base method.
+func (m *MockClient) DeleteAlias(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAlias", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAlias indicates an expected call of DeleteAlias.
+func (mr *MockClientMockRecorder) DeleteAlias(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAlias", reflect.TypeOf((*MockClient)(nil).DeleteAlias), arg0)
+}
+
 // Execute mocks base method.
 func (m *MockClient) Execute(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -225,6 +239,20 @@ func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
 }
 
+// SetAlias mocks base method.
+func (m *MockClient) SetAlias(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAlias", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAlias indicates an expected call of SetAlias.
+func (mr *MockClientMockRecorder) SetAlias(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAlias", reflect.TypeOf((*MockClient)(nil).SetAlias), arg0, arg1)
+}
+
 // Start mocks base method.
 func (m *MockClient) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -251,18 +279,4 @@ func (m *MockClient) Stop(arg0 context.Context) error {
 func (mr *MockClientMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockClient)(nil).Stop), arg0)
-}
-
-// WriteAlias mocks base method.
-func (m *MockClient) WriteAlias(arg0 map[string]string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteAlias", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// WriteAlias indicates an expected call of WriteAlias.
-func (mr *MockClientMockRecorder) WriteAlias(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteAlias", reflect.TypeOf((*MockClient)(nil).WriteAlias), arg0)
 }

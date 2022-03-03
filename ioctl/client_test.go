@@ -21,7 +21,7 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig, EnableCryptoSm2())
+	c := NewClient(config.ReadConfig, "", EnableCryptoSm2())
 	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
 	err = c.Stop(context.Background())
@@ -30,7 +30,7 @@ func TestStop(t *testing.T) {
 
 func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig)
+	c := NewClient(config.ReadConfig, "")
 	defer c.Stop(context.Background())
 	blang := c.AskToConfirm("test")
 	// no input
@@ -39,7 +39,7 @@ func TestAskToConfirm(t *testing.T) {
 
 func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig)
+	c := NewClient(config.ReadConfig, "")
 	defer c.Stop(context.Background())
 	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
@@ -113,12 +113,12 @@ func TestGetAddress(t *testing.T) {
 
 	for _, test := range tests {
 		r := require.New(t)
-		r.NoError(writeTempConfig(t, &test.cfg))
-		cfg, err := config.LoadConfig()
-		r.NoError(err)
-		defer testutil.CleanupPath(t, config.ConfigDir)
-		config.ReadConfig = cfg
-		c := NewClient(config.ReadConfig)
+		defaultConfigFile := writeTempConfig(t, &test.cfg)
+		cfgload := loadTempConfig(t, defaultConfigFile)
+		r.Equal(test.cfg, cfgload)
+		defer testutil.CleanupPath(t, defaultConfigFile)
+
+		c := NewClient(cfgload, defaultConfigFile)
 		out, err := c.GetAddress(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
@@ -134,7 +134,7 @@ func TestNewKeyStore(t *testing.T) {
 	defer testutil.CleanupPath(t, testWallet)
 
 	config.ReadConfig.Wallet = testWallet
-	c := NewClient(config.ReadConfig)
+	c := NewClient(config.ReadConfig, testWallet+"/config.default")
 	defer c.Stop(context.Background())
 
 	ks := c.NewKeyStore()
@@ -155,75 +155,163 @@ func TestAliasMap(t *testing.T) {
 			"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
 		},
 	}
-	r.NoError(writeTempConfig(t, &cfg))
-	cfgload, err := config.LoadConfig()
-	r.NoError(err)
+	defaultConfigFile := writeTempConfig(t, &cfg)
+	cfgload := loadTempConfig(t, defaultConfigFile)
 	r.Equal(cfg, cfgload)
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	config.ReadConfig = cfgload
+	defer testutil.CleanupPath(t, defaultConfigFile)
 
 	exprAliases := map[string]string{
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
-	c := NewClient(config.ReadConfig)
+	c := NewClient(cfgload, defaultConfigFile)
 	defer c.Stop(context.Background())
 	result := c.AliasMap()
 	r.Equal(exprAliases, result)
 }
 
-func TestWriteAlias(t *testing.T) {
+func TestSetAlias(t *testing.T) {
+	type Data struct {
+		cfg   config.Config
+		alias string
+		addr  string
+	}
+	tests := []Data{
+		{
+			config.Config{
+				Endpoint:      "127.1.1.1:1234",
+				SecureConnect: true,
+				Aliases: map[string]string{
+					"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+					"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trcccccccccc",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: "ddd"},
+			},
+			"ddd",
+			"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+		},
+		{
+			config.Config{
+				Endpoint:      "127.1.1.1:1234",
+				SecureConnect: true,
+				Aliases: map[string]string{
+					"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+					"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: "ddd"},
+			},
+			"ddd",
+			"io1cjh35tq9k8fu0gqcsat4px7yr8trhddddddddd",
+		},
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"": "",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			},
+			"ddd",
+			"io1cjh35tq9k8fu0gqcsat4px7yr8trhddddddddd",
+		},
+	}
+
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testPathd)
-	config.ConfigDir = testPathd
-	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-
-	tests := []config.Config{
-		{
-			Endpoint:      "127.1.1.1:1234",
-			SecureConnect: true,
-			Aliases: map[string]string{
-				"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
-				"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
-				"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
-			},
-			DefaultAccount: config.Context{AddressOrAlias: "ddd"},
-		},
-		{
-			Aliases: map[string]string{
-				"": "",
-			},
-			DefaultAccount: config.Context{AddressOrAlias: ""},
-		},
-	}
 
 	for _, test := range tests {
-		c := NewClient(test)
-		aliases := map[string]string{
-			"ddd": "io1cjh35tq9k8fu0gqcsat4px7yr8t11111111111",
-			"eee": "io1cjh35tq9k8fu0gqcsat4px7yr8t22222222222",
-		}
-		err = c.WriteAlias(aliases)
-		cfgload, err := config.LoadConfig()
-		r.NoError(err)
-		r.Equal(aliases, cfgload.Aliases)
-		r.Equal(test.Endpoint, cfgload.Endpoint)
-		r.Equal(test.SecureConnect, cfgload.SecureConnect)
+		defaultConfigFile := testPathd + "/config.default"
+		c := NewClient(test.cfg, defaultConfigFile)
+		r.NoError(c.SetAlias(test.alias, test.addr))
+		cfgload := loadTempConfig(t, defaultConfigFile)
+		r.Equal(test.addr, cfgload.Aliases[test.alias])
+		r.Equal(test.cfg.Endpoint, cfgload.Endpoint)
+		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
+		r.Equal(test.cfg.DefaultAccount, cfgload.DefaultAccount)
 	}
 }
 
-func writeTempConfig(t *testing.T, cfg *config.Config) error {
+func TestDeleteAlias(t *testing.T) {
+	type Data struct {
+		cfg   config.Config
+		alias string
+	}
+	tests := []Data{
+		{
+			config.Config{
+				Endpoint:      "127.1.1.1:1234",
+				SecureConnect: true,
+				Aliases: map[string]string{
+					"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+					"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trcccccccccc",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: "ddd"},
+			},
+			"aaa",
+		},
+		{
+			config.Config{
+				Endpoint:      "127.1.1.1:1234",
+				SecureConnect: true,
+				Aliases: map[string]string{
+					"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa",
+					"bbb": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb",
+					"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: "ddd"},
+			},
+			"ddd",
+		},
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"": "",
+				},
+			},
+			"ddd",
+		},
+	}
+
+	r := require.New(t)
+	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
+	r.NoError(err)
+	defer testutil.CleanupPath(t, testPathd)
+
+	for _, test := range tests {
+		defaultConfigFile := testPathd + "/config.default"
+		c := NewClient(test.cfg, defaultConfigFile)
+		r.NoError(c.DeleteAlias(test.alias))
+		cfgload := loadTempConfig(t, defaultConfigFile)
+		r.NotContains(cfgload.Aliases, test.alias)
+		r.Equal(test.cfg.Endpoint, cfgload.Endpoint)
+		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
+		r.Equal(test.cfg.DefaultAccount, cfgload.DefaultAccount)
+	}
+}
+
+func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
 	r.NoError(err)
-	config.ConfigDir = testPathd
-	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-	config.ReadConfig.Wallet = config.ConfigDir
+	defaultConfigFile := testPathd + "/config.default"
 	out, err := yaml.Marshal(cfg)
 	r.NoError(err)
-	r.NoError(os.WriteFile(config.DefaultConfigFile, out, 0600))
-	return nil
+	r.NoError(os.WriteFile(defaultConfigFile, out, 0600))
+	return defaultConfigFile
+}
+
+func loadTempConfig(t *testing.T, defaultConfigFile string) config.Config {
+	r := require.New(t)
+	cfg := config.Config{
+		Aliases: make(map[string]string),
+	}
+	in, err := os.ReadFile(defaultConfigFile)
+	r.NoError(err)
+	r.NoError(yaml.Unmarshal(in, &cfg))
+	return cfg
 }

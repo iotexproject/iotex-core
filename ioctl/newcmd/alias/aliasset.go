@@ -31,11 +31,10 @@ var (
 
 // NewAliasSetCmd represents the alias set command
 func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
-
 	use, _ := c.SelectTranslation(setCmdUses)
 	short, _ := c.SelectTranslation(setCmdShorts)
 
-	ec := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(2),
@@ -44,18 +43,10 @@ func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 			if err := validator.ValidateAlias(args[0]); err != nil {
 				return output.NewError(output.ValidationError, "invalid alias", err)
 			}
-			alias := args[0]
 			if err := validator.ValidateAddress(args[1]); err != nil {
 				return output.NewError(output.ValidationError, "invalid address", err)
 			}
-			addr := args[1]
-			aliases := c.AliasMap()
-			for aliases[addr] != "" {
-				delete(c.Config().Aliases, aliases[addr])
-				aliases = c.AliasMap()
-			}
-			c.Config().Aliases[alias] = addr
-			if err := c.WriteAlias(c.Config().Aliases); err != nil {
+			if err := c.SetAlias(args[0], args[1]); err != nil {
 				return output.NewError(output.WriteFileError,
 					fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 			}
@@ -63,5 +54,4 @@ func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	return ec
 }

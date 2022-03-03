@@ -127,10 +127,7 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 			if err := os.Remove(filePath); err != nil {
 				return errors.Wrap(err, failToRemoveKeystoreFile)
 			}
-
-			aliases := client.AliasMap()
-			delete(client.Config().Aliases, aliases[addr])
-			if err := client.WriteAlias(client.Config().Aliases); err != nil {
+			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
 			}
 			client.PrintInfo(fmt.Sprintf(resultSuccess, addr))

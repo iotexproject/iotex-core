@@ -51,22 +51,13 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "bbb",
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
-		cfg := config.Config{
-			Wallet: testAccountFolder,
-			Aliases: map[string]string{
-				"aaa": accAddr.String(),
-				"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-				"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-			},
-		}
-		client.EXPECT().Config().Return(cfg).Times(2)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().WriteAlias(cfg.Aliases).Return(nil)
+		client.EXPECT().DeleteAlias("aaa").Return(nil)
 		cmd = NewAccountDelete(client)
 		_, err = util.ExecuteCmd(cmd)
 		require.NoError(err)
@@ -90,14 +81,14 @@ func TestNewAccountDelete(t *testing.T) {
 				"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
 			},
 		}
-		client.EXPECT().Config().Return(cfg).Times(4)
+		client.EXPECT().Config().Return(cfg).Times(2)
 
 		pemFilePath := sm2KeyPath(client, addr2)
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
 		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().WriteAlias(cfg.Aliases).Return(nil)
+		client.EXPECT().DeleteAlias("aaa").Return(nil)
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(err)

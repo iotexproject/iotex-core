@@ -30,7 +30,7 @@ func TestNewAliasSetCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", config.English).Times(2)
 	client.EXPECT().AliasMap().Return(cfg.Aliases).MaxTimes(2)
 	client.EXPECT().Config().Return(cfg).AnyTimes()
-	client.EXPECT().WriteAlias(cfg.Aliases).Return(nil).Times(1)
+	client.EXPECT().SetAlias("d", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx").Return(nil).Times(1)
 
 	cmd := NewAliasSetCmd(client)
 	result, err := util.ExecuteCmd(cmd, "d", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
