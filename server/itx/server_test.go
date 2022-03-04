@@ -58,14 +58,15 @@ func TestStartServer(t *testing.T) {
 	svr, err := NewServer(cfg)
 	require.NoError(err)
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	require.NoError(probeSvr.Start(ctx))
 	go func() {
 		testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
-			StartServer(ctx, svr, probeSvr, cfg)
+			cancel()
 			return true, nil
 		})
 	}()
+	StartServer(ctx, svr, probeSvr, cfg)
 }
 
 func newConfig(t *testing.T) (config.Config, func()) {
