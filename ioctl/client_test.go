@@ -21,7 +21,7 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig, "", EnableCryptoSm2())
+	c := NewClient(config.Config{}, "", EnableCryptoSm2())
 	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
 	err = c.Stop(context.Background())
@@ -30,7 +30,7 @@ func TestStop(t *testing.T) {
 
 func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig, "")
+	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
 	blang := c.AskToConfirm("test")
 	// no input
@@ -39,7 +39,7 @@ func TestAskToConfirm(t *testing.T) {
 
 func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig, "")
+	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
 	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
@@ -114,10 +114,10 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
+    defer testutil.CleanupPath(t, configFilePath)
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
-		defer testutil.CleanupPath(t, configFilePath)
-
+		
 		c := NewClient(cfgload, configFilePath)
 		out, err := c.GetAddress(test.in)
 		if err != nil {
@@ -133,8 +133,9 @@ func TestNewKeyStore(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
 
-	config.ReadConfig.Wallet = testWallet
-	c := NewClient(config.ReadConfig, testWallet+"/config.default")
+	c := NewClient(config.Config{
+		Wallet: testWallet,
+	}, testWallet+"/config.default")
 	defer c.Stop(context.Background())
 
 	ks := c.NewKeyStore()
@@ -155,12 +156,13 @@ func TestAliasMap(t *testing.T) {
 			"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
 		},
 	}
+
 	configFilePath := writeTempConfig(t, &cfg)
+  defer testutil.CleanupPath(t, configFilePath)
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
-	defer testutil.CleanupPath(t, configFilePath)
 
-	exprAliases := map[string]string{
+  exprAliases := map[string]string{
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",

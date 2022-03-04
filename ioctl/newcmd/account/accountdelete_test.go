@@ -73,6 +73,7 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "bbb",
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
+
 		cfg := config.Config{
 			Wallet: testAccountFolder,
 			Aliases: map[string]string{
@@ -82,6 +83,7 @@ func TestNewAccountDelete(t *testing.T) {
 			},
 		}
 		client.EXPECT().Config().Return(cfg).Times(2)
+
 
 		pemFilePath := sm2KeyPath(client, addr2)
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
