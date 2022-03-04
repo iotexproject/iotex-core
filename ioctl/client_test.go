@@ -114,10 +114,10 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
-    defer testutil.CleanupPath(t, configFilePath)
+		defer testutil.CleanupPath(t, configFilePath)
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
-		
+
 		c := NewClient(cfgload, configFilePath)
 		out, err := c.GetAddress(test.in)
 		if err != nil {
@@ -158,11 +158,11 @@ func TestAliasMap(t *testing.T) {
 	}
 
 	configFilePath := writeTempConfig(t, &cfg)
-  defer testutil.CleanupPath(t, configFilePath)
+	defer testutil.CleanupPath(t, configFilePath)
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
-  exprAliases := map[string]string{
+	exprAliases := map[string]string{
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",

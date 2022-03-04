@@ -84,7 +84,6 @@ func TestNewAccountDelete(t *testing.T) {
 		}
 		client.EXPECT().Config().Return(cfg).Times(2)
 
-
 		pemFilePath := sm2KeyPath(client, addr2)
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
 		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
