@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -31,7 +31,7 @@ func TestNewAccountInfo(t *testing.T) {
 
 	accAddr := identityset.Address(28)
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).AnyTimes()
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
