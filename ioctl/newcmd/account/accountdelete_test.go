@@ -51,16 +51,14 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "bbb",
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
-		client.EXPECT().Config().DoAndReturn(
-			func() config.Config {
-				config.ReadConfig.Wallet = testAccountFolder
-				config.ReadConfig.Aliases = map[string]string{
-					"aaa": accAddr.String(),
-					"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-					"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-				}
-				return config.ReadConfig
-			})
+		client.EXPECT().Config().Return(config.Config{
+			Wallet: testAccountFolder,
+			Aliases: map[string]string{
+				"aaa": accAddr.String(),
+				"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+				"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+			},
+		})
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 		cmd := NewAccountDelete(client)
@@ -82,16 +80,14 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "bbb",
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
-		client.EXPECT().Config().DoAndReturn(
-			func() config.Config {
-				config.ReadConfig.Wallet = testAccountFolder
-				config.ReadConfig.Aliases = map[string]string{
-					"aaa": addr2.String(),
-					"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-					"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-				}
-				return config.ReadConfig
-			}).Times(3)
+		client.EXPECT().Config().Return(config.Config{
+			Wallet: testAccountFolder,
+			Aliases: map[string]string{
+				"aaa": addr2.String(),
+				"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+				"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+			},
+		}).Times(3)
 
 		pemFilePath := sm2KeyPath(client, addr2)
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")

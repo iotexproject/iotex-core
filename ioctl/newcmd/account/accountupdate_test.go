@@ -91,11 +91,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
 
-	client.EXPECT().Config().DoAndReturn(
-		func() config.Config {
-			config.ReadConfig.Wallet = testAccountFolder
-			return config.ReadConfig
-		}).Times(4)
+	client.EXPECT().Config().Return(config.Config{Wallet: testAccountFolder}).Times(4)
 	skPemPath := sm2KeyPath(client, accAddr)
 	sk, err := crypto.GenerateKeySm2()
 	require.NoError(err)

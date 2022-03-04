@@ -53,7 +53,7 @@ func TestNewAccountNonce(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 
 	accAddr := identityset.Address(28).String()
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 
 	// success
