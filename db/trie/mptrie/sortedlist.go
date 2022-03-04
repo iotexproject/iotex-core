@@ -4,13 +4,15 @@ import (
 	"sort"
 )
 
-type sortedList struct {
+// SortedList is a data structure where elements are in ascending order
+type SortedList struct {
 	li []uint8
 }
 
-func NewSortList(children map[byte]node) *sortedList {
+// NewSortList create SortedList from keys in the children map
+func NewSortList(children map[byte]node) *SortedList {
 	if len(children) == 0 {
-		return &sortedList{
+		return &SortedList{
 			li: make([]uint8, 0),
 		}
 	}
@@ -21,12 +23,13 @@ func NewSortList(children map[byte]node) *sortedList {
 	sort.Slice(li, func(i, j int) bool {
 		return li[i] < li[j]
 	})
-	return &sortedList{
+	return &SortedList{
 		li: li,
 	}
 }
 
-func (sl *sortedList) Insert(key uint8) {
+// Insert insert key into sortedlist
+func (sl *SortedList) Insert(key uint8) {
 	i := sort.Search(len(sl.li), func(i int) bool {
 		return sl.li[i] >= uint8(key)
 	})
@@ -41,11 +44,13 @@ func (sl *sortedList) Insert(key uint8) {
 	}
 }
 
-func (sl *sortedList) List() []uint8 {
+// List returns sorted indices
+func (sl *SortedList) List() []uint8 {
 	return sl.li
 }
 
-func (sl *sortedList) Delete(key uint8) {
+// Delete deletes key in the sortedlist
+func (sl *SortedList) Delete(key uint8) {
 	i := sort.Search(len(sl.li), func(i int) bool {
 		return sl.li[i] >= key
 	})

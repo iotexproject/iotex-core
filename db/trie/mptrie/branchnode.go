@@ -17,7 +17,7 @@ import (
 type branchNode struct {
 	cacheNode
 	children map[byte]node
-	indices  *sortedList
+	indices  *SortedList
 	isRoot   bool
 }
 
@@ -36,7 +36,6 @@ func newBranchNode(
 		children: children,
 		indices:  NewSortList(children),
 	}
-
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
 		if !mpt.async {
