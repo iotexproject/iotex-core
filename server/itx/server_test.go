@@ -20,7 +20,8 @@ import (
 
 func TestStop(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg, cleanupPath := newConfig(t)
+	defer cleanupPath()
 	svr, err := NewServer(cfg)
 	require.NoError(err)
 	ctx := context.Background()
@@ -35,7 +36,8 @@ func TestStop(t *testing.T) {
 
 func TestNewSubChainService(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg, cleanupPath := newConfig(t)
+	defer cleanupPath()
 	svr, err := NewServer(cfg)
 	require.NoError(err)
 	err = svr.NewSubChainService(cfg)
@@ -51,7 +53,8 @@ func TestNewSubChainService(t *testing.T) {
 
 func TestStartServer(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg, cleanupPath := newConfig(t)
+	defer cleanupPath()
 	svr, err := NewServer(cfg)
 	require.NoError(err)
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
@@ -65,23 +68,20 @@ func TestStartServer(t *testing.T) {
 	}()
 }
 
-func newConfig(t *testing.T) config.Config {
+func newConfig(t *testing.T) (config.Config, func()) {
 	require := require.New(t)
 	dbPath, err := testutil.PathOfTempFile("chain.db")
 	require.NoError(err)
-	testutil.CleanupPath(t, dbPath)
 	triePath, err := testutil.PathOfTempFile("trie.db")
 	require.NoError(err)
-	testutil.CleanupPath(t, triePath)
-	defer func() {
-		testutil.CleanupPathV2(dbPath)
-		testutil.CleanupPathV2(triePath)
-	}()
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
 	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	config.Default.Chain.TrieDBPatchFile = ""
-	return cfg
+	return cfg, func() {
+		testutil.CleanupPathV2(dbPath)
+		testutil.CleanupPathV2(triePath)
+	}
 }
