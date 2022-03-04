@@ -55,8 +55,8 @@ var (
 		config.Chinese: "移除keystore文件失败",
 	}
 	failToWriteToConfigFile = map[config.Language]string{
-		config.English: "Failed to write to config file %s.",
-		config.Chinese: "写入配置文件 %s 失败",
+		config.English: "Failed to write to config file.",
+		config.Chinese: "写入配置文件失败",
 	}
 	resultSuccess = map[config.Language]string{
 		config.English: "Account #%s has been deleted.",
@@ -128,7 +128,7 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, failToRemoveKeystoreFile)
 			}
 			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+				return errors.Wrap(err, failToWriteToConfigFile)
 			}
 			client.PrintInfo(fmt.Sprintf(resultSuccess, addr))
 			return nil

@@ -73,10 +73,10 @@ type (
 	}
 
 	client struct {
-		cfg               config.Config
-		conn              *grpc.ClientConn
-		cryptoSm2         bool
-		defaultConfigFile string
+		cfg            config.Config
+		conn           *grpc.ClientConn
+		cryptoSm2      bool
+		configFilePath string
 
 		// TODO: merge into config
 		lang config.Language
@@ -100,10 +100,10 @@ func EnableCryptoSm2() Option {
 }
 
 // NewClient creates a new ioctl client
-func NewClient(cfg config.Config, defaultConfigFile string, opts ...Option) Client {
+func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
 	c := &client{
-		cfg:               cfg,
-		defaultConfigFile: defaultConfigFile,
+		cfg:            cfg,
+		configFilePath: configFilePath,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -255,10 +255,10 @@ func (c *client) DeleteAlias(alias string) error {
 func (c *client) writeAlias() error {
 	out, err := yaml.Marshal(&c.cfg)
 	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
+		return errors.Wrapf(err, "failed to marshal config to config file %s", c.configFilePath)
 	}
-	if err = os.WriteFile(c.defaultConfigFile, out, 0600); err != nil {
-		return errors.Wrapf(err, "failed to write to config file %s", c.defaultConfigFile)
+	if err = os.WriteFile(c.configFilePath, out, 0600); err != nil {
+		return errors.Wrapf(err, "failed to write to config file %s", c.configFilePath)
 	}
 	return nil
 }

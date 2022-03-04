@@ -113,12 +113,12 @@ func TestGetAddress(t *testing.T) {
 
 	for _, test := range tests {
 		r := require.New(t)
-		defaultConfigFile := writeTempConfig(t, &test.cfg)
-		cfgload := loadTempConfig(t, defaultConfigFile)
+		configFilePath := writeTempConfig(t, &test.cfg)
+		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
-		defer testutil.CleanupPath(t, defaultConfigFile)
+		defer testutil.CleanupPath(t, configFilePath)
 
-		c := NewClient(cfgload, defaultConfigFile)
+		c := NewClient(cfgload, configFilePath)
 		out, err := c.GetAddress(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
@@ -155,17 +155,17 @@ func TestAliasMap(t *testing.T) {
 			"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
 		},
 	}
-	defaultConfigFile := writeTempConfig(t, &cfg)
-	cfgload := loadTempConfig(t, defaultConfigFile)
+	configFilePath := writeTempConfig(t, &cfg)
+	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
-	defer testutil.CleanupPath(t, defaultConfigFile)
+	defer testutil.CleanupPath(t, configFilePath)
 
 	exprAliases := map[string]string{
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
-	c := NewClient(cfgload, defaultConfigFile)
+	c := NewClient(cfgload, configFilePath)
 	defer c.Stop(context.Background())
 	result := c.AliasMap()
 	r.Equal(exprAliases, result)
@@ -224,10 +224,10 @@ func TestSetAlias(t *testing.T) {
 	defer testutil.CleanupPath(t, testPathd)
 
 	for _, test := range tests {
-		defaultConfigFile := testPathd + "/config.default"
-		c := NewClient(test.cfg, defaultConfigFile)
+		configFilePath := testPathd + "/config.default"
+		c := NewClient(test.cfg, configFilePath)
 		r.NoError(c.SetAlias(test.alias, test.addr))
-		cfgload := loadTempConfig(t, defaultConfigFile)
+		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.addr, cfgload.Aliases[test.alias])
 		r.Equal(test.cfg.Endpoint, cfgload.Endpoint)
 		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
@@ -283,10 +283,10 @@ func TestDeleteAlias(t *testing.T) {
 	defer testutil.CleanupPath(t, testPathd)
 
 	for _, test := range tests {
-		defaultConfigFile := testPathd + "/config.default"
-		c := NewClient(test.cfg, defaultConfigFile)
+		configFilePath := testPathd + "/config.default"
+		c := NewClient(test.cfg, configFilePath)
 		r.NoError(c.DeleteAlias(test.alias))
-		cfgload := loadTempConfig(t, defaultConfigFile)
+		cfgload := loadTempConfig(t, configFilePath)
 		r.NotContains(cfgload.Aliases, test.alias)
 		r.Equal(test.cfg.Endpoint, cfgload.Endpoint)
 		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
@@ -298,19 +298,19 @@ func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
 	r.NoError(err)
-	defaultConfigFile := testPathd + "/config.default"
+	configFilePath := testPathd + "/config.default"
 	out, err := yaml.Marshal(cfg)
 	r.NoError(err)
-	r.NoError(os.WriteFile(defaultConfigFile, out, 0600))
-	return defaultConfigFile
+	r.NoError(os.WriteFile(configFilePath, out, 0600))
+	return configFilePath
 }
 
-func loadTempConfig(t *testing.T, defaultConfigFile string) config.Config {
+func loadTempConfig(t *testing.T, configFilePath string) config.Config {
 	r := require.New(t)
 	cfg := config.Config{
 		Aliases: make(map[string]string),
 	}
-	in, err := os.ReadFile(defaultConfigFile)
+	in, err := os.ReadFile(configFilePath)
 	r.NoError(err)
 	r.NoError(yaml.Unmarshal(in, &cfg))
 	return cfg
