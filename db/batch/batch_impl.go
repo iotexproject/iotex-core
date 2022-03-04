@@ -29,6 +29,7 @@ type (
 		tag          int            // latest snapshot + 1
 		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
 		caches       []KVStoreCache // snapshots of cache
+		keysInCache  map[hash.Hash160]struct{}
 	}
 )
 
@@ -190,6 +191,7 @@ func NewCachedBatch() CachedBatch {
 		kvStoreBatch: newBaseKVStoreBatch(),
 		batchShots:   make([]int, 0),
 		caches:       []KVStoreCache{NewKVCache()},
+		keysInCache:  map[hash.Hash160]struct{}{},
 	}
 }
 
@@ -236,6 +238,11 @@ func (cb *cachedBatch) clear() {
 	cb.batchShots = nil
 	cb.batchShots = make([]int, 0)
 	cb.caches = []KVStoreCache{NewKVCache()}
+	cb.keysInCache = map[hash.Hash160]struct{}{}
+}
+
+func (cb *cachedBatch) touchKey(h hash.Hash160) {
+	cb.keysInCache[h] = struct{}{}
 }
 
 // Put inserts a <key, value> record
@@ -243,6 +250,7 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
+	cb.touchKey(h)
 	cb.currentCache().Write(h, value)
 	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
@@ -252,6 +260,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
+	cb.touchKey(h)
 	cb.currentCache().Evict(h)
 	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
@@ -269,18 +278,20 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	defer cb.lock.RUnlock()
 	h := cb.hash(namespace, key)
 	var v []byte
-	var err error
-	for i := len(cb.caches) - 1; i >= 0; i-- {
-		v, err = cb.caches[i].Read(h)
-		switch errors.Cause(err) {
-		case nil:
-			return v, err
-		case ErrNotExist:
-			// do nothing
-		case ErrAlreadyDeleted:
-			fallthrough
-		default:
-			return v, err
+	err := ErrNotExist
+	if _, ok := cb.keysInCache[h]; ok {
+		for i := len(cb.caches) - 1; i >= 0; i-- {
+			v, err = cb.caches[i].Read(h)
+			switch errors.Cause(err) {
+			case nil:
+				return v, err
+			case ErrNotExist:
+				// do nothing
+			case ErrAlreadyDeleted:
+				fallthrough
+			default:
+				return v, err
+			}
 		}
 	}
 	return v, err

@@ -146,6 +146,7 @@ func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 
 	cb := NewCachedBatch()
+	cb.Clear()
 	cb.Put(bucket1, testK1[0], testV1[0], "")
 	cb.Put(bucket1, testK1[1], testV1[1], "")
 	s0 := cb.Snapshot()
