@@ -281,7 +281,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
-	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
+	var opts []batch.CachedBatchOption
+	if g := genesis.MustExtractGenesisContext(ctx); g.IsMidway(height) {
+		opts = append(opts, batch.SafeRevertOption())
+	}
+	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(opts...), sf.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
 	}

@@ -30,6 +30,7 @@ type (
 		tag          int            // latest snapshot + 1
 		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
 		cacheShots   []KVStoreCache // snapshots of cache
+		safeRevert   bool
 	}
 )
 
@@ -185,14 +186,28 @@ func (b *baseKVStoreBatch) truncate(size int) {
 // CachedBatch implementation
 ////////////////////////////////////////
 
+// CachedBatchOption is option for cached batch
+type CachedBatchOption func(*cachedBatch)
+
+// SafeRevertOption is safe revert option
+func SafeRevertOption() CachedBatchOption {
+	return func(cb *cachedBatch) {
+		cb.safeRevert = true
+	}
+}
+
 // NewCachedBatch returns a new cached batch buffer
-func NewCachedBatch() CachedBatch {
-	return &cachedBatch{
+func NewCachedBatch(opts ...CachedBatchOption) CachedBatch {
+	cb := &cachedBatch{
 		kvStoreBatch: newBaseKVStoreBatch(),
 		KVStoreCache: NewKVCache(),
 		batchShots:   make([]int, 0),
 		cacheShots:   make([]KVStoreCache, 0),
 	}
+	for _, opt := range opts {
+		opt(cb)
+	}
+	return cb
 }
 
 func (cb *cachedBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
@@ -297,8 +312,11 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.batchShots = cb.batchShots[:cb.tag]
 	cb.kvStoreBatch.truncate(cb.batchShots[snapshot])
 	cb.cacheShots = cb.cacheShots[:cb.tag]
-	cb.KVStoreCache = nil
-	cb.KVStoreCache = cb.cacheShots[snapshot]
+	if cb.safeRevert {
+		cb.KVStoreCache = cb.cacheShots[snapshot].Clone()
+	} else {
+		cb.KVStoreCache = cb.cacheShots[snapshot]
+	}
 	return nil
 }
 
