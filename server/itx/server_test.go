@@ -79,7 +79,7 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.API.Web3Port = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
-	config.Default.Chain.TrieDBPatchFile = ""
+	cfg.Chain.TrieDBPatchFile = ""
 	return cfg, func() {
 		testutil.CleanupPathV2(dbPath)
 		testutil.CleanupPathV2(triePath)
