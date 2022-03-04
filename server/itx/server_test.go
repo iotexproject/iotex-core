@@ -20,8 +20,8 @@ import (
 
 func TestStop(t *testing.T) {
 	require := require.New(t)
-	config.Default.Chain.TrieDBPatchFile = ""
-	svr, err := NewServer(config.Default)
+	cfg := newConfig(t)
+	svr, err := NewServer(cfg)
 	require.NoError(err)
 	ctx := context.Background()
 	err = svr.Start(ctx)
@@ -35,10 +35,10 @@ func TestStop(t *testing.T) {
 
 func TestNewSubChainService(t *testing.T) {
 	require := require.New(t)
-	config.Default.Chain.TrieDBPatchFile = ""
-	svr, err := NewServer(config.Default)
+	cfg := newConfig(t)
+	svr, err := NewServer(cfg)
 	require.NoError(err)
-	err = svr.NewSubChainService(config.Default)
+	err = svr.NewSubChainService(cfg)
 	require.NoError(err)
 	cs := svr.ChainService(1)
 	require.NotNil(cs)
@@ -51,16 +51,37 @@ func TestNewSubChainService(t *testing.T) {
 
 func TestStartServer(t *testing.T) {
 	require := require.New(t)
-	config.Default.Chain.TrieDBPatchFile = ""
-	svr, err := NewServer(config.Default)
+	cfg := newConfig(t)
+	svr, err := NewServer(cfg)
 	require.NoError(err)
-	probeSvr := probe.New(config.Default.System.HTTPStatsPort)
+	probeSvr := probe.New(cfg.System.HTTPStatsPort)
 	ctx := context.Background()
 	require.NoError(probeSvr.Start(ctx))
 	go func() {
 		testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
-			StartServer(ctx, svr, probeSvr, config.Default)
+			StartServer(ctx, svr, probeSvr, cfg)
 			return true, nil
 		})
 	}()
+}
+
+func newConfig(t *testing.T) config.Config {
+	require := require.New(t)
+	dbPath, err := testutil.PathOfTempFile("chain.db")
+	require.NoError(err)
+	testutil.CleanupPath(t, dbPath)
+	triePath, err := testutil.PathOfTempFile("trie.db")
+	require.NoError(err)
+	testutil.CleanupPath(t, triePath)
+	defer func() {
+		testutil.CleanupPathV2(dbPath)
+		testutil.CleanupPathV2(triePath)
+	}()
+	cfg := config.Default
+	cfg.API.Port = testutil.RandomPort()
+	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.Chain.ChainDBPath = dbPath
+	cfg.Chain.TrieDBPath = triePath
+	config.Default.Chain.TrieDBPatchFile = ""
+	return cfg
 }
