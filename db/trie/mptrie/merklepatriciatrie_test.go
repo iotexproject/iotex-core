@@ -63,7 +63,7 @@ func Test2Roots(t *testing.T) {
 
 	// first trie
 	trieDB := trie.NewMemKVStore()
-	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8), AsyncOption())
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	require.NoError(tr.Upsert(cat, testV[2]))
@@ -531,15 +531,12 @@ func Test4kEntries(t *testing.T) {
 	t.Run("test async mode", func(t *testing.T) {
 		test4kEntries(t, true)
 	})
-	t.Run("test sync mode", func(t *testing.T) {
-		test4kEntries(t, false)
-	})
 }
 
 func test4kEntries(t *testing.T, enableAsync bool) {
 	require := require.New(t)
 
-	tr, err := New(KeyLengthOption(4), AsyncOption())
+	tr, err := New(KeyLengthOption(4))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	root, err := tr.RootHash()

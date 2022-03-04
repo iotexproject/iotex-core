@@ -34,10 +34,6 @@ func newExtensionNode(
 		child: child,
 	}
 	e.cacheNode.serializable = e
-
-	if !mpt.async {
-		return e.store()
-	}
 	return e, nil
 }
 
@@ -174,16 +170,6 @@ func (e *extensionNode) updatePath(path []byte, hashnode bool) (node, error) {
 	}
 	e.path = path
 	e.dirty = true
-
-	if !e.mpt.async {
-		hn, err := e.store()
-		if err != nil {
-			return nil, err
-		}
-		if hashnode {
-			return hn, nil
-		}
-	}
 	return e, nil
 }
 
@@ -194,15 +180,5 @@ func (e *extensionNode) updateChild(newChild node, hashnode bool) (node, error) 
 	}
 	e.child = newChild
 	e.dirty = true
-
-	if !e.mpt.async {
-		hn, err := e.store()
-		if err != nil {
-			return nil, err
-		}
-		if hashnode {
-			return hn, nil
-		}
-	}
 	return e, nil
 }

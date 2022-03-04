@@ -37,11 +37,6 @@ func newBranchNode(
 		indices:  NewSortList(children),
 	}
 	bnode.cacheNode.serializable = bnode
-	if len(bnode.children) != 0 {
-		if !mpt.async {
-			return bnode.store()
-		}
-	}
 	return bnode, nil
 }
 
@@ -227,17 +222,7 @@ func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, err
 		b.children[key] = child
 	}
 	b.dirty = true
-	if len(b.children) != 0 {
-		if !b.mpt.async {
-			hn, err := b.store()
-			if err != nil {
-				return nil, err
-			}
-			if !b.isRoot && hashnode {
-				return hn, nil // return hashnode
-			}
-		}
-	} else {
+	if len(b.children) == 0 {
 		if _, err := b.hash(false); err != nil {
 			return nil, err
 		}

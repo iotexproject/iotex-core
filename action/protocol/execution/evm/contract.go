@@ -198,9 +198,6 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 	if account.Root != hash.ZeroHash256 {
 		options = append(options, mptrie.RootHashOption(account.Root[:]))
 	}
-	if enableAsync {
-		options = append(options, mptrie.AsyncOption())
-	}
 
 	tr, err := mptrie.New(options...)
 	if err != nil {

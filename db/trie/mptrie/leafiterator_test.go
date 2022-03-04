@@ -28,7 +28,7 @@ func TestIterator(t *testing.T) {
 		memStore = trie.NewMemKVStore()
 	)
 
-	mpt, err := New(KVStoreOption(memStore), KeyLengthOption(5), AsyncOption())
+	mpt, err := New(KVStoreOption(memStore), KeyLengthOption(5))
 	require.NoError(err)
 	err = mpt.Start(context.Background())
 	require.NoError(err)

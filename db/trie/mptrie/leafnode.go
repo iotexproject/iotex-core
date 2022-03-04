@@ -35,9 +35,6 @@ func newLeafNode(
 		value: value,
 	}
 	l.cacheNode.serializable = l
-	if !mpt.async {
-		return l.store()
-	}
 	return l, nil
 }
 
@@ -82,15 +79,7 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 	if err != nil {
 		return nil, err
 	}
-	var oldLeaf node
-	if !l.mpt.async {
-		oldLeaf, err = l.store()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		oldLeaf = l
-	}
+	oldLeaf := l
 	bnode, err := newBranchNode(
 		l.mpt,
 		map[byte]node{
@@ -140,8 +129,5 @@ func (l *leafNode) updateValue(value []byte) (node, error) {
 	}
 	l.value = value
 	l.dirty = true
-	if !l.mpt.async {
-		return l.store()
-	}
 	return l, nil
 }

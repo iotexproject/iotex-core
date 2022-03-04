@@ -46,7 +46,6 @@ type (
 		rootKey       string
 		kvStore       trie.KVStore
 		hashFunc      HashFunc
-		async         bool
 		emptyRootHash []byte
 	}
 )
@@ -96,14 +95,6 @@ func KVStoreOption(kvStore trie.KVStore) Option {
 	}
 }
 
-// AsyncOption enables async commit
-func AsyncOption() Option {
-	return func(mpt *merklePatriciaTrie) error {
-		mpt.async = true
-		return nil
-	}
-}
-
 // New creates a trie with DB filename
 func New(options ...Option) (trie.Trie, error) {
 	t := &merklePatriciaTrie{
@@ -141,17 +132,14 @@ func (mpt *merklePatriciaTrie) Stop(_ context.Context) error {
 }
 
 func (mpt *merklePatriciaTrie) RootHash() ([]byte, error) {
-	if mpt.async {
-		if err := mpt.root.Flush(); err != nil {
-			return nil, err
-		}
-		h, err := mpt.root.Hash()
-		if err != nil {
-			return nil, err
-		}
-		mpt.rootHash = h
+	if err := mpt.root.Flush(); err != nil {
+		return nil, err
 	}
-
+	h, err := mpt.root.Hash()
+	if err != nil {
+		return nil, err
+	}
+	mpt.rootHash = h
 	return mpt.rootHash, nil
 }
 
@@ -165,11 +153,7 @@ func (mpt *merklePatriciaTrie) SetRootHash(rootHash []byte) error {
 func (mpt *merklePatriciaTrie) IsEmpty() bool {
 	mpt.mutex.RLock()
 	defer mpt.mutex.RUnlock()
-	if mpt.async {
-		return mpt.root == nil || len(mpt.root.Children()) == 0
-	}
-
-	return mpt.isEmptyRootHash(mpt.rootHash)
+	return mpt.root == nil || len(mpt.root.Children()) == 0
 }
 
 func (mpt *merklePatriciaTrie) Get(key []byte) ([]byte, error) {
@@ -259,19 +243,6 @@ func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 
 func (mpt *merklePatriciaTrie) resetRoot(newRoot branch, rootHash []byte) error {
 	mpt.root = newRoot
-	if mpt.async {
-		return nil
-	}
-	if rootHash == nil {
-		var err error
-		rootHash, err = newRoot.Hash()
-		if err != nil {
-			return err
-		}
-	}
-	mpt.rootHash = make([]byte, len(rootHash))
-	copy(mpt.rootHash, rootHash)
-
 	return nil
 }
 

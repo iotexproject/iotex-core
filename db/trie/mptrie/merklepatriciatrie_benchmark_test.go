@@ -3,7 +3,6 @@ package mptrie
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,10 +13,10 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func BenchmarkTrie_Get(b *testing.B)            { benchTrieGet(b, false, false) }
-func BenchmarkTrie_GetWithAsync(b *testing.B)   { benchTrieGet(b, true, false) }
-func BenchmarkTrie_GetDB(b *testing.B)          { benchTrieGet(b, false, true) }
-func BenchmarkTrie_GetDBWithAsync(b *testing.B) { benchTrieGet(b, true, true) }
+func BenchmarkTrie_Get(b *testing.B)            { benchTrieGet(b, false) }
+func BenchmarkTrie_GetWithAsync(b *testing.B)   { benchTrieGet(b, false) }
+func BenchmarkTrie_GetDB(b *testing.B)          { benchTrieGet(b, true) }
+func BenchmarkTrie_GetDBWithAsync(b *testing.B) { benchTrieGet(b, true) }
 func BenchmarkTrie_UpsertLE(b *testing.B)       { benchTrieUpsert(b, binary.LittleEndian) }
 func BenchmarkTrie_UpsertBE(b *testing.B)       { benchTrieUpsert(b, binary.BigEndian) }
 
@@ -26,17 +25,14 @@ const (
 	keyLength      = 32
 )
 
-func benchTrieGet(b *testing.B, async, withDB bool) {
+func benchTrieGet(b *testing.B, withDB bool) {
 	var (
 		require = require.New(b)
 		opts    = []Option{KeyLengthOption(keyLength)}
 		flush   func() error
 	)
-	if async {
-		opts = append(opts, AsyncOption())
-	}
 	if withDB {
-		testPath, err := testutil.PathOfTempFile(fmt.Sprintf("test-kv-store-%t.bolt", async))
+		testPath, err := testutil.PathOfTempFile("test-kv-store.bolt")
 		require.NoError(err)
 		defer testutil.CleanupPathV2(testPath)
 		cfg := db.DefaultConfig

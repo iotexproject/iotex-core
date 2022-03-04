@@ -44,7 +44,7 @@ func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (*laye
 	if lt, ok := tlt.layerTwoMap[hk]; ok {
 		return lt, nil
 	}
-	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen), AsyncOption()}
+	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen)}
 	value, err := tlt.layerOne.Get(key)
 	switch errors.Cause(err) {
 	case trie.ErrNotExist:
@@ -84,7 +84,6 @@ func (tlt *twoLayerTrie) Start(ctx context.Context) error {
 	layerOne, err := New(
 		KVStoreOption(tlt.kvStore),
 		RootHashOption(rootHash),
-		AsyncOption(),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %s", tlt.rootKey)
