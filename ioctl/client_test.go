@@ -21,7 +21,7 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig, EnableCryptoSm2())
+	c := NewClient(config.Config{}, EnableCryptoSm2())
 	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
 	err = c.Stop(context.Background())
@@ -30,7 +30,7 @@ func TestStop(t *testing.T) {
 
 func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig)
+	c := NewClient(config.Config{})
 	defer c.Stop(context.Background())
 	blang := c.AskToConfirm("test")
 	// no input
@@ -39,7 +39,7 @@ func TestAskToConfirm(t *testing.T) {
 
 func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.ReadConfig)
+	c := NewClient(config.Config{})
 	defer c.Stop(context.Background())
 	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
 	r.NoError(err)
@@ -113,12 +113,11 @@ func TestGetAddress(t *testing.T) {
 
 	for _, test := range tests {
 		r := require.New(t)
-		r.NoError(writeTempConfig(t, &test.cfg))
+		cleanupPath := writeTempConfig(t, &test.cfg)
+		defer cleanupPath()
 		cfg, err := config.LoadConfig()
 		r.NoError(err)
-		defer testutil.CleanupPath(t, config.ConfigDir)
-		config.ReadConfig = cfg
-		c := NewClient(config.ReadConfig)
+		c := NewClient(cfg)
 		out, err := c.GetAddress(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
@@ -133,8 +132,9 @@ func TestNewKeyStore(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(t, testWallet)
 
-	config.ReadConfig.Wallet = testWallet
-	c := NewClient(config.ReadConfig)
+	c := NewClient(config.Config{
+		Wallet: testWallet,
+	})
 	defer c.Stop(context.Background())
 
 	ks := c.NewKeyStore()
@@ -155,19 +155,18 @@ func TestAliasMap(t *testing.T) {
 			"ccc": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc",
 		},
 	}
-	r.NoError(writeTempConfig(t, &cfg))
+	cleanupPath := writeTempConfig(t, &cfg)
+	defer cleanupPath()
 	cfgload, err := config.LoadConfig()
 	r.NoError(err)
 	r.Equal(cfg, cfgload)
-	defer testutil.CleanupPath(t, config.ConfigDir)
-	config.ReadConfig = cfgload
 
 	exprAliases := map[string]string{
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95haaa": "aaa",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
-	c := NewClient(config.ReadConfig)
+	c := NewClient(cfgload)
 	defer c.Stop(context.Background())
 	result := c.AliasMap()
 	r.Equal(exprAliases, result)
@@ -202,7 +201,7 @@ func TestWriteConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		c := NewClient(config.ReadConfig)
+		c := NewClient(config.Config{})
 		err = c.WriteConfig(test)
 		cfgload, err := config.LoadConfig()
 		r.NoError(err)
@@ -210,15 +209,17 @@ func TestWriteConfig(t *testing.T) {
 	}
 }
 
-func writeTempConfig(t *testing.T, cfg *config.Config) error {
+func writeTempConfig(t *testing.T, cfg *config.Config) func() {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
 	r.NoError(err)
 	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-	config.ReadConfig.Wallet = config.ConfigDir
+	cfg.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(cfg)
 	r.NoError(err)
 	r.NoError(os.WriteFile(config.DefaultConfigFile, out, 0600))
-	return nil
+	return func() {
+		testutil.CleanupPath(t, testPathd)
+	}
 }
