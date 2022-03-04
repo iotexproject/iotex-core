@@ -241,7 +241,7 @@ func (cb *cachedBatch) clear() {
 	cb.batchShots = make([]int, 0)
 	cb.caches = []KVStoreCache{NewKVCache()}
 	cb.keyTags = map[hash.Hash160][]int{}
-	cb.tagKeys = [][]hash.Hash160{}
+	cb.tagKeys = [][]hash.Hash160{{}}
 }
 
 func (cb *cachedBatch) touchKey(h hash.Hash160) {
@@ -294,16 +294,10 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	if tags, ok := cb.keyTags[h]; ok {
 		for i := len(tags) - 1; i >= 0; i-- {
 			v, err = cb.caches[tags[i]].Read(h)
-			switch errors.Cause(err) {
-			case nil:
-				return v, err
-			case ErrNotExist:
-				// do nothing
-			case ErrAlreadyDeleted:
-				fallthrough
-			default:
-				return v, err
+			if errors.Cause(err) == ErrNotExist {
+				continue
 			}
+			break
 		}
 	}
 	return v, err
