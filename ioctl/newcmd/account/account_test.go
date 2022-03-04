@@ -43,7 +43,7 @@ func TestNewAccountCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 	cmd := NewAccountCmd(client)
 	result, err := util.ExecuteCmd(cmd)
 	require.NotNil(result)
@@ -59,7 +59,6 @@ func TestSign(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	config.ReadConfig.Wallet = testWallet
 	client.EXPECT().NewKeyStore().Return(ks).Times(15)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
 
@@ -158,11 +157,7 @@ func TestAccount(t *testing.T) {
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true).Times(4)
-		client.EXPECT().Config().DoAndReturn(
-			func() config.Config {
-				config.ReadConfig.Wallet = testWallet
-				return config.ReadConfig
-			}).Times(8)
+		client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(8)
 
 		// test store unexisted key
 		account2, err := crypto.GenerateKeySm2()
@@ -205,7 +200,7 @@ func TestMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
@@ -271,21 +266,13 @@ func TestAccountError(t *testing.T) {
 
 	addr2, err := address.FromString("io1aqazxjx4d6useyhdsq02ah5effg6293wumtldh")
 	require.NoError(err)
-	client.EXPECT().Config().DoAndReturn(
-		func() config.Config {
-			config.ReadConfig.Wallet = testWallet
-			return config.ReadConfig
-		}).Times(1)
+	client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(1)
 	path, err := findSm2PemFile(client, addr2)
 	require.Error(err)
 	require.Contains(err.Error(), "crypto file not found")
 	require.Equal("", path)
 
-	client.EXPECT().Config().DoAndReturn(
-		func() config.Config {
-			config.ReadConfig.Wallet = ""
-			return config.ReadConfig
-		}).Times(1)
+	client.EXPECT().Config().Return(config.Config{Wallet: ""}).Times(1)
 	accounts, err := listSm2Account(client)
 	require.Error(err)
 	require.Contains(err.Error(), "failed to read files in wallet")
@@ -341,11 +328,7 @@ func TestStoreKey(t *testing.T) {
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true).Times(2)
-		client.EXPECT().Config().DoAndReturn(
-			func() config.Config {
-				config.ReadConfig.Wallet = testWallet
-				return config.ReadConfig
-			}).Times(4)
+		client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(4)
 
 		priKey2, err := crypto.GenerateKeySm2()
 		require.NoError(err)
@@ -391,11 +374,7 @@ func TestNewAccountSm2(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
-	client.EXPECT().Config().DoAndReturn(
-		func() config.Config {
-			config.ReadConfig.Wallet = testWallet
-			return config.ReadConfig
-		}).Times(1)
+	client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(1)
 
 	_, err = newAccountSm2(client, "alias1234")
 	require.NoError(err)
@@ -425,10 +404,9 @@ func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
 	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
 		return testWallet, nil, "", "", err
 	}
-	config.ReadConfig.Wallet = testWallet
 
 	// create accounts
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(testWallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
 	return testWallet, ks, passwd, nonce, nil

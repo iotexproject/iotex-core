@@ -31,7 +31,7 @@ func TestNewAccountInfo(t *testing.T) {
 
 	accAddr := identityset.Address(28)
 	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).AnyTimes()
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
