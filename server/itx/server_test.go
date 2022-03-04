@@ -20,6 +20,7 @@ import (
 
 func TestStop(t *testing.T) {
 	require := require.New(t)
+	config.Default.Chain.TrieDBPatchFile = ""
 	svr, err := NewServer(config.Default)
 	require.NoError(err)
 	ctx := context.Background()
@@ -34,6 +35,7 @@ func TestStop(t *testing.T) {
 
 func TestNewSubChainService(t *testing.T) {
 	require := require.New(t)
+	config.Default.Chain.TrieDBPatchFile = ""
 	svr, err := NewServer(config.Default)
 	require.NoError(err)
 	err = svr.NewSubChainService(config.Default)
@@ -49,6 +51,7 @@ func TestNewSubChainService(t *testing.T) {
 
 func TestStartServer(t *testing.T) {
 	require := require.New(t)
+	config.Default.Chain.TrieDBPatchFile = ""
 	svr, err := NewServer(config.Default)
 	require.NoError(err)
 	probeSvr := probe.New(config.Default.System.HTTPStatsPort)
