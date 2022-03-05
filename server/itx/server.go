@@ -47,7 +47,7 @@ func NewServer(cfg config.Config) (*Server, error) {
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) (*Server, error) {
+func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
 	return newServer(cfg, true)
 }
 
@@ -129,7 +129,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
-func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error { // notest
+func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.newSubChainService(cfg, opts...)
