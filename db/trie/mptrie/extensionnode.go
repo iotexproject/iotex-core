@@ -161,6 +161,9 @@ func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 }
 
 func (e *extensionNode) Flush() error {
+	if e.mpt.async && !e.dirty {
+		return nil
+	}
 	if err := e.child.Flush(); err != nil {
 		return err
 	}

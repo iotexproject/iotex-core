@@ -130,6 +130,9 @@ func (l *leafNode) proto(_ bool) (proto.Message, error) {
 }
 
 func (l *leafNode) Flush() error {
+	if l.mpt.async && !l.dirty {
+		return nil
+	}
 	_, err := l.store()
 	return err
 }
