@@ -332,6 +332,9 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 		keys := cb.tagKeys[tag]
 		for _, key := range keys {
 			cb.keyTags[key] = cb.keyTags[key][:len(cb.keyTags[key])-1]
+			if len(cb.keyTags[key]) == 0 {
+				delete(cb.keyTags, key)
+			}
 		}
 	}
 	cb.tagKeys = cb.tagKeys[:cb.tag+1]
