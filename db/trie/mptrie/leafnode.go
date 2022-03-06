@@ -65,10 +65,7 @@ func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
-	if err := l.delete(); err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return nil, l.delete()
 }
 
 func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
