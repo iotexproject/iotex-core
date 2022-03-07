@@ -21,9 +21,7 @@ func TestServer(t *testing.T) {
 			Addr:         addr,
 			Handler:      handler,
 		}
-
 		result := Server(addr, handler)
-
 		require.Equal(t, expectValue, result)
 	})
 }
@@ -34,7 +32,7 @@ func TestLimitListener(t *testing.T) {
 		result, err := LimitListener("myAddress")
 		require.Error(t, err)
 		require.Equal(t, expectedErr.Error(), err.Error())
-		require.Equal(t, nil, result)
+		require.Nil(t, result)
 	})
 
 	t.Run("input empty string", func(t *testing.T) {
