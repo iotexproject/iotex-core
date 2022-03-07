@@ -155,3 +155,13 @@ func TranslateInLang(translations map[Language]string, lang Language) string {
 	// Assumption: English should always be provided
 	return translations[English]
 }
+
+// Lang returns the selected language, default is English
+func (c *Config) Lang() Language {
+	switch c.Language {
+	case "中文":
+		return Chinese
+	default:
+		return English
+	}
+}
