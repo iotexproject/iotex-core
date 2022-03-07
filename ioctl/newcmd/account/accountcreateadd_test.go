@@ -25,6 +25,10 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
+	client.EXPECT().AliasMap().Return(map[string]string{
+		"aaa": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+	}).Times(4)
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true).Times(1)

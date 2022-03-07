@@ -72,13 +72,16 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			aliases := client.AliasMap()
 
 			// Validate inputs
 			if err := validator.ValidateAlias(args[0]); err != nil {
 				// return output.NewError(output.ValidationError, "invalid alias", err)
 				return errors.Wrap(err, invalidAlias)
 			}
-			if addr, ok := config.ReadConfig.Aliases[args[0]]; ok {
+
+			// if addr, ok := config.ReadConfig.Aliases[args[0]]; ok {
+			if addr, ok := aliases[args[0]]; ok {
 				if !client.AskToConfirm(fmt.Sprintf(aliasHasAlreadyUsed, args[0], addr)) {
 					client.PrintInfo(quit)
 					return nil
@@ -98,7 +101,7 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			config.ReadConfig.Aliases[args[0]] = private.PublicKey().Address().String()
+			aliases[args[0]] = private.PublicKey().Address().String()
 			out, err := yaml.Marshal(&config.ReadConfig)
 			if err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
