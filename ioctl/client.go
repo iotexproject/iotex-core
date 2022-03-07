@@ -74,9 +74,6 @@ type (
 		cfg       config.Config
 		conn      *grpc.ClientConn
 		cryptoSm2 bool
-
-		// TODO: merge into config
-		lang config.Language
 	}
 
 	// Option sets client construction parameter
@@ -134,9 +131,9 @@ func (c *client) AskToConfirm(info string) bool {
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
-	trl, ok := trls[c.lang]
+	trl, ok := trls[c.cfg.Lang()]
 	if ok {
-		return trl, c.lang
+		return trl, c.cfg.Lang()
 	}
 
 	trl, ok = trls[config.English]
