@@ -38,6 +38,7 @@ func TestNewAccountSign(t *testing.T) {
 
 	t.Run("invalid_account", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
+		client.EXPECT().Address(gomock.Any()).Return("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph", nil).Times(1)
 		cmd := NewAccountSign(client)
 		require.NoError(cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph"))
 		_, err := util.ExecuteCmd(cmd, "1234")
@@ -50,6 +51,7 @@ func TestNewAccountSign(t *testing.T) {
 		acc, _ := ks.NewAccount(pwd)
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
+		client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(2)
 		cmd := NewAccountSign(client)
 		require.NoError(cmd.Flag("signer").Value.Set(accAddr.String()))
 		_, err := util.ExecuteCmd(cmd, "1234")

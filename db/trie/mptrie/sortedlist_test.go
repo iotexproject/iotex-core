@@ -9,7 +9,7 @@ import (
 func TestListInsert(t *testing.T) {
 	require := require.New(t)
 
-	li := NewSortList(nil)
+	li := NewSortedList(nil)
 	li.Insert(0)
 	require.Equal([]uint8{0}, li.List())
 	li.Insert(2)
@@ -25,7 +25,7 @@ func TestListInsert(t *testing.T) {
 func TestDelete(t *testing.T) {
 	require := require.New(t)
 
-	li := NewSortList(nil)
+	li := NewSortedList(nil)
 	li.Insert(1)
 	li.Delete(1)
 	li.Insert(0)
@@ -47,9 +47,9 @@ func TestDelete(t *testing.T) {
 	require.Equal([]uint8{}, li.List())
 }
 
-func TestNewSortList(t *testing.T) {
+func TestNewSortedList(t *testing.T) {
 	require := require.New(t)
-	sl := NewSortList(map[byte]node{
+	sl := NewSortedList(map[byte]node{
 		2: nil,
 		3: nil,
 		1: nil,
@@ -61,7 +61,7 @@ func TestNewSortList(t *testing.T) {
 
 func BenchmarkDelete(b *testing.B) {
 	num := 256
-	li := NewSortList(nil)
+	li := NewSortedList(nil)
 	for i := 0; i < num; i++ {
 		li.Insert(uint8(i))
 	}
@@ -76,7 +76,7 @@ func BenchmarkDelete(b *testing.B) {
 
 func BenchmarkInsert(b *testing.B) {
 	num := 256
-	li := NewSortList(nil)
+	li := NewSortedList(nil)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for i := 0; i < num; i++ {
