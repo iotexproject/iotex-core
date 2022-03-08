@@ -203,7 +203,7 @@ func (b *branchNode) child(key byte) (node, error) {
 }
 
 func (b *branchNode) Flush() error {
-	if b.mpt.async && !b.dirty {
+	if !b.dirty {
 		return nil
 	}
 	for _, idx := range b.indices.List() {
