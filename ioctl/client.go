@@ -46,9 +46,9 @@ type (
 		ReadSecret() (string, error)
 		// Execute a bash command
 		Execute(string) error
-		// doing
-		GetAddress(in string) (string, error)
-		// doing
+		// AddressWithDefaultIfNotExist returns default address if input empty
+		AddressWithDefaultIfNotExist(in string) (string, error)
+		// Address returns address if input address|alias
 		Address(in string) (string, error)
 		// NewKeyStore creates a keystore by default walletdir
 		NewKeyStore() *keystore.KeyStore
@@ -174,12 +174,17 @@ func (c *client) Execute(cmd string) error {
 	return exec.Command("bash", "-c", cmd).Run()
 }
 
-func (c *client) GetAddress(in string) (string, error) {
-	addr, err := config.GetAddressOrAlias(in)
-	if err != nil {
-		return "", err
+func (c *client) AddressWithDefaultIfNotExist(in string) (string, error) {
+	var address string
+	if !strings.EqualFold(in, "") {
+		address = in
+	} else {
+		if strings.EqualFold(c.cfg.DefaultAccount.AddressOrAlias, "") {
+			return "", errors.New(`use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
+		}
+		address = c.cfg.DefaultAccount.AddressOrAlias
 	}
-	return c.Address(addr)
+	return c.Address(address)
 }
 
 func (c *client) Address(in string) (string, error) {
