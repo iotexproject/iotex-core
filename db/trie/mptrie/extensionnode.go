@@ -43,9 +43,12 @@ func newExtensionNode(
 
 func newExtensionNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.ExtendPb) *extensionNode {
 	e := &extensionNode{
-		cacheNode: cacheNode{mpt: mpt},
-		path:      pb.Path,
-		child:     newHashNode(mpt, pb.Value),
+		cacheNode: cacheNode{
+			mpt:   mpt,
+			dirty: false,
+		},
+		path:  pb.Path,
+		child: newHashNode(mpt, pb.Value),
 	}
 	e.cacheNode.serializable = e
 	return e
