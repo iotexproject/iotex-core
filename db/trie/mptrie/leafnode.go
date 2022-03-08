@@ -44,7 +44,8 @@ func newLeafNode(
 func newLeafNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.LeafPb) *leafNode {
 	l := &leafNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:   mpt,
+			dirty: false,
 		},
 		key:   pb.Path,
 		value: pb.Value,
@@ -65,10 +66,7 @@ func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
-	if err := l.delete(); err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return nil, l.delete()
 }
 
 func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
@@ -130,6 +128,9 @@ func (l *leafNode) proto(_ bool) (proto.Message, error) {
 }
 
 func (l *leafNode) Flush() error {
+	if !l.dirty {
+		return nil
+	}
 	_, err := l.store()
 	return err
 }
