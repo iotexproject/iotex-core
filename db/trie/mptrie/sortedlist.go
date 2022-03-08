@@ -9,8 +9,8 @@ type SortedList struct {
 	li []uint8
 }
 
-// NewSortList create SortedList from keys in the children map
-func NewSortList(children map[byte]node) *SortedList {
+// NewSortedList create SortedList from keys in the children map
+func NewSortedList(children map[byte]node) *SortedList {
 	if len(children) == 0 {
 		return &SortedList{
 			li: make([]uint8, 0),
