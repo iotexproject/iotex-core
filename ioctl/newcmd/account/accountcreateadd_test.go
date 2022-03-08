@@ -24,25 +24,35 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(7)
 	client.EXPECT().AliasMap().Return(map[string]string{
 		"aaa": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
 	}).Times(4)
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
+		_, ks, pwd, _, err := newTestAccount()
+		require.NoError(err)
+		client.EXPECT().ReadSecret().Return(pwd, nil).Times(2)
 		client.EXPECT().IsCryptoSm2().Return(true).Times(1)
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		client.EXPECT().Config().Return(config.Config{})
+		client.EXPECT().NewKeyStore().Return(ks)
 		cmd := NewAccountCreateAdd(client)
-		_, err := util.ExecuteCmd(cmd, "aaa")
+		_, err = util.ExecuteCmd(cmd, "aaa")
 		require.NoError(err)
 	})
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
+		_, ks, pwd, _, err := newTestAccount()
+		require.NoError(err)
+		client.EXPECT().ReadSecret().Return(pwd, nil).Times(2)
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		client.EXPECT().Config().Return(config.Config{})
+		client.EXPECT().NewKeyStore().Return(ks)
 		cmd := NewAccountCreateAdd(client)
-		_, err := util.ExecuteCmd(cmd, "aaa")
+		_, err = util.ExecuteCmd(cmd, "aaa")
 		require.NoError(err)
 	})
 

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -81,20 +80,20 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 				}
 			}
 
-			var private crypto.PrivateKey
+			var addr string
 			var err error
 			if client.IsCryptoSm2() {
-				private, err = crypto.GenerateKey()
+				addr, err = newAccountSm2(client, args[0])
 				if err != nil {
 					return errors.Wrap(err, failToGenerateNewPrivateKey)
 				}
 			} else {
-				private, err = crypto.GenerateKeySm2()
+				addr, err = newAccount(client, args[0])
 				if err != nil {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			aliases[args[0]] = private.PublicKey().Address().String()
+			aliases[args[0]] = addr
 			out, err := yaml.Marshal(&config.ReadConfig)
 			if err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
@@ -102,7 +101,6 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
 			}
-			private.Zero()
 			client.PrintInfo(fmt.Sprintf(outputMessage, args[0]))
 			return nil
 		},
