@@ -69,6 +69,21 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockClient)(nil).Address), in)
 }
 
+// AddressWithDefaultIfNotExist mocks base method.
+func (m *MockClient) AddressWithDefaultIfNotExist(in string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddressWithDefaultIfNotExist", in)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddressWithDefaultIfNotExist indicates an expected call of AddressWithDefaultIfNotExist.
+func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
+}
+
 // AliasMap mocks base method.
 func (m *MockClient) AliasMap() map[string]string {
 	m.ctrl.T.Helper()
@@ -126,6 +141,20 @@ func (mr *MockClientMockRecorder) DecryptPrivateKey(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecryptPrivateKey", reflect.TypeOf((*MockClient)(nil).DecryptPrivateKey), arg0, arg1)
 }
 
+// DeleteAlias mocks base method.
+func (m *MockClient) DeleteAlias(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAlias", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAlias indicates an expected call of DeleteAlias.
+func (mr *MockClientMockRecorder) DeleteAlias(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAlias", reflect.TypeOf((*MockClient)(nil).DeleteAlias), arg0)
+}
+
 // Execute mocks base method.
 func (m *MockClient) Execute(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -138,21 +167,6 @@ func (m *MockClient) Execute(arg0 string) error {
 func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
-}
-
-// GetAddress mocks base method.
-func (m *MockClient) GetAddress(in string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAddress", in)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAddress indicates an expected call of GetAddress.
-func (mr *MockClientMockRecorder) GetAddress(in interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockClient)(nil).GetAddress), in)
 }
 
 // IsCryptoSm2 mocks base method.
@@ -225,6 +239,20 @@ func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
 }
 
+// SetAlias mocks base method.
+func (m *MockClient) SetAlias(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAlias", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAlias indicates an expected call of SetAlias.
+func (mr *MockClientMockRecorder) SetAlias(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAlias", reflect.TypeOf((*MockClient)(nil).SetAlias), arg0, arg1)
+}
+
 // Start mocks base method.
 func (m *MockClient) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -251,18 +279,4 @@ func (m *MockClient) Stop(arg0 context.Context) error {
 func (mr *MockClientMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockClient)(nil).Stop), arg0)
-}
-
-// WriteConfig mocks base method.
-func (m *MockClient) WriteConfig(arg0 config.Config) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteConfig", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// WriteConfig indicates an expected call of WriteConfig.
-func (mr *MockClientMockRecorder) WriteConfig(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig), arg0)
 }

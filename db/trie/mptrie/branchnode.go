@@ -34,7 +34,7 @@ func newBranchNode(
 			dirty: true,
 		},
 		children: children,
-		indices:  NewSortList(children),
+		indices:  NewSortedList(children),
 	}
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
@@ -51,7 +51,7 @@ func newEmptyRootBranchNode(mpt *merklePatriciaTrie) *branchNode {
 			mpt: mpt,
 		},
 		children: make(map[byte]node),
-		indices:  NewSortList(nil),
+		indices:  NewSortedList(nil),
 		isRoot:   true,
 	}
 	bnode.cacheNode.serializable = bnode
@@ -68,7 +68,7 @@ func newBranchNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.BranchPb) *bra
 	for _, n := range pb.Branches {
 		bnode.children[byte(n.Index)] = newHashNode(mpt, n.Path)
 	}
-	bnode.indices = NewSortList(bnode.children)
+	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode
 	return bnode
 }
@@ -198,6 +198,9 @@ func (b *branchNode) child(key byte) (node, error) {
 }
 
 func (b *branchNode) Flush() error {
+	if !b.dirty {
+		return nil
+	}
 	for _, idx := range b.indices.List() {
 		if err := b.children[idx].Flush(); err != nil {
 			return err

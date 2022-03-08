@@ -46,9 +46,9 @@ type (
 		ReadSecret() (string, error)
 		// Execute a bash command
 		Execute(string) error
-		// doing
-		GetAddress(in string) (string, error)
-		// doing
+		// AddressWithDefaultIfNotExist returns default address if input empty
+		AddressWithDefaultIfNotExist(in string) (string, error)
+		// Address returns address if input address|alias
 		Address(in string) (string, error)
 		// NewKeyStore creates a keystore by default walletdir
 		NewKeyStore() *keystore.KeyStore
@@ -56,8 +56,10 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
-		// doing
-		WriteConfig(config.Config) error
+		// SetAlias write alias and account address to the default config file
+		SetAlias(string, string) error
+		// DeleteAlias delete alias from the default config file
+		DeleteAlias(string) error
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
@@ -71,9 +73,10 @@ type (
 	}
 
 	client struct {
-		cfg       config.Config
-		conn      *grpc.ClientConn
-		cryptoSm2 bool
+		cfg            config.Config
+		conn           *grpc.ClientConn
+		cryptoSm2      bool
+		configFilePath string
 	}
 
 	// Option sets client construction parameter
@@ -94,9 +97,10 @@ func EnableCryptoSm2() Option {
 }
 
 // NewClient creates a new ioctl client
-func NewClient(cfg config.Config, opts ...Option) Client {
+func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
 	c := &client{
-		cfg: cfg,
+		cfg:            cfg,
+		configFilePath: configFilePath,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -174,12 +178,17 @@ func (c *client) Execute(cmd string) error {
 	return exec.Command("bash", "-c", cmd).Run()
 }
 
-func (c *client) GetAddress(in string) (string, error) {
-	addr, err := config.GetAddressOrAlias(in)
-	if err != nil {
-		return "", err
+func (c *client) AddressWithDefaultIfNotExist(in string) (string, error) {
+	var address string
+	if !strings.EqualFold(in, "") {
+		address = in
+	} else {
+		if strings.EqualFold(c.cfg.DefaultAccount.AddressOrAlias, "") {
+			return "", errors.New(`use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
+		}
+		address = c.cfg.DefaultAccount.AddressOrAlias
 	}
-	return c.Address(addr)
+	return c.Address(address)
 }
 
 func (c *client) Address(in string) (string, error) {
@@ -230,13 +239,28 @@ func (c *client) AliasMap() map[string]string {
 	return aliases
 }
 
-func (c *client) WriteConfig(cfg config.Config) error {
-	out, err := yaml.Marshal(&cfg)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
+func (c *client) SetAlias(alias string, addr string) error {
+	aliases := c.AliasMap()
+	for aliases[addr] != "" {
+		delete(c.cfg.Aliases, aliases[addr])
+		aliases = c.AliasMap()
 	}
-	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return errors.Wrapf(err, "failed to write to config file %s", config.DefaultConfigFile)
+	c.cfg.Aliases[alias] = addr
+	return c.writeAlias()
+}
+
+func (c *client) DeleteAlias(alias string) error {
+	delete(c.cfg.Aliases, alias)
+	return c.writeAlias()
+}
+
+func (c *client) writeAlias() error {
+	out, err := yaml.Marshal(&c.cfg)
+	if err != nil {
+		return errors.Wrapf(err, "failed to marshal config to config file %s", c.configFilePath)
+	}
+	if err = os.WriteFile(c.configFilePath, out, 0600); err != nil {
+		return errors.Wrapf(err, "failed to write to config file %s", c.configFilePath)
 	}
 	return nil
 }

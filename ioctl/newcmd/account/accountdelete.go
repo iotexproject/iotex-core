@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -56,8 +55,8 @@ var (
 		config.Chinese: "移除keystore文件失败",
 	}
 	failToWriteToConfigFile = map[config.Language]string{
-		config.English: "Failed to write to config file %s.",
-		config.Chinese: "写入配置文件 %s 失败",
+		config.English: "Failed to write to config file.",
+		config.Chinese: "写入配置文件失败",
 	}
 	resultSuccess = map[config.Language]string{
 		config.English: "Account #%s has been deleted.",
@@ -93,7 +92,7 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 				arg = args[0]
 			}
 
-			addr, err := client.GetAddress(arg)
+			addr, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
 				return errors.Wrap(err, failToGetAddress)
 			}
@@ -128,16 +127,8 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 			if err := os.Remove(filePath); err != nil {
 				return errors.Wrap(err, failToRemoveKeystoreFile)
 			}
-
-			aliases := client.AliasMap()
-			cfg := client.Config()
-			delete(cfg.Aliases, aliases[addr])
-			out, err := yaml.Marshal(&cfg)
-			if err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
-			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
+				return errors.Wrap(err, failToWriteToConfigFile)
 			}
 			client.PrintInfo(fmt.Sprintf(resultSuccess, addr))
 			return nil
