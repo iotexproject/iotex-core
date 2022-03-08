@@ -25,7 +25,6 @@ func TestNewAccountEthAddr(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
-	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 
 	t.Run("when an iotex address was given", func(t *testing.T) {
 		client.EXPECT().Address(gomock.Any()).Return(identityset.Address(28).String(), nil)

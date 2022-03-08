@@ -29,7 +29,6 @@ func TestNewAccountDelete(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).Times(30)
-	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
@@ -63,11 +62,13 @@ func TestNewAccountDelete(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		cmd = NewAccountDelete(client)
-		_, err = util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, accAddr.String())
 	})
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
@@ -95,7 +96,8 @@ func TestNewAccountDelete(t *testing.T) {
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		cmd := NewAccountDelete(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, addr2.String())
 	})
 }

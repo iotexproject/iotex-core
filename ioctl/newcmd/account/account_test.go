@@ -7,6 +7,7 @@
 package account
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"fmt"
 	"math/rand"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -67,53 +69,52 @@ func TestSign(t *testing.T) {
 	addr, err := address.FromBytes(account.Address.Bytes())
 	require.NoError(err)
 	require.True(IsSignerExist(client, addr.String()))
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
 
-	result, err := Sign(client, addr.String(), passwd, "abcd")
+	result, err := Sign(client, cmd, addr.String(), passwd, "abcd")
 	require.NoError(err)
 	require.NotEmpty(result)
 
-	result, err = Sign(client, addr.String(), passwd, "0xe3a1")
+	result, err = Sign(client, cmd, addr.String(), passwd, "0xe3a1")
 	require.NoError(err)
 	require.NotEmpty(result)
 
 	// wrong message
-	result, err = Sign(client, addr.String(), passwd, "abc")
+	_, err = Sign(client, cmd, addr.String(), passwd, "abc")
 	require.Error(err)
 	require.Contains(err.Error(), "odd length hex string")
-	require.Equal("", result)
 
 	// invalid singer
-	result, err = Sign(client, "hdw::aaaa", passwd, "0xe3a1")
+	_, err = Sign(client, cmd, "hdw::aaaa", passwd, "0xe3a1")
 	require.Error(err)
 	require.Contains(err.Error(), "invalid HDWallet key format")
-	require.Equal("", result)
 
 	// wrong password
-	result, err = Sign(client, addr.String(), "123456", "abcd")
+	_, err = Sign(client, cmd, addr.String(), "123456", "abcd")
 	require.Error(err)
 	require.Contains(err.Error(), "could not decrypt key with given password")
-	require.Equal("", result)
 
 	// invalid signer
-	result, err = Sign(client, "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892", "123456", "test")
+	_, err = Sign(client, cmd, "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892", "123456", "test")
 	require.Error(err)
 	require.Contains(err.Error(), "invalid address")
-	require.Equal("", result)
 
-	_, err = PrivateKeyFromSigner(client, addr.String(), passwd)
+	prvKey, err := PrivateKeyFromSigner(client, cmd, addr.String(), passwd)
 	require.NoError(err)
+	require.Equal(addr.String(), prvKey.PublicKey().Address().String())
 
 	// wrong password
-	prvKey, err := PrivateKeyFromSigner(client, addr.String(), "123456")
+	prvKey, err = PrivateKeyFromSigner(client, cmd, addr.String(), "123456")
 	require.Error(err)
 	require.Contains(err.Error(), "could not decrypt key with given password")
 	require.Nil(prvKey)
 
 	// empty password
-	client.EXPECT().PrintInfo(gomock.Any())
 	client.EXPECT().ReadSecret().Return(passwd, nil)
-	_, err = PrivateKeyFromSigner(client, addr.String(), "")
+	prvKey, err = PrivateKeyFromSigner(client, cmd, addr.String(), "")
 	require.NoError(err)
+	require.Equal(addr.String(), prvKey.PublicKey().Address().String())
 }
 
 func TestAccount(t *testing.T) {
@@ -252,17 +253,17 @@ func TestAccountError(t *testing.T) {
 			require.Error(err)
 			return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 		})
-	result, err := newAccountByKeyStore(client, alias, passwordOfKeyStore, keyStorePath)
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
+	_, err := newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
 	require.Error(err)
 	require.Contains(err.Error(), fmt.Sprintf("keystore file \"%s\" read error", keyStorePath))
-	require.Equal("", result)
 
 	asswordOfPem := "abc1234"
 	pemFilePath := testFilePath
-	result, err = newAccountByPem(client, alias, asswordOfPem, pemFilePath)
+	_, err = newAccountByPem(client, cmd, alias, asswordOfPem, pemFilePath)
 	require.Error(err)
 	require.Contains(err.Error(), "failed to read private key from pem file")
-	require.Equal("", result)
 
 	addr2, err := address.FromString("io1aqazxjx4d6useyhdsq02ah5effg6293wumtldh")
 	require.NoError(err)
@@ -355,11 +356,11 @@ func TestNewAccount(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().NewKeyStore().Return(ks)
-
-	_, err = newAccount(client, "alias1234")
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
+	_, err = newAccount(client, cmd, "alias1234")
 	require.NoError(err)
 }
 
@@ -372,11 +373,11 @@ func TestNewAccountSm2(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(1)
-
-	_, err = newAccountSm2(client, "alias1234")
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
+	_, err = newAccountSm2(client, cmd, "alias1234")
 	require.NoError(err)
 }
 
@@ -389,14 +390,16 @@ func TestNewAccountByKey(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().PrintInfo(gomock.Any()).Times(2)
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().NewKeyStore().Return(ks)
 
 	prvKey, err := crypto.GenerateKey()
 	require.NoError(err)
-	_, err = newAccountByKey(client, "alias1234", prvKey.HexString())
+	cmd := &cobra.Command{}
+	cmd.SetOut(new(bytes.Buffer))
+	result, err := newAccountByKey(client, cmd, "alias1234", prvKey.HexString())
 	require.NoError(err)
+	require.Equal(prvKey.PublicKey().Address().String(), result)
 }
 
 func newTestAccount() (string, *keystore.KeyStore, string, string, error) {

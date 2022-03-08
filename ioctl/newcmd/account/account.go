@@ -93,8 +93,8 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 }
 
 // Sign sign message with signer
-func Sign(client ioctl.Client, signer, password, message string) (string, error) {
-	pri, err := PrivateKeyFromSigner(client, signer, password)
+func Sign(client ioctl.Client, cmd *cobra.Command, signer, password, message string) (string, error) {
+	pri, err := PrivateKeyFromSigner(client, cmd, signer, password)
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +148,7 @@ func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (
 }
 
 // PrivateKeyFromSigner returns private key from signer
-func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.PrivateKey, error) {
+func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, password string) (crypto.PrivateKey, error) {
 	var (
 		prvKey crypto.PrivateKey
 		err    error
@@ -159,7 +159,7 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 	}
 
 	if password == "" {
-		client.PrintInfo(fmt.Sprintf("Enter password for #%s:\n", signer))
+		cmd.Println(fmt.Sprintf("Enter password for #%s:\n", signer))
 		password, err = client.ReadSecret()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get password")
@@ -233,13 +233,13 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 	return false
 }
 
-func newAccount(client ioctl.Client, alias string) (string, error) {
-	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
+func newAccount(client ioctl.Client, cmd *cobra.Command, alias string) (string, error) {
+	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -259,13 +259,13 @@ func newAccount(client ioctl.Client, alias string) (string, error) {
 	return addr.String(), nil
 }
 
-func newAccountSm2(client ioctl.Client, alias string) (string, error) {
-	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
+func newAccountSm2(client ioctl.Client, cmd *cobra.Command, alias string) (string, error) {
+	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -291,13 +291,13 @@ func newAccountSm2(client ioctl.Client, alias string) (string, error) {
 	return addr.String(), nil
 }
 
-func newAccountByKey(client ioctl.Client, alias string, privateKey string) (string, error) {
-	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
+func newAccountByKey(client ioctl.Client, cmd *cobra.Command, alias string, privateKey string) (string, error) {
+	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -309,21 +309,21 @@ func newAccountByKey(client ioctl.Client, alias string, privateKey string) (stri
 	return storeKey(client, privateKey, password)
 }
 
-func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keyStorePath string) (string, error) {
+func newAccountByKeyStore(client ioctl.Client, cmd *cobra.Command, alias, passwordOfKeyStore, keyStorePath string) (string, error) {
 	privateKey, err := client.DecryptPrivateKey(passwordOfKeyStore, keyStorePath)
 	if err != nil {
 		return "", err
 	}
-	return newAccountByKey(client, alias, hex.EncodeToString(ecrypto.FromECDSA(privateKey)))
+	return newAccountByKey(client, cmd, alias, hex.EncodeToString(ecrypto.FromECDSA(privateKey)))
 }
 
-func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string) (string, error) {
+func newAccountByPem(client ioctl.Client, cmd *cobra.Command, alias, passwordOfPem, pemFilePath string) (string, error) {
 	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, passwordOfPem)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read private key from pem file")
 	}
 
-	return newAccountByKey(client, alias, prvKey.HexString())
+	return newAccountByKey(client, cmd, alias, prvKey.HexString())
 }
 
 func storeKey(client ioctl.Client, privateKey, password string) (string, error) {

@@ -122,7 +122,7 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 				return errors.Wrapf(err, failToFindAccount, addr)
 			}
 			if !client.AskToConfirm(infoWarn) {
-				client.PrintInfo(infoQuit)
+				cmd.Println(infoQuit)
 				return nil
 			}
 			if err := os.Remove(filePath); err != nil {
@@ -139,7 +139,7 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
 			}
-			client.PrintInfo(fmt.Sprintf(resultSuccess, addr))
+			cmd.Println(fmt.Sprintf(resultSuccess, addr))
 			return nil
 		},
 	}

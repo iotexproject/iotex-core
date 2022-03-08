@@ -183,18 +183,6 @@ func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
 }
 
-// PrintInfo mocks base method.
-func (m *MockClient) PrintInfo(arg0 string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "PrintInfo", arg0)
-}
-
-// PrintInfo indicates an expected call of PrintInfo.
-func (mr *MockClientMockRecorder) PrintInfo(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintInfo", reflect.TypeOf((*MockClient)(nil).PrintInfo), arg0)
-}
-
 // ReadSecret mocks base method.
 func (m *MockClient) ReadSecret() (string, error) {
 	m.ctrl.T.Helper()

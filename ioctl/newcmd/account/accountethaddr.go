@@ -61,7 +61,7 @@ func NewAccountEthAddr(client ioctl.Client) *cobra.Command {
 					return err
 				}
 			}
-			client.PrintInfo(fmt.Sprintf("%s - %s", ioAddr, ethAddress.String()))
+			cmd.Println(fmt.Sprintf("%s - %s", ioAddr, ethAddress.String()))
 			return nil
 		},
 	}
