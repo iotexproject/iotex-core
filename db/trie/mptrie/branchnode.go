@@ -53,8 +53,8 @@ func newRootBranchNode(mpt *merklePatriciaTrie, children map[byte]node, dirty bo
 			mpt:   mpt,
 			dirty: dirty,
 		},
-		children: make(map[byte]node),
-		indices:  NewSortedList(nil),
+		children: children,
+		indices:  NewSortedList(children),
 		isRoot:   true,
 	}
 	bnode.cacheNode.serializable = bnode
