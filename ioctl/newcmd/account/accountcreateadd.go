@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -42,10 +42,6 @@ var (
 			"复写帐户后先前的 keystore 文件将会留存!\n" +
 			"但底下的别名将绑定为新的。您是否要继续？",
 	}
-	quit = map[config.Language]string{
-		config.English: "quit",
-		config.Chinese: "退出",
-	}
 	outputMessage = map[config.Language]string{
 		config.English: "New account \"%s\" is created.\n" +
 			"Please Keep your password, or you will lose your private key.",
@@ -60,7 +56,7 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(createAddCmdShorts)
 	invalidAlias, _ := client.SelectTranslation(invalidAlias)
 	aliasHasAlreadyUsed, _ := client.SelectTranslation(aliasHasAlreadyUsed)
-	quit, _ := client.SelectTranslation(quit)
+	infoQuit, _ := client.SelectTranslation(infoQuit)
 	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
 	failToGenerateNewPrivateKey, _ := client.SelectTranslation(failToGenerateNewPrivateKey)
 	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(failToGenerateNewPrivateKeySm2)
@@ -74,16 +70,13 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			aliases := client.AliasMap()
 
-			// Validate inputs
 			if err := validator.ValidateAlias(args[0]); err != nil {
-				// return output.NewError(output.ValidationError, "invalid alias", err)
 				return errors.Wrap(err, invalidAlias)
 			}
 
-			// if addr, ok := config.ReadConfig.Aliases[args[0]]; ok {
 			if addr, ok := aliases[args[0]]; ok {
 				if !client.AskToConfirm(fmt.Sprintf(aliasHasAlreadyUsed, args[0], addr)) {
-					client.PrintInfo(quit)
+					client.PrintInfo(infoQuit)
 					return nil
 				}
 			}
