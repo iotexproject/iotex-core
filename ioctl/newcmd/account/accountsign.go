@@ -54,7 +54,7 @@ func NewAccountSign(client ioctl.Client) *cobra.Command {
 			if util.AliasIsHdwalletKey(signer) {
 				addr = signer
 			} else {
-				addr, err = util.Address(signer)
+				addr, err = client.Address(signer)
 				if err != nil {
 					return errors.Wrap(err, "failed to get address")
 				}
