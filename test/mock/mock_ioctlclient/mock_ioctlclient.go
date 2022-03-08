@@ -69,6 +69,21 @@ func (mr *MockClientMockRecorder) Address(in interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockClient)(nil).Address), in)
 }
 
+// AddressWithDefaultIfNotExist mocks base method.
+func (m *MockClient) AddressWithDefaultIfNotExist(in string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddressWithDefaultIfNotExist", in)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddressWithDefaultIfNotExist indicates an expected call of AddressWithDefaultIfNotExist.
+func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
+}
+
 // AliasMap mocks base method.
 func (m *MockClient) AliasMap() map[string]string {
 	m.ctrl.T.Helper()
@@ -152,21 +167,6 @@ func (m *MockClient) Execute(arg0 string) error {
 func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
-}
-
-// GetAddress mocks base method.
-func (m *MockClient) GetAddress(in string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAddress", in)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAddress indicates an expected call of GetAddress.
-func (mr *MockClientMockRecorder) GetAddress(in interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockClient)(nil).GetAddress), in)
 }
 
 // IsCryptoSm2 mocks base method.

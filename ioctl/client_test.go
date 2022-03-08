@@ -119,7 +119,7 @@ func TestGetAddress(t *testing.T) {
 		r.Equal(test.cfg, cfgload)
 
 		c := NewClient(cfgload, configFilePath)
-		out, err := c.GetAddress(test.in)
+		out, err := c.AddressWithDefaultIfNotExist(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
 		}
