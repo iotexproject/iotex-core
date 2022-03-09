@@ -314,13 +314,13 @@ func TestIndexer(t *testing.T) {
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	defer testutil.CleanupPathV2(testPath)
+	defer testutil.CleanupPath(testPath)
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 
 	t.Run("Bolt DB indexer", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
+		defer testutil.CleanupPath(testPath)
 		testIndexer(db.NewBoltDB(cfg), t)
 	})
 
@@ -328,8 +328,8 @@ func TestIndexer(t *testing.T) {
 		testDelete(db.NewMemKVStore(), t)
 	})
 	t.Run("Bolt DB delete", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
+		defer testutil.CleanupPath(testPath)
 		testDelete(db.NewBoltDB(cfg), t)
 	})
 }

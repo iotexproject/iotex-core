@@ -151,9 +151,9 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
-		testutil.CleanupPathV2(testIndexPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme

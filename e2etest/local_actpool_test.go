@@ -184,9 +184,9 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 	r.NoError(err)
 
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
-		testutil.CleanupPathV2(testIndexPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 
 	cfg.Chain.TrieDBPatchFile = ""

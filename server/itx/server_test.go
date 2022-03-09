@@ -84,7 +84,7 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""
 	return cfg, func() {
-		testutil.CleanupPathV2(dbPath)
-		testutil.CleanupPathV2(triePath)
+		testutil.CleanupPath(dbPath)
+		testutil.CleanupPath(triePath)
 	}
 }
