@@ -111,8 +111,8 @@ type (
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
-		// CalculateGasConsumption estimate gas consumption for actions except execution
-		CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error)
+		// EstimateGasForNonExecution  estimates action gas except execution
+		EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
 		// BlockMetas returns blockmetas response within the height range
@@ -1418,9 +1418,34 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 	return start, end, nil
 }
 
-// CalculateGasConsumption estimate gas consumption for actions except execution
-func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error) {
-	return action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
+// EstimateGasForNonExecution estimates action gas except execution
+func (core *coreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
+	var intrinsicGas, payloadGas, payloadSize uint64
+	switch act := actType.(type) {
+	case *action.Transfer:
+		intrinsicGas, payloadGas, payloadSize = action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(payload))
+	case *action.CreateStake:
+		intrinsicGas, payloadGas, payloadSize = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas, uint64(len(payload))
+	case *action.DepositToStake:
+		intrinsicGas, payloadGas, payloadSize = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas, uint64(len(payload))
+	case *action.ChangeCandidate, *action.TransferStake:
+		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(payload))
+	case *action.Unstake, *action.WithdrawStake:
+		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(payload))
+	case *action.Restake:
+		intrinsicGas, payloadGas, payloadSize = action.RestakeBaseIntrinsicGas, action.RestakePayloadGas, uint64(len(payload))
+	case *action.CandidateRegister:
+		intrinsicGas, payloadGas, payloadSize = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas, uint64(len(payload))
+	case *action.CandidateUpdate:
+		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 0, 0
+	default:
+		return 0, errors.Errorf("invalid action type %T not supported", act)
+	}
+	gas, err := action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
+	if err != nil {
+		return 0, err
+	}
+	return gas, err
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action

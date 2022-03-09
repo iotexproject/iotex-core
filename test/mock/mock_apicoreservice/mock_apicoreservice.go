@@ -179,21 +179,6 @@ func (mr *MockCoreServiceMockRecorder) BlockMetas(start, count interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockMetas", reflect.TypeOf((*MockCoreService)(nil).BlockMetas), start, count)
 }
 
-// CalculateGasConsumption mocks base method.
-func (m *MockCoreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CalculateGasConsumption", intrinsicGas, payloadGas, payloadSize)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CalculateGasConsumption indicates an expected call of CalculateGasConsumption.
-func (mr *MockCoreServiceMockRecorder) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateGasConsumption", reflect.TypeOf((*MockCoreService)(nil).CalculateGasConsumption), intrinsicGas, payloadGas, payloadSize)
-}
-
 // ChainID mocks base method.
 func (m *MockCoreService) ChainID() uint32 {
 	m.ctrl.T.Helper()
@@ -298,6 +283,21 @@ func (m *MockCoreService) EstimateGasForAction(in *iotextypes.Action) (uint64, e
 func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(in interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForAction", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForAction), in)
+}
+
+// EstimateGasForNonExecution mocks base method.
+func (m *MockCoreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EstimateGasForNonExecution", actType, payload)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EstimateGasForNonExecution indicates an expected call of EstimateGasForNonExecution.
+func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(actType, payload interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForNonExecution", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForNonExecution), actType, payload)
 }
 
 // LogsInBlock mocks base method.

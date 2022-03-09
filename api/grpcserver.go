@@ -294,36 +294,76 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 		}
 		return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
 	}
-	var intrinsicGas, payloadGas, payloadSize uint64
+	var estimatedGas uint64
+	var err error
 	switch {
 	case in.GetTransfer() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(in.GetTransfer().Payload))
+		act := &action.Transfer{}
+		if err = act.LoadProto(in.GetTransfer()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeCreate() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas, uint64(len(in.GetStakeCreate().Payload))
+		act := &action.CreateStake{}
+		if err = act.LoadProto(in.GetStakeCreate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeUnstake() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(in.GetStakeUnstake().Payload))
+		act := &action.Unstake{}
+		if err = act.LoadProto(in.GetStakeUnstake()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeWithdraw() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(in.GetStakeWithdraw().Payload))
+		act := &action.WithdrawStake{}
+		if err = act.LoadProto(in.GetStakeWithdraw()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeAddDeposit() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas, uint64(len(in.GetStakeAddDeposit().Payload))
+		act := &action.DepositToStake{}
+		if err = act.LoadProto(in.GetStakeAddDeposit()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeRestake() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.RestakeBaseIntrinsicGas, action.RestakePayloadGas, uint64(len(in.GetStakeRestake().Payload))
+		act := &action.Restake{}
+		if err = act.LoadProto(in.GetStakeRestake()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeChangeCandidate() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(in.GetStakeChangeCandidate().Payload))
+		act := &action.ChangeCandidate{}
+		if err = act.LoadProto(in.GetStakeChangeCandidate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetStakeTransferOwnership() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(in.GetStakeTransferOwnership().Payload))
+		act := &action.TransferStake{}
+		if err = act.LoadProto(in.GetStakeTransferOwnership()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetCandidateRegister() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas, uint64(len(in.GetCandidateRegister().Payload))
+		act := &action.CandidateRegister{}
+		if err = act.LoadProto(in.GetCandidateRegister()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, act.Payload())
 	case in.GetCandidateUpdate() != nil:
-		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 0, 0
+		act := &action.CandidateUpdate{}
+		if err = act.LoadProto(in.GetCandidateUpdate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, []byte{})
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}
-	gas, err := svr.coreService.CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	return &iotexapi.EstimateActionGasConsumptionResponse{Gas: gas}, nil
+	return &iotexapi.EstimateActionGasConsumptionResponse{Gas: estimatedGas}, nil
 }
 
 // GetEpochMeta gets epoch metadata
