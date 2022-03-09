@@ -402,10 +402,10 @@ func TestNativeStaking(t *testing.T) {
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
-		testutil.CleanupPath(t, testSystemLogPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testSystemLogPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()

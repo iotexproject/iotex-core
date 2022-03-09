@@ -151,7 +151,7 @@ func TestCountingIndex(t *testing.T) {
 	path := "test-counting.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testPath)
+	defer testutil.CleanupPath(testPath)
 	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
@@ -202,7 +202,7 @@ func TestBulk(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.DbPath = "test-bulk.dat"
 	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, cfg.DbPath)
+		testutil.CleanupPath(cfg.DbPath)
 		testFunc(NewBoltDB(cfg), t)
 	})
 }
@@ -242,7 +242,7 @@ func TestCheckBulk(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.DbPath = "test-bulk.dat"
 	t.Run("Bolt DB", func(t *testing.T) {
-		defer testutil.CleanupPath(t, cfg.DbPath)
+		defer testutil.CleanupPath(cfg.DbPath)
 		testFunc(NewBoltDB(cfg), t)
 	})
 }
