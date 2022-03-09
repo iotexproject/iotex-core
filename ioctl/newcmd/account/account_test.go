@@ -71,6 +71,7 @@ func TestSign(t *testing.T) {
 	require.True(IsSignerExist(client, addr.String()))
 	cmd := &cobra.Command{}
 	cmd.SetOut(new(bytes.Buffer))
+	client.EXPECT().Address(gomock.Any()).Return(addr.String(), nil).Times(7)
 
 	result, err := Sign(client, cmd, addr.String(), passwd, "abcd")
 	require.NoError(err)
@@ -137,6 +138,7 @@ func TestAccount(t *testing.T) {
 		addr, err := address.FromBytes(account.Address.Bytes())
 		require.NoError(err)
 		require.True(IsSignerExist(client, addr.String()))
+		client.EXPECT().Address(gomock.Any()).Return(addr.String(), nil)
 
 		// test keystore conversion and signing
 		prvKey, err := keyStoreAccountToPrivateKey(client, addr.String(), passwd)
@@ -167,6 +169,7 @@ func TestAccount(t *testing.T) {
 		addr2 := account2.PublicKey().Address()
 		require.NotNil(addr2)
 		require.False(IsSignerExist(client, addr2.String()))
+		client.EXPECT().Address(gomock.Any()).Return(addr2.String(), nil).Times(2)
 		_, err = keyStoreAccountToPrivateKey(client, addr2.String(), passwd)
 		require.Contains(err.Error(), "does not match all local keys")
 		filePath := sm2KeyPath(client, addr2)
@@ -307,6 +310,7 @@ func TestStoreKey(t *testing.T) {
 		require.Equal("", addrString)
 
 		// valid private key
+		client.EXPECT().Address(gomock.Any()).Return(addr.String(), nil)
 		prvKey, err := keyStoreAccountToPrivateKey(client, addr.String(), passwd)
 		require.NoError(err)
 		// import the existed account addr

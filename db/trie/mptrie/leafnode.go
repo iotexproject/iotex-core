@@ -70,7 +70,6 @@ func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
 }
 
 func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
-	trieMtc.WithLabelValues("leafNode", "upsert").Inc()
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
 		return l.updateValue(value)
@@ -107,7 +106,6 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 }
 
 func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
-	trieMtc.WithLabelValues("leafNode", "search").Inc()
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
@@ -116,7 +114,6 @@ func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 }
 
 func (l *leafNode) proto(_ bool) (proto.Message, error) {
-	trieMtc.WithLabelValues("leafNode", "proto").Inc()
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Leaf{
 			Leaf: &triepb.LeafPb{

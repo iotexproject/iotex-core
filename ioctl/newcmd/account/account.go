@@ -119,7 +119,7 @@ func Sign(client ioctl.Client, cmd *cobra.Command, signer, password, message str
 
 // keyStoreAccountToPrivateKey generates our PrivateKey interface from Keystore account
 func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (crypto.PrivateKey, error) {
-	addrString, err := util.Address(signer)
+	addrString, err := client.Address(signer)
 	if err != nil {
 		return nil, err
 	}
