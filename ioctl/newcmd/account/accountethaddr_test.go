@@ -29,15 +29,17 @@ func TestNewAccountEthAddr(t *testing.T) {
 	t.Run("when an iotex address was given", func(t *testing.T) {
 		client.EXPECT().Address(gomock.Any()).Return(identityset.Address(28).String(), nil)
 		cmd := NewAccountEthAddr(client)
-		_, err := util.ExecuteCmd(cmd, "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7")
+		result, err := util.ExecuteCmd(cmd, "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7")
 		require.NoError(err)
+		require.Contains(result, identityset.Address(28).String())
 	})
 
 	t.Run("when an ethereum address was given", func(t *testing.T) {
 		client.EXPECT().Address(gomock.Any()).Return(identityset.Address(28).String(), nil)
 		cmd := NewAccountEthAddr(client)
-		_, err := util.ExecuteCmd(cmd, "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5")
+		result, err := util.ExecuteCmd(cmd, "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5")
 		require.NoError(err)
+		require.Contains(result, identityset.Address(28).String())
 	})
 
 	t.Run("cannot find address for alias", func(t *testing.T) {
