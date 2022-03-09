@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -60,7 +60,7 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 			addr := args[0]
 			if addr != address.StakingBucketPoolAddr && addr != address.RewardingPoolAddr {
 				var err error
-				addr, err = client.GetAddress(addr)
+				addr, err = client.AddressWithDefaultIfNotExist(addr)
 				if err != nil {
 					return errors.Wrap(err, failToGetAddress)
 				}

@@ -17,12 +17,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
@@ -46,9 +46,9 @@ type (
 		ReadSecret() (string, error)
 		// Execute a bash command
 		Execute(string) error
-		// doing
-		GetAddress(in string) (string, error)
-		// doing
+		// AddressWithDefaultIfNotExist returns default address if input empty
+		AddressWithDefaultIfNotExist(in string) (string, error)
+		// Address returns address if input address|alias
 		Address(in string) (string, error)
 		// NewKeyStore creates a keystore by default walletdir
 		NewKeyStore() *keystore.KeyStore
@@ -56,8 +56,10 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
-		// doing
-		WriteConfig(config.Config) error
+		// SetAlias write alias and account address to the default config file
+		SetAlias(string, string) error
+		// DeleteAlias delete alias from the default config file
+		DeleteAlias(string) error
 		// PrintInfo print the command result or the question query
 		PrintInfo(string)
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
@@ -71,22 +73,21 @@ type (
 	}
 
 	client struct {
-		cfg       config.Config
-		conn      *grpc.ClientConn
-		cryptoSm2 bool
-
-		// TODO: merge into config
-		lang config.Language
+		cfg            config.Config
+		conn           *grpc.ClientConn
+		cryptoSm2      bool
+		configFilePath string
 	}
 
 	// Option sets client construction parameter
 	Option func(*client)
-)
 
-var confirmMessages = map[config.Language]string{
-	config.English: "Do you want to continue? [yes/NO]",
-	config.Chinese: "是否继续？【是/否】",
-}
+	// ConfirmationMessage is the struct of an Confirmation output
+	ConfirmationMessage struct {
+		Info    string   `json:"info"`
+		Options []string `json:"options"`
+	}
+)
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
 func EnableCryptoSm2() Option {
@@ -96,9 +97,10 @@ func EnableCryptoSm2() Option {
 }
 
 // NewClient creates a new ioctl client
-func NewClient(cfg config.Config, opts ...Option) Client {
+func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
 	c := &client{
-		cfg: cfg,
+		cfg:            cfg,
+		configFilePath: configFilePath,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -125,7 +127,7 @@ func (c *client) Config() config.Config {
 }
 
 func (c *client) AskToConfirm(info string) bool {
-	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
 	var confirm string
 	fmt.Scanf("%s", &confirm)
@@ -133,16 +135,15 @@ func (c *client) AskToConfirm(info string) bool {
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
-	trl, ok := trls[c.lang]
+	trl, ok := trls[c.cfg.Lang()]
 	if ok {
-		return trl, c.lang
+		return trl, c.cfg.Lang()
 	}
 
 	trl, ok = trls[config.English]
 	if !ok {
 		panic("failed to pick a translation")
 	}
-
 	return trl, config.English
 }
 
@@ -158,7 +159,7 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 		}
 	}
 	if cfg.Endpoint == "" {
-		return nil, output.NewError(output.ConfigError, `use "ioctl config set endpoint" to config endpoint first`, nil)
+		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 
 	var err error
@@ -177,18 +178,23 @@ func (c *client) Execute(cmd string) error {
 	return exec.Command("bash", "-c", cmd).Run()
 }
 
-func (c *client) GetAddress(in string) (string, error) {
-	addr, err := config.GetAddressOrAlias(in)
-	if err != nil {
-		return "", output.NewError(output.AddressError, "", err)
+func (c *client) AddressWithDefaultIfNotExist(in string) (string, error) {
+	var address string
+	if !strings.EqualFold(in, "") {
+		address = in
+	} else {
+		if strings.EqualFold(c.cfg.DefaultAccount.AddressOrAlias, "") {
+			return "", errors.New(`use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
+		}
+		address = c.cfg.DefaultAccount.AddressOrAlias
 	}
-	return c.Address(addr)
+	return c.Address(address)
 }
 
 func (c *client) Address(in string) (string, error) {
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
-			return "", output.NewError(output.ValidationError, "", err)
+			return "", err
 		}
 		return in, nil
 	}
@@ -196,7 +202,7 @@ func (c *client) Address(in string) (string, error) {
 	if ok {
 		return addr, nil
 	}
-	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+	return "", errors.New("cannot find address from " + in)
 }
 
 func (c *client) NewKeyStore() *keystore.KeyStore {
@@ -206,13 +212,12 @@ func (c *client) NewKeyStore() *keystore.KeyStore {
 func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
 	keyJSON, err := os.ReadFile(keyStorePath)
 	if err != nil {
-		return nil, output.NewError(output.ReadFileError,
-			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+		return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 	}
 
 	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
 	if err != nil {
-		return nil, output.NewError(output.KeystoreError, "failed to decrypt key", err)
+		return nil, errors.Wrap(err, "failed to decrypt key")
 	}
 	if key != nil && key.PrivateKey != nil {
 		// clear private key in memory prevent from attack
@@ -234,14 +239,28 @@ func (c *client) AliasMap() map[string]string {
 	return aliases
 }
 
-func (c *client) WriteConfig(cfg config.Config) error {
-	out, err := yaml.Marshal(&cfg)
-	if err != nil {
-		return output.NewError(output.SerializationError, "failed to marshal config", err)
+func (c *client) SetAlias(alias string, addr string) error {
+	aliases := c.AliasMap()
+	for aliases[addr] != "" {
+		delete(c.cfg.Aliases, aliases[addr])
+		aliases = c.AliasMap()
 	}
-	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return output.NewError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
+	c.cfg.Aliases[alias] = addr
+	return c.writeAlias()
+}
+
+func (c *client) DeleteAlias(alias string) error {
+	delete(c.cfg.Aliases, alias)
+	return c.writeAlias()
+}
+
+func (c *client) writeAlias() error {
+	out, err := yaml.Marshal(&c.cfg)
+	if err != nil {
+		return errors.Wrapf(err, "failed to marshal config to config file %s", c.configFilePath)
+	}
+	if err = os.WriteFile(c.configFilePath, out, 0600); err != nil {
+		return errors.Wrapf(err, "failed to write to config file %s", c.configFilePath)
 	}
 	return nil
 }
@@ -252,4 +271,13 @@ func (c *client) PrintInfo(info string) {
 
 func (c *client) IsCryptoSm2() bool {
 	return c.cryptoSm2
+}
+
+func (m *ConfirmationMessage) String() string {
+	line := fmt.Sprintf("%s\nOptions:", m.Info)
+	for _, option := range m.Options {
+		line += " " + option
+	}
+	line += "\nQuit for anything else."
+	return line
 }

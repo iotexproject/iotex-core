@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,6 +29,7 @@ func TestNewAccountDelete(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).Times(30)
+	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
 
 	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
@@ -43,7 +43,7 @@ func TestNewAccountDelete(t *testing.T) {
 			keystore.StandardScryptN, keystore.StandardScryptP)
 		acc, _ := ks.NewAccount("test")
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(2)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(2)
 		client.EXPECT().NewKeyStore().Return(ks).Times(2)
 
 		client.EXPECT().AliasMap().Return(map[string]string{
@@ -51,28 +51,13 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "bbb",
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
-		client.EXPECT().Config().DoAndReturn(
-			func() config.Config {
-				config.ReadConfig.Wallet = testAccountFolder
-				config.ReadConfig.Aliases = map[string]string{
-					"aaa": accAddr.String(),
-					"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-					"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-				}
-				return config.ReadConfig
-			})
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
-			fmt.Println("quit")
-		})
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
-			fmt.Printf("Account #%s has been deleted.\n", accAddr.String())
-		})
+		client.EXPECT().DeleteAlias("aaa").Return(nil)
 		cmd = NewAccountDelete(client)
 		_, err = util.ExecuteCmd(cmd)
 		require.NoError(err)
@@ -88,25 +73,23 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "bbb",
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
-		client.EXPECT().Config().DoAndReturn(
-			func() config.Config {
-				config.ReadConfig.Wallet = testAccountFolder
-				config.ReadConfig.Aliases = map[string]string{
-					"aaa": addr2.String(),
-					"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-					"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-				}
-				return config.ReadConfig
-			}).Times(3)
+
+		cfg := config.Config{
+			Wallet: testAccountFolder,
+			Aliases: map[string]string{
+				"aaa": addr2.String(),
+				"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+				"ccc": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+			},
+		}
+		client.EXPECT().Config().Return(cfg).Times(2)
 
 		pemFilePath := sm2KeyPath(client, addr2)
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
-		client.EXPECT().GetAddress(gomock.Any()).Return(addr2.String(), nil)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(addr2.String(), nil)
 
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(_ string) {
-			fmt.Printf("Account #%s has been deleted.\n", addr2.String())
-		})
+		client.EXPECT().DeleteAlias("aaa").Return(nil)
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(err)

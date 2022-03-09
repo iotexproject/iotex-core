@@ -41,18 +41,21 @@ func newExtensionNode(
 	return e, nil
 }
 
-func newExtensionNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.ExtendPb) *extensionNode {
+func newExtensionNodeFromProtoPb(pb *triepb.ExtendPb, mpt *merklePatriciaTrie, hashVal []byte) *extensionNode {
 	e := &extensionNode{
-		cacheNode: cacheNode{mpt: mpt},
-		path:      pb.Path,
-		child:     newHashNode(mpt, pb.Value),
+		cacheNode: cacheNode{
+			mpt:     mpt,
+			hashVal: hashVal,
+			dirty:   false,
+		},
+		path:  pb.Path,
+		child: newHashNode(mpt, pb.Value),
 	}
 	e.cacheNode.serializable = e
 	return e
 }
 
 func (e *extensionNode) Delete(key keyType, offset uint8) (node, error) {
-	trieMtc.WithLabelValues("extensionNode", "delete").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
 		return nil, trie.ErrNotExist
@@ -83,7 +86,6 @@ func (e *extensionNode) Delete(key keyType, offset uint8) (node, error) {
 }
 
 func (e *extensionNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
-	trieMtc.WithLabelValues("extensionNode", "upsert").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched == uint8(len(e.path)) {
 		newChild, err := e.child.Upsert(key, offset+matched, value)
@@ -118,7 +120,6 @@ func (e *extensionNode) Upsert(key keyType, offset uint8, value []byte) (node, e
 }
 
 func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
-	trieMtc.WithLabelValues("extensionNode", "search").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
 		return nil, trie.ErrNotExist
@@ -128,7 +129,6 @@ func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
 }
 
 func (e *extensionNode) proto(flush bool) (proto.Message, error) {
-	trieMtc.WithLabelValues("extensionNode", "proto").Inc()
 	if flush {
 		if sn, ok := e.child.(serializable); ok {
 			_, err := sn.store()
@@ -152,7 +152,6 @@ func (e *extensionNode) proto(flush bool) (proto.Message, error) {
 }
 
 func (e *extensionNode) Child() node {
-	trieMtc.WithLabelValues("extensionNode", "child").Inc()
 	return e.child
 }
 
@@ -161,6 +160,9 @@ func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 }
 
 func (e *extensionNode) Flush() error {
+	if !e.dirty {
+		return nil
+	}
 	if err := e.child.Flush(); err != nil {
 		return err
 	}

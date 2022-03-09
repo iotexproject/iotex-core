@@ -31,6 +31,7 @@ type ServerV2 struct {
 type Config struct {
 	broadcastHandler  BroadcastOutbound
 	electionCommittee committee.Committee
+	hasActionIndex    bool
 }
 
 // Option is the option to override the api config
@@ -55,9 +56,17 @@ func WithNativeElection(committee committee.Committee) Option {
 	}
 }
 
+// WithActionIndex is the option which enables action index related features
+func WithActionIndex() Option {
+	return func(cfg *Config) error {
+		cfg.hasActionIndex = true
+		return nil
+	}
+}
+
 // NewServerV2 creates a new server with coreService and GRPC Server
 func NewServerV2(
-	cfg config.Config,
+	cfg config.API,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -73,18 +82,18 @@ func NewServerV2(
 		return nil, err
 	}
 	tp, err := tracer.NewProvider(
-		tracer.WithServiceName(cfg.API.Tracer.ServiceName),
-		tracer.WithEndpoint(cfg.API.Tracer.EndPoint),
-		tracer.WithInstanceID(cfg.API.Tracer.InstanceID),
-		tracer.WithSamplingRatio(cfg.API.Tracer.SamplingRatio),
+		tracer.WithServiceName(cfg.Tracer.ServiceName),
+		tracer.WithEndpoint(cfg.Tracer.EndPoint),
+		tracer.WithInstanceID(cfg.Tracer.InstanceID),
+		tracer.WithSamplingRatio(cfg.Tracer.SamplingRatio),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot config tracer provider")
 	}
 	return &ServerV2{
 		core:       coreAPI,
-		GrpcServer: NewGRPCServer(coreAPI, cfg.API.Port),
-		web3Server: NewWeb3Server(coreAPI, cfg.API.Web3Port, cfg.API.RedisCacheURL, cfg.API.RangeQueryLimit),
+		GrpcServer: NewGRPCServer(coreAPI, cfg.Port),
+		web3Server: NewWeb3Server(coreAPI, cfg.Web3Port, cfg.RedisCacheURL, cfg.RangeQueryLimit),
 		tracer:     tp,
 	}, nil
 }

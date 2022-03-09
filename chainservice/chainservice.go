@@ -349,9 +349,18 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
+	apiServerOptions := []api.Option{
+		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return p2pAgent.BroadcastOutbound(ctx, msg)
+		}),
+		api.WithNativeElection(electionCommittee),
+	}
+	if gateway {
+		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
+	}
 
 	apiSvr, err := api.NewServerV2(
-		cfg,
+		cfg.API,
 		chain,
 		bs,
 		sf,
@@ -360,10 +369,7 @@ func New(
 		bfIndexer,
 		actPool,
 		registry,
-		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
-		}),
-		api.WithNativeElection(electionCommittee),
+		apiServerOptions...,
 	)
 	if err != nil {
 		return nil, err

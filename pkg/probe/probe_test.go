@@ -69,9 +69,9 @@ func TestBasicProbe(t *testing.T) {
 			code:     http.StatusOK,
 		},
 	}
-	s.Ready()
+	require.NoError(t, s.TurnOn())
 	testFunc(t, test2)
-	s.NotReady()
+	require.NoError(t, s.TurnOff())
 	testFunc(t, test1)
 
 	require.NoError(t, s.Stop(ctx))
@@ -105,6 +105,6 @@ func TestReadniessHandler(t *testing.T) {
 			code:     http.StatusAccepted,
 		},
 	}
-	s.Ready()
+	require.NoError(t, s.TurnOn())
 	testFunc(t, test)
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/hdwallet"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
@@ -120,7 +119,7 @@ func Sign(client ioctl.Client, signer, password, message string) (string, error)
 
 // keyStoreAccountToPrivateKey generates our PrivateKey interface from Keystore account
 func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (crypto.PrivateKey, error) {
-	addrString, err := util.Address(signer)
+	addrString, err := client.Address(signer)
 	if err != nil {
 		return nil, err
 	}
@@ -163,18 +162,18 @@ func PrivateKeyFromSigner(client ioctl.Client, signer, password string) (crypto.
 		client.PrintInfo(fmt.Sprintf("Enter password for #%s:\n", signer))
 		password, err = client.ReadSecret()
 		if err != nil {
-			return nil, output.NewError(output.InputError, "failed to get password", err)
+			return nil, errors.Wrap(err, "failed to get password")
 		}
 	}
 
 	if util.AliasIsHdwalletKey(signer) {
 		account, change, index, err := util.ParseHdwPath(signer)
 		if err != nil {
-			return nil, output.NewError(output.InputError, "invalid HDWallet key format", err)
+			return nil, errors.Wrap(err, "invalid HDWallet key format")
 		}
 		_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
 		if err != nil {
-			return nil, output.NewError(output.InputError, "failed to derive key from HDWallet", err)
+			return nil, errors.Wrap(err, "failed to derive key from HDWallet")
 		}
 		return prvKey, nil
 	}
@@ -190,7 +189,7 @@ func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
 		Insecure: insecure,
 	})
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "", err)
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -203,9 +202,9 @@ func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.New(sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetAccount api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetAccount api")
 	}
 	return response.AccountMeta, nil
 }
@@ -238,24 +237,24 @@ func newAccount(client ioctl.Client, alias string) (string, error) {
 	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		return "", errors.Wrap(err, "failed to get password")
 	}
 	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		return "", errors.Wrap(err, "failed to get password")
 	}
 	if password != passwordAgain {
-		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		return "", ErrPasswdNotMatch
 	}
 	ks := client.NewKeyStore()
 	account, err := ks.NewAccount(password)
 	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to create new keystore", err)
+		return "", errors.Wrap(err, "failed to create new keystore")
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+		return "", errors.Wrap(err, "failed to convert bytes into address")
 	}
 	return addr.String(), nil
 }
@@ -264,29 +263,29 @@ func newAccountSm2(client ioctl.Client, alias string) (string, error) {
 	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		return "", errors.Wrap(err, "failed to get password")
 	}
 	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		return "", errors.Wrap(err, "failed to get password")
 	}
 	if password != passwordAgain {
-		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		return "", ErrPasswdNotMatch
 	}
 	priKey, err := crypto.GenerateKeySm2()
 	if err != nil {
-		return "", output.NewError(output.CryptoError, "failed to generate sm2 private key", err)
+		return "", errors.Wrap(err, "failed to generate sm2 private key")
 	}
 
 	addr := priKey.PublicKey().Address()
 	if addr == nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
+		return "", errors.New("failed to convert bytes into address")
 	}
 
 	pemFilePath := sm2KeyPath(client, addr)
 	if err := crypto.WritePrivateKeyToPem(pemFilePath, priKey.(*crypto.P256sm2PrvKey), password); err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
+		return "", errors.Wrap(err, "failed to save private key into pem file ")
 	}
 
 	return addr.String(), nil
@@ -296,15 +295,15 @@ func newAccountByKey(client ioctl.Client, alias string, privateKey string) (stri
 	client.PrintInfo(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := client.ReadSecret()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		return "", errors.Wrap(err, "failed to get password")
 	}
 	client.PrintInfo(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		return "", errors.Wrap(err, "failed to get password")
 	}
 	if password != passwordAgain {
-		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		return "", ErrPasswdNotMatch
 	}
 
 	return storeKey(client, privateKey, password)
@@ -321,7 +320,7 @@ func newAccountByKeyStore(client ioctl.Client, alias, passwordOfKeyStore, keySto
 func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath string) (string, error) {
 	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, passwordOfPem)
 	if err != nil {
-		return "", output.NewError(output.CryptoError, "failed to read private key from pem file", err)
+		return "", errors.Wrap(err, "failed to read private key from pem file")
 	}
 
 	return newAccountByKey(client, alias, prvKey.HexString())
@@ -330,28 +329,28 @@ func newAccountByPem(client ioctl.Client, alias, passwordOfPem, pemFilePath stri
 func storeKey(client ioctl.Client, privateKey, password string) (string, error) {
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
-		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
+		return "", errors.Wrap(err, "failed to generate private key from hex string ")
 	}
 	defer priKey.Zero()
 
 	addr := priKey.PublicKey().Address()
 	if addr == nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", nil)
+		return "", errors.New("failed to convert bytes into address")
 	}
 
 	switch sk := priKey.EcdsaPrivateKey().(type) {
 	case *ecdsa.PrivateKey:
 		ks := client.NewKeyStore()
 		if _, err := ks.ImportECDSA(sk, password); err != nil {
-			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
+			return "", errors.Wrap(err, "failed to import private key into keystore ")
 		}
 	case *crypto.P256sm2PrvKey:
 		pemFilePath := sm2KeyPath(client, addr)
 		if err := crypto.WritePrivateKeyToPem(pemFilePath, sk, password); err != nil {
-			return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
+			return "", errors.Wrap(err, "failed to save private key into pem file ")
 		}
 	default:
-		return "", output.NewError(output.CryptoError, "invalid private key", nil)
+		return "", errors.New("invalid private key")
 	}
 
 	return addr.String(), nil
@@ -365,7 +364,7 @@ func findSm2PemFile(client ioctl.Client, addr address.Address) (string, error) {
 	filePath := sm2KeyPath(client, addr)
 	_, err := os.Stat(filePath)
 	if err != nil {
-		return "", output.NewError(output.ReadFileError, "crypto file not found", err)
+		return "", errors.Wrap(err, "crypto file not found")
 	}
 	return filePath, nil
 }
@@ -374,7 +373,7 @@ func listSm2Account(client ioctl.Client) ([]string, error) {
 	sm2Accounts := make([]string, 0)
 	files, err := os.ReadDir(client.Config().Wallet)
 	if err != nil {
-		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
+		return nil, errors.Wrap(err, "failed to read files in wallet")
 	}
 	for _, f := range files {
 		if !f.IsDir() {
