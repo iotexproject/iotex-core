@@ -119,7 +119,7 @@ func Sign(client ioctl.Client, signer, password, message string) (string, error)
 
 // keyStoreAccountToPrivateKey generates our PrivateKey interface from Keystore account
 func keyStoreAccountToPrivateKey(client ioctl.Client, signer, password string) (crypto.PrivateKey, error) {
-	addrString, err := util.Address(signer)
+	addrString, err := client.Address(signer)
 	if err != nil {
 		return nil, err
 	}

@@ -217,12 +217,9 @@ func TestBlockEpochReward(t *testing.T) {
 		svrs[i] = svr
 	}
 
-	// Create a probe server
-	probeSvr := probe.New(7788)
-
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probe.New(7788+i), configs[i])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"

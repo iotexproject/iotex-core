@@ -44,8 +44,10 @@ func TestNewSubChainService(t *testing.T) {
 	require.NoError(err)
 	cs := svr.ChainService(1)
 	require.NotNil(cs)
+	ctx := context.Background()
+	require.NoError(cs.Start(ctx))
 	err = testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
-		err = svr.StopChainService(context.Background(), 1)
+		err = svr.StopChainService(ctx, 1)
 		return err == nil, err
 	})
 	require.NoError(err)
