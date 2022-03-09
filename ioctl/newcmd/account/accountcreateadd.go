@@ -92,7 +92,7 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 				}
 			}
 			if err := client.SetAlias(aliases[args[0]], addr); err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+				return errors.Wrapf(err, failToWriteToConfigFile)
 			}
 			client.PrintInfo(fmt.Sprintf(outputMessage, args[0]))
 			return nil
