@@ -8,11 +8,9 @@ package account
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -56,7 +54,6 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 	invalidAlias, _ := client.SelectTranslation(invalidAlias)
 	aliasHasAlreadyUsed, _ := client.SelectTranslation(aliasHasAlreadyUsed)
 	infoQuit, _ := client.SelectTranslation(infoQuit)
-	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
 	failToGenerateNewPrivateKey, _ := client.SelectTranslation(failToGenerateNewPrivateKey)
 	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(failToGenerateNewPrivateKeySm2)
 	outputMessage, _ := client.SelectTranslation(outputMessage)
@@ -93,14 +90,7 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			aliases[args[0]] = addr
-			out, err := yaml.Marshal(&config.ReadConfig)
-			if err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
-			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
-			}
+			client.SetAlias(aliases[args[0]], addr)
 			client.PrintInfo(fmt.Sprintf(outputMessage, args[0]))
 			return nil
 		},

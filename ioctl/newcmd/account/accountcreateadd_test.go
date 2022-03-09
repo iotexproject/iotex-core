@@ -29,28 +29,26 @@ func TestNewAccountCreateAdd(t *testing.T) {
 		"aaa": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
 	}).Times(4)
+	_, ks, pwd, _, err := newTestAccount()
+	client.EXPECT().ReadSecret().Return(pwd, nil).Times(4)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(2)
+	client.EXPECT().Config().Return(config.Config{}).Times(2)
+	client.EXPECT().NewKeyStore().Return(ks).Times(2)
+	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
-		_, ks, pwd, _, err := newTestAccount()
 		require.NoError(err)
-		client.EXPECT().ReadSecret().Return(pwd, nil).Times(2)
-		client.EXPECT().IsCryptoSm2().Return(true).Times(1)
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().Config().Return(config.Config{})
-		client.EXPECT().NewKeyStore().Return(ks)
+		client.EXPECT().IsCryptoSm2().Return(true)
+
 		cmd := NewAccountCreateAdd(client)
 		_, err = util.ExecuteCmd(cmd, "aaa")
 		require.NoError(err)
 	})
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
-		_, ks, pwd, _, err := newTestAccount()
 		require.NoError(err)
-		client.EXPECT().ReadSecret().Return(pwd, nil).Times(2)
-		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
-		client.EXPECT().Config().Return(config.Config{})
-		client.EXPECT().NewKeyStore().Return(ks)
+		client.EXPECT().IsCryptoSm2().Return(false)
+
 		cmd := NewAccountCreateAdd(client)
 		_, err = util.ExecuteCmd(cmd, "aaa")
 		require.NoError(err)
@@ -58,6 +56,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 
 	t.Run("failed to confirm", func(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
+
 		cmd := NewAccountCreateAdd(client)
 		_, err := util.ExecuteCmd(cmd, "aaa")
 		require.NoError(err)
