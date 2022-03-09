@@ -13,26 +13,11 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
-
-var (
-	trieMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_trie",
-			Help: "IoTeX Trie",
-		},
-		[]string{"node", "type"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(trieMtc)
-}
 
 type (
 	// HashFunc defines a function to generate the hash which will be used as key in db
@@ -176,7 +161,6 @@ func (mpt *merklePatriciaTrie) Get(key []byte) ([]byte, error) {
 	mpt.mutex.RLock()
 	defer mpt.mutex.RUnlock()
 
-	trieMtc.WithLabelValues("root", "Get").Inc()
 	kt, err := mpt.checkKeyType(key)
 	if err != nil {
 		return nil, err
@@ -196,7 +180,6 @@ func (mpt *merklePatriciaTrie) Delete(key []byte) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
 
-	trieMtc.WithLabelValues("root", "Delete").Inc()
 	kt, err := mpt.checkKeyType(key)
 	if err != nil {
 		return err
@@ -217,7 +200,6 @@ func (mpt *merklePatriciaTrie) Upsert(key []byte, value []byte) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
 
-	trieMtc.WithLabelValues("root", "Upsert").Inc()
 	kt, err := mpt.checkKeyType(key)
 	if err != nil {
 		return err
