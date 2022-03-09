@@ -88,7 +88,7 @@ func TestNewFileDAOv2(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-newfd")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -114,7 +114,7 @@ func TestNewFdInterface(t *testing.T) {
 	testFdInterface := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
-		testutil.CleanupPath(t, cfg.DbPath)
+		testutil.CleanupPath(cfg.DbPath)
 		fd, err := newFileDAOv2(start, cfg)
 		r.NoError(err)
 
@@ -251,7 +251,7 @@ func TestNewFdInterface(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-interface")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig
@@ -276,7 +276,7 @@ func TestNewFdStart(t *testing.T) {
 		r := require.New(t)
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
-			testutil.CleanupPath(t, cfg.DbPath)
+			testutil.CleanupPath(cfg.DbPath)
 			fd, err := newFileDAOv2(start, cfg)
 			r.NoError(err)
 			ctx := context.Background()
@@ -334,7 +334,7 @@ func TestNewFdStart(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-start")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig

@@ -18,7 +18,7 @@ func TestPatchStore(t *testing.T) {
 	}
 
 	filePath, _ := testutil.PathOfTempFile("test")
-	defer testutil.CleanupPathV2(filePath)
+	defer testutil.CleanupPath(filePath)
 	f, err := os.Create(filePath)
 	require.NoError(err)
 
@@ -73,7 +73,7 @@ func TestPatchStore(t *testing.T) {
 
 	for _, test := range patchTest2 {
 		filePath, _ = testutil.PathOfTempFile("test")
-		defer testutil.CleanupPathV2(filePath)
+		defer testutil.CleanupPath(filePath)
 		f, err = os.Create(filePath)
 		require.NoError(err)
 

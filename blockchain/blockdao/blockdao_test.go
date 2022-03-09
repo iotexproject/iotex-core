@@ -369,7 +369,7 @@ func TestBlockDAO(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-kv-store")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	daoList := []struct {
@@ -389,7 +389,7 @@ func TestBlockDAO(t *testing.T) {
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, v := range daoList {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
 		require.NoError(err)
 		require.NotNil(dao)
@@ -399,7 +399,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	for _, v := range daoList {
-		testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
 		require.NoError(err)
 		require.NotNil(dao)
@@ -438,8 +438,8 @@ func BenchmarkBlockCache(b *testing.B) {
 			NumRetries: 1,
 		}
 		defer func() {
-			testutil.CleanupPathV2(testPath)
-			testutil.CleanupPathV2(indexPath)
+			testutil.CleanupPath(testPath)
+			testutil.CleanupPath(indexPath)
 		}()
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
