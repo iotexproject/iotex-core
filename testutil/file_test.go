@@ -19,5 +19,5 @@ func TestFile(t *testing.T) {
 	assert.NoError(err)
 	_, err = os.Stat(tmpPath)
 	assert.NoError(err)
-	defer CleanupPath(t, tmpPath)
+	defer CleanupPath(tmpPath)
 }

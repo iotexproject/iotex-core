@@ -236,7 +236,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-bucket")
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig
