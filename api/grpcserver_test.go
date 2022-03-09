@@ -855,7 +855,7 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	// deploy a contract
@@ -918,7 +918,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getActionsTests {
@@ -978,7 +978,7 @@ func TestGrpcServer_GetAction(t *testing.T) {
 	svr, _, dao, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getActionTests {
@@ -1031,7 +1031,7 @@ func TestGrpcServer_GetActionsByAddress(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getActionsByAddressTests {
@@ -1082,7 +1082,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getUnconfirmedActionsByAddressTests {
@@ -1113,7 +1113,7 @@ func TestGrpcServer_GetActionsByBlock(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getActionsByBlockTests {
@@ -1152,7 +1152,7 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getBlockMetasTests {
@@ -1213,7 +1213,7 @@ func TestGrpcServer_GetBlockMeta(t *testing.T) {
 	svr, bc, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getBlockMetaTests {
@@ -1280,7 +1280,7 @@ func TestGrpcServer_GetChainMeta(t *testing.T) {
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, bfIndexFile)
+			testutil.CleanupPath(bfIndexFile)
 		}()
 		if pol != nil {
 			require.NoError(pol.ForceRegister(registry))
@@ -1397,7 +1397,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 		svr, _, _, _, _, _, file, err := createServerV2(test.cfg(), true)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, file)
+			testutil.CleanupPath(file)
 		}()
 
 		_, err = svr.GrpcServer.SendAction(ctx, request)
@@ -1412,7 +1412,7 @@ func TestGrpcServer_StreamLogs(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	err = svr.GrpcServer.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
@@ -1426,7 +1426,7 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getReceiptByActionTests {
@@ -1455,7 +1455,7 @@ func TestGrpcServer_GetServerMeta(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	resProto, err := svr.GrpcServer.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
@@ -1474,7 +1474,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range readContractTests {
@@ -1523,7 +1523,7 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range estimateGasForActionTests {
@@ -1547,7 +1547,7 @@ func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	// test for contract deploy
@@ -1725,7 +1725,7 @@ func TestGrpcServer_ReadUnclaimedBalance(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range readUnclaimedBalanceTests {
@@ -1752,7 +1752,7 @@ func TestGrpcServer_TotalBalance(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1773,7 +1773,7 @@ func TestGrpcServer_AvailableBalance(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1842,7 +1842,7 @@ func TestGrpcServer_ReadCandidatesByEpoch(t *testing.T) {
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, bfIndexFile)
+			testutil.CleanupPath(bfIndexFile)
 		}()
 		require.NoError(pol.ForceRegister(registry))
 
@@ -1914,7 +1914,7 @@ func TestGrpcServer_ReadBlockProducersByEpoch(t *testing.T) {
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, bfIndexFile)
+			testutil.CleanupPath(bfIndexFile)
 		}()
 		require.NoError(pol.ForceRegister(registry))
 		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1984,7 +1984,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, bfIndexFile)
+			testutil.CleanupPath(bfIndexFile)
 		}()
 		require.NoError(pol.ForceRegister(registry))
 
@@ -2008,7 +2008,7 @@ func TestGrpcServer_ReadRollDPoSMeta(t *testing.T) {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, bfIndexFile)
+			testutil.CleanupPath(bfIndexFile)
 		}()
 		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -2029,7 +2029,7 @@ func TestGrpcServer_ReadEpochCtx(t *testing.T) {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPath(t, bfIndexFile)
+			testutil.CleanupPath(bfIndexFile)
 		}()
 		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -2052,7 +2052,7 @@ func TestGrpcServer_GetEpochMeta(t *testing.T) {
 	svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 	for _, test := range getEpochMetaTests {
 		if test.pollProtocolType == lld {
@@ -2183,7 +2183,7 @@ func TestGrpcServer_GetRawBlocks(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getRawBlocksTest {
@@ -2251,7 +2251,7 @@ func TestGrpcServer_GetLogs(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getLogsByRangeTest {
@@ -2310,7 +2310,7 @@ func TestGrpcServer_GetElectionBuckets(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	// failure: no native election
@@ -2328,7 +2328,7 @@ func TestGrpcServer_GetActionByActionHash(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	for _, test := range getActionByActionHashTest {
@@ -2345,7 +2345,7 @@ func TestGrpcServer_GetTransactionLogByActionHash(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	request := &iotexapi.GetTransactionLogByActionHashRequest{
@@ -2380,7 +2380,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
@@ -2666,7 +2666,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
 	}
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -2723,10 +2723,10 @@ func newConfig(t *testing.T) config.Config {
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
-		testutil.CleanupPathV2(testIndexPath)
-		testutil.CleanupPathV2(testSystemLogPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
+		testutil.CleanupPath(testSystemLogPath)
 	}()
 
 	cfg.Plugins[config.GatewayPlugin] = true
@@ -2788,7 +2788,7 @@ func TestGrpcServer_GetActPoolActions(t *testing.T) {
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	res, err := svr.GrpcServer.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
@@ -2845,7 +2845,7 @@ func TestGrpcServer_GetEstimateGasSpecial(t *testing.T) {
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	// deploy self-desturct contract
@@ -2963,7 +2963,7 @@ func TestChainlinkErrTest(t *testing.T) {
 			svr, _, _, _, _, _, file, err := createServerV2(test.cfg(), true)
 			require.NoError(err)
 			defer func() {
-				testutil.CleanupPath(t, file)
+				testutil.CleanupPath(file)
 			}()
 
 			for _, action := range test.actions {
@@ -2986,7 +2986,7 @@ func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 	svr, bc, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	request := &iotexapi.TraceTransactionStructLogsRequest{
