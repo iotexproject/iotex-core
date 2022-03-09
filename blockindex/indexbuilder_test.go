@@ -68,16 +68,14 @@ func TestIndexBuilder(t *testing.T) {
 			})
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
-		defer func() {
-			require.NoError(indexer.Stop(ctx))
-			require.NoError(dao.Stop(ctx))
-		}()
-
 		ib := &IndexBuilder{
 			dao:     dao,
 			indexer: indexer,
 		}
-		defer ib.Stop(context.Background())
+		defer func() {
+			require.NoError(ib.Stop(ctx))
+			require.NoError(dao.Stop(ctx))
+		}()
 
 		// put 2 blocks first
 		require.NoError(dao.PutBlock(ctx, blks[0]))
