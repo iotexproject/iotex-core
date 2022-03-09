@@ -54,6 +54,7 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 	invalidAlias, _ := client.SelectTranslation(invalidAlias)
 	aliasHasAlreadyUsed, _ := client.SelectTranslation(aliasHasAlreadyUsed)
 	infoQuit, _ := client.SelectTranslation(infoQuit)
+	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
 	failToGenerateNewPrivateKey, _ := client.SelectTranslation(failToGenerateNewPrivateKey)
 	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(failToGenerateNewPrivateKeySm2)
 	outputMessage, _ := client.SelectTranslation(outputMessage)
@@ -90,7 +91,9 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			client.SetAlias(aliases[args[0]], addr)
+			if err := client.SetAlias(aliases[args[0]], addr); err != nil {
+				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+			}
 			client.PrintInfo(fmt.Sprintf(outputMessage, args[0]))
 			return nil
 		},
