@@ -294,8 +294,10 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 		}
 		return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
 	}
-	var estimatedGas uint64
-	var err error
+	var (
+		estimatedGas uint64
+		err          error
+	)
 	switch {
 	case in.GetTransfer() != nil:
 		act := &action.Transfer{}
