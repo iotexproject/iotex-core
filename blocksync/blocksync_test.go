@@ -478,8 +478,8 @@ func newTestConfig() (config.Config, error) {
 		return config.Config{}, err
 	}
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
 	}()
 
 	cfg := config.Default

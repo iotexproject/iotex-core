@@ -114,7 +114,7 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
-		defer testutil.CleanupPath(t, configFilePath)
+		defer testutil.CleanupPath(configFilePath)
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
@@ -131,7 +131,7 @@ func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
 	testWallet, err := os.MkdirTemp(os.TempDir(), "ksTest")
 	r.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	c := NewClient(config.Config{
 		Wallet: testWallet,
@@ -158,7 +158,7 @@ func TestAliasMap(t *testing.T) {
 	}
 
 	configFilePath := writeTempConfig(t, &cfg)
-	defer testutil.CleanupPath(t, configFilePath)
+	defer testutil.CleanupPath(configFilePath)
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
@@ -223,7 +223,7 @@ func TestSetAlias(t *testing.T) {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
-	defer testutil.CleanupPath(t, testPathd)
+	defer testutil.CleanupPath(testPathd)
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
@@ -282,7 +282,7 @@ func TestDeleteAlias(t *testing.T) {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
-	defer testutil.CleanupPath(t, testPathd)
+	defer testutil.CleanupPath(testPathd)
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"

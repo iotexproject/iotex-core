@@ -54,7 +54,7 @@ func TestSign(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, _, err := newTestAccount()
 	require.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -120,7 +120,7 @@ func TestSign(t *testing.T) {
 func TestAccount(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, nonce, err := newTestAccount()
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 	require.NoError(err)
 
 	ctrl := gomock.NewController(t)
@@ -238,7 +238,7 @@ func TestMeta(t *testing.T) {
 func TestAccountError(t *testing.T) {
 	require := require.New(t)
 	testFilePath := filepath.Join(os.TempDir(), testPath)
-	defer testutil.CleanupPath(t, testFilePath)
+	defer testutil.CleanupPath(testFilePath)
 	alias := "aaa"
 	passwordOfKeyStore := "123456"
 	keyStorePath := testFilePath
@@ -247,7 +247,7 @@ func TestAccountError(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	testWallet, _, _, _, _ := newTestAccount()
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	client.EXPECT().DecryptPrivateKey(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
@@ -286,7 +286,7 @@ func TestStoreKey(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, _, err := newTestAccount()
 	require.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -354,7 +354,7 @@ func TestNewAccount(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, _, err := newTestAccount()
 	require.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -371,7 +371,7 @@ func TestNewAccountSm2(t *testing.T) {
 	require := require.New(t)
 	testWallet, _, passwd, _, err := newTestAccount()
 	require.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -388,7 +388,7 @@ func TestNewAccountByKey(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, _, err := newTestAccount()
 	require.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

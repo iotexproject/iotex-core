@@ -185,7 +185,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
-	probeSvr.Ready()
+	if err := probeSvr.TurnOn(); err != nil {
+		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
+	}
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(NewHeartbeatHandler(svr, cfg.Network).Log, cfg.System.HeartbeatInterval)
@@ -233,5 +235,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	<-ctx.Done()
-	probeSvr.NotReady()
+	if err := probeSvr.TurnOff(); err != nil {
+		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+	}
 }

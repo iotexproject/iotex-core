@@ -65,9 +65,9 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
-		testutil.CleanupPathV2(indexDBPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(indexDBPath)
 	}()
 
 	// create server
@@ -144,9 +144,9 @@ func TestLocalCommit(t *testing.T) {
 	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testTriePath2)
-		testutil.CleanupPathV2(testDBPath2)
-		testutil.CleanupPathV2(indexDBPath2)
+		testutil.CleanupPath(testTriePath2)
+		testutil.CleanupPath(testDBPath2)
+		testutil.CleanupPath(indexDBPath2)
 	}()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
@@ -321,9 +321,9 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
-		testutil.CleanupPathV2(indexDBPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(indexDBPath)
 	}()
 
 	// bootnode
@@ -380,9 +380,9 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
 	defer func() {
-		testutil.CleanupPathV2(testTriePath2)
-		testutil.CleanupPathV2(testDBPath2)
-		testutil.CleanupPathV2(indexDBPath2)
+		testutil.CleanupPath(testTriePath2)
+		testutil.CleanupPath(testDBPath2)
+		testutil.CleanupPath(indexDBPath2)
 	}()
 
 	// Create client
@@ -454,9 +454,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NotNil(cs.BlockDAO())
 
 	defer func() {
-		testutil.CleanupPathV2(testTriePath)
-		testutil.CleanupPathV2(testDBPath)
-		testutil.CleanupPathV2(testIndexPath)
+		testutil.CleanupPath(testTriePath)
+		testutil.CleanupPath(testDBPath)
+		testutil.CleanupPath(testIndexPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc, ap))
@@ -464,7 +464,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	require.NoError(svr.Stop(ctx))
 	// Delete state db and recover to tip
-	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(testTriePath)
 
 	require.NoError(cs.Blockchain().Start(ctx))
 	height, _ := cs.StateFactory().Height()
@@ -485,7 +485,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(dao.Stop(ctx))
 
 	// Build states from height 1 to 3
-	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(testTriePath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
@@ -506,7 +506,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 		})))
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
-	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(testTriePath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	// Build states from height 1 to 2

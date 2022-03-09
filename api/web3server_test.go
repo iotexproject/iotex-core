@@ -486,7 +486,7 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	testData := []interface{}{uint64ToHex(1), 1}
@@ -669,7 +669,7 @@ func setupTestServer(t *testing.T) (*ServerV2, blockchain.Blockchain, blockdao.B
 	config.SetEVMNetworkID(_evmNetworkID)
 	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2(cfg, false)
 	return svr, bc, dao, actPool, func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}
 }
 
@@ -679,7 +679,7 @@ func TestEthAccounts(t *testing.T) {
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 	res, _ := svr.web3Server.ethAccounts()
 	require.Equal(0, len(res.([]string)))

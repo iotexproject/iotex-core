@@ -24,6 +24,7 @@ type RecurringTaskOption interface {
 
 // RecurringTask represents a recurring task
 type RecurringTask struct {
+	lifecycle.Readiness
 	t        Task
 	interval time.Duration
 	ticker   *clock.Ticker
@@ -63,12 +64,14 @@ func (t *RecurringTask) Start(ctx context.Context) error {
 	}()
 
 	<-ready
-	return nil
+	return t.TurnOn()
 }
 
 // Stop stops the timer
 func (t *RecurringTask) Stop(_ context.Context) error {
-	// TODO: actually this happens when stop is called before init/start. We should prevent this from happening
+	if err := t.TurnOff(); err != nil {
+		return err
+	}
 	if t.ticker != nil {
 		t.ticker.Stop()
 	}

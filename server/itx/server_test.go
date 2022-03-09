@@ -44,8 +44,10 @@ func TestNewSubChainService(t *testing.T) {
 	require.NoError(err)
 	cs := svr.ChainService(1)
 	require.NotNil(cs)
+	ctx := context.Background()
+	require.NoError(cs.Start(ctx))
 	err = testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
-		err = svr.StopChainService(context.Background(), 1)
+		err = svr.StopChainService(ctx, 1)
 		return err == nil, err
 	})
 	require.NoError(err)
@@ -82,7 +84,7 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""
 	return cfg, func() {
-		testutil.CleanupPathV2(dbPath)
-		testutil.CleanupPathV2(triePath)
+		testutil.CleanupPath(dbPath)
+		testutil.CleanupPath(triePath)
 	}
 }

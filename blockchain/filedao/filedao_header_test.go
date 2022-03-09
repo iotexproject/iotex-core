@@ -89,7 +89,7 @@ func TestFileReadWrite(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("test-header")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig
