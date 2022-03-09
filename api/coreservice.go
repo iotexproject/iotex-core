@@ -1420,32 +1420,30 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 
 // EstimateGasForNonExecution estimates action gas except execution
 func (core *coreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
-	var intrinsicGas, payloadGas, payloadSize uint64
 	switch act := actType.(type) {
 	case *action.Transfer:
-		intrinsicGas, payloadGas, payloadSize = action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(payload))
+		return act.IntrinsicGas()
 	case *action.CreateStake:
-		intrinsicGas, payloadGas, payloadSize = action.CreateStakeBaseIntrinsicGas, action.CreateStakePayloadGas, uint64(len(payload))
+		return act.IntrinsicGas()
 	case *action.DepositToStake:
-		intrinsicGas, payloadGas, payloadSize = action.DepositToStakeBaseIntrinsicGas, action.DepositToStakePayloadGas, uint64(len(payload))
-	case *action.ChangeCandidate, *action.TransferStake:
-		intrinsicGas, payloadGas, payloadSize = action.MoveStakeBaseIntrinsicGas, action.MoveStakePayloadGas, uint64(len(payload))
-	case *action.Unstake, *action.WithdrawStake:
-		intrinsicGas, payloadGas, payloadSize = action.ReclaimStakeBaseIntrinsicGas, action.ReclaimStakePayloadGas, uint64(len(payload))
+		return act.IntrinsicGas()
+	case *action.ChangeCandidate:
+		return act.IntrinsicGas()
+	case *action.TransferStake:
+		return act.IntrinsicGas()
+	case *action.Unstake:
+		return act.IntrinsicGas()
+	case *action.WithdrawStake:
+		return act.IntrinsicGas()
 	case *action.Restake:
-		intrinsicGas, payloadGas, payloadSize = action.RestakeBaseIntrinsicGas, action.RestakePayloadGas, uint64(len(payload))
+		return act.IntrinsicGas()
 	case *action.CandidateRegister:
-		intrinsicGas, payloadGas, payloadSize = action.CandidateRegisterBaseIntrinsicGas, action.CandidateRegisterPayloadGas, uint64(len(payload))
+		return act.IntrinsicGas()
 	case *action.CandidateUpdate:
-		intrinsicGas, payloadGas, payloadSize = action.CandidateUpdateBaseIntrinsicGas, 0, 0
+		return act.IntrinsicGas()
 	default:
 		return 0, errors.Errorf("invalid action type %T not supported", act)
 	}
-	gas, err := action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
-	if err != nil {
-		return 0, err
-	}
-	return gas, err
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
