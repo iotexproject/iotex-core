@@ -353,7 +353,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Genesis.EnableGravityChainVoting = false
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
-	defer testutil.CleanupPathV2(testTriePath)
+	defer testutil.CleanupPath(testTriePath)
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -589,9 +589,9 @@ func TestProtocol_Handle(t *testing.T) {
 		testIndexPath, err := testutil.PathOfTempFile("index")
 		require.NoError(err)
 		defer func() {
-			testutil.CleanupPathV2(testTriePath)
-			testutil.CleanupPathV2(testDBPath)
-			testutil.CleanupPathV2(testIndexPath)
+			testutil.CleanupPath(testTriePath)
+			testutil.CleanupPath(testDBPath)
+			testutil.CleanupPath(testIndexPath)
 		}()
 
 		cfg.Plugins[config.GatewayPlugin] = true

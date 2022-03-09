@@ -114,7 +114,7 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
-		defer testutil.CleanupPath(t, configFilePath)
+		defer testutil.CleanupPath(configFilePath)
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
@@ -131,7 +131,7 @@ func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
 	testWallet, err := os.MkdirTemp(os.TempDir(), "ksTest")
 	r.NoError(err)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 
 	c := NewClient(config.Config{
 		Wallet: testWallet,
@@ -158,7 +158,7 @@ func TestAliasMap(t *testing.T) {
 	}
 
 	configFilePath := writeTempConfig(t, &cfg)
-	defer testutil.CleanupPath(t, configFilePath)
+	defer testutil.CleanupPath(configFilePath)
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
@@ -216,6 +216,26 @@ func TestSetAlias(t *testing.T) {
 				DefaultAccount: config.Context{AddressOrAlias: ""},
 			},
 			"ddd",
+			"",
+		},
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"eee": "",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			},
+			"",
+			"",
+		},
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"": "io1cjh35tq9k8fu0gqcsat4px7yr8trhddddddddd",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			},
+			"ddd",
 			"io1cjh35tq9k8fu0gqcsat4px7yr8trhddddddddd",
 		},
 	}
@@ -223,13 +243,20 @@ func TestSetAlias(t *testing.T) {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
-	defer testutil.CleanupPath(t, testPathd)
+	defer testutil.CleanupPath(testPathd)
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
 		c := NewClient(test.cfg, configFilePath)
 		r.NoError(c.SetAlias(test.alias, test.addr))
 		cfgload := loadTempConfig(t, configFilePath)
+		count := 0
+		for _, v := range cfgload.Aliases {
+			if v == test.addr {
+				count++
+			}
+		}
+		r.Equal(1, count)
 		r.Equal(test.addr, cfgload.Aliases[test.alias])
 		r.Equal(test.cfg.Endpoint, cfgload.Endpoint)
 		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
@@ -282,7 +309,7 @@ func TestDeleteAlias(t *testing.T) {
 	r := require.New(t)
 	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
 	r.NoError(err)
-	defer testutil.CleanupPath(t, testPathd)
+	defer testutil.CleanupPath(testPathd)
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
