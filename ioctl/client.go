@@ -240,10 +240,10 @@ func (c *client) AliasMap() map[string]string {
 }
 
 func (c *client) SetAlias(alias string, addr string) error {
-	aliases := c.AliasMap()
-	for aliases[addr] != "" {
-		delete(c.cfg.Aliases, aliases[addr])
-		aliases = c.AliasMap()
+	for k, v := range c.cfg.Aliases {
+		if v == addr {
+			delete(c.cfg.Aliases, k)
+		}
 	}
 	c.cfg.Aliases[alias] = addr
 	return c.writeAlias()

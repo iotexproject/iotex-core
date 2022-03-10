@@ -216,6 +216,26 @@ func TestSetAlias(t *testing.T) {
 				DefaultAccount: config.Context{AddressOrAlias: ""},
 			},
 			"ddd",
+			"",
+		},
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"eee": "",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			},
+			"",
+			"",
+		},
+		{
+			config.Config{
+				Aliases: map[string]string{
+					"": "io1cjh35tq9k8fu0gqcsat4px7yr8trhddddddddd",
+				},
+				DefaultAccount: config.Context{AddressOrAlias: ""},
+			},
+			"ddd",
 			"io1cjh35tq9k8fu0gqcsat4px7yr8trhddddddddd",
 		},
 	}
@@ -230,6 +250,13 @@ func TestSetAlias(t *testing.T) {
 		c := NewClient(test.cfg, configFilePath)
 		r.NoError(c.SetAlias(test.alias, test.addr))
 		cfgload := loadTempConfig(t, configFilePath)
+		count := 0
+		for _, v := range cfgload.Aliases {
+			if v == test.addr {
+				count++
+			}
+		}
+		r.Equal(1, count)
 		r.Equal(test.addr, cfgload.Aliases[test.alias])
 		r.Equal(test.cfg.Endpoint, cfgload.Endpoint)
 		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
