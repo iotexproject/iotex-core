@@ -11,12 +11,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
 func TestNewAccountCreateAdd(t *testing.T) {
@@ -24,7 +24,6 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().PrintInfo(gomock.Any()).Times(7)
 	client.EXPECT().AliasMap().Return(map[string]string{
 		"aaa": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
