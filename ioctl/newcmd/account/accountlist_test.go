@@ -42,7 +42,9 @@ func TestNewAccountList(t *testing.T) {
 		_, _ = ks.NewAccount("test")
 		_, _ = ks.NewAccount("test2")
 
-		client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks)
+		client.EXPECT().NewKeyStore().Return(ks)
+		client.EXPECT().PrintInfo(gomock.Any())
+
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(t, err)
@@ -50,7 +52,7 @@ func TestNewAccountList(t *testing.T) {
 
 	t.Run("When NewAccountList returns error", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true)
-		config.ReadConfig.Wallet = ""
+		client.EXPECT().Config().Return(config.Config{}).Times(1)
 
 		cmd := NewAccountList(client)
 		_, err := util.ExecuteCmd(cmd)

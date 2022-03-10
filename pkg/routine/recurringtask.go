@@ -24,6 +24,7 @@ type RecurringTaskOption interface {
 
 // RecurringTask represents a recurring task
 type RecurringTask struct {
+	lifecycle.Readiness
 	t        Task
 	interval time.Duration
 	ticker   *clock.Ticker
@@ -62,12 +63,15 @@ func (t *RecurringTask) Start(_ context.Context) error {
 	}()
 	// ensure the goroutine has been running
 	<-ready
-	return nil
+	return t.TurnOn()
 }
 
 // Stop stops the timer
 func (t *RecurringTask) Stop(_ context.Context) error {
 	// prevent stop is called before start.
+	if err := t.TurnOff(); err != nil {
+		return err
+	}
 	if t.ticker != nil {
 		t.ticker.Stop()
 	}

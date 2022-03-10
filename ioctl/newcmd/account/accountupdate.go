@@ -10,15 +10,14 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -38,7 +37,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(updateCmdShorts)
 	short, _ := client.SelectTranslation(updateCmdUses)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.RangeArgs(0, 1),
@@ -49,32 +48,32 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				arg = args[0]
 			}
 
-			acc, err := client.GetAddress(arg)
+			acc, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
-				return output.NewError(output.AddressError, "", err)
+				return err
 			}
 			addr, err := address.FromString(acc)
 			if err != nil {
-				return output.NewError(output.ConvertError, "failed to convert string into addr", err)
+				return errors.Wrap(err, "failed to convert string into addr")
 			}
 
 			if client.IsCryptoSm2() {
 				// find the pem file and update
-				filePath, err := findSm2PemFile(addr)
+				filePath, err := findSm2PemFile(client, addr)
 				if err != nil {
-					return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
+					return errors.Wrapf(err, "crypto file of account #%s not found", addr)
 				}
 				if err = readSecretAndUpdate(client, acc,
 					func(currentPassword string) error {
 						_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
 						if err != nil {
-							return output.NewError(output.CryptoError, "error occurs when checking current password", err)
+							return errors.Wrap(err, "error occurs when checking current password")
 						}
 						return nil
 					},
 					func(currentPassword, newPassword string) error {
 						if err := crypto.UpdatePrivateKeyPasswordToPem(filePath, currentPassword, newPassword); err != nil {
-							return output.NewError(output.KeystoreError, "failed to update pem file", err)
+							return errors.Wrap(err, "failed to update pem file")
 						}
 						return nil
 					},
@@ -83,20 +82,20 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				}
 			} else {
 				// find the keystore and update
-				ks := client.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
 						if err = readSecretAndUpdate(client, acc,
 							func(currentPassword string) error {
 								_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 								if err != nil {
-									return output.NewError(output.KeystoreError, "error occurs when checking current password", err)
+									return errors.Wrap(err, "error occurs when checking current password")
 								}
 								return nil
 							},
 							func(currentPassword, newPassword string) error {
 								if err := ks.Update(v, currentPassword, newPassword); err != nil {
-									return output.NewError(output.KeystoreError, "failed to update keystore", err)
+									return errors.Wrap(err, "failed to update keystore")
 								}
 								return nil
 							},
@@ -106,36 +105,35 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 					}
 				}
 			}
-			output.PrintResult(fmt.Sprintf("Account #%s has been updated.", acc))
+			client.PrintInfo(fmt.Sprintf("Account #%s has been updated.", acc))
 			return nil
 		},
 	}
-	return cmd
 }
 
 func readSecretAndUpdate(client ioctl.Client, acc string,
 	checkPwdFunc func(currentPassword string) error,
 	updatePwdFunc func(currentPassword, newPassword string) error) error {
-	output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", acc))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter current password\n", acc))
 	currentPassword, err := client.ReadSecret()
 	if err != nil {
-		return output.NewError(output.InputError, "failed to get current password", err)
+		return errors.Wrap(err, "failed to get current password")
 	}
 	if err = checkPwdFunc(currentPassword); err != nil {
 		return err
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", acc))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter new password\n", acc))
 	newPassword, err := client.ReadSecret()
 	if err != nil {
-		return output.NewError(output.InputError, "failed to get new password", err)
+		return errors.Wrap(err, "failed to get new password")
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", acc))
+	client.PrintInfo(fmt.Sprintf("#%s: Enter new password again\n", acc))
 	newPasswordAgain, err := client.ReadSecret()
 	if err != nil {
-		return output.NewError(output.InputError, "failed to get new password", err)
+		return errors.Wrap(err, "failed to get new password")
 	}
 	if newPassword != newPasswordAgain {
-		return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		return ErrPasswdNotMatch
 	}
 	return updatePwdFunc(currentPassword, newPassword)
 }

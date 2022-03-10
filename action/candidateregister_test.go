@@ -126,3 +126,23 @@ func TestCandidateRegister(t *testing.T) {
 	}
 
 }
+
+func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	test := candidateRegisterTestParams[0]
+	stake, err := NewCandidateRegister(test.Nonce, test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewCandidateRegisterFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(test.Name, stake.Name())
+	require.Equal(test.OperatorAddrStr, stake.OperatorAddress().String())
+	require.Equal(test.RewardAddrStr, stake.RewardAddress().String())
+	require.Equal(test.OwnerAddrStr, stake.OwnerAddress().String())
+	require.Equal(test.AmountStr, stake.Amount().String())
+	require.Equal(test.Duration, stake.Duration())
+	require.Equal(test.AutoStake, stake.AutoStake())
+	require.Equal(test.Payload, stake.Payload())
+}

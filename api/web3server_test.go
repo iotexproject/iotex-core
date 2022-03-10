@@ -14,11 +14,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/util"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -77,7 +83,10 @@ func TestGetWeb3Reqs(t *testing.T) {
 
 func TestServeHTTP(t *testing.T) {
 	require := require.New(t)
-	svr := &Web3Server{}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	svr := NewWeb3Server(core, 15014, "", 10)
 
 	// wrong http method
 	request1, _ := http.NewRequest(http.MethodGet, "http://url.com", nil)
@@ -121,6 +130,7 @@ func TestServeHTTP(t *testing.T) {
 
 	// web3 req without params
 	request7, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
+	core.EXPECT().ServerMeta().Return("mock str1", "mock str2", "mock str3", "mock str4", "mock str5")
 	response7 := getServerResp(svr, request7)
 	bodyBytes7, _ := io.ReadAll(response7.Body)
 	require.Contains(string(bodyBytes7), "result")
@@ -129,22 +139,30 @@ func TestServeHTTP(t *testing.T) {
 func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {
 	req.Header.Set("Content-Type", contentType)
 	resp := httptest.NewRecorder()
+
 	svr.ServeHTTP(resp, req)
 	return resp
 }
 
 func TestGasPrice(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
-	defer cleanCallback()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	web3svr := NewWeb3Server(core, 15014, "", 10)
+	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
+	ret, err := web3svr.gasPrice()
+	require.NoError(err)
+	require.Equal("0x1", ret.(string))
 
-	ret, _ := svr.web3Server.gasPrice()
-	require.Equal(uint64ToHex(1000000000000), ret)
+	core.EXPECT().SuggestGasPrice().Return(uint64(0), errors.New("mock gas price error"))
+	_, err = web3svr.gasPrice()
+	require.Equal("mock gas price error", err.Error())
 }
 
 func TestGetChainID(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.getChainID()
@@ -153,7 +171,7 @@ func TestGetChainID(t *testing.T) {
 
 func TestGetBlockNumber(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.getBlockNumber()
@@ -162,7 +180,7 @@ func TestGetBlockNumber(t *testing.T) {
 
 func TestGetBlockByNumber(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []struct {
@@ -191,18 +209,18 @@ func TestGetBlockByNumber(t *testing.T) {
 
 func TestGetBalance(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1}
 	ret, _ := svr.web3Server.getBalance(testData)
-	ans, _ := big.NewInt(0).SetString("9999999999999999999999999991", 10)
+	ans, _ := new(big.Int).SetString("9999999999999999999999999991", 10)
 	require.Equal("0x"+fmt.Sprintf("%x", ans), ret)
 }
 
 func TestGetTransactionCount(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []struct {
@@ -223,7 +241,7 @@ func TestGetTransactionCount(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []struct {
@@ -264,12 +282,12 @@ func TestCall(t *testing.T) {
 
 func TestEstimateGas(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(svr, identityset.PrivateKey(13), 1, svr.core.bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(0).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(28).String())
@@ -327,7 +345,7 @@ func TestEstimateGas(t *testing.T) {
 
 func TestSendRawTransaction(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []interface{}{"f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"}
@@ -337,12 +355,12 @@ func TestSendRawTransaction(t *testing.T) {
 
 func TestGetCode(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(svr, identityset.PrivateKey(13), 1, svr.core.bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 
 	contractAddr, _ := ioAddrToEthAddr(contract)
 	testData := []interface{}{contractAddr, 1}
@@ -352,7 +370,7 @@ func TestGetCode(t *testing.T) {
 
 func TestGetNodeInfo(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	_, err := svr.web3Server.getNodeInfo()
@@ -361,10 +379,11 @@ func TestGetNodeInfo(t *testing.T) {
 
 func TestGetBlockTransactionCountByHash(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	header, _ := svr.core.bc.BlockHeaderByHeight(1)
+	header, err := bc.BlockHeaderByHeight(1)
+	require.NoError(err)
 	blkHash := header.HashBlock()
 	testData := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), 1}
 	ret, err := svr.web3Server.getBlockTransactionCountByHash(testData)
@@ -374,10 +393,10 @@ func TestGetBlockTransactionCountByHash(t *testing.T) {
 
 func TestGetBlockByHash(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	header, _ := svr.core.bc.BlockHeaderByHeight(1)
+	header, _ := bc.BlockHeaderByHeight(1)
 	blkHash := header.HashBlock()
 
 	testData := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), false}
@@ -395,7 +414,7 @@ func TestGetBlockByHash(t *testing.T) {
 
 func TestGetTransactionByHash(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []interface{}{"0x" + hex.EncodeToString(transferHash1[:]), false}
@@ -411,7 +430,7 @@ func TestGetTransactionByHash(t *testing.T) {
 
 func TestGetLogs(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []struct {
@@ -439,18 +458,21 @@ func TestGetLogs(t *testing.T) {
 
 func TestGetTransactionReceipt(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []interface{}{"0x" + hex.EncodeToString(transferHash1[:]), 1}
 	ret, err := svr.web3Server.getTransactionReceipt(testData)
 	require.NoError(err)
-	ans := ret.(receiptObject)
+	ans, ok := ret.(receiptObject)
+	require.True(ok)
 	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
 	require.Equal(ans.From, fromAddr)
 	require.Equal(*ans.To, toAddr)
+	require.Nil(nil, ans.ContractAddress)
+	require.Equal(uint64ToHex(10000), ans.GasUsed)
 
 	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
 	ret, err = svr.web3Server.getTransactionReceipt(testData2)
@@ -462,9 +484,9 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	config.SetEVMNetworkID(1)
-	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 
 	testData := []interface{}{uint64ToHex(1), 1}
@@ -475,10 +497,10 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	header, _ := svr.core.bc.BlockHeaderByHeight(1)
+	header, _ := bc.BlockHeaderByHeight(1)
 	blkHash := header.HashBlock()
 
 	testData := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x0"}
@@ -505,7 +527,7 @@ func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := []interface{}{"0x1", "0x0"}
@@ -532,7 +554,7 @@ func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
 
 func TestNewfilter(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	testData := &filterObject{FromBlock: "0x1"}
@@ -543,7 +565,7 @@ func TestNewfilter(t *testing.T) {
 
 func TestNewBlockFilter(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	ret, err := svr.web3Server.newBlockFilter()
@@ -553,7 +575,7 @@ func TestNewBlockFilter(t *testing.T) {
 
 func TestGetFilterChanges(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	// filter
@@ -580,7 +602,7 @@ func TestGetFilterChanges(t *testing.T) {
 
 func TestGetFilterLogs(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	filterReq := &filterObject{FromBlock: "0x1"}
@@ -609,12 +631,12 @@ func TestLocalAPICache(t *testing.T) {
 
 func TestGetStorageAt(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
-	contract, _ := deployContractV2(svr, identityset.PrivateKey(13), 1, svr.core.bc.TipHeight(), contractCode)
+	contract, _ := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 
 	contractAddr, _ := ioAddrToEthAddr(contract)
 	testData := []interface{}{contractAddr, "0x0"}
@@ -635,30 +657,29 @@ func TestGetStorageAt(t *testing.T) {
 
 func TestGetNetworkID(t *testing.T) {
 	require := require.New(t)
-	svr, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
 	res, _ := svr.web3Server.getNetworkID()
 	require.Equal(fmt.Sprintf("%d", _evmNetworkID), res)
 }
 
-func setupTestServer(t *testing.T) (*ServerV2, func()) {
+func setupTestServer(t *testing.T) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig(t)
 	config.SetEVMNetworkID(_evmNetworkID)
-	svr, bfIndexFile, _ := createServerV2(cfg, false)
-	return svr,
-		func() {
-			testutil.CleanupPath(t, bfIndexFile)
-		}
+	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2(cfg, false)
+	return svr, bc, dao, actPool, func() {
+		testutil.CleanupPath(bfIndexFile)
+	}
 }
 
 func TestEthAccounts(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	config.SetEVMNetworkID(1)
-	svr, bfIndexFile, _ := createServerV2(cfg, false)
+	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
-		testutil.CleanupPath(t, bfIndexFile)
+		testutil.CleanupPath(bfIndexFile)
 	}()
 	res, _ := svr.web3Server.ethAccounts()
 	require.Equal(0, len(res.([]string)))

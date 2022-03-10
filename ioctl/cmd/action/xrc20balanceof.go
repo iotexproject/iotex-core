@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
@@ -58,7 +59,10 @@ func balanceOf(arg string) error {
 	if err != nil {
 		return output.NewError(0, "failed to read contract", err)
 	}
-	decimal, _ := new(big.Int).SetString(result, 16)
+	decimal, ok := new(big.Int).SetString(result, 16)
+	if !ok {
+		return errors.New("failed to set contract balance")
+	}
 	if result == "" {
 		result = "0"
 	}

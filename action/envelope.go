@@ -139,8 +139,15 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
-	elp.gasPrice = &big.Int{}
-	elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
+	if pbAct.GetGasPrice() == "" {
+		elp.gasPrice = big.NewInt(0)
+	} else {
+		gp, ok := new(big.Int).SetString(pbAct.GetGasPrice(), 10)
+		if !ok {
+			return errors.Errorf("invalid gas prcie %s", pbAct.GetGasPrice())
+		}
+		elp.gasPrice = gp
+	}
 
 	switch {
 	case pbAct.GetTransfer() != nil:

@@ -200,7 +200,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					}
 				}
 				for rank, bp := range response.BlockProducersInfo {
-					votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
+					votes, ok := new(big.Int).SetString(bp.Votes, 10)
 					if !ok {
 						return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
 					}

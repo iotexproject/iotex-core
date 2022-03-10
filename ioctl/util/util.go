@@ -40,10 +40,10 @@ const (
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
 func ExecuteCmd(cmd *cobra.Command, args ...string) (string, error) {
 	buf := new(bytes.Buffer)
-	cmd.SetOutput(buf)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
 	cmd.SetArgs(args)
-	_, err := cmd.ExecuteC()
-
+	err := cmd.Execute()
 	return buf.String(), err
 }
 
@@ -74,7 +74,7 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	}
 	zeroString := strings.Repeat("0", numDecimals)
 	amountStrings[0] += zeroString
-	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
+	amountRau, ok := new(big.Int).SetString(amountStrings[0], 10)
 	if !ok {
 		return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}

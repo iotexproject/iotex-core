@@ -7,16 +7,14 @@
 package account
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -31,22 +29,23 @@ var (
 )
 
 // NewAccountList represents the account list command
-func NewAccountList(c ioctl.Client) *cobra.Command {
-	use, _ := c.SelectTranslation(listCmdUses)
-	short, _ := c.SelectTranslation(listCmdShorts)
-	al := &cobra.Command{
+func NewAccountList(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(listCmdUses)
+	short, _ := client.SelectTranslation(listCmdShorts)
+
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			listmessage := listMessage{}
-			aliases := c.AliasMap()
+			aliases := client.AliasMap()
 
-			if c.IsCryptoSm2() {
-				sm2Accounts, err := listSm2Account()
+			if client.IsCryptoSm2() {
+				sm2Accounts, err := listSm2Account(client)
 				if err != nil {
-					return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)
+					return errors.Wrap(err, "failed to get sm2 accounts")
 				}
 				for _, addr := range sm2Accounts {
 					listmessage.Accounts = append(listmessage.Accounts, account{
@@ -55,12 +54,11 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 					})
 				}
 			} else {
-				ks := c.NewKeyStore(config.ReadConfig.Wallet,
-					keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					addr, err := address.FromBytes(v.Address.Bytes())
 					if err != nil {
-						return output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+						return errors.Wrap(err, "failed to convert bytes into address")
 					}
 					listmessage.Accounts = append(listmessage.Accounts, account{
 						Address: addr.String(),
@@ -68,13 +66,10 @@ func NewAccountList(c ioctl.Client) *cobra.Command {
 					})
 				}
 			}
-
-			fmt.Println(listmessage.String())
-
+			client.PrintInfo(listmessage.String())
 			return nil
 		},
 	}
-	return al
 }
 
 type listMessage struct {
@@ -87,17 +82,13 @@ type account struct {
 }
 
 func (m *listMessage) String() string {
-	if output.Format == "" {
-		lines := make([]string, 0)
-		for _, account := range m.Accounts {
-			line := account.Address
-			if account.Alias != "" {
-				line += " - " + account.Alias
-			}
-			lines = append(lines, line)
+	lines := make([]string, 0)
+	for _, account := range m.Accounts {
+		line := account.Address
+		if account.Alias != "" {
+			line += " - " + account.Alias
 		}
-
-		return strings.Join(lines, "\n")
+		lines = append(lines, line)
 	}
-	return output.FormatString(output.Result, m)
+	return strings.Join(lines, "\n")
 }

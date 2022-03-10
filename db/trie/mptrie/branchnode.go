@@ -14,11 +14,10 @@ import (
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
 
-const radix = 256
-
 type branchNode struct {
 	cacheNode
 	children map[byte]node
+	indices  *SortedList
 	isRoot   bool
 }
 
@@ -35,9 +34,9 @@ func newBranchNode(
 			dirty: true,
 		},
 		children: children,
+		indices:  NewSortedList(children),
 	}
 	bnode.cacheNode.serializable = bnode
-
 	if len(bnode.children) != 0 {
 		if !mpt.async {
 			return bnode.store()
@@ -52,23 +51,26 @@ func newEmptyRootBranchNode(mpt *merklePatriciaTrie) *branchNode {
 			mpt: mpt,
 		},
 		children: make(map[byte]node),
+		indices:  NewSortedList(nil),
 		isRoot:   true,
 	}
 	bnode.cacheNode.serializable = bnode
-
 	return bnode
 }
 
-func newBranchNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.BranchPb) *branchNode {
+func newBranchNodeFromProtoPb(pb *triepb.BranchPb, mpt *merklePatriciaTrie, hashVal []byte) *branchNode {
 	bnode := &branchNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:     mpt,
+			hashVal: hashVal,
+			dirty:   false,
 		},
-		children: make(map[byte]node),
+		children: make(map[byte]node, len(pb.Branches)),
 	}
 	for _, n := range pb.Branches {
 		bnode.children[byte(n.Index)] = newHashNode(mpt, n.Path)
 	}
+	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode
 	return bnode
 }
@@ -78,19 +80,14 @@ func (b *branchNode) MarkAsRoot() {
 }
 
 func (b *branchNode) Children() []node {
-	trieMtc.WithLabelValues("branchNode", "children").Inc()
-	children := []node{}
-	for index := 0; index < radix; index++ {
-		if c, ok := b.children[byte(index)]; ok {
-			children = append(children, c)
-		}
+	ret := make([]node, 0, len(b.children))
+	for _, idx := range b.indices.List() {
+		ret = append(ret, b.children[idx])
 	}
-
-	return children
+	return ret
 }
 
 func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
-	trieMtc.WithLabelValues("branchNode", "delete").Inc()
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	if err != nil {
@@ -144,7 +141,6 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 }
 
 func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
-	trieMtc.WithLabelValues("branchNode", "upsert").Inc()
 	var newChild node
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
@@ -162,7 +158,6 @@ func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, erro
 }
 
 func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
-	trieMtc.WithLabelValues("branchNode", "search").Inc()
 	child, err := b.child(key[offset])
 	if err != nil {
 		return nil, err
@@ -171,25 +166,23 @@ func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
 }
 
 func (b *branchNode) proto(flush bool) (proto.Message, error) {
-	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
 	nodes := []*triepb.BranchNodePb{}
-	for index := 0; index < radix; index++ {
-		if c, ok := b.children[byte(index)]; ok {
-			if flush {
-				if sn, ok := c.(serializable); ok {
-					var err error
-					c, err = sn.store()
-					if err != nil {
-						return nil, err
-					}
+	for _, idx := range b.indices.List() {
+		c := b.children[idx]
+		if flush {
+			if sn, ok := c.(serializable); ok {
+				var err error
+				c, err = sn.store()
+				if err != nil {
+					return nil, err
 				}
 			}
-			h, err := c.Hash()
-			if err != nil {
-				return nil, err
-			}
-			nodes = append(nodes, &triepb.BranchNodePb{Index: uint32(index), Path: h})
 		}
+		h, err := c.Hash()
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, &triepb.BranchNodePb{Index: uint32(idx), Path: h})
 	}
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Branch{
@@ -203,16 +196,16 @@ func (b *branchNode) child(key byte) (node, error) {
 	if !ok {
 		return nil, trie.ErrNotExist
 	}
-
 	return c, nil
 }
 
 func (b *branchNode) Flush() error {
-	for index := 0; index < radix; index++ {
-		if c, ok := b.children[byte(index)]; ok {
-			if err := c.Flush(); err != nil {
-				return err
-			}
+	if !b.dirty {
+		return nil
+	}
+	for _, idx := range b.indices.List() {
+		if err := b.children[idx].Flush(); err != nil {
+			return err
 		}
 	}
 	_, err := b.store()
@@ -226,7 +219,11 @@ func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, err
 	// update branchnode with new child
 	if child == nil {
 		delete(b.children, key)
+		b.indices.Delete(key)
 	} else {
+		if _, exist := b.children[key]; !exist {
+			b.indices.Insert(key)
+		}
 		b.children[key] = child
 	}
 	b.dirty = true

@@ -34,16 +34,17 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 	const pwd = "test"
 	acc, err := ks.NewAccount(pwd)
 	require.NoError(err)
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(3)
+	client.EXPECT().PrintInfo(gomock.Any()).AnyTimes()
 
 	t.Run("invalid_current_password", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
@@ -51,7 +52,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	})
 
 	t.Run("new_password_not_match", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
@@ -61,7 +62,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
@@ -83,20 +84,15 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		require.NoError(os.RemoveAll(testAccountFolder))
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
-	client.EXPECT().NewKeyStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(ks).AnyTimes()
+	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 	const pwd = "test"
 	acc, err := ks.NewAccount(pwd)
 	require.NoError(err)
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
 
-	oldWallet := config.ReadConfig.Wallet
-	config.ReadConfig.Wallet = testAccountFolder
-	defer func() {
-		config.ReadConfig.Wallet = oldWallet
-	}()
-
-	skPemPath := sm2KeyPath(accAddr)
+	client.EXPECT().Config().Return(config.Config{Wallet: testAccountFolder}).Times(4)
+	skPemPath := sm2KeyPath(client, accAddr)
 	sk, err := crypto.GenerateKeySm2()
 	require.NoError(err)
 	k, ok := sk.EcdsaPrivateKey().(*crypto.P256sm2PrvKey)
@@ -106,9 +102,10 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		require.NoError(os.Remove(skPemPath))
 	}()
 	client.EXPECT().IsCryptoSm2().Return(true).Times(3)
+	client.EXPECT().PrintInfo(gomock.Any()).AnyTimes()
 
 	t.Run("invalid_current_password", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
@@ -116,7 +113,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	})
 
 	t.Run("new_password_not_match", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
@@ -126,7 +123,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)

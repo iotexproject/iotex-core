@@ -42,11 +42,11 @@ func (cn *cacheNode) hash(flush bool) ([]byte, error) {
 }
 
 func (cn *cacheNode) delete() error {
-	h, err := cn.hash(false)
-	if err != nil {
-		return err
-	}
 	if !cn.dirty {
+		h, err := cn.hash(false)
+		if err != nil {
+			return err
+		}
 		if err := cn.mpt.deleteNode(h); err != nil {
 			return err
 		}

@@ -58,7 +58,7 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	balance, ok := big.NewInt(0).SetString(gen.Balance, 10)
+	balance, ok := new(big.Int).SetString(gen.Balance, 10)
 	if !ok {
 		return errors.New("failed to set reward account balance")
 	}
