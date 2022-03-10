@@ -24,7 +24,8 @@ type Action interface {
 	SanityCheck() error
 }
 
-type actionPayload interface {
+// Payload is the action can be wrapped into envelope
+type Payload interface {
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
 	SetEnvelopeContext(SealedEnvelope)
@@ -34,6 +35,10 @@ type actionPayload interface {
 type hasDestination interface {
 	Destination() string
 }
+
+var (
+	errInvalidABI = errors.New("invalid abi binary data")
+)
 
 // Sign signs the action using sender's private key
 func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
@@ -127,4 +132,39 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 		return 0, ErrInsufficientFunds
 	}
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
+}
+
+// NewStakingActionFromABIBinary creates staking action from abi binary data
+func NewStakingActionFromABIBinary(data []byte) (Payload, error) {
+	if len(data) <= 4 {
+		return nil, errInvalidABI
+	}
+	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewDepositToStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewChangeCandidateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewUnstakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewWithdrawStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewRestakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewTransferStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateRegisterFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	return nil, errInvalidABI
 }

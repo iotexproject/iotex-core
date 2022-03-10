@@ -103,7 +103,7 @@ func TestEnvelope_Actions(t *testing.T) {
 	cf := DepositToRewardingFundBuilder{}
 	depositToRewardingFund := cf.SetAmount(big.NewInt(1)).Build()
 
-	tests := []actionPayload{
+	tests := []Payload{
 		putPollResult,
 		createStake,
 		depositToStake,
