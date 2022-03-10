@@ -37,6 +37,7 @@ func NewRecurringTask(t Task, i time.Duration, ops ...RecurringTaskOption) *Recu
 	rt := &RecurringTask{
 		t:        t,
 		interval: i,
+		done:     make(chan struct{}),
 		clock:    clock.New(),
 	}
 	for _, opt := range ops {
@@ -48,7 +49,6 @@ func NewRecurringTask(t Task, i time.Duration, ops ...RecurringTaskOption) *Recu
 // Start starts the timer
 func (t *RecurringTask) Start(_ context.Context) error {
 	t.ticker = t.clock.Ticker(t.interval)
-	t.done = make(chan struct{})
 	ready := make(chan struct{})
 	go func() {
 		close(ready)
@@ -75,8 +75,6 @@ func (t *RecurringTask) Stop(_ context.Context) error {
 	if t.ticker != nil {
 		t.ticker.Stop()
 	}
-	if t.done != nil {
-		close(t.done)
-	}
+	close(t.done)
 	return nil
 }
