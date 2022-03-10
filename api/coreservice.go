@@ -120,7 +120,7 @@ type (
 		// BlockMetaByHash returns blockmeta response by block hash
 		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
 		// LogsInBlock filter logs in the block x
-		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error)
+		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64, c chan []*iotextypes.Log)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
@@ -1340,8 +1340,12 @@ func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHas
 }
 
 // LogsInBlock filter logs in the block x
-func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	return core.logsInBlock(filter, blockNumber)
+func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64, c chan []*iotextypes.Log) {
+	logsInBlock, err := core.logsInBlock(filter, blockNumber)
+	if err != nil {
+		errors.New(err.Error())
+	}
+	c <- logsInBlock
 }
 
 func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
@@ -1379,25 +1383,35 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		return nil, err
 	}
 
-	// TODO: improve using goroutine
 	if paginationSize == 0 {
 		paginationSize = 1000
 	}
 	if paginationSize > 5000 {
 		paginationSize = 5000
 	}
+
+	c := make(chan []*iotextypes.Log)
 	logs := []*iotextypes.Log{}
+	if len(blockNumbers) == 0 {
+		return logs, nil
+	}
 	for _, i := range blockNumbers {
-		logsInBlock, err := core.LogsInBlock(filter, i)
-		if err != nil {
-			return nil, err
-		}
+		go core.LogsInBlock(filter, i, c)
+	}
+
+	i := 0
+	for logsInBlock := range c {
 		for _, log := range logsInBlock {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
 			}
 		}
+
+		if i == len(blockNumbers)-1 {
+			close(c)
+		}
+		i++
 	}
 	return logs, nil
 }
