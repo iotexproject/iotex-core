@@ -6,30 +6,31 @@ import (
 
 // SortedList is a data structure where elements are in ascending order
 type SortedList struct {
-	li []uint8
+	li       []uint8
+	isSorted bool // lazy-initilization
 }
 
 // NewSortedList create SortedList from keys in the children map
 func NewSortedList(children map[byte]node) *SortedList {
 	if len(children) == 0 {
 		return &SortedList{
-			li: make([]uint8, 0),
+			li:       make([]uint8, 0),
+			isSorted: true,
 		}
 	}
 	li := make([]uint8, 0, len(children))
 	for k := range children {
 		li = append(li, k)
 	}
-	sort.Slice(li, func(i, j int) bool {
-		return li[i] < li[j]
-	})
 	return &SortedList{
-		li: li,
+		li:       li,
+		isSorted: false,
 	}
 }
 
 // Insert insert key into sortedlist
 func (sl *SortedList) Insert(key uint8) {
+	sl.sortIfNeed()
 	i := sort.Search(len(sl.li), func(i int) bool {
 		return sl.li[i] >= uint8(key)
 	})
@@ -46,11 +47,13 @@ func (sl *SortedList) Insert(key uint8) {
 
 // List returns sorted indices
 func (sl *SortedList) List() []uint8 {
+	sl.sortIfNeed()
 	return sl.li
 }
 
 // Delete deletes key in the sortedlist
 func (sl *SortedList) Delete(key uint8) {
+	sl.sortIfNeed()
 	i := sort.Search(len(sl.li), func(i int) bool {
 		return sl.li[i] >= key
 	})
@@ -59,5 +62,14 @@ func (sl *SortedList) Delete(key uint8) {
 			copy(sl.li[i:], sl.li[i+1:])
 		}
 		sl.li = sl.li[:len(sl.li)-1]
+	}
+}
+
+func (sl *SortedList) sortIfNeed() {
+	if !sl.isSorted {
+		sort.Slice(sl.li, func(i, j int) bool {
+			return sl.li[i] < sl.li[j]
+		})
+		sl.isSorted = true
 	}
 }
