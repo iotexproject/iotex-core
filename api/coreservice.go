@@ -111,8 +111,6 @@ type (
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
-		// EstimateGasForNonExecution  estimates action gas except execution
-		EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
 		// BlockMetas returns blockmetas response within the height range
@@ -1416,34 +1414,6 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 		end = core.bc.TipHeight()
 	}
 	return start, end, nil
-}
-
-// EstimateGasForNonExecution estimates action gas except execution
-func (core *coreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
-	switch act := actType.(type) {
-	case *action.Transfer:
-		return act.IntrinsicGas()
-	case *action.CreateStake:
-		return act.IntrinsicGas()
-	case *action.DepositToStake:
-		return act.IntrinsicGas()
-	case *action.ChangeCandidate:
-		return act.IntrinsicGas()
-	case *action.TransferStake:
-		return act.IntrinsicGas()
-	case *action.Unstake:
-		return act.IntrinsicGas()
-	case *action.WithdrawStake:
-		return act.IntrinsicGas()
-	case *action.Restake:
-		return act.IntrinsicGas()
-	case *action.CandidateRegister:
-		return act.IntrinsicGas()
-	case *action.CandidateUpdate:
-		return act.IntrinsicGas()
-	default:
-		return 0, errors.Errorf("invalid action type %T not supported", act)
-	}
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action

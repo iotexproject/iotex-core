@@ -33,7 +33,7 @@ type (
 		nonce    uint64
 		gasLimit uint64
 		gasPrice *big.Int
-		payload  actionPayload
+		payload  Action
 	}
 )
 

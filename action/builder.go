@@ -118,7 +118,7 @@ func (b *EnvelopeBuilder) SetGasPriceByBytes(buf []byte) *EnvelopeBuilder {
 }
 
 // SetAction sets the action payload for the Envelope Builder is building.
-func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
+func (b *EnvelopeBuilder) SetAction(action Action) *EnvelopeBuilder {
 	b.elp.payload = action
 	return b
 }

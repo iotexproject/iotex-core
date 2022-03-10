@@ -294,75 +294,72 @@ func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iot
 		}
 		return &iotexapi.EstimateActionGasConsumptionResponse{Gas: ret}, nil
 	}
-	var (
-		act     action.Action
-		payload []byte
-	)
+	var act action.Action
 	switch {
 	case in.GetTransfer() != nil:
 		tmpAct := &action.Transfer{}
 		if err := tmpAct.LoadProto(in.GetTransfer()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeCreate() != nil:
 		tmpAct := &action.CreateStake{}
 		if err := tmpAct.LoadProto(in.GetStakeCreate()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeUnstake() != nil:
 		tmpAct := &action.Unstake{}
 		if err := tmpAct.LoadProto(in.GetStakeUnstake()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeWithdraw() != nil:
 		tmpAct := &action.WithdrawStake{}
 		if err := tmpAct.LoadProto(in.GetStakeWithdraw()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeAddDeposit() != nil:
 		tmpAct := &action.DepositToStake{}
 		if err := tmpAct.LoadProto(in.GetStakeAddDeposit()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeRestake() != nil:
 		tmpAct := &action.Restake{}
 		if err := tmpAct.LoadProto(in.GetStakeRestake()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeChangeCandidate() != nil:
 		tmpAct := &action.ChangeCandidate{}
 		if err := tmpAct.LoadProto(in.GetStakeChangeCandidate()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetStakeTransferOwnership() != nil:
 		tmpAct := &action.TransferStake{}
 		if err := tmpAct.LoadProto(in.GetStakeTransferOwnership()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetCandidateRegister() != nil:
 		tmpAct := &action.CandidateRegister{}
 		if err := tmpAct.LoadProto(in.GetCandidateRegister()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, tmpAct.Payload()
+		act = tmpAct
 	case in.GetCandidateUpdate() != nil:
 		tmpAct := &action.CandidateUpdate{}
 		if err := tmpAct.LoadProto(in.GetCandidateUpdate()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		act, payload = tmpAct, []byte{}
+		act = tmpAct
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}
-	estimatedGas, err := svr.coreService.EstimateGasForNonExecution(act, payload)
+	estimatedGas, err := act.IntrinsicGas()
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

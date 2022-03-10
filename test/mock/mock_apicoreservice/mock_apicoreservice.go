@@ -285,21 +285,6 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(in interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForAction", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForAction), in)
 }
 
-// EstimateGasForNonExecution mocks base method.
-func (m *MockCoreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EstimateGasForNonExecution", actType, payload)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EstimateGasForNonExecution indicates an expected call of EstimateGasForNonExecution.
-func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(actType, payload interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForNonExecution", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForNonExecution), actType, payload)
-}
-
 // LogsInBlock mocks base method.
 func (m *MockCoreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	m.ctrl.T.Helper()

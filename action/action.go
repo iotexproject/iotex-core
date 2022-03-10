@@ -20,11 +20,6 @@ import (
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 type Action interface {
-	SetEnvelopeContext(SealedEnvelope)
-	SanityCheck() error
-}
-
-type actionPayload interface {
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
 	SetEnvelopeContext(SealedEnvelope)
