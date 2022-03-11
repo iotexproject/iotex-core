@@ -301,12 +301,12 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(in interface{}) *gom
 }
 
 // LogsInBlock mocks base method.
-func (m *MockCoreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64, c chan []*iotextypes.Log) {
+func (m *MockCoreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogsInBlock", filter, blockNumber)
 	ret0, _ := ret[0].([]*iotextypes.Log)
-	c <- ret0
-	return
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // LogsInBlock indicates an expected call of LogsInBlock.

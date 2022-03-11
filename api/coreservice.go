@@ -120,7 +120,7 @@ type (
 		// BlockMetaByHash returns blockmeta response by block hash
 		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
 		// LogsInBlock filter logs in the block x
-		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64, c chan []*iotextypes.Log)
+		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
@@ -156,6 +156,11 @@ type (
 		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+	}
+
+	_logsInBlock struct {
+		logs []*iotextypes.Log
+		err  error
 	}
 )
 
@@ -1340,12 +1345,8 @@ func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHas
 }
 
 // LogsInBlock filter logs in the block x
-func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64, c chan []*iotextypes.Log) {
-	logsInBlock, err := core.logsInBlock(filter, blockNumber)
-	if err != nil {
-		errors.New(err.Error())
-	}
-	c <- logsInBlock
+func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+	return core.logsInBlock(filter, blockNumber)
 }
 
 func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
@@ -1390,18 +1391,28 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		paginationSize = 5000
 	}
 
-	c := make(chan []*iotextypes.Log)
+	c := make(chan _logsInBlock)
 	logs := []*iotextypes.Log{}
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
 	for _, i := range blockNumbers {
-		go core.LogsInBlock(filter, i, c)
+		go func(blockNumber uint64) {
+			logsInBlock, err := core.LogsInBlock(filter, blockNumber)
+			ret := &_logsInBlock{
+				logsInBlock,
+				err,
+			}
+			c <- *ret
+		}(i)
 	}
 
 	i := 0
 	for logsInBlock := range c {
-		for _, log := range logsInBlock {
+		if logsInBlock.err != nil {
+			return nil, err
+		}
+		for _, log := range logsInBlock.logs {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
