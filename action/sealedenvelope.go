@@ -161,3 +161,56 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 	}
 	return nil
 }
+
+// LoadProtoWithChainID use chainID while loading protobuf
+func (sealed *SealedEnvelope) LoadProtoWithChainID(pbAct *iotextypes.Action) error {
+	if pbAct == nil {
+		return ErrNilProto
+	}
+	if sealed == nil {
+		return ErrNilAction
+	}
+	sigSize := len(pbAct.GetSignature())
+	if sigSize != 65 {
+		return errors.Errorf("invalid signature length = %d, expecting 65", sigSize)
+	}
+
+	var elp = &envelope{}
+	if err := elp.loadProtoWithChainID(pbAct.GetCore()); err != nil {
+		return err
+	}
+	// populate pubkey and signature
+	srcPub, err := crypto.BytesToPublicKey(pbAct.GetSenderPubKey())
+	if err != nil {
+		return err
+	}
+	encoding := pbAct.GetEncoding()
+	switch encoding {
+	case iotextypes.Encoding_ETHEREUM_RLP:
+		// verify action type can support RLP-encoding
+		act, ok := elp.Action().(EthCompatibleAction)
+		if !ok {
+			return ErrInvalidAct
+		}
+		tx, err := act.ToEthTx()
+		if err != nil {
+			return err
+		}
+		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
+			return err
+		}
+		sealed.evmNetworkID = config.EVMNetworkID()
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		break
+	default:
+		return errors.Errorf("unknown encoding type %v", encoding)
+	}
+
+	// clear 'sealed' and populate new value
+	sealed.Envelope = elp
+	sealed.srcPubkey = srcPub
+	sealed.signature = make([]byte, sigSize)
+	copy(sealed.signature, pbAct.GetSignature())
+	sealed.encoding = encoding
+	return nil
+}

@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"os/signal"
@@ -220,4 +221,16 @@ func ParseHdwPath(addressOrAlias string) (uint32, uint32, uint32, error) {
 // AliasIsHdwalletKey check whether to use hdwallet key
 func AliasIsHdwalletKey(addressOrAlias string) bool {
 	return strings.HasPrefix(strings.ToLower(addressOrAlias), "hdw::")
+}
+
+// IsNewfoundland returns whether the height passed NewfoundlandHeight
+func IsNewfoundland(chainID uint32, h uint64) bool {
+	var newfoundland uint64 = math.MaxUint64
+	switch chainID {
+	case 1:
+		newfoundland = 20027641
+	case 2:
+		newfoundland = 17057281
+	}
+	return h >= newfoundland
 }

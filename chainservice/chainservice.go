@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
@@ -74,7 +75,12 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	bcCtx, err := cs.chain.Context(ctx)
+	if err != nil {
+		return err
+	}
+	g := genesis.MustExtractGenesisContext(bcCtx)
+	act, err := (&action.Deserializer{}).WithChainID(g.IsToBeEnabled(cs.chain.TipHeight())).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
 	}
