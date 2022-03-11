@@ -14,12 +14,13 @@ type playNextCmd struct {
 }
 
 var (
+	// PlayNext is cobra command "playnext"
 	PlayNext = &cobra.Command{
 		Use:   "playnext",
 		Short: "play next height of block and generate pprof report",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svr, err := NewMiniServer(MiniServerConfig())
+			svr, err := newMiniServer(miniServerConfig())
 			if err != nil {
 				return err
 			}

@@ -21,7 +21,7 @@ type miniServer struct {
 	cfg config.Config
 }
 
-func NewMiniServer(cfg config.Config) (*miniServer, error) {
+func newMiniServer(cfg config.Config) (*miniServer, error) {
 	svr, err := chainservice.New(cfg, p2p.NewDummyAgent())
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (mini *miniServer) Factory() factory.Factory {
 	return mini.svr.StateFactory()
 }
 
-func MiniServerConfig() config.Config {
+func miniServerConfig() config.Config {
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -81,12 +81,12 @@ func MiniServerConfig() config.Config {
 	return cfg
 }
 
-func (svr *miniServer) checkSanity() error {
-	daoHeight, err := svr.BlockDao().Height()
+func (mini *miniServer) checkSanity() error {
+	daoHeight, err := mini.BlockDao().Height()
 	if err != nil {
 		return err
 	}
-	indexerHeight, err := svr.Factory().Height()
+	indexerHeight, err := mini.Factory().Height()
 	if err != nil {
 		return err
 	}

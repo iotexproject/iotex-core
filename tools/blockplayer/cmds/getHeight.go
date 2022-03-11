@@ -6,12 +6,13 @@ import (
 )
 
 var (
+	// GetHeight is cobra command "getheight"
 	GetHeight = &cobra.Command{
 		Use:   "getheight",
 		Short: "Show the tipheight of stateDB and chainDB",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svr, err := NewMiniServer(MiniServerConfig())
+			svr, err := newMiniServer(miniServerConfig())
 			if err != nil {
 				return err
 			}

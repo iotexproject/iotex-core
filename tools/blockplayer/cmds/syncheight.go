@@ -21,6 +21,7 @@ type syncheightCmd struct {
 }
 
 var (
+	// SyncHeight is cobra command "syncheight"
 	SyncHeight = &cobra.Command{
 		Use:   "syncheight",
 		Short: "Sync stateDB height to height x",
@@ -30,7 +31,7 @@ var (
 			if err != nil {
 				return err
 			}
-			svr, err := NewMiniServer(MiniServerConfig())
+			svr, err := newMiniServer(miniServerConfig())
 			if err != nil {
 				return err
 			}
