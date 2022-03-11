@@ -20,10 +20,7 @@ import (
 )
 
 type (
-	// stat cpu infos
-	// load1 respect avrage loads of tasks during past 1 minute
-	// load5 respect avrage loads of tasks during past 5 minute
-	// load15 respect avrage loads of tasks during past 15 minute
+	// CpuInfo stat cpu infos
 	CpuInfo struct {
 		PhysicalCount int             `json:"physical_count"`
 		LogicalCount  int             `json:"logical_count"`
@@ -33,12 +30,12 @@ type (
 		Times         []cpu.TimesStat `json:"running_times"`
 		Infos         []cpu.InfoStat  `json:"infos"`
 	}
-	// stat memory infos
+	// MemInfo stat memory infos
 	MemInfo struct {
 		Virtual *mem.VirtualMemoryStat `json:"virtaul"`
 		Swap    *mem.SwapMemoryStat    `json:"swap"`
 	}
-	// stat disk infos
+	// DiskInfo stat disk infos
 	DiskInfo struct {
 		IOCounters map[string]disk.IOCountersStat `json:"io_counters"`
 		Partitions []disk.PartitionStat           `json:"partitions"`
@@ -92,6 +89,9 @@ func cpuInfo() (interface{}, error) {
 	}
 
 	// cpu load stats
+	// load1 respect avrage loads of tasks during past 1 minute
+	// load5 respect avrage loads of tasks during past 5 minute
+	// load15 respect avrage loads of tasks during past 15 minute
 	loads, err := load.Avg()
 	if err != nil {
 		return nil, err
