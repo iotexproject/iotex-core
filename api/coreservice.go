@@ -16,13 +16,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -678,7 +678,7 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 			Candidate: b.Candidate(),
 			Amount:    b.Amount().Bytes(),
 			StartTime: startTime,
-			Duration:  ptypes.DurationProto(b.Duration()),
+			Duration:  durationpb.New(b.Duration()),
 			Decay:     b.Decay(),
 		}
 	}
