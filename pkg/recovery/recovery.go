@@ -20,8 +20,8 @@ import (
 )
 
 type (
-	// CpuInfo stat cpu infos
-	CpuInfo struct {
+	// CPUInfo stat cpu infos
+	CPUInfo struct {
 		PhysicalCount int             `json:"physical_count"`
 		LogicalCount  int             `json:"logical_count"`
 		TotalPercent  []float64       `json:"total_use_percent"`
@@ -114,7 +114,7 @@ func cpuInfo() (interface{}, error) {
 		return nil, err
 	}
 
-	return &CpuInfo{
+	return &CPUInfo{
 		PhysicalCount: physicalCnt,
 		LogicalCount:  logicalCnt,
 		TotalPercent:  totalPercent,
