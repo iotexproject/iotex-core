@@ -94,7 +94,7 @@ func benchTrieUpsert(b *testing.B, e binary.ByteOrder) {
 	b.ReportAllocs()
 }
 
-func BenchmarkTrie_UpertWithAsync(b *testing.B) {
+func BenchmarkTrie_UpsertWithAsync(b *testing.B) {
 	tr, _, callback := initTrie(2)
 	defer callback()
 
