@@ -1398,7 +1398,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 	for _, i := range blockNumbers {
 		go func(blockNumber uint64) {
-			logsInBlock, err := core.LogsInBlock(filter, blockNumber)
+			logsInBlock, err := core.logsInBlock(filter, blockNumber)
 			ret := &_logsInBlock{
 				logsInBlock,
 				err,
