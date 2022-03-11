@@ -6,12 +6,15 @@ import (
 )
 
 var (
-	// This Var is useless currently
 	GetHeight = &cobra.Command{
 		Use:   "getheight",
 		Short: "Show the tipheight of stateDB and chainDB",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svr := NewMiniServer(loadConfig())
+			svr, err := NewMiniServer(MiniServerConfig())
+			if err != nil {
+				return err
+			}
 			daoHeight, err := svr.BlockDao().Height()
 			if err != nil {
 				return err

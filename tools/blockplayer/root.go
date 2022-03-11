@@ -11,14 +11,12 @@ import (
 
 	cmd "github.com/iotexproject/iotex-core/tools/blockplayer/cmds"
 	"github.com/spf13/cobra"
-	// cmd "github.com/iotexproject/iotex-core/tools/blockplayer/cmds"
 )
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "blockplayer",
 	Short: "blockplayer is a command-line interface for replay all txs in the block",
-	// Long:  common.TranslateInLang(rootCmdLongs),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -31,7 +29,6 @@ func Execute() {
 func init() {
 	RootCmd.AddCommand(cmd.SyncHeight)
 	RootCmd.AddCommand(cmd.GetHeight)
-	RootCmd.AddCommand(cmd.ReplayNext)
-
+	RootCmd.AddCommand(cmd.PlayNext)
 	RootCmd.HelpFunc()
 }

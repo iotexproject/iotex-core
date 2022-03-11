@@ -102,8 +102,12 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	// return dao.checkIndexers(ctx)
-	return nil
+	if testCtx, ok := protocol.GetTestCtx(ctx); ok {
+		if testCtx.DisableBlockDaoSync {
+			return nil
+		}
+	}
+	return dao.checkIndexers(ctx)
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {

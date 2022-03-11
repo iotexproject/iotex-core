@@ -16,8 +16,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type syncheightCmd struct {
+	svr *miniServer
+}
+
 var (
-	// This Var is useless currently
 	SyncHeight = &cobra.Command{
 		Use:   "syncheight",
 		Short: "Sync stateDB height to height x",
@@ -25,32 +28,37 @@ var (
 		RunE: func(cmd *cobra.Command, args []string) error {
 			newHeight, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
-				panic(err)
+				return err
 			}
-			svr := NewMiniServer(loadConfig())
-			dao := svr.BlockDao()
-			sf := svr.Factory()
-			initCtx := svr.Context()
-
-			if err := checkSanity(dao, sf, newHeight); err != nil {
-				panic(err)
+			svr, err := NewMiniServer(MiniServerConfig())
+			if err != nil {
+				return err
 			}
+			syncheightCmd := newSyncheightCmd(svr)
 
-			return syncToHeight(initCtx, dao, sf, newHeight)
+			if err := syncheightCmd.checkSanity(newHeight); err != nil {
+				return err
+			}
+			return syncheightCmd.syncToHeight(newHeight)
 		},
 	}
 )
 
-func checkSanity(dao blockdao.BlockDAO, indexer blockdao.BlockIndexer, newHeight uint64) error {
-	daoHeight, err := dao.Height()
-	if err != nil {
-		return err
+func newSyncheightCmd(svr *miniServer) *syncheightCmd {
+	return &syncheightCmd{
+		svr: svr,
 	}
-	indexerHeight, err := indexer.Height()
-	if err != nil {
-		return err
-	}
+}
 
+func (cmd *syncheightCmd) checkSanity(newHeight uint64) error {
+	daoHeight, err := cmd.svr.BlockDao().Height()
+	if err != nil {
+		return err
+	}
+	indexerHeight, err := cmd.svr.Factory().Height()
+	if err != nil {
+		return err
+	}
 	if newHeight > daoHeight {
 		return errors.New("calibrated Height shouldn't be larger than the height of chainDB")
 	}
@@ -60,12 +68,12 @@ func checkSanity(dao blockdao.BlockDAO, indexer blockdao.BlockIndexer, newHeight
 	return nil
 }
 
-func syncToHeight(
-	ctx context.Context,
-	dao blockdao.BlockDAO,
-	indexer blockdao.BlockIndexer,
-	newHeight uint64,
-) error {
+func (cmd *syncheightCmd) syncToHeight(newHeight uint64) error {
+	var (
+		ctx     = cmd.svr.Context()
+		dao     = cmd.svr.BlockDao()
+		indexer = cmd.svr.Factory()
+	)
 	indexerHeight, err := indexer.Height()
 	if err != nil {
 		panic(err)
