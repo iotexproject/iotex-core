@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
@@ -84,7 +84,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 			Core: &iotextypes.BlockHeaderCore{
 				Version:   version.ProtocolVersion,
 				Height:    123456789,
-				Timestamp: ptypes.TimestampNow(),
+				Timestamp: timestamppb.Now(),
 			},
 			ProducerPubkey: senderPubKey.Bytes(),
 		},

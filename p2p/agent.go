@@ -15,13 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -393,7 +393,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
-		Timestamp: ptypes.TimestampNow(),
+		Timestamp: timestamppb.Now(),
 	}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
@@ -437,7 +437,7 @@ func (p *agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
-		Timestamp: ptypes.TimestampNow(),
+		Timestamp: timestamppb.Now(),
 	}
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
