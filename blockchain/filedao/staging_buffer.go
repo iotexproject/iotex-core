@@ -35,13 +35,9 @@ func (s *stagingBuffer) Get(pos uint64) (*block.Store, error) {
 	return s.buffer[pos], nil
 }
 
-func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
+func (s *stagingBuffer) Put(pos uint64, blk *block.Store) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
-	}
-	blk := &block.Store{}
-	if err := blk.Deserialize(blkBytes); err != nil {
-		return false, err
 	}
 	s.buffer[pos] = blk
 	return pos == s.size-1, nil

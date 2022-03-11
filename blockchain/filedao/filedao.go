@@ -403,18 +403,3 @@ func CreateFileDAO(legacy bool, cfg db.Config) (FileDAO, error) {
 	fd.v2Fd = v2Fd
 	return &fd, nil
 }
-
-// createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg db.Config) error {
-	v2, err := newFileDAOv2(start, cfg)
-	if err != nil {
-		return err
-	}
-
-	// calling Start() will write the header
-	ctx := context.Background()
-	if err := v2.Start(ctx); err != nil {
-		return err
-	}
-	return v2.Stop(ctx)
-}
