@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -89,10 +90,7 @@ func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
 
 // BlockHeaderCoreProto returns BlockHeaderCore proto.
 func (h *Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
-	ts, err := ptypes.TimestampProto(h.timestamp)
-	if err != nil {
-		log.L().Panic("failed to cast to ptypes.timestamp", zap.Error(err))
-	}
+	ts := timestamppb.New(h.timestamp)
 	header := iotextypes.BlockHeaderCore{
 		Version:          h.version,
 		Height:           h.height,

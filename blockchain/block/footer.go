@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -25,10 +26,7 @@ type Footer struct {
 // ConvertToBlockFooterPb converts BlockFooter
 func (f *Footer) ConvertToBlockFooterPb() (*iotextypes.BlockFooter, error) {
 	pb := iotextypes.BlockFooter{}
-	commitTime, err := ptypes.TimestampProto(f.commitTime)
-	if err != nil {
-		return nil, err
-	}
+	commitTime := timestamppb.New(f.commitTime)
 	pb.Timestamp = commitTime
 	pb.Endorsements = []*iotextypes.Endorsement{}
 	for _, en := range f.endorsements {

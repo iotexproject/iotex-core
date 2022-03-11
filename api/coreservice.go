@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -671,10 +672,7 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 	}
 	re := make([]*iotextypes.ElectionBucket, len(buckets))
 	for i, b := range buckets {
-		startTime, err := ptypes.TimestampProto(b.StartTime())
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
+		startTime := timestamppb.New(b.StartTime())
 		re[i] = &iotextypes.ElectionBucket{
 			Voter:     b.Voter(),
 			Candidate: b.Candidate(),
@@ -1118,7 +1116,7 @@ func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockM
 func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	header := blk.Header
 	height := header.Height()
-	ts, _ := ptypes.TimestampProto(header.Timestamp())
+	ts := timestamppb.New(header.Timestamp())
 	var (
 		producerAddress string
 		h               hash.Hash256

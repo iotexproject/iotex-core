@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
@@ -117,18 +118,9 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	if vb.Candidate == nil || vb.Owner == nil || vb.StakedAmount == nil {
 		return nil, ErrMissingField
 	}
-	createTime, err := ptypes.TimestampProto(vb.CreateTime)
-	if err != nil {
-		return nil, err
-	}
-	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
-	if err != nil {
-		return nil, err
-	}
-	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
-	if err != nil {
-		return nil, err
-	}
+	createTime := timestamppb.New(vb.CreateTime)
+	stakeTime := timestamppb.New(vb.StakeStartTime)
+	unstakeTime := timestamppb.New(vb.UnstakeStartTime)
 
 	return &stakingpb.Bucket{
 		Index:            vb.Index,
@@ -144,18 +136,9 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 }
 
 func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
-	createTime, err := ptypes.TimestampProto(vb.CreateTime)
-	if err != nil {
-		return nil, err
-	}
-	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
-	if err != nil {
-		return nil, err
-	}
-	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
-	if err != nil {
-		return nil, err
-	}
+	createTime := timestamppb.New(vb.CreateTime)
+	stakeTime := timestamppb.New(vb.StakeStartTime)
+	unstakeTime := timestamppb.New(vb.UnstakeStartTime)
 
 	return &iotextypes.VoteBucket{
 		Index:            vb.Index,

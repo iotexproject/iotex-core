@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -115,10 +116,7 @@ func (en *Endorsement) Signature() []byte {
 
 // Proto converts an endorsement to protobuf message
 func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
-	ts, err := ptypes.TimestampProto(en.ts)
-	if err != nil {
-		return nil, err
-	}
+	ts := timestamppb.New(en.ts)
 	return &iotextypes.Endorsement{
 		Timestamp: ts,
 		Endorser:  en.endorser.Bytes(),

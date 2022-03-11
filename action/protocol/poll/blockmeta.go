@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action/protocol/poll/blockmetapb"
 )
@@ -43,10 +44,7 @@ func (bm *BlockMeta) Serialize() ([]byte, error) {
 
 // Proto converts the BlockMeta struct to a protobuf message
 func (bm *BlockMeta) Proto() (*blockmetapb.BlockMeta, error) {
-	blkTime, err := ptypes.TimestampProto(bm.MintTime)
-	if err != nil {
-		return nil, err
-	}
+	blkTime := timestamppb.New(bm.MintTime)
 	return &blockmetapb.BlockMeta{
 		BlockHeight:   bm.Height,
 		BlockProducer: bm.Producer,
