@@ -9,7 +9,6 @@ package endorsement
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -126,7 +125,7 @@ func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
 
 // LoadProto converts a protobuf message to endorsement
 func (en *Endorsement) LoadProto(ePb *iotextypes.Endorsement) (err error) {
-	if en.ts, err = ptypes.Timestamp(ePb.Timestamp); err != nil {
+	if err = ePb.Timestamp.CheckValid(); err != nil {
 		return err
 	}
 	eb := make([]byte, len(ePb.Endorser))

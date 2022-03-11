@@ -259,7 +259,7 @@ func (p *agent) Start(ctx context.Context) error {
 			return
 		}
 
-		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
+		t := broadcast.GetTimestamp().AsTime()
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
 		msg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
@@ -304,7 +304,7 @@ func (p *agent) Start(ctx context.Context) error {
 			return
 		}
 
-		t, _ := ptypes.Timestamp(unicast.GetTimestamp())
+		t := unicast.GetTimestamp().AsTime()
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
 		stream, ok := p2p.GetUnicastStream(ctx)

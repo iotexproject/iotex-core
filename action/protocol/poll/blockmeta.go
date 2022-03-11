@@ -9,7 +9,6 @@ package poll
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -63,10 +62,10 @@ func (bm *BlockMeta) Deserialize(buf []byte) error {
 
 // LoadProto loads blockMeta from proto
 func (bm *BlockMeta) LoadProto(pb *blockmetapb.BlockMeta) error {
-	mintTime, err := ptypes.Timestamp(pb.GetBlockTime())
-	if err != nil {
+	if err := pb.GetBlockTime().CheckValid(); err != nil {
 		return err
 	}
+	mintTime := pb.GetBlockTime().AsTime()
 	bm.Height = pb.GetBlockHeight()
 	bm.Producer = pb.GetBlockProducer()
 	bm.MintTime = mintTime.UTC()

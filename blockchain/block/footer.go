@@ -9,7 +9,6 @@ package block
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -44,10 +43,10 @@ func (f *Footer) ConvertFromBlockFooterPb(pb *iotextypes.BlockFooter) error {
 	if pb == nil {
 		return nil
 	}
-	commitTime, err := ptypes.Timestamp(pb.GetTimestamp())
-	if err != nil {
+	if err := pb.GetTimestamp().CheckValid(); err != nil {
 		return err
 	}
+	commitTime := pb.GetTimestamp().AsTime()
 	f.commitTime = commitTime
 	pbEndorsements := pb.GetEndorsements()
 	if pbEndorsements == nil {

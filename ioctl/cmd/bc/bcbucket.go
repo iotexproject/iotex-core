@@ -86,10 +86,10 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 		return nil, output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
 	}
 	unstakeStartTimeFormat := "none"
-	unstakeTime, err := ptypes.Timestamp(bucketpb.UnstakeStartTime)
-	if err != nil {
+	if err := bucketpb.UnstakeStartTime.CheckValid(); err != nil {
 		return nil, err
 	}
+	unstakeTime := bucketpb.UnstakeStartTime.AsTime()
 	if unstakeTime != time.Unix(0, 0).UTC() {
 		unstakeStartTimeFormat = ptypes.TimestampString(bucketpb.UnstakeStartTime)
 	}

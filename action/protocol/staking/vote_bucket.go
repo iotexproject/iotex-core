@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -89,18 +88,18 @@ func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 		return err
 	}
 
-	createTime, err := ptypes.Timestamp(pb.GetCreateTime())
-	if err != nil {
+	if err := pb.GetCreateTime().CheckValid(); err != nil {
 		return err
 	}
-	stakeTime, err := ptypes.Timestamp(pb.GetStakeStartTime())
-	if err != nil {
+	createTime := pb.GetCreateTime().AsTime()
+	if err := pb.GetStakeStartTime().CheckValid(); err != nil {
 		return err
 	}
-	unstakeTime, err := ptypes.Timestamp(pb.GetUnstakeStartTime())
-	if err != nil {
+	stakeTime := pb.GetStakeStartTime().AsTime()
+	if err := pb.GetUnstakeStartTime().CheckValid(); err != nil {
 		return err
 	}
+	unstakeTime := pb.GetUnstakeStartTime().AsTime()
 
 	vb.Index = pb.GetIndex()
 	vb.Candidate = candAddr
