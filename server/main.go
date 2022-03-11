@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -78,7 +79,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
-
 	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
@@ -116,6 +116,7 @@ func main() {
 	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
 	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
 	log.S().Infof("Genesis hash: %x", block.GenesisHash())
+	defer recovery.Recovery()
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
