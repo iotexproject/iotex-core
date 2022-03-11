@@ -28,7 +28,7 @@ func TestNewAccountExportPublic(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountExport")
+	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountExportPublic")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
 	defer func() {
 		require.NoError(os.RemoveAll(testAccountFolder))
