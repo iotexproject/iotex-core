@@ -22,9 +22,9 @@ type (
 		IntrinsicGas() (uint64, error)
 		Action() Action
 		Proto() *iotextypes.ActionCore
-		LoadProto(pbAct *iotextypes.ActionCore) error
-		SetNonce(n uint64)
-		SetChainID(chainID uint32)
+		LoadProto(*iotextypes.ActionCore) error
+		SetNonce(uint64)
+		SetChainID(uint32)
 	}
 
 	envelope struct {
@@ -65,6 +65,9 @@ func (elp *envelope) GasPrice() *big.Int {
 	return p.Set(elp.gasPrice)
 }
 
+// ChainID return the chainID value
+func (elp *envelope) ChainID() uint32 { return elp.chainID }
+
 // Cost returns cost of actions
 func (elp *envelope) Cost() (*big.Int, error) {
 	return elp.payload.Cost()
@@ -84,6 +87,7 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		Version:  elp.version,
 		Nonce:    elp.nonce,
 		GasLimit: elp.gasLimit,
+		ChainID:  elp.chainID,
 	}
 	if elp.gasPrice != nil {
 		actCore.GasPrice = elp.gasPrice.String()
@@ -139,6 +143,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
+	elp.chainID = pbAct.GetChainID()
 	if pbAct.GetGasPrice() == "" {
 		elp.gasPrice = big.NewInt(0)
 	} else {
@@ -249,9 +254,6 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 
 // SetNonce sets the nonce value
 func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
-
-// ChainID return the chainID value
-func (elp *envelope) ChainID() uint32 { return elp.chainID }
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
