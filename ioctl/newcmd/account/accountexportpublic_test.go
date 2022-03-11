@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewAccountExport(t *testing.T) {
+func TestNewAccountExportPublic(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
@@ -39,7 +39,7 @@ func TestNewAccountExport(t *testing.T) {
 
 	t.Run("true AliasIsHdwalletKey", func(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("", nil).Times(1)
-		cmd := NewAccountExport(client)
+		cmd := NewAccountExportPublic(client)
 		_, err := util.ExecuteCmd(cmd, "hdw::1234")
 		require.Contains(err.Error(), "failed to get private key from keystore")
 	})
@@ -50,14 +50,14 @@ func TestNewAccountExport(t *testing.T) {
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())
 		client.EXPECT().ReadSecret().Return("", nil).Times(1)
 		client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(2)
-		cmd := NewAccountExport(client)
+		cmd := NewAccountExportPublic(client)
 		_, err := util.ExecuteCmd(cmd, "1234")
 		require.NoError(err)
 	})
 
 	t.Run("invalid address", func(t *testing.T) {
 		client.EXPECT().Address(gomock.Any()).Return("", errors.New("mock error")).Times(1)
-		cmd := NewAccountExport(client)
+		cmd := NewAccountExportPublic(client)
 		_, err := util.ExecuteCmd(cmd, "1234")
 		require.Contains(err.Error(), "failed to get address")
 	})
