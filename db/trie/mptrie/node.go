@@ -27,10 +27,10 @@ type (
 
 	serializable interface {
 		node
-		hash(flush bool) ([]byte, error)
-		proto(flush bool) (proto.Message, error)
+		hash() ([]byte, error)
+		proto() (proto.Message, error)
 		delete() error
-		store() (node, error)
+		store() error
 	}
 
 	leaf interface {

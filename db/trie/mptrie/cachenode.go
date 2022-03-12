@@ -19,14 +19,14 @@ type cacheNode struct {
 }
 
 func (cn *cacheNode) Hash() ([]byte, error) {
-	return cn.hash(false)
+	return cn.hash()
 }
 
-func (cn *cacheNode) hash(flush bool) ([]byte, error) {
+func (cn *cacheNode) hash() ([]byte, error) {
 	if cn.hashVal != nil {
 		return cn.hashVal, nil
 	}
-	pb, err := cn.proto(flush)
+	pb, err := cn.proto()
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (cn *cacheNode) hash(flush bool) ([]byte, error) {
 
 func (cn *cacheNode) delete() error {
 	if !cn.dirty {
-		h, err := cn.hash(false)
+		h, err := cn.hash()
 		if err != nil {
 			return err
 		}
@@ -57,16 +57,16 @@ func (cn *cacheNode) delete() error {
 	return nil
 }
 
-func (cn *cacheNode) store() (node, error) {
-	h, err := cn.hash(true)
-	if err != nil {
-		return nil, err
-	}
+func (cn *cacheNode) store() error {
 	if cn.dirty {
+		h, err := cn.hash()
+		if err != nil {
+			return err
+		}
 		if err := cn.mpt.putNode(h, cn.ser); err != nil {
-			return nil, err
+			return err
 		}
 		cn.dirty = false
 	}
-	return newHashNode(cn.mpt, h), nil
+	return nil
 }

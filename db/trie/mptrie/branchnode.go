@@ -39,7 +39,14 @@ func newBranchNode(
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
 		if !mpt.async {
-			return bnode.store()
+			if err := bnode.Flush(); err != nil {
+				return nil, err
+			}
+			h, err := bnode.hash()
+			if err != nil {
+				return nil, err
+			}
+			return newHashNode(mpt, h), nil
 		}
 	}
 	return bnode, nil
@@ -165,20 +172,10 @@ func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
 	return child.Search(key, offset+1)
 }
 
-func (b *branchNode) proto(flush bool) (proto.Message, error) {
+func (b *branchNode) proto() (proto.Message, error) {
 	nodes := []*triepb.BranchNodePb{}
 	for _, idx := range b.indices.List() {
-		c := b.children[idx]
-		if flush {
-			if sn, ok := c.(serializable); ok {
-				var err error
-				c, err = sn.store()
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-		h, err := c.Hash()
+		h, err := b.children[idx].Hash()
 		if err != nil {
 			return nil, err
 		}
@@ -208,8 +205,7 @@ func (b *branchNode) Flush() error {
 			return err
 		}
 	}
-	_, err := b.store()
-	return err
+	return b.store()
 }
 
 func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, error) {
@@ -229,16 +225,19 @@ func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, err
 	b.dirty = true
 	if len(b.children) != 0 {
 		if !b.mpt.async {
-			hn, err := b.store()
-			if err != nil {
+			if err := b.Flush(); err != nil {
 				return nil, err
 			}
 			if !b.isRoot && hashnode {
-				return hn, nil // return hashnode
+				h, err := b.hash()
+				if err != nil {
+					return nil, err
+				}
+				return newHashNode(b.mpt, h), nil // return hashnode
 			}
 		}
 	} else {
-		if _, err := b.hash(false); err != nil {
+		if _, err := b.Hash(); err != nil {
 			return nil, err
 		}
 	}
