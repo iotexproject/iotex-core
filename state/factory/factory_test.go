@@ -7,7 +7,6 @@
 package factory
 
 import (
-	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/hex"
@@ -624,20 +623,8 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	_, _, err = sf.States(keyOpt)
 	require.Equal(t, ErrNotSupported, errors.Cause(err))
 
-	// case II: check without cond and namespace,key not exists
-	filterOpt := protocol.FilterOption(nil, []byte("1"), []byte("2"))
-	_, _, err = sf.States(filterOpt)
-	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case III: check without cond,with AccountKVNamespace namespace,key not exists
-	filterOpt = protocol.FilterOption(nil, []byte("1"), []byte("2"))
-	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
-	_, _, err = sf.States(filterOpt, namespaceOpt)
-	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case IV: check without cond,with AccountKVNamespace namespace
-	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
-	height, iter, err := sf.States(namespaceOpt)
+	// case II: check without namespace & keys
+	height, iter, err := sf.States()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	// two accounts and one CurrentHeightKey
@@ -654,14 +641,50 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
 	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
 
+	// case III: check without cond,with AccountKVNamespace namespace,key not exists
+	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err = sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
+	// case IV: check without cond,with AccountKVNamespace namespace
+	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err = sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
 	// case V: check cond,with AccountKVNamespace namespace
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
 	addrHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	cond := func(k, v []byte) bool {
-		return bytes.Equal(k, addrHash[:])
-	}
-	condOpt := protocol.FilterOption(cond, nil, nil)
-	height, iter, err = sf.States(condOpt, namespaceOpt)
+	height, iter, err = sf.States(namespaceOpt, protocol.KeysOption(func() ([][]byte, error) {
+		return [][]byte{addrHash[:]}, nil
+	}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	require.Equal(t, 1, iter.Size())
