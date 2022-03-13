@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sort"
 	"strconv"
 	"time"
 
@@ -159,8 +160,9 @@ type (
 	}
 
 	_logsInBlock struct {
-		logs []*iotextypes.Log
-		err  error
+		blockNumber uint64
+		logs        []*iotextypes.Log
+		err         error
 	}
 )
 
@@ -1400,6 +1402,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		go func(blockNumber uint64) {
 			logsInBlock, err := core.logsInBlock(filter, blockNumber)
 			ret := &_logsInBlock{
+				blockNumber,
 				logsInBlock,
 				err,
 			}
@@ -1408,21 +1411,31 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 
 	i := 0
+	orderedBlocks := []_logsInBlock{}
 	for logsInBlock := range c {
 		if logsInBlock.err != nil {
 			return nil, err
 		}
+
+		orderedBlocks = append(orderedBlocks, logsInBlock)
+
+		if i == len(blockNumbers)-1 {
+			close(c)
+		}
+		i++
+	}
+
+	sort.SliceStable(orderedBlocks, func(i, j int) bool {
+		return orderedBlocks[i].blockNumber < orderedBlocks[j].blockNumber
+	})
+
+	for _, logsInBlock := range orderedBlocks {
 		for _, log := range logsInBlock.logs {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
 			}
 		}
-
-		if i == len(blockNumbers)-1 {
-			close(c)
-		}
-		i++
 	}
 	return logs, nil
 }
