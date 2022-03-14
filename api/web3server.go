@@ -447,7 +447,7 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 	if exec, ok := act.(*action.Execution); ok {
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 	} else {
-		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act, data)
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
 	}
 	if err != nil {
 		return nil, err

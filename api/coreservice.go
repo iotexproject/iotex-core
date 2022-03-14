@@ -112,7 +112,7 @@ type (
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
-		EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error)
+		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
 		// BlockMetas returns blockmetas response within the height range
@@ -1419,7 +1419,7 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 }
 
 // EstimateGasForNonExecution estimates action gas except execution
-func (core *coreService) EstimateGasForNonExecution(actType action.Action, payload []byte) (uint64, error) {
+func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint64, error) {
 	switch act := actType.(type) {
 	case *action.Transfer:
 		return act.IntrinsicGas()
