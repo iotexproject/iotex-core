@@ -303,13 +303,9 @@ func (elp *envelope) ToRLP() (RlpTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapStakingActionIntoExecution(ab, address.StakingProtocolAddr, data)
-}
-
-func wrapStakingActionIntoExecution(ab AbstractAction, toAddr string, data []byte) (RlpTransaction, error) {
 	return &Execution{
 		AbstractAction: ab,
-		contract:       toAddr,
+		contract:       address.StakingProtocolAddr,
 		amount:         big.NewInt(0),
 		data:           data,
 	}, nil
