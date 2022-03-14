@@ -258,15 +258,11 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		}
 	}
 
-	body := &block.Body{}
 	if len(value) == 0 {
 		// block body could be empty
-		return body, nil
+		return &block.Body{}, nil
 	}
-	if err := body.Deserialize(value); err != nil {
-		return nil, errors.Wrapf(err, "failed to deserialize block body %x", h)
-	}
-	return body, nil
+	return (&block.Deserializer{}).DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {

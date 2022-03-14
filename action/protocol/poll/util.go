@@ -7,7 +7,6 @@
 package poll
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -319,12 +318,15 @@ func setCurrentBlockMeta(
 
 // allBlockMetasFromDB returns all latest block meta structs
 func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*BlockMeta, error) {
+	keys := [][]byte{blockMetaKey(math.MaxUint64, blocksInEpoch)}
+	for i := uint64(0); i < blocksInEpoch; i++ {
+		keys = append(keys, blockMetaKey(i, blocksInEpoch))
+	}
 	stateHeight, iter, err := sr.States(
 		protocol.NamespaceOption(protocol.SystemNamespace),
-		protocol.FilterOption(func(k, v []byte) bool {
-			prefix := candidatesutil.ConstructKey(blockMetaPrefix)
-			return bytes.HasPrefix(k, prefix[:])
-		}, blockMetaKey(0, blocksInEpoch), blockMetaKey(math.MaxUint64, blocksInEpoch)),
+		protocol.KeysOption(func() ([][]byte, error) {
+			return keys, nil
+		}),
 	)
 	if err != nil {
 		return nil, err
@@ -337,10 +339,13 @@ func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*Bloc
 	blockmetas := make([]*BlockMeta, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		bm := &BlockMeta{}
-		if err := iter.Next(bm); err != nil {
+		switch err := iter.Next(bm); errors.Cause(err) {
+		case nil:
+			blockmetas = append(blockmetas, bm)
+		case state.ErrNilValue:
+		default:
 			return nil, errors.Wrapf(err, "failed to deserialize block meta")
 		}
-		blockmetas = append(blockmetas, bm)
 	}
 	return blockmetas, nil
 }
