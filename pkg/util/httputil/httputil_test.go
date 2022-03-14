@@ -36,7 +36,8 @@ func TestLimitListener(t *testing.T) {
 	})
 
 	t.Run("input empty string", func(t *testing.T) {
-		_, err := LimitListener("")
+		listener, err := LimitListener("")
 		require.NoError(t, err)
+		defer listener.Close()
 	})
 }

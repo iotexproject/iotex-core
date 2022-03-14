@@ -28,9 +28,6 @@ func Server(addr string, handler http.Handler) http.Server {
 
 // LimitListener creates a tcp keep-alive listener with 400 maximum connections.
 func LimitListener(addr string) (net.Listener, error) {
-	if addr == "" {
-		addr = ":http"
-	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return ln, err
