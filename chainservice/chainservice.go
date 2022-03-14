@@ -519,11 +519,11 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	if err != nil {
 		return err
 	}
-	ctx, err := cs.chain.Context(ctx)
+	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
 	}

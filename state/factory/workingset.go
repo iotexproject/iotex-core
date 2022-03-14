@@ -53,7 +53,7 @@ type (
 		writeviewFunc func(name string, v interface{}) error
 		dbFunc        func() db.KVStore
 		delStateFunc  func(string, []byte) error
-		statesFunc    func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
+		statesFunc    func(string, [][]byte) ([][]byte, error)
 		digestFunc    func() hash.Hash256
 		finalizeFunc  func(uint64) error
 		getStateFunc  func(string, []byte, interface{}) error
@@ -246,7 +246,18 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	return ws.statesFunc(opts...)
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return ws.height, nil, err
+	}
+	if cfg.Key != nil {
+		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	values, err := ws.statesFunc(cfg.Namespace, cfg.Keys)
+	if err != nil {
+		return 0, nil, err
+	}
+	return ws.height, state.NewIterator(values), nil
 }
 
 // PutState puts a state into DB

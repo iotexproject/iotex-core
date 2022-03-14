@@ -251,8 +251,8 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
 			return nil
 		},
-		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sdb.States(opts...)
+		statesFunc: func(ns string, keys [][]byte) ([][]byte, error) {
+			return readStates(flusher.KVStoreWithBuffer(), ns, keys)
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -455,6 +455,9 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	}
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
 
@@ -469,17 +472,9 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.Cond == nil {
-		cfg.Cond = func(k, v []byte) bool {
-			return true
-		}
-	}
-	_, values, err := sdb.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
-		}
-		return sdb.currentChainHeight, nil, err
+		return 0, nil, err
 	}
 
 	return sdb.currentChainHeight, state.NewIterator(values), nil
