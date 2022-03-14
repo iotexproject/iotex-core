@@ -109,7 +109,11 @@ func (mpt *merklePatriciaTrie) Start(ctx context.Context) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
 
-	emptyRootHash, err := newEmptyRootBranchNode(mpt).Hash()
+	emptyRoot, err := newRootBranchNode(mpt, nil, nil, false)
+	if err != nil {
+		return err
+	}
+	emptyRootHash, err := emptyRoot.Hash(mpt)
 	if err != nil {
 		return err
 	}
@@ -127,10 +131,10 @@ func (mpt *merklePatriciaTrie) Stop(_ context.Context) error {
 
 func (mpt *merklePatriciaTrie) RootHash() ([]byte, error) {
 	if mpt.async {
-		if err := mpt.root.Flush(); err != nil {
+		if err := mpt.root.Flush(mpt); err != nil {
 			return nil, err
 		}
-		h, err := mpt.root.Hash()
+		h, err := mpt.root.Hash(mpt)
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +169,7 @@ func (mpt *merklePatriciaTrie) Get(key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := mpt.root.Search(kt, 0)
+	t, err := mpt.root.Search(mpt, kt, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -184,12 +188,25 @@ func (mpt *merklePatriciaTrie) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	newRoot, err := mpt.root.Delete(kt, 0)
+	newRoot, err := mpt.root.Delete(mpt, kt, 0)
 	if err != nil {
 		return errors.Wrapf(trie.ErrNotExist, "key %x does not exist", kt)
 	}
-	bn, ok := newRoot.(branch)
-	if !ok {
+	var bn branch
+	switch n := newRoot.(type) {
+	case branch:
+		bn = n
+	case *hashNode:
+		newRoot, err = n.LoadNode(mpt)
+		if err != nil {
+			return err
+		}
+		var ok bool
+		bn, ok = newRoot.(branch)
+		if !ok {
+			panic("unexpected new root")
+		}
+	default:
 		panic("unexpected new root")
 	}
 
@@ -204,7 +221,7 @@ func (mpt *merklePatriciaTrie) Upsert(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	newRoot, err := mpt.root.Upsert(kt, 0, value)
+	newRoot, err := mpt.root.Upsert(mpt, kt, 0, value)
 	if err != nil {
 		return err
 	}
@@ -222,7 +239,10 @@ func (mpt *merklePatriciaTrie) isEmptyRootHash(h []byte) bool {
 
 func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 	if len(rootHash) == 0 || mpt.isEmptyRootHash(rootHash) {
-		emptyRoot := newEmptyRootBranchNode(mpt)
+		emptyRoot, err := newRootBranchNode(mpt, nil, nil, false)
+		if err != nil {
+			return err
+		}
 		mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
 		return nil
 	}
@@ -246,7 +266,7 @@ func (mpt *merklePatriciaTrie) resetRoot(newRoot branch, rootHash []byte) error 
 	}
 	if rootHash == nil {
 		var err error
-		rootHash, err = newRoot.Hash()
+		rootHash, err = newRoot.Hash(mpt)
 		if err != nil {
 			return err
 		}
@@ -257,6 +277,10 @@ func (mpt *merklePatriciaTrie) resetRoot(newRoot branch, rootHash []byte) error 
 	return nil
 }
 
+func (mpt *merklePatriciaTrie) asyncMode() bool {
+	return mpt.async
+}
+
 func (mpt *merklePatriciaTrie) checkKeyType(key []byte) (keyType, error) {
 	if len(key) != mpt.keyLength {
 		return nil, errors.Errorf("invalid key length %d", len(key))
@@ -265,6 +289,10 @@ func (mpt *merklePatriciaTrie) checkKeyType(key []byte) (keyType, error) {
 	copy(kt, key)
 
 	return kt, nil
+}
+
+func (mpt *merklePatriciaTrie) hash(key []byte) []byte {
+	return mpt.hashFunc(key)
 }
 
 func (mpt *merklePatriciaTrie) deleteNode(key []byte) error {
@@ -285,14 +313,38 @@ func (mpt *merklePatriciaTrie) loadNode(key []byte) (node, error) {
 		return nil, err
 	}
 	if pbBranch := pb.GetBranch(); pbBranch != nil {
-		return newBranchNodeFromProtoPb(pbBranch, mpt, key), nil
+		return newBranchNodeFromProtoPb(mpt, pbBranch, key), nil
 	}
 	if pbLeaf := pb.GetLeaf(); pbLeaf != nil {
-		return newLeafNodeFromProtoPb(pbLeaf, mpt, key), nil
+		return newLeafNodeFromProtoPb(mpt, pbLeaf, key), nil
 	}
 	if pbExtend := pb.GetExtend(); pbExtend != nil {
-		return newExtensionNodeFromProtoPb(pbExtend, mpt, key), nil
+		return newExtensionNodeFromProtoPb(mpt, pbExtend, key), nil
 	}
 
 	return nil, errors.New("invalid node type")
+}
+
+func (mpt *merklePatriciaTrie) Clone(kvStore trie.KVStore) (trie.Trie, error) {
+	mpt.mutex.RLock()
+	defer mpt.mutex.RUnlock()
+	root, err := mpt.root.Clone()
+	if err != nil {
+		return nil, err
+	}
+	rh := make([]byte, len(mpt.rootHash))
+	copy(rh, mpt.rootHash)
+	erh := make([]byte, len(mpt.emptyRootHash))
+	copy(erh, mpt.emptyRootHash)
+
+	return &merklePatriciaTrie{
+		keyLength:     mpt.keyLength,
+		root:          root,
+		rootHash:      rh,
+		rootKey:       mpt.rootKey,
+		kvStore:       kvStore,
+		hashFunc:      mpt.hashFunc,
+		async:         mpt.async,
+		emptyRootHash: erh,
+	}, nil
 }
