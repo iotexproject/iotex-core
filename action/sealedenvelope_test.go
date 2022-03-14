@@ -84,7 +84,7 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 	candidateUpdate, err := NewCandidateUpdate(nonce, candidate1Name, cand1Addr, cand1Addr, gasLimit, gasPrice)
 	require.NoError(err)
 
-	tests := []Payload{
+	tests := []actionPayload{
 		createStake,
 		depositToStake,
 		changeCandidate,

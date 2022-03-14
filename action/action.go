@@ -24,8 +24,7 @@ type Action interface {
 	SanityCheck() error
 }
 
-// Payload is the action can be wrapped into envelope
-type Payload interface {
+type actionPayload interface {
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
 	SetEnvelopeContext(SealedEnvelope)
@@ -135,7 +134,7 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 }
 
 // NewStakingActionFromABIBinary creates staking action from abi binary data
-func NewStakingActionFromABIBinary(data []byte) (Payload, error) {
+func NewStakingActionFromABIBinary(data []byte) (Action, error) {
 	if len(data) <= 4 {
 		return nil, errInvalidABI
 	}
