@@ -22,6 +22,8 @@ func TestVoteReviser(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	csm := smToCsm(sm)
+	csr := srToCsr(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -122,7 +124,7 @@ func TestVoteReviser(t *testing.T) {
 	// write a number of buckets into stateDB
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
-		index, err := putBucketAndIndex(sm, vb)
+		index, err := csm.putBucketAndIndex(vb)
 		r.NoError(err)
 		r.Equal(index, vb.Index)
 	}
@@ -136,7 +138,7 @@ func TestVoteReviser(t *testing.T) {
 	_, ok := v.(*ViewData)
 	r.True(ok)
 
-	csm, err := NewCandidateStateManager(sm, false)
+	csm, err = NewCandidateStateManager(sm, false)
 	r.NoError(err)
 	// load a number of candidates
 	for _, e := range testCandidates {
@@ -166,10 +168,10 @@ func TestVoteReviser(t *testing.T) {
 		}
 		for _, v := range tests {
 			if address.Equal(v.cand, c.Owner) && v.index != c.SelfStakeBucketIdx {
-				bucket, err := getBucket(csm, v.index)
+				bucket, err := csr.getBucket(v.index)
 				r.NoError(err)
 				total := calculateVoteWeight(cv, bucket, false)
-				bucket, err = getBucket(csm, c.SelfStakeBucketIdx)
+				bucket, err = csr.getBucket(c.SelfStakeBucketIdx)
 				r.NoError(err)
 				total.Add(total, calculateVoteWeight(cv, bucket, true))
 				r.Equal(0, total.Cmp(c.Votes))

@@ -185,7 +185,7 @@ func (p *Protocol) CreateGenesisStates(
 			return ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
-		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		bucketIdx, err := csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
 		}
@@ -254,7 +254,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
-	allBuckets, _, err := getAllBuckets(sm)
+	csr := srToCsr(sm)
+	allBuckets, _, err := csr.getAllBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -266,7 +267,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil {
 		return err
 	}
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -340,14 +341,14 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err
 }

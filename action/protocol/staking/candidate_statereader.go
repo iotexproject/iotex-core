@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -18,8 +19,27 @@ import (
 )
 
 type (
+	// BucketGetByIndex related to obtaining bucket by index
+	BucketGetByIndex interface {
+		getBucket(index uint64) (*VoteBucket, error)
+	}
+	// BucketGet related to obtaining bucket
+	BucketGet interface {
+		BucketGetByIndex
+		getTotalBucketCount() (uint64, error)
+		getAllBuckets() ([]*VoteBucket, uint64, error)
+		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
+		getBucketIndices(key []byte) (*BucketIndices, uint64, error)
+	}
+	// CandidateGet related to obtaining Candidate
+	CandidateGet interface {
+		getCandidate(name address.Address) (*Candidate, uint64, error)
+		getAllCandidates() (CandidateList, uint64, error)
+	}
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
+		BucketGet
+		CandidateGet
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
@@ -42,6 +62,12 @@ type (
 		bucketPool *BucketPool
 	}
 )
+
+func srToCsr(sr protocol.StateReader) CandidateStateReader {
+	return &candSR{
+		StateReader: sr,
+	}
+}
 
 func (c *candSR) Height() uint64 {
 	return c.height
@@ -133,7 +159,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, 0, ErrMissingField
 	}
 
-	all, height, err := getAllCandidates(sr)
+	all, height, err := srToCsr(sr).getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, height, err
 	}
@@ -152,4 +178,108 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		candCenter: center,
 		bucketPool: pool,
 	}, height, nil
+}
+
+func (c *candSR) getTotalBucketCount() (uint64, error) {
+	var tc totalBucketCount
+	_, err := c.State(
+		&tc,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey))
+	return tc.count, err
+}
+
+func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
+	var vb VoteBucket
+	var err error
+	if _, err = c.State(
+		&vb,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(bucketKey(index))); err != nil {
+		return nil, err
+	}
+	var tc totalBucketCount
+	if _, err := c.State(
+		&tc,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
+	if errors.Cause(err) == state.ErrStateNotExist && index < tc.Count() {
+		return nil, ErrWithdrawnBucket
+	}
+	return &vb, nil
+}
+
+func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
+	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
+	maxKey := []byte{_bucket + 1}
+	height, iter, err := c.States(
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.FilterOption(func(k, v []byte) bool {
+			return bytes.HasPrefix(k, []byte{_bucket})
+		}, bucketKey(0), maxKey))
+	if err != nil {
+		return nil, height, err
+	}
+
+	buckets := make([]*VoteBucket, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		vb := &VoteBucket{}
+		if err := iter.Next(vb); err != nil {
+			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
+		}
+		buckets = append(buckets, vb)
+	}
+	return buckets, height, nil
+}
+
+func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
+	buckets := make([]*VoteBucket, 0, len(indices))
+	for _, i := range indices {
+		b, err := c.getBucket(i)
+		if err != nil && err != ErrWithdrawnBucket {
+			return buckets, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, nil
+}
+
+func (c *candSR) getBucketIndices(key []byte) (*BucketIndices, uint64, error) {
+	var bis BucketIndices
+	height, err := c.State(
+		&bis,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key))
+	if err != nil {
+		return nil, height, err
+	}
+	return &bis, height, nil
+}
+
+func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) {
+	if name == nil {
+		return nil, 0, ErrNilParameters
+	}
+	var d Candidate
+	height, err := c.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
+	return &d, height, err
+}
+
+func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
+	height, iter, err := c.States(protocol.NamespaceOption(CandidateNameSpace))
+	if err != nil {
+		return nil, height, err
+	}
+
+	cands := make(CandidateList, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		c := &Candidate{}
+		if err := iter.Next(c); err != nil {
+			return nil, height, errors.Wrapf(err, "failed to deserialize candidate")
+		}
+		cands = append(cands, c)
+	}
+	return cands, height, nil
 }

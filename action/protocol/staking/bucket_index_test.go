@@ -45,6 +45,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 		sm := testdb.NewMockStateManager(ctrl)
+		csm := smToCsm(sm)
+		csr := srToCsr(sm)
 
 		tests := []struct {
 			index          uint64
@@ -122,26 +124,26 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, _, err := getVoterBucketIndices(sm, e.voterAddr)
+			_, _, err := getVoterBucketIndices(csr, e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
-			_, _, err = getCandBucketIndices(sm, e.candAddr)
+			_, _, err = getCandBucketIndices(csr, e.candAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			// put voter bucket index
-			require.NoError(putVoterBucketIndex(sm, e.voterAddr, e.index))
-			bis, _, err := getVoterBucketIndices(sm, e.voterAddr)
+			require.NoError(putVoterBucketIndex(csm, e.voterAddr, e.index))
+			bis, _, err := getVoterBucketIndices(csr, e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(e.voterIndexSize, len(bucketIndices))
 			require.Equal(bucketIndices[e.voterIndexSize-1], e.index)
 
 			// put candidate bucket index
-			require.NoError(putCandBucketIndex(sm, e.candAddr, e.index))
-			bis, _, err = getCandBucketIndices(sm, e.candAddr)
+			require.NoError(putCandBucketIndex(csm, e.candAddr, e.index))
+			bis, _, err = getCandBucketIndices(csr, e.candAddr)
 			require.NoError(err)
 			bucketIndices = *bis
 			require.Equal(e.candIndexSize, len(bucketIndices))
@@ -150,8 +152,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		for _, e := range tests {
 			// delete voter bucket index
-			require.NoError(delVoterBucketIndex(sm, e.voterAddr, e.index))
-			bis, _, err := getVoterBucketIndices(sm, e.voterAddr)
+			require.NoError(delVoterBucketIndex(csm, e.voterAddr, e.index))
+			bis, _, err := getVoterBucketIndices(csr, e.voterAddr)
 			if e.voterIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.voterIndexSize, len(bucketIndices))
@@ -160,8 +162,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 			}
 
 			// delete candidate bucket index
-			require.NoError(delCandBucketIndex(sm, e.candAddr, e.index))
-			bis, _, err = getCandBucketIndices(sm, e.candAddr)
+			require.NoError(delCandBucketIndex(csm, e.candAddr, e.index))
+			bis, _, err = getCandBucketIndices(csr, e.candAddr)
 			if e.candIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.candIndexSize, len(bucketIndices))
