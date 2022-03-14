@@ -12,9 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -68,80 +66,28 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, uint64, error) {
-	var bis BucketIndices
-	height, err := sr.State(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key))
-	if err != nil {
-		return nil, height, err
-	}
-	return &bis, height, nil
+func getVoterBucketIndices(csr CandidateStateReader, addr address.Address) (*BucketIndices, uint64, error) {
+	return csr.getBucketIndices(addrKeyWithPrefix(addr, _voterIndex))
 }
 
-func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
-	var bis BucketIndices
-	if _, err := sm.State(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	bis.addBucketIndex(index)
-	_, err := sm.PutState(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key))
-	return err
+func putVoterBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+	return csm.putBucketIndex(addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
-func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
-	var bis BucketIndices
-	if _, err := sm.State(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key)); err != nil {
-		return err
-	}
-	bis.deleteBucketIndex(index)
-
-	var err error
-	if len(bis) == 0 {
-		_, err = sm.DelState(
-			protocol.NamespaceOption(StakingNameSpace),
-			protocol.KeyOption(key))
-	} else {
-		_, err = sm.PutState(
-			&bis,
-			protocol.NamespaceOption(StakingNameSpace),
-			protocol.KeyOption(key))
-	}
-	return err
+func delVoterBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+	return csm.delBucketIndex(addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
-func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, uint64, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
+func getCandBucketIndices(csr CandidateStateReader, addr address.Address) (*BucketIndices, uint64, error) {
+	return csr.getBucketIndices(addrKeyWithPrefix(addr, _candIndex))
 }
 
-func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
+func putCandBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+	return csm.putBucketIndex(addrKeyWithPrefix(addr, _candIndex), index)
 }
 
-func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
-}
-
-func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, uint64, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
-}
-
-func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
-}
-
-func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
+func delCandBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+	return csm.delBucketIndex(addrKeyWithPrefix(addr, _candIndex), index)
 }
 
 func addrKeyWithPrefix(addr address.Address, prefix byte) []byte {

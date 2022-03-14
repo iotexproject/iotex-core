@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -65,8 +64,9 @@ func (vr *VoteReviser) NeedRevise(height uint64) bool {
 	return false
 }
 
-func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateList, error) {
-	cands, _, err := getAllCandidates(sm)
+func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (CandidateList, error) {
+	csr := srToCsr(csm.SM())
+	cands, _, err := csr.getAllCandidates()
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
 	case err != nil:
@@ -78,7 +78,7 @@ func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateL
 		candm[cand.Owner.String()].Votes = new(big.Int)
 		candm[cand.Owner.String()].SelfStake = new(big.Int)
 	}
-	buckets, _, err := getAllBuckets(sm)
+	buckets, _, err := csr.getAllBuckets()
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
 	case err != nil:

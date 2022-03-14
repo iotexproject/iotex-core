@@ -22,7 +22,7 @@ import (
 
 func readStateBuckets(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
-	all, height, err := getAllBuckets(sr)
+	all, height, err := srToCsr(sr).getAllBuckets()
 	if err != nil {
 		return nil, height, err
 	}
@@ -41,14 +41,15 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 		return nil, 0, err
 	}
 
-	indices, height, err := getVoterBucketIndices(sr, voter)
+	csr := srToCsr(sr)
+	indices, height, err := getVoterBucketIndices(csr, voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
 	if indices == nil || err != nil {
 		return nil, height, err
 	}
-	buckets, err := getBucketsWithIndices(sr, *indices)
+	buckets, err := csr.getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, height, err
 	}
@@ -67,14 +68,14 @@ func readStateBucketsByCandidate(ctx context.Context, csr CandidateStateReader,
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := getCandBucketIndices(csr.SR(), c.Owner)
+	indices, height, err := getCandBucketIndices(csr, c.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
 	if indices == nil || err != nil {
 		return nil, height, err
 	}
-	buckets, err := getBucketsWithIndices(csr.SR(), *indices)
+	buckets, err := csr.getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, height, err
 	}
@@ -92,7 +93,7 @@ func readStateBucketByIndices(ctx context.Context, sr protocol.StateReader,
 	if err != nil {
 		return &iotextypes.VoteBucketList{}, height, err
 	}
-	buckets, err := getBucketsWithIndices(sr, BucketIndices(req.GetIndex()))
+	buckets, err := srToCsr(sr).getBucketsWithIndices(BucketIndices(req.GetIndex()))
 	if err != nil {
 		return nil, height, err
 	}
@@ -102,7 +103,7 @@ func readStateBucketByIndices(ctx context.Context, sr protocol.StateReader,
 
 func readStateBucketCount(ctx context.Context, csr CandidateStateReader,
 	_ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
-	total, err := getTotalBucketCount(csr.SR())
+	total, err := csr.getTotalBucketCount()
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.BucketsCount{}, csr.Height(), nil
 	}
