@@ -169,14 +169,26 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			if err != nil {
 				return 0, nil, err
 			}
-			if cfg.Cond == nil {
-				cfg.Cond = func(k, v []byte) bool {
+			var fv [][]byte
+			if cfg.Keys == nil {
+				_, fv, err = kv.Filter(cfg.Namespace, func(k, v []byte) bool {
 					return true
+				}, nil, nil)
+				if err != nil {
+					return 0, nil, state.ErrStateNotExist
 				}
-			}
-			_, fv, err := kv.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
-			if err != nil {
-				return 0, nil, state.ErrStateNotExist
+			} else {
+				for _, key := range cfg.Keys {
+					value, err := kv.Get(cfg.Namespace, key)
+					switch errors.Cause(err) {
+					case db.ErrNotExist, db.ErrBucketNotExist:
+						fv = append(fv, nil)
+					case nil:
+						fv = append(fv, value)
+					default:
+						return 0, nil, err
+					}
+				}
 			}
 			return 0, state.NewIterator(fv), nil
 		},
