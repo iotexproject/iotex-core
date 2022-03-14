@@ -22,29 +22,29 @@ type leafNode struct {
 }
 
 func newLeafNode(
-	mpt *merklePatriciaTrie,
+	cli client,
 	key keyType,
 	value []byte,
 ) (node, error) {
 	l := &leafNode{
 		cacheNode: cacheNode{
-			mpt:   mpt,
 			dirty: true,
 		},
 		key:   key,
 		value: value,
 	}
 	l.cacheNode.serializable = l
-	if !mpt.async {
-		return l.store()
+	if !cli.asyncMode() {
+		if err := l.store(cli); err != nil {
+			return nil, err
+		}
 	}
 	return l, nil
 }
 
-func newLeafNodeFromProtoPb(pb *triepb.LeafPb, mpt *merklePatriciaTrie, hashVal []byte) *leafNode {
+func newLeafNodeFromProtoPb(cli client, pb *triepb.LeafPb, hashVal []byte) *leafNode {
 	l := &leafNode{
 		cacheNode: cacheNode{
-			mpt:     mpt,
 			hashVal: hashVal,
 			dirty:   false,
 		},
@@ -63,38 +63,39 @@ func (l *leafNode) Value() []byte {
 	return l.value
 }
 
-func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
+func (l *leafNode) Delete(cli client, key keyType, offset uint8) (node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
-	return nil, l.delete()
+	return nil, l.delete(cli)
 }
 
-func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
+func (l *leafNode) Upsert(cli client, key keyType, offset uint8, value []byte) (node, error) {
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
-		return l.updateValue(value)
+		if err := l.delete(cli); err != nil {
+			return nil, err
+		}
+		return newLeafNode(cli, key, value)
 	}
 	// split into another leaf node and create branch/extension node
-	newl, err := newLeafNode(l.mpt, key, value)
+	newl, err := newLeafNode(cli, key, value)
 	if err != nil {
 		return nil, err
 	}
-	var oldLeaf node
-	if !l.mpt.async {
-		oldLeaf, err = l.store()
-		if err != nil {
+	oldLeaf := l
+	if !cli.asyncMode() {
+		if err := l.store(cli); err != nil {
 			return nil, err
 		}
-	} else {
-		oldLeaf = l
 	}
 	bnode, err := newBranchNode(
-		l.mpt,
+		cli,
 		map[byte]node{
 			key[offset+matched]:   newl,
 			l.key[offset+matched]: oldLeaf,
 		},
+		nil,
 	)
 	if err != nil {
 		return nil, err
@@ -103,10 +104,10 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 		return bnode, nil
 	}
 
-	return newExtensionNode(l.mpt, l.key[offset:offset+matched], bnode)
+	return newExtensionNode(cli, l.key[offset:offset+matched], bnode)
 }
 
-func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
+func (l *leafNode) Search(_ client, key keyType, offset uint8) (node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
@@ -114,7 +115,7 @@ func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 	return l, nil
 }
 
-func (l *leafNode) proto(_ bool) (proto.Message, error) {
+func (l *leafNode) proto(_ client, _ bool) (proto.Message, error) {
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Leaf{
 			Leaf: &triepb.LeafPb{
@@ -125,22 +126,6 @@ func (l *leafNode) proto(_ bool) (proto.Message, error) {
 	}, nil
 }
 
-func (l *leafNode) Flush() error {
-	if !l.dirty {
-		return nil
-	}
-	_, err := l.store()
-	return err
-}
-
-func (l *leafNode) updateValue(value []byte) (node, error) {
-	if err := l.delete(); err != nil {
-		return nil, err
-	}
-	l.value = value
-	l.dirty = true
-	if !l.mpt.async {
-		return l.store()
-	}
-	return l, nil
+func (l *leafNode) Flush(cli client) error {
+	return l.store(cli)
 }
