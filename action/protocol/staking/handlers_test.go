@@ -1108,6 +1108,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
+			csr = srToCsr(sm)
 			bucketIndices, _, err := getCandBucketIndices(csr, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
