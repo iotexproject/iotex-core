@@ -23,12 +23,13 @@ type (
 
 	// cachedBatch implements the CachedBatch interface
 	cachedBatch struct {
-		lock sync.RWMutex
-		KVStoreCache
+		lock         sync.RWMutex
 		kvStoreBatch *baseKVStoreBatch
 		tag          int            // latest snapshot + 1
 		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
-		cacheShots   []KVStoreCache // snapshots of cache
+		caches       []KVStoreCache // snapshots of cache
+		keyTags      map[hash.Hash160][]int
+		tagKeys      [][]hash.Hash160
 	}
 )
 
@@ -186,12 +187,12 @@ func (b *baseKVStoreBatch) truncate(size int) {
 
 // NewCachedBatch returns a new cached batch buffer
 func NewCachedBatch() CachedBatch {
-	return &cachedBatch{
+	cb := &cachedBatch{
 		kvStoreBatch: newBaseKVStoreBatch(),
-		KVStoreCache: NewKVCache(),
-		batchShots:   make([]int, 0),
-		cacheShots:   make([]KVStoreCache, 0),
 	}
+	cb.clear()
+
+	return cb
 }
 
 func (cb *cachedBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
@@ -223,14 +224,34 @@ func (cb *cachedBatch) Unlock() {
 // ClearAndUnlock clears the write queue and unlocks the batch
 func (cb *cachedBatch) ClearAndUnlock() {
 	defer cb.lock.Unlock()
-	cb.KVStoreCache.Clear()
+	cb.clear()
+}
+
+func (cb *cachedBatch) currentCache() KVStoreCache {
+	return cb.caches[len(cb.caches)-1]
+}
+
+func (cb *cachedBatch) clear() {
 	cb.kvStoreBatch.Clear()
-	// clear all saved snapshots
 	cb.tag = 0
 	cb.batchShots = nil
-	cb.cacheShots = nil
 	cb.batchShots = make([]int, 0)
-	cb.cacheShots = make([]KVStoreCache, 0)
+	cb.caches = []KVStoreCache{NewKVCache()}
+	cb.keyTags = map[hash.Hash160][]int{}
+	cb.tagKeys = [][]hash.Hash160{{}}
+}
+
+func (cb *cachedBatch) touchKey(h hash.Hash160) {
+	tags, ok := cb.keyTags[h]
+	if !ok {
+		cb.keyTags[h] = []int{cb.tag}
+		cb.tagKeys[cb.tag] = append(cb.tagKeys[cb.tag], h)
+		return
+	}
+	if tags[len(tags)-1] != cb.tag {
+		cb.keyTags[h] = append(tags, cb.tag)
+		cb.tagKeys[cb.tag] = append(cb.tagKeys[cb.tag], h)
+	}
 }
 
 // Put inserts a <key, value> record
@@ -238,7 +259,8 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
-	cb.Write(h, value)
+	cb.touchKey(h)
+	cb.currentCache().Write(h, value)
 	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
@@ -247,7 +269,8 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
-	cb.Evict(h)
+	cb.touchKey(h)
+	cb.currentCache().Evict(h)
 	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
@@ -255,14 +278,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 func (cb *cachedBatch) Clear() {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	cb.KVStoreCache.Clear()
-	cb.kvStoreBatch.Clear()
-	// clear all saved snapshots
-	cb.tag = 0
-	cb.batchShots = nil
-	cb.cacheShots = nil
-	cb.batchShots = make([]int, 0)
-	cb.cacheShots = make([]KVStoreCache, 0)
+	cb.clear()
 }
 
 // Get retrieves a record
@@ -270,7 +286,18 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
 	h := cb.hash(namespace, key)
-	return cb.Read(h)
+	var v []byte
+	err := ErrNotExist
+	if tags, ok := cb.keyTags[h]; ok {
+		for i := len(tags) - 1; i >= 0; i-- {
+			v, err = cb.caches[tags[i]].Read(h)
+			if errors.Cause(err) == ErrNotExist {
+				continue
+			}
+			break
+		}
+	}
+	return v, err
 }
 
 // Snapshot takes a snapshot of current cached batch
@@ -280,12 +307,12 @@ func (cb *cachedBatch) Snapshot() int {
 	defer func() { cb.tag++ }()
 	// save a copy of current batch/cache
 	cb.batchShots = append(cb.batchShots, cb.kvStoreBatch.Size())
-	cb.cacheShots = append(cb.cacheShots, cb.KVStoreCache.Clone())
+	cb.caches = append(cb.caches, NewKVCache())
+	cb.tagKeys = append(cb.tagKeys, []hash.Hash160{})
 	return cb.tag
 }
 
-// Revert sets the cached batch to the state at the given snapshot
-func (cb *cachedBatch) Revert(snapshot int) error {
+func (cb *cachedBatch) RevertSnapshot(snapshot int) error {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	// throw error if the snapshot number does not exist
@@ -295,10 +322,43 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.tag = snapshot + 1
 	cb.batchShots = cb.batchShots[:cb.tag]
 	cb.kvStoreBatch.truncate(cb.batchShots[snapshot])
-	cb.cacheShots = cb.cacheShots[:cb.tag]
-	cb.KVStoreCache = nil
-	cb.KVStoreCache = cb.cacheShots[snapshot]
+	cb.caches = cb.caches[:cb.tag+1]
+	cb.caches[cb.tag].Clear()
+	for tag := cb.tag; tag < len(cb.tagKeys); tag++ {
+		keys := cb.tagKeys[tag]
+		for _, key := range keys {
+			cb.keyTags[key] = cb.keyTags[key][:len(cb.keyTags[key])-1]
+			if len(cb.keyTags[key]) == 0 {
+				delete(cb.keyTags, key)
+			}
+		}
+	}
+	cb.tagKeys = cb.tagKeys[:cb.tag+1]
+	cb.tagKeys[cb.tag] = []hash.Hash160{}
 	return nil
+}
+
+func (cb *cachedBatch) ResetSnapshots() {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+
+	cb.tag = 0
+	cb.batchShots = nil
+	cb.batchShots = make([]int, 0)
+	if len(cb.caches) > 1 {
+		if err := cb.caches[0].Append(cb.caches[1:]...); err != nil {
+			panic(errors.Wrap(err, "failed to reset snapshots"))
+		}
+		cb.caches = cb.caches[:1]
+	}
+	keys := make([]hash.Hash160, 0, len(cb.keyTags))
+	for key := range cb.keyTags {
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
+		cb.keyTags[key] = []int{0}
+	}
+	cb.tagKeys = [][]hash.Hash160{keys}
 }
 
 func (cb *cachedBatch) CheckFillPercent(ns string) (float64, bool) {

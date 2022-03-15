@@ -7,7 +7,6 @@
 package factory
 
 import (
-	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/hex"
@@ -84,7 +83,7 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
-		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPath(testTriePath)
 	}()
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
@@ -96,7 +95,7 @@ func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
 	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(err)
-	defer testutil.CleanupPathV2(testStateDBPath)
+	defer testutil.CleanupPath(testStateDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPatchFile = ""
@@ -339,7 +338,7 @@ func testCandidates(sf Factory, t *testing.T) {
 func TestState(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testTriePath)
+	defer testutil.CleanupPath(testTriePath)
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -382,7 +381,7 @@ func TestHistoryState(t *testing.T) {
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 	defer func() {
-		testutil.CleanupPathV2(cfg.Chain.TrieDBPath)
+		testutil.CleanupPath(cfg.Chain.TrieDBPath)
 	}()
 }
 
@@ -404,13 +403,13 @@ func TestFactoryStates(t *testing.T) {
 	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
-	defer testutil.CleanupPathV2(cfg.Chain.TrieDBPath)
+	defer testutil.CleanupPath(cfg.Chain.TrieDBPath)
 }
 
 func TestSDBState(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testDBPath)
+	defer testutil.CleanupPath(testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -624,20 +623,8 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	_, _, err = sf.States(keyOpt)
 	require.Equal(t, ErrNotSupported, errors.Cause(err))
 
-	// case II: check without cond and namespace,key not exists
-	filterOpt := protocol.FilterOption(nil, []byte("1"), []byte("2"))
-	_, _, err = sf.States(filterOpt)
-	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case III: check without cond,with AccountKVNamespace namespace,key not exists
-	filterOpt = protocol.FilterOption(nil, []byte("1"), []byte("2"))
-	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
-	_, _, err = sf.States(filterOpt, namespaceOpt)
-	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-
-	// case IV: check without cond,with AccountKVNamespace namespace
-	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
-	height, iter, err := sf.States(namespaceOpt)
+	// case II: check without namespace & keys
+	height, iter, err := sf.States()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	// two accounts and one CurrentHeightKey
@@ -654,14 +641,50 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
 	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
 
+	// case III: check without cond,with AccountKVNamespace namespace,key not exists
+	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err = sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
+	// case IV: check without cond,with AccountKVNamespace namespace
+	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err = sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
 	// case V: check cond,with AccountKVNamespace namespace
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
 	addrHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	cond := func(k, v []byte) bool {
-		return bytes.Equal(k, addrHash[:])
-	}
-	condOpt := protocol.FilterOption(cond, nil, nil)
-	height, iter, err = sf.States(condOpt, namespaceOpt)
+	height, iter, err = sf.States(namespaceOpt, protocol.KeysOption(func() ([][]byte, error) {
+		return [][]byte{addrHash[:]}, nil
+	}))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), height)
 	require.Equal(t, 1, iter.Size())
@@ -677,7 +700,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 func TestNonce(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testTriePath)
+	defer testutil.CleanupPath(testTriePath)
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -689,7 +712,7 @@ func TestNonce(t *testing.T) {
 func TestSDBNonce(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testDBPath)
+	defer testutil.CleanupPath(testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -785,7 +808,7 @@ func testNonce(sf Factory, t *testing.T) {
 func TestLoadStoreHeight(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testTriePath)
+	defer testutil.CleanupPath(testTriePath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -798,7 +821,7 @@ func TestLoadStoreHeight(t *testing.T) {
 func TestLoadStoreHeightInMem(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testTriePath)
+	defer testutil.CleanupPath(testTriePath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -810,7 +833,7 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 func TestSDBLoadStoreHeight(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testDBPath)
+	defer testutil.CleanupPath(testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -823,7 +846,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 func TestSDBLoadStoreHeightInMem(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
-	defer testutil.CleanupPathV2(testDBPath)
+	defer testutil.CleanupPath(testDBPath)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
@@ -886,7 +909,7 @@ func TestRunActions(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
-		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPath(testTriePath)
 	}()
 	testCommit(sf, t)
 }
@@ -913,7 +936,7 @@ func TestSTXRunActions(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
-		testutil.CleanupPathV2(testStateDBPath)
+		testutil.CleanupPath(testStateDBPath)
 	}()
 	testCommit(sdb, t)
 }
@@ -994,7 +1017,7 @@ func TestPickAndRunActions(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
-		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPath(testTriePath)
 	}()
 	testNewBlockBuilder(sf, t)
 }
@@ -1021,7 +1044,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
-		testutil.CleanupPathV2(testStateDBPath)
+		testutil.CleanupPath(testStateDBPath)
 	}()
 	testNewBlockBuilder(sdb, t)
 }
@@ -1102,7 +1125,7 @@ func TestSimulateExecution(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
-		testutil.CleanupPathV2(testTriePath)
+		testutil.CleanupPath(testTriePath)
 	}()
 	testSimulateExecution(ctx, sf, t)
 }
@@ -1132,7 +1155,7 @@ func TestSTXSimulateExecution(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
-		testutil.CleanupPathV2(testStateDBPath)
+		testutil.CleanupPath(testStateDBPath)
 	}()
 	testSimulateExecution(ctx, sdb, t)
 }
@@ -1203,40 +1226,6 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 	require.Error(err)
 }
 
-func TestGetDB(t *testing.T) {
-	require := require.New(t)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(err)
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
-	)
-	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
-	require.NoError(err)
-	h, _ := ws.Height()
-	require.Equal(uint64(1), h)
-	kvStore := ws.GetDB()
-	_, ok := kvStore.(db.KVStoreWithBuffer)
-	require.True(ok)
-}
-
-func TestSTXGetDB(t *testing.T) {
-	require := require.New(t)
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-	require.NoError(err)
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
-	)
-	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
-	require.NoError(err)
-	h, _ := ws.Height()
-	require.Equal(uint64(1), h)
-	kvStore := ws.GetDB()
-	_, ok := kvStore.(db.KVStoreWithBuffer)
-	require.True(ok)
-}
-
 func TestStateDBPatch(t *testing.T) {
 	require := require.New(t)
 	n1 := "n1"
@@ -1296,8 +1285,8 @@ func TestStateDBPatch(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
-		testutil.CleanupPathV2(patchFile)
-		testutil.CleanupPathV2(testDBPath)
+		testutil.CleanupPath(patchFile)
+		testutil.CleanupPath(testDBPath)
 	}()
 	ctx = protocol.WithBlockchainCtx(protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{

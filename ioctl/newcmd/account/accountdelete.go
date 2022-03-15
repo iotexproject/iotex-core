@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -56,8 +55,8 @@ var (
 		config.Chinese: "移除keystore文件失败",
 	}
 	failToWriteToConfigFile = map[config.Language]string{
-		config.English: "Failed to write to config file %s.",
-		config.Chinese: "写入配置文件 %s 失败",
+		config.English: "Failed to write to config file.",
+		config.Chinese: "写入配置文件失败",
 	}
 	resultSuccess = map[config.Language]string{
 		config.English: "Account #%s has been deleted.",
@@ -70,17 +69,17 @@ var (
 )
 
 // NewAccountDelete represents the account delete command
-func NewAccountDelete(c ioctl.Client) *cobra.Command {
-	use, _ := c.SelectTranslation(deleteUses)
-	short, _ := c.SelectTranslation(deleteShorts)
-	failToGetAddress, _ := c.SelectTranslation(failToGetAddress)
-	failToConvertStringIntoAddress, _ := c.SelectTranslation(failToConvertStringIntoAddress)
-	infoWarn, _ := c.SelectTranslation(infoWarn)
-	failToRemoveKeystoreFile, _ := c.SelectTranslation(failToRemoveKeystoreFile)
-	failToWriteToConfigFile, _ := c.SelectTranslation(failToWriteToConfigFile)
-	resultSuccess, _ := c.SelectTranslation(resultSuccess)
-	failToFindAccount, _ := c.SelectTranslation(failToFindAccount)
-	infoQuit, _ := c.SelectTranslation(infoQuit)
+func NewAccountDelete(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(deleteUses)
+	short, _ := client.SelectTranslation(deleteShorts)
+	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
+	failToConvertStringIntoAddress, _ := client.SelectTranslation(failToConvertStringIntoAddress)
+	infoWarn, _ := client.SelectTranslation(infoWarn)
+	failToRemoveKeystoreFile, _ := client.SelectTranslation(failToRemoveKeystoreFile)
+	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
+	resultSuccess, _ := client.SelectTranslation(resultSuccess)
+	failToFindAccount, _ := client.SelectTranslation(failToFindAccount)
+	infoQuit, _ := client.SelectTranslation(infoQuit)
 
 	return &cobra.Command{
 		Use:   use,
@@ -93,7 +92,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 				arg = args[0]
 			}
 
-			addr, err := c.GetAddress(arg)
+			addr, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
 				return errors.Wrap(err, failToGetAddress)
 			}
@@ -103,12 +102,12 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			}
 
 			var filePath string
-			if c.IsCryptoSm2() {
+			if client.IsCryptoSm2() {
 				if filePath == "" {
-					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
+					filePath = filepath.Join(client.Config().Wallet, "sm2sk-"+account.String()+".pem")
 				}
 			} else {
-				ks := c.NewKeyStore()
+				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 						filePath = v.URL.Path
@@ -121,25 +120,17 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if _, err = os.Stat(filePath); err != nil {
 				return errors.Wrapf(err, failToFindAccount, addr)
 			}
-			if !c.AskToConfirm(infoWarn) {
-				c.PrintInfo(infoQuit)
+			if !client.AskToConfirm(infoWarn) {
+				cmd.Println(infoQuit)
 				return nil
 			}
 			if err := os.Remove(filePath); err != nil {
 				return errors.Wrap(err, failToRemoveKeystoreFile)
 			}
-
-			aliases := c.AliasMap()
-			cfg := c.Config()
-			delete(cfg.Aliases, aliases[addr])
-			out, err := yaml.Marshal(&cfg)
-			if err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
+			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
+				return errors.Wrap(err, failToWriteToConfigFile)
 			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return errors.Wrapf(err, failToWriteToConfigFile, config.DefaultConfigFile)
-			}
-			c.PrintInfo(fmt.Sprintf(resultSuccess, addr))
+			cmd.Println(fmt.Sprintf(resultSuccess, addr))
 			return nil
 		},
 	}

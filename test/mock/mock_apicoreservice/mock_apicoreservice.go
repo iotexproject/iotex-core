@@ -12,13 +12,7 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	actpool "github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
-	blockindex "github.com/iotexproject/iotex-core/blockindex"
-	config "github.com/iotexproject/iotex-core/config"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -60,20 +54,6 @@ func (m *MockCoreService) Account(addr address.Address) (*iotextypes.AccountMeta
 func (mr *MockCoreServiceMockRecorder) Account(addr interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Account", reflect.TypeOf((*MockCoreService)(nil).Account), addr)
-}
-
-// ActPool mocks base method.
-func (m *MockCoreService) ActPool() actpool.ActPool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActPool")
-	ret0, _ := ret[0].(actpool.ActPool)
-	return ret0
-}
-
-// ActPool indicates an expected call of ActPool.
-func (mr *MockCoreServiceMockRecorder) ActPool() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActPool", reflect.TypeOf((*MockCoreService)(nil).ActPool))
 }
 
 // ActPoolActions mocks base method.
@@ -169,34 +149,6 @@ func (mr *MockCoreServiceMockRecorder) ActionsByBlock(blkHash, start, count inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsByBlock", reflect.TypeOf((*MockCoreService)(nil).ActionsByBlock), blkHash, start, count)
 }
 
-// BlockChain mocks base method.
-func (m *MockCoreService) BlockChain() blockchain.Blockchain {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockChain")
-	ret0, _ := ret[0].(blockchain.Blockchain)
-	return ret0
-}
-
-// BlockChain indicates an expected call of BlockChain.
-func (mr *MockCoreServiceMockRecorder) BlockChain() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockChain", reflect.TypeOf((*MockCoreService)(nil).BlockChain))
-}
-
-// BlockDao mocks base method.
-func (m *MockCoreService) BlockDao() blockdao.BlockDAO {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockDao")
-	ret0, _ := ret[0].(blockdao.BlockDAO)
-	return ret0
-}
-
-// BlockDao indicates an expected call of BlockDao.
-func (mr *MockCoreServiceMockRecorder) BlockDao() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockDao", reflect.TypeOf((*MockCoreService)(nil).BlockDao))
-}
-
 // BlockMetaByHash mocks base method.
 func (m *MockCoreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
 	m.ctrl.T.Helper()
@@ -270,20 +222,6 @@ func (m *MockCoreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
 func (mr *MockCoreServiceMockRecorder) ChainMeta() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainMeta", reflect.TypeOf((*MockCoreService)(nil).ChainMeta))
-}
-
-// Config mocks base method.
-func (m *MockCoreService) Config() config.Config {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(config.Config)
-	return ret0
-}
-
-// Config indicates an expected call of Config.
-func (mr *MockCoreServiceMockRecorder) Config() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCoreService)(nil).Config))
 }
 
 // EVMNetworkID mocks base method.
@@ -362,34 +300,6 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(in interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForAction", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForAction), in)
 }
 
-// HasActionIndex mocks base method.
-func (m *MockCoreService) HasActionIndex() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasActionIndex")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// HasActionIndex indicates an expected call of HasActionIndex.
-func (mr *MockCoreServiceMockRecorder) HasActionIndex() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasActionIndex", reflect.TypeOf((*MockCoreService)(nil).HasActionIndex))
-}
-
-// Indexer mocks base method.
-func (m *MockCoreService) Indexer() blockindex.Indexer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Indexer")
-	ret0, _ := ret[0].(blockindex.Indexer)
-	return ret0
-}
-
-// Indexer indicates an expected call of Indexer.
-func (mr *MockCoreServiceMockRecorder) Indexer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Indexer", reflect.TypeOf((*MockCoreService)(nil).Indexer))
-}
-
 // LogsInBlock mocks base method.
 func (m *MockCoreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	m.ctrl.T.Helper()
@@ -405,6 +315,21 @@ func (mr *MockCoreServiceMockRecorder) LogsInBlock(filter, blockNumber interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogsInBlock", reflect.TypeOf((*MockCoreService)(nil).LogsInBlock), filter, blockNumber)
 }
 
+// LogsInBlockByHash mocks base method.
+func (m *MockCoreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LogsInBlockByHash", filter, blockHash)
+	ret0, _ := ret[0].([]*iotextypes.Log)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LogsInBlockByHash indicates an expected call of LogsInBlockByHash.
+func (mr *MockCoreServiceMockRecorder) LogsInBlockByHash(filter, blockHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogsInBlockByHash", reflect.TypeOf((*MockCoreService)(nil).LogsInBlockByHash), filter, blockHash)
+}
+
 // LogsInRange mocks base method.
 func (m *MockCoreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
 	m.ctrl.T.Helper()
@@ -418,6 +343,21 @@ func (m *MockCoreService) LogsInRange(filter *logfilter.LogFilter, start, end, p
 func (mr *MockCoreServiceMockRecorder) LogsInRange(filter, start, end, paginationSize interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogsInRange", reflect.TypeOf((*MockCoreService)(nil).LogsInRange), filter, start, end, paginationSize)
+}
+
+// PendingNonce mocks base method.
+func (m *MockCoreService) PendingNonce(arg0 address.Address) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingNonce", arg0)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PendingNonce indicates an expected call of PendingNonce.
+func (mr *MockCoreServiceMockRecorder) PendingNonce(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingNonce", reflect.TypeOf((*MockCoreService)(nil).PendingNonce), arg0)
 }
 
 // RawBlocks mocks base method.
@@ -510,20 +450,6 @@ func (m *MockCoreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, 
 func (mr *MockCoreServiceMockRecorder) ReceiptByActionHash(h interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByActionHash", reflect.TypeOf((*MockCoreService)(nil).ReceiptByActionHash), h)
-}
-
-// Registry mocks base method.
-func (m *MockCoreService) Registry() *protocol.Registry {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Registry")
-	ret0, _ := ret[0].(*protocol.Registry)
-	return ret0
-}
-
-// Registry indicates an expected call of Registry.
-func (mr *MockCoreServiceMockRecorder) Registry() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Registry", reflect.TypeOf((*MockCoreService)(nil).Registry))
 }
 
 // SendAction mocks base method.
@@ -644,6 +570,20 @@ func (m *MockCoreService) SuggestGasPrice() (uint64, error) {
 func (mr *MockCoreServiceMockRecorder) SuggestGasPrice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockCoreService)(nil).SuggestGasPrice))
+}
+
+// TipHeight mocks base method.
+func (m *MockCoreService) TipHeight() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TipHeight")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// TipHeight indicates an expected call of TipHeight.
+func (mr *MockCoreServiceMockRecorder) TipHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockCoreService)(nil).TipHeight))
 }
 
 // TransactionLogByActionHash mocks base method.

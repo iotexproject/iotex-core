@@ -33,7 +33,7 @@ func TestAccount(t *testing.T) {
 	r := require.New(t)
 
 	testWallet := filepath.Join(os.TempDir(), testPath)
-	defer testutil.CleanupPath(t, testWallet)
+	defer testutil.CleanupPath(testWallet)
 	config.ReadConfig.Wallet = testWallet
 
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)

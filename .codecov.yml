@@ -4,7 +4,7 @@ coverage:
     project:
       default:
         enabled: yes
-        target: 75%
+        target: 85%
     patch:
       default:
         enabled: yes
@@ -16,6 +16,7 @@ ignore:
   - "blockindex/indexpb"
   - "consensus/scheme/rolldpos/endorsementpb"
   - "db/trie/triepb"
+  - "db/mock_kvstore.go"
   - "e2etest/*"
   - "ioctl/cmd/**/*"
   - "ioctl/doc/*"

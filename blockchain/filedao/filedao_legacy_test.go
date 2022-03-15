@@ -30,7 +30,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	testFdInterface := func(cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
-		testutil.CleanupPath(t, cfg.DbPath)
+		testutil.CleanupPath(cfg.DbPath)
 		fdLegacy, err := newFileDAOLegacy(cfg)
 		r.NoError(err)
 		fd, ok := fdLegacy.(*fileDAOLegacy)
@@ -70,7 +70,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	testPath, err := testutil.PathOfTempFile("filedao-legacy")
 	r.NoError(err)
 	defer func() {
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 
 	cfg := db.DefaultConfig

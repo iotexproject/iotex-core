@@ -138,14 +138,12 @@ func main() {
 			}
 		}
 	}()
-	// Create a probe server
-	probeSvr := probe.New(7788)
 
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		go itx.StartServer(ctx, svrs[i], probeSvr, configs[i])
+		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"

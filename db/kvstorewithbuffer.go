@@ -12,8 +12,7 @@ import (
 
 type (
 	withBuffer interface {
-		Snapshot() int
-		Revert(int) error
+		batch.Snapshot
 		SerializeQueue(batch.WriteInfoSerialize, batch.WriteInfoFilter) []byte
 		MustPut(string, []byte, []byte)
 		MustDelete(string, []byte)
@@ -141,8 +140,12 @@ func (kvb *kvStoreWithBuffer) Snapshot() int {
 	return kvb.buffer.Snapshot()
 }
 
-func (kvb *kvStoreWithBuffer) Revert(sid int) error {
-	return kvb.buffer.Revert(sid)
+func (kvb *kvStoreWithBuffer) RevertSnapshot(sid int) error {
+	return kvb.buffer.RevertSnapshot(sid)
+}
+
+func (kvb *kvStoreWithBuffer) ResetSnapshots() {
+	kvb.buffer.ResetSnapshots()
 }
 
 func (kvb *kvStoreWithBuffer) SerializeQueue(

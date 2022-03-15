@@ -85,10 +85,10 @@ func TestFlusher(t *testing.T) {
 			require.Equal(t, 1, kvb.Snapshot())
 		})
 		t.Run("Revert", func(t *testing.T) {
-			buffer.EXPECT().Revert(gomock.Any()).Return(expectedError).Times(1)
-			require.Equal(t, expectedError, kvb.Revert(1))
-			buffer.EXPECT().Revert(gomock.Any()).Return(nil).Times(1)
-			require.NoError(t, kvb.Revert(1))
+			buffer.EXPECT().RevertSnapshot(gomock.Any()).Return(expectedError).Times(1)
+			require.Equal(t, expectedError, kvb.RevertSnapshot(1))
+			buffer.EXPECT().RevertSnapshot(gomock.Any()).Return(nil).Times(1)
+			require.NoError(t, kvb.RevertSnapshot(1))
 		})
 		t.Run("Size", func(t *testing.T) {
 			buffer.EXPECT().Size().Return(5).Times(1)

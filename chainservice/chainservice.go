@@ -349,9 +349,18 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
+	apiServerOptions := []api.Option{
+		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return p2pAgent.BroadcastOutbound(ctx, msg)
+		}),
+		api.WithNativeElection(electionCommittee),
+	}
+	if gateway {
+		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
+	}
 
 	apiSvr, err := api.NewServerV2(
-		cfg,
+		cfg.API,
 		chain,
 		bs,
 		sf,
@@ -360,10 +369,7 @@ func New(
 		bfIndexer,
 		actPool,
 		registry,
-		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
-		}),
-		api.WithNativeElection(electionCommittee),
+		apiServerOptions...,
 	)
 	if err != nil {
 		return nil, err
@@ -499,12 +505,12 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	var act action.SealedEnvelope
-	if err := act.LoadProto(actPb); err != nil {
+	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	if err != nil {
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err := cs.actpool.Add(ctx, act)
+	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
@@ -513,11 +519,11 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	if err != nil {
 		return err
 	}
-	ctx, err := cs.chain.Context(ctx)
+	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 	if withDB {
 		testPath, err := testutil.PathOfTempFile(fmt.Sprintf("test-kv-store-%t.bolt", async))
 		require.NoError(err)
-		defer testutil.CleanupPathV2(testPath)
+		defer testutil.CleanupPath(testPath)
 		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		dao := db.NewBoltDB(cfg)
@@ -91,4 +92,84 @@ func benchTrieUpsert(b *testing.B, e binary.ByteOrder) {
 	}
 	b.StopTimer()
 	b.ReportAllocs()
+}
+
+func BenchmarkTrie_UpsertWithAsync(b *testing.B) {
+	tr, _, callback := initTrie(2)
+	defer callback()
+
+	keys := [][]byte{}
+	for i := 0; i < 10; i++ {
+		for j := 0; j < 256; j++ {
+			key := []byte{byte(i), byte(j)}
+			keys = append(keys, key)
+		}
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		for _, v := range keys {
+			tr.Upsert(v, []byte{})
+		}
+	}
+}
+
+func BenchmarkTrie_RootHashWithAsync(b *testing.B) {
+	tr, flush, callback := initTrie(2)
+	defer callback()
+
+	keys := [][]byte{}
+	for i := 0; i < 10; i++ {
+		for j := 0; j < 256; j++ {
+			key := []byte{byte(i), byte(j)}
+			keys = append(keys, key)
+		}
+	}
+	for _, v := range keys {
+		tr.Upsert(v, []byte{})
+	}
+	tr.RootHash()
+	flush()
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		tr.Upsert(keys[rand.Intn(len(keys))], []byte{})
+		tr.RootHash()
+	}
+}
+
+func initTrie(keyLen int) (trie.Trie, func() error, func()) {
+	testPath, err := testutil.PathOfTempFile("test-kv-store.bolt")
+	if err != nil {
+		panic(err)
+	}
+	cfg := db.DefaultConfig
+	cfg.DbPath = testPath
+	dao := db.NewBoltDB(cfg)
+	flusher, err := db.NewKVStoreFlusher(dao, batch.NewCachedBatch())
+	if err != nil {
+		panic(err)
+	}
+	flusherKV := flusher.KVStoreWithBuffer()
+	kvStore, err := trie.NewKVStore("test", flusherKV)
+	if err != nil {
+		panic(err)
+	}
+	err = kvStore.Start(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	opts := []Option{KeyLengthOption(keyLen), AsyncOption(), KVStoreOption(kvStore)}
+	tr, err := New(opts...)
+	if err != nil {
+		panic(err)
+	}
+	err = tr.Start(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	return tr, flusher.Flush, func() {
+		tr.Stop(context.Background())
+		testutil.CleanupPath(testPath)
+	}
 }

@@ -40,10 +40,10 @@ const (
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
 func ExecuteCmd(cmd *cobra.Command, args ...string) (string, error) {
 	buf := new(bytes.Buffer)
-	cmd.SetOutput(buf)
+	cmd.SetOut(buf)
+	cmd.SetErr(new(bytes.Buffer))
 	cmd.SetArgs(args)
-	_, err := cmd.ExecuteC()
-
+	err := cmd.Execute()
 	return buf.String(), err
 }
 

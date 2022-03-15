@@ -47,7 +47,7 @@ func NewServer(cfg config.Config) (*Server, error) {
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) (*Server, error) {
+func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
 	return newServer(cfg, true)
 }
 
@@ -129,7 +129,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
-func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error { // notest
+func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.newSubChainService(cfg, opts...)
@@ -185,7 +185,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
-	probeSvr.Ready()
+	if err := probeSvr.TurnOn(); err != nil {
+		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
+	}
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(NewHeartbeatHandler(svr, cfg.Network).Log, cfg.System.HeartbeatInterval)
@@ -233,5 +235,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	<-ctx.Done()
-	probeSvr.NotReady()
+	if err := probeSvr.TurnOff(); err != nil {
+		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+	}
 }

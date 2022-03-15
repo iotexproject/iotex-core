@@ -27,9 +27,15 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-type testString struct {
-	s string
-}
+type (
+	testString struct {
+		s string
+	}
+
+	workingSetCreator interface {
+		newWorkingSet(context.Context, uint64) (*workingSet, error)
+	}
+)
 
 func (s testString) Serialize() ([]byte, error) {
 	return []byte(s.s), nil

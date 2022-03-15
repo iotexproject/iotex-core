@@ -33,6 +33,7 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(nonceCmdUses)
 	short, _ := client.SelectTranslation(nonceCmdShorts)
 	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
+	failToGetAccountMeta, _ := client.SelectTranslation(failToGetAccountMeta)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -45,34 +46,19 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 				arg = args[0]
 			}
 
-			addr, err := client.GetAddress(arg)
+			addr, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
 				return errors.Wrap(err, failToGetAddress)
 			}
-			accountMeta, err := GetAccountMeta(addr, client)
+			accountMeta, err := Meta(client, addr)
 			if err != nil {
-				return err
+				return errors.Wrap(err, failToGetAccountMeta)
 			}
 
-			message := nonceMessage{
-				Address:      addr,
-				Nonce:        int(accountMeta.Nonce),
-				PendingNonce: int(accountMeta.PendingNonce),
-			}
-			client.PrintInfo(message.String())
+			cmd.Println(fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
+				addr, accountMeta.Nonce, accountMeta.PendingNonce))
 			return nil
 		},
 	}
 	return cmd
-}
-
-type nonceMessage struct {
-	Address      string `json:"address"`
-	Nonce        int    `json:"nonce"`
-	PendingNonce int    `json:"pendingNonce"`
-}
-
-func (m *nonceMessage) String() string {
-	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-		m.Address, m.Nonce, m.PendingNonce)
 }

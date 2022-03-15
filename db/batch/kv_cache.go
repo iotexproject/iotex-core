@@ -21,8 +21,8 @@ type (
 		Evict(*kvCacheKey)
 		// Clear clear the cache
 		Clear()
-		// Clone clones the cache
-		Clone() KVStoreCache
+		// Append appends caches
+		Append(...KVStoreCache) error
 	}
 
 	// kvCacheKey is the key for 2D Map cache

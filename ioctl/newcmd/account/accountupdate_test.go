@@ -7,6 +7,7 @@
 package account
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,7 +44,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	client.EXPECT().IsCryptoSm2().Return(false).Times(3)
 
 	t.Run("invalid_current_password", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
@@ -51,23 +52,24 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	})
 
 	t.Run("new_password_not_match", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
-		require.Error(ErrPasswdNotMatch, err)
+		require.Equal(ErrPasswdNotMatch, err)
 	})
 
 	t.Run("success", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, fmt.Sprintf("Account #%s has been updated.", accAddr.String()))
 	})
 }
 
@@ -90,11 +92,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
 
-	client.EXPECT().Config().DoAndReturn(
-		func() config.Config {
-			config.ReadConfig.Wallet = testAccountFolder
-			return config.ReadConfig
-		}).Times(4)
+	client.EXPECT().Config().Return(config.Config{Wallet: testAccountFolder}).Times(4)
 	skPemPath := sm2KeyPath(client, accAddr)
 	sk, err := crypto.GenerateKeySm2()
 	require.NoError(err)
@@ -107,7 +105,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	client.EXPECT().IsCryptoSm2().Return(true).Times(3)
 
 	t.Run("invalid_current_password", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
@@ -115,22 +113,23 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	})
 
 	t.Run("new_password_not_match", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
-		require.Error(ErrPasswdNotMatch, err)
+		require.Equal(ErrPasswdNotMatch, err)
 	})
 
 	t.Run("success", func(t *testing.T) {
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr.String(), nil).Times(1)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
 		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, fmt.Sprintf("Account #%s has been updated.", accAddr.String()))
 	})
 }

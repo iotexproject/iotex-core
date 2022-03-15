@@ -48,59 +48,55 @@ func TestNewAccountNonce(t *testing.T) {
 		},
 	}
 
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 
 	accAddr := identityset.Address(28).String()
-	client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 
 	// success
 	for i := 0; i < len(accountNoneTests); i++ {
 		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
-		client.EXPECT().GetAddress(gomock.Any()).Return(accAddr, nil)
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
 		accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 			Address:      accAddr,
 			Nonce:        uint64(accountNoneTests[i].outNonce),
 			PendingNonce: uint64(accountNoneTests[i].outPendingNonce),
 		}}
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
-		client.EXPECT().PrintInfo(gomock.Any()).Do(func(info string) {
-			fmt.Println(info)
-		})
 
 		cmd := NewAccountNonce(client)
 		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
-		require.NoError(t, err)
-		require.Equal(t, "", result)
+		require.NoError(err)
+		require.Contains(result, fmt.Sprintf("Nonce: %d", accountNoneTests[i].outNonce))
+		require.Contains(result, fmt.Sprintf("Pending Nonce: %d", accountNoneTests[i].outPendingNonce))
 	}
 
 	// fail to get account addr
 	expectedErr := errors.New("failed to get address")
-	client.EXPECT().GetAddress(gomock.Any()).Return("", expectedErr)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("", expectedErr)
 	cmd := NewAccountNonce(client)
 	_, err := util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErr.Error())
+	require.Contains(err.Error(), expectedErr.Error())
 
 	// fail to dial grpc
 	expectedErr = errors.New("failed to dial grpc connection")
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr, nil)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErr.Error())
+	require.Contains(err.Error(), expectedErr.Error())
 
 	// fail to invoke grpc api
 	expectedErr = errors.New("failed to invoke GetAccount api")
-	client.EXPECT().GetAddress(gomock.Any()).Return(accAddr, nil)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErr.Error())
+	require.Contains(err.Error(), expectedErr.Error())
 }
