@@ -128,6 +128,7 @@ func (en *Endorsement) LoadProto(ePb *iotextypes.Endorsement) (err error) {
 	if err = ePb.Timestamp.CheckValid(); err != nil {
 		return err
 	}
+	en.ts = ePb.Timestamp.AsTime()
 	eb := make([]byte, len(ePb.Endorser))
 	copy(eb, ePb.Endorser)
 	if en.endorser, err = crypto.BytesToPublicKey(eb); err != nil {
