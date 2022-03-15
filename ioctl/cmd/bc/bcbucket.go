@@ -90,7 +90,7 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 	}
 	unstakeTime := bucketpb.UnstakeStartTime.AsTime()
 	if unstakeTime != time.Unix(0, 0).UTC() {
-		unstakeStartTimeFormat = bucketpb.UnstakeStartTime.AsTime().Format(time.RFC3339Nano)
+		unstakeStartTimeFormat = unstakeTime.Format(time.RFC3339Nano)
 	}
 	return &bucket{
 		Index:            bucketpb.Index,
