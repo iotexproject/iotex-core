@@ -91,10 +91,12 @@ func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 		return err
 	}
 	createTime := pb.GetCreateTime().AsTime()
+
 	if err := pb.GetStakeStartTime().CheckValid(); err != nil {
 		return err
 	}
 	stakeTime := pb.GetStakeStartTime().AsTime()
+
 	if err := pb.GetUnstakeStartTime().CheckValid(); err != nil {
 		return err
 	}
