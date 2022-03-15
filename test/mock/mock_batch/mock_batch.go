@@ -350,18 +350,30 @@ func (mr *MockCachedBatchMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockCachedBatch)(nil).Put), varargs...)
 }
 
-// Revert mocks base method.
-func (m *MockCachedBatch) Revert(arg0 int) error {
+// ResetSnapshots mocks base method.
+func (m *MockCachedBatch) ResetSnapshots() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Revert", arg0)
+	m.ctrl.Call(m, "ResetSnapshots")
+}
+
+// ResetSnapshots indicates an expected call of ResetSnapshots.
+func (mr *MockCachedBatchMockRecorder) ResetSnapshots() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetSnapshots", reflect.TypeOf((*MockCachedBatch)(nil).ResetSnapshots))
+}
+
+// RevertSnapshot mocks base method.
+func (m *MockCachedBatch) RevertSnapshot(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevertSnapshot", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Revert indicates an expected call of Revert.
-func (mr *MockCachedBatchMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+// RevertSnapshot indicates an expected call of RevertSnapshot.
+func (mr *MockCachedBatchMockRecorder) RevertSnapshot(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockCachedBatch)(nil).Revert), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevertSnapshot", reflect.TypeOf((*MockCachedBatch)(nil).RevertSnapshot), arg0)
 }
 
 // SerializeQueue mocks base method.
@@ -430,4 +442,67 @@ func (m *MockCachedBatch) Unlock() {
 func (mr *MockCachedBatchMockRecorder) Unlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockCachedBatch)(nil).Unlock))
+}
+
+// MockSnapshot is a mock of Snapshot interface.
+type MockSnapshot struct {
+	ctrl     *gomock.Controller
+	recorder *MockSnapshotMockRecorder
+}
+
+// MockSnapshotMockRecorder is the mock recorder for MockSnapshot.
+type MockSnapshotMockRecorder struct {
+	mock *MockSnapshot
+}
+
+// NewMockSnapshot creates a new mock instance.
+func NewMockSnapshot(ctrl *gomock.Controller) *MockSnapshot {
+	mock := &MockSnapshot{ctrl: ctrl}
+	mock.recorder = &MockSnapshotMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSnapshot) EXPECT() *MockSnapshotMockRecorder {
+	return m.recorder
+}
+
+// ResetSnapshots mocks base method.
+func (m *MockSnapshot) ResetSnapshots() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ResetSnapshots")
+}
+
+// ResetSnapshots indicates an expected call of ResetSnapshots.
+func (mr *MockSnapshotMockRecorder) ResetSnapshots() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetSnapshots", reflect.TypeOf((*MockSnapshot)(nil).ResetSnapshots))
+}
+
+// RevertSnapshot mocks base method.
+func (m *MockSnapshot) RevertSnapshot(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevertSnapshot", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevertSnapshot indicates an expected call of RevertSnapshot.
+func (mr *MockSnapshotMockRecorder) RevertSnapshot(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevertSnapshot", reflect.TypeOf((*MockSnapshot)(nil).RevertSnapshot), arg0)
+}
+
+// Snapshot mocks base method.
+func (m *MockSnapshot) Snapshot() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot.
+func (mr *MockSnapshotMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockSnapshot)(nil).Snapshot))
 }
