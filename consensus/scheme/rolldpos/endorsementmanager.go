@@ -125,8 +125,8 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
-		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
+		blk, err := (&block.Deserializer{}).FromBlockProto(blockPro.Blk)
+		if err != nil {
 			return err
 		}
 		bc.blk = blk
@@ -289,8 +289,8 @@ func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementMana
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	if managerPro.CachedMintedBlk != nil {
-		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(managerPro.CachedMintedBlk); err != nil {
+		blk, err := (&block.Deserializer{}).FromBlockProto(managerPro.CachedMintedBlk)
+		if err != nil {
 			return err
 		}
 		m.cachedMintedBlk = blk

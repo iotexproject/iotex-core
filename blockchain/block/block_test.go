@@ -76,45 +76,58 @@ func TestMerkle(t *testing.T) {
 	t.Log("Merkle root match pass\n")
 }
 
-func TestConvertFromBlockPb(t *testing.T) {
-	blk := Block{}
-	senderPubKey := identityset.PrivateKey(27).PublicKey()
-	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
+var (
+	pkBytes = identityset.PrivateKey(27).PublicKey().Bytes()
+	pbBlock = iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
 				Version:   version.ProtocolVersion,
 				Height:    123456789,
 				Timestamp: ptypes.TimestampNow(),
 			},
-			ProducerPubkey: senderPubKey.Bytes(),
+			ProducerPubkey: pkBytes,
 		},
 		Body: &iotextypes.BlockBody{
 			Actions: []*iotextypes.Action{
 				{
 					Core: &iotextypes.ActionCore{
 						Action: &iotextypes.ActionCore_Transfer{
-							Transfer: &iotextypes.Transfer{},
+							Transfer: &iotextypes.Transfer{
+								Amount:    "100000000000000000",
+								Recipient: "alice",
+							},
 						},
 						Version: version.ProtocolVersion,
 						Nonce:   101,
+						ChainID: 1,
 					},
-					SenderPubKey: senderPubKey.Bytes(),
+					SenderPubKey: pkBytes,
 					Signature:    action.ValidSig,
 				},
 				{
 					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Transfer{
-							Transfer: &iotextypes.Transfer{},
+						Action: &iotextypes.ActionCore_Execution{
+							Execution: &iotextypes.Execution{
+								Contract: "bob",
+								Amount:   "200000000000000000",
+								Data:     []byte{1, 2, 3, 4},
+							},
 						},
 						Version: version.ProtocolVersion,
 						Nonce:   102,
+						ChainID: 2,
 					},
-					SenderPubKey: senderPubKey.Bytes(),
+					SenderPubKey: pkBytes,
 					Signature:    action.ValidSig,
 				},
 			},
 		},
-	}))
+	}
+)
+
+func TestConvertFromBlockPb(t *testing.T) {
+	blk := Block{}
+	require.NoError(t, blk.ConvertFromBlockPb(&pbBlock))
 
 	txHash, err := blk.CalculateTxRoot()
 	require.NoError(t, err)
