@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"sort"
 	"strconv"
 	"time"
 
@@ -160,9 +159,8 @@ type (
 	}
 
 	_logsInBlock struct {
-		blockNumber uint64
-		logs        []*iotextypes.Log
-		err         error
+		logs []*iotextypes.Log
+		err  error
 	}
 )
 
@@ -1393,51 +1391,57 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		paginationSize = 5000
 	}
 
-	c := make(chan _logsInBlock)
 	logs := []*iotextypes.Log{}
+	c := make(chan _logsInBlock)
+	done := make(chan _logsInBlock)
+	defer close(done)
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
-	for _, i := range blockNumbers {
-		go func(blockNumber uint64) {
-			logsInBlock, err := core.logsInBlock(filter, blockNumber)
+	go func() {
+		defer close(c)
+		for _, i := range blockNumbers {
+			logsInBlock, err := core.logsInBlock(filter, i)
 			ret := &_logsInBlock{
-				blockNumber,
 				logsInBlock,
 				err,
 			}
 			c <- *ret
-		}(i)
-	}
-
-	i := 0
-	orderedBlocks := []_logsInBlock{}
-	for logsInBlock := range c {
-		if logsInBlock.err != nil {
-			return nil, err
 		}
+	}()
 
-		orderedBlocks = append(orderedBlocks, logsInBlock)
+	go func() {
+		logs := []*iotextypes.Log{}
+		for logsInBlock := range c {
+			if logsInBlock.err != nil {
+				done <- _logsInBlock{
+					nil,
+					err,
+				}
+				return
+			}
 
-		if i == len(blockNumbers)-1 {
-			close(c)
-		}
-		i++
-	}
-
-	sort.SliceStable(orderedBlocks, func(i, j int) bool {
-		return orderedBlocks[i].blockNumber < orderedBlocks[j].blockNumber
-	})
-
-	for _, logsInBlock := range orderedBlocks {
-		for _, log := range logsInBlock.logs {
-			logs = append(logs, log)
-			if len(logs) >= int(paginationSize) {
-				return logs, nil
+			for _, log := range logsInBlock.logs {
+				logs = append(logs, log)
+				if len(logs) >= int(paginationSize) {
+					done <- _logsInBlock{
+						logs,
+						nil,
+					}
+					return
+				}
 			}
 		}
-	}
-	return logs, nil
+		done <- _logsInBlock{
+			logs,
+			nil,
+		}
+	}()
+
+	logsInRange := <-done
+	logs = logsInRange.logs
+	err = logsInRange.err
+	return logs, err
 }
 
 func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, error) {
