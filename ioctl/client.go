@@ -60,8 +60,6 @@ type (
 		SetAlias(string, string) error
 		// DeleteAlias delete alias from the default config file
 		DeleteAlias(string) error
-		// PrintInfo print the command result or the question query
-		PrintInfo(string)
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
 		IsCryptoSm2() bool
 	}
@@ -263,10 +261,6 @@ func (c *client) writeAlias() error {
 		return errors.Wrapf(err, "failed to write to config file %s", c.configFilePath)
 	}
 	return nil
-}
-
-func (c *client) PrintInfo(info string) {
-	fmt.Println(info)
 }
 
 func (c *client) IsCryptoSm2() bool {

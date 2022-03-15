@@ -79,14 +79,8 @@ func initMockStateManager(ctrl *gomock.Controller) (*mock_chainmanager.MockState
 			cb.Delete(ns, cfg.Key, "failed to delete state")
 			return 0, nil
 		}).AnyTimes()
-	sm.EXPECT().Snapshot().DoAndReturn(
-		func() int {
-			return cb.Snapshot()
-		}).AnyTimes()
-	sm.EXPECT().Revert(gomock.Any()).DoAndReturn(
-		func(snapshot int) error {
-			return cb.Revert(snapshot)
-		}).AnyTimes()
+	sm.EXPECT().Snapshot().DoAndReturn(cb.Snapshot).AnyTimes()
+	sm.EXPECT().Revert(gomock.Any()).DoAndReturn(cb.RevertSnapshot).AnyTimes()
 	return sm, nil
 }
 
