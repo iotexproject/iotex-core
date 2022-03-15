@@ -93,7 +93,7 @@ func NewAccountCreate(client ioctl.Client) *cobra.Command {
 			}
 
 			message := createMessage{Accounts: newAccounts}
-			client.PrintInfo(message.String())
+			cmd.Println(message.String())
 			return nil
 		},
 	}

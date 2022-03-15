@@ -7,6 +7,7 @@
 package account
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,7 +42,6 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(3)
-	client.EXPECT().PrintInfo(gomock.Any()).AnyTimes()
 
 	t.Run("invalid_current_password", func(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
@@ -58,7 +58,7 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
-		require.Error(ErrPasswdNotMatch, err)
+		require.Equal(ErrPasswdNotMatch, err)
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -67,8 +67,9 @@ func TestNewAccountUpdate_FindKeystore(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, fmt.Sprintf("Account #%s has been updated.", accAddr.String()))
 	})
 }
 
@@ -102,7 +103,6 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		require.NoError(os.Remove(skPemPath))
 	}()
 	client.EXPECT().IsCryptoSm2().Return(true).Times(3)
-	client.EXPECT().PrintInfo(gomock.Any()).AnyTimes()
 
 	t.Run("invalid_current_password", func(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(1)
@@ -119,7 +119,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("12345", nil).Times(1)
 		cmd := NewAccountUpdate(client)
 		_, err := util.ExecuteCmd(cmd)
-		require.Error(ErrPasswdNotMatch, err)
+		require.Equal(ErrPasswdNotMatch, err)
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -128,7 +128,8 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		client.EXPECT().ReadSecret().Return("1234", nil).Times(1)
 		cmd := NewAccountUpdate(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, fmt.Sprintf("Account #%s has been updated.", accAddr.String()))
 	})
 }
