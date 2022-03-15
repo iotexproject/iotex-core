@@ -36,6 +36,10 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 	req.Equal(signByte, se.Signature())
 	req.Zero(se.Encoding())
 
+	var se1 SealedEnvelope
+	se.signature = validSig
+	req.NoError(se1.LoadProto(se.Proto()))
+	req.Equal(se, se1)
 }
 
 func TestSealedEnvelope_InvalidType(t *testing.T) {
@@ -168,6 +172,7 @@ func createSealedEnvelope() (SealedEnvelope, error) {
 		Build()
 
 	cPubKey, err := crypto.HexStringToPublicKey(publicKey)
+	tsf.srcPubkey = cPubKey
 	se := SealedEnvelope{}
 	se.Envelope = evlp
 	se.srcPubkey = cPubKey
