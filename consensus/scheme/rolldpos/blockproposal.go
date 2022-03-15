@@ -62,10 +62,11 @@ func (bp *blockProposal) ProposerAddress() string {
 }
 
 func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
-	bp.block = &block.Block{}
-	if err := bp.block.ConvertFromBlockPb(msg.Block); err != nil {
+	blk, err := (&block.Deserializer{}).FromBlockProto(msg.Block)
+	if err != nil {
 		return err
 	}
+	bp.block = blk
 	bp.proofOfLock = []*endorsement.Endorsement{}
 	for _, ePb := range msg.Endorsements {
 		en := &endorsement.Endorsement{}

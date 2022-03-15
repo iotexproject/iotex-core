@@ -19,6 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -117,4 +119,23 @@ func readStates(kvStore db.KVStore, namespace string, keys [][]byte) ([][]byte, 
 		}
 	}
 	return values, nil
+}
+
+func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
+	dbForTrie, err := trie.NewKVStore(ns, dao)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	_, err = dbForTrie.Get([]byte(rootKey))
+	switch errors.Cause(err) {
+	case trie.ErrNotExist:
+		if !create {
+			return nil, err
+		}
+	case nil:
+		break
+	default:
+		return nil, err
+	}
+	return mptrie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }

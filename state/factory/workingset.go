@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -44,34 +43,27 @@ func init() {
 
 type (
 	workingSet struct {
-		height        uint64
-		finalized     bool
-		dock          protocol.Dock
-		receipts      []*action.Receipt
-		commitFunc    func(uint64) error
-		readviewFunc  func(name string) (interface{}, error)
-		writeviewFunc func(name string, v interface{}) error
-		dbFunc        func() db.KVStore
-		delStateFunc  func(string, []byte) error
-		statesFunc    func(string, [][]byte) ([][]byte, error)
-		digestFunc    func() hash.Hash256
-		finalizeFunc  func(uint64) error
-		getStateFunc  func(string, []byte, interface{}) error
-		putStateFunc  func(string, []byte, interface{}) error
-		revertFunc    func(int) error
-		snapshotFunc  func() int
-	}
-
-	workingSetCreator interface {
-		newWorkingSet(context.Context, uint64) (*workingSet, error)
+		height    uint64
+		store     workingSetStore
+		finalized bool
+		dock      protocol.Dock
+		receipts  []*action.Receipt
 	}
 )
+
+func newWorkingSet(height uint64, store workingSetStore) *workingSet {
+	return &workingSet{
+		height: height,
+		store:  store,
+		dock:   protocol.NewDock(),
+	}
+}
 
 func (ws *workingSet) digest() (hash.Hash256, error) {
 	if !ws.finalized {
 		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
 	}
-	return ws.digestFunc(), nil
+	return ws.store.Digest(), nil
 }
 
 func (ws *workingSet) Receipts() ([]*action.Receipt, error) {
@@ -168,25 +160,28 @@ func (ws *workingSet) runAction(
 	if !ok {
 		return nil, nil
 	}
+	elpHash, err := elp.Hash()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to get hash")
+	}
+	var receipt *action.Receipt
 	for _, actionHandler := range reg.All() {
-		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
-		elpHash, err1 := elp.Hash()
-		if err1 != nil {
-			return nil, errors.Wrapf(err1, "Failed to get hash")
-		}
+		receipt, err = actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
-			return nil, errors.Wrapf(
+			err = errors.Wrapf(
 				err,
 				"error when action %x mutates states",
 				elpHash,
 			)
 		}
-		if receipt != nil {
-			return receipt, nil
+		if receipt != nil || err != nil {
+			break
 		}
 	}
-	// TODO (zhi): return error
-	return nil, nil
+	ws.ResetSnapshots()
+
+	// TODO (zhi): return error if both receipt and err are nil
+	return receipt, err
 }
 
 func validateChainID(ctx context.Context, chainID uint32) error {
@@ -202,7 +197,7 @@ func (ws *workingSet) finalize() error {
 	if ws.finalized {
 		return errors.New("Cannot finalize a working set twice")
 	}
-	if err := ws.finalizeFunc(ws.height); err != nil {
+	if err := ws.store.Finalize(ws.height); err != nil {
 		return err
 	}
 	ws.finalized = true
@@ -211,16 +206,20 @@ func (ws *workingSet) finalize() error {
 }
 
 func (ws *workingSet) Snapshot() int {
-	return ws.snapshotFunc()
+	return ws.store.Snapshot()
 }
 
 func (ws *workingSet) Revert(snapshot int) error {
-	return ws.revertFunc(snapshot)
+	return ws.store.RevertSnapshot(snapshot)
+}
+
+func (ws *workingSet) ResetSnapshots() {
+	ws.store.ResetSnapshots()
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
-	if err := ws.commitFunc(ws.height); err != nil {
+	if err := ws.store.Commit(); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
@@ -230,11 +229,6 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 	return nil
 }
 
-// GetDB returns the underlying DB for account/contract storage
-func (ws *workingSet) GetDB() db.KVStore {
-	return ws.dbFunc()
-}
-
 // State pulls a state from DB
 func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	stateDBMtc.WithLabelValues("get").Inc()
@@ -242,7 +236,11 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.getStateFunc(cfg.Namespace, cfg.Key, s)
+	value, err := ws.store.Get(cfg.Namespace, cfg.Key)
+	if err != nil {
+		return ws.height, err
+	}
+	return ws.height, state.Deserialize(s, value)
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -253,7 +251,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 	if cfg.Key != nil {
 		return 0, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	values, err := ws.statesFunc(cfg.Namespace, cfg.Keys)
+	values, err := ws.store.States(cfg.Namespace, cfg.Keys)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -267,7 +265,11 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.putStateFunc(cfg.Namespace, cfg.Key, s)
+	ss, err := state.Serialize(s)
+	if err != nil {
+		return ws.height, errors.Wrapf(err, "failed to convert account %v to bytes", s)
+	}
+	return ws.height, ws.store.Put(cfg.Namespace, cfg.Key, ss)
 }
 
 // DelState deletes a state from DB
@@ -277,17 +279,17 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	if err != nil {
 		return ws.height, err
 	}
-	return ws.height, ws.delStateFunc(cfg.Namespace, cfg.Key)
+	return ws.height, ws.store.Delete(cfg.Namespace, cfg.Key)
 }
 
 // ReadView reads the view
 func (ws *workingSet) ReadView(name string) (interface{}, error) {
-	return ws.readviewFunc(name)
+	return ws.store.ReadView(name)
 }
 
 // WriteView writeback the view to factory
 func (ws *workingSet) WriteView(name string, v interface{}) error {
-	return ws.writeviewFunc(name, v)
+	return ws.store.WriteView(name, v)
 }
 
 func (ws *workingSet) ProtocolDirty(name string) bool {
