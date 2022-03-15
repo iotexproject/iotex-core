@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -23,14 +24,15 @@ func TestNewAccountVerify(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().PrintInfo(gomock.Any()).Times(3)
 
 	t.Run("verify account successfully", func(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", nil)
 
 		cmd := NewAccountVerify(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, identityset.PrivateKey(27).PublicKey().Address().String())
+		require.Contains(result, identityset.PrivateKey(27).PublicKey().HexString())
 	})
 
 	t.Run("failed to covert hex string to private key", func(t *testing.T) {
