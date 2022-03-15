@@ -68,6 +68,7 @@ type (
 		Get(string, []byte) ([]byte, error)
 	}
 
+	// Snapshot defines an interface which supports snapshot related functions
 	Snapshot interface {
 		// Snapshot takes a snapshot of current cached batch
 		Snapshot() int
