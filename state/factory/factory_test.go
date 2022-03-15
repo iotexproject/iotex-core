@@ -1226,40 +1226,6 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 	require.Error(err)
 }
 
-func TestGetDB(t *testing.T) {
-	require := require.New(t)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(err)
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
-	)
-	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
-	require.NoError(err)
-	h, _ := ws.Height()
-	require.Equal(uint64(1), h)
-	kvStore := ws.GetDB()
-	_, ok := kvStore.(db.KVStoreWithBuffer)
-	require.True(ok)
-}
-
-func TestSTXGetDB(t *testing.T) {
-	require := require.New(t)
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-	require.NoError(err)
-	ctx := genesis.WithGenesisContext(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		genesis.Default,
-	)
-	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
-	require.NoError(err)
-	h, _ := ws.Height()
-	require.Equal(uint64(1), h)
-	kvStore := ws.GetDB()
-	_, ok := kvStore.(db.KVStoreWithBuffer)
-	require.True(ok)
-}
-
 func TestStateDBPatch(t *testing.T) {
 	require := require.New(t)
 	n1 := "n1"
