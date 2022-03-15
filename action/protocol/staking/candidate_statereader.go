@@ -7,7 +7,6 @@
 package staking
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -212,13 +211,21 @@ func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
 }
 
 func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
-	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
-	maxKey := []byte{_bucket + 1}
 	height, iter, err := c.States(
 		protocol.NamespaceOption(StakingNameSpace),
-		protocol.FilterOption(func(k, v []byte) bool {
-			return bytes.HasPrefix(k, []byte{_bucket})
-		}, bucketKey(0), maxKey))
+		protocol.KeysOption(func() ([][]byte, error) {
+			// TODO (zhi): fix potential racing issue
+			count, err := c.getTotalBucketCount()
+			if err != nil {
+				return nil, err
+			}
+			keys := [][]byte{}
+			for i := uint64(0); i < count; i++ {
+				keys = append(keys, bucketKey(i))
+			}
+			return keys, nil
+		}),
+	)
 	if err != nil {
 		return nil, height, err
 	}
