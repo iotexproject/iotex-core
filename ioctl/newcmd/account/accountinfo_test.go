@@ -7,6 +7,8 @@
 package account
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -46,12 +48,18 @@ func TestNewAccountInfo(t *testing.T) {
 
 	t.Run("retrieve account information successfully", func(t *testing.T) {
 		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
-		client.EXPECT().PrintInfo(gomock.Any())
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 
 		cmd := NewAccountInfo(client)
-		_, err := util.ExecuteCmd(cmd, "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7")
+		result, err := util.ExecuteCmd(cmd, "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7")
 		require.NoError(err)
+		var info infoMessage
+		require.NoError(json.Unmarshal([]byte(result), &info))
+		require.Equal(accAddr.String(), info.Address)
+		require.Equal(accountResponse.AccountMeta.Nonce, uint64(info.Nonce))
+		require.Equal(accountResponse.AccountMeta.PendingNonce, uint64(info.PendingNonce))
+		require.Equal(accountResponse.AccountMeta.NumActions, uint64(info.NumActions))
+		require.Equal(info.ContractByteCode, hex.EncodeToString(accountResponse.AccountMeta.ContractByteCode))
 	})
 
 	t.Run("failed to invoke GetAccount api", func(t *testing.T) {
