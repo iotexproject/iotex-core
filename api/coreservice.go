@@ -1392,56 +1392,44 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 
 	logs := []*iotextypes.Log{}
-	c := make(chan _logsInBlock)
-	done := make(chan _logsInBlock)
-	defer close(done)
+	jobs := make(chan uint64, len(blockNumbers))
+	results := make(chan _logsInBlock, len(blockNumbers))
+	// defer close(done)
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
-	go func() {
-		defer close(c)
-		for _, i := range blockNumbers {
-			logsInBlock, err := core.logsInBlock(filter, i)
-			ret := &_logsInBlock{
-				logsInBlock,
-				err,
-			}
-			c <- *ret
-		}
-	}()
-
-	go func() {
-		logs := []*iotextypes.Log{}
-		for logsInBlock := range c {
-			if logsInBlock.err != nil {
-				done <- _logsInBlock{
-					nil,
+	for w := 1; w <= 5; w++ {
+		go func(w int, f *logfilter.LogFilter, jobs <-chan uint64, results chan<- _logsInBlock) {
+			for j := range jobs {
+				logsInBlock, err := core.logsInBlock(f, j)
+				results <- _logsInBlock{
+					logsInBlock,
 					err,
 				}
-				return
 			}
+		}(w, filter, jobs, results)
+	}
 
-			for _, log := range logsInBlock.logs {
-				logs = append(logs, log)
-				if len(logs) >= int(paginationSize) {
-					done <- _logsInBlock{
-						logs,
-						nil,
-					}
-					return
-				}
+	for _, i := range blockNumbers {
+		jobs <- i
+	}
+	close(jobs)
+
+	for i := 0; i < len(blockNumbers); i++ {
+		logsInBlock := <-results
+		if logsInBlock.err != nil {
+			return nil, err
+		}
+
+		for _, log := range logsInBlock.logs {
+			logs = append(logs, log)
+			if len(logs) >= int(paginationSize) {
+				return logs, nil
 			}
 		}
-		done <- _logsInBlock{
-			logs,
-			nil,
-		}
-	}()
+	}
 
-	logsInRange := <-done
-	logs = logsInRange.logs
-	err = logsInRange.err
-	return logs, err
+	return logs, nil
 }
 
 func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, error) {
