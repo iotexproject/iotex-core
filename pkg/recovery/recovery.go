@@ -8,7 +8,9 @@ package recovery
 
 import (
 	"encoding/json"
+	"os"
 	"runtime/debug"
+	"runtime/pprof"
 	"time"
 
 	"github.com/shirou/gopsutil/load"
@@ -42,14 +44,24 @@ type (
 	}
 )
 
-// Recovery get the stack infos of current goroutine and the cpu/mem/disk current infos
-func Recovery() {
-	if r := recover(); r != nil {
-		log.S().Errorf("recover error :%v", r)
-		log.S().Errorf("%s", string(debug.Stack()))
-		printInfo("cpu", cpuInfo)
-		printInfo("memory", memInfo)
-		printInfo("disk", diskInfo)
+// CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
+func CrashLog(path string) {
+	log.S().Errorf("%s", string(debug.Stack()))
+	writeHeapProfile(path)
+	printInfo("cpu", cpuInfo)
+	printInfo("memory", memInfo)
+	printInfo("disk", diskInfo)
+}
+
+func writeHeapProfile(path string) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		log.S().Fatalf("open heap profile error: %v", err)
+	}
+	defer f.Close()
+	debug.WriteHeapDump(f.Fd())
+	if err := pprof.WriteHeapProfile(f); err != nil {
+		log.S().Fatalf("write heap profile error: %v", err)
 	}
 }
 
@@ -79,11 +91,11 @@ func cpuInfo() (interface{}, error) {
 	}
 
 	// cpu use percent during past 3 seconds
-	totalPercent, err := cpu.Percent(3*time.Second, false)
+	totalPercent, err := cpu.Percent(100*time.Millisecond, false)
 	if err != nil {
 		return nil, err
 	}
-	perPercents, err := cpu.Percent(3*time.Second, true)
+	perPercents, err := cpu.Percent(100*time.Millisecond, true)
 	if err != nil {
 		return nil, err
 	}

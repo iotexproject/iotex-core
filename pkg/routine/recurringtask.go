@@ -13,7 +13,6 @@ import (
 	"github.com/facebookgo/clock"
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/recovery"
 )
 
 var _ lifecycle.StartStopper = (*RecurringTask)(nil)
@@ -52,7 +51,6 @@ func (t *RecurringTask) Start(ctx context.Context) error {
 	t.ticker = t.clock.Ticker(t.interval)
 	ready := make(chan struct{})
 	go func() {
-		defer recovery.Recovery()
 		close(ready)
 		for {
 			select {

@@ -18,8 +18,10 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	_ "go.uber.org/automaxprocs"
@@ -102,6 +104,16 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
+	defer func() {
+		if r := recover(); r != nil {
+			log.S().Errorf("recover error :%v", r)
+			if cfg.Log.StderrRedirectFile != nil {
+				recovery.CrashLog(filepath.Join(filepath.Dir(*cfg.Log.StderrRedirectFile),
+					"heapdump_"+time.Now().Format("20060102150405")+".out"))
+			}
+		}
+	}()
+
 	// populdate chain ID
 	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	if config.EVMNetworkID() == 0 {
@@ -116,7 +128,6 @@ func main() {
 	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
 	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
 	log.S().Infof("Genesis hash: %x", block.GenesisHash())
-	defer recovery.Recovery()
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
