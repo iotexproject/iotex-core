@@ -55,25 +55,10 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, failToGetAccountMeta)
 			}
 
-			message := nonceMessage{
-				Address:      addr,
-				Nonce:        int(accountMeta.Nonce),
-				PendingNonce: int(accountMeta.PendingNonce),
-			}
-			client.PrintInfo(message.String())
+			cmd.Println(fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
+				addr, accountMeta.Nonce, accountMeta.PendingNonce))
 			return nil
 		},
 	}
 	return cmd
-}
-
-type nonceMessage struct {
-	Address      string `json:"address"`
-	Nonce        int    `json:"nonce"`
-	PendingNonce int    `json:"pendingNonce"`
-}
-
-func (m *nonceMessage) String() string {
-	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-		m.Address, m.Nonce, m.PendingNonce)
 }

@@ -52,11 +52,11 @@ func NewAccountExport(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to get address")
 				}
 			}
-			prvKey, err := PrivateKeyFromSigner(client, addr, "")
+			prvKey, err := PrivateKeyFromSigner(client, cmd, addr, "")
 			if err != nil {
 				return errors.Wrap(err, "failed to get private key from keystore")
 			}
-			client.PrintInfo(prvKey.HexString())
+			cmd.Println(prvKey.HexString())
 			prvKey.Zero()
 			return nil
 		},
