@@ -35,7 +35,6 @@ func TestNewAccountExportPublic(t *testing.T) {
 	}()
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
-	client.EXPECT().PrintInfo(gomock.Any()).AnyTimes()
 
 	t.Run("true AliasIsHdwalletKey", func(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("", nil).Times(1)
@@ -46,13 +45,16 @@ func TestNewAccountExportPublic(t *testing.T) {
 
 	t.Run("false AliasIsHdwalletKey", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
-		acc, _ := ks.NewAccount("")
-		accAddr, _ := address.FromBytes(acc.Address.Bytes())
+		acc, err := ks.NewAccount("")
+		require.NoError(err)
+		accAddr, err := address.FromBytes(acc.Address.Bytes())
+		require.NoError(err)
 		client.EXPECT().ReadSecret().Return("", nil).Times(1)
 		client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(2)
 		cmd := NewAccountExportPublic(client)
-		_, err := util.ExecuteCmd(cmd, "1234")
+		result, err := util.ExecuteCmd(cmd, "1234")
 		require.NoError(err)
+		require.Contains(result, accAddr.String())
 	})
 
 	t.Run("invalid address", func(t *testing.T) {

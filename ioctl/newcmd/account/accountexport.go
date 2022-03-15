@@ -17,20 +17,20 @@ import (
 
 // Multi-language support
 var (
-	exportPublicCmdShorts = map[config.Language]string{
-		config.English: "Export IoTeX public key from wallet",
-		config.Chinese: "从钱包导出IoTeX的公钥",
+	exportCmdShorts = map[config.Language]string{
+		config.English: "Export IoTeX private key from wallet",
+		config.Chinese: "从钱包导出IoTeX的私钥",
 	}
-	exportPublicCmdUses = map[config.Language]string{
-		config.English: "exportpublic (ALIAS|ADDRESS)",
-		config.Chinese: "exportpublic (别名|地址)",
+	exportCmdUses = map[config.Language]string{
+		config.English: "export (ALIAS|ADDRESS)",
+		config.Chinese: "export (别名|地址)",
 	}
 )
 
-// NewAccountExportPublic represents the account export public command
-func NewAccountExportPublic(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(exportPublicCmdShorts)
-	short, _ := client.SelectTranslation(exportPublicCmdUses)
+// NewAccountExport represents the account export command
+func NewAccountExport(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(exportCmdShorts)
+	short, _ := client.SelectTranslation(exportCmdUses)
 
 	return &cobra.Command{
 		Use:   use,
@@ -56,7 +56,7 @@ func NewAccountExportPublic(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get private key from keystore")
 			}
-			cmd.Println(prvKey.PublicKey().HexString())
+			cmd.Println(prvKey.HexString())
 			prvKey.Zero()
 			return nil
 		},
