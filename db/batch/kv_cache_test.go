@@ -7,9 +7,7 @@
 package batch
 
 import (
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -44,9 +42,9 @@ func TestKvCache(t *testing.T) {
 	require.NoError(err)
 	require.Equal(v, v1)
 
-	// // 3. write the same key many times
-	// err = c.WriteIfNotExist(k1, v1)
-	// require.Equal(err, ErrAlreadyExist)
+	// 3. write the same key many times
+	err = c.WriteIfNotExist(k1, v1)
+	require.Equal(err, ErrAlreadyExist)
 
 	c.Write(k1, v2)
 	v, err = c.Read(k1)
@@ -96,52 +94,4 @@ func TestKvCache(t *testing.T) {
 	v, err = c.Read(k3)
 	require.NoError(err)
 	require.Equal(v, v3)
-}
-
-func BenchmarkKvCache(b *testing.B) {
-	// require := require.New(b)
-
-	c := NewKVCache()
-
-	b.Run("read", func(b *testing.B) {
-		writeRandData(c, 10000)
-		for n := 0; n < b.N; n++ {
-			_, _ = c.Read(existKey)
-		}
-	})
-
-	b.Run("clone", func(b *testing.B) {
-		writeRandData(c, 10000)
-		for n := 0; n < b.N; n++ {
-			_ = c.Clone()
-		}
-	})
-
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-var (
-	charsetAlphaLow = []rune("abcdefghijklmnopqrstuvwxyz")
-	existKey        = &kvCacheKey{"abc", "def"}
-)
-
-func generateRandStr(size uint32) string {
-	ret := make([]rune, size)
-	for i := 0; i < int(size); i++ {
-		ret[i] = charsetAlphaLow[rand.Intn(len(charsetAlphaLow))]
-	}
-	return string(ret)
-}
-
-func writeRandData(cache KVStoreCache, n int) {
-	for i := 0; i < n; i++ {
-		key1 := generateRandStr(6)
-		key2 := generateRandStr(6)
-		value := generateRandStr(12)
-		cache.Write(&kvCacheKey{key1, key2}, []byte(value))
-	}
-	cache.Write(existKey, []byte("asdf"))
 }
