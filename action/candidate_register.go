@@ -224,7 +224,7 @@ func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 // LoadProto converts a protobuf's Action to CandidateRegister
 func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cInfo := pbAct.GetCandidate()
