@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -66,7 +66,7 @@ func TestClient(t *testing.T) {
 	bh := &iotextypes.BlockHeader{Core: &iotextypes.BlockHeaderCore{
 		Version:          chainID,
 		Height:           10,
-		Timestamp:        ptypes.TimestampNow(),
+		Timestamp:        timestamppb.Now(),
 		PrevBlockHash:    []byte(""),
 		TxRoot:           []byte(""),
 		DeltaStateDigest: []byte(""),
