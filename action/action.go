@@ -7,15 +7,11 @@
 package action
 
 import (
-	"encoding/hex"
 	"math"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
@@ -76,30 +72,6 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 	}
 	act.Action().SetEnvelopeContext(sealed)
 	return sealed
-}
-
-// Verify verifies the action using sender's public key
-func Verify(sealed SealedEnvelope) error {
-	if sealed.SrcPubkey() == nil {
-		return errors.New("empty public key")
-	}
-	// Reject action with insufficient gas limit
-	intrinsicGas, err := sealed.IntrinsicGas()
-	if intrinsicGas > sealed.GasLimit() || err != nil {
-		return ErrIntrinsicGas
-	}
-
-	h, err := sealed.envelopeHash()
-	if err != nil {
-		return errors.Wrap(err, "failed to generate envelope hash")
-	}
-	if !sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
-		log.L().Info("failed to verify action hash",
-			zap.String("hash", hex.EncodeToString(h[:])),
-			zap.String("signature", hex.EncodeToString(sealed.Signature())))
-		return ErrInvalidSender
-	}
-	return nil
 }
 
 // ClassifyActions classfies actions
