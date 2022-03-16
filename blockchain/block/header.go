@@ -9,7 +9,6 @@ package block
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -17,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -89,10 +89,7 @@ func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
 
 // BlockHeaderCoreProto returns BlockHeaderCore proto.
 func (h *Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
-	ts, err := ptypes.TimestampProto(h.timestamp)
-	if err != nil {
-		log.L().Panic("failed to cast to ptypes.timestamp", zap.Error(err))
-	}
+	ts := timestamppb.New(h.timestamp)
 	header := iotextypes.BlockHeaderCore{
 		Version:          h.version,
 		Height:           h.height,
@@ -127,15 +124,16 @@ func (h *Header) LoadFromBlockHeaderProto(pb *iotextypes.BlockHeader) error {
 func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) error {
 	h.version = pb.GetVersion()
 	h.height = pb.GetHeight()
-	ts, err := ptypes.Timestamp(pb.GetTimestamp())
-	if err != nil {
+	if err := pb.GetTimestamp().CheckValid(); err != nil {
 		return err
 	}
+	ts := pb.GetTimestamp().AsTime()
 	h.timestamp = ts
 	copy(h.prevBlockHash[:], pb.GetPrevBlockHash())
 	copy(h.txRoot[:], pb.GetTxRoot())
 	copy(h.deltaStateDigest[:], pb.GetDeltaStateDigest())
 	copy(h.receiptRoot[:], pb.GetReceiptRoot())
+	var err error
 	if pb.GetLogsBloom() != nil {
 		h.logsBloom, err = bloom.NewBloomFilterLegacy(2048, 3)
 		if err != nil {
