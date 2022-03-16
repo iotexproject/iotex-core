@@ -15,7 +15,6 @@ import (
 	"strconv"
 
 	protoV1 "github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
@@ -148,10 +147,10 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 		return "", err
 	}
 	if actionInfo.Timestamp != nil {
-		ts, err := ptypes.Timestamp(actionInfo.Timestamp)
-		if err != nil {
+		if err := actionInfo.Timestamp.CheckValid(); err != nil {
 			return "", err
 		}
+		ts := actionInfo.Timestamp.AsTime()
 		result += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
 		result += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
 	}

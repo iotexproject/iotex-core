@@ -16,7 +16,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -25,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -169,8 +169,7 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 		require.NoError(t, err)
 		typesFooter.Endorsements = append(typesFooter.Endorsements, enProto)
 	}
-	ts, err := ptypes.TimestampProto(time.Unix(int64(unixTime), 0))
-	require.NoError(t, err)
+	ts := timestamppb.New(time.Unix(int64(unixTime), 0))
 	typesFooter.Timestamp = ts
 	require.NotNil(t, typesFooter.Timestamp)
 	err = footerForBlk.ConvertFromBlockFooterPb(&typesFooter)
