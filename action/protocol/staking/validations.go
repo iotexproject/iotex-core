@@ -16,7 +16,6 @@ import (
 
 // Errors
 var (
-	ErrNilAction           = errors.New("action is nil")
 	ErrInvalidAmount       = errors.New("invalid staking amount")
 	ErrInvalidCanName      = errors.New("invalid candidate name")
 	ErrInvalidOwner        = errors.New("invalid owner address")

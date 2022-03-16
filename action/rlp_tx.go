@@ -45,7 +45,7 @@ func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256,
 
 func generateRlpTx(act rlpTransaction) (*types.Transaction, error) {
 	if act == nil {
-		return nil, errors.New("nil action to generate RLP tx")
+		return nil, ErrNilAction
 	}
 
 	// generate raw tx

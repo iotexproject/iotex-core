@@ -103,10 +103,10 @@ func (tsf *Transfer) Proto() *iotextypes.Transfer {
 // LoadProto converts a protobuf's Action to Transfer
 func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if tsf == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*tsf = Transfer{}
 

@@ -61,7 +61,7 @@ func TestGenerateRlp(t *testing.T) {
 		err  string
 		hash hash.Hash256
 	}{
-		{nil, validSig, "nil action to generate RLP tx", hash.ZeroHash256},
+		{nil, validSig, ErrNilAction.Error(), hash.ZeroHash256},
 		{rlpTsf, validSig, "invalid recipient address", hash.ZeroHash256},
 		{rlpTsf1, signByte, "invalid signature length =", hash.ZeroHash256},
 		{rlpTsf1, validSig, "", hash.BytesToHash256(hT1)},

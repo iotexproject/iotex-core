@@ -203,7 +203,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.Equal(uint64(10000)+10*action.ExecutionDataGas, ret)
 
 	ret, err = gs.EstimateGasForAction(nil)
-	require.ErrorIs(err, action.ErrEmptyActionPool)
+	require.ErrorIs(err, action.ErrNilProto)
 	require.Equal(ret, uint64(0))
 }
 
