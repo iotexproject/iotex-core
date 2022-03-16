@@ -7,7 +7,6 @@
 package recovery
 
 import (
-	"encoding/json"
 	"os"
 	"runtime/debug"
 	"runtime/pprof"
@@ -46,7 +45,7 @@ type (
 
 // CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
 func CrashLog(path string) {
-	log.S().Errorf("%s", string(debug.Stack()))
+	log.S().Infow("occur crash", "stack", string(debug.Stack()))
 	writeHeapProfile(path)
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)
@@ -71,12 +70,7 @@ func printInfo(name string, info func() (interface{}, error)) {
 		log.S().Errorf("get %s info occur error: %v", name, err)
 		return
 	}
-	data, err := json.MarshalIndent(v, "", " ")
-	if err != nil {
-		log.S().Errorf("get %s info occur error: %v", name, err)
-		return
-	}
-	log.S().Infof("stat %s info: %s", name, string(data))
+	log.S().Infow("occur crash", name, v)
 }
 
 func cpuInfo() (interface{}, error) {
