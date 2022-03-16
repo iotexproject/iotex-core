@@ -66,7 +66,7 @@ func NewAccountList(client ioctl.Client) *cobra.Command {
 					})
 				}
 			}
-			client.PrintInfo(listmessage.String())
+			cmd.Println(listmessage.String())
 			return nil
 		},
 	}

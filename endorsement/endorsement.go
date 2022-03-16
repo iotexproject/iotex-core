@@ -9,10 +9,10 @@ package endorsement
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -115,10 +115,7 @@ func (en *Endorsement) Signature() []byte {
 
 // Proto converts an endorsement to protobuf message
 func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
-	ts, err := ptypes.TimestampProto(en.ts)
-	if err != nil {
-		return nil, err
-	}
+	ts := timestamppb.New(en.ts)
 	return &iotextypes.Endorsement{
 		Timestamp: ts,
 		Endorser:  en.endorser.Bytes(),
@@ -128,9 +125,10 @@ func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
 
 // LoadProto converts a protobuf message to endorsement
 func (en *Endorsement) LoadProto(ePb *iotextypes.Endorsement) (err error) {
-	if en.ts, err = ptypes.Timestamp(ePb.Timestamp); err != nil {
+	if err = ePb.Timestamp.CheckValid(); err != nil {
 		return err
 	}
+	en.ts = ePb.Timestamp.AsTime()
 	eb := make([]byte, len(ePb.Endorser))
 	copy(eb, ePb.Endorser)
 	if en.endorser, err = crypto.BytesToPublicKey(eb); err != nil {

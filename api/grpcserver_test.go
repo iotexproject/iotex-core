@@ -18,12 +18,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -2201,8 +2201,7 @@ func TestGrpcServer_GetRawBlocks(t *testing.T) {
 			header := blkInfos[0].Block.Header.Core
 			require.EqualValues(version.ProtocolVersion, header.Version)
 			require.Zero(header.Height)
-			ts, err := ptypes.TimestampProto(time.Unix(genesis.Timestamp(), 0))
-			require.NoError(err)
+			ts := timestamppb.New(time.Unix(genesis.Timestamp(), 0))
 			require.Equal(ts, header.Timestamp)
 			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.PrevBlockHash))
 			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.TxRoot))
