@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -1392,26 +1393,37 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	logs := []*iotextypes.Log{}
 	jobs := make(chan uint64, len(blockNumbers))
 	results := make(chan _logsInBlock, len(blockNumbers))
-	// defer close(done)
+	var wg sync.WaitGroup
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
-	for w := 1; w <= 5; w++ {
-		go func(w int, f *logfilter.LogFilter, jobs <-chan uint64, results chan<- _logsInBlock) {
-			for j := range jobs {
-				logsInBlock, err := core.logsInBlock(f, j)
-				results <- _logsInBlock{
-					logsInBlock,
-					err,
-				}
-			}
-		}(w, filter, jobs, results)
-	}
-
 	for _, i := range blockNumbers {
 		jobs <- i
 	}
 	close(jobs)
+
+	for w := 1; w <= 5; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				logsInBlock, err := core.logsInBlock(filter, job)
+				if err != nil {
+					results <- _logsInBlock{
+						nil,
+						err,
+					}
+					return
+				}
+
+				results <- _logsInBlock{
+					logsInBlock,
+					nil,
+				}
+			}
+		}()
+	}
+	wg.Wait()
 
 	for i := 0; i < len(blockNumbers); i++ {
 		logsInBlock := <-results
