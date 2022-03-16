@@ -505,12 +505,12 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	var act action.SealedEnvelope
-	if err := act.LoadProto(actPb); err != nil {
+	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	if err != nil {
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err := cs.actpool.Add(ctx, act)
+	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}

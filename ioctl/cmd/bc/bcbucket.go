@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -86,12 +85,12 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 		return nil, output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
 	}
 	unstakeStartTimeFormat := "none"
-	unstakeTime, err := ptypes.Timestamp(bucketpb.UnstakeStartTime)
-	if err != nil {
+	if err := bucketpb.UnstakeStartTime.CheckValid(); err != nil {
 		return nil, err
 	}
+	unstakeTime := bucketpb.UnstakeStartTime.AsTime()
 	if unstakeTime != time.Unix(0, 0).UTC() {
-		unstakeStartTimeFormat = ptypes.TimestampString(bucketpb.UnstakeStartTime)
+		unstakeStartTimeFormat = unstakeTime.Format(time.RFC3339Nano)
 	}
 	return &bucket{
 		Index:            bucketpb.Index,
@@ -100,8 +99,8 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 		StakedAmount:     util.RauToString(amount, util.IotxDecimalNum),
 		StakedDuration:   bucketpb.StakedDuration,
 		AutoStake:        bucketpb.AutoStake,
-		CreateTime:       ptypes.TimestampString(bucketpb.CreateTime),
-		StakeStartTime:   ptypes.TimestampString(bucketpb.StakeStartTime),
+		CreateTime:       bucketpb.CreateTime.AsTime().Format(time.RFC3339Nano),
+		StakeStartTime:   bucketpb.StakeStartTime.AsTime().Format(time.RFC3339Nano),
 		UnstakeStartTime: unstakeStartTimeFormat,
 	}, nil
 }
