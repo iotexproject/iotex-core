@@ -81,7 +81,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
-	
+
 	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
