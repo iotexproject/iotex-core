@@ -165,7 +165,7 @@ func (cs *CreateStake) Proto() *iotextypes.StakeCreate {
 // LoadProto converts a protobuf's Action to CreateStake
 func (cs *CreateStake) LoadProto(pbAct *iotextypes.StakeCreate) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cs.candName = pbAct.GetCandidateName()

@@ -355,7 +355,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 // Validate validates a staking message
 func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
 	if act == nil {
-		return ErrNilAction
+		return action.ErrNilAction
 	}
 	switch act := act.(type) {
 	case *action.CreateStake:

@@ -151,10 +151,10 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 // LoadProto converts a protobuf's Execution to Execution
 func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if ex == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*ex = Execution{}
 
