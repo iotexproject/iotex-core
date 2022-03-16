@@ -141,7 +141,7 @@ func (rs *Restake) Proto() *iotextypes.StakeRestake {
 // LoadProto converts a protobuf's Action to Restake
 func (rs *Restake) LoadProto(pbAct *iotextypes.StakeRestake) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	rs.bucketIndex = pbAct.GetBucketIndex()

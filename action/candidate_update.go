@@ -147,7 +147,7 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 // LoadProto converts a protobuf's Action to CandidateUpdate
 func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cu.name = pbAct.GetName()
