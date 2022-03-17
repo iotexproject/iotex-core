@@ -15,30 +15,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
-type Action interface {
-	SetEnvelopeContext(SealedEnvelope)
-	SanityCheck() error
-}
+type (
+	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
+	Action interface {
+		SetEnvelopeContext(SealedEnvelope)
+		SanityCheck() error
+	}
 
-type actionPayload interface {
-	Cost() (*big.Int, error)
-	IntrinsicGas() (uint64, error)
-	SetEnvelopeContext(SealedEnvelope)
-	SanityCheck() error
-}
+	// EthCompatibleAction is the action which is compatible to be converted to eth tx
+	EthCompatibleAction interface {
+		ToEthTx() (*types.Transaction, error)
+	}
 
-// EthCompatibleAction is the action which is compatible to be converted to eth tx
-type EthCompatibleAction interface {
-	ToEthTx() (*types.Transaction, error)
-}
+	actionPayload interface {
+		Cost() (*big.Int, error)
+		IntrinsicGas() (uint64, error)
+		SetEnvelopeContext(SealedEnvelope)
+		SanityCheck() error
+	}
 
-type hasDestination interface {
-	Destination() string
-}
-
-var (
-	errInvalidABI = errors.New("invalid abi binary data")
+	hasDestination interface {
+		Destination() string
+	}
 )
 
 // Sign signs the action using sender's private key
@@ -114,7 +112,7 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 // NewStakingActionFromABIBinary creates staking action from abi binary data
 func NewStakingActionFromABIBinary(data []byte) (Action, error) {
 	if len(data) <= 4 {
-		return nil, errInvalidABI
+		return nil, ErrInvalidABI
 	}
 	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
 		return act, nil
@@ -143,5 +141,5 @@ func NewStakingActionFromABIBinary(data []byte) (Action, error) {
 	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
 		return act, nil
 	}
-	return nil, errInvalidABI
+	return nil, ErrInvalidABI
 }

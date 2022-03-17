@@ -116,8 +116,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			21000,
 			"1000000000000",
 			"100000000000000000",
-			"io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
-
+			"0x3141df3f2e4415533bb6d6be2A351B2db9ee84EF",
 			0,
 			"eead45fe6b510db9ed6dce9187280791c04bbaadd90c54a7f4b1f75ced382ff1",
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
@@ -130,7 +129,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			21000,
 			"1000000000000",
 			"0",
-			"io143av880x0xce4tsy9sxwr8avhphq5sghum77ct",
+			"0xAC7AC39De679b19AaE042c0cE19fAcB86e0A4117",
 			68,
 			"7467dd6ccd4f3d7b6dc0002b26a45ad0b75a1793da4e3557cf6ff2582cbe25c9",
 			"041ba784140be115e8fa8698933e9318558a895c75c7943100f0677e4d84ff2763ff68720a0d22c12d093a2d692d1e8292c3b7672fccf3b3db46a6e0bdad93be17",
@@ -156,7 +155,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			36000,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			260,
 			"f59e5f9ba10ec50fdd1ebb41c75c6d54cfc634428620930b6ba6300847127241",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -169,7 +168,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			23200,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			132,
 			"8823b599b46cd907c4691aa71b5668b835be76a8358fa9beb866610e27598592",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -182,7 +181,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			29600,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			196,
 			"23f29aebf4b193b02dd78866d56ea7a7b1cdbf27604d34868bb82993c216b4ec",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -195,7 +194,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			21000,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			100,
 			"0c8560b135d325573e6aad484d71e2887835acce7fd4a78eddcb24efe6071516",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -208,7 +207,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			21000,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			100,
 			"49cc2e14f3d1c03d7e36686d962995ea0f30f65f948d5a59181a5504bc58c102",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -221,7 +220,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			26400,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			164,
 			"c3d30b0fccf9d59ece79419d329e50082a8b6d86dee1b9f424f8852e154713d1",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -234,7 +233,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			23200,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			132,
 			"a60b2546839e889a0ef89be4f224fb70dab3e4ddb6f65391ff708b01116593c1",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -247,7 +246,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			21000,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			356,
 			"9aa470cbdc3b3fd8f51aae4770d6a58cf4016be18201f0efbae6d83d0b2aa096",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -260,7 +259,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 			21000,
 			"0",
 			"0",
-			"io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+			"0x04C22AfaE6a03438b8FED74cb1Cf441168DF3F12",
 			164,
 			"7a8d96d35c939bf1634d587b1f471c0f3f96ba750d64d43289c9eef267718ef0",
 			"04dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b",
@@ -309,16 +308,22 @@ func TestRlpDecodeVerify(t *testing.T) {
 		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
 		require.NoError(selp.LoadProto(pb))
-		rlpTx, err := selp.ToRLP()
+		act, ok := selp.Action().(EthCompatibleAction)
+		require.True(ok)
+		rlpTx, err := act.ToEthTx()
 		require.NoError(err)
 
 		// verify against original tx
 		require.Equal(v.nonce, rlpTx.Nonce())
 		require.Equal(v.price, rlpTx.GasPrice().String())
-		require.Equal(v.limit, rlpTx.GasLimit())
-		require.Equal(v.to, rlpTx.Recipient())
-		require.Equal(v.amount, rlpTx.Amount().String())
-		require.Equal(v.dataLen, len(rlpTx.Payload()))
+		require.Equal(v.limit, rlpTx.Gas())
+		if v.to == "" {
+			require.Nil(rlpTx.To())
+		} else {
+			require.Equal(v.to, rlpTx.To().Hex())
+		}
+		require.Equal(v.amount, rlpTx.Value().String())
+		require.Equal(v.dataLen, len(rlpTx.Data()))
 		h, err := selp.Hash()
 		require.NoError(err)
 		require.Equal(v.hash, hex.EncodeToString(h[:]))

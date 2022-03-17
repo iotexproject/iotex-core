@@ -31,7 +31,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		act, ok := sealed.Action().(EthCompatibleAction)
 		if !ok {
-			return hash.ZeroHash256, errors.Errorf("unsupported action")
+			return hash.ZeroHash256, ErrInvalidAct
 		}
 		tx, err := act.ToEthTx()
 		if err != nil {
@@ -52,7 +52,7 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		act, ok := sealed.Action().(EthCompatibleAction)
 		if !ok {
-			return hash.ZeroHash256, errors.Errorf("unsupported action")
+			return hash.ZeroHash256, ErrInvalidAct
 		}
 		tx, err := act.ToEthTx()
 		if err != nil {
@@ -117,9 +117,9 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	switch encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
-		act, ok := sealed.Action().(EthCompatibleAction)
+		act, ok := elp.Action().(EthCompatibleAction)
 		if !ok {
-			return errors.Errorf("unsupported action")
+			return ErrInvalidAct
 		}
 		tx, err := act.ToEthTx()
 		if err != nil {
