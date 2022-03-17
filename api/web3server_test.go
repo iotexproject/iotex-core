@@ -299,8 +299,8 @@ func TestEstimateGas(t *testing.T) {
 	}{
 		{
 			input: fmt.Sprintf(`{"params": [{
-					"from":     %s,
-					"to":       %s,
+					"from":     "%s",
+					"to":       "%s",
 					"gas":      "0x0",
 					"gasPrice": "0x0",
 					"value":    "0x0",
@@ -310,8 +310,8 @@ func TestEstimateGas(t *testing.T) {
 		},
 		{
 			input: fmt.Sprintf(`{"params": [{
-				"from":     %s,
-				"to":       %s,
+				"from":     "%s",
+				"to":       "%s",
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
@@ -321,8 +321,8 @@ func TestEstimateGas(t *testing.T) {
 		},
 		{
 			input: fmt.Sprintf(`{"params": [{
-				"from":     %s,
-				"to":       %s,
+				"from":     "%s",
+				"to":       "%s",
 				"gas":      "0x0",
 				"gasPrice": "0x0",
 				"value":    "0x0",
