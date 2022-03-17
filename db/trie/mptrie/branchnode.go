@@ -50,7 +50,7 @@ func newBranchNode(
 	return bnode, nil
 }
 
-func newRootBranchNode(cli client, children map[byte]node, indices *SortedList, dirty bool) (*branchNode, error) {
+func newRootBranchNode(cli client, children map[byte]node, indices *SortedList, dirty bool) (branch, error) {
 	if indices == nil {
 		indices = NewSortedList(children)
 	}
