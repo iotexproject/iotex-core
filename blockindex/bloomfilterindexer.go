@@ -169,7 +169,7 @@ func (bfx *bloomfilterIndexer) DeleteTipBlock(blk *block.Block) (err error) {
 	bfx.mutex.Lock()
 	defer bfx.mutex.Unlock()
 	height := blk.Height()
-	if err := bfx.delete(height); err != nil {
+	if err := bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(height)); err != nil {
 		return err
 	}
 	bfx.curRangeBloomfilter = nil
