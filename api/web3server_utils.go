@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -21,6 +22,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -326,6 +328,30 @@ func (svr *Web3Server) isContractAddr(addr string) (bool, error) {
 		return false, err
 	}
 	return accountMeta.IsContract, nil
+}
+
+func (svr *Web3Server) ethTxToAction(tx *types.Transaction) (action.Action, error) {
+	to := ""
+	if tx.To() != nil {
+		ioAddr, _ := address.FromBytes(tx.To().Bytes())
+		to = ioAddr.String()
+	}
+	switch to {
+	case "":
+		return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+	case address.StakingProtocolAddr:
+		return action.NewStakingActionFromABIBinary(tx.Data())
+	default:
+		ioAddr, err := address.FromString(to)
+		if err != nil {
+			return nil, err
+		}
+		accountMeta, _, err := svr.coreService.Account(ioAddr)
+		if err == nil && accountMeta.IsContract {
+			return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+		}
+		return action.NewTransfer(tx.Nonce(), tx.Value(), to, tx.Data(), tx.Gas(), tx.GasPrice())
+	}
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {
