@@ -160,6 +160,10 @@ type (
 	}
 )
 
+type intrinsicGasCalculator interface {
+	IntrinsicGas() (uint64, error)
+}
+
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
 	cfg config.API,
@@ -1418,30 +1422,11 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 
 // EstimateGasForNonExecution estimates action gas except execution
 func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint64, error) {
-	switch act := actType.(type) {
-	case *action.Transfer:
-		return act.IntrinsicGas()
-	case *action.CreateStake:
-		return act.IntrinsicGas()
-	case *action.DepositToStake:
-		return act.IntrinsicGas()
-	case *action.ChangeCandidate:
-		return act.IntrinsicGas()
-	case *action.TransferStake:
-		return act.IntrinsicGas()
-	case *action.Unstake:
-		return act.IntrinsicGas()
-	case *action.WithdrawStake:
-		return act.IntrinsicGas()
-	case *action.Restake:
-		return act.IntrinsicGas()
-	case *action.CandidateRegister:
-		return act.IntrinsicGas()
-	case *action.CandidateUpdate:
-		return act.IntrinsicGas()
-	default:
-		return 0, errors.Errorf("invalid action type %T not supported", act)
+	act, ok := actType.(intrinsicGasCalculator)
+	if !ok {
+		return 0, errors.Errorf("invalid action type not supported")
 	}
+	return act.IntrinsicGas()
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action

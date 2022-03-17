@@ -340,38 +340,7 @@ func (svr *Web3Server) ethTxToAction(tx *types.Transaction) (action.Action, erro
 	case "":
 		return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
 	case address.StakingProtocolAddr:
-		data := tx.Data()
-		if len(data) <= 4 {
-			return nil, errUnkownType
-		}
-		if act, err := action.NewCreateStakeFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewDepositToStakeFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewChangeCandidateFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewUnstakeFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewWithdrawStakeFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewRestakeFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewTransferStakeFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewCandidateRegisterFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		if act, err := action.NewCandidateUpdateFromABIBinary(data); err == nil {
-			return act, nil
-		}
-		return nil, errUnkownType
+		return action.NewStakingActionFromABIBinary(tx.Data())
 	default:
 		ioAddr, err := address.FromString(to)
 		if err != nil {
