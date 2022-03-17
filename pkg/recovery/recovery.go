@@ -46,7 +46,7 @@ type (
 // CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
 func CrashLog(path string) {
 	writeHeapProfile(path)
-	log.S().Infow("occur crash", "stack", string(debug.Stack()))
+	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)
 	printInfo("disk", diskInfo)
@@ -55,21 +55,21 @@ func CrashLog(path string) {
 func writeHeapProfile(path string) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		log.S().Fatalf("open heap profile error: %v", err)
+		log.S().Fatalf("crashlog: open heap profile error: %v", err)
 	}
 	defer f.Close()
 	if err := pprof.WriteHeapProfile(f); err != nil {
-		log.S().Fatalf("write heap profile error: %v", err)
+		log.S().Fatalf("crashlog: write heap profile error: %v", err)
 	}
 }
 
 func printInfo(name string, info func() (interface{}, error)) {
 	v, err := info()
 	if err != nil {
-		log.S().Errorf("get %s info occur error: %v", name, err)
+		log.S().Errorw("crashlog: get %s info occur error: %v", name, err)
 		return
 	}
-	log.S().Infow("occur crash", name, v)
+	log.S().Infow("crashlog", name, v)
 }
 
 func cpuInfo() (interface{}, error) {
