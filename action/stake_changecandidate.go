@@ -131,7 +131,7 @@ func (cc *ChangeCandidate) Proto() *iotextypes.StakeChangeCandidate {
 // LoadProto loads change candidate from protobuf
 func (cc *ChangeCandidate) LoadProto(pbAct *iotextypes.StakeChangeCandidate) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cc.candidateName = pbAct.GetCandidateName()

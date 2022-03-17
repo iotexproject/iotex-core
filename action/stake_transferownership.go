@@ -131,7 +131,7 @@ func (ts *TransferStake) Proto() *iotextypes.StakeTransferOwnership {
 // LoadProto loads transfer stake protobuf
 func (ts *TransferStake) LoadProto(pbAct *iotextypes.StakeTransferOwnership) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	voterAddress, err := address.FromString(pbAct.GetVoterAddress())
 	if err != nil {

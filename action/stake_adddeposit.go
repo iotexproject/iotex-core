@@ -136,7 +136,7 @@ func (ds *DepositToStake) Proto() *iotextypes.StakeAddDeposit {
 // LoadProto converts a protobuf's Action to DepositToStake
 func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	ds.bucketIndex = pbAct.GetBucketIndex()
