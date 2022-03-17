@@ -185,16 +185,10 @@ func wrapStakingActionIntoExecution(ab AbstractAction, toAddr []byte, pb proto.M
 }
 
 // Verify verifies the action using sender's public key
-func (sealed *SealedEnvelope) Verify() error {
+func (sealed *SealedEnvelope) VerifyPubKey() error {
 	if sealed.SrcPubkey() == nil {
 		return errors.New("empty public key")
 	}
-	// Reject action with insufficient gas limit
-	intrinsicGas, err := sealed.IntrinsicGas()
-	if intrinsicGas > sealed.GasLimit() || err != nil {
-		return ErrIntrinsicGas
-	}
-
 	h, err := sealed.envelopeHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to generate envelope hash")

@@ -25,6 +25,7 @@ type (
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
 		SetChainID(chainID uint32)
+		CheckGas() error
 	}
 
 	envelope struct {
@@ -73,6 +74,18 @@ func (elp *envelope) Cost() (*big.Int, error) {
 // IntrinsicGas returns intrinsic gas of action.
 func (elp *envelope) IntrinsicGas() (uint64, error) {
 	return elp.payload.IntrinsicGas()
+}
+
+// CheckGas checks the sufficiency of gas
+func (elp *envelope) CheckGas() error {
+	intrinsicGas, err := elp.payload.IntrinsicGas()
+	if err != nil {
+		return err
+	}
+	if intrinsicGas > elp.gasLimit {
+		return ErrIntrinsicGas
+	}
+	return nil
 }
 
 // Action returns the action payload.
