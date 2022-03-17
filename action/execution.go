@@ -206,3 +206,16 @@ func (ex *Execution) SanityCheck() error {
 	}
 	return ex.AbstractAction.SanityCheck()
 }
+
+// ToEthTx converts action to eth-compatible tx
+func (ex *Execution) ToEthTx() (*types.Transaction, error) {
+	if ex.contract == EmptyAddress {
+		return types.NewContractCreation(ex.Nonce(), ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+	}
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return types.NewTransaction(ex.Nonce(), ethAddr, ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+}

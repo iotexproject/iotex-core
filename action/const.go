@@ -28,6 +28,8 @@ var (
 	ErrOversizedData      = errors.New("oversized data")
 	ErrNilProto           = errors.New("empty action proto to load")
 	ErrNilAction          = errors.New("nil action to load proto")
+	ErrInvalidAct         = errors.New("invalid action type")
+	ErrInvalidABI         = errors.New("invalid abi binary data")
 )
 
 // LoadErrorDescription loads corresponding description related to the error
