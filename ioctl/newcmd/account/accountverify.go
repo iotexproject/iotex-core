@@ -57,7 +57,7 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			client.PrintInfo(enterPrivateKey)
+			cmd.Println(enterPrivateKey)
 			privateKey, err := client.ReadSecret()
 			if err != nil {
 				return errors.Wrap(err, failToGetPrivateKey)
@@ -71,7 +71,7 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 				return errors.New(failToConvertPublicKeyIntoAddress)
 			}
 			priKey.Zero()
-			client.PrintInfo(fmt.Sprintf("Address:\t%s\nPublic Key:\t%s",
+			cmd.Println(fmt.Sprintf("Address:\t%s\nPublic Key:\t%s",
 				addr.String(),
 				fmt.Sprintf("%x", priKey.PublicKey().Bytes())),
 			)

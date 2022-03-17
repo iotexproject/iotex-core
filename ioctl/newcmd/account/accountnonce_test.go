@@ -7,6 +7,7 @@
 package account
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -47,6 +48,7 @@ func TestNewAccountNonce(t *testing.T) {
 		},
 	}
 
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
@@ -66,12 +68,12 @@ func TestNewAccountNonce(t *testing.T) {
 			PendingNonce: uint64(accountNoneTests[i].outPendingNonce),
 		}}
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
-		client.EXPECT().PrintInfo(gomock.Any())
 
 		cmd := NewAccountNonce(client)
 		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
-		require.NoError(t, err)
-		require.Equal(t, "", result)
+		require.NoError(err)
+		require.Contains(result, fmt.Sprintf("Nonce: %d", accountNoneTests[i].outNonce))
+		require.Contains(result, fmt.Sprintf("Pending Nonce: %d", accountNoneTests[i].outPendingNonce))
 	}
 
 	// fail to get account addr
@@ -79,8 +81,7 @@ func TestNewAccountNonce(t *testing.T) {
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("", expectedErr)
 	cmd := NewAccountNonce(client)
 	_, err := util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErr.Error())
+	require.Contains(err.Error(), expectedErr.Error())
 
 	// fail to dial grpc
 	expectedErr = errors.New("failed to dial grpc connection")
@@ -88,8 +89,7 @@ func TestNewAccountNonce(t *testing.T) {
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErr.Error())
+	require.Contains(err.Error(), expectedErr.Error())
 
 	// fail to invoke grpc api
 	expectedErr = errors.New("failed to invoke GetAccount api")
@@ -98,6 +98,5 @@ func TestNewAccountNonce(t *testing.T) {
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), expectedErr.Error())
+	require.Contains(err.Error(), expectedErr.Error())
 }

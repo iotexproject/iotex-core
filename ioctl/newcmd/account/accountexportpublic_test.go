@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -21,13 +22,13 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewAccountSign(t *testing.T) {
+func TestNewAccountExportPublic(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountSign")
+	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountExportPublic")
 	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
 	defer func() {
 		require.NoError(os.RemoveAll(testAccountFolder))
@@ -35,26 +36,31 @@ func TestNewAccountSign(t *testing.T) {
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
-	t.Run("invalid_account", func(t *testing.T) {
-		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
-		client.EXPECT().Address(gomock.Any()).Return("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph", nil).Times(1)
-		cmd := NewAccountSign(client)
-		require.NoError(cmd.Flag("signer").Value.Set("io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph"))
-		_, err := util.ExecuteCmd(cmd, "1234")
-		require.Equal("failed to sign message: invalid address #io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph", err.Error())
+	t.Run("true AliasIsHdwalletKey", func(t *testing.T) {
+		client.EXPECT().ReadSecret().Return("", nil).Times(1)
+		cmd := NewAccountExportPublic(client)
+		_, err := util.ExecuteCmd(cmd, "hdw::1234")
+		require.Contains(err.Error(), "failed to get private key from keystore")
 	})
 
-	t.Run("valid_account", func(t *testing.T) {
+	t.Run("false AliasIsHdwalletKey", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
-		const pwd = "test"
-		acc, _ := ks.NewAccount(pwd)
-		accAddr, _ := address.FromBytes(acc.Address.Bytes())
-		client.EXPECT().ReadSecret().Return(pwd, nil).Times(1)
+		acc, err := ks.NewAccount("")
+		require.NoError(err)
+		accAddr, err := address.FromBytes(acc.Address.Bytes())
+		require.NoError(err)
+		client.EXPECT().ReadSecret().Return("", nil).Times(1)
 		client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(2)
-		cmd := NewAccountSign(client)
-		require.NoError(cmd.Flag("signer").Value.Set(accAddr.String()))
+		cmd := NewAccountExportPublic(client)
 		result, err := util.ExecuteCmd(cmd, "1234")
 		require.NoError(err)
 		require.Contains(result, accAddr.String())
+	})
+
+	t.Run("invalid address", func(t *testing.T) {
+		client.EXPECT().Address(gomock.Any()).Return("", errors.New("mock error")).Times(1)
+		cmd := NewAccountExportPublic(client)
+		_, err := util.ExecuteCmd(cmd, "1234")
+		require.Contains(err.Error(), "failed to get address")
 	})
 }

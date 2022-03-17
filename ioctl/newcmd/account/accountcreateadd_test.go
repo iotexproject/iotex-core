@@ -25,11 +25,11 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().PrintInfo(gomock.Any()).Times(7)
 
 	testWallet, ks, pwd, _, err := newTestAccount()
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
+
 	client.EXPECT().ReadSecret().Return(pwd, nil).Times(4)
 	client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(2)
 	client.EXPECT().Config().Return(config.Config{

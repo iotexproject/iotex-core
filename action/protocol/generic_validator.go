@@ -38,7 +38,7 @@ func NewGenericValidator(sr StateReader, accountState AccountState) *GenericVali
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
 	// Verify action using action sender's public key
-	if err := action.Verify(selp); err != nil {
+	if err := selp.Verify(); err != nil {
 		return err
 	}
 	caller := selp.SrcPubkey().Address()
