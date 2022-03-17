@@ -117,37 +117,6 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func getStringFromArray(in interface{}, i int) (string, error) {
-	params, ok := in.([]interface{})
-	if !ok || i < 0 || i >= len(params) {
-		return "", errInvalidFormat
-	}
-	ret, ok := params[i].(string)
-	if !ok {
-		return "", errUnkownType
-	}
-	return ret, nil
-}
-
-func getStringAndBoolFromArray(in interface{}) (str string, b bool, err error) {
-	params, ok := in.([]interface{})
-	if !ok || len(params) != 2 {
-		err = errInvalidFormat
-		return
-	}
-	str, ok = params[0].(string)
-	if !ok {
-		err = errUnkownType
-		return
-	}
-	b, ok = params[1].(bool)
-	if !ok {
-		err = errUnkownType
-		return
-	}
-	return
-}
-
 func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
@@ -437,65 +406,48 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 	return &logReq, nil
 }
 
-func parseCallObject(in interface{}) (address.Address, string, uint64, *big.Int, []byte, error) {
+func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.Int, []byte, error) {
 	var (
 		from     address.Address
-		to       string
-		gasLimit uint64
-		value    *big.Int
+		to       string   = ""
+		gasLimit uint64   = 0
+		value    *big.Int = big.NewInt(0)
 		data     []byte
+		err      error
 	)
+	fromStr := in.Get("params.0.from").String()
+	if fromStr == "" {
+		fromStr = "0x0000000000000000000000000000000000000000"
+	}
+	if from, err = ethAddrToIoAddr(fromStr); err != nil {
+		return nil, "", 0, nil, nil, err
+	}
 
-	params, ok := in.([]interface{})
-	if !ok {
-		return nil, "", 0, nil, nil, errInvalidFormat
-	}
-	params0, ok := params[0].(map[string]interface{})
-	if !ok {
-		return nil, "", 0, nil, nil, errInvalidFormat
-	}
-	req, err := json.Marshal(params0)
-	if err != nil {
-		return nil, "", 0, nil, nil, err
-	}
-	callObj := struct {
-		From     string `json:"from,omitempty"`
-		To       string `json:"to,omitempty"`
-		Gas      string `json:"gas,omitempty"`
-		GasPrice string `json:"gasPrice,omitempty"`
-		Value    string `json:"value,omitempty"`
-		Data     string `json:"data,omitempty"`
-	}{}
-	if err = json.Unmarshal(req, &callObj); err != nil {
-		return nil, "", 0, nil, nil, err
-	}
-	if callObj.To != "" {
-		var ioAddr address.Address
-		if ioAddr, err = ethAddrToIoAddr(callObj.To); err != nil {
+	toStr := in.Get("params.0.to").String()
+	if toStr != "" {
+		ioAddr, err := ethAddrToIoAddr(toStr)
+		if err != nil {
 			return nil, "", 0, nil, nil, err
 		}
 		to = ioAddr.String()
 	}
-	if callObj.From == "" {
-		callObj.From = "0x0000000000000000000000000000000000000000"
-	}
-	if from, err = ethAddrToIoAddr(callObj.From); err != nil {
-		return nil, "", 0, nil, nil, err
-	}
-	if callObj.Value != "" {
-		value, ok = new(big.Int).SetString(util.Remove0xPrefix(callObj.Value), 16)
-		if !ok {
-			return nil, "", 0, nil, nil, errors.Wrapf(errUnkownType, "value: %s", callObj.Value)
-		}
-	} else {
-		value = big.NewInt(0)
-	}
-	if callObj.Gas != "" {
-		if gasLimit, err = hexStringToNumber(callObj.Gas); err != nil {
+
+	gasStr := in.Get("params.0.gas").String()
+	if gasStr != "" {
+		if gasLimit, err = hexStringToNumber(gasStr); err != nil {
 			return nil, "", 0, nil, nil, err
 		}
 	}
-	data = common.FromHex(callObj.Data)
+
+	valStr := in.Get("params.0.value").String()
+	if valStr != "" {
+		var ok bool
+		if value, ok = new(big.Int).SetString(util.Remove0xPrefix(valStr), 16); !ok {
+			return nil, "", 0, nil, nil, errors.Wrapf(errUnkownType, "value: %s", valStr)
+		}
+	}
+
+	data = common.FromHex(in.Get("params.0.data").String())
 	return from, to, gasLimit, value, data, nil
 }
 
