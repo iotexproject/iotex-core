@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
@@ -468,56 +469,22 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// load the value of gasPrice, value, to
-	gasPrice, value, to := "0", "0", ""
-	if tx.GasPrice() != nil {
-		gasPrice = tx.GasPrice().String()
-	}
-	if tx.Value() != nil {
-		value = tx.Value().String()
-	}
-	if tx.To() != nil {
-		ioAddr, _ := address.FromBytes(tx.To().Bytes())
-		to = ioAddr.String()
+	act, err := svr.ethTxToAction(tx)
+	if err != nil {
+		return nil, err
 	}
 
-	req := &iotextypes.Action{
-		Core: &iotextypes.ActionCore{
-			Version:  0,
-			Nonce:    tx.Nonce(),
-			GasLimit: tx.Gas(),
-			GasPrice: gasPrice,
-			ChainID:  svr.coreService.ChainID(),
-		},
-		SenderPubKey: pubkey.Bytes(),
-		Signature:    sig,
-		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
-	}
+	elp := (&action.EnvelopeBuilder{}).SetVersion(1).SetNonce(tx.Nonce()).SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).
+		SetChainID(svr.coreService.ChainID()).SetAction(act).Build()
+	selp := action.NewSealedEnvelope(
+		elp,
+		iotextypes.Encoding_ETHEREUM_RLP,
+		config.EVMNetworkID(),
+		pubkey,
+		sig,
+	)
 
-	// TODO: process special staking action
-
-	if isContract, _ := svr.isContractAddr(to); !isContract {
-		// transfer
-		req.Core.Action = &iotextypes.ActionCore_Transfer{
-			Transfer: &iotextypes.Transfer{
-				Recipient: to,
-				Payload:   tx.Data(),
-				Amount:    value,
-			},
-		}
-	} else {
-		// execution
-		req.Core.Action = &iotextypes.ActionCore_Execution{
-			Execution: &iotextypes.Execution{
-				Contract: to,
-				Data:     tx.Data(),
-				Amount:   value,
-			},
-		}
-	}
-
-	actionHash, err := svr.coreService.SendAction(context.Background(), req)
+	actionHash, err := svr.coreService.SendAction(context.Background(), selp.Proto())
 	if err != nil {
 		return nil, err
 	}
@@ -606,15 +573,26 @@ func (svr *Web3Server) getTransactionByHash(in interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.Action(util.Remove0xPrefix(h), false)
+	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(h))
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.Unavailable {
+		return nil, err
+	}
+
+	selp, blkHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
+	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(actionInfos)
+	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
+	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return svr.getTransactionFromActionInfo(hex.EncodeToString(blkHash[:]), selp, receipt)
 }
 
 func (svr *Web3Server) getLogs(filter *filterObject) (interface{}, error) {
@@ -631,42 +609,33 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 	if err != nil {
 		return nil, err
 	}
-
-	// acquire action receipt by action hash
 	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(actHashStr))
 	if err != nil {
 		return nil, errors.Wrapf(errUnkownType, "actHash: %s", actHashStr)
 	}
-	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
+
+	// acquire action receipt by action hash
+	selp, blockHash, _, _, err := svr.coreService.ActionByActionHash(actHash)
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
+		if errors.Cause(err) == ErrNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
-
-	// read contract address from receipt
-	var contractAddr *string
-	res, err := getExecutionContractAddr(receipt.ContractAddress)
+	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 	if err != nil {
+		if errors.Cause(err) == ErrNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
-	if len(res) > 0 {
-		contractAddr = &res
-	}
-
-	// acquire transaction index by action hash
-	actInfo, err := svr.coreService.Action(util.Remove0xPrefix(actHashStr), true)
-	if err != nil {
-		return nil, err
-	}
-	tx, err := svr.getTransactionFromActionInfo(actInfo)
+	to, contractAddr, err := getRecipientAndContractAddrFromAction(selp, receipt)
 	if err != nil {
 		return nil, err
 	}
 
 	// acquire logsBloom from blockMeta
+	blkHash := hex.EncodeToString(blockHash[:])
 	blkMeta, err := svr.coreService.BlockMetaByHash(blkHash)
 	if err != nil {
 		return nil, err
@@ -700,13 +669,13 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 		BlockNumber:       uint64ToHex(receipt.BlockHeight),
 		ContractAddress:   contractAddr,
 		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
-		From:              tx.From,
+		From:              selp.SrcPubkey().Address().Hex(),
 		GasUsed:           uint64ToHex(receipt.GasConsumed),
 		LogsBloom:         getLogsBloomFromBlkMeta(blkMeta),
 		Status:            uint64ToHex(receipt.Status),
-		To:                tx.To,
+		To:                to,
 		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
-		TransactionIndex:  tx.TransactionIndex,
+		TransactionIndex:  uint64ToHex(uint64(receipt.TxIndex)),
 		Logs:              logs,
 	}, nil
 
@@ -744,18 +713,15 @@ func (svr *Web3Server) getTransactionByBlockHashAndIndex(in interface{}) (interf
 	if err != nil {
 		return nil, err
 	}
-	actionInfos, err := svr.coreService.ActionsByBlock(util.Remove0xPrefix(blkHash), idx, 1)
-	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if len(actionInfos) == 0 {
+	blkHash = util.Remove0xPrefix(blkHash)
+	selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkHash)
+	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionFromActionInfo(actionInfos[0])
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionFromActionInfo(blkHash, selps[idx], receipts[idx])
 }
 
 func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (interface{}, error) {
@@ -786,18 +752,14 @@ func (svr *Web3Server) getTransactionByBlockNumberAndIndex(in interface{}) (inte
 	if len(blkMetas) == 0 {
 		return nil, nil
 	}
-	actionInfos, err := svr.coreService.ActionsByBlock(blkMetas[0].Hash, idx, 1)
-	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.NotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if len(actionInfos) == 0 {
+	selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkMetas[0].Hash)
+	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil
 	}
-	return svr.getTransactionFromActionInfo(actionInfos[0])
+	if err != nil {
+		return nil, err
+	}
+	return svr.getTransactionFromActionInfo(blkMetas[0].Hash, selps[idx], receipts[idx])
 }
 
 func (svr *Web3Server) getStorageAt(in interface{}) (interface{}, error) {

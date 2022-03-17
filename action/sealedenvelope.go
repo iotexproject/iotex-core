@@ -24,6 +24,19 @@ type SealedEnvelope struct {
 	signature    []byte
 }
 
+// NewSealedEnvelope creates a new SealedEnvelope
+func NewSealedEnvelope(elp Envelope, encoding iotextypes.Encoding,
+	evmNetworkID uint32, srcPubkey crypto.PublicKey, signature []byte,
+) *SealedEnvelope {
+	return &SealedEnvelope{
+		elp,
+		encoding,
+		evmNetworkID,
+		srcPubkey,
+		signature,
+	}
+}
+
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
