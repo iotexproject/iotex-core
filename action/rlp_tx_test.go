@@ -56,14 +56,14 @@ func TestGenerateRlp(t *testing.T) {
 	}
 	hE2, _ := hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")
 	rlpTests := []struct {
-		act  RlpTransaction
+		act  Action
 		sig  []byte
 		err  string
 		hash hash.Hash256
 	}{
 		{nil, validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, validSig, "invalid recipient address", hash.ZeroHash256},
-		{rlpTsf1, signByte, "invalid signature length =", hash.ZeroHash256},
+		{rlpTsf, validSig, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf1, signByte, "address prefix io don't match", hash.ZeroHash256},
 		{rlpTsf1, validSig, "", hash.BytesToHash256(hT1)},
 		{rlpTsf2, validSig, "", hash.BytesToHash256(hT2)},
 		{rlpExec, validSig, "", hash.BytesToHash256(hE1)},
@@ -71,11 +71,17 @@ func TestGenerateRlp(t *testing.T) {
 	}
 
 	for _, v := range rlpTests {
-		_, err := generateRlpTx(v.act)
+		act, ok := v.act.(EthCompatibleAction)
+		if !ok {
+			require.Contains(v.err, ErrNilAction.Error())
+			continue
+		}
+		tx, err := act.ToEthTx()
 		if err != nil {
 			require.Contains(err.Error(), v.err)
+			continue
 		}
-		h, err := rlpSignedHash(v.act, 4689, v.sig)
+		h, err := rlpSignedHash(tx, 4689, v.sig)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}

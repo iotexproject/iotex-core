@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 )
@@ -25,6 +26,11 @@ type actionPayload interface {
 	IntrinsicGas() (uint64, error)
 	SetEnvelopeContext(SealedEnvelope)
 	SanityCheck() error
+}
+
+// EthCompatibleAction is the action which is compatible to be converted to eth tx
+type EthCompatibleAction interface {
+	ToEthTx() (*types.Transaction, error)
 }
 
 type hasDestination interface {
