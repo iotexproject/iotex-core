@@ -42,14 +42,14 @@ func newExtensionNode(
 	return e, nil
 }
 
-func newExtensionNodeFromProtoPb(cli client, pb *triepb.ExtendPb, hashVal []byte) *extensionNode {
+func newExtensionNodeFromProtoPb(pb *triepb.ExtendPb, hashVal []byte) *extensionNode {
 	e := &extensionNode{
 		cacheNode: cacheNode{
 			hashVal: hashVal,
 			dirty:   false,
 		},
 		path:  pb.Path,
-		child: newHashNode(cli, pb.Value),
+		child: newHashNode(pb.Value),
 	}
 	e.cacheNode.serializable = e
 	return e

@@ -42,7 +42,7 @@ func newLeafNode(
 	return l, nil
 }
 
-func newLeafNodeFromProtoPb(cli client, pb *triepb.LeafPb, hashVal []byte) *leafNode {
+func newLeafNodeFromProtoPb(pb *triepb.LeafPb, hashVal []byte) *leafNode {
 	l := &leafNode{
 		cacheNode: cacheNode{
 			hashVal: hashVal,

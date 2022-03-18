@@ -11,7 +11,7 @@ type hashNode struct {
 	hashVal []byte
 }
 
-func newHashNode(_ client, ha []byte) *hashNode {
+func newHashNode(ha []byte) *hashNode {
 	return &hashNode{hashVal: ha}
 }
 

@@ -73,7 +73,7 @@ func newRootBranchNode(cli client, children map[byte]node, indices *SortedList, 
 	return bnode, nil
 }
 
-func newBranchNodeFromProtoPb(cli client, pb *triepb.BranchPb, hashVal []byte) *branchNode {
+func newBranchNodeFromProtoPb(pb *triepb.BranchPb, hashVal []byte) *branchNode {
 	bnode := &branchNode{
 		cacheNode: cacheNode{
 			hashVal: hashVal,
@@ -82,7 +82,7 @@ func newBranchNodeFromProtoPb(cli client, pb *triepb.BranchPb, hashVal []byte) *
 		children: make(map[byte]node, len(pb.Branches)),
 	}
 	for _, n := range pb.Branches {
-		bnode.children[byte(n.Index)] = newHashNode(cli, n.Path)
+		bnode.children[byte(n.Index)] = newHashNode(n.Path)
 	}
 	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode

@@ -313,13 +313,13 @@ func (mpt *merklePatriciaTrie) loadNode(key []byte) (node, error) {
 		return nil, err
 	}
 	if pbBranch := pb.GetBranch(); pbBranch != nil {
-		return newBranchNodeFromProtoPb(mpt, pbBranch, key), nil
+		return newBranchNodeFromProtoPb(pbBranch, key), nil
 	}
 	if pbLeaf := pb.GetLeaf(); pbLeaf != nil {
-		return newLeafNodeFromProtoPb(mpt, pbLeaf, key), nil
+		return newLeafNodeFromProtoPb(pbLeaf, key), nil
 	}
 	if pbExtend := pb.GetExtend(); pbExtend != nil {
-		return newExtensionNodeFromProtoPb(mpt, pbExtend, key), nil
+		return newExtensionNodeFromProtoPb(pbExtend, key), nil
 	}
 
 	return nil, errors.New("invalid node type")
