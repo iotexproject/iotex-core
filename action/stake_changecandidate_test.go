@@ -75,7 +75,7 @@ func TestChangeCandidateSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("186526b5b9fe74e25beb52c83c41780a69108160bef2ddaf3bffb9f1f1e5e73a", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(selp.VerifyPubKey())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestChangeCandidateABIEncodeAndDecode(t *testing.T) {

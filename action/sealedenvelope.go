@@ -184,8 +184,8 @@ func wrapStakingActionIntoExecution(ab AbstractAction, toAddr []byte, pb proto.M
 	}, nil
 }
 
-// VerifyPubKey verifies the action using sender's public key
-func (sealed *SealedEnvelope) VerifyPubKey() error {
+// VerifySignature verifies the action using sender's public key
+func (sealed *SealedEnvelope) VerifySignature() error {
 	if sealed.SrcPubkey() == nil {
 		return errors.New("empty public key")
 	}

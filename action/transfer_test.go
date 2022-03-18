@@ -34,7 +34,7 @@ func TestTransferSignVerify(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
-	require.Error(w.VerifyPubKey())
+	require.Error(w.VerifySignature())
 	tsf2, ok := w.Envelope.Action().(*Transfer)
 	require.True(ok)
 	require.Equal(tsf, tsf2)
@@ -46,7 +46,7 @@ func TestTransferSignVerify(t *testing.T) {
 	require.NotNil(selp)
 
 	// verify signature
-	require.NoError(selp.VerifyPubKey())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestTransfer(t *testing.T) {
@@ -67,7 +67,7 @@ func TestTransfer(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
-	require.Error(w.VerifyPubKey())
+	require.Error(w.VerifySignature())
 
 	require.NoError(err)
 	require.Equal("10", tsf.Amount().Text(10))

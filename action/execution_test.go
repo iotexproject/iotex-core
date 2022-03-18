@@ -38,7 +38,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))
-	require.Error(w.VerifyPubKey())
+	require.Error(w.VerifySignature())
 	ex2, ok := w.Envelope.Action().(*Execution)
 	require.True(ok)
 	require.Equal(ex, ex2)
@@ -50,7 +50,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NotNil(selp)
 
 	// verify signature
-	require.NoError(selp.VerifyPubKey())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestExecutionSanityCheck(t *testing.T) {

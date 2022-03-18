@@ -332,7 +332,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.NoError(err)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
-		require.NoError(selp.VerifyPubKey())
+		require.NoError(selp.VerifySignature())
 	}
 }
 
