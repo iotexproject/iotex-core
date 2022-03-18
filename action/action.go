@@ -30,8 +30,6 @@ type (
 	actionPayload interface {
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
-		SetEnvelopeContext(SealedEnvelope)
-		SanityCheck() error
 	}
 
 	hasDestination interface {
