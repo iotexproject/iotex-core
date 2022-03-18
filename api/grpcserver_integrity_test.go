@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -1276,6 +1277,30 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 
 func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	require := require.New(t)
+	cfg := newConfig(t)
+	cfg.Genesis.MidwayBlockHeight = 10
+	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(bfIndexFile)
+	}()
+
+	coreService, ok := svr.core.(*coreService)
+	require.True(ok)
+	broadcastHandlerCount := 0
+	coreService.broadcastHandler = func(_ context.Context, _ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}
+
+	for i, test := range sendActionTests {
+		request := &iotexapi.SendActionRequest{Action: test.actionPb}
+		res, err := svr.GrpcServer.SendAction(context.Background(), request)
+		require.NoError(err)
+		require.Equal(i+1, broadcastHandlerCount)
+		require.Equal(test.actionHash, res.ActionHash)
+	}
+
 	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
@@ -1436,6 +1461,23 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 		require.EqualValues(1, res.Receipt.Status)
 		require.Equal(test.actionHash, hex.EncodeToString(res.Receipt.ActHash))
 		require.Equal(test.gasConsumed, res.Receipt.GasConsumed)
+	}
+}
+
+func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	for _, test := range suggestGasPriceTests {
+		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
+		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(bfIndexFile)
+		}()
+		res, err := svr.GrpcServer.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
+		require.NoError(err)
+		require.Equal(test.suggestedGasPrice, res.GasPrice)
 	}
 }
 

@@ -30,12 +30,13 @@ const (
 	_evmNetworkID uint32 = 1
 )
 
-func TestServeHTTPIntegrity(t *testing.T) {
-
-}
-
 func TestGasPriceIntegrity(t *testing.T) {
+	require := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
+	defer cleanCallback()
 
+	ret, _ := svr.web3Server.gasPrice()
+	require.Equal(uint64ToHex(1000000000000), ret)
 }
 
 func TestGetChainIDIntegrity(t *testing.T) {

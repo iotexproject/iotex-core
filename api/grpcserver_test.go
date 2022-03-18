@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -55,35 +56,19 @@ func TestGrpcServer_GetChainMeta(t *testing.T) {
 }
 
 func TestGrpcServer_SendAction(t *testing.T) {
-	// require := require.New(t)
-	// ctrl := gomock.NewController(t)
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
 
-	// chain := mock_blockchain.NewMockBlockchain(ctrl)
-	// ap := mock_actpool.NewMockActPool(ctrl)
-
-	// broadcastHandlerCount := 0
-	// core := &coreService{
-	// 	bc: chain,
-	// 	ap: ap,
-	// 	broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
-	// 		broadcastHandlerCount++
-	// 		return nil
-	// 	},
-	// }
-	// ge := genesis.Default
-	// ge.MidwayBlockHeight = 10
-	// chain.EXPECT().Genesis().Return(ge).Times(2)
-	// svr := NewGRPCServer(core, 141014)
-	// chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	// chain.EXPECT().TipHeight().Return(uint64(4)).Times(2)
-	// ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	// for i, test := range sendActionTests {
-	// 	request := &iotexapi.SendActionRequest{Action: test.actionPb}
-	// 	res, err := svr.SendAction(context.Background(), request)
-	// 	require.NoError(err)
-	// 	require.Equal(i+1, broadcastHandlerCount)
-	// 	require.Equal(test.actionHash, res.ActionHash)
-	// }
+	for _, test := range sendActionTests {
+		core.EXPECT().SendAction(context.Background(), test.actionPb).Return(test.actionHash, nil)
+		request := &iotexapi.SendActionRequest{Action: test.actionPb}
+		res, err := grpcSvr.SendAction(context.Background(), request)
+		require.NoError(err)
+		require.Equal(test.actionHash, res.ActionHash)
+	}
 }
 
 func TestGrpcServer_StreamLogs(t *testing.T) {
@@ -107,7 +92,8 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, 14014)
+	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	res, err := grpcSvr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
 	require.NoError(err)

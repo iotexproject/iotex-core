@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
@@ -72,7 +73,7 @@ func TestServeHTTP(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	svr := NewWeb3Server(core, 15014, "", 10)
+	svr := NewWeb3Server(core, testutil.RandomPort(), "", 10)
 
 	// wrong http method
 	request1, _ := http.NewRequest(http.MethodGet, "http://url.com", nil)
@@ -134,7 +135,7 @@ func TestGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	web3svr := NewWeb3Server(core, 15014, "", 10)
+	web3svr := NewWeb3Server(core, testutil.RandomPort(), "", 10)
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	ret, err := web3svr.gasPrice()
 	require.NoError(err)
