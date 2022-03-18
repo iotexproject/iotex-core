@@ -113,8 +113,8 @@ type (
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
-		// CalculateGasConsumption estimate gas consumption for actions except execution
-		CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error)
+		// EstimateGasForNonExecution  estimates action gas except execution
+		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
 		// BlockMetas returns blockmetas response within the height range
@@ -165,6 +165,10 @@ type (
 		err  error
 	}
 )
+
+type intrinsicGasCalculator interface {
+	IntrinsicGas() (uint64, error)
+}
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
@@ -1458,9 +1462,13 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 	return start, end, nil
 }
 
-// CalculateGasConsumption estimate gas consumption for actions except execution
-func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error) {
-	return action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
+// EstimateGasForNonExecution estimates action gas except execution
+func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint64, error) {
+	act, ok := actType.(intrinsicGasCalculator)
+	if !ok {
+		return 0, errors.Errorf("invalid action type not supported")
+	}
+	return act.IntrinsicGas()
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action

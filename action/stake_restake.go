@@ -12,9 +12,12 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -170,6 +173,10 @@ func (rs *Restake) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (rs *Restake) EncodeABIBinary() ([]byte, error) {
+	return rs.encodeABIBinary()
+}
+
+func (rs *Restake) encodeABIBinary() ([]byte, error) {
 	data, err := _restakeMethod.Inputs.Pack(rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
 	if err != nil {
 		return nil, err
@@ -204,4 +211,18 @@ func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
 		return nil, errDecodeFailure
 	}
 	return &rs, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (rs *Restake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := rs.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(rs.Nonce(), ethAddr, big.NewInt(0), rs.GasLimit(), rs.GasPrice(), data), nil
 }
