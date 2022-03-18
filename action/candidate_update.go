@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -187,6 +188,10 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
+	return cu.encodeABIBinary()
+}
+
+func (cu *CandidateUpdate) encodeABIBinary() ([]byte, error) {
 	operatorEthAddr := common.BytesToAddress(cu.operatorAddress.Bytes())
 	rewardEthAddr := common.BytesToAddress(cu.rewardAddress.Bytes())
 	data, err := _candidateUpdateMethod.Inputs.Pack(cu.name, operatorEthAddr, rewardEthAddr)
@@ -221,4 +226,18 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		return nil, err
 	}
 	return &cu, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cu *CandidateUpdate) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cu.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cu.Nonce(), ethAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
 }
