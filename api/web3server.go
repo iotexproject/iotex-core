@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
@@ -476,15 +475,13 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 
 	elp := (&action.EnvelopeBuilder{}).SetVersion(1).SetNonce(tx.Nonce()).SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).
 		SetChainID(svr.coreService.ChainID()).SetAction(act).Build()
-	selp := action.NewSealedEnvelope(
-		elp,
-		iotextypes.Encoding_ETHEREUM_RLP,
-		config.EVMNetworkID(),
-		pubkey,
-		sig,
-	)
-
-	actionHash, err := svr.coreService.SendAction(context.Background(), selp.Proto())
+	req := &iotextypes.Action{
+		Core:         elp.Proto(),
+		SenderPubKey: pubkey.Bytes(),
+		Signature:    sig,
+		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
+	}
+	actionHash, err := svr.coreService.SendAction(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}

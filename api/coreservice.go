@@ -357,7 +357,6 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 	return
 }
 
-// TODO: replace *iotextypes.Action with *action.SealedEnvelope as argument
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
