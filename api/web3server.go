@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 const (
@@ -426,19 +428,29 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	var estimatedGas uint64
-	if isContract, _ := svr.isContractAddr(to); isContract {
-		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
-		if err != nil {
-			return nil, err
-		}
+	var tx *types.Transaction
+	if len(to) == 0 {
+		tx = types.NewContractCreation(0, value, gasLimit, big.NewInt(0), data)
 	} else {
-		// TODO: support staking actions
-		estimatedGas, err = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(data)))
+		toAddr, err := addrutil.IoAddrToEvmAddr(to)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
+		tx = types.NewTransaction(0, toAddr, value, gasLimit, big.NewInt(0), data)
+	}
+	act, err := svr.ethTxToAction(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	var estimatedGas uint64
+	if exec, ok := act.(*action.Execution); ok {
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
+	} else {
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
+	}
+	if err != nil {
+		return nil, err
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
