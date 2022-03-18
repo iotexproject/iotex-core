@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -25,9 +26,16 @@ func TestServerV2(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	t.Run("start succeed", func(t *testing.T) {
+	t.Run("start-stop succeed", func(t *testing.T) {
 		core.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
 		err := svr.Start(ctx)
+		require.NoError(err)
+
+		core.EXPECT().Stop(gomock.Any()).Return(nil).Times(1)
+		err = testutil.WaitUntil(100*time.Millisecond, 3*time.Second, func() (bool, error) {
+			err = svr.Stop(ctx)
+			return err == nil, err
+		})
 		require.NoError(err)
 	})
 
@@ -36,12 +44,6 @@ func TestServerV2(t *testing.T) {
 		core.EXPECT().Start(gomock.Any()).Return(expectErr).Times(1)
 		err := svr.Start(ctx)
 		require.Contains(err.Error(), expectErr.Error())
-	})
-
-	t.Run("stop succeed", func(t *testing.T) {
-		core.EXPECT().Stop(gomock.Any()).Return(nil).Times(1)
-		err := svr.Stop(ctx)
-		require.NoError(err)
 	})
 
 	t.Run("stop failed", func(t *testing.T) {
