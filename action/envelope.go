@@ -33,7 +33,7 @@ type (
 		nonce    uint64
 		gasLimit uint64
 		gasPrice *big.Int
-		payload  Action
+		payload  actionPayload
 	}
 )
 
@@ -67,20 +67,12 @@ func (elp *envelope) GasPrice() *big.Int {
 
 // Cost returns cost of actions
 func (elp *envelope) Cost() (*big.Int, error) {
-	act, ok := elp.payload.(actionPayload)
-	if !ok {
-		return nil, errors.New("cost is unavailable")
-	}
-	return act.Cost()
+	return elp.payload.Cost()
 }
 
 // IntrinsicGas returns intrinsic gas of action.
 func (elp *envelope) IntrinsicGas() (uint64, error) {
-	act, ok := elp.payload.(actionPayload)
-	if !ok {
-		return 0, errors.New("intrinsicGas is unavailable")
-	}
-	return act.IntrinsicGas()
+	return elp.payload.IntrinsicGas()
 }
 
 // Action returns the action payload.

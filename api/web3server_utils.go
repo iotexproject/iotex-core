@@ -300,17 +300,23 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 	return
 }
 
-func (svr *Web3Server) ethTxToAction(tx *types.Transaction) (action.Action, error) {
+func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
 	to := ""
 	if tx.To() != nil {
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
 		to = ioAddr.String()
 	}
+	elpBuilder := (&action.EnvelopeBuilder{}).SetVersion(1).SetNonce(tx.Nonce()).SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).
+		SetChainID(svr.coreService.ChainID())
 	switch to {
 	case "":
-		return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+		exec, err := action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+		if err != nil {
+			return nil, err
+		}
+		return elpBuilder.SetAction(exec).Build(), nil
 	case address.StakingProtocolAddr:
-		return action.NewStakingActionFromABIBinary(tx.Data())
+		return elpBuilder.BuildStakingAction(tx.Data())
 	default:
 		ioAddr, err := address.FromString(to)
 		if err != nil {
@@ -318,9 +324,17 @@ func (svr *Web3Server) ethTxToAction(tx *types.Transaction) (action.Action, erro
 		}
 		accountMeta, _, err := svr.coreService.Account(ioAddr)
 		if err == nil && accountMeta.IsContract {
-			return action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+			exec, err := action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+			if err != nil {
+				return nil, err
+			}
+			return elpBuilder.SetAction(exec).Build(), nil
 		}
-		return action.NewTransfer(tx.Nonce(), tx.Value(), to, tx.Data(), tx.Gas(), tx.GasPrice())
+		tsf, err := action.NewTransfer(tx.Nonce(), tx.Value(), to, tx.Data(), tx.Gas(), tx.GasPrice())
+		if err != nil {
+			return nil, err
+		}
+		return elpBuilder.SetAction(tsf).Build(), nil
 	}
 }
 

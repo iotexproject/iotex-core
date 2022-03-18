@@ -117,8 +117,8 @@ func (b *EnvelopeBuilder) SetGasPriceByBytes(buf []byte) *EnvelopeBuilder {
 	return b
 }
 
-// SetAction sets the Action for the Envelope Builder is building.
-func (b *EnvelopeBuilder) SetAction(action Action) *EnvelopeBuilder {
+// SetAction sets the action payload for the Envelope Builder is building.
+func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
 	b.elp.payload = action
 	return b
 }
@@ -131,6 +131,10 @@ func (b *EnvelopeBuilder) SetChainID(chainID uint32) *EnvelopeBuilder {
 
 // Build builds a new action.
 func (b *EnvelopeBuilder) Build() Envelope {
+	return b.build()
+}
+
+func (b *EnvelopeBuilder) build() Envelope {
 	if b.elp.gasPrice == nil {
 		b.elp.gasPrice = big.NewInt(0)
 	}
@@ -138,4 +142,48 @@ func (b *EnvelopeBuilder) Build() Envelope {
 		b.elp.version = version.ProtocolVersion
 	}
 	return &b.elp
+}
+
+// BuildStakingAction loads staking action into envelope from abi-encoded data
+func (b *EnvelopeBuilder) BuildStakingAction(data []byte) (Envelope, error) {
+	act, err := newStakingActionFromABIBinary(data)
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = act
+	return b.build(), nil
+}
+
+func newStakingActionFromABIBinary(data []byte) (actionPayload, error) {
+	if len(data) <= 4 {
+		return nil, ErrInvalidABI
+	}
+	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewDepositToStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewChangeCandidateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewUnstakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewWithdrawStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewRestakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewTransferStakeFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateRegisterFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
+		return act, nil
+	}
+	return nil, ErrInvalidABI
 }

@@ -438,16 +438,16 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		}
 		tx = types.NewTransaction(0, toAddr, value, gasLimit, big.NewInt(0), data)
 	}
-	act, err := svr.ethTxToAction(tx)
+	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
 		return nil, err
 	}
 
 	var estimatedGas uint64
-	if exec, ok := act.(*action.Execution); ok {
+	if exec, ok := elp.Action().(*action.Execution); ok {
 		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
 	} else {
-		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(elp.Action())
 	}
 	if err != nil {
 		return nil, err
@@ -468,13 +468,10 @@ func (svr *Web3Server) sendRawTransaction(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	act, err := svr.ethTxToAction(tx)
+	elp, err := svr.ethTxToEnvelope(tx)
 	if err != nil {
 		return nil, err
 	}
-
-	elp := (&action.EnvelopeBuilder{}).SetVersion(1).SetNonce(tx.Nonce()).SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).
-		SetChainID(svr.coreService.ChainID()).SetAction(act).Build()
 	req := &iotextypes.Action{
 		Core:         elp.Proto(),
 		SenderPubKey: pubkey.Bytes(),

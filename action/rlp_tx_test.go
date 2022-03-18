@@ -359,8 +359,7 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 		elpBuilder.SetAction(ex)
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate":
-		act, _ := NewStakingActionFromABIBinary(tx.Data())
-		elpBuilder.SetAction(act.(actionPayload))
+		elpBuilder.BuildStakingAction(tx.Data())
 	default:
 		panic("unsupported")
 	}
