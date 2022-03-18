@@ -39,7 +39,8 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 		payload := tmpPayload[:]
 		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0), big.NewInt(0))
 		require.NoError(err)
-		require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), tsf, nil)))
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{PubkeySize: 65})
+		require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(ctx, tsf, nil)))
 	})
 }
 

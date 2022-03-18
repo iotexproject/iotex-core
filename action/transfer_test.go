@@ -24,6 +24,8 @@ func TestTransferSignVerify(t *testing.T) {
 	tsf, err := NewTransfer(1, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.Nil(tsf.srcPubkey)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(22, tsf.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(tsf.nonce).
@@ -78,7 +80,7 @@ func TestTransfer(t *testing.T) {
 	require.Equal(senderKey.PublicKey().HexString(), w.SrcPubkey().HexString())
 	require.Equal(recipientAddr.String(), tsf.Recipient())
 	require.Equal(recipientAddr.String(), tsf.Destination())
-	require.Equal(uint32(87), tsf.TotalSize())
+	require.Equal(uint32(22), tsf.TotalSize())
 
 	gas, err := tsf.IntrinsicGas()
 	require.NoError(err)
