@@ -8,6 +8,7 @@ package recovery
 
 import (
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"runtime/pprof"
 	"time"
@@ -44,8 +45,12 @@ type (
 )
 
 // CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
-func CrashLog(path string) {
-	writeHeapProfile(path)
+func CrashLog(r interface{}, cfgLog log.GlobalConfig) {
+	log.S().Errorf("crashlog: %v", r)
+	if cfgLog.StderrRedirectFile != nil {
+		writeHeapProfile(filepath.Join(filepath.Dir(*cfgLog.StderrRedirectFile),
+			"heapdump_"+time.Now().Format("20060102150405")+".out"))
+	}
 	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)

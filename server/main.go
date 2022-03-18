@@ -18,10 +18,8 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	_ "go.uber.org/automaxprocs"
@@ -107,11 +105,7 @@ func main() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.S().Errorf("crashlog: %v", r)
-			if cfg.Log.StderrRedirectFile != nil {
-				recovery.CrashLog(filepath.Join(filepath.Dir(*cfg.Log.StderrRedirectFile),
-					"heapdump_"+time.Now().Format("20060102150405")+".out"))
-			}
+			recovery.CrashLog(r, cfg.Log)
 		}
 	}()
 

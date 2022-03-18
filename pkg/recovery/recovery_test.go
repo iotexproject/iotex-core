@@ -3,9 +3,7 @@ package recovery
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -18,12 +16,13 @@ func TestCrashLog(t *testing.T) {
 	heapdumpDir, err := os.MkdirTemp(os.TempDir(), "heapdump")
 	require.NoError(err)
 	defer testutil.CleanupPath(heapdumpDir)
+	var logCfg log.GlobalConfig
+	logCfg.StderrRedirectFile = &heapdumpDir
 
 	t.Run("index out of range", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.S().Errorf("recover error :%v", r)
-				CrashLog(filepath.Join(heapdumpDir, time.Now().Format("20060102150405")+"_mem1.out"))
+				CrashLog(r, logCfg)
 			}
 		}()
 		strs := make([]string, 2)
@@ -34,8 +33,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("invaled memory address or nil pointer", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.S().Errorf("recover error :%v", r)
-				CrashLog(filepath.Join(heapdumpDir, time.Now().Format("20060102150405")+"_mem2.out"))
+				CrashLog(r, logCfg)
 			}
 		}()
 		var i *int
@@ -44,8 +42,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("divide by zero", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.S().Errorf("recover error :%v", r)
-				CrashLog(filepath.Join(heapdumpDir, time.Now().Format("20060102150405")+"_mem3.out"))
+				CrashLog(r, logCfg)
 			}
 		}()
 		a, b := 10, 0
