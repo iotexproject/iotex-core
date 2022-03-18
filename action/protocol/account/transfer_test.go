@@ -107,6 +107,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		ctx = protocol.WithActionCtx(chainCtx, protocol.ActionCtx{
 			Caller:       v.caller,
 			IntrinsicGas: gas,
+			PubkeySize:   65,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: 1,

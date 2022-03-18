@@ -72,6 +72,8 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+		// PubkeySize is the size of pubkey
+		PubkeySize uint32
 	}
 
 	// CheckFunc is function type to check by height.

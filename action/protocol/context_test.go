@@ -129,14 +129,20 @@ func TestGetActionCtx(t *testing.T) {
 		Caller:       addr,
 		ActionHash:   hash.ZeroHash256,
 		GasPrice:     nil,
-		IntrinsicGas: 0,
-		Nonce:        0,
+		IntrinsicGas: 10,
+		Nonce:        2,
+		PubkeySize:   65,
 	}
 	ctx := WithActionCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	ret, ok := GetActionCtx(ctx)
 	require.True(ok)
+	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", ret.Caller.String())
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
+	require.Nil(ret.GasPrice)
+	require.EqualValues(10, ret.IntrinsicGas)
+	require.EqualValues(2, ret.Nonce)
+	require.EqualValues(65, ret.PubkeySize)
 }
 
 func TestMustGetActionCtx(t *testing.T) {
@@ -147,14 +153,20 @@ func TestMustGetActionCtx(t *testing.T) {
 		Caller:       addr,
 		ActionHash:   hash.ZeroHash256,
 		GasPrice:     nil,
-		IntrinsicGas: 0,
-		Nonce:        0,
+		IntrinsicGas: 10,
+		Nonce:        2,
+		PubkeySize:   65,
 	}
 	ctx := WithActionCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	// Case I: Normal
 	ret := MustGetActionCtx(ctx)
+	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", ret.Caller.String())
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
+	require.Nil(ret.GasPrice)
+	require.EqualValues(10, ret.IntrinsicGas)
+	require.EqualValues(2, ret.Nonce)
+	require.EqualValues(65, ret.PubkeySize)
 	// Case II: Panic
 	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss action context")
 }
