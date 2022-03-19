@@ -9,7 +9,10 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -144,9 +147,46 @@ func (b *EnvelopeBuilder) build() Envelope {
 	return &b.elp
 }
 
+// BuildTransfer loads transfer action into envelope
+func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error) {
+	b.elp.nonce = tx.Nonce()
+	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.elp.gasLimit = tx.Gas()
+	tsf, err := NewTransfer(tx.Nonce(), tx.Value(), getRecipientAddr(tx.To()), tx.Data(), tx.Gas(), tx.GasPrice())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = tsf
+	return b.build(), nil
+}
+
+func getRecipientAddr(addr *common.Address) string {
+	if addr == nil {
+		return ""
+	}
+	ioAddr, _ := address.FromBytes(addr.Bytes())
+	return ioAddr.String()
+}
+
+// BuildExecution loads executino action into envelope
+func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
+	b.elp.nonce = tx.Nonce()
+	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.elp.gasLimit = tx.Gas()
+	exec, err := NewExecution(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
+	if err != nil {
+		return nil, err
+	}
+	b.elp.payload = exec
+	return b.build(), nil
+}
+
 // BuildStakingAction loads staking action into envelope from abi-encoded data
-func (b *EnvelopeBuilder) BuildStakingAction(data []byte) (Envelope, error) {
-	act, err := newStakingActionFromABIBinary(data)
+func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, error) {
+	b.elp.nonce = tx.Nonce()
+	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.elp.gasLimit = tx.Gas()
+	act, err := newStakingActionFromABIBinary(tx.Data())
 	if err != nil {
 		return nil, err
 	}

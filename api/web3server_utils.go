@@ -306,36 +306,30 @@ func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, 
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
 		to = ioAddr.String()
 	}
-	elpBuilder := (&action.EnvelopeBuilder{}).SetVersion(1).SetNonce(tx.Nonce()).SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).
-		SetChainID(svr.coreService.ChainID())
-	switch to {
-	case "":
-		exec, err := action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
-		if err != nil {
-			return nil, err
-		}
-		return elpBuilder.SetAction(exec).Build(), nil
-	case address.StakingProtocolAddr:
-		return elpBuilder.BuildStakingAction(tx.Data())
-	default:
-		ioAddr, err := address.FromString(to)
-		if err != nil {
-			return nil, err
-		}
-		accountMeta, _, err := svr.coreService.Account(ioAddr)
-		if err == nil && accountMeta.IsContract {
-			exec, err := action.NewExecution(to, tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
-			if err != nil {
-				return nil, err
-			}
-			return elpBuilder.SetAction(exec).Build(), nil
-		}
-		tsf, err := action.NewTransfer(tx.Nonce(), tx.Value(), to, tx.Data(), tx.Gas(), tx.GasPrice())
-		if err != nil {
-			return nil, err
-		}
-		return elpBuilder.SetAction(tsf).Build(), nil
+	elpBuilder := (&action.EnvelopeBuilder{}).SetVersion(1).SetChainID(svr.coreService.ChainID())
+	if to == address.StakingProtocolAddr {
+		return elpBuilder.BuildStakingAction(tx)
 	}
+	isContract, err := svr.checkContractAddr(to)
+	if err != nil {
+		return nil, err
+	}
+	if isContract {
+		return elpBuilder.BuildExecution(tx)
+	}
+	return elpBuilder.BuildTransfer(tx)
+}
+
+func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
+	if to == "" {
+		return true, nil
+	}
+	ioAddr, err := address.FromString(to)
+	if err != nil {
+		return false, err
+	}
+	accountMeta, _, err := svr.coreService.Account(ioAddr)
+	return accountMeta.IsContract, err
 }
 
 func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {
