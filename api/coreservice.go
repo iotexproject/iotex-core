@@ -159,11 +159,6 @@ type (
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 	}
-
-	_logsInBlock struct {
-		logs []*iotextypes.Log
-		err  error
-	}
 )
 
 type intrinsicGasCalculator interface {
@@ -1396,7 +1391,8 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 
 	logs := []*iotextypes.Log{}
 	jobs := make(chan uint64, len(blockNumbers))
-	results := make(chan _logsInBlock, len(blockNumbers))
+	results := make(chan []*iotextypes.Log, len(blockNumbers))
+	quit := make(chan error)
 	var wg sync.WaitGroup
 	if len(blockNumbers) == 0 {
 		return logs, nil
@@ -1405,37 +1401,42 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		jobs <- i
 	}
 	close(jobs)
-
 	for w := 1; w <= 5; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for job := range jobs {
-				logsInBlock, err := core.logsInBlock(filter, job)
-				if err != nil {
-					results <- _logsInBlock{
-						nil,
-						err,
-					}
+			for {
+				select {
+				case err := <-quit:
+					quit <- err
 					return
-				}
-
-				results <- _logsInBlock{
-					logsInBlock,
-					nil,
+				default:
+					job, ok := <-jobs
+					if !ok {
+						return
+					}
+					logsInBlock, err := core.logsInBlock(filter, job)
+					if err != nil {
+						quit <- err
+						return
+					}
+					results <- logsInBlock
+					return
 				}
 			}
 		}()
 	}
 	wg.Wait()
+	close(quit)
+	err = <-quit
+	if err != nil {
+		return nil, err
+	}
 
 	for i := 0; i < len(blockNumbers); i++ {
 		logsInBlock := <-results
-		if logsInBlock.err != nil {
-			return nil, err
-		}
 
-		for _, log := range logsInBlock.logs {
+		for _, log := range logsInBlock {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
