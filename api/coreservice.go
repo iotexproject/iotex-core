@@ -1433,9 +1433,12 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		return nil, err
 	}
 
-	for i := 0; i < len(blockNumbers); i++ {
-		logsInBlock := <-results
+	logsMap := make(map[uint64][]*iotextypes.Log)
+	for _, i := range blockNumbers {
+		logsMap[i] = <-results
+	}
 
+	for _, logsInBlock := range logsMap {
 		for _, log := range logsInBlock {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
