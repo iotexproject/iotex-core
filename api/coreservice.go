@@ -1391,9 +1391,9 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 
 	logs := []*iotextypes.Log{}
 	jobs := make(chan uint64, len(blockNumbers))
-	results := make(chan []*iotextypes.Log, len(blockNumbers))
 	quit := make(chan error)
 	var wg sync.WaitGroup
+	logsMap := make(map[uint64][]*iotextypes.Log)
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
@@ -1420,8 +1420,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 						quit <- err
 						return
 					}
-					results <- logsInBlock
-					return
+					logsMap[job] = logsInBlock
 				}
 			}
 		}()
@@ -1433,13 +1432,8 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		return nil, err
 	}
 
-	logsMap := make(map[uint64][]*iotextypes.Log)
 	for _, i := range blockNumbers {
-		logsMap[i] = <-results
-	}
-
-	for _, logsInBlock := range logsMap {
-		for _, log := range logsInBlock {
+		for _, log := range logsMap[i] {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
