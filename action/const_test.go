@@ -36,7 +36,7 @@ func TestLoadErrorDescription(t *testing.T) {
 		{ErrAddress, ErrAddress.Error()},
 		{ErrNegativeValue, ErrNegativeValue.Error()},
 		{ErrNilAction, "Unknown"},
-		{ErrEmptyActionPool, "Unknown"},
+		{ErrNilProto, "Unknown"},
 	}
 	for _, e := range tests {
 		request.Equal(e.ret, LoadErrorDescription(e.err))
