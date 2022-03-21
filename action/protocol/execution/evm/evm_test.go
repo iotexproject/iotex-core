@@ -48,8 +48,7 @@ func TestExecuteContractFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-		Caller:     identityset.Address(27),
-		PubkeySize: 65,
+		Caller: identityset.Address(27),
 	})
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		Producer: identityset.Address(27),
@@ -77,8 +76,7 @@ func TestConstantinople(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-		Caller:     identityset.Address(27),
-		PubkeySize: 65,
+		Caller: identityset.Address(27),
 	})
 
 	g := genesis.Default

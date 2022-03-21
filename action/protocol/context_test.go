@@ -15,8 +15,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func TestRegistryCtx(t *testing.T) {
@@ -131,20 +129,14 @@ func TestGetActionCtx(t *testing.T) {
 		Caller:       addr,
 		ActionHash:   hash.ZeroHash256,
 		GasPrice:     nil,
-		IntrinsicGas: 10,
-		Nonce:        2,
-		PubkeySize:   65,
+		IntrinsicGas: 0,
+		Nonce:        0,
 	}
 	ctx := WithActionCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	ret, ok := GetActionCtx(ctx)
 	require.True(ok)
-	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", ret.Caller.String())
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
-	require.Nil(ret.GasPrice)
-	require.EqualValues(10, ret.IntrinsicGas)
-	require.EqualValues(2, ret.Nonce)
-	require.EqualValues(65, ret.PubkeySize)
 }
 
 func TestMustGetActionCtx(t *testing.T) {
@@ -155,20 +147,14 @@ func TestMustGetActionCtx(t *testing.T) {
 		Caller:       addr,
 		ActionHash:   hash.ZeroHash256,
 		GasPrice:     nil,
-		IntrinsicGas: 10,
-		Nonce:        2,
-		PubkeySize:   65,
+		IntrinsicGas: 0,
+		Nonce:        0,
 	}
 	ctx := WithActionCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	// Case I: Normal
 	ret := MustGetActionCtx(ctx)
-	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", ret.Caller.String())
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
-	require.Nil(ret.GasPrice)
-	require.EqualValues(10, ret.IntrinsicGas)
-	require.EqualValues(2, ret.Nonce)
-	require.EqualValues(65, ret.PubkeySize)
 	// Case II: Panic
 	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss action context")
 }
@@ -185,27 +171,4 @@ func TestGetVMConfigCtx(t *testing.T) {
 	ret, ok := GetVMConfigCtx(ctx)
 	require.True(ok)
 	require.True(ret.Debug)
-}
-
-func TestPubkeySizeForTxSize(t *testing.T) {
-	require := require.New(t)
-	g := genesis.Default
-	g.ToBeEnabledBlockHeight = 10
-	ctx := genesis.WithGenesisContext(context.Background(), g)
-	actionCtx := ActionCtx{
-		PubkeySize: 65,
-	}
-	for _, v := range []struct {
-		height uint64
-		size   uint32
-	}{
-		{5, 65},
-		{10, 0},
-		{11, 0},
-	} {
-		testCtx := WithActionCtx(WithBlockCtx(ctx, BlockCtx{
-			BlockHeight: v.height,
-		}), actionCtx)
-		require.Equal(v.size, PubkeySizeForTxSizeEstimation(testCtx))
-	}
 }
