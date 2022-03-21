@@ -62,9 +62,6 @@ func (act *AbstractAction) SetGasPrice(val *big.Int) {
 func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
-	if act.srcPubkey != nil {
-		size += len(act.srcPubkey.Bytes())
-	}
 	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
 		size += len(act.gasPrice.Bytes())
 	}

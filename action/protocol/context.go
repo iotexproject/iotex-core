@@ -72,6 +72,8 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+		// PubkeySize is the size of pubkey
+		PubkeySize uint32
 	}
 
 	// CheckFunc is function type to check by height.
@@ -305,4 +307,15 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
+}
+
+// PubkeySizeForTxSizeEstimation return the pubkey size for the purpose the tx size estimation
+func PubkeySizeForTxSizeEstimation(ctx context.Context) uint32 {
+	blkCtx := MustGetBlockCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.IsToBeEnabled(blkCtx.BlockHeight) {
+		return 0
+	}
+	actCtx := MustGetActionCtx(ctx)
+	return actCtx.PubkeySize
 }
