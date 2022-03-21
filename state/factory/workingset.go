@@ -140,6 +140,7 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 	}
 	actionCtx.IntrinsicGas = intrinsicGas
 	actionCtx.Nonce = selp.Nonce()
+	actionCtx.PubkeySize = uint32(len(selp.SrcPubkey().Bytes()))
 
 	return protocol.WithActionCtx(ctx, actionCtx), nil
 }
