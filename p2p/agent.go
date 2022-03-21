@@ -35,8 +35,8 @@ import (
 )
 
 const (
-	successStr = "success"
-	failureStr = "failure"
+	_successStr = "success"
+	_failureStr = "failure"
 )
 
 var (
@@ -232,9 +232,9 @@ func (p *agent) Start(ctx context.Context) error {
 			if skip {
 				return
 			}
-			status := successStr
+			status := _successStr
 			if err != nil {
-				status = failureStr
+				status = _failureStr
 			}
 			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
 			p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
@@ -283,9 +283,9 @@ func (p *agent) Start(ctx context.Context) error {
 			latency int64
 		)
 		defer func() {
-			status := successStr
+			status := _successStr
 			if err != nil {
-				status = failureStr
+				status = _failureStr
 			}
 			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
 			p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
@@ -372,9 +372,9 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	var msgType iotexrpc.MessageType
 	var msgBody []byte
 	defer func() {
-		status := successStr
+		status := _successStr
 		if err != nil {
-			status = failureStr
+			status = _failureStr
 		}
 		p2pMsgCounter.WithLabelValues(
 			"broadcast",
@@ -421,9 +421,9 @@ func (p *agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto
 		msgBody  []byte
 	)
 	defer func() {
-		status := successStr
+		status := _successStr
 		if err != nil {
-			status = failureStr
+			status = _failureStr
 		}
 		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
