@@ -31,16 +31,16 @@ import (
 )
 
 const (
-	blockNS       = "blk"
-	blockHeaderNS = "bhr"
-	blockBodyNS   = "bbd"
-	blockFooterNS = "bfr"
-	receiptsNS    = "rpt"
+	_blockNS       = "blk"
+	_blockHeaderNS = "bhr"
+	_blockBodyNS   = "bbd"
+	_blockFooterNS = "bfr"
+	_receiptsNS    = "rpt"
 )
 
 var (
-	heightPrefix       = []byte("he.")
-	heightToFileBucket = []byte("h2f")
+	_heightPrefix       = []byte("he.")
+	_heightToFileBucket = []byte("h2f")
 	// patternLen         = len("00000000.db")
 	// suffixLen          = len(".db")
 )
@@ -75,10 +75,10 @@ func (fd *fileDAOLegacy) Start(ctx context.Context) error {
 	}
 
 	// set init height value and transaction log flag
-	if _, err := fd.kvStore.Get(blockNS, topHeightKey); err != nil &&
+	if _, err := fd.kvStore.Get(_blockNS, topHeightKey); err != nil &&
 		errors.Cause(err) == db.ErrNotExist {
 		zero8bytes := make([]byte, 8)
-		if err := fd.kvStore.Put(blockNS, topHeightKey, zero8bytes); err != nil {
+		if err := fd.kvStore.Put(_blockNS, topHeightKey, zero8bytes); err != nil {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
 		if err := fd.kvStore.Put(systemLogNS, zero8bytes, []byte(systemLogNS)); err != nil {
@@ -117,7 +117,7 @@ func (fd *fileDAOLegacy) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOLegacy) Height() (uint64, error) {
-	value, err := getValueMustBe8Bytes(fd.kvStore, blockNS, topHeightKey)
+	value, err := getValueMustBe8Bytes(fd.kvStore, _blockNS, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
@@ -203,7 +203,7 @@ func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	if err != nil {
 		return nil, err
 	}
-	value, err := kvStore.Get(receiptsNS, byteutil.Uint64ToBytes(height))
+	value, err := kvStore.Get(_receiptsNS, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipts of block %d", height)
 	}
@@ -225,7 +225,7 @@ func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
 }
 
 func (fd *fileDAOLegacy) Header(h hash.Hash256) (*block.Header, error) {
-	value, err := fd.getBlockValue(blockHeaderNS, h)
+	value, err := fd.getBlockValue(_blockHeaderNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
@@ -247,7 +247,7 @@ func (fd *fileDAOLegacy) Header(h hash.Hash256) (*block.Header, error) {
 }
 
 func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
-	value, err := fd.getBlockValue(blockBodyNS, h)
+	value, err := fd.getBlockValue(_blockBodyNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block body %x", h)
 	}
@@ -266,7 +266,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
-	value, err := fd.getBlockValue(blockFooterNS, h)
+	value, err := fd.getBlockValue(_blockFooterNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block footer %x", h)
 	}
@@ -337,9 +337,9 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	batchForBlock := batch.NewBatch()
 	hash := blk.HashBlock()
-	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
-	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
-	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
+	batchForBlock.Put(_blockHeaderNS, hash[:], serHeader, "failed to put block header")
+	batchForBlock.Put(_blockBodyNS, hash[:], serBody, "failed to put block body")
+	batchForBlock.Put(_blockFooterNS, hash[:], serFooter, "failed to put block footer")
 	blkHeight := blk.Height()
 	heightKey := heightKey(blkHeight)
 	if fd.ContainsTransactionLog() {
@@ -358,7 +358,7 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 			receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
 		}
 		if receiptsBytes, err := proto.Marshal(&receipts); err == nil {
-			batchForBlock.Put(receiptsNS, byteutil.Uint64ToBytes(blkHeight), receiptsBytes, "failed to put receipts")
+			batchForBlock.Put(_receiptsNS, byteutil.Uint64ToBytes(blkHeight), receiptsBytes, "failed to put receipts")
 		} else {
 			log.L().Error("failed to serialize receipits for block", zap.Uint64("height", blkHeight))
 		}
@@ -372,13 +372,13 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	hashKey := hashKey(hash)
 	b.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
 	b.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
-	tipHeight, err := fd.kvStore.Get(blockNS, topHeightKey)
+	tipHeight, err := fd.kvStore.Get(_blockNS, topHeightKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get top height")
 	}
 	if blkHeight > enc.MachineEndian.Uint64(tipHeight) {
-		b.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
-		b.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
+		b.Put(_blockNS, topHeightKey, heightValue, "failed to put top height")
+		b.Put(_blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
 	return fd.kvStore.WriteBatch(b)
 }
@@ -406,11 +406,11 @@ func (fd *fileDAOLegacy) DeleteTipBlock() error {
 		return err
 	}
 	// Delete hash -> block mapping
-	batchForBlock.Delete(blockHeaderNS, hash[:], "failed to delete block header")
-	batchForBlock.Delete(blockBodyNS, hash[:], "failed to delete block body")
-	batchForBlock.Delete(blockFooterNS, hash[:], "failed to delete block footer")
+	batchForBlock.Delete(_blockHeaderNS, hash[:], "failed to delete block header")
+	batchForBlock.Delete(_blockBodyNS, hash[:], "failed to delete block body")
+	batchForBlock.Delete(_blockFooterNS, hash[:], "failed to delete block footer")
 	// delete receipt
-	batchForBlock.Delete(receiptsNS, byteutil.Uint64ToBytes(height), "failed to delete receipt")
+	batchForBlock.Delete(_receiptsNS, byteutil.Uint64ToBytes(height), "failed to delete receipt")
 	// Delete hash -> height mapping
 	hashKey := hashKey(hash)
 	b.Delete(blockHashHeightMappingNS, hashKey, "failed to delete hash -> height mapping")
@@ -419,13 +419,13 @@ func (fd *fileDAOLegacy) DeleteTipBlock() error {
 	b.Delete(blockHashHeightMappingNS, heightKey, "failed to delete height -> hash mapping")
 
 	// Update tip height
-	b.Put(blockNS, topHeightKey, byteutil.Uint64ToBytes(height-1), "failed to put top height")
+	b.Put(_blockNS, topHeightKey, byteutil.Uint64ToBytes(height-1), "failed to put top height")
 	// Update tip hash
 	hash2, err := fd.GetBlockHash(height - 1)
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip block hash")
 	}
-	b.Put(blockNS, topHashKey, hash2[:], "failed to put top hash")
+	b.Put(_blockNS, topHashKey, hash2[:], "failed to put top hash")
 
 	if err := fd.kvStore.WriteBatch(b); err != nil {
 		return err
@@ -435,7 +435,7 @@ func (fd *fileDAOLegacy) DeleteTipBlock() error {
 
 // getTipHash returns the blockchain tip hash
 func (fd *fileDAOLegacy) getTipHash() (hash.Hash256, error) {
-	value, err := fd.kvStore.Get(blockNS, topHashKey)
+	value, err := fd.kvStore.Get(_blockNS, topHashKey)
 	if err != nil {
 		return hash.ZeroHash256, errors.Wrap(err, "failed to get tip hash")
 	}
@@ -447,7 +447,7 @@ func (fd *fileDAOLegacy) indexFile(height uint64, index []byte) error {
 	defer fd.mutex.Unlock()
 
 	if fd.htf == nil {
-		htf, err := db.NewRangeIndex(fd.kvStore, heightToFileBucket, make([]byte, 8))
+		htf, err := db.NewRangeIndex(fd.kvStore, _heightToFileBucket, make([]byte, 8))
 		if err != nil {
 			return err
 		}
@@ -462,7 +462,7 @@ func (fd *fileDAOLegacy) getFileIndex(height uint64) ([]byte, error) {
 	defer fd.mutex.RUnlock()
 
 	if fd.htf == nil {
-		htf, err := db.NewRangeIndex(fd.kvStore, heightToFileBucket, make([]byte, 8))
+		htf, err := db.NewRangeIndex(fd.kvStore, _heightToFileBucket, make([]byte, 8))
 		if err != nil {
 			return nil, err
 		}
@@ -619,5 +619,5 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 }
 
 func heightKey(height uint64) []byte {
-	return append(heightPrefix, byteutil.Uint64ToBytes(height)...)
+	return append(_heightPrefix, byteutil.Uint64ToBytes(height)...)
 }
