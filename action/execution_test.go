@@ -28,6 +28,8 @@ func TestExecutionSignVerify(t *testing.T) {
 	ex, err := NewExecution(contractAddr.String(), 2, big.NewInt(10), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
 	require.Nil(ex.srcPubkey)
+	require.EqualValues(21, ex.BasicActionSize())
+	require.EqualValues(22, ex.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(ex.nonce).
