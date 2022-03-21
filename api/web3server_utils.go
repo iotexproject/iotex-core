@@ -257,27 +257,24 @@ func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.
 
 func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *action.Receipt) (*string, *string, error) {
 	// recipient is empty when contract is created
-	var to, create *string
 	if exec, ok := selp.Action().(*action.Execution); ok && len(exec.Contract()) == 0 {
 		addr, err := ioAddrToEthAddr(receipt.ContractAddress)
 		if err != nil {
 			return nil, nil, err
 		}
-		to, create = nil, &addr
-	} else {
-		act, ok := selp.Action().(action.EthCompatibleAction)
-		if !ok {
-			actHash, _ := selp.Hash()
-			return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
-		}
-		ethTx, err := act.ToEthTx()
-		if err != nil {
-			return nil, nil, err
-		}
-		toTmp := ethTx.To().String()
-		to, create = &toTmp, nil
+		return nil, &addr, nil
 	}
-	return to, create, nil
+	act, ok := selp.Action().(action.EthCompatibleAction)
+	if !ok {
+		actHash, _ := selp.Hash()
+		return nil, nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
+	}
+	ethTx, err := act.ToEthTx()
+	if err != nil {
+		return nil, nil, err
+	}
+	toTmp := ethTx.To().String()
+	return &toTmp, nil, nil
 }
 
 func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
@@ -306,7 +303,7 @@ func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, 
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
 		to = ioAddr.String()
 	}
-	elpBuilder := (&action.EnvelopeBuilder{}).SetVersion(1).SetChainID(svr.coreService.ChainID())
+	elpBuilder := (&action.EnvelopeBuilder{}).SetChainID(svr.coreService.ChainID())
 	if to == address.StakingProtocolAddr {
 		return elpBuilder.BuildStakingAction(tx)
 	}

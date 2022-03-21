@@ -7,6 +7,8 @@
 package action
 
 import (
+	"bytes"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -183,6 +185,10 @@ func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error
 
 // BuildStakingAction loads staking action into envelope from abi-encoded data
 func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, error) {
+	stakingAddr, _ := address.FromString(address.StakingProtocolAddr)
+	if !bytes.Equal(tx.To().Bytes(), stakingAddr.Bytes()) {
+		return nil, errors.New("recipient addr doesn't match")
+	}
 	b.elp.nonce = tx.Nonce()
 	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
 	b.elp.gasLimit = tx.Gas()
