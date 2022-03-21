@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -101,6 +102,12 @@ func main() {
 	if err = initLogger(cfg); err != nil {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			recovery.CrashLog(r, cfg.Log)
+		}
+	}()
 
 	// populdate chain ID
 	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
