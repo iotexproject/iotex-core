@@ -78,6 +78,7 @@ func (b *Builder) Build() AbstractAction {
 	return b.act
 }
 
+// TODO: change envelope to *envelope
 // EnvelopeBuilder is the builder to build Envelope.
 type EnvelopeBuilder struct {
 	elp envelope
@@ -150,15 +151,22 @@ func (b *EnvelopeBuilder) build() Envelope {
 
 // BuildTransfer loads transfer action into envelope
 func (b *EnvelopeBuilder) BuildTransfer(tx *types.Transaction) (Envelope, error) {
-	b.elp.nonce = tx.Nonce()
-	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
-	b.elp.gasLimit = tx.Gas()
+	if tx.To() == nil {
+		return nil, ErrInvalidAct
+	}
+	b.setEnvelopeCommonFields(tx)
 	tsf, err := NewTransfer(tx.Nonce(), tx.Value(), getRecipientAddr(tx.To()), tx.Data(), tx.Gas(), tx.GasPrice())
 	if err != nil {
 		return nil, err
 	}
 	b.elp.payload = tsf
 	return b.build(), nil
+}
+
+func (b *EnvelopeBuilder) setEnvelopeCommonFields(tx *types.Transaction) {
+	b.elp.nonce = tx.Nonce()
+	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
+	b.elp.gasLimit = tx.Gas()
 }
 
 func getRecipientAddr(addr *common.Address) string {
@@ -171,9 +179,7 @@ func getRecipientAddr(addr *common.Address) string {
 
 // BuildExecution loads executino action into envelope
 func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error) {
-	b.elp.nonce = tx.Nonce()
-	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
-	b.elp.gasLimit = tx.Gas()
+	b.setEnvelopeCommonFields(tx)
 	exec, err := NewExecution(getRecipientAddr(tx.To()), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data())
 	if err != nil {
 		return nil, err
@@ -188,9 +194,7 @@ func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, e
 	if !bytes.Equal(tx.To().Bytes(), stakingAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
-	b.elp.nonce = tx.Nonce()
-	b.elp.gasPrice = new(big.Int).Set(tx.GasPrice())
-	b.elp.gasLimit = tx.Gas()
+	b.setEnvelopeCommonFields(tx)
 	act, err := newStakingActionFromABIBinary(tx.Data())
 	if err != nil {
 		return nil, err
