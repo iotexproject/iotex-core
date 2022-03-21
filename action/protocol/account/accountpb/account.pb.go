@@ -137,15 +137,15 @@ var file_account_proto_rawDesc = []byte{
 }
 
 var (
-	file_account_proto_rawDescOnce sync.Once
-	file_account_proto_rawDescData = file_account_proto_rawDesc
+	_file_account_proto_rawDescOnce sync.Once
+	_file_account_proto_rawDescData = file_account_proto_rawDesc
 )
 
 func file_account_proto_rawDescGZIP() []byte {
-	file_account_proto_rawDescOnce.Do(func() {
-		file_account_proto_rawDescData = protoimpl.X.CompressGZIP(file_account_proto_rawDescData)
+	_file_account_proto_rawDescOnce.Do(func() {
+		_file_account_proto_rawDescData = protoimpl.X.CompressGZIP(_file_account_proto_rawDescData)
 	})
-	return file_account_proto_rawDescData
+	return _file_account_proto_rawDescData
 }
 
 var file_account_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

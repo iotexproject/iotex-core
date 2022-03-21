@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	transferStakeInterfaceABI = `[
+	_transferStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -67,7 +67,7 @@ type TransferStake struct {
 }
 
 func init() {
-	transferStakeInterface, err := abi.JSON(strings.NewReader(transferStakeInterfaceABI))
+	transferStakeInterface, err := abi.JSON(strings.NewReader(_transferStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
