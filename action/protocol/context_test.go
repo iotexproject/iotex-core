@@ -15,6 +15,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func TestRegistryCtx(t *testing.T) {
@@ -183,4 +185,27 @@ func TestGetVMConfigCtx(t *testing.T) {
 	ret, ok := GetVMConfigCtx(ctx)
 	require.True(ok)
 	require.True(ret.Debug)
+}
+
+func TestPubkeySizeForTxSize(t *testing.T) {
+	require := require.New(t)
+	g := genesis.Default
+	g.ToBeEnabledBlockHeight = 10
+	ctx := genesis.WithGenesisContext(context.Background(), g)
+	actionCtx := ActionCtx{
+		PubkeySize: 65,
+	}
+	for _, v := range []struct {
+		height uint64
+		size   uint32
+	}{
+		{5, 65},
+		{10, 0},
+		{11, 0},
+	} {
+		testCtx := WithActionCtx(WithBlockCtx(ctx, BlockCtx{
+			BlockHeight: v.height,
+		}), actionCtx)
+		require.Equal(v.size, PubkeySizeForTxSizeEstimation(testCtx))
+	}
 }

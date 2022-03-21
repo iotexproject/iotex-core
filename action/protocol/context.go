@@ -308,3 +308,14 @@ func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
 	return cfg, ok
 }
+
+// PubkeySizeForTxSizeEstimation return the pubkey size for the purpose the tx size estimation
+func PubkeySizeForTxSizeEstimation(ctx context.Context) uint32 {
+	blkCtx := MustGetBlockCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.IsToBeEnabled(blkCtx.BlockHeight) {
+		return 0
+	}
+	actCtx := MustGetActionCtx(ctx)
+	return actCtx.PubkeySize
+}

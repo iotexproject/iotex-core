@@ -82,7 +82,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 		return nil
 	}
 	// Reject oversize execution
-	if exec.TotalSize()+protocol.MustGetActionCtx(ctx).PubkeySize > ExecutionSizeLimit {
+	if exec.TotalSize()+protocol.PubkeySizeForTxSizeEstimation(ctx) > ExecutionSizeLimit {
 		return action.ErrOversizedData
 	}
 	return nil

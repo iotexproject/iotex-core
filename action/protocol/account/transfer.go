@@ -150,7 +150,7 @@ func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) erro
 		return nil
 	}
 	// Reject oversized transfer
-	if tsf.TotalSize()+protocol.MustGetActionCtx(ctx).PubkeySize > TransferSizeLimit {
+	if tsf.TotalSize()+protocol.PubkeySizeForTxSizeEstimation(ctx) > TransferSizeLimit {
 		return action.ErrOversizedData
 	}
 

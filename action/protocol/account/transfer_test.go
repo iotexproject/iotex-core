@@ -35,11 +35,11 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(rewarding.DepositGas)
 	t.Run("Oversized data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		payload := tmpPayload[:]
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0), big.NewInt(0))
+		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", make([]byte, 32683), uint64(0), big.NewInt(0))
 		require.NoError(err)
-		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{PubkeySize: 65})
+		ctx := protocol.WithActionCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(),
+			genesis.Default),
+			protocol.BlockCtx{BlockHeight: 1000}), protocol.ActionCtx{PubkeySize: 65})
 		require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(ctx, tsf, nil)))
 	})
 }
