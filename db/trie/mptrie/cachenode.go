@@ -17,8 +17,8 @@ type cacheNode struct {
 	ser     []byte
 }
 
-func (cn *cacheNode) Hash(c client) ([]byte, error) {
-	return cn.hash(c, false)
+func (cn *cacheNode) Hash(cli client) ([]byte, error) {
+	return cn.hash(cli, false)
 }
 
 func (cn *cacheNode) hash(cli client, flush bool) ([]byte, error) {
@@ -40,13 +40,13 @@ func (cn *cacheNode) hash(cli client, flush bool) ([]byte, error) {
 	return cn.hashVal, nil
 }
 
-func (cn *cacheNode) delete(c client) error {
+func (cn *cacheNode) delete(cli client) error {
 	if !cn.dirty {
-		h, err := cn.hash(c, false)
+		h, err := cn.hash(cli, false)
 		if err != nil {
 			return err
 		}
-		if err := c.deleteNode(h); err != nil {
+		if err := cli.deleteNode(h); err != nil {
 			return err
 		}
 	}

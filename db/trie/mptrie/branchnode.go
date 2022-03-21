@@ -230,24 +230,18 @@ func (b *branchNode) updateChild(cli client, key byte, child node, hashnode bool
 		return nil, err
 	}
 	var indices *SortedList
-	var children map[byte]node
 	// update branchnode with new child
+	children := make(map[byte]node, len(b.children))
+	for k, v := range b.children {
+		children[k] = v
+	}
 	if child == nil {
-		children = make(map[byte]node, len(b.children)-1)
-		for k, v := range b.children {
-			if k != key {
-				children[k] = v
-			}
-		}
+		delete(children, key)
 		if b.indices.sorted {
 			indices = b.indices.Clone()
 			indices.Delete(key)
 		}
 	} else {
-		children = make(map[byte]node, len(b.children))
-		for k, v := range b.children {
-			children[k] = v
-		}
 		children[key] = child
 		if b.indices.sorted {
 			indices = b.indices.Clone()
@@ -281,7 +275,7 @@ func (b *branchNode) Clone() (branch, error) {
 			ser:     ser,
 		},
 		children: children,
-		indices:  b.indices,
+		indices:  b.indices.Clone(),
 		isRoot:   b.isRoot,
 	}
 	clone.cacheNode.serializable = clone
