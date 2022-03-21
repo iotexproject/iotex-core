@@ -67,36 +67,36 @@ type (
 )
 
 var (
-	bytecode = []byte("test contract creation")
+	_bytecode = []byte("test contract creation")
 
-	addr1 = common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	c1    = common.HexToAddress("01fc246633470cf62ae2a956d21e8d481c3a69e1")
-	c2    = common.HexToAddress("3470cf62ae2a956d38d481c3a69e121e01fc2466")
-	c3    = common.HexToAddress("956d21e8d481c3a6901fc246633470cf62ae2ae1")
-	C4    = common.HexToAddress("121e01fc24663470cf62ae2a956d38d481c3a69e")
+	_addr1 = common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
+	_c1    = common.HexToAddress("01f_c246633470cf62ae2a956d21e8d481_c3a69e1")
+	_c2    = common.HexToAddress("3470cf62ae2a956d38d481_c3a69e121e01f_c2466")
+	_c3    = common.HexToAddress("956d21e8d481_c3a6901f_c246633470cf62ae2ae1")
+	_c4    = common.HexToAddress("121e01f_c24663470cf62ae2a956d38d481_c3a69e")
 
-	k1b = hash.Hash256b([]byte("cat"))
-	v1b = hash.Hash256b([]byte("cat"))
-	k2b = hash.Hash256b([]byte("dog"))
-	v2b = hash.Hash256b([]byte("dog"))
-	k3b = hash.Hash256b([]byte("hen"))
-	v3b = hash.Hash256b([]byte("hen"))
-	k4b = hash.Hash256b([]byte("fox"))
-	v4b = hash.Hash256b([]byte("fox"))
-	k1  = common.BytesToHash(k1b[:])
-	v1  = common.BytesToHash(v1b[:])
-	k2  = common.BytesToHash(k2b[:])
-	v2  = common.BytesToHash(v2b[:])
-	k3  = common.BytesToHash(k3b[:])
-	v3  = common.BytesToHash(v3b[:])
-	k4  = common.BytesToHash(k4b[:])
-	v4  = common.BytesToHash(v4b[:])
+	_k1b = hash.Hash256b([]byte("cat"))
+	_v1b = hash.Hash256b([]byte("cat"))
+	_k2b = hash.Hash256b([]byte("dog"))
+	_v2b = hash.Hash256b([]byte("dog"))
+	_k3b = hash.Hash256b([]byte("hen"))
+	_v3b = hash.Hash256b([]byte("hen"))
+	_k4b = hash.Hash256b([]byte("fox"))
+	_v4b = hash.Hash256b([]byte("fox"))
+	_k1  = common.BytesToHash(_k1b[:])
+	_v1  = common.BytesToHash(_v1b[:])
+	_k2  = common.BytesToHash(_k2b[:])
+	_v2  = common.BytesToHash(_v2b[:])
+	_k3  = common.BytesToHash(_k3b[:])
+	_v3  = common.BytesToHash(_v3b[:])
+	_k4  = common.BytesToHash(_k4b[:])
+	_v4  = common.BytesToHash(_v4b[:])
 )
 
 func newTestLog(addr common.Address) *types.Log {
 	return &types.Log{
 		Address: addr,
-		Topics:  []common.Hash{k1},
+		Topics:  []common.Hash{_k1},
 	}
 }
 

@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	protocolID = "poll"
+	_protocolID = "poll"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 	_modeNativeMix     = "nativeMix"     // native with backward compatibility for governanceMix before fairbank
 	_modeConsortium    = "consortium"
 
-	blockMetaPrefix = "BlockMeta."
+	_blockMetaPrefix = "BlockMeta."
 )
 
 // ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
@@ -91,7 +91,7 @@ func FindProtocol(registry *protocol.Registry) Protocol {
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		return nil
 	}
@@ -107,7 +107,7 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 	if registry == nil {
 		log.S().Panic("registry cannot be nil")
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		log.S().Panic("poll protocol is not registered")
 	}
@@ -225,5 +225,5 @@ func NewProtocol(
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	return protocol.HashStringToAddress(protocolID)
+	return protocol.HashStringToAddress(_protocolID)
 }
