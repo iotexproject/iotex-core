@@ -7,17 +7,23 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/util"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -348,10 +354,11 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
-	require.Equal(*ans.To, toAddr)
+	require.Equal(strings.ToLower(fromAddr), ans.From)
+	require.Equal(toAddr, *ans.To)
 	require.Nil(nil, ans.ContractAddress)
 	require.Equal(uint64ToHex(10000), ans.GasUsed)
+	require.Equal(uint64ToHex(1), ans.BlockNumber)
 
 	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
 	ret, err = svr.web3Server.getTransactionReceipt(testData2)
@@ -389,14 +396,15 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
-	require.Equal(*ans.To, toAddr)
+	require.Equal(strings.ToLower(fromAddr), ans.From)
+	require.Equal(toAddr, *ans.To)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
 	testData2 := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x10"}
-	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", "0x0"}
 	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData3)
@@ -416,14 +424,15 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
 	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
-	require.Equal(*ans.To, toAddr)
+	require.Equal(ans.From, strings.ToLower(fromAddr))
+	require.Equal(toAddr, *ans.To)
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
 	testData2 := []interface{}{"0x1", "0x10"}
-	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := []interface{}{"0x10", "0x0"}
 	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData3)
@@ -562,4 +571,137 @@ func TestEthAccountsIntegrity(t *testing.T) {
 	}()
 	res, _ := svr.web3Server.ethAccounts()
 	require.Equal(0, len(res.([]string)))
+}
+
+func TestWeb3StakingIntegrity(t *testing.T) {
+	require := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestServer(t)
+	defer cleanCallback()
+
+	ecdsaPvk, ok := identityset.PrivateKey(28).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	require.True(ok)
+
+	type stakeData struct {
+		testName         string
+		stakeEncodedData []byte
+	}
+	testData := []stakeData{}
+	toAddr, err := ioAddrToEthAddr(address.StakingProtocolAddr)
+	require.NoError(err)
+
+	// encode stake data
+	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data, err := act1.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"createStake", data})
+
+	act2, err := action.NewDepositToStake(2, 7, "100", []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data2, err := act2.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"depositToStake", data2})
+
+	act3, err := action.NewChangeCandidate(3, "test", 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data3, err := act3.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"changeCandidate", data3})
+
+	act4, err := action.NewUnstake(4, 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data4, err := act4.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"unstake", data4})
+
+	act5, err := action.NewWithdrawStake(5, 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data5, err := act5.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"withdrawStake", data5})
+
+	act6, err := action.NewRestake(6, 7, 7, false, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data6, err := act6.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"restake", data6})
+
+	act7, err := action.NewTransferStake(7, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data7, err := act7.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"transferStake", data7})
+
+	act8, err := action.NewCandidateRegister(
+		8,
+		"test",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"100",
+		7,
+		false,
+		[]byte{},
+		1000000,
+		big.NewInt(0))
+	require.NoError(err)
+	data8, err := act8.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"candidateRegister", data8})
+
+	act9, err := action.NewCandidateUpdate(
+		9,
+		"test",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		1000000,
+		big.NewInt(0))
+	require.NoError(err)
+	data9, err := act9.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"candidateUpdate", data9})
+
+	for i, test := range testData {
+		t.Run(test.testName, func(t *testing.T) {
+			// estimate gas
+			gasLimit, err := estimateStakeGas(svr, identityset.Address(28).Hex(), toAddr, test.stakeEncodedData)
+			require.NoError(err)
+
+			// create tx
+			rawTx := types.NewTransaction(
+				uint64(9+i),
+				common.HexToAddress(toAddr),
+				big.NewInt(0),
+				gasLimit,
+				big.NewInt(0),
+				test.stakeEncodedData,
+			)
+			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))), ecdsaPvk)
+			require.NoError(err)
+			BinaryData, err := tx.MarshalBinary()
+			require.NoError(err)
+
+			// send tx
+			fmt.Println(hex.EncodeToString(BinaryData))
+			rawData := []interface{}{hex.EncodeToString(BinaryData)}
+			_, err = svr.web3Server.sendRawTransaction(rawData)
+			require.NoError(err)
+		})
+	}
+}
+
+func estimateStakeGas(svr *ServerV2, fromAddr, toAddr string, data []byte) (uint64, error) {
+	ret, err := svr.web3Server.estimateGas([]interface{}{
+		map[string]interface{}{
+			"from":     fromAddr,
+			"to":       toAddr,
+			"gas":      "0x0",
+			"gasPrice": "0x0",
+			"value":    "0x0",
+			"data":     hex.EncodeToString(data)},
+		1})
+	if err != nil {
+		panic(err)
+	}
+	return hexStringToNumber(ret.(string))
 }
