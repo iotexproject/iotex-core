@@ -76,7 +76,7 @@ func (c *kvCache) WriteIfNotExist(key *kvCacheKey, v []byte) error {
 	if _, ok := c.cache[key.key1]; !ok {
 		c.cache[key.key1] = make(map[string]*node)
 	}
-	if node, ok := c.cache[key.key1][key.key2]; ok && node.deleted {
+	if node, ok := c.cache[key.key1][key.key2]; ok && !node.deleted {
 		return ErrAlreadyExist
 	}
 	c.cache[key.key1][key.key2] = &node{
