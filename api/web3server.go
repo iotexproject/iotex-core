@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	contentType                 = "application/json"
-	metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
+	_contentType                 = "application/json"
+	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 )
 
 type (
@@ -411,7 +411,7 @@ func (svr *Web3Server) call(in interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if to == metamaskBalanceContractAddr {
+	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)

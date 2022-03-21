@@ -48,23 +48,23 @@ import (
 )
 
 const (
-	triePath    = "trie.test"
-	stateDBPath = "stateDB.test"
+	_triePath    = "trie.test"
+	_stateDBPath = "stateDB.test"
 )
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var _letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func randStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		b[i] = _letterRunes[rand.Intn(len(_letterRunes))]
 	}
 	return string(b)
 }
 
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -93,7 +93,7 @@ func TestSnapshot(t *testing.T) {
 
 func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 	defer testutil.CleanupPath(testStateDBPath)
 
@@ -336,7 +336,7 @@ func testCandidates(sf Factory, t *testing.T) {
 }
 
 func TestState(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
@@ -352,7 +352,7 @@ func TestHistoryState(t *testing.T) {
 	var err error
 	// using factory and enable history
 	cfg := config.Default
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = true
 	sf, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
@@ -360,14 +360,14 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and enable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = false
 	sf, err = NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
@@ -375,7 +375,7 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and disable history
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
@@ -391,14 +391,14 @@ func TestFactoryStates(t *testing.T) {
 	cfg := config.Default
 
 	// using factory
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	sf, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
 
 	// using stateDB
-	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
@@ -407,7 +407,7 @@ func TestFactoryStates(t *testing.T) {
 }
 
 func TestSDBState(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 
@@ -698,7 +698,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
@@ -710,7 +710,7 @@ func TestNonce(t *testing.T) {
 }
 
 func TestSDBNonce(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 
@@ -807,7 +807,7 @@ func testNonce(sf Factory, t *testing.T) {
 }
 
 func TestLoadStoreHeight(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
@@ -820,7 +820,7 @@ func TestLoadStoreHeight(t *testing.T) {
 }
 
 func TestLoadStoreHeightInMem(t *testing.T) {
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
@@ -832,7 +832,7 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 }
 
 func TestSDBLoadStoreHeight(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 
@@ -845,7 +845,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 }
 
 func TestSDBLoadStoreHeightInMem(t *testing.T) {
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 	cfg := config.Default
@@ -890,7 +890,7 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 
 func TestRunActions(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -917,7 +917,7 @@ func TestRunActions(t *testing.T) {
 
 func TestSTXRunActions(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -998,7 +998,7 @@ func testCommit(factory Factory, t *testing.T) {
 
 func TestPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -1025,7 +1025,7 @@ func TestPickAndRunActions(t *testing.T) {
 
 func TestSTXPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -1103,7 +1103,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 
 func TestSimulateExecution(t *testing.T) {
 	require := require.New(t)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -1133,7 +1133,7 @@ func TestSimulateExecution(t *testing.T) {
 
 func TestSTXSimulateExecution(t *testing.T) {
 	require := require.New(t)
-	testStateDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
 	cfg := config.Default
@@ -1256,14 +1256,14 @@ func TestStateDBPatch(t *testing.T) {
 		{"2", "DELETE", n1, a1},
 		{"2", "PUT", n2, a2, b22},
 	}
-	patchFile, err := testutil.PathOfTempFile(triePath + ".patch")
+	patchFile, err := testutil.PathOfTempFile(_triePath + ".patch")
 	require.NoError(err)
 	f, err := os.Create(patchFile)
 	require.NoError(err)
 	require.NoError(csv.NewWriter(f).WriteAll(patchTest))
 	require.NoError(f.Close())
 
-	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
+	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 	cfg := config.Default
 	cfg.DB.DbPath = testDBPath
@@ -1397,7 +1397,7 @@ func BenchmarkInMemRunAction(b *testing.B) {
 }
 
 func BenchmarkDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), triePath)
+	tp := filepath.Join(os.TempDir(), _triePath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
@@ -1425,7 +1425,7 @@ func BenchmarkSDBInMemRunAction(b *testing.B) {
 }
 
 func BenchmarkSDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
@@ -1442,7 +1442,7 @@ func BenchmarkSDBRunAction(b *testing.B) {
 }
 
 func BenchmarkCachedSDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
@@ -1552,7 +1552,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 }
 
 func BenchmarkSDBState(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
@@ -1569,7 +1569,7 @@ func BenchmarkSDBState(b *testing.B) {
 }
 
 func BenchmarkCachedSDBState(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), stateDBPath)
+	tp := filepath.Join(os.TempDir(), _stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
