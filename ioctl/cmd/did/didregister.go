@@ -22,31 +22,31 @@ import (
 )
 
 const (
-	registerDIDName   = "registerDID"
-	getHashName       = "getHash"
-	getURIName        = "getURI"
-	updateDIDName     = "updateDID"
-	deregisterDIDName = "deregisterDID"
+	_registerDIDName    = "registerDID"
+	_getHashName        = "getHash"
+	_getURIName         = "getURI"
+	_updateDIDName      = "updateDID"
+	_de_registerDIDName = "deregisterDID"
 	// DIDABI is the did abi
 	DIDABI = `[{"constant": false,"inputs": [],"name": "deregisterDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getHash","outputs": [{"internalType": "bytes32","name": "","type": "bytes32"}],"payable": false,"stateMutability": "view","type": "function"},   {"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getURI","outputs": [{"internalType": "bytes","name": "","type": "bytes"}],"payable": false,"stateMutability": "view","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "registerDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "updateDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"}]`
 )
 
 // Multi-language support
 var (
-	registerCmdUses = map[config.Language]string{
+	_registerCmdUses = map[config.Language]string{
 		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri",
 		config.Chinese: "register (合约地址|别名) hash uri",
 	}
-	registerCmdShorts = map[config.Language]string{
+	_registerCmdShorts = map[config.Language]string{
 		config.English: "Register DID on IoTeX blockchain",
 		config.Chinese: "Register 在IoTeX链上注册DID",
 	}
 )
 
-// didRegisterCmd represents the contract invoke register command
-var didRegisterCmd = &cobra.Command{
-	Use:   config.TranslateInLang(registerCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(registerCmdShorts, config.UILanguage),
+// _didRegisterCmd represents the contract invoke register command
+var _didRegisterCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_registerCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_registerCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -56,7 +56,7 @@ var didRegisterCmd = &cobra.Command{
 }
 
 func init() {
-	action.RegisterWriteCommand(didRegisterCmd)
+	action.RegisterWriteCommand(_didRegisterCmd)
 }
 
 func registerDID(args []string) error {
@@ -65,7 +65,7 @@ func registerDID(args []string) error {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
 
-	bytecode, err := encode(registerDIDName, args[1], args[2])
+	bytecode, err := encode(_registerDIDName, args[1], args[2])
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
