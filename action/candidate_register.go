@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -224,7 +225,7 @@ func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 // LoadProto converts a protobuf's Action to CandidateRegister
 func (cr *CandidateRegister) LoadProto(pbAct *iotextypes.CandidateRegister) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cInfo := pbAct.GetCandidate()
@@ -294,6 +295,10 @@ func (cr *CandidateRegister) SanityCheck() error {
 
 // EncodeABIBinary encodes data in abi encoding
 func (cr *CandidateRegister) EncodeABIBinary() ([]byte, error) {
+	return cr.encodeABIBinary()
+}
+
+func (cr *CandidateRegister) encodeABIBinary() ([]byte, error) {
 	operatorEthAddr := common.BytesToAddress(cr.operatorAddress.Bytes())
 	rewardEthAddr := common.BytesToAddress(cr.rewardAddress.Bytes())
 	ownerEthAddr := common.BytesToAddress(cr.ownerAddress.Bytes())
@@ -360,4 +365,18 @@ func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
 		return nil, errDecodeFailure
 	}
 	return address.FromBytes(ethAddr.Bytes())
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cr *CandidateRegister) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cr.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cr.Nonce(), ethAddr, big.NewInt(0), cr.GasLimit(), cr.GasPrice(), data), nil
 }

@@ -169,7 +169,7 @@ func (bfx *bloomfilterIndexer) DeleteTipBlock(blk *block.Block) (err error) {
 	bfx.mutex.Lock()
 	defer bfx.mutex.Unlock()
 	height := blk.Height()
-	if err := bfx.delete(height); err != nil {
+	if err := bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(height)); err != nil {
 		return err
 	}
 	bfx.curRangeBloomfilter = nil
@@ -238,11 +238,6 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 		}
 	}
 	return blockNumbers, nil
-}
-
-func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
-	// TODO: remove delete from indexer interface
-	return bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(blockNumber))
 }
 
 func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.BloomFilter) error {

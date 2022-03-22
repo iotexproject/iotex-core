@@ -9,6 +9,8 @@ package action
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -103,10 +105,10 @@ func (tsf *Transfer) Proto() *iotextypes.Transfer {
 // LoadProto converts a protobuf's Action to Transfer
 func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if tsf == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*tsf = Transfer{}
 
@@ -153,4 +155,14 @@ func (tsf *Transfer) SanityCheck() error {
 	}
 
 	return tsf.AbstractAction.SanityCheck()
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (tsf *Transfer) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(tsf.recipient)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return types.NewTransaction(tsf.Nonce(), ethAddr, tsf.amount, tsf.GasLimit(), tsf.GasPrice(), tsf.payload), nil
 }
