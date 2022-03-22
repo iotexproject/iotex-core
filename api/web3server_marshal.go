@@ -30,34 +30,34 @@ func (obj *receiptObjectV2) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	logs := make([]logsObjectV2, 0, len(obj.receipt.Logs()))
-	for _, v := range obj.receipt.Logs() {
-		logs = append(logs, logsObjectV2{obj.blockHash, v})
+	logs := make([]*logsObjectV2, 0, len(obj.receipt.Logs()))
+	for i := range obj.receipt.Logs() {
+		logs[i] = &logsObjectV2{obj.blockHash, obj.receipt.Logs()[i]}
 	}
 
 	return json.Marshal(&struct {
-		TransactionIndex  string         `json:"transactionIndex"`
-		TransactionHash   string         `json:"transactionHash"`
-		BlockHash         string         `json:"blockHash"`
-		BlockNumber       string         `json:"blockNumber"`
-		From              string         `json:"from"`
-		To                *string        `json:"to"`
-		CumulativeGasUsed string         `json:"cumulativeGasUsed"`
-		GasUsed           string         `json:"gasUsed"`
-		ContractAddress   *string        `json:"contractAddress"`
-		LogsBloom         string         `json:"logsBloom"`
-		Logs              []logsObjectV2 `json:"logs"`
-		Status            string         `json:"status"`
+		TransactionIndex  string          `json:"transactionIndex"`
+		TransactionHash   string          `json:"transactionHash"`
+		BlockHash         string          `json:"blockHash"`
+		BlockNumber       string          `json:"blockNumber"`
+		From              string          `json:"from"`
+		To                *string         `json:"to"`
+		CumulativeGasUsed string          `json:"cumulativeGasUsed"`
+		GasUsed           string          `json:"gasUsed"`
+		ContractAddress   *string         `json:"contractAddress"`
+		LogsBloom         string          `json:"logsBloom"`
+		Logs              []*logsObjectV2 `json:"logs"`
+		Status            string          `json:"status"`
 	}{
 		TransactionIndex:  uint64ToHex(uint64(obj.receipt.TxIndex)),
 		TransactionHash:   "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
 		BlockHash:         "0x" + hex.EncodeToString(obj.blockHash[:]),
 		BlockNumber:       uint64ToHex(obj.receipt.BlockHeight),
 		From:              from,
-		To:                nil, // TODO
+		To:                obj.to,
 		CumulativeGasUsed: uint64ToHex(obj.receipt.GasConsumed),
 		GasUsed:           uint64ToHex(obj.receipt.GasConsumed),
-		ContractAddress:   nil, // TODO
+		ContractAddress:   obj.contractAddress,
 		LogsBloom:         obj.logsBloom,
 		Logs:              logs,
 		Status:            uint64ToHex(obj.receipt.Status),
