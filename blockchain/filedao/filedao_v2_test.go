@@ -43,11 +43,11 @@ func TestNewFileDAOv2(t *testing.T) {
 
 		// new file does not use legacy's namespaces
 		for _, v := range []string{
-			blockNS,
-			blockHeaderNS,
-			blockBodyNS,
-			blockFooterNS,
-			receiptsNS,
+			_blockNS,
+			_blockHeaderNS,
+			_blockBodyNS,
+			_blockFooterNS,
+			_receiptsNS,
 		} {
 			_, err := fd.kvStore.Get(v, []byte{})
 			r.Error(err)

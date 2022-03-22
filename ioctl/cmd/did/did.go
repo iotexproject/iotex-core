@@ -40,7 +40,7 @@ var DIDCmd = &cobra.Command{
 
 func init() {
 	DIDCmd.AddCommand(didGenerateCmd)
-	DIDCmd.AddCommand(didRegisterCmd)
+	DIDCmd.AddCommand(_didRegisterCmd)
 	DIDCmd.AddCommand(didGetHashCmd)
 	DIDCmd.AddCommand(didGetURICmd)
 	DIDCmd.AddCommand(didUpdateCmd)

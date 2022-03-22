@@ -18,20 +18,20 @@ import (
 
 func TestChangeCandidate(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	stake, err := NewChangeCandidate(_nonce, _canAddress, _index, _payload, _gaslimit, _gasprice)
 	require.NoError(err)
 
 	ser := stake.Serialize()
 	require.Equal("080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164", hex.EncodeToString(ser))
 
 	require.NoError(err)
-	require.Equal(gaslimit, stake.GasLimit())
-	require.Equal(gasprice, stake.GasPrice())
-	require.Equal(nonce, stake.Nonce())
+	require.Equal(_gaslimit, stake.GasLimit())
+	require.Equal(_gasprice, stake.GasPrice())
+	require.Equal(_nonce, stake.Nonce())
 
-	require.Equal(payload, stake.Payload())
-	require.Equal(canAddress, stake.Candidate())
-	require.Equal(index, stake.BucketIndex())
+	require.Equal(_payload, stake.Payload())
+	require.Equal(_canAddress, stake.Candidate())
+	require.Equal(_index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
 	require.NoError(err)
@@ -43,12 +43,12 @@ func TestChangeCandidate(t *testing.T) {
 	proto := stake.Proto()
 	stake2 := &ChangeCandidate{}
 	require.NoError(stake2.LoadProto(proto))
-	require.Equal(payload, stake2.Payload())
-	require.Equal(canAddress, stake2.Candidate())
-	require.Equal(index, stake2.BucketIndex())
+	require.Equal(_payload, stake2.Payload())
+	require.Equal(_canAddress, stake2.Candidate())
+	require.Equal(_index, stake2.BucketIndex())
 
 	t.Run("Invalid Gas Price", func(t *testing.T) {
-		cc, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, new(big.Int).Mul(gasprice, big.NewInt(-1)))
+		cc, err := NewChangeCandidate(_nonce, _canAddress, _index, _payload, _gaslimit, new(big.Int).Mul(_gasprice, big.NewInt(-1)))
 		require.NoError(err)
 		require.Equal(ErrNegativeValue, errors.Cause(cc.SanityCheck()))
 	})
@@ -56,16 +56,16 @@ func TestChangeCandidate(t *testing.T) {
 
 func TestChangeCandidateSignVerify(t *testing.T) {
 	require := require.New(t)
-	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", _senderKey.HexString())
+	stake, err := NewChangeCandidate(_nonce, _canAddress, _index, _payload, _gaslimit, _gasprice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
-		SetGasPrice(gasprice).
+	elp := bd.SetGasLimit(_gaslimit).
+		SetGasPrice(_gasprice).
 		SetAction(stake).Build()
 	// sign
-	selp, err := Sign(elp, senderKey)
+	selp, err := Sign(elp, _senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())
@@ -80,14 +80,14 @@ func TestChangeCandidateSignVerify(t *testing.T) {
 
 func TestChangeCandidateABIEncodeAndDecode(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	stake, err := NewChangeCandidate(_nonce, _canAddress, _index, _payload, _gaslimit, _gasprice)
 	require.NoError(err)
 
 	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
 	stake, err = NewChangeCandidateFromABIBinary(data)
 	require.NoError(err)
-	require.Equal(canAddress, stake.candidateName)
-	require.Equal(index, stake.bucketIndex)
-	require.Equal(payload, stake.payload)
+	require.Equal(_canAddress, stake.candidateName)
+	require.Equal(_index, stake.bucketIndex)
+	require.Equal(_payload, stake.payload)
 }

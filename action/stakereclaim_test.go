@@ -21,7 +21,7 @@ var (
 	_gaslimit   = uint64(1000000)
 	_gasprice   = big.NewInt(10)
 	_canAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
-	_payload    = []byte("_payload")
+	_payload    = []byte("payload")
 	_nonce      = uint64(0)
 	_index      = uint64(10)
 	_senderKey  = identityset.PrivateKey(27)
@@ -36,12 +36,12 @@ func TestUnstake(t *testing.T) {
 	require.Equal("080a12077061796c6f6164", hex.EncodeToString(ser))
 
 	require.NoError(err)
-	require.Equal(_gaslimit, stake._gaslimit())
-	require.Equal(_gasprice, stake._gasprice())
-	require.Equal(_nonce, stake._nonce())
+	require.Equal(_gaslimit, stake.GasLimit())
+	require.Equal(_gasprice, stake.GasPrice())
+	require.Equal(_nonce, stake.Nonce())
 
-	require.Equal(_payload, stake._payload())
-	require.Equal(_index, stake.Bucket_index())
+	require.Equal(_payload, stake.Payload())
+	require.Equal(_index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
 	require.NoError(err)
@@ -53,8 +53,8 @@ func TestUnstake(t *testing.T) {
 	proto := stake.Proto()
 	stake2 := &Unstake{}
 	require.NoError(stake2.LoadProto(proto))
-	require.Equal(_payload, stake2._payload())
-	require.Equal(_index, stake2.Bucket_index())
+	require.Equal(_payload, stake2.Payload())
+	require.Equal(_index, stake2.BucketIndex())
 }
 
 func TestUnstakeSignVerify(t *testing.T) {
@@ -65,8 +65,8 @@ func TestUnstakeSignVerify(t *testing.T) {
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.Set_gaslimit(_gaslimit).
-		Set_gasprice(_gasprice).
+	elp := bd.SetGasLimit(_gaslimit).
+		SetGasPrice(_gasprice).
 		SetAction(stake).Build()
 	// sign
 	selp, err := Sign(elp, _senderKey)
@@ -91,8 +91,8 @@ func TestUnstakeABIEncodeAndDecode(t *testing.T) {
 	require.NoError(err)
 	stake, err = NewUnstakeFromABIBinary(data)
 	require.NoError(err)
-	require.Equal(_index, stake.bucket_index)
-	require.Equal(_payload, stake._payload)
+	require.Equal(_index, stake.bucketIndex)
+	require.Equal(_payload, stake.payload)
 }
 
 func TestWithdraw(t *testing.T) {
@@ -104,12 +104,12 @@ func TestWithdraw(t *testing.T) {
 	require.Equal("080a12077061796c6f6164", hex.EncodeToString(ser))
 
 	require.NoError(err)
-	require.Equal(_gaslimit, stake._gaslimit())
-	require.Equal(_gasprice, stake._gasprice())
-	require.Equal(_nonce, stake._nonce())
+	require.Equal(_gaslimit, stake.GasLimit())
+	require.Equal(_gasprice, stake.GasPrice())
+	require.Equal(_nonce, stake.Nonce())
 
-	require.Equal(_payload, stake._payload())
-	require.Equal(_index, stake.Bucket_index())
+	require.Equal(_payload, stake.Payload())
+	require.Equal(_index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
 	require.NoError(err)
@@ -121,8 +121,8 @@ func TestWithdraw(t *testing.T) {
 	proto := stake.Proto()
 	stake2 := &WithdrawStake{}
 	require.NoError(stake2.LoadProto(proto))
-	require.Equal(_payload, stake2._payload())
-	require.Equal(_index, stake2.Bucket_index())
+	require.Equal(_payload, stake2.Payload())
+	require.Equal(_index, stake2.BucketIndex())
 }
 
 func TestWithdrawSignVerify(t *testing.T) {
@@ -134,8 +134,8 @@ func TestWithdrawSignVerify(t *testing.T) {
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.Set_gaslimit(_gaslimit).
-		Set_gasprice(_gasprice).
+	elp := bd.SetGasLimit(_gaslimit).
+		SetGasPrice(_gasprice).
 		SetAction(stake).Build()
 	// sign
 	selp, err := Sign(elp, _senderKey)
@@ -160,6 +160,6 @@ func TestWithdrawABIEncodeAndDecode(t *testing.T) {
 	require.NoError(err)
 	stake, err = NewWithdrawStakeFromABIBinary(data)
 	require.NoError(err)
-	require.Equal(_index, stake.bucket_index)
-	require.Equal(_payload, stake._payload)
+	require.Equal(_index, stake.bucketIndex)
+	require.Equal(_payload, stake.payload)
 }

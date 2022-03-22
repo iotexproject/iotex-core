@@ -75,13 +75,13 @@ func (fd *fileDAOLegacy) Start(ctx context.Context) error {
 	}
 
 	// set init height value and transaction log flag
-	if _, err := fd.kvStore.Get(_blockNS, topHeightKey); err != nil &&
+	if _, err := fd.kvStore.Get(_blockNS, _topHeightKey); err != nil &&
 		errors.Cause(err) == db.ErrNotExist {
 		zero8bytes := make([]byte, 8)
-		if err := fd.kvStore.Put(_blockNS, topHeightKey, zero8bytes); err != nil {
+		if err := fd.kvStore.Put(_blockNS, _topHeightKey, zero8bytes); err != nil {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
-		if err := fd.kvStore.Put(systemLogNS, zero8bytes, []byte(systemLogNS)); err != nil {
+		if err := fd.kvStore.Put(_systemLogNS, zero8bytes, []byte(_systemLogNS)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for transaction log")
 		}
 	}
@@ -117,7 +117,7 @@ func (fd *fileDAOLegacy) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOLegacy) Height() (uint64, error) {
-	value, err := getValueMustBe8Bytes(fd.kvStore, _blockNS, topHeightKey)
+	value, err := getValueMustBe8Bytes(fd.kvStore, _blockNS, _topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
@@ -129,7 +129,7 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 		return block.GenesisHash(), nil
 	}
 	h := hash.ZeroHash256
-	value, err := fd.kvStore.Get(blockHashHeightMappingNS, heightKey(height))
+	value, err := fd.kvStore.Get(_blockHashHeightMappingNS, heightKey(height))
 	if err != nil {
 		return h, errors.Wrap(err, "failed to get block hash")
 	}
@@ -144,7 +144,7 @@ func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
 	if h == block.GenesisHash() {
 		return 0, nil
 	}
-	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
+	value, err := getValueMustBe8Bytes(fd.kvStore, _blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
@@ -288,8 +288,8 @@ func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
 }
 
 func (fd *fileDAOLegacy) ContainsTransactionLog() bool {
-	sys, err := fd.kvStore.Get(systemLogNS, make([]byte, 8))
-	return err == nil && string(sys) == systemLogNS
+	sys, err := fd.kvStore.Get(_systemLogNS, make([]byte, 8))
+	return err == nil && string(sys) == _systemLogNS
 }
 
 func (fd *fileDAOLegacy) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
@@ -301,7 +301,7 @@ func (fd *fileDAOLegacy) TransactionLogs(height uint64) (*iotextypes.Transaction
 	if err != nil {
 		return nil, err
 	}
-	logsBytes, err := kvStore.Get(systemLogNS, heightKey(height))
+	logsBytes, err := kvStore.Get(_systemLogNS, heightKey(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transaction log")
 	}
@@ -344,7 +344,7 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	heightKey := heightKey(blkHeight)
 	if fd.ContainsTransactionLog() {
 		if sysLog := blk.TransactionLog(); sysLog != nil {
-			batchForBlock.Put(systemLogNS, heightKey, sysLog.Serialize(), "failed to put transaction log")
+			batchForBlock.Put(_systemLogNS, heightKey, sysLog.Serialize(), "failed to put transaction log")
 		}
 	}
 	kv, _, err := fd.getTopDB(blkHeight)
@@ -370,15 +370,15 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	b := batch.NewBatch()
 	heightValue := byteutil.Uint64ToBytes(blkHeight)
 	hashKey := hashKey(hash)
-	b.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
-	b.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
-	tipHeight, err := fd.kvStore.Get(_blockNS, topHeightKey)
+	b.Put(_blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
+	b.Put(_blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
+	tipHeight, err := fd.kvStore.Get(_blockNS, _topHeightKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get top height")
 	}
 	if blkHeight > enc.MachineEndian.Uint64(tipHeight) {
-		b.Put(_blockNS, topHeightKey, heightValue, "failed to put top height")
-		b.Put(_blockNS, topHashKey, hash[:], "failed to put top hash")
+		b.Put(_blockNS, _topHeightKey, heightValue, "failed to put top height")
+		b.Put(_blockNS, _topHashKey, hash[:], "failed to put top hash")
 	}
 	return fd.kvStore.WriteBatch(b)
 }
@@ -413,19 +413,19 @@ func (fd *fileDAOLegacy) DeleteTipBlock() error {
 	batchForBlock.Delete(_receiptsNS, byteutil.Uint64ToBytes(height), "failed to delete receipt")
 	// Delete hash -> height mapping
 	hashKey := hashKey(hash)
-	b.Delete(blockHashHeightMappingNS, hashKey, "failed to delete hash -> height mapping")
+	b.Delete(_blockHashHeightMappingNS, hashKey, "failed to delete hash -> height mapping")
 	// Delete height -> hash mapping
 	heightKey := heightKey(height)
-	b.Delete(blockHashHeightMappingNS, heightKey, "failed to delete height -> hash mapping")
+	b.Delete(_blockHashHeightMappingNS, heightKey, "failed to delete height -> hash mapping")
 
 	// Update tip height
-	b.Put(_blockNS, topHeightKey, byteutil.Uint64ToBytes(height-1), "failed to put top height")
+	b.Put(_blockNS, _topHeightKey, byteutil.Uint64ToBytes(height-1), "failed to put top height")
 	// Update tip hash
 	hash2, err := fd.GetBlockHash(height - 1)
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip block hash")
 	}
-	b.Put(_blockNS, topHashKey, hash2[:], "failed to put top hash")
+	b.Put(_blockNS, _topHashKey, hash2[:], "failed to put top hash")
 
 	if err := fd.kvStore.WriteBatch(b); err != nil {
 		return err
@@ -435,7 +435,7 @@ func (fd *fileDAOLegacy) DeleteTipBlock() error {
 
 // getTipHash returns the blockchain tip hash
 func (fd *fileDAOLegacy) getTipHash() (hash.Hash256, error) {
-	value, err := fd.kvStore.Get(_blockNS, topHashKey)
+	value, err := fd.kvStore.Get(_blockNS, _topHashKey)
 	if err != nil {
 		return hash.ZeroHash256, errors.Wrap(err, "failed to get tip hash")
 	}
@@ -609,7 +609,7 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 	}
 
 	if newFile {
-		if err = kvStore.Put(systemLogNS, make([]byte, 8), []byte(systemLogNS)); err != nil {
+		if err = kvStore.Put(_systemLogNS, make([]byte, 8), []byte(_systemLogNS)); err != nil {
 			return
 		}
 	}

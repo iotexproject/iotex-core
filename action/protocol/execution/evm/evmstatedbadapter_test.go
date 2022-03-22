@@ -90,7 +90,7 @@ func TestAddBalance(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -132,7 +132,7 @@ func TestEmptyAndCode(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -168,7 +168,7 @@ func TestForEachStorage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -196,7 +196,7 @@ func TestReadContractStorage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -242,7 +242,7 @@ func TestNonce(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
 	opt := []StateDBAdapterOption{
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
@@ -256,65 +256,65 @@ func TestNonce(t *testing.T) {
 var tests = []stateDBTest{
 	{
 		[]bal{
-			{addr1, big.NewInt(40000)},
+			{_addr1, big.NewInt(40000)},
 		},
 		[]code{
-			{c1, bytecode},
+			{_c1, _bytecode},
 		},
 		[]evmSet{
-			{c1, k1, v1},
-			{c1, k2, v2},
-			{c3, k3, v4},
+			{_c1, _k1, _v1},
+			{_c1, _k2, _v2},
+			{_c3, _k3, _v4},
 		},
 		[]sui{
-			{c2, false, false},
-			{C4, false, false},
+			{_c2, false, false},
+			{_c4, false, false},
 		},
 		[]image{
-			{common.BytesToHash(v1[:]), []byte("cat")},
-			{common.BytesToHash(v2[:]), []byte("dog")},
+			{common.BytesToHash(_v1[:]), []byte("cat")},
+			{common.BytesToHash(_v2[:]), []byte("dog")},
 		},
 		[]access{
-			{c1, []common.Hash{k1, k2}, []common.Hash{k3, k4}, false},
+			{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, false},
 		},
 		[]*types.Log{
-			newTestLog(c3), newTestLog(c2), newTestLog(c1),
+			newTestLog(_c3), newTestLog(_c2), newTestLog(_c1),
 		},
 		[]*action.TransactionLog{
-			newTestTxLog(c3), newTestTxLog(c1),
+			newTestTxLog(_c3), newTestTxLog(_c1),
 		},
 		3, 2,
 		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 	{
 		[]bal{
-			{addr1, big.NewInt(40000)},
+			{_addr1, big.NewInt(40000)},
 		},
 		[]code{
-			{c2, bytecode},
+			{_c2, _bytecode},
 		},
 		[]evmSet{
-			{c1, k1, v3},
-			{c1, k2, v4},
-			{c2, k3, v3},
-			{c2, k4, v4},
+			{_c1, _k1, _v3},
+			{_c1, _k2, _v4},
+			{_c2, _k3, _v3},
+			{_c2, _k4, _v4},
 		},
 		[]sui{
-			{c1, true, true},
-			{c3, true, true},
+			{_c1, true, true},
+			{_c3, true, true},
 		},
 		[]image{
-			{common.BytesToHash(v3[:]), []byte("hen")},
+			{common.BytesToHash(_v3[:]), []byte("hen")},
 		},
 		[]access{
-			{c1, []common.Hash{k3, k4}, nil, true},
-			{c2, []common.Hash{k1, k3}, []common.Hash{k2, k4}, false},
+			{_c1, []common.Hash{_k3, _k4}, nil, true},
+			{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, false},
 		},
 		[]*types.Log{
-			newTestLog(C4),
+			newTestLog(_c4),
 		},
 		[]*action.TransactionLog{
-			newTestTxLog(c2), newTestTxLog(c1), newTestTxLog(C4),
+			newTestTxLog(_c2), newTestTxLog(_c1), newTestTxLog(_c4),
 		},
 		4, 5,
 		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
@@ -323,20 +323,20 @@ var tests = []stateDBTest{
 		nil,
 		nil,
 		[]evmSet{
-			{c2, k3, v1},
-			{c2, k4, v2},
+			{_c2, _k3, _v1},
+			{_c2, _k4, _v2},
 		},
 		[]sui{
-			{addr1, true, true},
+			{_addr1, true, true},
 		},
 		[]image{
-			{common.BytesToHash(v4[:]), []byte("fox")},
+			{common.BytesToHash(_v4[:]), []byte("fox")},
 		},
 		[]access{
-			{c2, []common.Hash{k2, k4}, nil, true},
+			{_c2, []common.Hash{_k2, _k4}, nil, true},
 		},
 		[]*types.Log{
-			newTestLog(c1), newTestLog(c2),
+			newTestLog(_c1), newTestLog(_c2),
 		},
 		nil,
 		6, 5,
@@ -425,31 +425,31 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		reverts := []stateDBTest{
 			{
 				[]bal{
-					{addr1, big.NewInt(0)},
+					{_addr1, big.NewInt(0)},
 				},
 				[]code{},
 				[]evmSet{
-					{c1, k1, v3},
-					{c1, k2, v4},
-					{c2, k3, v1},
-					{c2, k4, v2},
+					{_c1, _k1, _v3},
+					{_c1, _k2, _v4},
+					{_c2, _k3, _v1},
+					{_c2, _k4, _v2},
 				},
 				[]sui{
-					{c1, true, true},
-					{c3, true, true},
-					{c2, false, true},
-					{C4, false, false},
-					{addr1, true, true},
+					{_c1, true, true},
+					{_c3, true, true},
+					{_c2, false, true},
+					{_c4, false, false},
+					{_addr1, true, true},
 				},
 				[]image{
-					{common.BytesToHash(v1[:]), []byte("cat")},
-					{common.BytesToHash(v2[:]), []byte("dog")},
-					{common.BytesToHash(v3[:]), []byte("hen")},
-					{common.BytesToHash(v4[:]), []byte("fox")},
+					{common.BytesToHash(_v1[:]), []byte("cat")},
+					{common.BytesToHash(_v2[:]), []byte("dog")},
+					{common.BytesToHash(_v3[:]), []byte("hen")},
+					{common.BytesToHash(_v4[:]), []byte("fox")},
 				},
 				[]access{
-					{c1, []common.Hash{k1, k2, k3, k4}, nil, true},
-					{c2, []common.Hash{k1, k2, k3, k4}, nil, true},
+					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
+					{_c2, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 				},
 				nil, nil,
 				6, 5,
@@ -457,26 +457,26 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{addr1, big.NewInt(80000)},
+					{_addr1, big.NewInt(80000)},
 				},
 				[]code{},
 				tests[1].states,
 				[]sui{
-					{c1, true, true},
-					{c3, true, true},
-					{c2, false, true},
-					{C4, false, false},
-					{addr1, false, true},
+					{_c1, true, true},
+					{_c3, true, true},
+					{_c2, false, true},
+					{_c4, false, false},
+					{_addr1, false, true},
 				},
 				[]image{
-					{common.BytesToHash(v1[:]), []byte("cat")},
-					{common.BytesToHash(v2[:]), []byte("dog")},
-					{common.BytesToHash(v3[:]), []byte("hen")},
-					{common.BytesToHash(v4[:]), []byte(nil)},
+					{common.BytesToHash(_v1[:]), []byte("cat")},
+					{common.BytesToHash(_v2[:]), []byte("dog")},
+					{common.BytesToHash(_v3[:]), []byte("hen")},
+					{common.BytesToHash(_v4[:]), []byte(nil)},
 				},
 				[]access{
-					{c1, []common.Hash{k1, k2, k3, k4}, nil, true},
-					{c2, []common.Hash{k1, k3}, []common.Hash{k2, k4}, true},
+					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
+					{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, true},
 				},
 				nil, nil,
 				4, 5,
@@ -484,30 +484,30 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{addr1, big.NewInt(40000)},
+					{_addr1, big.NewInt(40000)},
 				},
 				[]code{},
 				[]evmSet{
-					{c1, k1, v1},
-					{c1, k2, v2},
-					{c3, k3, v4},
+					{_c1, _k1, _v1},
+					{_c1, _k2, _v2},
+					{_c3, _k3, _v4},
 				},
 				[]sui{
-					{c1, false, true},
-					{c3, false, true},
-					{c2, false, false},
-					{C4, false, false},
-					{addr1, false, true},
+					{_c1, false, true},
+					{_c3, false, true},
+					{_c2, false, false},
+					{_c4, false, false},
+					{_addr1, false, true},
 				},
 				[]image{
-					{common.BytesToHash(v1[:]), []byte("cat")},
-					{common.BytesToHash(v2[:]), []byte("dog")},
-					{common.BytesToHash(v3[:]), []byte(nil)},
-					{common.BytesToHash(v4[:]), []byte(nil)},
+					{common.BytesToHash(_v1[:]), []byte("cat")},
+					{common.BytesToHash(_v2[:]), []byte("dog")},
+					{common.BytesToHash(_v3[:]), []byte(nil)},
+					{common.BytesToHash(_v4[:]), []byte(nil)},
 				},
 				[]access{
-					{c1, []common.Hash{k1, k2}, []common.Hash{k3, k4}, true},
-					{c2, nil, []common.Hash{k1, k2, k3, k4}, false},
+					{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, true},
+					{_c2, nil, []common.Hash{_k1, _k2, _k3, _k4}, false},
 				},
 				nil, nil,
 				3, 2,
@@ -709,22 +709,22 @@ func TestGetCommittedState(t *testing.T) {
 			FixSnapshotOrderOption(),
 		)
 
-		stateDB.SetState(c1, k1, v1)
-		// k2 does not exist
-		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
-		require.Equal(v1, stateDB.GetState(c1, k1))
-		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
+		stateDB.SetState(_c1, _k1, _v1)
+		// _k2 does not exist
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(_c1, common.BytesToHash(_k2[:])))
+		require.Equal(_v1, stateDB.GetState(_c1, _k1))
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(_c1, common.BytesToHash(_k2[:])))
 
-		// commit (k1, v1)
+		// commit (_k1, _v1)
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
 
-		require.Equal(v1, stateDB.GetState(c1, k1))
-		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
-		stateDB.SetState(c1, k1, v2)
-		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
-		require.Equal(v2, stateDB.GetState(c1, k1))
-		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+		require.Equal(_v1, stateDB.GetState(_c1, _k1))
+		require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
+		stateDB.SetState(_c1, _k1, _v2)
+		require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
+		require.Equal(_v2, stateDB.GetState(_c1, _k1))
+		require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
 	})
 }
 
@@ -765,21 +765,21 @@ func TestPreimage(t *testing.T) {
 		FixSnapshotOrderOption(),
 	)
 
-	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
-	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
-	stateDB.AddPreimage(common.BytesToHash(v3[:]), []byte("hen"))
-	// this won't overwrite preimage of v1
-	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("fox"))
+	stateDB.AddPreimage(common.BytesToHash(_v1[:]), []byte("cat"))
+	stateDB.AddPreimage(common.BytesToHash(_v2[:]), []byte("dog"))
+	stateDB.AddPreimage(common.BytesToHash(_v3[:]), []byte("hen"))
+	// this won't overwrite preimage of _v1
+	stateDB.AddPreimage(common.BytesToHash(_v1[:]), []byte("fox"))
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	var k protocol.SerializableBytes
-	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v1[:]))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(_v1[:]))
 	require.NoError(err)
 	require.Equal([]byte("cat"), []byte(k))
-	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v2[:]))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(_v2[:]))
 	require.NoError(err)
 	require.Equal([]byte("dog"), []byte(k))
-	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v3[:]))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(_v3[:]))
 	require.NoError(err)
 	require.Equal([]byte("hen"), []byte(k))
 }
@@ -805,7 +805,7 @@ func TestSortMap(t *testing.T) {
 		for i := 0; i < size; i++ {
 			addr := common.HexToAddress(identityset.Address(i).Hex())
 			stateDB.SetCode(addr, []byte("0123456789"))
-			stateDB.SetState(addr, k1, k2)
+			stateDB.SetState(addr, _k1, _k2)
 		}
 		sn := stateDB.Snapshot()
 		caches := []string{}

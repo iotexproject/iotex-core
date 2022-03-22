@@ -149,7 +149,7 @@ func kthAuxFileName(file string, k uint64) string {
 }
 
 func hashKey(h hash.Hash256) []byte {
-	return append(hashPrefix, h[:]...)
+	return append(_hashPrefix, h[:]...)
 }
 
 func getValueMustBe8Bytes(kvs db.KVStore, ns string, key []byte) ([]byte, error) {

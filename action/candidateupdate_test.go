@@ -62,11 +62,11 @@ func TestCandidateUpdateSignVerify(t *testing.T) {
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
-		SetGasPrice(gasprice).
+	elp := bd.SetGasLimit(_gaslimit).
+		SetGasPrice(_gasprice).
 		SetAction(cu).Build()
 	// sign
-	selp, err := Sign(elp, senderKey)
+	selp, err := Sign(elp, _senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())
