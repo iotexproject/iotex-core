@@ -43,8 +43,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		})
 	ctx = WithActionCtx(ctx,
 		ActionCtx{
-			Caller:     caller,
-			PubkeySize: 65,
+			Caller: caller,
 		})
 
 	ctx = WithBlockchainCtx(

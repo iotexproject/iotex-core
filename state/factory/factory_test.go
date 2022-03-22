@@ -773,7 +773,6 @@ func testNonce(sf Factory, t *testing.T) {
 			GasPrice:     selp.GasPrice(),
 			Nonce:        selp.Nonce(),
 			IntrinsicGas: intrinsicGas,
-			PubkeySize:   uint32(len(selp.SrcPubkey().Bytes())),
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
