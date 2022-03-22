@@ -1393,7 +1393,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	jobs := make(chan uint64, len(blockNumbers))
 	quit := make(chan error)
 	var wg sync.WaitGroup
-	logsMap := make(map[uint64][]*iotextypes.Log)
+	logsMap := sync.Map{}
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
@@ -1420,7 +1420,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 						quit <- err
 						return
 					}
-					logsMap[job] = logsInBlock
+					logsMap.Store(job, logsInBlock)
 				}
 			}
 		}()
@@ -1433,7 +1433,12 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 
 	for _, i := range blockNumbers {
-		for _, log := range logsMap[i] {
+		logsInBlock, ok := logsMap.Load(i)
+		if !ok {
+			err := errors.New(fmt.Sprintf("invalid block number %d", i))
+			return nil, err
+		}
+		for _, log := range logsInBlock.([]*iotextypes.Log) {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
