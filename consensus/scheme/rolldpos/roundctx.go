@@ -24,7 +24,7 @@ type status int
 const (
 	_open status = iota
 	_locked
-	_un_locked
+	_unlocked
 )
 
 // roundCtx keeps the context data for the current round and block.
@@ -117,8 +117,8 @@ func (ctx *roundCtx) IsLocked() bool {
 	return ctx.status == _locked
 }
 
-func (ctx *roundCtx) IsUn_locked() bool {
-	return ctx.status == _un_locked
+func (ctx *roundCtx) IsUnlocked() bool {
+	return ctx.status == _unlocked
 }
 
 func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
@@ -220,7 +220,7 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	}
 	if len(blockHash) == 0 {
 		// TODO: (zhi) look into details of unlock
-		ctx.status = _un_locked
+		ctx.status = _unlocked
 	} else {
 		ctx.status = _locked
 	}

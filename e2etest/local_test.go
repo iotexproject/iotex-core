@@ -43,9 +43,9 @@ import (
 
 const (
 	_dBPath     = "db.test"
-	__dBPath2   = "db.test2"
+	_dBPath2    = "db.test2"
 	_triePath   = "trie.test"
-	__triePath2 = "trie.test2"
+	_triePath2  = "trie.test2"
 	_disabledIP = "169.254."
 )
 
@@ -137,11 +137,11 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// create local chain
-	testTriePath2, err := testutil.PathOfTempFile(__triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(_triePath2)
 	require.NoError(err)
-	testDBPath2, err := testutil.PathOfTempFile(__dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	indexDBPath2, err := testutil.PathOfTempFile(__dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
@@ -366,11 +366,11 @@ func TestLocalSync(t *testing.T) {
 		blkHash[i-1] = blk.HashBlock()
 	}
 
-	testDBPath2, err := testutil.PathOfTempFile(__dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	testTriePath2, err := testutil.PathOfTempFile(__triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(_triePath2)
 	require.NoError(err)
-	indexDBPath2, err := testutil.PathOfTempFile(__dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 
 	cfg, err = newTestConfig()
