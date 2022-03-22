@@ -87,7 +87,7 @@ func TestRestakeABIEncodeAndDecode(t *testing.T) {
 	stake, err = NewRestakeFromABIBinary(data)
 	require.NoError(err)
 	require.Equal(_index, stake.bucketIndex)
-	require.Equal(_duration, stake.Duration)
-	require.Equal(_autoStake, stake.AutoStake)
+	require.Equal(_duration, stake.Duration())
+	require.Equal(_autoStake, stake.AutoStake())
 	require.Equal(_payload, stake.payload)
 }

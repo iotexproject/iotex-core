@@ -69,11 +69,11 @@ type (
 var (
 	_bytecode = []byte("test contract creation")
 
-	_addr1 = common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
-	_c1    = common.HexToAddress("01f_c246633470cf62ae2a956d21e8d481_c3a69e1")
-	_c2    = common.HexToAddress("3470cf62ae2a956d38d481_c3a69e121e01f_c2466")
-	_c3    = common.HexToAddress("956d21e8d481_c3a6901f_c246633470cf62ae2ae1")
-	_c4    = common.HexToAddress("121e01f_c24663470cf62ae2a956d38d481_c3a69e")
+	_addr1 = common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	_c1    = common.HexToAddress("01fc246633470cf62ae2a956d21e8d481c3a69e1")
+	_c2    = common.HexToAddress("3470cf62ae2a956d38d481c3a69e121e01fc2466")
+	_c3    = common.HexToAddress("956d21e8d481c3a6901fc246633470cf62ae2ae1")
+	_c4    = common.HexToAddress("121e01fc24663470cf62ae2a956d38d481c3a69e")
 
 	_k1b = hash.Hash256b([]byte("cat"))
 	_v1b = hash.Hash256b([]byte("cat"))
