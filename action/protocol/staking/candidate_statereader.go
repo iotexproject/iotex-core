@@ -28,7 +28,8 @@ type (
 		getTotalBucketCount() (uint64, error)
 		getAllBuckets() ([]*VoteBucket, uint64, error)
 		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
-		getBucketIndices(key []byte) (*BucketIndices, uint64, error)
+		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
+		addrKeyWithPrefix(addr address.Address, prefix byte) []byte
 	}
 	// CandidateGet related to obtaining Candidate
 	CandidateGet interface {
@@ -253,8 +254,9 @@ func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, er
 	return buckets, nil
 }
 
-func (c *candSR) getBucketIndices(key []byte) (*BucketIndices, uint64, error) {
+func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
 	var bis BucketIndices
+	key := c.addrKeyWithPrefix(addr, prefix)
 	height, err := c.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -289,4 +291,12 @@ func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
 		cands = append(cands, c)
 	}
 	return cands, height, nil
+}
+
+func (c *candSR) addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
+	k := addr.Bytes()
+	key := make([]byte, len(k)+1)
+	key[0] = prefix
+	copy(key[1:], k)
+	return key
 }

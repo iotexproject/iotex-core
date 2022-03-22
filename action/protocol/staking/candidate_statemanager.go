@@ -30,8 +30,9 @@ type (
 		delBucket(index uint64) error
 		putBucketAndIndex(bucket *VoteBucket) (uint64, error)
 		delBucketAndIndex(owner, cand address.Address, index uint64) error
-		putBucketIndex(key []byte, index uint64) error
-		delBucketIndex(key []byte, index uint64) error
+		putBucketIndex(addr address.Address, prefix byte, index uint64) error
+		delBucketIndex(addr address.Address, prefix byte, index uint64) error
+		addrKeyWithPrefix(addr address.Address, prefix byte) []byte
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
@@ -261,8 +262,9 @@ func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) 
 	return nil
 }
 
-func (csm *candSM) putBucketIndex(key []byte, index uint64) error {
+func (csm *candSM) putBucketIndex(addr address.Address, prefix byte, index uint64) error {
 	var bis BucketIndices
+	key := csm.addrKeyWithPrefix(addr, prefix)
 	if _, err := csm.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -277,8 +279,9 @@ func (csm *candSM) putBucketIndex(key []byte, index uint64) error {
 	return err
 }
 
-func (csm *candSM) delBucketIndex(key []byte, index uint64) error {
+func (csm *candSM) delBucketIndex(addr address.Address, prefix byte, index uint64) error {
 	var bis BucketIndices
+	key := csm.addrKeyWithPrefix(addr, prefix)
 	if _, err := csm.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -299,6 +302,14 @@ func (csm *candSM) delBucketIndex(key []byte, index uint64) error {
 			protocol.KeyOption(key))
 	}
 	return err
+}
+
+func (csm *candSM) addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
+	k := addr.Bytes()
+	key := make([]byte, len(k)+1)
+	key[0] = prefix
+	copy(key[1:], k)
+	return key
 }
 
 func (csm *candSM) putCandidate(d *Candidate) error {

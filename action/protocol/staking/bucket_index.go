@@ -67,33 +67,25 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 }
 
 func getVoterBucketIndices(csr CandidateStateReader, addr address.Address) (*BucketIndices, uint64, error) {
-	return csr.getBucketIndices(addrKeyWithPrefix(addr, _voterIndex))
+	return csr.getBucketIndices(addr, _voterIndex)
 }
 
 func putVoterBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
-	return csm.putBucketIndex(addrKeyWithPrefix(addr, _voterIndex), index)
+	return csm.putBucketIndex(addr, _voterIndex, index)
 }
 
 func delVoterBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
-	return csm.delBucketIndex(addrKeyWithPrefix(addr, _voterIndex), index)
+	return csm.delBucketIndex(addr, _voterIndex, index)
 }
 
 func getCandBucketIndices(csr CandidateStateReader, addr address.Address) (*BucketIndices, uint64, error) {
-	return csr.getBucketIndices(addrKeyWithPrefix(addr, _candIndex))
+	return csr.getBucketIndices(addr, _candIndex)
 }
 
 func putCandBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
-	return csm.putBucketIndex(addrKeyWithPrefix(addr, _candIndex), index)
+	return csm.putBucketIndex(addr, _candIndex, index)
 }
 
 func delCandBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
-	return csm.delBucketIndex(addrKeyWithPrefix(addr, _candIndex), index)
-}
-
-func addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
-	k := addr.Bytes()
-	key := make([]byte, len(k)+1)
-	key[0] = prefix
-	copy(key[1:], k)
-	return key
+	return csm.delBucketIndex(addr, _candIndex, index)
 }
