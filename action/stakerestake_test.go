@@ -74,7 +74,7 @@ func TestRestakeSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("8816e8f784a1fce40b54d1cd172bb6976fd9552f1570c73d1d9fcdc5635424a9", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(selp.Verify())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestRestakeABIEncodeAndDecode(t *testing.T) {

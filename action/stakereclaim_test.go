@@ -79,7 +79,7 @@ func TestUnstakeSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("bed58b64a6c4e959eca60a86f0b2149ce0e1dd527ac5fd26aef725ebf7c22a7d", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(selp.Verify())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestUnstakeABIEncodeAndDecode(t *testing.T) {
@@ -148,7 +148,7 @@ func TestWithdrawSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("28049348cf34f1aa927caa250e7a1b08778c44efaf73b565b6fa9abe843871b4", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(selp.Verify())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestWithdrawABIEncodeAndDecode(t *testing.T) {
