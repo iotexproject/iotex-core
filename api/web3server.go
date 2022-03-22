@@ -96,7 +96,7 @@ type (
 )
 
 var (
-	web3ServerMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
+	_web3ServerMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "iotex_web3_api_metrics",
 		Help: "web3 api metrics.",
 	}, []string{"method"})
@@ -115,7 +115,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(web3ServerMtc)
+	prometheus.MustRegister(_web3ServerMtc)
 }
 
 // NewWeb3Server creates a new web3 server
@@ -277,8 +277,8 @@ func (svr *Web3Server) handleWeb3Req(web3Req *gjson.Result) interface{} {
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
-	web3ServerMtc.WithLabelValues(method.(string)).Inc()
-	web3ServerMtc.WithLabelValues("requests_total").Inc()
+	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
+	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	return packAPIResult(res, err, int(web3Req.Get("id").Int()))
 }
 

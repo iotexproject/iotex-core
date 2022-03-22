@@ -35,10 +35,10 @@ import (
 )
 
 var (
-	nativeStakingContractCreator = address.ZeroAddress
-	nativeStakingContractNonce   = uint64(0)
-	// this is a special execution that is not signed, set hash = hex-string of "nativeStakingContractHash"
-	nativeStakingContractHash, _ = hash.HexStringToHash256("000000000000006e61746976655374616b696e67436f6e747261637448617368")
+	_nativeStakingContractCreator = address.ZeroAddress
+	_nativeStakingContractNonce   = uint64(0)
+	// this is a special execution that is not signed, set hash = hex-string of "_nativeStakingContractHash"
+	_nativeStakingContractHash, _ = hash.HexStringToHash256("000000000000006e61746976655374616b696e67436f6e747261637448617368")
 )
 
 type stakingCommittee struct {
@@ -113,7 +113,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	execution, err := action.NewExecution(
 		"",
-		nativeStakingContractNonce,
+		_nativeStakingContractNonce,
 		big.NewInt(0),
 		g.BlockGasLimit,
 		big.NewInt(0),
@@ -123,12 +123,12 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		return err
 	}
 	actionCtx := protocol.ActionCtx{}
-	actionCtx.Caller, err = address.FromString(nativeStakingContractCreator)
+	actionCtx.Caller, err = address.FromString(_nativeStakingContractCreator)
 	if err != nil {
 		return err
 	}
-	actionCtx.Nonce = nativeStakingContractNonce
-	actionCtx.ActionHash = nativeStakingContractHash
+	actionCtx.Nonce = _nativeStakingContractNonce
+	actionCtx.ActionHash = _nativeStakingContractHash
 	actionCtx.GasPrice = execution.GasPrice()
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {
@@ -163,8 +163,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 func (sc *stakingCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	if g.NativeStakingContractAddress == "" && g.NativeStakingContractCode != "" {
-		caller, _ := address.FromString(nativeStakingContractCreator)
-		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
+		caller, _ := address.FromString(_nativeStakingContractCreator)
+		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), _nativeStakingContractNonce)
 		iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
 		sc.SetNativeStakingContract(iotxAddr.String())
 		log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))

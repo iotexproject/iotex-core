@@ -32,8 +32,8 @@ import (
 var Default = defaultConfig()
 
 var (
-	genesisTs     int64
-	loadGenesisTs sync.Once
+	_genesisTs     int64
+	_loadGenesisTs sync.Once
 )
 
 func init() {
@@ -347,14 +347,14 @@ func New(genesisPath string) (Genesis, error) {
 
 // SetGenesisTimestamp sets the genesis timestamp
 func SetGenesisTimestamp(ts int64) {
-	loadGenesisTs.Do(func() {
-		genesisTs = ts
+	_loadGenesisTs.Do(func() {
+		_genesisTs = ts
 	})
 }
 
 // Timestamp returns the genesis timestamp
 func Timestamp() int64 {
-	return atomic.LoadInt64(&genesisTs)
+	return atomic.LoadInt64(&_genesisTs)
 }
 
 // Hash is the hash of genesis config

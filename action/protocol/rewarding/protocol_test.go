@@ -478,7 +478,7 @@ func TestStateCheckLegacy(t *testing.T) {
 	acc := rewardAccount{
 		balance: tests[0].before,
 	}
-	accKey := append(adminKey, addr.Bytes()...)
+	accKey := append(_adminKey, addr.Bytes()...)
 	require.NoError(p.putState(ctx, sm, accKey, &acc))
 
 	for useV2 := 0; useV2 < 2; useV2++ {
@@ -542,17 +542,17 @@ func TestMigrateValue(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// verify v1 state
 		a := admin{}
-		_, err := p.stateV1(sm, adminKey, &a)
+		_, err := p.stateV1(sm, _adminKey, &a)
 		r.NoError(err)
 		r.Equal(a1, a)
 
 		f := fund{}
-		_, err = p.stateV1(sm, fundKey, &f)
+		_, err = p.stateV1(sm, _fundKey, &f)
 		r.NoError(err)
 		r.Equal(f1, f)
 
 		e := exempt{}
-		_, err = p.stateV1(sm, exemptKey, &e)
+		_, err = p.stateV1(sm, _exemptKey, &e)
 		r.NoError(err)
 		r.Equal(e1, e)
 
@@ -588,20 +588,20 @@ func TestMigrateValue(t *testing.T) {
 			r.NoError(p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
-			_, err = p.stateV1(sm, adminKey, &a)
+			_, err = p.stateV1(sm, _adminKey, &a)
 			r.Equal(state.ErrStateNotExist, err)
-			_, err = p.stateV1(sm, fundKey, &f)
+			_, err = p.stateV1(sm, _fundKey, &f)
 			r.Equal(state.ErrStateNotExist, err)
-			_, err = p.stateV1(sm, exemptKey, &e)
+			_, err = p.stateV1(sm, _exemptKey, &e)
 			r.Equal(state.ErrStateNotExist, err)
 
 			// verify v2 exist
-			_, err = p.stateV2(sm, adminKey, &a)
+			_, err = p.stateV2(sm, _adminKey, &a)
 			r.NoError(err)
-			_, err = p.stateV2(sm, fundKey, &f)
+			_, err = p.stateV2(sm, _fundKey, &f)
 			r.NoError(err)
 			r.Equal(f1, f)
-			_, err = p.stateV2(sm, exemptKey, &e)
+			_, err = p.stateV2(sm, _exemptKey, &e)
 			r.NoError(err)
 			r.Equal(e1, e)
 
