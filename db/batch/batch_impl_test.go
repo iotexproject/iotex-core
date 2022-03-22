@@ -254,24 +254,20 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 
 func BenchmarkCachedBatch_Snapshot(b *testing.B) {
 	cb := NewCachedBatch()
-
+	k := hash.Hash256b([]byte("test"))
+	var v [1024]byte
+	for i := range v {
+		v[i] = byte(rand.Intn(8))
+	}
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		k := hash.Hash256b([]byte(strconv.Itoa(i)))
-		var v [1024]byte
-		for i := range v {
-			v[i] = byte(rand.Intn(8))
-		}
 		cb.Put(_bucket1, k[:], v[:], "")
-		value, err := cb.Get(_bucket1, k[:])
-		require.NoError(b, err)
-		require.True(b, bytes.Equal(value, v[:]))
+		_, _ = cb.Get(_bucket1, k[:])
 		sn := cb.Snapshot()
 		cb.Delete(_bucket1, k[:], "")
-		_, err = cb.Get(_bucket1, k[:])
-		require.Error(b, err)
+		_, _ = cb.Get(_bucket1, k[:])
 		cb.RevertSnapshot(sn)
-		value, err = cb.Get(_bucket1, k[:])
-		require.NoError(b, err)
-		require.True(b, bytes.Equal(value, v[:]))
+		_, _ = cb.Get(_bucket1, k[:])
+		cb.Delete(_bucket1, k[:], "")
 	}
 }
