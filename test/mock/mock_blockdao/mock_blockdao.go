@@ -274,6 +274,20 @@ func (mr *MockBlockDAOMockRecorder) Start(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockDAO)(nil).Start), ctx)
 }
 
+// StartingHeight mocks base method.
+func (m *MockBlockDAO) StartingHeight() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartingHeight")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// StartingHeight indicates an expected call of StartingHeight.
+func (mr *MockBlockDAOMockRecorder) StartingHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingHeight", reflect.TypeOf((*MockBlockDAO)(nil).StartingHeight))
+}
+
 // Stop mocks base method.
 func (m *MockBlockDAO) Stop(ctx context.Context) error {
 	m.ctrl.T.Helper()

@@ -93,6 +93,12 @@ type (
 		Address    []string   `json:"address,omitempty"`
 		Topics     [][]string `json:"topics,omitempty"`
 	}
+
+	syncingObject struct {
+		startingBlock string `json:"startingBlock"`
+		currentBlock  string `json:"currentBlock"`
+		highestBlock  string `json:"highestBlock"`
+	}
 )
 
 var (
@@ -565,7 +571,12 @@ func (svr *Web3Server) getProtocolVersion() (interface{}, error) {
 }
 
 func (svr *Web3Server) isSyncing() (interface{}, error) {
-	return false, nil
+	start, curr, highest := svr.coreService.SyningProgress()
+	return &syncingObject{
+		startingBlock: uint64ToHex(start),
+		currentBlock:  uint64ToHex(curr),
+		highestBlock:  uint64ToHex(highest),
+	}, nil
 }
 
 func (svr *Web3Server) isMining() (interface{}, error) {

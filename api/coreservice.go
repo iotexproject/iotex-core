@@ -134,6 +134,8 @@ type (
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
 		// SimulateExecution simulates execution
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		// SyningProgress returns the syncing status of node
+		SyningProgress() (uint64, uint64, uint64)
 		// TipHeight returns the tip of the chain
 		TipHeight() uint64
 		// PendingNonce returns the pending nonce of an account
@@ -1634,4 +1636,11 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	}
 	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
 	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
+}
+
+// SyningProgress returns the syncing status of node
+func (core *coreService) SyningProgress() (uint64, uint64, uint64) {
+	return core.dao.StartingHeight(),
+		core.bc.TipHeight(),
+		core.bs.TargetHeight()
 }
