@@ -110,4 +110,8 @@ func TestWriteIfNotExist(t *testing.T) {
 
 	err = c.WriteIfNotExist(k1, v1)
 	require.Equal(err, ErrAlreadyExist)
+
+	c.Evict(k1)
+	err = c.WriteIfNotExist(k1, v1)
+	require.NoError(err)
 }
