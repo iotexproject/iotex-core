@@ -140,5 +140,5 @@ func TestStaking(t *testing.T) {
 
 	// test no _data from contract
 	_, err = ns.abi.Unpack("getActivePyggs", []byte{})
-	require.Equal(err.Error(), "abi: attempting to unmarshall an _empty string while arguments are expected")
+	require.Equal(err.Error(), "abi: attempting to unmarshall an empty string while arguments are expected")
 }
