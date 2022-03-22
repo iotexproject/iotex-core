@@ -132,5 +132,5 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 
 // ReceiveBlock receives the new block
 func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
-	return svr.core.receiveBlock(blk)
+	return svr.core.ReceiveBlock(blk)
 }

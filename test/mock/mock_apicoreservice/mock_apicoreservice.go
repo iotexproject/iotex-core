@@ -13,6 +13,7 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -452,6 +453,20 @@ func (mr *MockCoreServiceMockRecorder) ReceiptByActionHash(h interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByActionHash", reflect.TypeOf((*MockCoreService)(nil).ReceiptByActionHash), h)
 }
 
+// ReceiveBlock mocks base method.
+func (m *MockCoreService) ReceiveBlock(blk *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReceiveBlock", blk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReceiveBlock indicates an expected call of ReceiveBlock.
+func (mr *MockCoreServiceMockRecorder) ReceiveBlock(blk interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockCoreService)(nil).ReceiveBlock), blk)
+}
+
 // SendAction mocks base method.
 func (m *MockCoreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	m.ctrl.T.Helper()
@@ -630,4 +645,42 @@ func (m *MockCoreService) UnconfirmedActionsByAddress(address string, start, cou
 func (mr *MockCoreServiceMockRecorder) UnconfirmedActionsByAddress(address, start, count interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnconfirmedActionsByAddress", reflect.TypeOf((*MockCoreService)(nil).UnconfirmedActionsByAddress), address, start, count)
+}
+
+// MockintrinsicGasCalculator is a mock of intrinsicGasCalculator interface.
+type MockintrinsicGasCalculator struct {
+	ctrl     *gomock.Controller
+	recorder *MockintrinsicGasCalculatorMockRecorder
+}
+
+// MockintrinsicGasCalculatorMockRecorder is the mock recorder for MockintrinsicGasCalculator.
+type MockintrinsicGasCalculatorMockRecorder struct {
+	mock *MockintrinsicGasCalculator
+}
+
+// NewMockintrinsicGasCalculator creates a new mock instance.
+func NewMockintrinsicGasCalculator(ctrl *gomock.Controller) *MockintrinsicGasCalculator {
+	mock := &MockintrinsicGasCalculator{ctrl: ctrl}
+	mock.recorder = &MockintrinsicGasCalculatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockintrinsicGasCalculator) EXPECT() *MockintrinsicGasCalculatorMockRecorder {
+	return m.recorder
+}
+
+// IntrinsicGas mocks base method.
+func (m *MockintrinsicGasCalculator) IntrinsicGas() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IntrinsicGas")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IntrinsicGas indicates an expected call of IntrinsicGas.
+func (mr *MockintrinsicGasCalculatorMockRecorder) IntrinsicGas() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IntrinsicGas", reflect.TypeOf((*MockintrinsicGasCalculator)(nil).IntrinsicGas))
 }

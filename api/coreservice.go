@@ -138,6 +138,8 @@ type (
 		TipHeight() uint64
 		// PendingNonce returns the pending nonce of an account
 		PendingNonce(address.Address) (uint64, error)
+		// ReceiveBlock broadcasts the block to api subscribers
+		ReceiveBlock(blk *block.Block) error
 	}
 
 	// coreService implements the CoreService interface
@@ -782,7 +784,7 @@ func (core *coreService) TipHeight() uint64 {
 }
 
 // Start starts the API server
-func (core *coreService) Start() error {
+func (core *coreService) Start(_ context.Context) error {
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
@@ -1612,7 +1614,7 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 	return core.sf.ReadContractStorage(ctx, addr, key)
 }
 
-func (core *coreService) receiveBlock(blk *block.Block) error {
+func (core *coreService) ReceiveBlock(blk *block.Block) error {
 	core.readCache.Clear()
 	return core.chainListener.ReceiveBlock(blk)
 }
