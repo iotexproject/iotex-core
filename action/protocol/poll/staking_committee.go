@@ -198,7 +198,7 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action, sr 
 }
 
 func (sc *stakingCommittee) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 // CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
@@ -267,12 +267,12 @@ func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateRead
 
 // Register registers the protocol with a unique ID
 func (sc *stakingCommittee) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, sc)
+	return r.Register(_protocolID, sc)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (sc *stakingCommittee) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, sc)
+	return r.ForceRegister(_protocolID, sc)
 }
 
 // SetNativeStakingContract sets the address of native staking contract

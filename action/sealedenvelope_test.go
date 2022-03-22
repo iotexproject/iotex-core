@@ -37,7 +37,7 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 	req.Zero(se.Encoding())
 
 	var se1 SealedEnvelope
-	se.signature = validSig
+	se.signature = _validSig
 	req.NoError(se1.LoadProto(se.Proto()))
 	req.Equal(se, se1)
 }
@@ -61,31 +61,31 @@ func TestSealedEnvelope_InvalidType(t *testing.T) {
 func TestSealedEnvelope_Actions(t *testing.T) {
 	require := require.New(t)
 
-	createStake, err := NewCreateStake(uint64(10), addr2, "100", uint32(10000), true, payload, gasLimit, gasPrice)
+	createStake, err := NewCreateStake(uint64(10), _addr2, "100", uint32(10000), true, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), payload, gasLimit, gasPrice)
+	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	changeCandidate, err := NewChangeCandidate(1, candidate1Name, 2, payload, gasLimit, gasPrice)
+	changeCandidate, err := NewChangeCandidate(1, _candidate1Name, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	unstake, err := NewUnstake(nonce, 2, payload, gasLimit, gasPrice)
+	unstake, err := NewUnstake(_nonce, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	withdrawStake, err := NewWithdrawStake(nonce, 2, payload, gasLimit, gasPrice)
+	withdrawStake, err := NewWithdrawStake(_nonce, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	restake, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
+	restake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	transferStake, err := NewTransferStake(nonce, cand1Addr, 2, payload, gasLimit, gasPrice)
+	transferStake, err := NewTransferStake(_nonce, _cand1Addr, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	candidateRegister, err := NewCandidateRegister(nonce, candidate1Name, cand1Addr, cand1Addr, cand1Addr, big.NewInt(10).String(), 91, true, payload, gasLimit, gasPrice)
+	candidateRegister, err := NewCandidateRegister(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _cand1Addr, big.NewInt(10).String(), 91, true, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	candidateUpdate, err := NewCandidateUpdate(nonce, candidate1Name, cand1Addr, cand1Addr, gasLimit, gasPrice)
+	candidateUpdate, err := NewCandidateUpdate(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _gasLimit, _gasPrice)
 	require.NoError(err)
 
 	tests := []actionPayload{
@@ -172,7 +172,7 @@ func createSealedEnvelope() (SealedEnvelope, error) {
 		SetVersion(1).
 		Build()
 
-	cPubKey, err := crypto.HexStringToPublicKey(publicKey)
+	cPubKey, err := crypto.HexStringToPublicKey(_publicKey)
 	tsf.srcPubkey = cPubKey
 	se := SealedEnvelope{}
 	se.Envelope = evlp

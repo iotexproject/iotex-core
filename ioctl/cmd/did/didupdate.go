@@ -51,7 +51,7 @@ func updateDID(args []string) error {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
 
-	bytecode, err := encode(updateDIDName, args[1], args[2])
+	bytecode, err := encode(_updateDIDName, args[1], args[2])
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}

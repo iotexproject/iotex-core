@@ -61,7 +61,7 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 	if readContract == nil {
 		return nil, errors.New("failed to create consortium committee: empty read contract callback")
 	}
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
@@ -181,17 +181,17 @@ func (cc *consortiumCommittee) ReadState(
 
 // Register registers the protocol with a unique ID
 func (cc *consortiumCommittee) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, cc)
+	return r.Register(_protocolID, cc)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (cc *consortiumCommittee) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, cc)
+	return r.ForceRegister(_protocolID, cc)
 }
 
 // Name returns the name of protocol
 func (cc *consortiumCommittee) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, _ protocol.StateReader, _ uint64) (state.CandidateList, error) {
