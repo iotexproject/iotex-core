@@ -95,3 +95,19 @@ func TestKvCache(t *testing.T) {
 	require.NoError(err)
 	require.Equal(v, v3)
 }
+
+func TestWriteIfNotExist(t *testing.T) {
+	require := require.New(t)
+
+	c := NewKVCache()
+
+	v, err := c.Read(k1)
+	require.Equal(err, ErrNotExist)
+	require.Nil(v)
+
+	err = c.WriteIfNotExist(k1, v1)
+	require.NoError(err)
+
+	err = c.WriteIfNotExist(k1, v1)
+	require.Equal(err, ErrAlreadyExist)
+}
