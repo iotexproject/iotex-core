@@ -37,7 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -565,12 +564,11 @@ func TestProtocol_Validate(t *testing.T) {
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
-	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
+	data := make([]byte, 32769)
+
+	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
 	require.NoError(err)
-	ctx := protocol.WithActionCtx(protocol.WithBlockCtx(genesis.WithGenesisContext(context.Background(),
-		genesis.Default),
-		protocol.BlockCtx{BlockHeight: 1000}), protocol.ActionCtx{PubkeySize: 65})
-	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(ctx, ex, nil)))
+	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
 
 func TestProtocol_Handle(t *testing.T) {
