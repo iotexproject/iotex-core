@@ -3,10 +3,13 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -152,24 +155,31 @@ func TestGetBlockNumber(t *testing.T) {
 }
 
 func TestGetBlockByNumber(t *testing.T) {
+
 }
 
 func TestGetBalance(t *testing.T) {
+
 }
 
 func TestGetTransactionCount(t *testing.T) {
+
 }
 
 func TestCall(t *testing.T) {
+
 }
 
 func TestEstimateGas(t *testing.T) {
+
 }
 
 func TestSendRawTransaction(t *testing.T) {
+
 }
 
 func TestGetCode(t *testing.T) {
+
 }
 
 func TestGetNodeInfo(t *testing.T) {
@@ -177,12 +187,15 @@ func TestGetNodeInfo(t *testing.T) {
 }
 
 func TestGetBlockTransactionCountByHash(t *testing.T) {
+
 }
 
 func TestGetBlockByHash(t *testing.T) {
+
 }
 
 func TestGetTransactionByHash(t *testing.T) {
+
 }
 
 func TestGetLogs(t *testing.T) {
@@ -190,15 +203,19 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
+
 }
 
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
+
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
+
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
+
 }
 
 func TestNewfilter(t *testing.T) {
@@ -210,15 +227,30 @@ func TestNewBlockFilter(t *testing.T) {
 }
 
 func TestGetFilterChanges(t *testing.T) {
+
 }
 
 func TestGetFilterLogs(t *testing.T) {
+
 }
 
 func TestLocalAPICache(t *testing.T) {
+	require := require.New(t)
+	testKey, testData := strconv.Itoa(rand.Int()), []byte(strconv.Itoa(rand.Int()))
+	cacheLocal := newAPICache(1*time.Second, "")
+	_, exist := cacheLocal.Get(testKey)
+	require.False(exist)
+	err := cacheLocal.Set(testKey, testData)
+	require.NoError(err)
+	data, _ := cacheLocal.Get(testKey)
+	require.Equal(data, testData)
+	cacheLocal.Del(testKey)
+	_, exist = cacheLocal.Get(testKey)
+	require.False(exist)
 }
 
 func TestGetStorageAt(t *testing.T) {
+
 }
 
 func TestGetNetworkID(t *testing.T) {
