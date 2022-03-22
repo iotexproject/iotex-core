@@ -409,8 +409,8 @@ func parseLogRequest(in gjson.Result) (*filterObject, error) {
 func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.Int, []byte, error) {
 	var (
 		from     address.Address
-		to       string   = ""
-		gasLimit uint64   = 0
+		to       string
+		gasLimit uint64
 		value    *big.Int = big.NewInt(0)
 		data     []byte
 		err      error
