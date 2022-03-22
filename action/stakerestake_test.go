@@ -74,5 +74,20 @@ func TestRestakeSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("8816e8f784a1fce40b54d1cd172bb6976fd9552f1570c73d1d9fcdc5635424a9", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(Verify(selp))
+	require.NoError(selp.Verify())
+}
+
+func TestRestakeABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewRestake(nonce, index, duration, autoStake, payload, gaslimit, gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewRestakeFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(index, stake.bucketIndex)
+	require.Equal(duration, stake.duration)
+	require.Equal(autoStake, stake.autoStake)
+	require.Equal(payload, stake.payload)
 }

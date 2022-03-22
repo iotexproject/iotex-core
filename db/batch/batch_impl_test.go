@@ -128,9 +128,9 @@ func TestCachedBatch(t *testing.T) {
 		return wi.WriteType() == Delete
 	})))
 	require.Equal(3, cb.Size())
-	require.Error(cb.Revert(-1))
-	require.Error(cb.Revert(si + 1))
-	require.NoError(cb.Revert(si))
+	require.Error(cb.RevertSnapshot(-1))
+	require.Error(cb.RevertSnapshot(si + 1))
+	require.NoError(cb.RevertSnapshot(si))
 	require.Equal(1, cb.Size())
 	require.True(bytes.Equal([]byte{}, cb.Translate(func(wi *WriteInfo) *WriteInfo {
 		if wi.WriteType() != Delete {
@@ -138,12 +138,15 @@ func TestCachedBatch(t *testing.T) {
 		}
 		return wi
 	}).SerializeQueue(nil, nil)))
+	cb.Clear()
+	require.Equal(0, cb.Size())
 }
 
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 
 	cb := NewCachedBatch()
+	cb.Clear()
 	cb.Put(bucket1, testK1[0], testV1[0], "")
 	cb.Put(bucket1, testK1[1], testV1[1], "")
 	s0 := cb.Snapshot()
@@ -170,9 +173,9 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(8, cb.Size())
 
 	// snapshot 2
-	require.Error(cb.Revert(3))
-	require.Error(cb.Revert(-1))
-	require.NoError(cb.Revert(2))
+	require.Error(cb.RevertSnapshot(3))
+	require.Error(cb.RevertSnapshot(-1))
+	require.NoError(cb.RevertSnapshot(2))
 	_, err = cb.Get(bucket1, testK2[0])
 	require.Equal(ErrAlreadyDeleted, err)
 	v, err = cb.Get(bucket1, testK1[1])
@@ -187,10 +190,17 @@ func TestSnapshot(t *testing.T) {
 	v, err = cb.Get(bucket1, testK2[2])
 	require.NoError(err)
 	require.Equal(testV2[2], v)
+	cb.Put(bucket1, testK2[2], testV2[1], "")
+	v, err = cb.Get(bucket1, testK2[2])
+	require.NoError(err)
+	require.Equal(testV2[1], v)
 
 	// snapshot 1
-	require.NoError(cb.Revert(2))
-	require.NoError(cb.Revert(1))
+	require.NoError(cb.RevertSnapshot(2))
+	v, err = cb.Get(bucket1, testK2[2])
+	require.NoError(err)
+	require.Equal(testV2[2], v)
+	require.NoError(cb.RevertSnapshot(1))
 	_, err = cb.Get(bucket1, testK1[0])
 	require.Equal(ErrAlreadyDeleted, err)
 	v, err = cb.Get(bucket1, testK1[1])
@@ -206,8 +216,8 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(ErrNotExist, err)
 
 	// snapshot 0
-	require.Error(cb.Revert(2))
-	require.NoError(cb.Revert(0))
+	require.Error(cb.RevertSnapshot(2))
+	require.NoError(cb.RevertSnapshot(0))
 	v, err = cb.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], v)
@@ -239,5 +249,29 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 		h := cb.SerializeQueue(nil, nil)
 		b.StopTimer()
 		require.NotEqual(b, hash.ZeroHash256, h)
+	}
+}
+
+func BenchmarkCachedBatch_Snapshot(b *testing.B) {
+	cb := NewCachedBatch()
+
+	for i := 0; i < b.N; i++ {
+		k := hash.Hash256b([]byte(strconv.Itoa(i)))
+		var v [1024]byte
+		for i := range v {
+			v[i] = byte(rand.Intn(8))
+		}
+		cb.Put(bucket1, k[:], v[:], "")
+		value, err := cb.Get(bucket1, k[:])
+		require.NoError(b, err)
+		require.True(b, bytes.Equal(value, v[:]))
+		sn := cb.Snapshot()
+		cb.Delete(bucket1, k[:], "")
+		_, err = cb.Get(bucket1, k[:])
+		require.Error(b, err)
+		cb.RevertSnapshot(sn)
+		value, err = cb.Get(bucket1, k[:])
+		require.NoError(b, err)
+		require.True(b, bytes.Equal(value, v[:]))
 	}
 }

@@ -9,8 +9,8 @@ package block
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -25,10 +25,7 @@ type Footer struct {
 // ConvertToBlockFooterPb converts BlockFooter
 func (f *Footer) ConvertToBlockFooterPb() (*iotextypes.BlockFooter, error) {
 	pb := iotextypes.BlockFooter{}
-	commitTime, err := ptypes.TimestampProto(f.commitTime)
-	if err != nil {
-		return nil, err
-	}
+	commitTime := timestamppb.New(f.commitTime)
 	pb.Timestamp = commitTime
 	pb.Endorsements = []*iotextypes.Endorsement{}
 	for _, en := range f.endorsements {
@@ -46,10 +43,10 @@ func (f *Footer) ConvertFromBlockFooterPb(pb *iotextypes.BlockFooter) error {
 	if pb == nil {
 		return nil
 	}
-	commitTime, err := ptypes.Timestamp(pb.GetTimestamp())
-	if err != nil {
+	if err := pb.GetTimestamp().CheckValid(); err != nil {
 		return err
 	}
+	commitTime := pb.GetTimestamp().AsTime()
 	f.commitTime = commitTime
 	pbEndorsements := pb.GetEndorsements()
 	if pbEndorsements == nil {

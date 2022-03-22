@@ -7,11 +7,17 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -23,6 +29,37 @@ const (
 	DepositToStakePayloadGas = uint64(100)
 	// DepositToStakeBaseIntrinsicGas represents the base intrinsic gas for DepositToStake
 	DepositToStakeBaseIntrinsicGas = uint64(10000)
+
+	depositToStakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint256",
+					"name": "amount",
+					"type": "uint256"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "depositToStake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// _depositToStakeMethod is the interface of the abi encoding of stake action
+	_depositToStakeMethod abi.Method
 )
 
 // DepositToStake defines the action of stake add deposit
@@ -32,6 +69,18 @@ type DepositToStake struct {
 	bucketIndex uint64
 	amount      *big.Int
 	payload     []byte
+}
+
+func init() {
+	depositToStakeInterface, err := abi.JSON(strings.NewReader(depositToStakeInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_depositToStakeMethod, ok = depositToStakeInterface.Methods["depositToStake"]
+	if !ok {
+		panic("fail to load the method")
+	}
 }
 
 // NewDepositToStake returns a DepositToStake instance
@@ -69,7 +118,7 @@ func (ds *DepositToStake) Payload() []byte { return ds.payload }
 // BucketIndex returns bucket indexs
 func (ds *DepositToStake) BucketIndex() uint64 { return ds.bucketIndex }
 
-// Serialize returns a raw byte stream of the Stake Create struct
+// Serialize returns a raw byte stream of the DepositToStake struct
 func (ds *DepositToStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(ds.Proto()))
 }
@@ -90,14 +139,19 @@ func (ds *DepositToStake) Proto() *iotextypes.StakeAddDeposit {
 // LoadProto converts a protobuf's Action to DepositToStake
 func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	ds.bucketIndex = pbAct.GetBucketIndex()
 	ds.payload = pbAct.GetPayload()
-	ds.amount = big.NewInt(0)
-	if len(pbAct.GetAmount()) > 0 {
-		ds.amount.SetString(pbAct.GetAmount(), 10)
+	if pbAct.GetAmount() == "" {
+		ds.amount = big.NewInt(0)
+	} else {
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
+		if !ok {
+			return errors.Errorf("invalid amount %s", pbAct.GetAmount())
+		}
+		ds.amount = amount
 	}
 
 	return nil
@@ -113,7 +167,7 @@ func (ds *DepositToStake) IntrinsicGas() (uint64, error) {
 func (ds *DepositToStake) Cost() (*big.Int, error) {
 	intrinsicGas, err := ds.IntrinsicGas()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the stake creates")
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the DepositToStake")
 	}
 	depositToStakeFee := big.NewInt(0).Mul(ds.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return big.NewInt(0).Add(ds.Amount(), depositToStakeFee), nil
@@ -126,4 +180,57 @@ func (ds *DepositToStake) SanityCheck() error {
 	}
 
 	return ds.AbstractAction.SanityCheck()
+}
+
+// EncodeABIBinary encodes data in abi encoding
+func (ds *DepositToStake) EncodeABIBinary() ([]byte, error) {
+	return ds.encodeABIBinary()
+}
+
+func (ds *DepositToStake) encodeABIBinary() ([]byte, error) {
+	data, err := _depositToStakeMethod.Inputs.Pack(ds.bucketIndex, ds.amount, ds.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_depositToStakeMethod.ID, data...), nil
+}
+
+// NewDepositToStakeFromABIBinary decodes data into depositToStake action
+func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		ds        DepositToStake
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_depositToStakeMethod.ID[:], data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _depositToStakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if ds.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return nil, errDecodeFailure
+	}
+	if ds.amount, ok = paramsMap["amount"].(*big.Int); !ok {
+		return nil, errDecodeFailure
+	}
+	if ds.payload, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &ds, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (ds *DepositToStake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := ds.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(ds.Nonce(), ethAddr, big.NewInt(0), ds.GasLimit(), ds.GasPrice(), data), nil
 }

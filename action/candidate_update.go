@@ -7,8 +7,13 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -18,8 +23,41 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
-const CandidateUpdateBaseIntrinsicGas = uint64(10000)
+const (
+	// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
+	CandidateUpdateBaseIntrinsicGas = uint64(10000)
+
+	candidateUpdateInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "name",
+					"type": "string"
+				},
+				{
+					"internalType": "address",
+					"name": "operatorAddress",
+					"type": "address"
+				},
+				{
+					"internalType": "address",
+					"name": "rewardAddress",
+					"type": "address"
+				}
+			],
+			"name": "candidateUpdate",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// _candidateUpdateMethod is the interface of the abi encoding of stake action
+	_candidateUpdateMethod abi.Method
+)
 
 // CandidateUpdate is the action to update a candidate
 type CandidateUpdate struct {
@@ -28,6 +66,18 @@ type CandidateUpdate struct {
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
+}
+
+func init() {
+	candidateUpdateInterface, err := abi.JSON(strings.NewReader(candidateUpdateInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_candidateUpdateMethod, ok = candidateUpdateInterface.Methods["candidateUpdate"]
+	if !ok {
+		panic("fail to load the method")
+	}
 }
 
 // NewCandidateUpdate creates a CandidateUpdate instance
@@ -98,7 +148,7 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 // LoadProto converts a protobuf's Action to CandidateUpdate
 func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cu.name = pbAct.GetName()
@@ -134,4 +184,60 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// EncodeABIBinary encodes data in abi encoding
+func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
+	return cu.encodeABIBinary()
+}
+
+func (cu *CandidateUpdate) encodeABIBinary() ([]byte, error) {
+	operatorEthAddr := common.BytesToAddress(cu.operatorAddress.Bytes())
+	rewardEthAddr := common.BytesToAddress(cu.rewardAddress.Bytes())
+	data, err := _candidateUpdateMethod.Inputs.Pack(cu.name, operatorEthAddr, rewardEthAddr)
+	if err != nil {
+		return nil, err
+	}
+	return append(_candidateUpdateMethod.ID, data...), nil
+}
+
+// NewCandidateUpdateFromABIBinary decodes data into CandidateUpdate action
+func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		err       error
+		cu        CandidateUpdate
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_candidateUpdateMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _candidateUpdateMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if cu.name, ok = paramsMap["name"].(string); !ok {
+		return nil, errDecodeFailure
+	}
+	if cu.operatorAddress, err = ethAddrToNativeAddr(paramsMap["operatorAddress"]); err != nil {
+		return nil, err
+	}
+	if cu.rewardAddress, err = ethAddrToNativeAddr(paramsMap["rewardAddress"]); err != nil {
+		return nil, err
+	}
+	return &cu, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cu *CandidateUpdate) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cu.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cu.Nonce(), ethAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
 }

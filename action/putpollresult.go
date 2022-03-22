@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -47,10 +46,10 @@ func NewPutPollResult(
 // LoadProto converts a proto message into put block action.
 func (r *PutPollResult) LoadProto(putPollResultPb *iotextypes.PutPollResult) error {
 	if putPollResultPb == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if r == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*r = PutPollResult{}
 

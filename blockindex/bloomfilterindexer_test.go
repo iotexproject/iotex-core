@@ -191,14 +191,6 @@ func TestBloomfilterIndexer(t *testing.T) {
 		false,
 	}
 
-	expectedCount := []uint64{
-		4,
-		12,
-		16,
-		4,
-		10,
-	}
-
 	expectedRes2 := [][]uint64{
 		[]uint64{1, 2, 3, 4, 5},
 		[]uint64{1, 2, 5},
@@ -251,12 +243,6 @@ func TestBloomfilterIndexer(t *testing.T) {
 			blockLevelbf, err := indexer.BlockFilterByHeight(blks[i].Height())
 			require.NoError(err)
 			require.Equal(expectedRes[i], testinglf.ExistInBloomFilterv2(blockLevelbf))
-
-			rangeLevelBf, err := indexer.RangeFilterByHeight(blks[i].Height())
-			require.NoError(err)
-			require.Equal(cfg.RangeBloomFilterSize, rangeLevelBf.Size())
-			require.Equal(cfg.RangeBloomFilterNumHash, rangeLevelBf.NumHash())
-			require.Equal(expectedCount[i], rangeLevelBf.NumElements())
 		}
 
 		for i, l := range testFilter {
@@ -276,16 +262,13 @@ func TestBloomfilterIndexer(t *testing.T) {
 		}
 	}
 
-	path := "test-indexer"
-	testPath, err := testutil.PathOfTempFile(path)
-	require.NoError(err)
-	defer testutil.CleanupPathV2(testPath)
-	cfg := db.DefaultConfig
-	cfg.DbPath = testPath
-
 	t.Run("Bolt DB indexer", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+		testPath, err := testutil.PathOfTempFile("test-indexer")
+		require.NoError(err)
+		defer testutil.CleanupPath(testPath)
+		cfg := db.DefaultConfig
+		cfg.DbPath = testPath
+
 		testIndexer(db.NewBoltDB(cfg), t)
 	})
 }
@@ -344,14 +327,14 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 	require.NoError(err)
 	dbCfg := db.DefaultConfig
 	dbCfg.DbPath = testPath
-	defer testutil.CleanupPathV2(testPath)
+	defer testutil.CleanupPath(testPath)
 	indexer, err := NewBloomfilterIndexer(db.NewBoltDB(dbCfg), indexerCfg)
 	require.NoError(err)
 	ctx := context.Background()
 	require.NoError(indexer.Start(ctx))
 	defer func() {
 		require.NoError(indexer.Stop(ctx))
-		testutil.CleanupPathV2(testPath)
+		testutil.CleanupPath(testPath)
 	}()
 	for i := 0; i < len(blks); i++ {
 		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))

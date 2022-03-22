@@ -7,11 +7,11 @@
 package account
 
 import (
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -54,16 +54,16 @@ func NewAccountSign(client ioctl.Client) *cobra.Command {
 			if util.AliasIsHdwalletKey(signer) {
 				addr = signer
 			} else {
-				addr, err = util.Address(signer)
+				addr, err = client.Address(signer)
 				if err != nil {
-					return output.NewError(output.AddressError, "failed to get address", err)
+					return errors.Wrap(err, "failed to get address")
 				}
 			}
-			signedMessage, err := Sign(client, addr, "", msg)
+			signedMessage, err := Sign(client, cmd, addr, "", msg)
 			if err != nil {
-				return output.NewError(output.KeystoreError, "failed to sign message", err)
+				return errors.Wrap(err, "failed to sign message")
 			}
-			output.PrintResult(signedMessage)
+			cmd.Println(signedMessage)
 			return nil
 		},
 	}

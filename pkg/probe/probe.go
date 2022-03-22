@@ -10,24 +10,18 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync/atomic"
-
-	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
 )
 
-const (
-	_ready    = 1
-	_notReady = 0
-)
-
 // Server is a http server for service probe.
 type Server struct {
-	ready            int32 // 0 is not ready, 1 is ready
+	lifecycle.Readiness
 	server           http.Server
 	readinessHandler http.Handler
 }
@@ -40,7 +34,6 @@ type Option interface {
 // New creates a new probe server.
 func New(port int, opts ...Option) *Server {
 	s := &Server{
-		ready:            _notReady,
 		readinessHandler: http.HandlerFunc(successHandleFunc),
 	}
 
@@ -51,7 +44,7 @@ func New(port int, opts ...Option) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/liveness", successHandleFunc)
 	readiness := func(w http.ResponseWriter, r *http.Request) {
-		if atomic.LoadInt32(&s.ready) == _notReady {
+		if !s.IsReady() {
 			failureHandleFunc(w, r)
 			return
 		}
@@ -80,14 +73,6 @@ func (s *Server) Start(_ context.Context) error {
 	}()
 	return nil
 }
-
-// Ready makes the probe server starts returning status on readiness and
-// health endpoint.
-func (s *Server) Ready() { atomic.SwapInt32(&s.ready, _ready) }
-
-// NotReady makes the probe server starts returning failure status on readiness and
-// health endpoint.
-func (s *Server) NotReady() { atomic.SwapInt32(&s.ready, _notReady) }
 
 // Stop shutdown the probe server.
 func (s *Server) Stop(ctx context.Context) error { return s.server.Shutdown(ctx) }

@@ -7,11 +7,17 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -23,6 +29,42 @@ const (
 	RestakePayloadGas = uint64(100)
 	// RestakeBaseIntrinsicGas represents the base intrinsic gas for stake again
 	RestakeBaseIntrinsicGas = uint64(10000)
+
+	restakeInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint32",
+					"name": "duration",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bool",
+					"name": "autoStake",
+					"type": "bool"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "restake",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// _restakeMethod is the interface of the abi encoding of stake action
+	_restakeMethod abi.Method
 )
 
 // Restake defines the action of stake again
@@ -33,6 +75,18 @@ type Restake struct {
 	duration    uint32
 	autoStake   bool
 	payload     []byte
+}
+
+func init() {
+	restakeInterface, err := abi.JSON(strings.NewReader(restakeInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_restakeMethod, ok = restakeInterface.Methods["restake"]
+	if !ok {
+		panic("fail to load the method")
+	}
 }
 
 // NewRestake returns a Restake instance
@@ -90,7 +144,7 @@ func (rs *Restake) Proto() *iotextypes.StakeRestake {
 // LoadProto converts a protobuf's Action to Restake
 func (rs *Restake) LoadProto(pbAct *iotextypes.StakeRestake) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	rs.bucketIndex = pbAct.GetBucketIndex()
@@ -115,4 +169,60 @@ func (rs *Restake) Cost() (*big.Int, error) {
 	}
 	restakeFee := big.NewInt(0).Mul(rs.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return restakeFee, nil
+}
+
+// EncodeABIBinary encodes data in abi encoding
+func (rs *Restake) EncodeABIBinary() ([]byte, error) {
+	return rs.encodeABIBinary()
+}
+
+func (rs *Restake) encodeABIBinary() ([]byte, error) {
+	data, err := _restakeMethod.Inputs.Pack(rs.bucketIndex, rs.duration, rs.autoStake, rs.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_restakeMethod.ID, data...), nil
+}
+
+// NewRestakeFromABIBinary decodes data into Restake action
+func NewRestakeFromABIBinary(data []byte) (*Restake, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		rs        Restake
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_restakeMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _restakeMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if rs.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return nil, errDecodeFailure
+	}
+	if rs.duration, ok = paramsMap["duration"].(uint32); !ok {
+		return nil, errDecodeFailure
+	}
+	if rs.autoStake, ok = paramsMap["autoStake"].(bool); !ok {
+		return nil, errDecodeFailure
+	}
+	if rs.payload, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &rs, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (rs *Restake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := rs.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(rs.Nonce(), ethAddr, big.NewInt(0), rs.GasLimit(), rs.GasPrice(), data), nil
 }

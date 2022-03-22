@@ -75,5 +75,19 @@ func TestChangeCandidateSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("186526b5b9fe74e25beb52c83c41780a69108160bef2ddaf3bffb9f1f1e5e73a", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(Verify(selp))
+	require.NoError(selp.Verify())
+}
+
+func TestChangeCandidateABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewChangeCandidateFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(canAddress, stake.candidateName)
+	require.Equal(index, stake.bucketIndex)
+	require.Equal(payload, stake.payload)
 }

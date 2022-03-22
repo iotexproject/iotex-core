@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 const (
@@ -34,8 +36,9 @@ const (
 type (
 	// Web3Server contains web3 server and the pointer to api coreservice
 	Web3Server struct {
+		queryLimit  uint64
 		web3Server  *http.Server
-		coreService *coreService
+		coreService CoreService
 		cache       apiCache
 	}
 
@@ -116,12 +119,13 @@ func init() {
 }
 
 // NewWeb3Server creates a new web3 server
-func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server {
+func NewWeb3Server(core CoreService, httpPort int, cacheURL string, queryLimit uint64) *Web3Server {
 	svr := &Web3Server{
 		web3Server: &http.Server{
 			Addr: ":" + strconv.Itoa(httpPort),
 		},
 		coreService: core,
+		queryLimit:  queryLimit,
 	}
 
 	mux := http.NewServeMux()
@@ -132,7 +136,7 @@ func NewWeb3Server(core *coreService, httpPort int, cacheURL string) *Web3Server
 }
 
 // Start starts the API server
-func (svr *Web3Server) Start() error {
+func (svr *Web3Server) Start(_ context.Context) error {
 	go func() {
 		if err := svr.web3Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
@@ -142,7 +146,7 @@ func (svr *Web3Server) Start() error {
 }
 
 // Stop stops the API server
-func (svr *Web3Server) Stop() error {
+func (svr *Web3Server) Stop(_ context.Context) error {
 	return svr.web3Server.Shutdown(context.Background())
 }
 
@@ -340,7 +344,7 @@ func (svr *Web3Server) getChainID() (interface{}, error) {
 }
 
 func (svr *Web3Server) getBlockNumber() (interface{}, error) {
-	return uint64ToHex(svr.coreService.bc.TipHeight()), nil
+	return uint64ToHex(svr.coreService.TipHeight()), nil
 }
 
 func (svr *Web3Server) getBlockByNumber(in interface{}) (interface{}, error) {
@@ -393,23 +397,13 @@ func (svr *Web3Server) getTransactionCount(in interface{}) (interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	blkNum, err := getStringFromArray(in, 1)
+	// TODO (liuhaai): returns the nonce in given block height after archive mode is supported
+	// blkNum, err := getStringFromArray(in, 1)
+	pendingNonce, err := svr.coreService.PendingNonce(ioAddr)
 	if err != nil {
 		return nil, err
 	}
-	if blkNum == _pendingBlockNumber {
-		pendingNonce, err := svr.coreService.ap.GetPendingNonce(ioAddr.String())
-		if err != nil {
-			return nil, err
-		}
-		return uint64ToHex(pendingNonce), nil
-	}
-	// TODO: returns the nonce in given block height after archive mode is supported
-	accountMeta, _, err := svr.coreService.Account(ioAddr)
-	if err != nil {
-		return nil, err
-	}
-	return uint64ToHex(accountMeta.GetPendingNonce()), nil
+	return uint64ToHex(pendingNonce), nil
 }
 
 func (svr *Web3Server) call(in interface{}) (interface{}, error) {
@@ -434,19 +428,29 @@ func (svr *Web3Server) estimateGas(in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	var estimatedGas uint64
-	if isContract, _ := svr.isContractAddr(to); isContract {
-		exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
-		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
-		if err != nil {
-			return nil, err
-		}
+	var tx *types.Transaction
+	if len(to) == 0 {
+		tx = types.NewContractCreation(0, value, gasLimit, big.NewInt(0), data)
 	} else {
-		// TODO: support staking actions
-		estimatedGas, err = svr.coreService.CalculateGasConsumption(action.TransferBaseIntrinsicGas, action.TransferPayloadGas, uint64(len(data)))
+		toAddr, err := addrutil.IoAddrToEvmAddr(to)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
+		tx = types.NewTransaction(0, toAddr, value, gasLimit, big.NewInt(0), data)
+	}
+	act, err := svr.ethTxToAction(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	var estimatedGas uint64
+	if exec, ok := act.(*action.Execution); ok {
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(context.Background(), exec, from)
+	} else {
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
+	}
+	if err != nil {
+		return nil, err
 	}
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
@@ -644,11 +648,11 @@ func (svr *Web3Server) getTransactionReceipt(in interface{}) (interface{}, error
 
 	// read contract address from receipt
 	var contractAddr *string
-	if len(receipt.ContractAddress) > 0 {
-		res, err := ioAddrToEthAddr(receipt.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
+	res, err := getExecutionContractAddr(receipt.ContractAddress)
+	if err != nil {
+		return nil, err
+	}
+	if len(res) > 0 {
 		contractAddr = &res
 	}
 
@@ -859,7 +863,7 @@ func (svr *Web3Server) newFilter(filter *filterObject) (interface{}, error) {
 func (svr *Web3Server) newBlockFilter() (interface{}, error) {
 	filterObj := filterObject{
 		FilterType: "block",
-		LogHeight:  svr.coreService.bc.TipHeight(),
+		LogHeight:  svr.coreService.TipHeight(),
 	}
 	objInByte, _ := json.Marshal(filterObj)
 	keyHash := hash.Hash256b(objInByte)
@@ -892,7 +896,7 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 	var (
 		ret          interface{}
 		newLogHeight uint64
-		tipHeight    = svr.coreService.bc.TipHeight()
+		tipHeight    = svr.coreService.TipHeight()
 	)
 	switch filterObj.FilterType {
 	case "log":
@@ -916,9 +920,6 @@ func (svr *Web3Server) getFilterChanges(in interface{}) (interface{}, error) {
 			return []string{}, nil
 		}
 		queryCount := tipHeight - filterObj.LogHeight + 1
-		if queryCount > svr.coreService.cfg.API.RangeQueryLimit {
-			queryCount = svr.coreService.cfg.API.RangeQueryLimit
-		}
 		blkMetas, err := svr.coreService.BlockMetas(filterObj.LogHeight, queryCount)
 		if err != nil {
 			return nil, err

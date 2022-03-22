@@ -12,14 +12,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -48,14 +46,17 @@ var (
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
-
+	infoQuit = map[config.Language]string{
+		config.English: "quit",
+		config.Chinese: "退出",
+	}
 	failToRemoveKeystoreFile = map[config.Language]string{
 		config.English: "failed to remove keystore file",
 		config.Chinese: "移除keystore文件失败",
 	}
 	failToWriteToConfigFile = map[config.Language]string{
-		config.English: "Failed to write to config file %s.",
-		config.Chinese: "写入配置文件 %s 失败",
+		config.English: "Failed to write to config file.",
+		config.Chinese: "写入配置文件失败",
 	}
 	resultSuccess = map[config.Language]string{
 		config.English: "Account #%s has been deleted.",
@@ -68,16 +69,17 @@ var (
 )
 
 // NewAccountDelete represents the account delete command
-func NewAccountDelete(c ioctl.Client) *cobra.Command {
-	use, _ := c.SelectTranslation(deleteUses)
-	short, _ := c.SelectTranslation(deleteShorts)
-	failToGetAddress, _ := c.SelectTranslation(failToGetAddress)
-	failToConvertStringIntoAddress, _ := c.SelectTranslation(failToConvertStringIntoAddress)
-	infoWarn, _ := c.SelectTranslation(infoWarn)
-	failToRemoveKeystoreFile, _ := c.SelectTranslation(failToRemoveKeystoreFile)
-	failToWriteToConfigFile, _ := c.SelectTranslation(failToWriteToConfigFile)
-	resultSuccess, _ := c.SelectTranslation(resultSuccess)
-	failToFindAccount, _ := c.SelectTranslation(failToFindAccount)
+func NewAccountDelete(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(deleteUses)
+	short, _ := client.SelectTranslation(deleteShorts)
+	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
+	failToConvertStringIntoAddress, _ := client.SelectTranslation(failToConvertStringIntoAddress)
+	infoWarn, _ := client.SelectTranslation(infoWarn)
+	failToRemoveKeystoreFile, _ := client.SelectTranslation(failToRemoveKeystoreFile)
+	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
+	resultSuccess, _ := client.SelectTranslation(resultSuccess)
+	failToFindAccount, _ := client.SelectTranslation(failToFindAccount)
+	infoQuit, _ := client.SelectTranslation(infoQuit)
 
 	return &cobra.Command{
 		Use:   use,
@@ -89,22 +91,23 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			if len(args) == 1 {
 				arg = args[0]
 			}
-			addr, err := c.GetAddress(arg)
+
+			addr, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
-				return output.NewError(output.AddressError, failToGetAddress, err)
+				return errors.Wrap(err, failToGetAddress)
 			}
 			account, err := address.FromString(addr)
 			if err != nil {
-				return output.NewError(output.ConvertError, failToConvertStringIntoAddress, nil)
+				return errors.Wrap(err, failToConvertStringIntoAddress)
 			}
 
 			var filePath string
-			if c.IsCryptoSm2() {
+			if client.IsCryptoSm2() {
 				if filePath == "" {
-					filePath = filepath.Join(c.Config().Wallet, "sm2sk-"+account.String()+".pem")
+					filePath = filepath.Join(client.Config().Wallet, "sm2sk-"+account.String()+".pem")
 				}
 			} else {
-				ks := c.NewKeyStore(c.Config().Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 						filePath = v.URL.Path
@@ -115,29 +118,19 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 
 			// check whether crypto file exists
 			if _, err = os.Stat(filePath); err != nil {
-				return output.NewError(output.ReadFileError, fmt.Sprintf(failToFindAccount, addr), nil)
+				return errors.Wrapf(err, failToFindAccount, addr)
 			}
-			if !c.AskToConfirm(infoWarn) {
-				output.PrintResult("quit")
+			if !client.AskToConfirm(infoWarn) {
+				cmd.Println(infoQuit)
 				return nil
 			}
-
 			if err := os.Remove(filePath); err != nil {
-				return output.NewError(output.ReadFileError, failToRemoveKeystoreFile, err)
+				return errors.Wrap(err, failToRemoveKeystoreFile)
 			}
-
-			aliases := c.AliasMap()
-			cfg := c.Config()
-			delete(cfg.Aliases, aliases[addr])
-			out, err := yaml.Marshal(&cfg)
-			if err != nil {
-				return output.NewError(output.SerializationError, "", err)
+			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
+				return errors.Wrap(err, failToWriteToConfigFile)
 			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return output.NewError(output.WriteFileError,
-					fmt.Sprintf(failToWriteToConfigFile, config.DefaultConfigFile), err)
-			}
-			output.PrintResult(fmt.Sprintf(resultSuccess, addr))
+			cmd.Println(fmt.Sprintf(resultSuccess, addr))
 			return nil
 		},
 	}

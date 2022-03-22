@@ -130,6 +130,11 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 	}, nil
 }
 
+// ProtocolAddr returns the address generated from protocol id
+func ProtocolAddr() address.Address {
+	return protocol.HashStringToAddress(protocolID)
+}
+
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
@@ -350,7 +355,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 // Validate validates a staking message
 func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
 	if act == nil {
-		return ErrNilAction
+		return action.ErrNilAction
 	}
 	switch act := act.(type) {
 	case *action.CreateStake:

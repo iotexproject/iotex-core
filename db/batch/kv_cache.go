@@ -23,8 +23,8 @@ type (
 		Evict(hash.Hash160)
 		// Clear clear the cache
 		Clear()
-		// Clone clones the cache
-		Clone() KVStoreCache
+		// Append appends caches
+		Append(...KVStoreCache) error
 	}
 
 	// kvCache implements KVStoreCache interface
@@ -56,6 +56,10 @@ func (c *kvCache) Read(k hash.Hash160) ([]byte, error) {
 
 // Write puts a record into cache
 func (c *kvCache) Write(k hash.Hash160, v []byte) {
+	c.write(k, v)
+}
+
+func (c *kvCache) write(k hash.Hash160, v []byte) {
 	c.cache[k] = v
 	delete(c.deleted, k)
 }
@@ -65,13 +69,16 @@ func (c *kvCache) WriteIfNotExist(k hash.Hash160, v []byte) error {
 	if _, ok := c.cache[k]; ok {
 		return ErrAlreadyExist
 	}
-	c.cache[k] = v
-	delete(c.deleted, k)
+	c.write(k, v)
 	return nil
 }
 
 // Evict deletes a record from cache
 func (c *kvCache) Evict(k hash.Hash160) {
+	c.evict(k)
+}
+
+func (c *kvCache) evict(k hash.Hash160) {
 	delete(c.cache, k)
 	c.deleted[k] = struct{}{}
 }
@@ -84,18 +91,18 @@ func (c *kvCache) Clear() {
 	c.deleted = make(map[hash.Hash160]struct{})
 }
 
-// Clone clones the cache
-func (c *kvCache) Clone() KVStoreCache {
-	clone := kvCache{
-		cache:   make(map[hash.Hash160][]byte),
-		deleted: make(map[hash.Hash160]struct{}),
+func (c *kvCache) Append(caches ...KVStoreCache) error {
+	for _, cc := range caches {
+		cc, ok := cc.(*kvCache)
+		if !ok {
+			return ErrUnexpectedType
+		}
+		for key, value := range cc.cache {
+			c.write(key, value)
+		}
+		for key := range cc.deleted {
+			c.evict(key)
+		}
 	}
-	// clone entries in map
-	for k, v := range c.cache {
-		clone.cache[k] = v
-	}
-	for k, v := range c.deleted {
-		clone.deleted[k] = v
-	}
-	return &clone
+	return nil
 }

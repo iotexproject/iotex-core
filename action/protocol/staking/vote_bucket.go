@@ -7,16 +7,15 @@
 package staking
 
 import (
-	"bytes"
 	"math"
 	"math/big"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
@@ -70,7 +69,7 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 }
 
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
-	vote, ok := big.NewInt(0).SetString(pb.GetStakedAmount(), 10)
+	vote, ok := new(big.Int).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
 		return ErrInvalidAmount
 	}
@@ -88,18 +87,20 @@ func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 		return err
 	}
 
-	createTime, err := ptypes.Timestamp(pb.GetCreateTime())
-	if err != nil {
+	if err := pb.GetCreateTime().CheckValid(); err != nil {
 		return err
 	}
-	stakeTime, err := ptypes.Timestamp(pb.GetStakeStartTime())
-	if err != nil {
+	createTime := pb.GetCreateTime().AsTime()
+
+	if err := pb.GetStakeStartTime().CheckValid(); err != nil {
 		return err
 	}
-	unstakeTime, err := ptypes.Timestamp(pb.GetUnstakeStartTime())
-	if err != nil {
+	stakeTime := pb.GetStakeStartTime().AsTime()
+
+	if err := pb.GetUnstakeStartTime().CheckValid(); err != nil {
 		return err
 	}
+	unstakeTime := pb.GetUnstakeStartTime().AsTime()
 
 	vb.Index = pb.GetIndex()
 	vb.Candidate = candAddr
@@ -117,18 +118,9 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	if vb.Candidate == nil || vb.Owner == nil || vb.StakedAmount == nil {
 		return nil, ErrMissingField
 	}
-	createTime, err := ptypes.TimestampProto(vb.CreateTime)
-	if err != nil {
-		return nil, err
-	}
-	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
-	if err != nil {
-		return nil, err
-	}
-	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
-	if err != nil {
-		return nil, err
-	}
+	createTime := timestamppb.New(vb.CreateTime)
+	stakeTime := timestamppb.New(vb.StakeStartTime)
+	unstakeTime := timestamppb.New(vb.UnstakeStartTime)
 
 	return &stakingpb.Bucket{
 		Index:            vb.Index,
@@ -144,18 +136,9 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 }
 
 func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
-	createTime, err := ptypes.TimestampProto(vb.CreateTime)
-	if err != nil {
-		return nil, err
-	}
-	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
-	if err != nil {
-		return nil, err
-	}
-	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
-	if err != nil {
-		return nil, err
-	}
+	createTime := timestamppb.New(vb.CreateTime)
+	stakeTime := timestamppb.New(vb.StakeStartTime)
+	unstakeTime := timestamppb.New(vb.UnstakeStartTime)
 
 	return &iotextypes.VoteBucket{
 		Index:            vb.Index,
@@ -276,13 +259,21 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 }
 
 func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, uint64, error) {
-	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
-	maxKey := []byte{_bucket + 1}
 	height, iter, err := sr.States(
 		protocol.NamespaceOption(StakingNameSpace),
-		protocol.FilterOption(func(k, v []byte) bool {
-			return bytes.HasPrefix(k, []byte{_bucket})
-		}, bucketKey(0), maxKey))
+		protocol.KeysOption(func() ([][]byte, error) {
+			// TODO (zhi): fix potential racing issue
+			count, err := getTotalBucketCount(sr)
+			if err != nil {
+				return nil, err
+			}
+			keys := [][]byte{}
+			for i := uint64(0); i < count; i++ {
+				keys = append(keys, bucketKey(i))
+			}
+			return keys, nil
+		}),
+	)
 	if err != nil {
 		return nil, height, err
 	}
@@ -290,10 +281,13 @@ func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, uint64, error) {
 	buckets := make([]*VoteBucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		vb := &VoteBucket{}
-		if err := iter.Next(vb); err != nil {
+		switch err := iter.Next(vb); errors.Cause(err) {
+		case nil:
+			buckets = append(buckets, vb)
+		case state.ErrNilValue:
+		default:
 			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
 		}
-		buckets = append(buckets, vb)
 	}
 	return buckets, height, nil
 }

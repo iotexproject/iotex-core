@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -59,13 +59,14 @@ func TestClient(t *testing.T) {
 		*accountState = state.EmptyAccount()
 	})
 	sf.EXPECT().Height().Return(uint64(10), nil).AnyTimes()
+	bc.EXPECT().Genesis().Return(cfg.Genesis).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	bh := &iotextypes.BlockHeader{Core: &iotextypes.BlockHeaderCore{
 		Version:          chainID,
 		Height:           10,
-		Timestamp:        ptypes.TimestampNow(),
+		Timestamp:        timestamppb.Now(),
 		PrevBlockHash:    []byte(""),
 		TxRoot:           []byte(""),
 		DeltaStateDigest: []byte(""),
@@ -83,9 +84,9 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
 	require.NoError(err)
-	apiServer, err := api.NewServerV2(cfg, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
+	apiServer, err := api.NewServerV2(cfg.API, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
 	require.NoError(err)
-	require.NoError(apiServer.Start())
+	require.NoError(apiServer.Start(ctx))
 	// test New()
 	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.Port)
 	cli, err := New(serverAddr, true)

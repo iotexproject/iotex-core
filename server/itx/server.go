@@ -47,7 +47,7 @@ func NewServer(cfg config.Config) (*Server, error) {
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) (*Server, error) {
+func NewInMemTestServer(cfg config.Config) (*Server, error) { // notest
 	return newServer(cfg, true)
 }
 
@@ -68,9 +68,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
 	if testing {
-		opts = []chainservice.Option{
-			chainservice.WithTesting(),
-		}
+		opts = append(opts, chainservice.WithTesting())
 	}
 	cs, err = chainservice.New(cfg, p2pAgent, opts...)
 	if err != nil {
@@ -115,9 +113,11 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
 	if err := s.p2pAgent.Stop(ctx); err != nil {
+		// notest
 		return errors.Wrap(err, "error when stopping P2P agent")
 	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
+		// notest
 		return errors.Wrap(err, "error when stopping dispatcher")
 	}
 	for _, cs := range s.chainservices {
@@ -185,7 +185,9 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
-	probeSvr.Ready()
+	if err := probeSvr.TurnOn(); err != nil {
+		log.L().Panic("Failed to turn on probe server.", zap.Error(err))
+	}
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(NewHeartbeatHandler(svr, cfg.Network).Log, cfg.System.HeartbeatInterval)
@@ -233,5 +235,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	<-ctx.Done()
-	probeSvr.NotReady()
+	if err := probeSvr.TurnOff(); err != nil {
+		log.L().Panic("Failed to turn off probe server.", zap.Error(err))
+	}
 }

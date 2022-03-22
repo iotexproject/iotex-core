@@ -44,11 +44,11 @@ func (f *fund) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	totalBalance, ok := big.NewInt(0).SetString(gen.TotalBalance, 10)
+	totalBalance, ok := new(big.Int).SetString(gen.TotalBalance, 10)
 	if !ok {
 		return errors.New("failed to set total balance")
 	}
-	unclaimedBalance, ok := big.NewInt(0).SetString(gen.UnclaimedBalance, 10)
+	unclaimedBalance, ok := new(big.Int).SetString(gen.UnclaimedBalance, 10)
 	if !ok {
 		return errors.New("failed to set unclaimed balance")
 	}

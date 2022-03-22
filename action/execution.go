@@ -7,8 +7,11 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -18,13 +21,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
+// const
 const (
-	// EmptyAddress is the empty string
-	EmptyAddress = ""
-	// ExecutionDataGas represents the execution data gas per uint
-	ExecutionDataGas = uint64(100)
-	// ExecutionBaseIntrinsicGas represents the base intrinsic gas for execution
-	ExecutionBaseIntrinsicGas = uint64(10000)
+	EmptyAddress                     = ""
+	ExecutionDataGas          uint64 = 100   // per-byte execution data gas
+	ExecutionBaseIntrinsicGas uint64 = 10000 // base intrinsic gas for execution
+	TxAccessListAddressGas    uint64 = 2400  // Per address specified in EIP 2930 access list
+	TxAccessListStorageKeyGas uint64 = 1900  // Per storage key specified in EIP 2930 access list
 )
 
 var _ hasDestination = (*Execution)(nil)
@@ -33,9 +36,10 @@ var _ hasDestination = (*Execution)(nil)
 type Execution struct {
 	AbstractAction
 
-	contract string
-	amount   *big.Int
-	data     []byte
+	contract   string
+	amount     *big.Int
+	data       []byte
+	accessList types.AccessList
 }
 
 // NewExecution returns a Execution instance
@@ -78,6 +82,44 @@ func (ex *Execution) Data() []byte { return ex.data }
 // Payload is same as Data()
 func (ex *Execution) Payload() []byte { return ex.data }
 
+// AccessList returns the access list
+func (ex *Execution) AccessList() types.AccessList { return ex.accessList }
+
+func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
+	if len(list) == 0 {
+		return nil
+	}
+	proto := make([]*iotextypes.AccessTuple, len(list))
+	for i, v := range list {
+		proto[i] = &iotextypes.AccessTuple{}
+		proto[i].Address = hex.EncodeToString(v.Address.Bytes())
+		if numKey := len(v.StorageKeys); numKey > 0 {
+			proto[i].StorageKeys = make([]string, numKey)
+			for j, key := range v.StorageKeys {
+				proto[i].StorageKeys[j] = hex.EncodeToString(key.Bytes())
+			}
+		}
+	}
+	return proto
+}
+
+func fromAccessListProto(list []*iotextypes.AccessTuple) types.AccessList {
+	if len(list) == 0 {
+		return nil
+	}
+	accessList := make(types.AccessList, len(list))
+	for i, v := range list {
+		accessList[i].Address = common.HexToAddress(v.Address)
+		if numKey := len(v.StorageKeys); numKey > 0 {
+			accessList[i].StorageKeys = make([]common.Hash, numKey)
+			for j, key := range v.StorageKeys {
+				accessList[i].StorageKeys[j] = common.HexToHash(key)
+			}
+		}
+	}
+	return accessList
+}
+
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {
 	size := ex.BasicActionSize()
@@ -102,30 +144,46 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 	if ex.amount != nil && len(ex.amount.String()) > 0 {
 		act.Amount = ex.amount.String()
 	}
+	act.AccessList = toAccessListProto(ex.accessList)
 	return act
 }
 
 // LoadProto converts a protobuf's Execution to Execution
 func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if ex == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*ex = Execution{}
 
 	ex.contract = pbAct.GetContract()
-	ex.amount = &big.Int{}
-	ex.amount.SetString(pbAct.GetAmount(), 10)
+	if pbAct.GetAmount() == "" {
+		ex.amount = big.NewInt(0)
+	} else {
+		amount, ok := new(big.Int).SetString(pbAct.GetAmount(), 10)
+		if !ok {
+			return errors.Errorf("invalid amount %s", pbAct.GetAmount())
+		}
+		ex.amount = amount
+	}
 	ex.data = pbAct.GetData()
+	ex.accessList = fromAccessListProto(pbAct.AccessList)
 	return nil
 }
 
 // IntrinsicGas returns the intrinsic gas of an execution
 func (ex *Execution) IntrinsicGas() (uint64, error) {
-	dataSize := uint64(len(ex.Data()))
-	return CalculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, dataSize)
+	gas, err := CalculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, uint64(len(ex.Data())))
+	if err != nil {
+		return gas, err
+	}
+	if len(ex.accessList) > 0 {
+		gas += uint64(len(ex.accessList)) * TxAccessListAddressGas
+		gas += uint64(ex.accessList.StorageKeys()) * TxAccessListStorageKeyGas
+	}
+	return gas, nil
 }
 
 // Cost returns the cost of an execution
@@ -147,4 +205,17 @@ func (ex *Execution) SanityCheck() error {
 		}
 	}
 	return ex.AbstractAction.SanityCheck()
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (ex *Execution) ToEthTx() (*types.Transaction, error) {
+	if ex.contract == EmptyAddress {
+		return types.NewContractCreation(ex.Nonce(), ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+	}
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return types.NewTransaction(ex.Nonce(), ethAddr, ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
 }

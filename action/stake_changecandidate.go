@@ -7,11 +7,17 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -23,6 +29,37 @@ const (
 	MoveStakePayloadGas = uint64(100)
 	// MoveStakeBaseIntrinsicGas represents the base intrinsic gas for stake move
 	MoveStakeBaseIntrinsicGas = uint64(10000)
+
+	changeCandidateInterfaceABI = `[
+		{
+			"inputs": [
+				{
+					"internalType": "string",
+					"name": "candName",
+					"type": "string"
+				},
+				{
+					"internalType": "uint64",
+					"name": "bucketIndex",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint8[]",
+					"name": "data",
+					"type": "uint8[]"
+				}
+			],
+			"name": "changeCandidate",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]`
+)
+
+var (
+	// _changeCandidateMethod is the interface of the abi encoding of stake action
+	_changeCandidateMethod abi.Method
 )
 
 // ChangeCandidate defines the action of changing stake candidate ts the other
@@ -32,6 +69,19 @@ type ChangeCandidate struct {
 	candidateName string
 	bucketIndex   uint64
 	payload       []byte
+}
+
+func init() {
+	var err error
+	changeCandidateInterface, err := abi.JSON(strings.NewReader(changeCandidateInterfaceABI))
+	if err != nil {
+		panic(err)
+	}
+	var ok bool
+	_changeCandidateMethod, ok = changeCandidateInterface.Methods["changeCandidate"]
+	if !ok {
+		panic("fail to load the method")
+	}
 }
 
 // NewChangeCandidate returns a ChangeCandidate instance
@@ -84,7 +134,7 @@ func (cc *ChangeCandidate) Proto() *iotextypes.StakeChangeCandidate {
 // LoadProto loads change candidate from protobuf
 func (cc *ChangeCandidate) LoadProto(pbAct *iotextypes.StakeChangeCandidate) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cc.candidateName = pbAct.GetCandidateName()
@@ -107,4 +157,57 @@ func (cc *ChangeCandidate) Cost() (*big.Int, error) {
 	}
 	changeCandidateFee := big.NewInt(0).Mul(cc.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return changeCandidateFee, nil
+}
+
+// EncodeABIBinary encodes data in abi encoding
+func (cc *ChangeCandidate) EncodeABIBinary() ([]byte, error) {
+	return cc.encodeABIBinary()
+}
+
+func (cc *ChangeCandidate) encodeABIBinary() ([]byte, error) {
+	data, err := _changeCandidateMethod.Inputs.Pack(cc.candidateName, cc.bucketIndex, cc.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(_changeCandidateMethod.ID, data...), nil
+}
+
+// NewChangeCandidateFromABIBinary decodes data into ChangeCandidate action
+func NewChangeCandidateFromABIBinary(data []byte) (*ChangeCandidate, error) {
+	var (
+		paramsMap = map[string]interface{}{}
+		ok        bool
+		cc        ChangeCandidate
+	)
+	// sanity check
+	if len(data) <= 4 || !bytes.Equal(_changeCandidateMethod.ID, data[:4]) {
+		return nil, errDecodeFailure
+	}
+	if err := _changeCandidateMethod.Inputs.UnpackIntoMap(paramsMap, data[4:]); err != nil {
+		return nil, err
+	}
+	if cc.candidateName, ok = paramsMap["candName"].(string); !ok {
+		return nil, errDecodeFailure
+	}
+	if cc.bucketIndex, ok = paramsMap["bucketIndex"].(uint64); !ok {
+		return nil, errDecodeFailure
+	}
+	if cc.payload, ok = paramsMap["data"].([]byte); !ok {
+		return nil, errDecodeFailure
+	}
+	return &cc, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cc *ChangeCandidate) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cc.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cc.Nonce(), ethAddr, big.NewInt(0), cc.GasLimit(), cc.GasPrice(), data), nil
 }

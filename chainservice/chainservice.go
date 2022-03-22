@@ -133,7 +133,12 @@ func New(
 			}
 			sf, err = factory.NewStateDB(cfg, opts...)
 		} else {
-			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+			sf, err = factory.NewFactory(
+				cfg,
+				factory.DefaultTrieOption(),
+				factory.RegistryOption(registry),
+				factory.DefaultTriePatchOption(),
+			)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
@@ -214,8 +219,7 @@ func New(
 	}
 
 	// Create ActPool
-	actOpts := make([]actpool.Option, 0)
-	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
+	actPool, err := actpool.NewActPool(sf, cfg.ActPool)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
@@ -334,91 +338,34 @@ func New(
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	consensus, err := consensus.NewConsensus(cfg, chain, sf, copts...)
+	cons, err := consensus.NewConsensus(cfg, chain, sf, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-	var bs blocksync.BlockSync
-	switch cfg.Consensus.Scheme {
-	case config.StandaloneScheme:
-		bs = blocksync.NewDummyBlockSyncer()
-	default:
-		bs, err = blocksync.NewBlockSyncer(
-			cfg.BlockSync,
-			chain.TipHeight,
-			func(height uint64) (*block.Block, error) {
-				return dao.GetBlockByHeight(height)
-			},
-			func(blk *block.Block) error {
-				if err := consensus.ValidateBlockFooter(blk); err != nil {
-					log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return err
-				}
-				retries := 1
-				if !cfg.Genesis.IsHawaii(blk.Height()) {
-					retries = 4
-				}
-				var err error
-				for i := 0; i < retries; i++ {
-					if err = chain.ValidateBlock(blk); err == nil {
-						if err = chain.CommitBlock(blk); err == nil {
-							break
-						}
-					}
-					switch errors.Cause(err) {
-					case blockchain.ErrInvalidTipHeight:
-						log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-						return nil
-					case block.ErrDeltaStateMismatch:
-						log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
-					default:
-						log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-						return err
-					}
-				}
-				if err != nil {
-					log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return err
-				}
-				log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
-				consensus.Calibrate(blk.Height())
-
-				return nil
-			},
-			func(ctx context.Context, start uint64, end uint64, repeat int) {
-				peers, err := p2pAgent.Neighbors(ctx)
-				if err != nil {
-					log.L().Error("failed to get neighbours", zap.Error(err))
-					return
-				}
-				if len(peers) == 0 {
-					log.L().Error("no peers")
-				}
-				if repeat < 2 {
-					repeat = 2
-				}
-				if repeat > len(peers) {
-					repeat = len(peers)
-				}
-				for i := 0; i < repeat; i++ {
-					peer := peers[rand.Intn(len(peers)-i)]
-					if err := p2pAgent.UnicastOutbound(
-						ctx,
-						peer,
-						&iotexrpc.BlockSync{Start: start, End: end},
-					); err != nil {
-						log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
-					}
-				}
-			},
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create blockSyncer")
-		}
+	bs, err := createBlockSyncer(
+		cfg.Consensus.Scheme == config.StandaloneScheme,
+		cfg.BlockSync,
+		cons,
+		chain,
+		p2pAgent,
+		dao,
+		cfg.Genesis.IsHawaii,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create blockSyncer")
+	}
+	apiServerOptions := []api.Option{
+		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return p2pAgent.BroadcastOutbound(ctx, msg)
+		}),
+		api.WithNativeElection(electionCommittee),
+	}
+	if gateway {
+		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
 	}
 
 	apiSvr, err := api.NewServerV2(
-		cfg,
+		cfg.API,
 		chain,
 		bs,
 		sf,
@@ -427,10 +374,7 @@ func New(
 		bfIndexer,
 		actPool,
 		registry,
-		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
-		}),
-		api.WithNativeElection(electionCommittee),
+		apiServerOptions...,
 	)
 	if err != nil {
 		return nil, err
@@ -473,7 +417,7 @@ func New(
 		blockdao:           dao,
 		blocksync:          bs,
 		p2pAgent:           p2pAgent,
-		consensus:          consensus,
+		consensus:          cons,
 		electionCommittee:  electionCommittee,
 		indexBuilder:       indexBuilder,
 		bfIndexer:          bfIndexer,
@@ -517,7 +461,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	}
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
-		if err := cs.api.Start(); err != nil {
+		if err := cs.api.Start(ctx); err != nil {
 			return errors.Wrap(err, "err when starting API server")
 		}
 	}
@@ -534,7 +478,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	}
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
-		if err := cs.api.Stop(); err != nil {
+		if err := cs.api.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping API server")
 		}
 	}
@@ -569,12 +513,12 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	var act action.SealedEnvelope
-	if err := act.LoadProto(actPb); err != nil {
+	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	if err != nil {
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err := cs.actpool.Add(ctx, act)
+	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
@@ -583,11 +527,11 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	if err != nil {
 		return err
 	}
-	ctx, err := cs.chain.Context(ctx)
+	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
 	}
@@ -656,3 +600,86 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
+
+// TODO: replace isDummyBlockSyncer by declaring BlockSyncerMode in blocksyncer package
+func createBlockSyncer(
+	isDummyBlockSyncer bool,
+	cfgBS config.BlockSync,
+	cons consensus.Consensus,
+	chain blockchain.Blockchain,
+	p2pAgent p2p.Agent,
+	dao blockdao.BlockDAO,
+	isHawaiiHeightHandler func(uint64) bool,
+) (blocksync.BlockSync, error) {
+	if isDummyBlockSyncer {
+		return blocksync.NewDummyBlockSyncer(), nil
+	}
+	return blocksync.NewBlockSyncer(
+		cfgBS,
+		chain.TipHeight,
+		func(height uint64) (*block.Block, error) {
+			return dao.GetBlockByHeight(height)
+		},
+		func(blk *block.Block) error {
+			if err := cons.ValidateBlockFooter(blk); err != nil {
+				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return err
+			}
+			retries := 1
+			if !isHawaiiHeightHandler(blk.Height()) {
+				retries = 4
+			}
+			var err error
+			for i := 0; i < retries; i++ {
+				if err = chain.ValidateBlock(blk); err == nil {
+					if err = chain.CommitBlock(blk); err == nil {
+						break
+					}
+				}
+				switch errors.Cause(err) {
+				case blockchain.ErrInvalidTipHeight:
+					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					return nil
+				case block.ErrDeltaStateMismatch:
+					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+				default:
+					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					return err
+				}
+			}
+			if err != nil {
+				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return err
+			}
+			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
+			cons.Calibrate(blk.Height())
+			return nil
+		},
+		func(ctx context.Context, start uint64, end uint64, repeat int) {
+			peers, err := p2pAgent.Neighbors(ctx)
+			if err != nil {
+				log.L().Error("failed to get neighbours", zap.Error(err))
+				return
+			}
+			if len(peers) == 0 {
+				log.L().Error("no peers")
+			}
+			if repeat < 2 {
+				repeat = 2
+			}
+			if repeat > len(peers) {
+				repeat = len(peers)
+			}
+			for i := 0; i < repeat; i++ {
+				peer := peers[rand.Intn(len(peers)-i)]
+				if err := p2pAgent.UnicastOutbound(
+					ctx,
+					peer,
+					&iotexrpc.BlockSync{Start: start, End: end},
+				); err != nil {
+					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+				}
+			}
+		},
+	)
+}

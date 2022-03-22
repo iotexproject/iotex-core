@@ -130,17 +130,24 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 // LoadProto loads fields from protobuf format.
 func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if elp == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*elp = envelope{}
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
-	elp.gasPrice = &big.Int{}
-	elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
+	if pbAct.GetGasPrice() == "" {
+		elp.gasPrice = big.NewInt(0)
+	} else {
+		gp, ok := new(big.Int).SetString(pbAct.GetGasPrice(), 10)
+		if !ok {
+			return errors.Errorf("invalid gas prcie %s", pbAct.GetGasPrice())
+		}
+		elp.gasPrice = gp
+	}
 
 	switch {
 	case pbAct.GetTransfer() != nil:

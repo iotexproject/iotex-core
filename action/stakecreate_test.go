@@ -118,7 +118,24 @@ func TestCreateStake(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.SelpHash, hex.EncodeToString(hash[:]))
 		// verify signature
-		require.NoError(Verify(selp))
+		require.NoError(selp.Verify())
 	}
 
+}
+
+func TestCreateStakeABIEncodeAndDecode(t *testing.T) {
+	require := require.New(t)
+	test := stakeCreateTestParams[0]
+	stake, err := NewCreateStake(test.Nonce, test.CanAddress, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
+	require.NoError(err)
+
+	data, err := stake.EncodeABIBinary()
+	require.NoError(err)
+	stake, err = NewCreateStakeFromABIBinary(data)
+	require.NoError(err)
+	require.Equal(test.CanAddress, stake.candName)
+	require.Equal(test.AmountStr, stake.amount.String())
+	require.Equal(test.Duration, stake.duration)
+	require.Equal(test.AutoStake, stake.autoStake)
+	require.Equal(test.Payload, stake.payload)
 }
