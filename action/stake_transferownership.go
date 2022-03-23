@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -161,6 +162,10 @@ func (ts *TransferStake) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (ts *TransferStake) EncodeABIBinary() ([]byte, error) {
+	return ts.encodeABIBinary()
+}
+
+func (ts *TransferStake) encodeABIBinary() ([]byte, error) {
 	voterEthAddr := common.BytesToAddress(ts.voterAddress.Bytes())
 	data, err := _transferStakeMethod.Inputs.Pack(voterEthAddr, ts.bucketIndex, ts.payload)
 	if err != nil {
@@ -194,4 +199,18 @@ func NewTransferStakeFromABIBinary(data []byte) (*TransferStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &ts, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (ts *TransferStake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := ts.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(ts.Nonce(), ethAddr, big.NewInt(0), ts.GasLimit(), ts.GasPrice(), data), nil
 }
