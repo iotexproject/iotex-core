@@ -42,13 +42,11 @@ func TestLogsInRange(t *testing.T) {
 			4,
 		},
 		{
-			// empty log
 			&filterObject{FromBlock: "5", ToBlock: "1"},
 			"invalid start and end height",
 			0,
 		},
 		{
-			// empty log
 			&filterObject{FromBlock: "5", ToBlock: "5"},
 			"start block > tip height",
 			0,
