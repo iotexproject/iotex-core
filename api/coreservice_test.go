@@ -88,7 +88,6 @@ func TestLogsInRange(t *testing.T) {
 			if i == 1 {
 				require.Error(err)
 			} else {
-				fmt.Println(i)
 				require.NoError(err)
 			}
 			to, err := strconv.ParseInt(d.filter.ToBlock, 10, 64)
