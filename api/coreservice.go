@@ -16,13 +16,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -111,8 +112,8 @@ type (
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
-		// CalculateGasConsumption estimate gas consumption for actions except execution
-		CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error)
+		// EstimateGasForNonExecution  estimates action gas except execution
+		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
 		// BlockMetas returns blockmetas response within the height range
@@ -158,6 +159,10 @@ type (
 		readCache         *ReadCache
 	}
 )
+
+type intrinsicGasCalculator interface {
+	IntrinsicGas() (uint64, error)
+}
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
@@ -348,8 +353,8 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	var selp action.SealedEnvelope
-	if err := selp.LoadProto(in); err != nil {
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -671,16 +676,13 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 	}
 	re := make([]*iotextypes.ElectionBucket, len(buckets))
 	for i, b := range buckets {
-		startTime, err := ptypes.TimestampProto(b.StartTime())
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
+		startTime := timestamppb.New(b.StartTime())
 		re[i] = &iotextypes.ElectionBucket{
 			Voter:     b.Voter(),
 			Candidate: b.Candidate(),
 			Amount:    b.Amount().Bytes(),
 			StartTime: startTime,
-			Duration:  ptypes.DurationProto(b.Duration()),
+			Duration:  durationpb.New(b.Duration()),
 			Decay:     b.Decay(),
 		}
 	}
@@ -1118,7 +1120,7 @@ func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockM
 func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	header := blk.Header
 	height := header.Height()
-	ts, _ := ptypes.TimestampProto(header.Timestamp())
+	ts := timestamppb.New(header.Timestamp())
 	var (
 		producerAddress string
 		h               hash.Hash256
@@ -1418,9 +1420,13 @@ func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, er
 	return start, end, nil
 }
 
-// CalculateGasConsumption estimate gas consumption for actions except execution
-func (core *coreService) CalculateGasConsumption(intrinsicGas, payloadGas, payloadSize uint64) (uint64, error) {
-	return action.CalculateIntrinsicGas(intrinsicGas, payloadGas, payloadSize)
+// EstimateGasForNonExecution estimates action gas except execution
+func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint64, error) {
+	act, ok := actType.(intrinsicGasCalculator)
+	if !ok {
+		return 0, errors.Errorf("invalid action type not supported")
+	}
+	return act.IntrinsicGas()
 }
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action

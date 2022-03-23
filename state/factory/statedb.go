@@ -167,6 +167,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			return err
 		}
 	case db.ErrNotExist:
+		sdb.currentChainHeight = 0
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
@@ -213,7 +214,12 @@ func (sdb *stateDB) Height() (uint64, error) {
 }
 
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
-	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sdb.dao,
+		batch.NewCachedBatch(),
+		sdb.flusherOptions(!g.IsEaster(height))...,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -224,67 +230,12 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
+	store := newStateDBWorkingSetStore(sdb.protocolView, flusher)
+	if err := store.Start(ctx); err != nil {
+		return nil, err
+	}
 
-	return &workingSet{
-		height:    height,
-		finalized: false,
-		dock:      protocol.NewDock(),
-		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
-			if err != nil {
-				if errors.Cause(err) == db.ErrNotExist {
-					return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
-				}
-				return err
-			}
-			return state.Deserialize(s, data)
-		},
-		putStateFunc: func(ns string, key []byte, s interface{}) error {
-			ss, err := state.Serialize(s)
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
-			}
-			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-			return nil
-		},
-		delStateFunc: func(ns string, key []byte) error {
-			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-			return nil
-		},
-		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sdb.States(opts...)
-		},
-		digestFunc: func() hash.Hash256 {
-			return hash.Hash256b(flusher.SerializeQueue())
-		},
-		finalizeFunc: func(h uint64) error {
-			// Persist current chain Height
-			flusher.KVStoreWithBuffer().MustPut(
-				AccountKVNamespace,
-				[]byte(CurrentHeightKey),
-				byteutil.Uint64ToBytes(height),
-			)
-			return nil
-		},
-		commitFunc: func(h uint64) error {
-			if err := flusher.Flush(); err != nil {
-				return err
-			}
-			sdb.currentChainHeight = h
-			return nil
-		},
-		readviewFunc: func(name string) (interface{}, error) {
-			return sdb.ReadView(name)
-		},
-		writeviewFunc: func(name string, v interface{}) error {
-			return sdb.protocolView.Write(name, v)
-		},
-		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
-		revertFunc:   flusher.KVStoreWithBuffer().Revert,
-		dbFunc: func() db.KVStore {
-			return flusher.KVStoreWithBuffer()
-		},
-	}, nil
+	return newWorkingSet(height, store), nil
 }
 
 func (sdb *stateDB) Register(p protocol.Protocol) error {
@@ -440,7 +391,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	sdb.currentChainHeight = h
+	return nil
 }
 
 func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
@@ -455,6 +410,9 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	}
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
 
@@ -469,17 +427,9 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.Cond == nil {
-		cfg.Cond = func(k, v []byte) bool {
-			return true
-		}
-	}
-	_, values, err := sdb.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
-		}
-		return sdb.currentChainHeight, nil, err
+		return 0, nil, err
 	}
 
 	return sdb.currentChainHeight, state.NewIterator(values), nil
@@ -504,9 +454,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	g := genesis.MustExtractGenesisContext(ctx)
-	preEaster := !g.IsEaster(height)
+func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {

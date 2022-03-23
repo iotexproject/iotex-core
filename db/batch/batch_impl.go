@@ -9,7 +9,6 @@ package batch
 import (
 	"sync"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 )
 
@@ -29,8 +28,8 @@ type (
 		tag          int            // latest snapshot + 1
 		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
 		caches       []KVStoreCache // snapshots of cache
-		keyTags      map[hash.Hash160][]int
-		tagKeys      [][]hash.Hash160
+		keyTags      map[kvCacheKey][]int
+		tagKeys      [][]kvCacheKey
 	}
 )
 
@@ -188,13 +187,12 @@ func (b *baseKVStoreBatch) truncate(size int) {
 
 // NewCachedBatch returns a new cached batch buffer
 func NewCachedBatch() CachedBatch {
-	return &cachedBatch{
+	cb := &cachedBatch{
 		kvStoreBatch: newBaseKVStoreBatch(),
-		batchShots:   make([]int, 0),
-		caches:       []KVStoreCache{NewKVCache()},
-		keyTags:      map[hash.Hash160][]int{},
-		tagKeys:      [][]hash.Hash160{{}},
 	}
+	cb.clear()
+
+	return cb
 }
 
 func (cb *cachedBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
@@ -235,16 +233,14 @@ func (cb *cachedBatch) currentCache() KVStoreCache {
 
 func (cb *cachedBatch) clear() {
 	cb.kvStoreBatch.Clear()
-	// clear all saved snapshots
 	cb.tag = 0
-	cb.batchShots = nil
 	cb.batchShots = make([]int, 0)
 	cb.caches = []KVStoreCache{NewKVCache()}
-	cb.keyTags = map[hash.Hash160][]int{}
-	cb.tagKeys = [][]hash.Hash160{{}}
+	cb.keyTags = map[kvCacheKey][]int{}
+	cb.tagKeys = [][]kvCacheKey{{}}
 }
 
-func (cb *cachedBatch) touchKey(h hash.Hash160) {
+func (cb *cachedBatch) touchKey(h kvCacheKey) {
 	tags, ok := cb.keyTags[h]
 	if !ok {
 		cb.keyTags[h] = []int{cb.tag}
@@ -263,7 +259,7 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
-	cb.currentCache().Write(h, value)
+	cb.currentCache().Write(&h, value)
 	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
@@ -273,7 +269,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
-	cb.currentCache().Evict(h)
+	cb.currentCache().Evict(&h)
 	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
@@ -293,7 +289,7 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	err := ErrNotExist
 	if tags, ok := cb.keyTags[h]; ok {
 		for i := len(tags) - 1; i >= 0; i-- {
-			v, err = cb.caches[tags[i]].Read(h)
+			v, err = cb.caches[tags[i]].Read(&h)
 			if errors.Cause(err) == ErrNotExist {
 				continue
 			}
@@ -311,12 +307,11 @@ func (cb *cachedBatch) Snapshot() int {
 	// save a copy of current batch/cache
 	cb.batchShots = append(cb.batchShots, cb.kvStoreBatch.Size())
 	cb.caches = append(cb.caches, NewKVCache())
-	cb.tagKeys = append(cb.tagKeys, []hash.Hash160{})
+	cb.tagKeys = append(cb.tagKeys, []kvCacheKey{})
 	return cb.tag
 }
 
-// Revert sets the cached batch to the state at the given snapshot
-func (cb *cachedBatch) Revert(snapshot int) error {
+func (cb *cachedBatch) RevertSnapshot(snapshot int) error {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	// throw error if the snapshot number does not exist
@@ -338,8 +333,31 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 		}
 	}
 	cb.tagKeys = cb.tagKeys[:cb.tag+1]
-	cb.tagKeys[cb.tag] = []hash.Hash160{}
+	cb.tagKeys[cb.tag] = []kvCacheKey{}
 	return nil
+}
+
+func (cb *cachedBatch) ResetSnapshots() {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+
+	cb.tag = 0
+	cb.batchShots = nil
+	cb.batchShots = make([]int, 0)
+	if len(cb.caches) > 1 {
+		if err := cb.caches[0].Append(cb.caches[1:]...); err != nil {
+			panic(errors.Wrap(err, "failed to reset snapshots"))
+		}
+		cb.caches = cb.caches[:1]
+	}
+	keys := make([]kvCacheKey, 0, len(cb.keyTags))
+	for key := range cb.keyTags {
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
+		cb.keyTags[key] = []int{0}
+	}
+	cb.tagKeys = [][]kvCacheKey{keys}
 }
 
 func (cb *cachedBatch) CheckFillPercent(ns string) (float64, bool) {
@@ -350,6 +368,6 @@ func (cb *cachedBatch) AddFillPercent(ns string, percent float64) {
 	cb.kvStoreBatch.AddFillPercent(ns, percent)
 }
 
-func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
-	return hash.Hash160b(append([]byte(namespace), key...))
+func (cb *cachedBatch) hash(namespace string, key []byte) kvCacheKey {
+	return kvCacheKey{namespace, string(key)}
 }

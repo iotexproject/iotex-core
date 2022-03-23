@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -103,6 +102,7 @@ type (
 		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
+		ps                       *patchStore
 	}
 )
 
@@ -157,23 +157,12 @@ func SkipBlockValidationOption() Option {
 	}
 }
 
-func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
-	dbForTrie, err := trie.NewKVStore(ns, dao)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create db for trie")
+// DefaultTriePatchOption loads patchs
+func DefaultTriePatchOption() Option {
+	return func(sf *factory, cfg config.Config) (err error) {
+		sf.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
+		return
 	}
-	_, err = dbForTrie.Get([]byte(rootKey))
-	switch errors.Cause(err) {
-	case trie.ErrNotExist:
-		if !create {
-			return nil, err
-		}
-	case nil:
-		break
-	default:
-		return nil, err
-	}
-	return mptrie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }
 
 // NewFactory creates a new state factory
@@ -281,122 +270,38 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	span.AddEvent("factory.newWorkingSet")
 	defer span.End()
 
-	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sf.dao,
+		batch.NewCachedBatch(),
+		sf.flusherOptions(!g.IsEaster(height))...,
+	)
 	if err != nil {
 		return nil, err
 	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
+	store, err := newFactoryWorkingSetStore(sf.protocolView, flusher)
 	if err != nil {
 		return nil, err
 	}
-	if err := tlt.Start(ctx); err != nil {
+	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
-	finalized := false
-	trieRoots := make(map[int][]byte)
+	for _, p := range sf.ps.Get(height) {
+		if p.Type == _Delete {
+			if err := store.Delete(p.Namespace, p.Key); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := store.Put(p.Namespace, p.Key, p.Value); err != nil {
+				return nil, err
+			}
+		}
+	}
 
-	return &workingSet{
-		height:    height,
-		finalized: false,
-		dock:      protocol.NewDock(),
-		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			return readState(tlt, ns, key, s)
-		},
-		putStateFunc: func(ns string, key []byte, s interface{}) error {
-			ss, err := state.Serialize(s)
-			if err != nil {
-				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
-			}
-			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-			nsHash := hash.Hash160b([]byte(ns))
-
-			return tlt.Upsert(nsHash[:], toLegacyKey(key), ss)
-		},
-		delStateFunc: func(ns string, key []byte) error {
-			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-			nsHash := hash.Hash160b([]byte(ns))
-
-			err := tlt.Delete(nsHash[:], toLegacyKey(key))
-			if errors.Cause(err) == trie.ErrNotExist {
-				return errors.Wrapf(state.ErrStateNotExist, "key %x doesn't exist in namespace %x", key, nsHash)
-			}
-			return err
-		},
-		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-			return sf.States(opts...)
-		},
-		digestFunc: func() hash.Hash256 {
-			return hash.Hash256b(flusher.SerializeQueue())
-		},
-		finalizeFunc: func(h uint64) error {
-			if finalized {
-				return errors.New("Cannot finalize a working set twice")
-			}
-			rootHash, err := tlt.RootHash()
-			if err != nil {
-				return err
-			}
-			finalized = true
-			flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h))
-			flusher.KVStoreWithBuffer().MustPut(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey), rootHash)
-			// Persist the historical accountTrie's root hash
-			flusher.KVStoreWithBuffer().MustPut(
-				ArchiveTrieNamespace,
-				[]byte(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, h)),
-				rootHash,
-			)
-			return nil
-		},
-		commitFunc: func(h uint64) error {
-			dbBatchSizelMtc.WithLabelValues().Set(float64(flusher.KVStoreWithBuffer().Size()))
-			if err := flusher.Flush(); err != nil {
-				return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
-			}
-			rh, err := tlt.RootHash()
-			if err != nil {
-				return err
-			}
-			if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
-				return err
-			}
-			sf.currentChainHeight = h
-			return nil
-		},
-		readviewFunc: func(name string) (interface{}, error) {
-			return sf.ReadView(name)
-		},
-		writeviewFunc: func(name string, v interface{}) error {
-			return sf.protocolView.Write(name, v)
-		},
-		snapshotFunc: func() int {
-			rh, err := tlt.RootHash()
-			if err != nil {
-				log.L().Panic("failed to do snapshot", zap.Error(err))
-			}
-			s := flusher.KVStoreWithBuffer().Snapshot()
-			trieRoots[s] = rh
-			return s
-		},
-		revertFunc: func(snapshot int) error {
-			if err := flusher.KVStoreWithBuffer().Revert(snapshot); err != nil {
-				return err
-			}
-			root, ok := trieRoots[snapshot]
-			if !ok {
-				// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
-				return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
-			}
-			return tlt.SetRootHash(root[:])
-		},
-		dbFunc: func() db.KVStore {
-			return flusher.KVStoreWithBuffer()
-		},
-	}, nil
+	return newWorkingSet(height, store), nil
 }
 
-func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	g := genesis.MustExtractGenesisContext(ctx)
-	preEaster := !g.IsEaster(height)
+func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
 			if wi.Namespace() == ArchiveTrieNamespace {
@@ -577,7 +482,19 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return ws.Commit(ctx)
+	if err := ws.Commit(ctx); err != nil {
+		return err
+	}
+	rh, err := sf.dao.Get(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey))
+	if err != nil {
+		return err
+	}
+	if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
+		return err
+	}
+	sf.currentChainHeight = h
+
+	return nil
 }
 
 func (sf *factory) DeleteTipBlock(_ *block.Block) error {
@@ -591,6 +508,9 @@ func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return err
+	}
+	if cfg.Keys != nil {
+		return errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
 	if height > sf.currentChainHeight {
 		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
@@ -616,6 +536,9 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	if err != nil {
 		return 0, err
 	}
+	if cfg.Keys != nil {
+		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+	}
 	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -638,17 +561,9 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.Cond == nil {
-		cfg.Cond = func(k, v []byte) bool {
-			return true
-		}
-	}
-	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	values, err := readStates(sf.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
-			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
-		}
-		return sf.currentChainHeight, nil, err
+		return 0, nil, err
 	}
 
 	return sf.currentChainHeight, state.NewIterator(values), nil
@@ -672,22 +587,26 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
+func readState(tlt trie.TwoLayerTrie, ns string, key []byte) ([]byte, error) {
 	ltKey := toLegacyKey(key)
 	data, err := tlt.Get(namespaceKey(ns), ltKey)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+			return nil, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
 		}
-		return err
+		return nil, err
 	}
 
-	return state.Deserialize(s, data)
+	return data, nil
 }
 
 func toLegacyKey(input []byte) []byte {
 	key := hash.Hash160b(input)
 	return key[:]
+}
+
+func legacyKeyLen() int {
+	return 20
 }
 
 func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
@@ -703,7 +622,11 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	}
 	defer tlt.Stop(context.Background())
 
-	return readState(tlt, ns, key, s)
+	value, err := readState(tlt, ns, key)
+	if err != nil {
+		return err
+	}
+	return state.Deserialize(s, value)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {

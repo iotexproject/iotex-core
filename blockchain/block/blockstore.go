@@ -41,15 +41,16 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 
 // FromProto converts from proto message
 func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	in.Block = &Block{}
-	if err := in.Block.ConvertFromBlockPb(pb.Block); err != nil {
+	blk, err := (&Deserializer{}).FromBlockProto(pb.Block)
+	if err != nil {
 		return err
 	}
 	// verify merkle root can match after deserialize
-	if err := in.Block.VerifyTxRoot(); err != nil {
+	if err := blk.VerifyTxRoot(); err != nil {
 		return err
 	}
 
+	in.Block = blk
 	in.Receipts = []*action.Receipt{}
 	for _, receiptPb := range pb.Receipts {
 		receipt := &action.Receipt{}

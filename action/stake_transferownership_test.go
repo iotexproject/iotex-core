@@ -61,7 +61,7 @@ func TestStakingTransferSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("74b2e1d6a09ba5d1298fa422d5850991ae516865077282196295a38f93c78b85", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(Verify(selp))
+	require.NoError(selp.VerifySignature())
 }
 
 func TestStakingTransferABIEncodeAndDecode(t *testing.T) {

@@ -63,7 +63,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				if err != nil {
 					return errors.Wrapf(err, "crypto file of account #%s not found", addr)
 				}
-				if err = readSecretAndUpdate(client, acc,
+				if err = readSecretAndUpdate(client, cmd, acc,
 					func(currentPassword string) error {
 						_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
 						if err != nil {
@@ -85,7 +85,7 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 				ks := client.NewKeyStore()
 				for _, v := range ks.Accounts() {
 					if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
-						if err = readSecretAndUpdate(client, acc,
+						if err = readSecretAndUpdate(client, cmd, acc,
 							func(currentPassword string) error {
 								_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 								if err != nil {
@@ -105,16 +105,16 @@ func NewAccountUpdate(client ioctl.Client) *cobra.Command {
 					}
 				}
 			}
-			client.PrintInfo(fmt.Sprintf("Account #%s has been updated.", acc))
+			cmd.Println(fmt.Sprintf("Account #%s has been updated.", acc))
 			return nil
 		},
 	}
 }
 
-func readSecretAndUpdate(client ioctl.Client, acc string,
+func readSecretAndUpdate(client ioctl.Client, cmd *cobra.Command, acc string,
 	checkPwdFunc func(currentPassword string) error,
 	updatePwdFunc func(currentPassword, newPassword string) error) error {
-	client.PrintInfo(fmt.Sprintf("#%s: Enter current password\n", acc))
+	cmd.Println(fmt.Sprintf("#%s: Enter current password\n", acc))
 	currentPassword, err := client.ReadSecret()
 	if err != nil {
 		return errors.Wrap(err, "failed to get current password")
@@ -122,12 +122,12 @@ func readSecretAndUpdate(client ioctl.Client, acc string,
 	if err = checkPwdFunc(currentPassword); err != nil {
 		return err
 	}
-	client.PrintInfo(fmt.Sprintf("#%s: Enter new password\n", acc))
+	cmd.Println(fmt.Sprintf("#%s: Enter new password\n", acc))
 	newPassword, err := client.ReadSecret()
 	if err != nil {
 		return errors.Wrap(err, "failed to get new password")
 	}
-	client.PrintInfo(fmt.Sprintf("#%s: Enter new password again\n", acc))
+	cmd.Println(fmt.Sprintf("#%s: Enter new password again\n", acc))
 	newPasswordAgain, err := client.ReadSecret()
 	if err != nil {
 		return errors.Wrap(err, "failed to get new password")

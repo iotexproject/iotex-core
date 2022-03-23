@@ -14,6 +14,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -27,6 +28,7 @@ var (
 
 // BoltDB is KVStore implementation based bolt DB
 type BoltDB struct {
+	lifecycle.Readiness
 	db     *bolt.DB
 	path   string
 	config Config
@@ -48,22 +50,23 @@ func (b *BoltDB) Start(_ context.Context) error {
 		return errors.Wrap(ErrIO, err.Error())
 	}
 	b.db = db
-	return nil
+	return b.TurnOn()
 }
 
 // Stop closes the BoltDB
 func (b *BoltDB) Stop(_ context.Context) error {
-	if b.db != nil {
-		if err := b.db.Close(); err != nil {
-			return errors.Wrap(ErrIO, err.Error())
-		}
+	if err := b.TurnOff(); err != nil {
+		return err
+	}
+	if err := b.db.Close(); err != nil {
+		return errors.Wrap(ErrIO, err.Error())
 	}
 	return nil
 }
 
 // Put inserts a <key, value> record
 func (b *BoltDB) Put(namespace string, key, value []byte) (err error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 
@@ -86,7 +89,7 @@ func (b *BoltDB) Put(namespace string, key, value []byte) (err error) {
 
 // Get retrieves a record
 func (b *BoltDB) Get(namespace string, key []byte) ([]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, ErrDBNotStarted
 	}
 
@@ -116,7 +119,7 @@ func (b *BoltDB) Get(namespace string, key []byte) ([]byte, error) {
 
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (b *BoltDB) Filter(namespace string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, nil, ErrDBNotStarted
 	}
 
@@ -166,7 +169,7 @@ func (b *BoltDB) Filter(namespace string, cond Condition, minKey, maxKey []byte)
 
 // Range retrieves values for a range of keys
 func (b *BoltDB) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, ErrDBNotStarted
 	}
 
@@ -204,7 +207,7 @@ func (b *BoltDB) Range(namespace string, key []byte, count uint64) ([][]byte, er
 
 // GetBucketByPrefix retrieves all bucket those with const namespace prefix
 func (b *BoltDB) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, ErrDBNotStarted
 	}
 
@@ -227,7 +230,7 @@ func (b *BoltDB) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
 
 // GetKeyByPrefix retrieves all keys those with const prefix
 func (b *BoltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, ErrDBNotStarted
 	}
 
@@ -250,7 +253,7 @@ func (b *BoltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
 
 // Delete deletes a record,if key is nil,this will delete the whole bucket
 func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 
@@ -284,7 +287,7 @@ func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
 
 // WriteBatch commits a batch
 func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 
@@ -337,8 +340,8 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 
 // BucketExists returns true if bucket exists
 func (b *BoltDB) BucketExists(namespace string) bool {
-	if b.db == nil {
-		log.L().Debug("db hasn't started, unable to check if bucket exists")
+	if !b.IsReady() {
+		log.L().Debug(ErrDBNotStarted.Error())
 		return false
 	}
 
@@ -359,7 +362,7 @@ func (b *BoltDB) BucketExists(namespace string) bool {
 
 // Insert inserts a value into the index
 func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 
@@ -398,7 +401,7 @@ func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
 
 // SeekNext returns value by the key (if key not exist, use next key)
 func (b *BoltDB) SeekNext(name []byte, key uint64) ([]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, ErrDBNotStarted
 	}
 
@@ -423,7 +426,7 @@ func (b *BoltDB) SeekNext(name []byte, key uint64) ([]byte, error) {
 
 // SeekPrev returns value by the key (if key not exist, use previous key)
 func (b *BoltDB) SeekPrev(name []byte, key uint64) ([]byte, error) {
-	if b.db == nil {
+	if !b.IsReady() {
 		return nil, ErrDBNotStarted
 	}
 
@@ -448,7 +451,7 @@ func (b *BoltDB) SeekPrev(name []byte, key uint64) ([]byte, error) {
 
 // Remove removes an existing key
 func (b *BoltDB) Remove(name []byte, key uint64) error {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 
@@ -484,7 +487,7 @@ func (b *BoltDB) Remove(name []byte, key uint64) error {
 
 // Purge deletes an existing key and all keys before it
 func (b *BoltDB) Purge(name []byte, key uint64) error {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 
@@ -521,7 +524,7 @@ func (b *BoltDB) Purge(name []byte, key uint64) error {
 
 // intentionally fail to test DB can successfully rollback
 func (b *BoltDB) batchPutForceFail(namespace string, key [][]byte, value [][]byte) error {
-	if b.db == nil {
+	if !b.IsReady() {
 		return ErrDBNotStarted
 	}
 

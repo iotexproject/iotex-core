@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -33,7 +33,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 			Core: &iotextypes.BlockHeaderCore{
 				Version:   version.ProtocolVersion,
 				Height:    123456789,
-				Timestamp: ptypes.TimestampNow(),
+				Timestamp: timestamppb.Now(),
 			},
 			ProducerPubkey: pubKey.Bytes(),
 		},

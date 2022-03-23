@@ -6,78 +6,117 @@
 
 package batch
 
-import (
-	"github.com/iotexproject/go-pkgs/hash"
-)
-
 type (
 	// KVStoreCache is a local cache of batched <k, v> for fast query
 	KVStoreCache interface {
 		// Read retrieves a record
-		Read(hash160 hash.Hash160) ([]byte, error)
+		Read(*kvCacheKey) ([]byte, error)
 		// Write puts a record into cache
-		Write(hash.Hash160, []byte)
+		Write(*kvCacheKey, []byte)
 		// WriteIfNotExist puts a record into cache only if it doesn't exist, otherwise return ErrAlreadyExist
-		WriteIfNotExist(hash.Hash160, []byte) error
+		WriteIfNotExist(*kvCacheKey, []byte) error
 		// Evict deletes a record from cache
-		Evict(hash.Hash160)
+		Evict(*kvCacheKey)
 		// Clear clear the cache
 		Clear()
+		// Append appends caches
+		Append(...KVStoreCache) error
+	}
+
+	// kvCacheKey is the key for 2D Map cache
+	kvCacheKey struct {
+		key1 string
+		key2 string
+	}
+
+	node struct {
+		value   []byte
+		deleted bool
 	}
 
 	// kvCache implements KVStoreCache interface
 	kvCache struct {
-		cache   map[hash.Hash160][]byte // local cache of batched <k, v> for fast query
-		deleted map[hash.Hash160]struct{}
+		cache map[string]map[string]*node // local cache of batched <k, v> for fast query
 	}
 )
 
 // NewKVCache returns a KVCache
 func NewKVCache() KVStoreCache {
-	c := kvCache{
-		cache:   make(map[hash.Hash160][]byte),
-		deleted: make(map[hash.Hash160]struct{}),
+	return &kvCache{
+		cache: make(map[string]map[string]*node),
 	}
-	return &c
 }
 
 // Read retrieves a record
-func (c *kvCache) Read(k hash.Hash160) ([]byte, error) {
-	if v, ok := c.cache[k]; ok {
-		return v, nil
-	}
-	if _, ok := c.deleted[k]; ok {
-		return nil, ErrAlreadyDeleted
+func (c *kvCache) Read(key *kvCacheKey) ([]byte, error) {
+	if ns, ok := c.cache[key.key1]; ok {
+		if node, ok := ns[key.key2]; ok {
+			if node.deleted {
+				return nil, ErrAlreadyDeleted
+			}
+			return node.value, nil
+		}
 	}
 	return nil, ErrNotExist
 }
 
 // Write puts a record into cache
-func (c *kvCache) Write(k hash.Hash160, v []byte) {
-	c.cache[k] = v
-	delete(c.deleted, k)
+func (c *kvCache) Write(key *kvCacheKey, v []byte) {
+	if _, ok := c.cache[key.key1]; !ok {
+		c.cache[key.key1] = make(map[string]*node)
+	}
+	c.cache[key.key1][key.key2] = &node{
+		value:   v,
+		deleted: false,
+	}
 }
 
 // WriteIfNotExist puts a record into cache only if it doesn't exist, otherwise return ErrAlreadyExist
-func (c *kvCache) WriteIfNotExist(k hash.Hash160, v []byte) error {
-	if _, ok := c.cache[k]; ok {
+func (c *kvCache) WriteIfNotExist(key *kvCacheKey, v []byte) error {
+	if _, ok := c.cache[key.key1]; !ok {
+		c.cache[key.key1] = make(map[string]*node)
+	}
+	if node, ok := c.cache[key.key1][key.key2]; ok && !node.deleted {
 		return ErrAlreadyExist
 	}
-	c.cache[k] = v
-	delete(c.deleted, k)
+	c.cache[key.key1][key.key2] = &node{
+		value:   v,
+		deleted: false,
+	}
 	return nil
 }
 
 // Evict deletes a record from cache
-func (c *kvCache) Evict(k hash.Hash160) {
-	delete(c.cache, k)
-	c.deleted[k] = struct{}{}
+func (c *kvCache) Evict(key *kvCacheKey) {
+	if _, ok := c.cache[key.key1]; !ok {
+		c.cache[key.key1] = make(map[string]*node)
+	}
+	c.cache[key.key1][key.key2] = &node{
+		value:   nil,
+		deleted: true,
+	}
 }
 
 // Clear clear the cache
 func (c *kvCache) Clear() {
-	c.cache = nil
-	c.deleted = nil
-	c.cache = make(map[hash.Hash160][]byte)
-	c.deleted = make(map[hash.Hash160]struct{})
+	c.cache = make(map[string]map[string]*node)
+}
+
+func (c *kvCache) Append(caches ...KVStoreCache) error {
+	// c should be written in order
+	for _, cc := range caches {
+		cc, ok := cc.(*kvCache)
+		if !ok {
+			return ErrUnexpectedType
+		}
+		for key1, ns := range cc.cache {
+			if _, ok := c.cache[key1]; !ok {
+				c.cache[key1] = make(map[string]*node)
+			}
+			for key2, node := range ns {
+				c.cache[key1][key2] = node
+			}
+		}
+	}
+	return nil
 }

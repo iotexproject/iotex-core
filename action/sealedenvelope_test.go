@@ -36,6 +36,10 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 	req.Equal(signByte, se.Signature())
 	req.Zero(se.Encoding())
 
+	var se1 SealedEnvelope
+	se.signature = validSig
+	req.NoError(se1.LoadProto(se.Proto()))
+	req.Equal(se, se1)
 }
 
 func TestSealedEnvelope_InvalidType(t *testing.T) {
@@ -102,13 +106,14 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 			SetAction(test).
 			SetGasLimit(100000).Build()
 		selp := FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
-		rlp, err := actionToRLP(selp.Action())
-
+		act, ok := selp.Action().(EthCompatibleAction)
+		require.True(ok)
+		rlp, err := act.ToEthTx()
 		require.NoError(err)
 
 		require.Equal(elp.Nonce(), rlp.Nonce())
 		require.Equal(elp.GasPrice(), rlp.GasPrice())
-		require.Equal(elp.GasLimit(), rlp.GasLimit())
+		require.Equal(elp.GasLimit(), rlp.Gas())
 	}
 }
 
@@ -168,6 +173,7 @@ func createSealedEnvelope() (SealedEnvelope, error) {
 		Build()
 
 	cPubKey, err := crypto.HexStringToPublicKey(publicKey)
+	tsf.srcPubkey = cPubKey
 	se := SealedEnvelope{}
 	se.Envelope = evlp
 	se.srcPubkey = cPubKey

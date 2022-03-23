@@ -65,15 +65,14 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			aliases := client.AliasMap()
 
 			if err := validator.ValidateAlias(args[0]); err != nil {
 				return errors.Wrap(err, invalidAlias)
 			}
 
-			if addr, ok := aliases[args[0]]; ok {
+			if addr, ok := client.Config().Aliases[args[0]]; ok {
 				if !client.AskToConfirm(fmt.Sprintf(aliasHasAlreadyUsed, args[0], addr)) {
-					client.PrintInfo(infoQuit)
+					cmd.Println(infoQuit)
 					return nil
 				}
 			}
@@ -81,20 +80,20 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 			var addr string
 			var err error
 			if client.IsCryptoSm2() {
-				addr, err = newAccountSm2(client, args[0])
+				addr, err = newAccountSm2(client, cmd, args[0])
 				if err != nil {
 					return errors.Wrap(err, failToGenerateNewPrivateKey)
 				}
 			} else {
-				addr, err = newAccount(client, args[0])
+				addr, err = newAccount(client, cmd, args[0])
 				if err != nil {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			if err := client.SetAlias(aliases[args[0]], addr); err != nil {
+			if err := client.SetAlias(args[0], addr); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile)
 			}
-			client.PrintInfo(fmt.Sprintf(outputMessage, args[0]))
+			cmd.Println(fmt.Sprintf(outputMessage, args[0]))
 			return nil
 		},
 	}

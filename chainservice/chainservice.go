@@ -133,7 +133,12 @@ func New(
 			}
 			sf, err = factory.NewStateDB(cfg, opts...)
 		} else {
-			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+			sf, err = factory.NewFactory(
+				cfg,
+				factory.DefaultTrieOption(),
+				factory.RegistryOption(registry),
+				factory.DefaultTriePatchOption(),
+			)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
@@ -505,12 +510,12 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	var act action.SealedEnvelope
-	if err := act.LoadProto(actPb); err != nil {
+	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	if err != nil {
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err := cs.actpool.Add(ctx, act)
+	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
@@ -519,11 +524,11 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	if err != nil {
 		return err
 	}
-	ctx, err := cs.chain.Context(ctx)
+	ctx, err = cs.chain.Context(ctx)
 	if err != nil {
 		return err
 	}

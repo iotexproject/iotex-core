@@ -33,7 +33,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 
-		require.NoError(Verify(selp))
+		require.NoError(selp.VerifySignature())
 
 		nselp := &SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
@@ -55,18 +55,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 
 		selp.srcPubkey = nil
 
-		require.EqualError(Verify(selp), "empty public key")
-	})
-	t.Run("gas limit too low", func(t *testing.T) {
-		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetGasLimit(uint64(1000)).
-			SetAction(v).Build()
-
-		selp, err := Sign(elp, identityset.PrivateKey(28))
-		require.NoError(err)
-
-		require.Equal(ErrIntrinsicGas, errors.Cause(Verify(selp)))
+		require.EqualError(selp.VerifySignature(), "empty public key")
 	})
 	t.Run("invalid signature", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
@@ -77,7 +66,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		selp.signature = []byte("invalid signature")
-		require.Equal(ErrInvalidSender, errors.Cause(Verify(selp)))
+		require.Equal(ErrInvalidSender, errors.Cause(selp.VerifySignature()))
 	})
 }
 

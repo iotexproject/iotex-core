@@ -130,10 +130,10 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 // LoadProto loads fields from protobuf format.
 func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if elp == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*elp = envelope{}
 	elp.version = pbAct.GetVersion()

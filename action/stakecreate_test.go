@@ -118,7 +118,7 @@ func TestCreateStake(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.SelpHash, hex.EncodeToString(hash[:]))
 		// verify signature
-		require.NoError(Verify(selp))
+		require.NoError(selp.VerifySignature())
 	}
 
 }
