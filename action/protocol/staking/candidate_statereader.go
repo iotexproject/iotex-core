@@ -7,11 +7,14 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
@@ -36,10 +39,23 @@ type (
 		getCandidate(name address.Address) (*Candidate, uint64, error)
 		getAllCandidates() (CandidateList, uint64, error)
 	}
+	// ReadState related to
+	ReadState interface {
+		readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error)
+		readStateBucketsByVoter(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, uint64, error)
+		readStateBucketsByCandidate(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error)
+		readStateBucketByIndices(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, uint64, error)
+		readStateBucketCount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error)
+		readStateCandidates(ctx context.Context, req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error)
+		readStateCandidateByName(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error)
+		readStateCandidateByAddress(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, uint64, error)
+		readStateTotalStakingAmount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error)
+	}
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
 		BucketGet
 		CandidateGet
+		ReadState
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
@@ -299,4 +315,139 @@ func (c *candSR) addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
 	key[0] = prefix
 	copy(key[1:], k)
 	return key
+}
+
+func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
+	// all, height, err := srToCsr(sr).getAllBuckets()
+	all, height, err := c.getAllBuckets()
+	if err != nil {
+		return nil, height, err
+	}
+
+	offset := int(req.GetPagination().GetOffset())
+	limit := int(req.GetPagination().GetLimit())
+	buckets := getPageOfBuckets(all, offset, limit)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	return pbBuckets, height, err
+}
+
+func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, uint64, error) {
+	voter, err := address.FromString(req.GetVoterAddress())
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// csr := srToCsr(sr)
+	indices, height, err := getVoterBucketIndices(c, voter)
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return &iotextypes.VoteBucketList{}, height, nil
+	}
+	if indices == nil || err != nil {
+		return nil, height, err
+	}
+	buckets, err := c.getBucketsWithIndices(*indices)
+	if err != nil {
+		return nil, height, err
+	}
+
+	offset := int(req.GetPagination().GetOffset())
+	limit := int(req.GetPagination().GetLimit())
+	buckets = getPageOfBuckets(buckets, offset, limit)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	return pbBuckets, height, err
+}
+
+func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
+	cand := c.GetCandidateByName(req.GetCandName())
+	if c == nil {
+		return &iotextypes.VoteBucketList{}, 0, nil
+	}
+
+	indices, height, err := getCandBucketIndices(c, cand.Owner)
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return &iotextypes.VoteBucketList{}, height, nil
+	}
+	if indices == nil || err != nil {
+		return nil, height, err
+	}
+	buckets, err := c.getBucketsWithIndices(*indices)
+	if err != nil {
+		return nil, height, err
+	}
+
+	offset := int(req.GetPagination().GetOffset())
+	limit := int(req.GetPagination().GetLimit())
+	buckets = getPageOfBuckets(buckets, offset, limit)
+	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	return pbBuckets, height, err
+}
+
+func (c *candSR) readStateBucketByIndices(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, uint64, error) {
+	height, err := c.SR().Height()
+	if err != nil {
+		return &iotextypes.VoteBucketList{}, height, err
+	}
+	buckets, err := c.getBucketsWithIndices(BucketIndices(req.GetIndex()))
+	if err != nil {
+		return nil, height, err
+	}
+	pbBuckets, err := toIoTeXTypesVoteBucketList(buckets)
+	return pbBuckets, height, err
+}
+
+func (c *candSR) readStateBucketCount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
+	total, err := c.getTotalBucketCount()
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return &iotextypes.BucketsCount{}, c.Height(), nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	active, h, err := getActiveBucketsCount(ctx, c)
+	if err != nil {
+		return nil, h, err
+	}
+	return &iotextypes.BucketsCount{
+		Total:  total,
+		Active: active,
+	}, h, nil
+}
+
+func (c *candSR) readStateCandidates(ctx context.Context, req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
+	offset := int(req.GetPagination().GetOffset())
+	limit := int(req.GetPagination().GetLimit())
+	candidates := getPageOfCandidates(c.AllCandidates(), offset, limit)
+
+	return toIoTeXTypesCandidateListV2(candidates), c.Height(), nil
+}
+
+func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
+	cand := c.GetCandidateByName(req.GetCandName())
+	if c == nil {
+		return &iotextypes.CandidateV2{}, c.Height(), nil
+	}
+	return cand.toIoTeXTypes(), c.Height(), nil
+}
+
+func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, uint64, error) {
+	owner, err := address.FromString(req.GetOwnerAddr())
+	if err != nil {
+		return nil, 0, err
+	}
+	cand := c.GetCandidateByOwner(owner)
+	if c == nil {
+		return &iotextypes.CandidateV2{}, c.Height(), nil
+	}
+	return cand.toIoTeXTypes(), c.Height(), nil
+}
+
+func (c *candSR) readStateTotalStakingAmount(ctx context.Context, _ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
+	meta := iotextypes.AccountMeta{}
+	meta.Address = address.StakingBucketPoolAddr
+	total, h, err := getTotalStakedAmount(ctx, c)
+	if err != nil {
+		return nil, h, err
+	}
+	meta.Balance = total.String()
+	return &meta, h, nil
 }

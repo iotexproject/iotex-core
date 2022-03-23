@@ -434,26 +434,26 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
 		}
-		resp, height, err = readStateBuckets(ctx, sr, r.GetBuckets())
+		resp, height, err = csr.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+		resp, height, err = csr.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = readStateBucketsByCandidate(ctx, csr, r.GetBucketsByCandidate())
+		resp, height, err = csr.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+		resp, height, err = csr.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
-		resp, height, err = readStateBucketCount(ctx, csr, r.GetBucketsCount())
+		resp, height, err = csr.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
 		}
-		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
+		resp, height, err = csr.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
+		resp, height, err = csr.readStateCandidateByName(ctx, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
+		resp, height, err = csr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = readStateTotalStakingAmount(ctx, csr, r.GetTotalStakingAmount())
+		resp, height, err = csr.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
