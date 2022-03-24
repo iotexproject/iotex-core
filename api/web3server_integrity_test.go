@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -63,17 +64,18 @@ func TestGetBlockByNumberIntegrity(t *testing.T) {
 	defer cleanCallback()
 
 	testData := []struct {
-		data     []interface{}
+		data     string
 		expected int
 	}{
-		{[]interface{}{"1", true}, 1},
-		{[]interface{}{"1", false}, 2},
-		{[]interface{}{"10", false}, 0},
+		{`{"params": ["1", true]}`, 1},
+		{`{"params": ["1", false]}`, 2},
+		{`{"params": ["10", false]}`, 0},
 	}
 
 	for i, v := range testData {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
-			ret, err := svr.web3Server.getBlockByNumber(v.data)
+			data := gjson.Parse(v.data)
+			ret, err := svr.web3Server.getBlockByNumber(&data)
 			require.NoError(err)
 			if v.expected == 0 {
 				require.Nil(ret)
@@ -91,8 +93,8 @@ func TestGetBalanceIntegrity(t *testing.T) {
 	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	testData := []interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1}
-	ret, _ := svr.web3Server.getBalance(testData)
+	testData := gjson.Parse(`{"params": ["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
+	ret, _ := svr.web3Server.getBalance(&testData)
 	ans, _ := new(big.Int).SetString("9999999999999999999999999991", 10)
 	require.Equal("0x"+fmt.Sprintf("%x", ans), ret)
 }
@@ -103,16 +105,17 @@ func TestGetTransactionCountIntegrity(t *testing.T) {
 	defer cleanCallback()
 
 	testData := []struct {
-		data     []interface{}
+		data     string
 		expected int
 	}{
-		{[]interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"}, 2},
-		{[]interface{}{"0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"}, 2},
+		{`{"params": ["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]}`, 2},
+		{`{"params": ["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"]}`, 2},
 	}
 
 	for i, v := range testData {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
-			ret, _ := svr.web3Server.getTransactionCount(v.data)
+			data := gjson.Parse(v.data)
+			ret, _ := svr.web3Server.getTransactionCount(&data)
 			require.Equal(uint64ToHex(uint64(v.expected)), ret)
 		})
 	}
@@ -124,37 +127,35 @@ func TestCallIntegrity(t *testing.T) {
 	defer cleanCallback()
 
 	testData := []struct {
-		data []interface{}
+		data string
 	}{
 		{
-			[]interface{}{
-				map[string]interface{}{
-					"from":     "",
-					"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
-					"gas":      "0x4e20",
-					"gasPrice": "0xe8d4a51000",
-					"value":    "0x1",
-					"data":     "0x1"},
-				1},
+			`{"params": [{
+				"from":     "",
+				"to":       "0x7c13866F9253DEf79e20034eDD011e1d69E67fe5",
+				"gas":      "0x4e20",
+				"gasPrice": "0xe8d4a51000",
+				"value":    "0x1",
+				"data":     "0x1"},
+			1]}`,
 		},
 		{
-			[]interface{}{
-				map[string]interface{}{
-					"from":     "",
-					"to":       "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39",
-					"gas":      "0x4e20",
-					"gasPrice": "0xe8d4a51000",
-					"value":    "0x1",
-					"data":     "0x1"},
-				1},
+			`{"params": [{
+				"from":     "",
+				"to":       "0xb1f8e55c7f64d203c1400b9d8555d050f94adf39",
+				"gas":      "0x4e20",
+				"gasPrice": "0xe8d4a51000",
+				"value":    "0x1",
+				"data":     "0x1"},
+			1]}`,
 		},
 	}
 
 	for i, v := range testData {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
-			ret, err := svr.web3Server.call(v.data)
+			data := gjson.Parse(v.data)
+			_, err := svr.web3Server.call(&data)
 			require.NoError(err)
-			fmt.Println(ret)
 		})
 	}
 }
@@ -172,50 +173,48 @@ func TestEstimateGasIntegrity(t *testing.T) {
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(28).String())
 	contractAddr, _ := ioAddrToEthAddr(contract)
 	testData := []struct {
-		input  []interface{}
+		input  string
 		result uint64
 	}{
 		{
-			input: []interface{}{
-				map[string]interface{}{
-					"from":     fromAddr,
-					"to":       toAddr,
+			input: fmt.Sprintf(`{"params": [{
+					"from":     "%s",
+					"to":       "%s",
 					"gas":      "0x0",
 					"gasPrice": "0x0",
 					"value":    "0x0",
 					"data":     "0x1123123c"},
-				1},
+				1]}`, fromAddr, toAddr),
 			result: 21000,
 		},
 		{
-			input: []interface{}{
-				map[string]interface{}{
-					"from":     fromAddr,
-					"to":       toAddr,
-					"gas":      "0x0",
-					"gasPrice": "0x0",
-					"value":    "0x0",
-					"data":     "344933be000000000000000000000000000000000000000000000000000be497a92e9f3300000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000f8be4046fd89199906ca348bcd3822c4b250e246000000000000000000000000000000000000000000000000000000006173a15400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a00744882684c3e4747faefd68d283ea44099d030000000000000000000000000258866edaf84d6081df17660357ab20a07d0c80"},
-				1},
+			input: fmt.Sprintf(`{"params": [{
+				"from":     "%s",
+				"to":       "%s",
+				"gas":      "0x0",
+				"gasPrice": "0x0",
+				"value":    "0x0",
+				"data":      "344933be000000000000000000000000000000000000000000000000000be497a92e9f3300000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000f8be4046fd89199906ca348bcd3822c4b250e246000000000000000000000000000000000000000000000000000000006173a15400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a00744882684c3e4747faefd68d283ea44099d030000000000000000000000000258866edaf84d6081df17660357ab20a07d0c80"},
+				1]}`, fromAddr, toAddr),
 			result: 36000,
 		},
 		{
-			input: []interface{}{
-				map[string]interface{}{
-					"from":     fromAddr,
-					"to":       contractAddr,
-					"gas":      "0x0",
-					"gasPrice": "0x0",
-					"value":    "0x0",
-					"data":     "0x6d4ce63c"},
-				1},
+			input: fmt.Sprintf(`{"params": [{
+				"from":     "%s",
+				"to":       "%s",
+				"gas":      "0x0",
+				"gasPrice": "0x0",
+				"value":    "0x0",
+				"data":     "0x6d4ce63c"},
+			1]}`, fromAddr, contractAddr),
 			result: 21000,
 		},
 	}
 
 	for i, v := range testData {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
-			ret, err := svr.web3Server.estimateGas(v.input)
+			input := gjson.Parse(v.input)
+			ret, err := svr.web3Server.estimateGas(&input)
 			require.NoError(err)
 			require.Equal(ret, uint64ToHex(v.result))
 		})
@@ -227,8 +226,8 @@ func TestSendRawTransactionIntegrity(t *testing.T) {
 	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	testData := []interface{}{"f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"}
-	res, _ := svr.web3Server.sendRawTransaction(testData)
+	testData := gjson.Parse(`{"params": ["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]}`)
+	res, _ := svr.web3Server.sendRawTransaction(&testData)
 	require.Equal("0x778fd5a054e74e9055bf68ef5f9d559fa306e8ba7dee608d0a3624cca0b63b3e", res)
 }
 
@@ -242,8 +241,8 @@ func TestGetCodeIntegrity(t *testing.T) {
 	contract, _ := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 
 	contractAddr, _ := ioAddrToEthAddr(contract)
-	testData := []interface{}{contractAddr, 1}
-	ret, _ := svr.web3Server.getCode(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params": ["%s", 1]}`, contractAddr))
+	ret, _ := svr.web3Server.getCode(&testData)
 	require.Contains(contractCode, util.Remove0xPrefix(ret.(string)))
 }
 
@@ -264,8 +263,8 @@ func TestGetBlockTransactionCountByHashIntegrity(t *testing.T) {
 	header, err := bc.BlockHeaderByHeight(1)
 	require.NoError(err)
 	blkHash := header.HashBlock()
-	testData := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), 1}
-	ret, err := svr.web3Server.getBlockTransactionCountByHash(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(blkHash[:])))
+	ret, err := svr.web3Server.getBlockTransactionCountByHash(&testData)
 	require.NoError(err)
 	require.Equal(uint64ToHex(2), ret)
 }
@@ -278,15 +277,15 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 	header, _ := bc.BlockHeaderByHeight(1)
 	blkHash := header.HashBlock()
 
-	testData := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), false}
-	ret, err := svr.web3Server.getBlockByHash(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(blkHash[:])))
+	ret, err := svr.web3Server.getBlockByHash(&testData)
 	require.NoError(err)
 	ans := ret.(blockObject)
 	require.Equal("0x"+hex.EncodeToString(blkHash[:]), ans.Hash)
 	require.Equal(2, len(ans.Transactions))
 
-	testData2 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false}
-	ret, err = svr.web3Server.getBlockByHash(testData2)
+	testData2 := gjson.Parse(`{"params":["0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false]}`)
+	ret, err = svr.web3Server.getBlockByHash(&testData2)
 	require.NoError(err)
 	require.Nil(ret)
 }
@@ -296,13 +295,13 @@ func TestGetTransactionByHashIntegrity(t *testing.T) {
 	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	testData := []interface{}{"0x" + hex.EncodeToString(transferHash1[:]), false}
-	ret, err := svr.web3Server.getTransactionByHash(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(transferHash1[:])))
+	ret, err := svr.web3Server.getTransactionByHash(&testData)
 	require.NoError(err)
 	require.Equal("0x"+hex.EncodeToString(transferHash1[:]), ret.(transactionObject).Hash)
 
-	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", false}
-	ret, err = svr.web3Server.getTransactionByHash(testData2)
+	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, "0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e"))
+	ret, err = svr.web3Server.getTransactionByHash(&testData2)
 	require.NoError(err)
 	require.Nil(ret)
 }
@@ -340,8 +339,8 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	testData := []interface{}{"0x" + hex.EncodeToString(transferHash1[:]), 1}
-	ret, err := svr.web3Server.getTransactionReceipt(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(transferHash1[:])))
+	ret, err := svr.web3Server.getTransactionReceipt(&testData)
 	require.NoError(err)
 	ans, ok := ret.(receiptObject)
 	require.True(ok)
@@ -353,8 +352,8 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	require.Nil(nil, ans.ContractAddress)
 	require.Equal(uint64ToHex(10000), ans.GasUsed)
 
-	testData2 := []interface{}{"0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1}
-	ret, err = svr.web3Server.getTransactionReceipt(testData2)
+	testData2 := gjson.Parse(`{"params": ["0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1]}`)
+	ret, err = svr.web3Server.getTransactionReceipt(&testData2)
 	require.NoError(err)
 	require.Nil(ret)
 }
@@ -368,8 +367,8 @@ func TestGetBlockTransactionCountByNumberIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	testData := []interface{}{uint64ToHex(1), 1}
-	ret, err := svr.web3Server.getBlockTransactionCountByNumber(testData)
+	testData := gjson.Parse(`{"params": ["0x1", 1]}`)
+	ret, err := svr.web3Server.getBlockTransactionCountByNumber(&testData)
 	require.NoError(err)
 	require.Equal(ret, uint64ToHex(2))
 }
@@ -382,8 +381,8 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 	header, _ := bc.BlockHeaderByHeight(1)
 	blkHash := header.HashBlock()
 
-	testData := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x0"}
-	ret, err := svr.web3Server.getTransactionByBlockHashAndIndex(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, hex.EncodeToString(blkHash[:])))
+	ret, err := svr.web3Server.getTransactionByBlockHashAndIndex(&testData)
 	ans := ret.(transactionObject)
 	require.NoError(err)
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
@@ -394,12 +393,12 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
-	testData2 := []interface{}{"0x" + hex.EncodeToString(blkHash[:]), "0x10"}
-	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData2)
+	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x10"]}`, hex.EncodeToString(blkHash[:])))
+	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData2)
 	require.Error(err)
 
-	testData3 := []interface{}{"0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", "0x0"}
-	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(testData3)
+	testData3 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, "0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"))
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData3)
 	require.NoError(err)
 	require.Nil(ret)
 }
@@ -409,8 +408,8 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	testData := []interface{}{"0x1", "0x0"}
-	ret, err := svr.web3Server.getTransactionByBlockNumberAndIndex(testData)
+	testData := gjson.Parse(`{"params": ["0x1", "0x0"]}`)
+	ret, err := svr.web3Server.getTransactionByBlockNumberAndIndex(&testData)
 	ans := ret.(transactionObject)
 	require.NoError(err)
 	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
@@ -421,12 +420,12 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 	require.Equal(ans.Gas, uint64ToHex(20000))
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
-	testData2 := []interface{}{"0x1", "0x10"}
-	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData2)
+	testData2 := gjson.Parse(`{"params": ["0x1", "0x10"]}`)
+	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData2)
 	require.Error(err)
 
-	testData3 := []interface{}{"0x10", "0x0"}
-	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(testData3)
+	testData3 := gjson.Parse(`{"params": ["0x10", "0x0"]}`)
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData3)
 	require.NoError(err)
 	require.Nil(ret)
 }
@@ -460,20 +459,22 @@ func TestGetFilterChangesIntegrity(t *testing.T) {
 	// filter
 	filterReq := &filterObject{FromBlock: "0x1"}
 	filterID1, _ := svr.web3Server.newFilter(filterReq)
-	ret, err := svr.web3Server.getFilterChanges([]interface{}{filterID1})
+	filterID1Req := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID1.(string)))
+	ret, err := svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)
 	// request again after last rolling
-	ret, err = svr.web3Server.getFilterChanges([]interface{}{filterID1})
+	ret, err = svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 0)
 
 	// blockfilter
 	filterID2, _ := svr.web3Server.newBlockFilter()
-	ret2, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
+	filterID2Req := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID2.(string)))
+	ret2, err := svr.web3Server.getFilterChanges(&filterID2Req)
 	require.NoError(err)
 	require.Equal(1, len(ret2.([]string)))
-	ret3, err := svr.web3Server.getFilterChanges([]interface{}{filterID2})
+	ret3, err := svr.web3Server.getFilterChanges(&filterID2Req)
 	require.NoError(err)
 	require.Equal(0, len(ret3.([]string)))
 
@@ -486,8 +487,8 @@ func TestGetFilterLogsIntegrity(t *testing.T) {
 
 	filterReq := &filterObject{FromBlock: "0x1"}
 	filterID, _ := svr.web3Server.newFilter(filterReq)
-	testData := []interface{}{filterID}
-	ret, err := svr.web3Server.getFilterLogs(testData)
+	filterIDReq := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID.(string)))
+	ret, err := svr.web3Server.getFilterLogs(&filterIDReq)
 	require.NoError(err)
 	require.Equal(len(ret.([]logsObject)), 4)
 }
@@ -518,18 +519,18 @@ func TestGetStorageAtIntegrity(t *testing.T) {
 	contract, _ := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
 
 	contractAddr, _ := ioAddrToEthAddr(contract)
-	testData := []interface{}{contractAddr, "0x0"}
-	ret, err := svr.web3Server.getStorageAt(testData)
+	testData := gjson.Parse(fmt.Sprintf(`{"params": ["%s", "0x0"]}`, contractAddr))
+	ret, err := svr.web3Server.getStorageAt(&testData)
 	require.NoError(err)
 	// the value of any contract at pos0 is be "0x0000000000000000000000000000000000000000000000000000000000000000"
 	require.Equal("0x0000000000000000000000000000000000000000000000000000000000000000", ret)
 
-	failData := [][]interface{}{
-		{1},
-		{"TEST", "TEST"},
+	failData := []gjson.Result{
+		gjson.Parse(`{"params": [1]}`),
+		gjson.Parse(`{"params": ["TEST", "TEST"]}`),
 	}
 	for _, v := range failData {
-		_, err := svr.web3Server.getStorageAt(v)
+		_, err := svr.web3Server.getStorageAt(&v)
 		require.Error(err)
 	}
 }
