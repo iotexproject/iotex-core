@@ -158,6 +158,7 @@ type (
 		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+		workerNumbers     int
 	}
 )
 
@@ -176,6 +177,7 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
+	workerNumbers int,
 	opts ...Option,
 ) (CoreService, error) {
 	apiCfg := Config{}
@@ -1401,7 +1403,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		jobs <- i
 	}
 	close(jobs)
-	for w := 1; w <= 5; w++ {
+	for w := 1; w <= core.workerNumbers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

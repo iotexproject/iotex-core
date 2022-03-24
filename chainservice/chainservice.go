@@ -363,6 +363,7 @@ func New(
 	if gateway {
 		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
 	}
+	workerNumbers := 5
 
 	apiSvr, err := api.NewServerV2(
 		cfg.API,
@@ -374,6 +375,7 @@ func New(
 		bfIndexer,
 		actPool,
 		registry,
+		workerNumbers,
 		apiServerOptions...,
 	)
 	if err != nil {
