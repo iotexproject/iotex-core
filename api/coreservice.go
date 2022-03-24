@@ -211,6 +211,7 @@ func newCoreService(
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
+		workerNumbers:     workerNumbers,
 	}, nil
 }
 
