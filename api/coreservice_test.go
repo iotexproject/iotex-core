@@ -7,7 +7,6 @@
 package api
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -26,97 +25,91 @@ func TestLogsInRange(t *testing.T) {
 	svr, _, _, _, cleanCallback := setupTestServer(t)
 	defer cleanCallback()
 
-	testData := []struct {
-		filter      *filterObject
-		description string
-		logLen      int
-	}{
-		{
-			&filterObject{FromBlock: "1", ToBlock: "4"},
-			"blocks with four logs",
-			4,
-		},
-		{
-			&filterObject{FromBlock: "0x1"},
-			"default value for invalid string FromBlock & ToBlock",
-			4,
-		},
-		{
-			&filterObject{FromBlock: "5", ToBlock: "1"},
-			"invalid start and end height",
-			0,
-		},
-		{
-			&filterObject{FromBlock: "5", ToBlock: "5"},
-			"start block > tip height",
-			0,
-		},
-		{
-			// empty log
-			&filterObject{Address: []string{"0x8ce313ab12bf7aed8136ab36c623ff98c8eaad34"}, FromBlock: "1", ToBlock: "4"},
-			"empty log",
-			0,
-		},
-		{
-			&filterObject{FromBlock: "1", ToBlock: "4"},
-			"over 5000 pagenation size",
-			4,
-		},
-	}
-	for i, d := range testData {
-		t.Run(fmt.Sprintf("%v", d.description), func(t *testing.T) {
-			var filter iotexapi.LogsFilter
-			for _, ethAddr := range d.filter.Address {
-				ioAddr, err := ethAddrToIoAddr(ethAddr)
-				require.NoError(err)
-				filter.Address = append(filter.Address, ioAddr.String())
-			}
-			for _, tp := range d.filter.Topics {
-				var topic [][]byte
-				for _, str := range tp {
-					b, err := hexToBytes(str)
-					require.NoError(err)
-					topic = append(topic, b)
-				}
-				filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
-			}
+	t.Run("blocks with four logs", func(t *testing.T) {
+		testData := &filterObject{FromBlock: "1", ToBlock: "4"}
+		filter, err := getTopicsAddress(testData.Address, testData.Topics)
+		require.NoError(err)
+		from, to, err := svr.web3Server.parseBlockRange(testData.FromBlock, testData.ToBlock)
+		require.NoError(err)
 
-			// LogsInRange will assign default value if from, to returns error
-			from, err := strconv.ParseInt(d.filter.FromBlock, 10, 64)
-			if i == 1 {
-				require.Error(err)
-			} else {
-				require.NoError(err)
-			}
-			to, err := strconv.ParseInt(d.filter.ToBlock, 10, 64)
-			if i == 1 {
-				require.Error(err)
-			} else {
-				require.NoError(err)
-			}
-			pagenationSize := 0
-			if i == 5 {
-				pagenationSize = 5001
-			}
-			logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(pagenationSize))
-			if i == 2 {
-				expectedErr := errors.New("invalid start and end height")
-				expectedValue := []*iotextypes.Log(nil)
-				require.Error(err)
-				require.Equal(expectedErr.Error(), err.Error())
-				require.Equal(expectedValue, logs)
-			} else if i == 3 {
-				exprectedErr := errors.New("start block > tip height")
-				expectedValue := []*iotextypes.Log(nil)
-				require.Error(err)
-				require.Equal(exprectedErr.Error(), err.Error())
-				require.Equal(expectedValue, logs)
-			} else {
-				require.NoError(err)
-				require.Equal(d.logLen, len(logs))
-			}
-		})
+		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0))
+		require.NoError(err)
+		require.Equal(4, len(logs))
+	})
+	t.Run("empty log", func(t *testing.T) {
+		testData := &filterObject{Address: []string{"0x8ce313ab12bf7aed8136ab36c623ff98c8eaad34"}}
+		filter, err := getTopicsAddress(testData.Address, testData.Topics)
+		require.NoError(err)
+
+		from, to, err := svr.web3Server.parseBlockRange(testData.FromBlock, testData.ToBlock)
+		require.NoError(err)
+		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0))
+		require.NoError(err)
+		require.Equal(0, len(logs))
+	})
+	t.Run("over 5000 pagenation size", func(t *testing.T) {
+		testData := &filterObject{FromBlock: "0"}
+		filter, err := getTopicsAddress(testData.Address, testData.Topics)
+		require.NoError(err)
+		from, to, err := svr.web3Server.parseBlockRange(testData.FromBlock, testData.ToBlock)
+		require.NoError(err)
+
+		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(5001))
+		require.NoError(err)
+		require.Equal(4, len(logs))
+	})
+	t.Run("invalid start and end height", func(t *testing.T) {
+		testData := &filterObject{FromBlock: "2", ToBlock: "1"}
+		filter, err := getTopicsAddress(testData.Address, testData.Topics)
+		require.NoError(err)
+		from, to, err := svr.web3Server.parseBlockRange(testData.FromBlock, testData.ToBlock)
+		require.NoError(err)
+
+		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0))
+		expectedErr := errors.New("invalid start and end height")
+		expectedValue := []*iotextypes.Log(nil)
+		require.Error(err)
+		require.Equal(expectedErr.Error(), err.Error())
+		require.Equal(expectedValue, logs)
+	})
+	t.Run("start block > tip height", func(t *testing.T) {
+		testData := &filterObject{FromBlock: "5", ToBlock: "5"}
+		filter, err := getTopicsAddress(testData.Address, testData.Topics)
+		require.NoError(err)
+		from, to, err := svr.web3Server.parseBlockRange(testData.FromBlock, testData.ToBlock)
+		require.NoError(err)
+
+		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0))
+		expectedErr := errors.New("start block > tip height")
+		expectedValue := []*iotextypes.Log(nil)
+		require.Error(err)
+		require.Equal(expectedErr.Error(), err.Error())
+		require.Equal(expectedValue, logs)
+	})
+}
+
+func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, error) {
+	var filter iotexapi.LogsFilter
+	for _, ethAddr := range addr {
+		ioAddr, err := ethAddrToIoAddr(ethAddr)
+		if err != nil {
+			return iotexapi.LogsFilter{}, err
+		}
+		filter.Address = append(filter.Address, ioAddr.String())
 	}
+	for _, tp := range topics {
+		var topic [][]byte
+		for _, str := range tp {
+			b, err := hexToBytes(str)
+			if err != nil {
+				return iotexapi.LogsFilter{}, err
+			}
+			topic = append(topic, b)
+		}
+		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
+	}
+
+	return filter, nil
 }
 
 func BenchmarkLogsInRange(b *testing.B) {
