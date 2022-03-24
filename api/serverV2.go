@@ -11,6 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -127,4 +128,9 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// ReceiveBlock receives the new block
+func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
+	return svr.core.ReceiveBlock(blk)
 }
