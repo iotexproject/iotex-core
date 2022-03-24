@@ -421,74 +421,57 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 }
 
 // evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
-func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) (errStatusCode uint64) {
-	if g.IsJutland(height) {
-		switch evmErr {
-		case vm.ErrOutOfGas:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
-		case vm.ErrCodeStoreOutOfGas:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
-		case vm.ErrDepth:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrDepth)
-		case vm.ErrContractAddressCollision:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
-		case vm.ErrExecutionReverted:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
-		case vm.ErrMaxCodeSizeExceeded:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
-		case vm.ErrWriteProtection:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
-		case vm.ErrInsufficientBalance:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInsufficientBalance)
-		case vm.ErrInvalidJump:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrInvalidJump)
-		case vm.ErrReturnDataOutOfBounds:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds)
-		case vm.ErrGasUintOverflow:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrGasUintOverflow)
-		default:
-			//This errors from go-ethereum, are not-accessible variable.
-			switch evmErr.Error() {
-			case "no compatible interpreter":
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
-			default:
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
-			}
+func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) uint64 {
+	// specific error starting London
+	if g.IsToBeEnabled(height) {
+		if evmErr == vm.ErrInvalidCode {
+			return uint64(iotextypes.ReceiptStatus_ErrInvalidCode)
 		}
-		return
 	}
 
+	// specific error starting Jutland
+	if g.IsJutland(height) {
+		switch evmErr {
+		case vm.ErrInsufficientBalance:
+			return uint64(iotextypes.ReceiptStatus_ErrInsufficientBalance)
+		case vm.ErrInvalidJump:
+			return uint64(iotextypes.ReceiptStatus_ErrInvalidJump)
+		case vm.ErrReturnDataOutOfBounds:
+			return uint64(iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds)
+		case vm.ErrGasUintOverflow:
+			return uint64(iotextypes.ReceiptStatus_ErrGasUintOverflow)
+		}
+	}
+
+	// specific error starting Bering
 	if g.IsBering(height) {
 		switch evmErr {
 		case vm.ErrOutOfGas:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
+			return uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
 		case vm.ErrCodeStoreOutOfGas:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
+			return uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
 		case vm.ErrDepth:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrDepth)
+			return uint64(iotextypes.ReceiptStatus_ErrDepth)
 		case vm.ErrContractAddressCollision:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
+			return uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
 		case vm.ErrExecutionReverted:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
+			return uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
 		case vm.ErrMaxCodeSizeExceeded:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
+			return uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
 		case vm.ErrWriteProtection:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
+			return uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
 		default:
-			//This errors from go-ethereum, are not-accessible variable.
+			// internal errors from go-ethereum are not directly accessible
 			switch evmErr.Error() {
 			case "no compatible interpreter":
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
+				return uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
 			default:
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
+				return uint64(iotextypes.ReceiptStatus_ErrUnknown)
 			}
 		}
-		return
 	}
-
 	// before Bering height, return one common failure
-	errStatusCode = uint64(iotextypes.ReceiptStatus_Failure)
-	return
+	return uint64(iotextypes.ReceiptStatus_Failure)
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
