@@ -379,6 +379,9 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	if err := chain.AddSubscriber(apiSvr); err != nil {
+		log.L().Warn("Failed to add subscriber: api server.", zap.Error(err))
+	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	if accountProtocol != nil {
 		if err = accountProtocol.Register(registry); err != nil {
