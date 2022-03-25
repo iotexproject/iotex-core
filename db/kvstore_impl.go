@@ -23,6 +23,8 @@ var (
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrIO indicates the generic error of DB I/O operation
 	ErrIO = errors.New("DB I/O operation error")
+	// ErrNotSupported indicates that api is not supported
+	ErrNotSupported = errors.New("not supported")
 )
 
 const (
@@ -36,7 +38,7 @@ type memKVStore struct {
 }
 
 // NewMemKVStore instantiates an in-memory KV store
-func NewMemKVStore() KVStore {
+func NewMemKVStore() KVStoreForRangeIndex {
 	return &memKVStore{
 		bucket: cache.NewThreadSafeLruCache(0),
 		data:   cache.NewThreadSafeLruCache(0),
@@ -54,6 +56,26 @@ func (m *memKVStore) Put(namespace string, key, value []byte) error {
 	}
 	m.data.Add(namespace+keyDelimiter+string(key), value)
 	return nil
+}
+
+func (m *memKVStore) Insert(name []byte, key uint64, value []byte) error {
+	return ErrNotSupported
+}
+
+func (m *memKVStore) Purge(name []byte, key uint64) error {
+	return ErrNotSupported
+}
+
+func (m *memKVStore) Remove(name []byte, key uint64) error {
+	return ErrNotSupported
+}
+
+func (m *memKVStore) SeekPrev(name []byte, key uint64) ([]byte, error) {
+	return nil, ErrNotSupported
+}
+
+func (m *memKVStore) SeekNext(name []byte, key uint64) ([]byte, error) {
+	return nil, ErrNotSupported
 }
 
 // Get retrieves a record
@@ -139,10 +161,10 @@ func (m *memKVStore) WriteBatch(b batch.KVStoreBatch) (e error) {
 
 // GetBucketByPrefix retrieves all bucket those with const namespace prefix
 func (m *memKVStore) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
-	return nil, nil
+	return nil, ErrNotSupported
 }
 
 // GetKeyByPrefix retrieves all keys those with const prefix
 func (m *memKVStore) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
-	return nil, nil
+	return nil, ErrNotSupported
 }
