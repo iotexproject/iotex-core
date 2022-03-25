@@ -14,11 +14,11 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -161,6 +161,12 @@ type (
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 		workerNumbers     int
+	}
+
+	// jobDesc provides a struct to get and store logs in core.LogsInRange
+	jobDesc struct {
+		idx    int
+		blkNum uint64
 	}
 )
 
@@ -1388,56 +1394,45 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		paginationSize = 5000
 	}
 
-	logs := []*iotextypes.Log{}
-	jobs := make(chan uint64, len(blockNumbers))
-	quit := make(chan error)
-	var wg sync.WaitGroup
-	logsMap := sync.Map{}
+	var (
+		logs      = []*iotextypes.Log{}
+		logsInBlk = make([][]*iotextypes.Log, len(blockNumbers))
+		jobs      = make(chan jobDesc, len(blockNumbers))
+		eg, ctx   = errgroup.WithContext(context.Background())
+	)
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
-	for _, i := range blockNumbers {
-		jobs <- i
+	for i, v := range blockNumbers {
+		jobs <- jobDesc{i, v}
 	}
 	close(jobs)
 	for w := 1; w <= core.workerNumbers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			for {
 				select {
-				case err := <-quit:
-					quit <- err
-					return
+				case <-ctx.Done():
+					return ctx.Err()
 				default:
 					job, ok := <-jobs
 					if !ok {
-						return
+						return nil
 					}
-					logsInBlock, err := core.logsInBlock(filter, job)
+					logsInBlock, err := core.logsInBlock(filter, job.blkNum)
 					if err != nil {
-						quit <- err
-						return
+						return err
 					}
-					logsMap.Store(job, logsInBlock)
+					logsInBlk[job.idx] = logsInBlock
 				}
 			}
-		}()
+		})
 	}
-	wg.Wait()
-	close(quit)
-	err = <-quit
-	if err != nil {
+	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
 
-	for _, i := range blockNumbers {
-		logsInBlock, ok := logsMap.Load(i)
-		if !ok {
-			err := errors.New(fmt.Sprintf("invalid block number %d", i))
-			return nil, err
-		}
-		for _, log := range logsInBlock.([]*iotextypes.Log) {
+	for i := 0; i < len(blockNumbers); i++ {
+		for _, log := range logsInBlk[i] {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
