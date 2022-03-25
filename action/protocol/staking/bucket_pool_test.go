@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -64,7 +64,7 @@ func TestBucketPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 
-	pool, err := NewBucketPool(sm, false)
+	pool, err := NewBucketPool(srToCsr(sm), false)
 	r.NoError(err)
 	r.Equal(big.NewInt(0), pool.Total())
 	r.EqualValues(0, pool.Count())

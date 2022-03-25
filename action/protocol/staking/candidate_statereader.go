@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -34,12 +34,16 @@ type (
 		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
 		addrKeyWithPrefix(addr address.Address, prefix byte) []byte
 	}
+	// BktPool related to create bucket pool
+	BktPool interface {
+		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
+	}
 	// CandidateGet related to obtaining Candidate
 	CandidateGet interface {
 		getCandidate(name address.Address) (*Candidate, uint64, error)
 		getAllCandidates() (CandidateList, uint64, error)
 	}
-	// ReadState related to
+	// ReadState related to read bucket and candidate by request
 	ReadState interface {
 		readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error)
 		readStateBucketsByVoter(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, uint64, error)
@@ -54,6 +58,7 @@ type (
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
 		BucketGet
+		BktPool
 		CandidateGet
 		ReadState
 		Height() uint64
@@ -185,7 +190,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
-	pool, err := NewBucketPool(sr, enableSMStorage)
+	pool, err := srToCsr(sr).NewBucketPool(enableSMStorage)
 	if err != nil {
 		return nil, height, err
 	}
@@ -315,6 +320,41 @@ func (c *candSR) addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
 	key[0] = prefix
 	copy(key[1:], k)
 	return key
+}
+
+func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
+	bp := BucketPool{
+		enableSMStorage: enableSMStorage,
+		total: &totalAmount{
+			amount: big.NewInt(0),
+		},
+	}
+
+	if bp.enableSMStorage {
+		switch _, err := c.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
+		case nil:
+			return &bp, nil
+		case state.ErrStateNotExist:
+			// fall back to load all buckets
+		default:
+			return nil, err
+		}
+	}
+
+	// sum up all existing buckets
+	all, _, err := c.getAllBuckets()
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
+
+	for _, v := range all {
+		if v.StakedAmount.Cmp(big.NewInt(0)) <= 0 {
+			return nil, state.ErrNotEnoughBalance
+		}
+		bp.total.amount.Add(bp.total.amount, v.StakedAmount)
+	}
+	bp.total.count = uint64(len(all))
+	return &bp, nil
 }
 
 func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
