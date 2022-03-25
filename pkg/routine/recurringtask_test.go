@@ -39,5 +39,7 @@ func TestRecurringTask(t *testing.T) {
 	task.Start(ctx)
 	ck.Add(600 * time.Millisecond)
 	task.Stop(ctx)
+	h.mu.RLock()
 	require.Equal(uint(6), h.Count)
+	h.mu.RUnlock()
 }
