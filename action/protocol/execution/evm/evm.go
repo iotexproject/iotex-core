@@ -399,8 +399,10 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
 	if !london {
+		// Before EIP-3529: refunds were capped to gasUsed / 2
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotient
 	} else {
+		// After EIP-3529: refunds are capped to gasUsed / 5
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotientEIP3529
 	}
 	if refund > stateDB.GetRefund() {
