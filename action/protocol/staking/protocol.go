@@ -86,6 +86,22 @@ type (
 	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
 )
 
+// FindProtocol return a registered protocol from registry
+func FindProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(protocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast rolldpos protocol")
+	}
+	return rp
+}
+
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
