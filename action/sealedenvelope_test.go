@@ -147,7 +147,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		req.Contains(se2.LoadProto(se.Proto()).Error(), v.err)
 	}
 
-	se.signature = validSig
+	se.signature = _validSig
 	for _, v := range []struct {
 		enc  iotextypes.Encoding
 		hash string

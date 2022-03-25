@@ -18,7 +18,6 @@ import (
 type (
 	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 	Action interface {
-		SetAbstractAction(AbstractAction)
 		SanityCheck() error
 	}
 
@@ -30,7 +29,7 @@ type (
 	actionPayload interface {
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
-		SetAbstractAction(AbstractAction)
+		SetEnvelopeContext(Envelope)
 		SanityCheck() error
 	}
 

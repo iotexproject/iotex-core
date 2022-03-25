@@ -66,12 +66,16 @@ func (act *AbstractAction) BasicActionSize() uint32 {
 	return uint32(size)
 }
 
-// SetAbstractAction sets the struct to input
-func (act *AbstractAction) SetAbstractAction(ab AbstractAction) {
+// SetEnvelopeContext sets the struct according to input
+func (act *AbstractAction) SetEnvelopeContext(elp Envelope) {
 	if act == nil {
 		return
 	}
-	*act = ab
+	act.version = elp.Version()
+	act.chainID = elp.ChainID()
+	act.nonce = elp.Nonce()
+	act.gasLimit = elp.GasLimit()
+	act.gasPrice = elp.GasPrice()
 }
 
 // SanityCheck validates the variables in the action

@@ -146,7 +146,7 @@ func (b *EnvelopeBuilder) build() Envelope {
 	if b.elp.payload == nil {
 		panic("cannot build Envelope w/o a valid payload")
 	}
-	b.elp.payload.SetAbstractAction(b.elp.AbstractAction)
+	b.elp.payload.SetEnvelopeContext(&b.elp)
 	return &b.elp
 }
 
