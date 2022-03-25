@@ -117,7 +117,7 @@ func TestServeHTTP(t *testing.T) {
 
 	// web3 req without params
 	request7, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
-	core.EXPECT().ServerMeta().Return("mock str1", "mock str2", "mock str3", "mock str4", "mock str5")
+	// core.EXPECT().ServerMeta().Return("mock str1", "mock str2", "mock str3", "mock str4", "mock str5")
 	response7 := getServerResp(svr, request7)
 	bodyBytes7, _ := io.ReadAll(response7.Body)
 	require.Contains(string(bodyBytes7), "result")

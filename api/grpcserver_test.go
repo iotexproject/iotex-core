@@ -8,15 +8,52 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-core/testutil"
+)
+
+var (
+	testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+
+	testTransferHash, _ = testTransfer.Hash()
+	testTransferPb      = testTransfer.Proto()
+
+	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+
+	testExecutionHash, _ = testExecution.Hash()
+	testExecutionPb      = testExecution.Proto()
+
+	sendActionTests = []struct {
+		// Arguments
+		actionPb *iotextypes.Action
+		// Expected Values
+		actionHash string
+	}{
+		{
+			testTransferPb,
+			hex.EncodeToString(testTransferHash[:]),
+		},
+		{
+			testExecutionPb,
+			hex.EncodeToString(testExecutionHash[:]),
+		},
+	}
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -60,7 +97,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+	grpcSvr := NewGRPCServer(core, testutil.RandomPort(), 10, 10)
 
 	for _, test := range sendActionTests {
 		core.EXPECT().SendAction(context.Background(), test.actionPb).Return(test.actionHash, nil)
@@ -92,7 +129,7 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+	grpcSvr := NewGRPCServer(core, testutil.RandomPort(), 10, 10)
 
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	res, err := grpcSvr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})

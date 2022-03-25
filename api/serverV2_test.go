@@ -21,7 +21,7 @@ func TestServerV2(t *testing.T) {
 
 	svr := &ServerV2{
 		core:       core,
-		GrpcServer: NewGRPCServer(core, testutil.RandomPort()),
+		GrpcServer: NewGRPCServer(core, testutil.RandomPort(), 10, 10),
 		web3Server: NewWeb3Server(core, testutil.RandomPort(), "", 10),
 	}
 	ctx := context.Background()

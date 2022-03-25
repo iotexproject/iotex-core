@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -339,15 +340,15 @@ func (svr *Web3Server) gasPrice() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(ret), nil
+	return Uint64ToHex(ret), nil
 }
 
 func (svr *Web3Server) getChainID() (interface{}, error) {
-	return uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
+	return Uint64ToHex(uint64(svr.coreService.EVMNetworkID())), nil
 }
 
 func (svr *Web3Server) getBlockNumber() (interface{}, error) {
-	return uint64ToHex(svr.coreService.TipHeight()), nil
+	return Uint64ToHex(svr.coreService.TipHeight()), nil
 }
 
 func (svr *Web3Server) getBlockByNumber(in *gjson.Result) (interface{}, error) {
@@ -406,7 +407,7 @@ func (svr *Web3Server) getTransactionCount(in *gjson.Result) (interface{}, error
 	if err != nil {
 		return nil, err
 	}
-	return uint64ToHex(pendingNonce), nil
+	return Uint64ToHex(pendingNonce), nil
 }
 
 func (svr *Web3Server) call(in *gjson.Result) (interface{}, error) {
@@ -458,7 +459,7 @@ func (svr *Web3Server) estimateGas(in *gjson.Result) (interface{}, error) {
 	if estimatedGas < 21000 {
 		estimatedGas = 21000
 	}
-	return uint64ToHex(estimatedGas), nil
+	return Uint64ToHex(estimatedGas), nil
 }
 
 func (svr *Web3Server) sendRawTransaction(in *gjson.Result) (interface{}, error) {
@@ -544,8 +545,7 @@ func (svr *Web3Server) getCode(in *gjson.Result) (interface{}, error) {
 }
 
 func (svr *Web3Server) getNodeInfo() (interface{}, error) {
-	packageVersion, _, _, goVersion, _ := svr.coreService.ServerMeta()
-	return packageVersion + "/" + goVersion, nil
+	return version.PackageVersion + "/" + version.GoVersion, nil
 }
 
 func (svr *Web3Server) getNetworkID() (interface{}, error) {
@@ -585,7 +585,7 @@ func (svr *Web3Server) getBlockTransactionCountByHash(in *gjson.Result) (interfa
 	if err != nil {
 		return nil, errors.Wrap(err, "the block is not found")
 	}
-	return uint64ToHex(uint64(blkMeta.NumActions)), nil
+	return Uint64ToHex(uint64(blkMeta.NumActions)), nil
 }
 
 func (svr *Web3Server) getBlockByHash(in *gjson.Result) (interface{}, error) {
@@ -688,9 +688,9 @@ func (svr *Web3Server) getTransactionReceipt(in *gjson.Result) (interface{}, err
 		log := logsObject{
 			BlockHash:        "0x" + blkHash,
 			TransactionHash:  "0x" + hex.EncodeToString(actHash[:]),
-			TransactionIndex: uint64ToHex(uint64(v.TxIndex)),
-			LogIndex:         uint64ToHex(uint64(v.Index)),
-			BlockNumber:      uint64ToHex(v.BlockHeight),
+			TransactionIndex: Uint64ToHex(uint64(v.TxIndex)),
+			LogIndex:         Uint64ToHex(uint64(v.Index)),
+			BlockNumber:      Uint64ToHex(v.BlockHeight),
 			Address:          addr,
 			Data:             "0x" + hex.EncodeToString(v.Data),
 			Topics:           topics,
@@ -699,13 +699,13 @@ func (svr *Web3Server) getTransactionReceipt(in *gjson.Result) (interface{}, err
 	}
 	return receiptObject{
 		BlockHash:         "0x" + blkHash,
-		BlockNumber:       uint64ToHex(receipt.BlockHeight),
+		BlockNumber:       Uint64ToHex(receipt.BlockHeight),
 		ContractAddress:   contractAddr,
-		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
+		CumulativeGasUsed: Uint64ToHex(receipt.GasConsumed),
 		From:              tx.From,
-		GasUsed:           uint64ToHex(receipt.GasConsumed),
+		GasUsed:           Uint64ToHex(receipt.GasConsumed),
 		LogsBloom:         getLogsBloomFromBlkMeta(blkMeta),
-		Status:            uint64ToHex(receipt.Status),
+		Status:            Uint64ToHex(receipt.Status),
 		To:                tx.To,
 		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
 		TransactionIndex:  tx.TransactionIndex,
@@ -730,7 +730,7 @@ func (svr *Web3Server) getBlockTransactionCountByNumber(in *gjson.Result) (inter
 	if len(blkMetas) == 0 {
 		return nil, errInvalidBlock
 	}
-	return uint64ToHex(uint64(blkMetas[0].NumActions)), nil
+	return Uint64ToHex(uint64(blkMetas[0].NumActions)), nil
 }
 
 func (svr *Web3Server) getTransactionByBlockHashAndIndex(in *gjson.Result) (interface{}, error) {

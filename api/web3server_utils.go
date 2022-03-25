@@ -107,7 +107,8 @@ func ioAddrToEthAddr(ioAddr string) (string, error) {
 	return addr.String(), nil
 }
 
-func uint64ToHex(val uint64) string {
+// Uint64ToHex converts uint64 to Hex string with 0x prefix
+func Uint64ToHex(val uint64) string {
 	return "0x" + strconv.FormatUint(val, 16)
 }
 
@@ -149,7 +150,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	// TODO: the value is the same as Babel's. It will be corrected in next pr
 	return blockObject{
 		Author:           producerAddr,
-		Number:           uint64ToHex(blkMeta.Height),
+		Number:           Uint64ToHex(blkMeta.Height),
 		Hash:             "0x" + blkMeta.Hash,
 		ParentHash:       "0x" + blkMeta.PreviousBlockHash,
 		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -161,10 +162,10 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 		Difficulty:       "0xfffffffffffffffffffffffffffffffe",
 		TotalDifficulty:  "0xff14700000000000000000000000486001d72",
 		ExtraData:        "0x",
-		Size:             uint64ToHex(uint64(blkMeta.NumActions)),
-		GasLimit:         uint64ToHex(blkMeta.GasLimit),
-		GasUsed:          uint64ToHex(blkMeta.GasUsed),
-		Timestamp:        uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
+		Size:             Uint64ToHex(uint64(blkMeta.NumActions)),
+		GasLimit:         Uint64ToHex(blkMeta.GasLimit),
+		GasUsed:          Uint64ToHex(blkMeta.GasUsed),
+		Timestamp:        Uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
 		Transactions:     transactions,
 		Step:             "373422302",
 		Signature:        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -243,23 +244,23 @@ func (svr *Web3Server) getTransactionFromActionInfo(actInfo *iotexapi.ActionInfo
 	}
 	return transactionObject{
 		Hash:             "0x" + actInfo.ActHash,
-		Nonce:            uint64ToHex(actInfo.Action.Core.Nonce),
+		Nonce:            Uint64ToHex(actInfo.Action.Core.Nonce),
 		BlockHash:        "0x" + actInfo.BlkHash,
-		BlockNumber:      uint64ToHex(actInfo.BlkHeight),
-		TransactionIndex: uint64ToHex(uint64(actInfo.Index)),
+		BlockNumber:      Uint64ToHex(actInfo.BlkHeight),
+		TransactionIndex: Uint64ToHex(uint64(actInfo.Index)),
 		From:             from,
 		To:               to,
 		Value:            value,
 		GasPrice:         gasPrice,
-		Gas:              uint64ToHex(actInfo.Action.Core.GasLimit),
+		Gas:              Uint64ToHex(actInfo.Action.Core.GasLimit),
 		Input:            data,
 		R:                byteToHex(actInfo.Action.Signature[:32]),
 		S:                byteToHex(actInfo.Action.Signature[32:64]),
-		V:                uint64ToHex(vVal),
+		V:                Uint64ToHex(vVal),
 		// TODO: the value is the same as Babel's. It will be corrected in next pr
-		StandardV: uint64ToHex(vVal),
+		StandardV: Uint64ToHex(vVal),
 		Creates:   create,
-		ChainID:   uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
+		ChainID:   Uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
 		PublicKey: byteToHex(actInfo.Action.SenderPubKey),
 	}, nil
 }
@@ -363,9 +364,9 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		ret = append(ret, logsObject{
 			BlockHash:        byteToHex(l.BlkHash),
 			TransactionHash:  byteToHex(l.ActHash),
-			LogIndex:         uint64ToHex(uint64(l.Index)),
-			BlockNumber:      uint64ToHex(l.BlkHeight),
-			TransactionIndex: uint64ToHex(uint64(l.TxIndex)),
+			LogIndex:         Uint64ToHex(uint64(l.Index)),
+			BlockNumber:      Uint64ToHex(l.BlkHeight),
+			TransactionIndex: Uint64ToHex(uint64(l.TxIndex)),
 			Address:          contractAddr,
 			Data:             byteToHex(l.Data),
 			Topics:           topics,

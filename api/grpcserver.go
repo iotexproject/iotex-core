@@ -1,8 +1,15 @@
+// Copyright (c) 2022 IoTeX Foundation
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package api
 
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"strconv"
@@ -31,17 +38,21 @@ import (
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 // GRPCServer contains grpc server and the pointer to api coreservice
 type GRPCServer struct {
-	port        string
-	grpcServer  *grpc.Server
-	coreService CoreService
+	port            string
+	grpcServer      *grpc.Server
+	coreService     CoreService
+	chainListener   Listener
+	rangeQueryLimit uint64
+	tpsWindow       uint64
 }
 
 // NewGRPCServer creates a new grpc server
-func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
+func NewGRPCServer(core CoreService, grpcPort int, queryLimit, tpsWindow uint64) *GRPCServer {
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -52,10 +63,14 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 			otelgrpc.UnaryServerInterceptor(),
 		)),
 	)
+	// TODO: range query upper limit cannot be less than tps window
 	svr := &GRPCServer{
-		port:        ":" + strconv.Itoa(grpcPort),
-		grpcServer:  gSvr,
-		coreService: core,
+		port:            ":" + strconv.Itoa(grpcPort),
+		grpcServer:      gSvr,
+		coreService:     core,
+		chainListener:   NewChainListener(500),
+		rangeQueryLimit: queryLimit,
+		tpsWindow:       tpsWindow,
 	}
 
 	//serviceName: grpc.health.v1.Health
@@ -68,6 +83,9 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 
 // Start starts the GRPC server
 func (svr *GRPCServer) Start(_ context.Context) error {
+	if err := svr.chainListener.Start(); err != nil {
+		return errors.Wrap(err, "failed to start blockchain listener")
+	}
 	lis, err := net.Listen("tcp", svr.port)
 	if err != nil {
 		log.L().Error("grpc server failed to listen.", zap.Error(err))
@@ -85,7 +103,7 @@ func (svr *GRPCServer) Start(_ context.Context) error {
 // Stop stops the GRPC server
 func (svr *GRPCServer) Stop(_ context.Context) error {
 	svr.grpcServer.Stop()
-	return nil
+	return svr.chainListener.Stop()
 }
 
 // SuggestGasPrice suggests gas price
@@ -126,6 +144,9 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
+		if err := svr.validateQueryLimit(request.Count); err != nil {
+			return nil, err
+		}
 		ret, err = svr.coreService.Actions(request.Start, request.Count)
 	case in.GetByHash() != nil:
 		var act *iotexapi.ActionInfo
@@ -134,18 +155,33 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		ret = []*iotexapi.ActionInfo{act}
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
+		count := request.Count
+		if err := svr.validateQueryLimit(count); err != nil {
+			return nil, err
+		}
 		var addr address.Address
 		addr, err = address.FromString(request.Address)
 		if err != nil {
 			return nil, err
 		}
-		ret, err = svr.coreService.ActionsByAddress(addr, request.Start, request.Count)
+		ret, err = svr.coreService.ActionsByAddress(addr, request.Start, count)
 	case in.GetUnconfirmedByAddr() != nil:
 		request := in.GetUnconfirmedByAddr()
-		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
+		count := request.Count
+		if err := svr.validateQueryLimit(count); err != nil {
+			return nil, err
+		}
+		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, count)
 	case in.GetByBlk() != nil:
 		request := in.GetByBlk()
-		ret, err = svr.coreService.ActionsByBlock(request.BlkHash, request.Start, request.Count)
+		count := request.Count
+		if count == math.MaxUint64 {
+			count = svr.rangeQueryLimit
+		}
+		if err := svr.validateQueryLimit(count); err != nil {
+			return nil, err
+		}
+		ret, err = svr.coreService.ActionsByBlock(request.BlkHash, request.Start, count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
@@ -167,7 +203,11 @@ func (svr *GRPCServer) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockM
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
-		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
+		count := request.Count
+		if err := svr.validateQueryLimit(count); err != nil {
+			return nil, err
+		}
+		ret, err = svr.coreService.BlockMetas(request.Start, count)
 	case in.GetByHash() != nil:
 		var blkMeta *iotextypes.BlockMeta
 		request := in.GetByHash()
@@ -187,7 +227,7 @@ func (svr *GRPCServer) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockM
 
 // GetChainMeta returns blockchain metadata
 func (svr *GRPCServer) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRequest) (*iotexapi.GetChainMetaResponse, error) {
-	chainMeta, syncStatus, err := svr.coreService.ChainMeta()
+	chainMeta, syncStatus, err := svr.coreService.ChainMeta(svr.tpsWindow)
 	if err != nil {
 		return nil, err
 	}
@@ -196,13 +236,12 @@ func (svr *GRPCServer) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMe
 
 // GetServerMeta gets the server metadata
 func (svr *GRPCServer) GetServerMeta(ctx context.Context, in *iotexapi.GetServerMetaRequest) (*iotexapi.GetServerMetaResponse, error) {
-	packageVersion, packageCommitID, gitStatus, goVersion, buildTime := svr.coreService.ServerMeta()
 	return &iotexapi.GetServerMetaResponse{ServerMeta: &iotextypes.ServerMeta{
-		PackageVersion:  packageVersion,
-		PackageCommitID: packageCommitID,
-		GitStatus:       gitStatus,
-		GoVersion:       goVersion,
-		BuildTime:       buildTime,
+		PackageVersion:  version.PackageVersion,
+		PackageCommitID: version.PackageCommitID,
+		GitStatus:       version.GitStatus,
+		GoVersion:       version.GoVersion,
+		BuildTime:       version.BuildTime,
 	}}, nil
 }
 
@@ -381,6 +420,9 @@ func (svr *GRPCServer) GetEpochMeta(ctx context.Context, in *iotexapi.GetEpochMe
 
 // GetRawBlocks gets raw block data
 func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest) (*iotexapi.GetRawBlocksResponse, error) {
+	if in.Count == 0 || in.Count > svr.rangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
 	ret, err := svr.coreService.RawBlocks(in.StartHeight, in.Count, in.WithReceipts, in.WithTransactionLogs)
 	if err != nil {
 		return nil, err
@@ -414,12 +456,42 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 
 // StreamBlocks streams blocks
 func (svr *GRPCServer) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
-	return svr.coreService.StreamBlocks(stream)
+	errChan := make(chan error)
+	if err := svr.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
+			}
+			return err
+		}
+	}
 }
 
 // StreamLogs streams logs that match the filter condition
 func (svr *GRPCServer) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
-	return svr.coreService.StreamLogs(in.GetFilter(), stream)
+	if in == nil {
+		return status.Error(codes.InvalidArgument, "empty filter")
+	}
+	errChan := make(chan error)
+	// register the log filter so it will match logs in new blocks
+	if err := svr.chainListener.AddResponder(logfilter.NewLogFilter(in.GetFilter(), stream, errChan)); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
+			}
+			return err
+		}
+	}
 }
 
 // GetElectionBuckets returns the native election buckets.
@@ -553,4 +625,14 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	return &iotexapi.TraceTransactionStructLogsResponse{
 		StructLogs: structLogs,
 	}, nil
+}
+
+func (svr *GRPCServer) validateQueryLimit(count uint64) error {
+	if count == 0 {
+		return status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
+	if count > svr.rangeQueryLimit {
+		return status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+	return nil
 }

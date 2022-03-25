@@ -37,11 +37,11 @@ type GasStation struct {
 	bc        blockchain.Blockchain
 	simulator SimulateFunc
 	dao       BlockDAO
-	cfg       config.API
+	cfg       config.GasStation
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, simulator SimulateFunc, dao BlockDAO, cfg config.API) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, simulator SimulateFunc, dao BlockDAO, cfg config.GasStation) *GasStation {
 	return &GasStation{
 		bc:        bc,
 		simulator: simulator,
@@ -50,8 +50,8 @@ func NewGasStation(bc blockchain.Blockchain, simulator SimulateFunc, dao BlockDA
 	}
 }
 
-//IsSystemAction determine whether input action belongs to system action
-func (gs *GasStation) IsSystemAction(act action.SealedEnvelope) bool {
+//isSystemAction determine whether input action belongs to system action
+func (gs *GasStation) isSystemAction(act action.SealedEnvelope) bool {
 	switch act.Action().(type) {
 	case *action.GrantReward:
 		return true
@@ -68,24 +68,24 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	tip := gs.bc.TipHeight()
 
 	endBlockHeight := uint64(0)
-	if tip > uint64(gs.cfg.GasStation.SuggestBlockWindow) {
-		endBlockHeight = tip - uint64(gs.cfg.GasStation.SuggestBlockWindow)
+	if tip > uint64(gs.cfg.SuggestBlockWindow) {
+		endBlockHeight = tip - uint64(gs.cfg.SuggestBlockWindow)
 	}
 
 	for height := tip; height > endBlockHeight; height-- {
 		blk, err := gs.dao.GetBlockByHeight(height)
 		if err != nil {
-			return gs.cfg.GasStation.DefaultGas, err
+			return gs.cfg.DefaultGas, err
 		}
 		if len(blk.Actions) == 0 {
 			continue
 		}
-		if len(blk.Actions) == 1 && gs.IsSystemAction(blk.Actions[0]) {
+		if len(blk.Actions) == 1 && gs.isSystemAction(blk.Actions[0]) {
 			continue
 		}
 		smallestPrice := blk.Actions[0].GasPrice()
 		for _, act := range blk.Actions {
-			if gs.IsSystemAction(act) {
+			if gs.isSystemAction(act) {
 				continue
 			}
 			if smallestPrice.Cmp(act.GasPrice()) == 1 {
@@ -97,12 +97,12 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 
 	if len(smallestPrices) == 0 {
 		// return default price
-		return gs.cfg.GasStation.DefaultGas, nil
+		return gs.cfg.DefaultGas, nil
 	}
 	sort.Sort(bigIntArray(smallestPrices))
-	gasPrice := smallestPrices[(len(smallestPrices)-1)*gs.cfg.GasStation.Percentile/100].Uint64()
-	if gasPrice < gs.cfg.GasStation.DefaultGas {
-		gasPrice = gs.cfg.GasStation.DefaultGas
+	gasPrice := smallestPrices[(len(smallestPrices)-1)*gs.cfg.Percentile/100].Uint64()
+	if gasPrice < gs.cfg.DefaultGas {
+		gasPrice = gs.cfg.DefaultGas
 	}
 	return gasPrice, nil
 }

@@ -106,6 +106,12 @@ mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -package=mock_blocksync \
         BlockSync
 
+mkdir -p ./test/mock/mock_p2p
+mockgen -destination=./test/mock/mock_p2p/mock_p2p.go  \
+        -source=./p2p/agent.go \
+        -package=mock_p2p \
+        Agent
+
 mkdir -p ./test/mock/mock_apiserviceclient
 mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go  \
         -source=./api/apitestclient.go \
@@ -138,6 +144,6 @@ mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
 
 mkdir -p ./test/mock/mock_apicoreservice
 mockgen -destination=./test/mock/mock_apicoreservice/mock_apicoreservice.go  \
-        -source=./api/coreservice.go \
+        -source=./api/serverV2.go \
         -package=mock_apicoreservice \
         CoreService

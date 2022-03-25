@@ -1,15 +1,16 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package api
+package integrity
 
 import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"regexp"
@@ -20,28 +21,39 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/pb/election"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -821,21 +833,19 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), true)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	// deploy a contract
 	contractCode := "6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032"
-	contract, err := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
+	contract, err := deployContractV2(cs, identityset.PrivateKey(13), 1, contractCode)
 	require.NoError(err)
 	require.True(len(contract) > 0)
 
 	// read contract address
 	request := &iotexapi.GetAccountRequest{Address: contract}
-	res, err := svr.GrpcServer.GetAccount(context.Background(), request)
+	res, err := grpcServer.GetAccount(context.Background(), request)
 	require.NoError(err)
 	accountMeta := res.AccountMeta
 	require.Equal(contract, accountMeta.Address)
@@ -850,7 +860,7 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 	// success
 	for _, test := range getAccountTests {
 		request := &iotexapi.GetAccountRequest{Address: test.in}
-		res, err := svr.GrpcServer.GetAccount(context.Background(), request)
+		res, err := grpcServer.GetAccount(context.Background(), request)
 		require.NoError(err)
 		accountMeta := res.AccountMeta
 		require.Equal(test.address, accountMeta.Address)
@@ -862,33 +872,31 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 		require.NotZero(res.BlockIdentifier.Hash)
 	}
 	// failure
-	_, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
+	_, err = grpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
 	// error account
-	_, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: "io3fn88lge6hyzmruh40cn6l3e49dfkqzqk3lgtq3"})
+	_, err = grpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: "io3fn88lge6hyzmruh40cn6l3e49dfkqzqk3lgtq3"})
 	require.Error(err)
 
 	// success: reward pool
-	res, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: address.RewardingPoolAddr})
+	res, err = grpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: address.RewardingPoolAddr})
 	require.NoError(err)
 	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
 	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
 	require.EqualValues(5, res.BlockIdentifier.Height)
 	require.NotZero(res.BlockIdentifier.Hash)
 
-	//failure: protocol staking isn't registered
-	res, err = svr.GrpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: address.StakingBucketPoolAddr})
-	require.Contains(err.Error(), "protocol staking isn't registered")
+	// TODO: add failure case with protocol staking isn't registered
+	// res, err = grpcServer.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: address.StakingBucketPoolAddr})
+	// require.Error(err)
 }
 
 func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getActionsTests {
 		request := &iotexapi.GetActionsRequest{
@@ -900,7 +908,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 			},
 		}
 
-		res, err := svr.GrpcServer.GetActions(context.Background(), request)
+		res, err := grpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 		} else {
@@ -912,11 +920,11 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	}
 
 	// failure: empty request
-	_, err = svr.GrpcServer.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
+	_, err = grpcServer.GetActions(context.Background(), &iotexapi.GetActionsRequest{})
 	require.Error(err)
 
 	// failure: range exceed limit
-	_, err = svr.GrpcServer.GetActions(context.Background(),
+	_, err = grpcServer.GetActions(context.Background(),
 		&iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByIndex{
 				ByIndex: &iotexapi.GetActionsByIndexRequest{
@@ -928,7 +936,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	require.Error(err)
 
 	// failure: start exceed limit
-	_, err = svr.GrpcServer.GetActions(context.Background(),
+	_, err = grpcServer.GetActions(context.Background(),
 		&iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByIndex{
 				ByIndex: &iotexapi.GetActionsByIndexRequest{
@@ -944,11 +952,9 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, dao, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), true)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getActionTests {
 		request := &iotexapi.GetActionsRequest{
@@ -959,14 +965,14 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetActions(context.Background(), request)
+		res, err := grpcServer.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(1, len(res.ActionInfo))
 		act := res.ActionInfo[0]
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := dao.GetBlockByHeight(test.blkNumber)
+			blk, err := cs.BlockDAO().GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -981,7 +987,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 	}
 
 	// failure: invalid hash
-	_, err = svr.GrpcServer.GetActions(context.Background(),
+	_, err = grpcServer.GetActions(context.Background(),
 		&iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByHash{
 				ByHash: &iotexapi.GetActionByHashRequest{
@@ -997,11 +1003,9 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getActionsByAddressTests {
 		request := &iotexapi.GetActionsRequest{
@@ -1013,7 +1017,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetActions(context.Background(), request)
+		res, err := grpcServer.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
 		if test.numActions == 0 {
@@ -1037,7 +1041,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 					},
 				},
 			}
-			prevRes, err := svr.GrpcServer.GetActions(context.Background(), request)
+			prevRes, err := grpcServer.GetActions(context.Background(), request)
 			require.NoError(err)
 			require.True(prevRes.ActionInfo[len(prevRes.ActionInfo)-1].Timestamp.GetSeconds() <= res.ActionInfo[0].Timestamp.GetSeconds())
 		}
@@ -1048,11 +1052,9 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), true)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getUnconfirmedActionsByAddressTests {
 		request := &iotexapi.GetActionsRequest{
@@ -1064,7 +1066,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetActions(context.Background(), request)
+		res, err := grpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 			continue
@@ -1079,11 +1081,9 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getActionsByBlockTests {
 		request := &iotexapi.GetActionsRequest{
@@ -1095,7 +1095,7 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetActions(context.Background(), request)
+		res, err := grpcServer.GetActions(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 			continue
@@ -1118,11 +1118,9 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash(&cfg.Genesis)
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getBlockMetasTests {
 		request := &iotexapi.GetBlockMetasRequest{
@@ -1133,7 +1131,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetBlockMetas(context.Background(), request)
+		res, err := grpcServer.GetBlockMetas(context.Background(), request)
 		if test.count == 0 {
 			require.Error(err)
 			continue
@@ -1157,17 +1155,17 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 		}
 	}
 	// failure: empty request
-	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+	_, err = grpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
 	require.Error(err)
 
-	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+	_, err = grpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{Start: 10, Count: 1},
 		},
 	})
 	require.Error(err)
 
-	_, err = svr.GrpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
+	_, err = grpcServer.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
 			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: "0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"},
 		},
@@ -1179,14 +1177,12 @@ func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bc, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getBlockMetaTests {
-		header, err := bc.BlockHeaderByHeight(test.blkHeight)
+		header, err := cs.Blockchain().BlockHeaderByHeight(test.blkHeight)
 		require.NoError(err)
 		blkHash := header.HashBlock()
 		request := &iotexapi.GetBlockMetasRequest{
@@ -1196,7 +1192,7 @@ func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetBlockMetas(context.Background(), request)
+		res, err := grpcServer.GetBlockMetas(context.Background(), request)
 		require.NoError(err)
 		require.Equal(1, len(res.BlkMetas))
 		blkPb := res.BlkMetas[0]
@@ -1211,10 +1207,9 @@ func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 
-	ctrl := gomock.NewController(t)
-
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
+		ctrl := gomock.NewController(t)
 		cfg := newConfig(t)
 		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
@@ -1224,7 +1219,9 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return nil, 0, nil
+				},
 				nil,
 				nil,
 				nil,
@@ -1243,27 +1240,25 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
+			committee.EXPECT().ResultByHeight(gomock.Any()).Return(types.NewElectionResultForTest(time.Now()), nil)
 		}
 
 		cfg.API.TpsWindow = test.tpsWindow
-		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
+		builder := chainservice.NewBuilder(cfg)
 		if pol != nil {
+			registry := protocol.NewRegistry()
+			require.NoError(account.NewProtocol(rewarding.DepositGas).ForceRegister(registry))
 			require.NoError(pol.ForceRegister(registry))
+			builder = builder.SetRegistry(registry)
 		}
-		if test.emptyChain {
-			mbc := mock_blockchain.NewMockBlockchain(ctrl)
-			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
-			mbc.EXPECT().ChainID().Return(uint32(1)).Times(1)
-			coreService, ok := svr.core.(*coreService)
-			require.True(ok)
-			// TODO: create a core service with empty chain to test
-			coreService.bc = mbc
+		cs, err := builder.BuildForTest()
+		require.NoError(err)
+		require.NoError(cs.Start(context.Background()))
+		if !test.emptyChain {
+			require.NoError(addTestingBlocks(cs.Blockchain(), cs.ActionPool()))
 		}
-		res, err := svr.GrpcServer.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+		res, err := grpcServer.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
 		chainMetaPb := res.ChainMeta
 		require.Equal(test.height, chainMetaPb.Height)
@@ -1272,6 +1267,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
 		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
 		require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
+		require.NoError(cs.Stop(context.Background()))
 	}
 }
 
@@ -1279,25 +1275,15 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Genesis.MidwayBlockHeight = 10
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
+
+	cs, err := createChainService(cfg, nil, true)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
-	coreService, ok := svr.core.(*coreService)
-	require.True(ok)
-	broadcastHandlerCount := 0
-	coreService.broadcastHandler = func(_ context.Context, _ uint32, _ proto.Message) error {
-		broadcastHandlerCount++
-		return nil
-	}
-
-	for i, test := range sendActionTests {
+	for _, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
-		res, err := svr.GrpcServer.SendAction(context.Background(), request)
+		res, err := grpcServer.SendAction(context.Background(), request)
 		require.NoError(err)
-		require.Equal(i+1, broadcastHandlerCount)
 		require.Equal(test.actionHash, res.ActionHash)
 	}
 
@@ -1327,7 +1313,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		{
 			func() config.Config {
 				cfg := newConfig(t)
-				cfg.ActPool.MaxNumActsPerPool = 8
+				cfg.ActPool.MaxNumActsPerPool = 6
 				return cfg
 			},
 			testTransferPb,
@@ -1358,44 +1344,30 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 
 	for _, test := range tests {
 		request := &iotexapi.SendActionRequest{Action: test.action}
-		svr, _, _, _, _, _, file, err := createServerV2(test.cfg(), true)
+		cs, err := createChainService(test.cfg(), nil, true)
 		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(file)
-		}()
+		grpcServer := api.NewGRPCServer(cs, test.cfg().API.Port, test.cfg().API.RangeQueryLimit, uint64(test.cfg().API.TpsWindow))
 
-		_, err = svr.GrpcServer.SendAction(ctx, request)
+		_, err = grpcServer.SendAction(ctx, request)
 		require.Contains(err.Error(), test.err)
 	}
 }
 
 func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig(t)
-
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
-
-	err = svr.GrpcServer.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
-	require.Error(err)
+	// TODO: add back unit test for stream log
 }
 
 func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
-		res, err := svr.GrpcServer.GetReceiptByAction(context.Background(), request)
+		res, err := grpcServer.GetReceiptByAction(context.Background(), request)
 		require.NoError(err)
 		receiptPb := res.ReceiptInfo.Receipt
 		require.Equal(test.status, receiptPb.Status)
@@ -1404,10 +1376,10 @@ func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 	}
 
 	// failure: empty request
-	_, err = svr.GrpcServer.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "0x"})
+	_, err = grpcServer.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "0x"})
 	require.Error(err)
 	// failure: wrong hash
-	_, err = svr.GrpcServer.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "b7faffcb8b01fa9f32112155bcb93d714f599eab3178e577e88dafd2140bfc5a"})
+	_, err = grpcServer.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{ActionHash: "b7faffcb8b01fa9f32112155bcb93d714f599eab3178e577e88dafd2140bfc5a"})
 	require.Error(err)
 
 }
@@ -1416,13 +1388,12 @@ func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
-	resProto, err := svr.GrpcServer.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	resProto, err := grpcServer.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	require.NoError(err)
 	res := resProto.GetServerMeta()
 	require.Equal(res.BuildTime, version.BuildTime)
 	require.Equal(res.GoVersion, version.GoVersion)
@@ -1435,18 +1406,16 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range readContractTests {
 		hash, err := hash.HexStringToHash256(test.execHash)
 		require.NoError(err)
-		ai, err := indexer.GetActionIndex(hash[:])
+		ai, err := cs.Indexer().GetActionIndex(hash[:])
 		require.NoError(err)
-		exec, _, err := dao.GetActionByActionHash(hash, ai.BlockHeight())
+		exec, _, err := cs.BlockDAO().GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
@@ -1455,7 +1424,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 			GasPrice:      big.NewInt(unit.Qev).String(),
 		}
 
-		res, err := svr.GrpcServer.ReadContract(context.Background(), request)
+		res, err := grpcServer.ReadContract(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.retValue, res.Data)
 		require.EqualValues(1, res.Receipt.Status)
@@ -1470,12 +1439,11 @@ func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 
 	for _, test := range suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
-		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+		cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
-		res, err := svr.GrpcServer.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+
+		res, err := grpcServer.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
 		require.NoError(err)
 		require.Equal(test.suggestedGasPrice, res.GasPrice)
 	}
@@ -1485,22 +1453,20 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range estimateGasForActionTests {
 		hash, err := hash.HexStringToHash256(test.actionHash)
 		require.NoError(err)
-		ai, err := indexer.GetActionIndex(hash[:])
+		ai, err := cs.Indexer().GetActionIndex(hash[:])
 		require.NoError(err)
-		act, _, err := dao.GetActionByActionHash(hash, ai.BlockHeight())
+		act, _, err := cs.BlockDAO().GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 
-		res, err := svr.GrpcServer.EstimateGasForAction(context.Background(), request)
+		res, err := grpcServer.EstimateGasForAction(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.estimatedGas, res.Gas)
 	}
@@ -1509,11 +1475,9 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	// test for contract deploy
 	data := "608060405234801561001057600080fd5b50610123600102600281600019169055503373ffffffffffffffffffffffffffffffffffffffff166001026003816000191690555060035460025417600481600019169055506102ae806100656000396000f300608060405260043610610078576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680630cc0e1fb1461007d57806328f371aa146100b05780636b1d752b146100df578063d4b8399214610112578063daea85c514610145578063eb6fd96a14610188575b600080fd5b34801561008957600080fd5b506100926101bb565b60405180826000191660001916815260200191505060405180910390f35b3480156100bc57600080fd5b506100c56101c1565b604051808215151515815260200191505060405180910390f35b3480156100eb57600080fd5b506100f46101d7565b60405180826000191660001916815260200191505060405180910390f35b34801561011e57600080fd5b506101276101dd565b60405180826000191660001916815260200191505060405180910390f35b34801561015157600080fd5b50610186600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506101e3565b005b34801561019457600080fd5b5061019d61027c565b60405180826000191660001916815260200191505060405180910390f35b60035481565b6000600454600019166001546000191614905090565b60025481565b60045481565b3373ffffffffffffffffffffffffffffffffffffffff166001028173ffffffffffffffffffffffffffffffffffffffff16600102176001816000191690555060016000808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060006101000a81548160ff02191690831515021790555050565b600154815600a165627a7a7230582089b5f99476d642b66a213c12cd198207b2e813bb1caf3bd75e22be535ebf5d130029"
@@ -1527,7 +1491,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err := svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err := grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(286579), res.Gas)
 
@@ -1540,7 +1504,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1558,15 +1522,15 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 
 	// staking related
 	// case I: test for StakeCreate
-	cs, err := action.NewCreateStake(nonce, canAddress, amount.String(), duration, autoStake, payload, gaslimit, gasprice)
+	createStake, err := action.NewCreateStake(nonce, canAddress, amount.String(), duration, autoStake, payload, gaslimit, gasprice)
 	require.NoError(err)
 	request = &iotexapi.EstimateActionGasConsumptionRequest{
 		Action: &iotexapi.EstimateActionGasConsumptionRequest_StakeCreate{
-			StakeCreate: cs.Proto(),
+			StakeCreate: createStake.Proto(),
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1579,7 +1543,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1592,7 +1556,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1605,7 +1569,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1618,7 +1582,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1631,7 +1595,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1644,7 +1608,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1657,7 +1621,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10300), res.Gas)
 
@@ -1670,7 +1634,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10000), res.Gas)
 
@@ -1679,7 +1643,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 		Action:        nil,
 		CallerAddress: identityset.Address(0).String(),
 	}
-	_, err = svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	_, err = grpcServer.EstimateActionGasConsumption(context.Background(), request)
 	require.Error(err)
 }
 
@@ -1687,14 +1651,12 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range readUnclaimedBalanceTests {
-		out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		out, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(test.addr)},
@@ -1714,13 +1676,11 @@ func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
-	out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+	out, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("TotalBalance"),
 		Arguments:  nil,
@@ -1735,13 +1695,11 @@ func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
-	out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+	out, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
 		Arguments:  nil,
@@ -1758,6 +1716,7 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
+	committee.EXPECT().ResultByHeight(gomock.Any()).Return(types.NewElectionResultForTest(time.Now()), nil)
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1772,11 +1731,13 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 	}
 
 	for _, test := range readCandidatesByEpochTests {
+		builder := chainservice.NewBuilder(cfg)
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
+			cfg.Consensus.Scheme = config.RollDPoSScheme
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
@@ -1803,15 +1764,26 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
+			dao := mock_blockdao.NewMockBlockDAO(ctrl)
+			dao.EXPECT().GetBlockHash(gomock.Any()).Return(hash.Hash256{}, nil).Times(1)
+			dao.EXPECT().Height().Return(uint64(0), nil).Times(1)
+			dao.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
+			dao.EXPECT().Stop(gomock.Any()).Return(nil).Times(1)
+			factory := mock_factory.NewMockFactory(ctrl)
+			factory.EXPECT().Height().Return(uint64(0), nil).Times(4)
+			builder = builder.SetBlockDAO(dao).SetFactory(factory)
 		}
-		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
+		registry := protocol.NewRegistry()
+		require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
 		require.NoError(pol.ForceRegister(registry))
+		cs, err := builder.SetRegistry(registry).BuildForTest()
+		require.NoError(err)
+		ctx := context.Background()
 
-		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		require.NoError(cs.Start(ctx))
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+
+		res, err := grpcServer.ReadState(ctx, &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
@@ -1820,6 +1792,7 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 		var delegates state.CandidateList
 		require.NoError(delegates.Deserialize(res.Data))
 		require.Equal(test.numDelegates, len(delegates))
+		require.NoError(cs.Stop(ctx))
 	}
 }
 
@@ -1843,6 +1816,7 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 	}
 
 	for _, test := range readBlockProducersByEpochTests {
+		builder := chainservice.NewBuilder(cfg)
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
@@ -1876,13 +1850,17 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
+		factory := mock_factory.NewMockFactory(ctrl)
+		factory.EXPECT().Height().Return(uint64(0), nil).Times(4)
+		registry := protocol.NewRegistry()
+		require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
 		require.NoError(pol.ForceRegister(registry))
-		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		cs, err := builder.SetRegistry(registry).SetFactory(factory).BuildForTest()
+		require.NoError(err)
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+
+		require.NoError(pol.ForceRegister(cs.Registry()))
+		res, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
@@ -1914,6 +1892,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 	}
 
 	for _, test := range readActiveBlockProducersByEpochTests {
+		builder := chainservice.NewBuilder(cfg)
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
@@ -1946,14 +1925,18 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
+		factory := mock_factory.NewMockFactory(ctrl)
+		factory.EXPECT().Height().Return(uint64(0), nil).Times(4)
+		registry := protocol.NewRegistry()
+		require.NoError(account.NewProtocol(rewarding.DepositGas).Register(registry))
 		require.NoError(pol.ForceRegister(registry))
+		cs, err := builder.SetRegistry(registry).SetFactory(factory).BuildForTest()
+		require.NoError(err)
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
-		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		require.NoError(pol.ForceRegister(cs.Registry()))
+
+		res, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
@@ -1970,12 +1953,10 @@ func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 	cfg := newConfig(t)
 
 	for _, test := range readRollDPoSMetaTests {
-		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+		cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
-		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+		res, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 		})
@@ -1991,12 +1972,11 @@ func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 	cfg := newConfig(t)
 
 	for _, test := range readEpochCtxTests {
-		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+		cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(bfIndexFile)
-		}()
-		res, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+
+		res, err := grpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.argument, 10))},
@@ -2013,59 +1993,64 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
-
-	svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	t.Run("failure", func(t *testing.T) {
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+		// failure: epoch number
+		_, err = grpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
+		require.Error(err)
+	})
+	registry := cs.Registry()
 	for _, test := range getEpochMetaTests {
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 			require.NoError(pol.ForceRegister(registry))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
+			cfg.Genesis.PollMode = "governanceMix"
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			mbc.EXPECT().Genesis().Return(cfg.Genesis).Times(10)
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
+			candidates := []*state.Candidate{
+				{
+					Address:       identityset.Address(1).String(),
+					Votes:         big.NewInt(6),
+					RewardAddress: identityset.Address(7).String(),
+				},
+				{
+					Address:       identityset.Address(2).String(),
+					Votes:         big.NewInt(5),
+					RewardAddress: identityset.Address(7).String(),
+				},
+				{
+					Address:       identityset.Address(3).String(),
+					Votes:         big.NewInt(4),
+					RewardAddress: identityset.Address(7).String(),
+				},
+				{
+					Address:       identityset.Address(4).String(),
+					Votes:         big.NewInt(3),
+					RewardAddress: identityset.Address(7).String(),
+				},
+				{
+					Address:       identityset.Address(5).String(),
+					Votes:         big.NewInt(2),
+					RewardAddress: identityset.Address(7).String(),
+				},
+				{
+					Address:       identityset.Address(6).String(),
+					Votes:         big.NewInt(1),
+					RewardAddress: identityset.Address(7).String(),
+				},
+			}
 			slasher, _ := poll.NewSlasher(
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
 				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
-					return []*state.Candidate{
-						{
-							Address:       identityset.Address(1).String(),
-							Votes:         big.NewInt(6),
-							RewardAddress: "rewardAddress",
-						},
-						{
-							Address:       identityset.Address(2).String(),
-							Votes:         big.NewInt(5),
-							RewardAddress: "rewardAddress",
-						},
-						{
-							Address:       identityset.Address(3).String(),
-							Votes:         big.NewInt(4),
-							RewardAddress: "rewardAddress",
-						},
-						{
-							Address:       identityset.Address(4).String(),
-							Votes:         big.NewInt(3),
-							RewardAddress: "rewardAddress",
-						},
-						{
-							Address:       identityset.Address(5).String(),
-							Votes:         big.NewInt(2),
-							RewardAddress: "rewardAddress",
-						},
-						{
-							Address:       identityset.Address(6).String(),
-							Votes:         big.NewInt(1),
-							RewardAddress: "rewardAddress",
-						},
-					}, 0, nil
+					return candidates, 0, nil
 				},
 				nil,
 				nil,
@@ -2085,9 +2070,34 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 			require.NoError(pol.ForceRegister(registry))
-			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
+			committee.EXPECT().HeightByTime(gomock.Any()).DoAndReturn(func(time.Time) (uint64, error) {
+				return test.epochData.GravityChainStartHeight, nil
+			})
+			result := &types.ElectionResult{}
+			electionResult := &election.ElectionResult{Timestamp: timestamppb.Now()}
+			for i, candidate := range candidates {
+				electionResult.Delegates = append(electionResult.Delegates, &election.Candidate{
+					Name:            []byte(fmt.Sprintf("name %d", i)),
+					Address:         []byte(candidate.Address),
+					RewardAddress:   []byte(candidate.RewardAddress),
+					OperatorAddress: []byte(identityset.Address(i).String()),
+					Score:           candidate.Votes.Bytes(),
+				})
+				electionResult.DelegateVotes = append(electionResult.DelegateVotes, &election.VoteList{
+					Votes: []*election.Vote{{
+						Candidate:      candidate.CanName,
+						Amount:         candidate.Votes.Bytes(),
+						WeightedAmount: candidate.Votes.Bytes(),
+						StartTime:      timestamppb.Now(),
+						Duration:       durationpb.New(24 * time.Hour),
+					}},
+				})
+			}
+			require.NoError(result.FromProtoMsg(electionResult))
+			committee.EXPECT().ResultByHeight(gomock.Any()).Return(result, nil)
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(4)
+			mbc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).Times(3)
 			mbc.EXPECT().BlockHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
 				if height > 0 && height <= 4 {
 					pk := identityset.PrivateKey(int(height))
@@ -2104,16 +2114,24 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 				}
 				return &block.Header{}, errors.Errorf("invalid block height %d", height)
 			}).AnyTimes()
-			coreService, ok := svr.core.(*coreService)
-			require.True(ok)
-			// TODO: create a core service to test
-			coreService.bc = mbc
+			cs, err = chainservice.NewBuilder(cfg).SetBlockchain(mbc).SetRegistry(registry).BuildForTest()
+			require.NoError(err)
+			ctx := protocol.WithFeatureWithHeightCtx(
+				genesis.WithGenesisContext(
+					protocol.WithBlockchainCtx(
+						context.Background(),
+						protocol.BlockchainCtx{
+							Tip: protocol.TipInfo{},
+						},
+					),
+					cfg.Genesis,
+				))
+			require.NoError(cs.BlockDAO().Start(ctx))
 		}
+		grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
-		coreService, ok := svr.core.(*coreService)
-		require.True(ok)
-		coreService.readCache.Clear()
-		res, err := svr.GrpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
+		require.NoError(cs.ReceiveBlock(nil))
+		res, err := grpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
 		require.Equal(test.epochData.Height, res.EpochData.Height)
@@ -2136,20 +2154,15 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 		require.Equal(test.numActiveCensusBlockProducers, numActiveBlockProducers)
 	}
 
-	// failure: epoch number
-	_, err = svr.GrpcServer.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: 0})
-	require.Error(err)
 }
 
 func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getRawBlocksTest {
 		request := &iotexapi.GetRawBlocksRequest{
@@ -2157,7 +2170,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 			Count:        test.count,
 			WithReceipts: test.withReceipts,
 		}
-		res, err := svr.GrpcServer.GetRawBlocks(context.Background(), request)
+		res, err := grpcServer.GetRawBlocks(context.Background(), request)
 		require.NoError(err)
 		blkInfos := res.Blocks
 		require.Equal(test.numBlks, len(blkInfos))
@@ -2183,7 +2196,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	}
 
 	// failure: invalid count
-	_, err = svr.GrpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+	_, err = grpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
 		StartHeight:  1,
 		Count:        0,
 		WithReceipts: true,
@@ -2191,7 +2204,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	require.Error(err)
 
 	// failure: invalid startHeight
-	_, err = svr.GrpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+	_, err = grpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
 		StartHeight:  1000000,
 		Count:        10,
 		WithReceipts: true,
@@ -2199,7 +2212,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	require.Error(err)
 
 	// failure: invalid endHeight
-	_, err = svr.GrpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+	_, err = grpcServer.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
 		StartHeight:  3,
 		Count:        1000,
 		WithReceipts: true,
@@ -2211,12 +2224,20 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	dbConfig := cfg.DB
+	dbConfig.DbPath = t.TempDir() + "/bf.index"
+	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(dbConfig), cfg.Indexer)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	defer testutil.CleanupPath(dbConfig.DbPath)
+	cs, err := chainservice.NewBuilder(cfg).SetBloomFilterIndexer(bfIndexer).BuildForTest()
+	require.NoError(err)
+
+	ctx := context.Background()
+
+	require.NoError(cs.Start(ctx))
+	// Add testing blocks
+	require.NoError(addTestingBlocks(cs.Blockchain(), cs.ActionPool()))
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	for _, test := range getLogsByRangeTest {
 		request := &iotexapi.GetLogsRequest{
@@ -2231,7 +2252,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetLogs(context.Background(), request)
+		res, err := grpcServer.GetLogs(context.Background(), request)
 		require.NoError(err)
 		logs := res.Logs
 		require.Equal(test.numLogs, len(logs))
@@ -2250,20 +2271,20 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 				},
 			},
 		}
-		res, err := svr.GrpcServer.GetLogs(context.Background(), request)
+		res, err := grpcServer.GetLogs(context.Background(), request)
 		require.NoError(err)
 		logs := res.Logs
 		require.Equal(1, len(logs))
 	}
 
 	// failure: empty request
-	_, err = svr.GrpcServer.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
+	_, err = grpcServer.GetLogs(context.Background(), &iotexapi.GetLogsRequest{
 		Filter: &iotexapi.LogsFilter{},
 	})
 	require.Error(err)
 
 	// failure: empty filter
-	_, err = svr.GrpcServer.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
+	_, err = grpcServer.GetLogs(context.Background(), &iotexapi.GetLogsRequest{})
 	require.Error(err)
 }
 
@@ -2271,31 +2292,25 @@ func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
 
 	// failure: no native election
 	request := &iotexapi.GetElectionBucketsRequest{
 		EpochNum: 0,
 	}
-	_, err = svr.GrpcServer.GetElectionBuckets(context.Background(), request)
+	_, err = api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow)).GetElectionBuckets(context.Background(), request)
 	require.Error(err)
 }
 
 func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
 
 	for _, test := range getActionByActionHashTest {
-		ret, _, _, _, err := svr.core.ActionByActionHash(test.h)
+		ret, _, _, _, err := cs.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
@@ -2305,16 +2320,14 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	request := &iotexapi.GetTransactionLogByActionHashRequest{
 		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
 	}
-	_, err = svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
+	_, err = grpcServer.GetTransactionLogByActionHash(context.Background(), request)
 	require.Error(err)
 	sta, ok := status.FromError(err)
 	require.Equal(true, ok)
@@ -2322,34 +2335,28 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 
 	for h, log := range implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
-		res, err := svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
+		res, err := grpcServer.GetTransactionLogByActionHash(context.Background(), request)
 		require.NoError(err)
 		require.Equal(log.Proto(), res.TransactionLog)
 	}
 
-	// TODO (huof6829): Re-enable this test
-	/*
-		// check implicit transfer receiver balance
-		state, err := accountutil.LoadAccount(svr.core.StateFactory(), identityset.Address(31))
-		require.NoError(err)
-		require.Equal(big.NewInt(5), state.Balance)
-	*/
+	// check implicit transfer receiver balance
+	state, err := accountutil.LoadAccount(cs.StateFactory(), identityset.Address(31))
+	require.NoError(err)
+	require.Equal(big.NewInt(5), state.Balance)
 }
 
 func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
-
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
 	for _, test := range getImplicitLogByBlockHeightTest {
 		request.BlockHeight = test.height
-		res, err := svr.GrpcServer.GetTransactionLogByBlockHeight(context.Background(), request)
+		res, err := grpcServer.GetTransactionLogByBlockHeight(context.Background(), request)
 		if test.code != codes.OK {
 			require.Error(err)
 			sta, ok := status.FromError(err)
@@ -2374,14 +2381,12 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	cfg := newConfig(t)
 	ctx := context.Background()
 
-	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), false)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
-
-	res, err := svr.GrpcServer.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
+	res, err := grpcServer.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
 	require.NoError(err)
+	actPool := cs.ActionPool()
 	require.Equal(len(actPool.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
 
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
@@ -2406,24 +2411,24 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	require.NoError(err)
 	requests = append(requests, hex.EncodeToString(h1[:]))
 
-	res, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{})
+	res, err = grpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{})
 	require.NoError(err)
 	require.Equal(len(actPool.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
 
-	res, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
+	res, err = grpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
 	require.NoError(err)
 	require.Equal(1, len(res.Actions))
 
 	h2, err := tsf2.Hash()
 	require.NoError(err)
 	requests = append(requests, hex.EncodeToString(h2[:]))
-	res, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
+	res, err = grpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
 	require.NoError(err)
 	require.Equal(2, len(res.Actions))
 
 	h3, err := tsf3.Hash()
 	require.NoError(err)
-	_, err = svr.GrpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
+	_, err = grpcServer.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
 }
 
@@ -2431,15 +2436,12 @@ func TestGrpcServer_GetEstimateGasSpecialIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), true)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
 
 	// deploy self-desturct contract
 	contractCode := "608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610196806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c80632e64cec11461004657806343d726d6146100645780636057361d1461006e575b600080fd5b61004e61008a565b60405161005b9190610124565b60405180910390f35b61006c610094565b005b610088600480360381019061008391906100ec565b6100cd565b005b6000600154905090565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b8060018190555050565b6000813590506100e681610149565b92915050565b6000602082840312156100fe57600080fd5b600061010c848285016100d7565b91505092915050565b61011e8161013f565b82525050565b60006020820190506101396000830184610115565b92915050565b6000819050919050565b6101528161013f565b811461015d57600080fd5b5056fea264697066735822122060e7a28baea4232a95074b94b50009d1d7b99302ef6556a1f3ce7f46a49f8cc064736f6c63430008000033"
-	contract, err := deployContractV2(svr, bc, dao, actPool, identityset.PrivateKey(13), 1, bc.TipHeight(), contractCode)
+	contract, err := deployContractV2(cs, identityset.PrivateKey(13), 1, contractCode)
 
 	require.NoError(err)
 	require.True(len(contract) > 0)
@@ -2456,7 +2458,7 @@ func TestGrpcServer_GetEstimateGasSpecialIntegrity(t *testing.T) {
 		},
 		CallerAddress: identityset.Address(13).String(),
 	}
-	res, err := svr.GrpcServer.EstimateActionGasConsumption(context.Background(), request)
+	res, err := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow)).EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
 	require.Equal(uint64(10777), res.Gas)
 }
@@ -2549,14 +2551,12 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			svr, _, _, _, _, _, file, err := createServerV2(test.cfg(), true)
+			cs, err := createChainService(test.cfg(), p2p.NewDummyAgent(), true)
 			require.NoError(err)
-			defer func() {
-				testutil.CleanupPath(file)
-			}()
+			grpcServer := api.NewGRPCServer(cs, test.cfg().API.Port, test.cfg().API.RangeQueryLimit, uint64(test.cfg().API.TpsWindow))
 
 			for _, action := range test.actions {
-				_, err = svr.GrpcServer.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: action})
+				_, err = grpcServer.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: action})
 				if err != nil {
 					break
 				}
@@ -2572,21 +2572,19 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, bc, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
+	cs, err := createChainService(cfg, p2p.NewDummyAgent(), true)
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	grpcServer := api.NewGRPCServer(cs, cfg.API.Port, cfg.API.RangeQueryLimit, uint64(cfg.API.TpsWindow))
 
 	request := &iotexapi.TraceTransactionStructLogsRequest{
 		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
 	}
-	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	_, err = grpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.Error(err)
 
 	//unsupport type
 	request.ActionHash = hex.EncodeToString(transferHash1[:])
-	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	_, err = grpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.Error(err)
 
 	// deploy a contract
@@ -2595,16 +2593,17 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	data, _ := hex.DecodeString(contractCode)
 	ex1, err := action.SignedExecution(action.EmptyAddress, identityset.PrivateKey(13), 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	require.NoError(err)
-	actPool.Add(context.Background(), ex1)
+	cs.ActionPool().Add(context.Background(), ex1)
 	require.NoError(err)
+	bc := cs.Blockchain()
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	bc.CommitBlock(blk)
 	require.NoError(err)
-	actPool.Reset()
+	cs.ActionPool().Reset()
 	ex1Hash, _ := ex1.Hash()
 	request.ActionHash = hex.EncodeToString(ex1Hash[:])
-	ret, err := svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
+	ret, err := grpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.NoError(err)
 	require.Equal(len(ret.StructLogs), 17)
 	log := ret.StructLogs[0]

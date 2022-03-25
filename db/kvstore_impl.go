@@ -8,6 +8,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -117,8 +118,22 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (m *memKVStore) Filter(namespace string, c Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
-	// TODO: implement filter for memKVStore
-	return nil, nil, errors.New("in-memory KVStore does not support Filter()")
+	keys := [][]byte{}
+	values := [][]byte{}
+	m.data.Range(func(key cache.Key, value interface{}) bool {
+		vb := value.([]byte)
+		fields := strings.SplitN(key.(string), keyDelimiter, 2)
+		if fields[0] == namespace {
+			k := []byte(fields[1])
+			if c(k, vb) {
+				keys = append(keys, k)
+				values = append(values, vb)
+			}
+		}
+		return true
+	})
+
+	return keys, values, nil
 }
 
 // WriteBatch commits a batch

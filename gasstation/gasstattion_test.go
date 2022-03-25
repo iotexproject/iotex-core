@@ -39,7 +39,7 @@ import (
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, nil, nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, nil, config.Default.API.GasStation))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -108,7 +108,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -165,14 +165,14 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
 	fmt.Println(gp)
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
-	require.Equal(t, gs.cfg.GasStation.DefaultGas, gp)
+	require.Equal(t, gs.cfg.DefaultGas, gp)
 }
 
 func TestEstimateGasForAction(t *testing.T) {
@@ -184,7 +184,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.NoError(err)
 	dao := mock_blockdao.NewMockBlockDAO(ctrl)
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	gs := NewGasStation(mBc, sf.SimulateExecution, dao, config.Default.API)
+	gs := NewGasStation(mBc, sf.SimulateExecution, dao, config.Default.API.GasStation)
 	require.NotNil(gs)
 
 	act := getAction()
@@ -209,7 +209,7 @@ func TestEstimateGasForAction(t *testing.T) {
 
 func TestIsSystemAction(t *testing.T) {
 	require := require.New(t)
-	gs := NewGasStation(nil, nil, nil, config.Default.API)
+	gs := NewGasStation(nil, nil, nil, config.Default.API.GasStation)
 	require.NotNil(gs)
 	builder := action.EnvelopeBuilder{}
 	cf := action.ClaimFromRewardingFundBuilder{}
@@ -217,20 +217,20 @@ func TestIsSystemAction(t *testing.T) {
 	act := builder.SetAction(&actClaimFromRewarding).Build()
 	sel, err := action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
-	require.False(gs.IsSystemAction(sel))
+	require.False(gs.isSystemAction(sel))
 
 	gb := action.GrantRewardBuilder{}
 	actGrantReward := gb.Build()
 	act = builder.SetAction(&actGrantReward).Build()
 	sel, err = action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
-	require.True(gs.IsSystemAction(sel))
+	require.True(gs.isSystemAction(sel))
 
 	actPollResult := action.NewPutPollResult(1, 1, nil)
 	act = builder.SetAction(actPollResult).Build()
 	sel, err = action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
-	require.True(gs.IsSystemAction(sel))
+	require.True(gs.isSystemAction(sel))
 }
 
 func getAction() (act *iotextypes.Action) {

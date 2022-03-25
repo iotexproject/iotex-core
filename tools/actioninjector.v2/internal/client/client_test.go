@@ -8,23 +8,21 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -38,6 +36,8 @@ func TestClient(t *testing.T) {
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
 	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)
@@ -54,6 +54,7 @@ func TestClient(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(mockCtrl)
 	sf := mock_factory.NewMockFactory(mockCtrl)
 	ap := mock_actpool.NewMockActPool(mockCtrl)
+	dao := mock_blockdao.NewMockBlockDAO(mockCtrl)
 
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
 		*accountState = state.EmptyAccount()
@@ -75,16 +76,13 @@ func TestClient(t *testing.T) {
 	blh := block.Header{}
 	require.NoError(blh.LoadFromBlockHeaderProto(bh))
 	bc.EXPECT().BlockHeaderByHeight(gomock.Any()).Return(&blh, nil).AnyTimes()
+	bc.EXPECT().Start(gomock.Any()).Return(nil).Times(1)
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
-		return nil
-	})
-	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+	ap.EXPECT().AddActionEnvelopeValidators(gomock.Any()).AnyTimes()
+	coreService, err := chainservice.NewBuilder(cfg).SetFactory(sf).SetBlockchain(bc).SetActionPool(ap).SetBlockDAO(dao).BuildForTest()
 	require.NoError(err)
-	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
-	require.NoError(err)
-	apiServer, err := api.NewServerV2(cfg.API, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
+	apiServer, err := api.NewServerV2(cfg.API, coreService)
 	require.NoError(err)
 	require.NoError(apiServer.Start(ctx))
 	// test New()

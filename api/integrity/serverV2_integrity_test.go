@@ -1,10 +1,10 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package api
+package integrity
 
 import (
 	"context"
@@ -16,26 +16,18 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -210,16 +202,20 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	return bc.CommitBlock(blk)
 }
 
-func deployContractV2(svr *ServerV2, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
+func deployContractV2(cs *chainservice.ChainService, key crypto.PrivateKey, nonce uint64, code string) (string, error) {
 	data, _ := hex.DecodeString(code)
 	ex1, err := action.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return "", err
 	}
+	actPool := cs.ActionPool()
+	bc := cs.Blockchain()
+	dao := cs.BlockDAO()
+	height := bc.TipHeight()
 	if err := actPool.Add(context.Background(), ex1); err != nil {
 		return "", err
 	}
-	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	blk, err := cs.Blockchain().MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return "", err
 	}
@@ -259,6 +255,14 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	tsf4, err := action.SignedTransfer(identityset.Address(33).String(), identityset.PrivateKey(33), 1, big.NewInt(0), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	if err != nil {
+		return err
+	}
+	tsf5, err := action.SignedTransfer(identityset.Address(33).String(), identityset.PrivateKey(33), 2, big.NewInt(0), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	if err != nil {
+		return err
+	}
 	// Producer exec--> D
 	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
@@ -275,84 +279,84 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, tsf3); err != nil {
 		return err
 	}
+	if err := ap.Add(ctx, tsf4); err != nil {
+		return err
+	}
+	if err := ap.Add(ctx, tsf5); err != nil {
+		return err
+	}
 	return ap.Add(ctx, execution1)
 }
 
+/*
 func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
-	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	ap, err := setupActPool(sf, cfg.ActPool)
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
-	// create indexer
-	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create indexer")
-	}
-	testPath, _ := testutil.PathOfTempFile("bloomfilter")
-	cfg.DB.DbPath = testPath
-	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
-	}
-	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
-	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
-	}
-	// create chain
-	bc := blockchain.NewBlockchain(
-		cfg,
-		dao,
-		factory.NewMinter(sf, ap),
-		blockchain.BlockValidatorOption(block.NewValidator(
-			sf,
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
-		)),
-	)
-	if bc == nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
-	}
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
 
-	acc := account.NewProtocol(rewarding.DepositGas)
-	evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
-	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
-	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
-	)
-	r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+		// create indexer
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+		if err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create indexer")
+		}
+		testPath, _ := testutil.PathOfTempFile("bloomfilter")
+		cfg.DB.DbPath = testPath
+		bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
+		if err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
+		}
+		// create BlockDAO
+		dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
+		if dao == nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
+		}
+		// create chain
+		bc := blockchain.NewBlockchain(
+			cfg,
+			dao,
+			factory.NewMinter(sf, ap),
+			blockchain.BlockValidatorOption(block.NewValidator(
+				sf,
+				protocol.NewGenericValidator(sf, accountutil.AccountState),
+			)),
+		)
+		if bc == nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
+		}
+		defer func() {
+			testutil.CleanupPath(testPath)
+		}()
 
-	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
-	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, "", err
-	}
+		acc := account.NewProtocol(rewarding.DepositGas)
+		evm := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+		p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+		rolldposProtocol := rolldpos.NewProtocol(
+			genesis.Default.NumCandidateDelegates,
+			genesis.Default.NumDelegates,
+			genesis.Default.NumSubEpochs,
+			rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+		)
+		r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 
-	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
+		if err := rolldposProtocol.Register(registry); err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", err
+		}
+		if err := acc.Register(registry); err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", err
+		}
+		if err := evm.Register(registry); err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", err
+		}
+		if err := r.Register(registry); err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", err
+		}
+		if err := p.Register(registry); err != nil {
+			return nil, nil, nil, nil, nil, nil, nil, "", err
+		}
+
+		return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
 }
+*/
 
 func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
 	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
@@ -393,57 +397,53 @@ func newConfig(t *testing.T) config.Config {
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.API.RangeQueryLimit = 100
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
+	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
+	cfg.Genesis.PollMode = "lifeLong"
+	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Consensus.RollDPoS.ConsensusDBPath = ""
 
 	return cfg
 }
 
-func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
-	// TODO (zhi): revise
-	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
+func createChainService(cfg config.Config, agent p2p.Agent, needActPool bool) (*chainservice.ChainService, error) {
+	builder := chainservice.NewBuilder(cfg)
+	cs, err := builder.SetP2PAgent(agent).BuildForTest()
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, "", err
+		return nil, err
 	}
-
 	ctx := context.Background()
 
-	// Start blockchain
-	if err := bc.Start(ctx); err != nil {
-		return nil, nil, nil, nil, nil, nil, "", err
+	if err := cs.Start(ctx); err != nil {
+		return nil, err
 	}
 	// Add testing blocks
-	if err := addTestingBlocks(bc, ap); err != nil {
-		return nil, nil, nil, nil, nil, nil, "", err
+	if err := addTestingBlocks(cs.Blockchain(), cs.ActionPool()); err != nil {
+		return nil, err
 	}
 
 	if needActPool {
 		// Add actions to actpool
-		ctx = protocol.WithRegistry(ctx, registry)
-		if err := addActsToActPool(ctx, ap); err != nil {
-			return nil, nil, nil, nil, nil, nil, "", err
+		ctx = protocol.WithRegistry(ctx, cs.Registry())
+		if err := addActsToActPool(ctx, cs.ActionPool()); err != nil {
+			return nil, err
 		}
 	}
-	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-		return nil
-	})}
-	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
-		opts = append(opts, WithActionIndex())
-	}
-	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, "", err
-	}
-	return svr, bc, dao, indexer, registry, ap, bfIndexFile, nil
+
+	return cs, nil
 }
 
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 	config.SetEVMNetworkID(1)
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
+	builder := chainservice.NewBuilder(cfg)
+	cs, err := builder.BuildForTest()
 	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	svr, err := api.NewServerV2(cfg.API, cs)
+	require.NoError(err)
+
 	ctx := context.Background()
 
 	err = svr.Start(ctx)

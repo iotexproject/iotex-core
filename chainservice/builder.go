@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -106,6 +107,20 @@ func (builder *Builder) SetBlockSync(bs blocksync.BlockSync) *Builder {
 	return builder
 }
 
+// SetRegistry sets the registry instance
+func (builder *Builder) SetRegistry(registry *protocol.Registry) *Builder {
+	builder.createInstance()
+	builder.cs.registry = registry
+	return builder
+}
+
+// SetBloomFilterIndexer sets the bloom filter indexer
+func (builder *Builder) SetBloomFilterIndexer(indexer blockindex.BloomFilterIndexer) *Builder {
+	builder.createInstance()
+	builder.cs.bfIndexer = indexer
+	return builder
+}
+
 // BuildForTest builds a chainservice for test purpose
 func (builder *Builder) BuildForTest() (*ChainService, error) {
 	builder.createInstance()
@@ -126,7 +141,9 @@ func (builder *Builder) Build() (*ChainService, error) {
 
 func (builder *Builder) createInstance() {
 	if builder.cs == nil {
-		builder.cs = &ChainService{}
+		builder.cs = &ChainService{
+			readCache: NewReadCache(),
+		}
 	}
 }
 
@@ -313,15 +330,18 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	if !gateway {
 		return
 	}
+	bfIndexer = builder.cs.bfIndexer
 
 	if forTest {
 		indexer, err = blockindex.NewIndexer(db.NewMemKVStore(), builder.cfg.Genesis.Hash())
 		if err != nil {
 			return
 		}
-		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), builder.cfg.Indexer)
-		if err != nil {
-			return
+		if bfIndexer == nil {
+			bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), builder.cfg.Indexer)
+			if err != nil {
+				return
+			}
 		}
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewMemKVStore())
 
@@ -334,11 +354,12 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		return
 	}
 
-	// create bloomfilter indexer
-	dbConfig.DbPath = builder.cfg.Chain.BloomfilterIndexDBPath
-	bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(dbConfig), builder.cfg.Indexer)
-	if err != nil {
-		return
+	if bfIndexer == nil {
+		dbConfig.DbPath = builder.cfg.Chain.BloomfilterIndexDBPath
+		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(dbConfig), builder.cfg.Indexer)
+		if err != nil {
+			return
+		}
 	}
 
 	// create candidate indexer
@@ -475,6 +496,9 @@ func (builder *Builder) registerStakingProtocol() error {
 	if !builder.cfg.Chain.EnableStakingProtocol {
 		return nil
 	}
+	if staking.FindProtocol(builder.cs.registry) != nil {
+		return nil
+	}
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
 		builder.cfg.Genesis.Staking,
@@ -490,15 +514,27 @@ func (builder *Builder) registerStakingProtocol() error {
 }
 
 func (builder *Builder) registerRewardingProtocol() error {
+	if rewarding.FindProtocol(builder.cs.registry) != nil {
+		return nil
+	}
+
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	return rewarding.NewProtocol(builder.cfg.Genesis.Rewarding).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerAccountProtocol() error {
+	if account.FindProtocol(builder.cs.registry) != nil {
+		return nil
+	}
+
 	return account.NewProtocol(rewarding.DepositGas).Register(builder.cs.registry)
 }
 
 func (builder *Builder) registerExecutionProtocol() error {
+	if execution.FindProtocol(builder.cs.registry) != nil {
+		return nil
+	}
+
 	return execution.NewProtocol(builder.cs.blockdao.GetBlockHash, rewarding.DepositGas).Register(builder.cs.registry)
 }
 
@@ -506,13 +542,18 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	if builder.cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil
 	}
-	if err := rolldpos.NewProtocol(
-		builder.cfg.Genesis.NumCandidateDelegates,
-		builder.cfg.Genesis.NumDelegates,
-		builder.cfg.Genesis.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(builder.cfg.Genesis.DardanellesBlockHeight, builder.cfg.Genesis.DardanellesNumSubEpochs),
-	).Register(builder.cs.registry); err != nil {
-		return err
+	if rolldpos.FindProtocol(builder.cs.registry) == nil {
+		if err := rolldpos.NewProtocol(
+			builder.cfg.Genesis.NumCandidateDelegates,
+			builder.cfg.Genesis.NumDelegates,
+			builder.cfg.Genesis.NumSubEpochs,
+			rolldpos.EnableDardanellesSubEpoch(builder.cfg.Genesis.DardanellesBlockHeight, builder.cfg.Genesis.DardanellesNumSubEpochs),
+		).Register(builder.cs.registry); err != nil {
+			return err
+		}
+	}
+	if poll.FindProtocol(builder.cs.registry) != nil {
+		return nil
 	}
 	factory := builder.cs.factory
 	dao := builder.cs.blockdao
@@ -590,33 +631,18 @@ func (builder *Builder) buildConsensusComponent() error {
 	return nil
 }
 
+func (builder *Builder) buildGasStation() error {
+	builder.cs.gs = gasstation.NewGasStation(builder.cs.chain, builder.cs.factory.SimulateExecution, builder.cs.blockdao, builder.cfg.API.GasStation)
+	return nil
+}
+
 func (builder *Builder) buildAPIServer() error {
 	if builder.cfg.API.Port == 0 && builder.cfg.API.Web3Port == 0 {
 		return nil
 	}
-	p2pAgent := builder.cs.p2pAgent
-	apiServerOptions := []api.Option{
-		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
-		}),
-		api.WithNativeElection(builder.cs.electionCommittee),
-	}
-	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
-	if gateway {
-		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
-	}
-
 	svr, err := api.NewServerV2(
 		builder.cfg.API,
-		builder.cs.chain,
-		builder.cs.blocksync,
-		builder.cs.factory,
-		builder.cs.blockdao,
-		builder.cs.indexer,
-		builder.cs.bfIndexer,
-		builder.cs.actpool,
-		builder.cs.registry,
-		apiServerOptions...,
+		builder.cs,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create API server")
@@ -625,14 +651,14 @@ func (builder *Builder) buildAPIServer() error {
 		return errors.Wrap(err, "failed to add api server as subscriber")
 	}
 	builder.cs.api = svr
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	builder.cs.lifecycle.Add(svr)
 
 	return nil
 }
 
 func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) {
-	builder.cs.registry = protocol.NewRegistry()
+	if builder.cs.registry == nil {
+		builder.cs.registry = protocol.NewRegistry()
+	}
 	if builder.cs.p2pAgent == nil {
 		builder.cs.p2pAgent = p2p.NewDummyAgent()
 	}
@@ -655,6 +681,9 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
+		return nil, err
+	}
+	if err := builder.buildGasStation(); err != nil {
 		return nil, err
 	}
 	// staking protocol need to be put in registry before poll protocol when enabling
