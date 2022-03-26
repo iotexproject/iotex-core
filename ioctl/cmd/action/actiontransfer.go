@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,21 +20,21 @@ import (
 
 // Multi-language support
 var (
-	actionTransferCmdShorts = map[config.Language]string{
+	__actionTransferCmdShorts = map[config.Language]string{
 		config.English: "Transfer tokens on IoTeX blokchain",
 		config.Chinese: "在IoTeX区块链上转移令牌",
 	}
-	actionTransferCmdUses = map[config.Language]string{
+	__actionTransferCmdUses = map[config.Language]string{
 		config.English: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "transfer (别名|接收人地址) IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS" +
 			"价格] [-P 密码] [-y]",
 	}
 )
 
-// actionTransferCmd represents the action transfer command
-var actionTransferCmd = &cobra.Command{
-	Use:   config.TranslateInLang(actionTransferCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(actionTransferCmdShorts, config.UILanguage),
+// _actionTransferCmd represents the action transfer command
+var _actionTransferCmd = &cobra.Command{
+	Use:   config.TranslateInLang(__actionTransferCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(__actionTransferCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -44,7 +44,7 @@ var actionTransferCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(actionTransferCmd)
+	RegisterWriteCommand(_actionTransferCmd)
 }
 
 func transfer(args []string) error {
@@ -76,7 +76,7 @@ func transfer(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.TransferBaseIntrinsicGas +
 			action.TransferPayloadGas*uint64(len(payload))
