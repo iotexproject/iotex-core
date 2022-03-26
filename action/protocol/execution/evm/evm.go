@@ -37,12 +37,12 @@ import (
 var (
 	// TODO: whenever ActionGasLimit is removed from genesis, we need to hard code it to 5M to make it compatible with
 	// the mainnet.
-	preAleutianActionGasLimit = genesis.Default.ActionGasLimit
+	_preAleutianActionGasLimit = genesis.Default.ActionGasLimit
 
-	inContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
+	_inContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
 
-	// revertSelector is a special function selector for revert reason unpacking.
-	revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
+	// _revertSelector is a special function selector for revert reason unpacking.
+	_revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 
 	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -60,7 +60,7 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 
 	db.AddLog(&types.Log{
 		Topics: []common.Hash{
-			common.BytesToHash(inContractTransfer[:]),
+			common.BytesToHash(_inContractTransfer[:]),
 			common.BytesToHash(fromHash[:]),
 			common.BytesToHash(toHash[:]),
 		},
@@ -106,8 +106,8 @@ func newParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if blkCtx.BlockHeight > 0 && featureCtx.SystemWideActionGasLimit && gasLimit > preAleutianActionGasLimit {
-		gasLimit = preAleutianActionGasLimit
+	if blkCtx.BlockHeight > 0 && featureCtx.SystemWideActionGasLimit && gasLimit > _preAleutianActionGasLimit {
+		gasLimit = _preAleutianActionGasLimit
 	}
 
 	var getHashFn vm.GetHashFunc
@@ -252,7 +252,7 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 
-	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
+	if featureCtx.SetRevertMessageToReceipt && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], _revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		data := retval[4:]
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])

@@ -29,7 +29,7 @@ const (
 	// CreateStakeBaseIntrinsicGas represents the base intrinsic gas for CreateStake
 	CreateStakeBaseIntrinsicGas = uint64(10000)
 
-	createStakeInterfaceABI = `[
+	_createStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -85,7 +85,7 @@ type CreateStake struct {
 }
 
 func init() {
-	createStakeInterface, err := abi.JSON(strings.NewReader(createStakeInterfaceABI))
+	createStakeInterface, err := abi.JSON(strings.NewReader(_createStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
