@@ -572,6 +572,9 @@ func (svr *Web3Server) getProtocolVersion() (interface{}, error) {
 
 func (svr *Web3Server) isSyncing() (interface{}, error) {
 	start, curr, highest := svr.coreService.SyningProgress()
+	if curr >= highest {
+		return false, nil
+	}
 	return &syncingObject{
 		startingBlock: uint64ToHex(start),
 		currentBlock:  uint64ToHex(curr),
