@@ -122,7 +122,7 @@ func TestCandidateRegister(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.SelpHash, hex.EncodeToString(hash[:]))
 		// verify signature
-		require.NoError(selp.Verify())
+		require.NoError(selp.VerifySignature())
 	}
 
 }
