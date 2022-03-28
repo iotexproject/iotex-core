@@ -4,6 +4,7 @@ on:
 
   pull_request:
     branches: [ master ]
+    #types: [opened]
 
 permissions:
   contents: read
@@ -18,9 +19,6 @@ jobs:
     name: ci flow
     runs-on: self-hosted
     steps:
-    - uses: reviewdog/action-setup@v1
-      with:
-        reviewdog_version: latest
 
     - uses: actions/checkout@v2
 
@@ -29,24 +27,16 @@ jobs:
       with:
         go-version: 1.17
 
-    - name: run reviewdog
-      env:
-        REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        reviewdog -conf=.github/.reviewdog.yml -reporter=github-pr-check -runners=errcheck,staticcheck
+    - name: errcheck
+      uses: reviewdog/action-golangci-lint@v2
+      with:
+        golangci_lint_flags: "--disable-all -E errcheck"
+        tool_name: errcheck
+        level: info
 
     - name: Run Gosec Security Scanner
       uses: securego/gosec@master
       with:
         args: '-no-fail -fmt sarif -out results.sarif ./...'
-        
-    # - name: go test
-    #   run: |
-    #     bash <(curl -s https://codecov.io/bash)
-    #     go test -covermode=count -run=XXX -bench=. $(go list ./crypto)
-
-    # - name: Codecov
-    #   uses: codecov/codecov-action@v2
-
 
 
