@@ -1353,6 +1353,7 @@ func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber ui
 }
 
 func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
@@ -1386,14 +1387,6 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	if err != nil {
 		return nil, err
 	}
-
-	if paginationSize == 0 {
-		paginationSize = 1000
-	}
-	if paginationSize > 5000 {
-		paginationSize = 5000
-	}
-
 	var (
 		logs      = []*iotextypes.Log{}
 		logsInBlk = make([][]*iotextypes.Log, len(blockNumbers))
@@ -1403,11 +1396,12 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	if len(blockNumbers) == 0 {
 		return logs, nil
 	}
+
 	for i, v := range blockNumbers {
 		jobs <- jobDesc{i, v}
 	}
 	close(jobs)
-	for w := 1; w <= core.workerNumbers; w++ {
+	for w := 0; w < core.workerNumbers; w++ {
 		eg.Go(func() error {
 			for {
 				select {
@@ -1429,6 +1423,12 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
+	}
+	if paginationSize == 0 {
+		paginationSize = 1000
+	}
+	if paginationSize > 5000 {
+		paginationSize = 5000
 	}
 
 	for i := 0; i < len(blockNumbers); i++ {
