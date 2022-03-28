@@ -185,7 +185,6 @@ func newCoreService(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	workerNumbers int,
 	opts ...Option,
 ) (CoreService, error) {
 	apiCfg := Config{}
@@ -219,7 +218,7 @@ func newCoreService(
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
-		workerNumbers:     workerNumbers,
+		workerNumbers:     apiCfg.workerNumbers,
 	}, nil
 }
 

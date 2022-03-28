@@ -427,9 +427,9 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 	})}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		opts = append(opts, WithActionIndex())
+		opts = append(opts, WithWorkers())
 	}
-	workerNumbers := 5
-	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, workerNumbers, opts...)
+	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}

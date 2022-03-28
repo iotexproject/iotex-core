@@ -33,6 +33,7 @@ type Config struct {
 	broadcastHandler  BroadcastOutbound
 	electionCommittee committee.Committee
 	hasActionIndex    bool
+	workerNumbers     int
 }
 
 // Option is the option to override the api config
@@ -65,6 +66,14 @@ func WithActionIndex() Option {
 	}
 }
 
+// WithWorkers is the option to manipulate api.LogsInRange's go routine numbers
+func WithWorkers() Option {
+	return func(cfg *Config) error {
+		cfg.workerNumbers = 5
+		return nil
+	}
+}
+
 // NewServerV2 creates a new server with coreService and GRPC Server
 func NewServerV2(
 	cfg config.API,
@@ -76,10 +85,9 @@ func NewServerV2(
 	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
-	workerNumbers int,
 	opts ...Option,
 ) (*ServerV2, error) {
-	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, workerNumbers, opts...)
+	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
 	if err != nil {
 		return nil, err
 	}
