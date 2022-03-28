@@ -158,15 +158,15 @@ var file_execution_proto_rawDesc = []byte{
 }
 
 var (
-	_file_execution_proto_rawDescOnce sync.Once
-	_file_execution_proto_rawDescData = file_execution_proto_rawDesc
+	file_execution_proto_rawDescOnce sync.Once
+	file_execution_proto_rawDescData = file_execution_proto_rawDesc
 )
 
 func file_execution_proto_rawDescGZIP() []byte {
-	_file_execution_proto_rawDescOnce.Do(func() {
-		_file_execution_proto_rawDescData = protoimpl.X.CompressGZIP(_file_execution_proto_rawDescData)
+	file_execution_proto_rawDescOnce.Do(func() {
+		file_execution_proto_rawDescData = protoimpl.X.CompressGZIP(file_execution_proto_rawDescData)
 	})
-	return _file_execution_proto_rawDescData
+	return file_execution_proto_rawDescData
 }
 
 var file_execution_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
