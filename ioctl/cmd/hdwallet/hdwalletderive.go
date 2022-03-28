@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -24,20 +24,20 @@ import (
 
 // Multi-language support
 var (
-	hdwalletDeriveCmdShorts = map[config.Language]string{
+	_hdwalletDeriveCmdShorts = map[config.Language]string{
 		config.English: "derive key from HDWallet",
 		config.Chinese: "查询HDWallet钱包的派生key地址",
 	}
-	hdwalletDeriveCmdUses = map[config.Language]string{
+	_hdwalletDeriveCmdUses = map[config.Language]string{
 		config.English: "derive id1/id2/id3",
 		config.Chinese: "derive id1/id2/id3",
 	}
 )
 
-// hdwalletDeriveCmd represents the hdwallet derive command
-var hdwalletDeriveCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hdwalletDeriveCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hdwalletDeriveCmdShorts, config.UILanguage),
+// _hdwalletDeriveCmd represents the hdwallet derive command
+var _hdwalletDeriveCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_hdwalletDeriveCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_hdwalletDeriveCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
