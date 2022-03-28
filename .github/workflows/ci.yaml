@@ -18,6 +18,9 @@ jobs:
     name: ci flow
     runs-on: self-hosted
     steps:
+    - uses: reviewdog/action-setup@v1
+      with:
+        reviewdog_version: latest
 
     - uses: actions/checkout@v2
 
@@ -26,12 +29,11 @@ jobs:
       with:
         go-version: 1.17
 
-    # - name: errcheck
-    #   uses: reviewdog/action-golangci-lint@v2
-    #   with:
-    #     golangci_lint_flags: "--disable-all -E errcheck"
-    #     tool_name: errcheck
-    #     level: info
+    - name: run reviewdog
+      env:
+        REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        reviewdog -reporter=github-pr-check -runners=golint,govet
 
     - name: Run Gosec Security Scanner
       uses: securego/gosec@master
