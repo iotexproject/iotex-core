@@ -7,7 +7,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -62,17 +61,5 @@ func (rc *ReadCache) Put(key hash.Hash160, value []byte) {
 
 // Clear clears the cache
 func (rc *ReadCache) Clear() {
-	rc.c.Reset()
-}
-
-// ReceiveBlock receives the new block
-func (rc *ReadCache) ReceiveBlock(*block.Block) error {
-	// invalidate the cache at every new block
-	rc.c.Reset()
-	return nil
-}
-
-// Exit implements the Responder interface
-func (rc *ReadCache) Exit() {
 	rc.c.Reset()
 }
