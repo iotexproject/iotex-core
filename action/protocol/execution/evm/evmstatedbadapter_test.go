@@ -90,7 +90,7 @@ func TestAddBalance(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -132,7 +132,7 @@ func TestEmptyAndCode(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -168,7 +168,7 @@ func TestForEachStorage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -196,7 +196,7 @@ func TestReadContractStorage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(
 		sm,
 		1,
@@ -242,7 +242,7 @@ func TestNonce(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	addr := common.HexToAddress("02ae2a956d21e8d481_c3a69e146633470cf625ec")
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	opt := []StateDBAdapterOption{
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
