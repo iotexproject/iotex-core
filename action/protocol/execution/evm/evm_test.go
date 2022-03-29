@@ -9,6 +9,7 @@ package evm
 import (
 	"context"
 	"errors"
+	"math"
 	"math/big"
 	"testing"
 
@@ -149,14 +150,41 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			12289321,
 		},
-		// after Jutland
+		// Jutland - Kamchatka
 		{
 			action.EmptyAddress,
-			20000000,
+			13685401,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			20000000,
+			13816440,
+		},
+		// Kamchatka - LordHowe
+		{
+			action.EmptyAddress,
+			13816441,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			13979160,
+		},
+		// LordHowe - Midway
+		{
+			action.EmptyAddress,
+			13979161,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			16509240,
+		},
+		// after Midway
+		{
+			action.EmptyAddress,
+			16509241,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			math.MaxUint64,
 		},
 	}
 
@@ -235,12 +263,13 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
 		require.Equal(isIceland, chainRules.IsIstanbul)
 
-		// enable Berlin
+		// enable Berlin and London
 		isBerlin := g.IsToBeEnabled(e.height)
 		require.Equal(isBerlin, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
 		require.Equal(isBerlin, chainRules.IsBerlin)
-		require.False(evmChainConfig.IsLondon(evm.Context.BlockNumber))
-		require.False(chainRules.IsLondon)
+		isLondon := g.IsToBeEnabled(e.height)
+		require.Equal(isLondon, evmChainConfig.IsLondon(evm.Context.BlockNumber))
+		require.Equal(isLondon, chainRules.IsLondon)
 		require.False(evmChainConfig.IsCatalyst(evm.Context.BlockNumber))
 		require.False(chainRules.IsCatalyst)
 	}
