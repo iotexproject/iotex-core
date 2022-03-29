@@ -13,6 +13,7 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -466,6 +467,20 @@ func (m *MockCoreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, 
 func (mr *MockCoreServiceMockRecorder) ReceiptByActionHash(h interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByActionHash", reflect.TypeOf((*MockCoreService)(nil).ReceiptByActionHash), h)
+}
+
+// ReceiveBlock mocks base method.
+func (m *MockCoreService) ReceiveBlock(blk *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReceiveBlock", blk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReceiveBlock indicates an expected call of ReceiveBlock.
+func (mr *MockCoreServiceMockRecorder) ReceiveBlock(blk interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockCoreService)(nil).ReceiveBlock), blk)
 }
 
 // SendAction mocks base method.
