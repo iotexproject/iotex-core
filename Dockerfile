@@ -29,5 +29,4 @@ RUN apk add logrotate
 COPY logrotate.conf /etc/logrotate.d/iotex
 RUN mkdir -p /var/lib/
 RUN touch /var/lib/logrotate.status
-RUN chmod -R u=rwX,go=rX /etc
 RUN logrotate /etc/logrotate.d/iotex
