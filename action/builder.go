@@ -23,6 +23,10 @@ type Builder struct {
 	act AbstractAction
 }
 
+var (
+	_stakingProtocolAddr, _ = address.FromString(address.StakingProtocolAddr)
+)
+
 // SetVersion sets action's version.
 func (b *Builder) SetVersion(v uint32) *Builder {
 	b.act.version = v
@@ -190,8 +194,7 @@ func (b *EnvelopeBuilder) BuildExecution(tx *types.Transaction) (Envelope, error
 
 // BuildStakingAction loads staking action into envelope from abi-encoded data
 func (b *EnvelopeBuilder) BuildStakingAction(tx *types.Transaction) (Envelope, error) {
-	stakingAddr, _ := address.FromString(address.StakingProtocolAddr)
-	if !bytes.Equal(tx.To().Bytes(), stakingAddr.Bytes()) {
+	if !bytes.Equal(tx.To().Bytes(), _stakingProtocolAddr.Bytes()) {
 		return nil, ErrInvalidAct
 	}
 	b.setEnvelopeCommonFields(tx)
