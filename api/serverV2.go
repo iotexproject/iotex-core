@@ -33,7 +33,6 @@ type Config struct {
 	broadcastHandler  BroadcastOutbound
 	electionCommittee committee.Committee
 	hasActionIndex    bool
-	workerNumbers     int
 }
 
 // Option is the option to override the api config
@@ -62,14 +61,6 @@ func WithNativeElection(committee committee.Committee) Option {
 func WithActionIndex() Option {
 	return func(cfg *Config) error {
 		cfg.hasActionIndex = true
-		return nil
-	}
-}
-
-// WithWorkers is the option to manipulate api.LogsInRange's go routine numbers
-func WithWorkers() Option {
-	return func(cfg *Config) error {
-		cfg.workerNumbers = 5
 		return nil
 	}
 }

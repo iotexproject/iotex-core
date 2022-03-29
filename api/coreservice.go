@@ -57,6 +57,10 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+var (
+	_workerNumbers int = 5
+)
+
 type (
 	// CoreService provides api interface for user to interact with blockchain data
 	CoreService interface {
@@ -160,7 +164,6 @@ type (
 		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
-		workerNumbers     int
 	}
 
 	// jobDesc provides a struct to get and store logs in core.LogsInRange
@@ -218,7 +221,6 @@ func newCoreService(
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
-		workerNumbers:     apiCfg.workerNumbers,
 	}, nil
 }
 
@@ -1400,7 +1402,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		jobs <- jobDesc{i, v}
 	}
 	close(jobs)
-	for w := 0; w < core.workerNumbers; w++ {
+	for w := 0; w < _workerNumbers; w++ {
 		eg.Go(func() error {
 			for {
 				select {
