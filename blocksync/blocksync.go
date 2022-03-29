@@ -9,23 +9,29 @@ package blocksync
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 )
 
 type (
-	// RequestBlocks send a block request to peers
-	RequestBlocks func(ctx context.Context, start uint64, end uint64, repeat int)
+	// P2pNeighbor acquires p2p neighbors in the network
+	P2pNeighbor func(context.Context) ([]peer.AddrInfo, error)
+	// UniCastOutbound sends a unicase message to the peer
+	UniCastOutbound func(_ context.Context, peer peer.AddrInfo, msg proto.Message) error
 	// TipHeight returns the tip height of blockchain
 	TipHeight func() uint64
 	// BlockByHeight returns the block of a given height
@@ -40,7 +46,7 @@ type (
 		// TargetHeight returns the target height to sync to
 		TargetHeight() uint64
 		// ProcessSyncRequest processes a block sync request
-		ProcessSyncRequest(context.Context, uint64, uint64, func(context.Context, *block.Block) error) error
+		ProcessSyncRequest(context.Context, peer.AddrInfo, uint64, uint64) error
 		// ProcessBlock processes an incoming block
 		ProcessBlock(context.Context, string, *block.Block) error
 		// SyncStatus report block sync status
@@ -57,7 +63,8 @@ type (
 		tipHeightHandler     TipHeight
 		blockByHeightHandler BlockByHeight
 		commitBlockHandler   CommitBlock
-		requestBlocksHandler RequestBlocks
+		p2pNeighbor          P2pNeighbor
+		unicastOutbound      UniCastOutbound
 
 		syncTask      *routine.RecurringTask
 		syncStageTask *routine.RecurringTask
@@ -104,7 +111,7 @@ func (*dummyBlockSync) TargetHeight() uint64 {
 	return 0
 }
 
-func (*dummyBlockSync) ProcessSyncRequest(context.Context, uint64, uint64, func(context.Context, *block.Block) error) error {
+func (*dummyBlockSync) ProcessSyncRequest(context.Context, peer.AddrInfo, uint64, uint64) error {
 	return nil
 }
 
@@ -122,7 +129,8 @@ func NewBlockSyncer(
 	tipHeightHandler TipHeight,
 	blockByHeightHandler BlockByHeight,
 	commitBlockHandler CommitBlock,
-	requestBlocksHandler RequestBlocks,
+	p2pNeighbor P2pNeighbor,
+	uniCastHandler UniCastOutbound,
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		cfg:                  cfg,
@@ -131,7 +139,8 @@ func NewBlockSyncer(
 		tipHeightHandler:     tipHeightHandler,
 		blockByHeightHandler: blockByHeightHandler,
 		commitBlockHandler:   commitBlockHandler,
-		requestBlocksHandler: requestBlocksHandler,
+		p2pNeighbor:          p2pNeighbor,
+		unicastOutbound:      uniCastHandler,
 		targetHeight:         0,
 	}
 	if bs.cfg.Interval != 0 {
@@ -181,8 +190,48 @@ func (bs *blockSyncer) sync() {
 		zap.Any("intervals", intervals),
 		zap.Uint64("targetHeight", targetHeight))
 	for i, interval := range intervals {
-		bs.requestBlocksHandler(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
+		bs.requestBlock(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
+}
+
+func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint64, repeat int) {
+	peers, err := bs.p2pNeighbor(ctx)
+	if err != nil {
+		log.L().Error("failed to get neighbours", zap.Error(err))
+		return
+	}
+	peers = bs.filteredPeers(peers)
+	if len(peers) == 0 {
+		log.L().Error("no peers")
+		return
+	}
+	if repeat < 2 {
+		repeat = 2
+	}
+	if repeat > len(peers) {
+		repeat = len(peers)
+	}
+	for i := 0; i < repeat; i++ {
+		peer := peers[rand.Intn(len(peers))]
+		if err := bs.unicastOutbound(
+			ctx,
+			peer,
+			&iotexrpc.BlockSync{Start: start, End: end},
+		); err != nil {
+			log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+		}
+	}
+}
+
+func (bs *blockSyncer) filteredPeers(peers []peer.AddrInfo) []peer.AddrInfo {
+	ret := make([]peer.AddrInfo, 0, len(peers))
+	for _, v := range peers {
+		if _, ok := bs.peerBlockList.Load(v.ID); ok {
+			continue
+		}
+		ret = append(ret, v)
+	}
+	return ret
 }
 
 func (bs *blockSyncer) TargetHeight() uint64 {
@@ -257,7 +306,7 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 	return nil
 }
 
-func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, start uint64, end uint64, callback func(context.Context, *block.Block) error) error {
+func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peer.AddrInfo, start uint64, end uint64) error {
 	tip := bs.tipHeightHandler()
 	if end > tip {
 		log.L().Debug(
@@ -277,7 +326,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, start uint64, end
 		// TODO: send back multiple blocks in one shot
 		syncCtx, cancel := context.WithTimeout(ctx, bs.cfg.ProcessSyncRequestTTL)
 		defer cancel()
-		if err := callback(syncCtx, blk); err != nil {
+		if err := bs.unicastOutbound(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
 			return err
 		}
 	}

@@ -8,7 +8,6 @@ package chainservice
 
 import (
 	"context"
-	"math/rand"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -101,13 +100,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 
 // HandleSyncRequest handles incoming sync request.
 func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peer.AddrInfo, sync *iotexrpc.BlockSync) error {
-	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
-		return cs.p2pAgent.UnicastOutbound(
-			ctx,
-			peer,
-			blk.ConvertToBlockPb(),
-		)
-	})
+	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync.Start, sync.End)
 }
 
 // HandleConsensusMsg handles incoming consensus message.
@@ -216,31 +209,7 @@ func createBlockSyncer(
 			cons.Calibrate(blk.Height())
 			return nil
 		},
-		func(ctx context.Context, start uint64, end uint64, repeat int) {
-			peers, err := p2pAgent.Neighbors(ctx)
-			if err != nil {
-				log.L().Error("failed to get neighbours", zap.Error(err))
-				return
-			}
-			if len(peers) == 0 {
-				log.L().Error("no peers")
-			}
-			if repeat < 2 {
-				repeat = 2
-			}
-			if repeat > len(peers) {
-				repeat = len(peers)
-			}
-			for i := 0; i < repeat; i++ {
-				peer := peers[rand.Intn(len(peers)-i)]
-				if err := p2pAgent.UnicastOutbound(
-					ctx,
-					peer,
-					&iotexrpc.BlockSync{Start: start, End: end},
-				); err != nil {
-					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
-				}
-			}
-		},
+		p2pAgent.Neighbors,
+		p2pAgent.UnicastOutbound,
 	)
 }
