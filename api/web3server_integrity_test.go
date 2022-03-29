@@ -401,8 +401,9 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
 	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x10"]}`, hex.EncodeToString(blkHash[:])))
-	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, "0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"))
 	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData3)
@@ -428,8 +429,9 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 	require.Equal(ans.GasPrice, uint64ToHex(0))
 
 	testData2 := gjson.Parse(`{"params": ["0x1", "0x10"]}`)
-	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := gjson.Parse(`{"params": ["0x10", "0x0"]}`)
 	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData3)

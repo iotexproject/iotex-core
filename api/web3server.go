@@ -570,7 +570,7 @@ func (svr *Web3Server) getTransactionByHash(in *gjson.Result) (interface{}, erro
 	if !txHash.Exists() {
 		return nil, errInvalidFormat
 	}
-	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(h))
+	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(txHash.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -606,9 +606,9 @@ func (svr *Web3Server) getTransactionReceipt(in *gjson.Result) (interface{}, err
 	if !actHashStr.Exists() {
 		return nil, errInvalidFormat
 	}
-	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(actHashStr))
+	actHash, err := hash.HexStringToHash256(util.Remove0xPrefix(actHashStr.String()))
 	if err != nil {
-		return nil, errors.Wrapf(errUnkownType, "actHash: %s", actHashStr)
+		return nil, errors.Wrapf(errUnkownType, "actHash: %s", actHashStr.String())
 	}
 
 	// acquire action receipt by action hash
@@ -698,19 +698,15 @@ func (svr *Web3Server) getBlockTransactionCountByNumber(in *gjson.Result) (inter
 }
 
 func (svr *Web3Server) getTransactionByBlockHashAndIndex(in *gjson.Result) (interface{}, error) {
-	blkHash, idxStr := in.Get("params.0"), in.Get("params.1")
-	if !blkHash.Exists() || !idxStr.Exists() {
+	blkHashStr, idxStr := in.Get("params.0"), in.Get("params.1")
+	if !blkHashStr.Exists() || !idxStr.Exists() {
 		return nil, errInvalidFormat
 	}
 	idx, err := hexStringToNumber(idxStr.String())
 	if err != nil {
 		return nil, err
 	}
-	idx, err := hexStringToNumber(idxStr)
-	if err != nil {
-		return nil, err
-	}
-	blkHash = util.Remove0xPrefix(blkHash)
+	blkHash := util.Remove0xPrefix(blkHashStr.String())
 	selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkHash)
 	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil

@@ -82,8 +82,8 @@ func (b *Builder) Build() AbstractAction {
 	return b.act
 }
 
-// TODO: change envelope to *envelope
 // EnvelopeBuilder is the builder to build Envelope.
+// TODO: change envelope to *envelope
 type EnvelopeBuilder struct {
 	elp envelope
 }
