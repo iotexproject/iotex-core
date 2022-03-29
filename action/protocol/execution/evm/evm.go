@@ -325,8 +325,9 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	if g.IsIceland(height) {
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
 	}
-	// enable Berlin
+	// enable Berlin and London
 	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
+	chainConfig.LondonBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
 	return &chainConfig
 }
 
@@ -365,8 +366,10 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	var (
 		contractRawAddress = action.EmptyAddress
 		executor           = vm.AccountRef(evmParams.txCtx.Origin)
+		london             = evm.ChainConfig().IsLondon(evm.Context.BlockNumber)
 		ret                []byte
 		evmErr             error
+		refund             uint64
 	)
 	if evmParams.contract == nil {
 		// create contract
@@ -395,7 +398,13 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	if stateDB.Error() != nil {
 		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
-	refund := (evmParams.gas - remainingGas) / 2
+	if !london {
+		// Before EIP-3529: refunds were capped to gasUsed / 2
+		refund = (evmParams.gas - remainingGas) / params.RefundQuotient
+	} else {
+		// After EIP-3529: refunds are capped to gasUsed / 5
+		refund = (evmParams.gas - remainingGas) / params.RefundQuotientEIP3529
+	}
 	if refund > stateDB.GetRefund() {
 		refund = stateDB.GetRefund()
 	}
