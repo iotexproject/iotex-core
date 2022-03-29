@@ -92,10 +92,10 @@ func (mr *MockBlockSyncMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // SyncStatus mocks base method.
-func (m *MockBlockSync) SyncStatus() string {
+func (m *MockBlockSync) SyncStatus() *Status {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SyncStatus")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(*Status)
 	return ret0
 }
 
