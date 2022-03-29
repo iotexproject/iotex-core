@@ -44,7 +44,15 @@ type (
 		// ProcessBlock processes an incoming block
 		ProcessBlock(context.Context, string, *block.Block) error
 		// SyncStatus report block sync status
-		SyncStatus() string
+		SyncStatus() *Status
+	}
+
+	// Status report block sync status
+	Status struct {
+		StartingHeight uint64
+		CurrentHeight  uint64
+		TargetHeight   uint64
+		SyncSpeedDesc  string
 	}
 
 	dummyBlockSync struct{}
@@ -65,6 +73,7 @@ type (
 		syncStageHeight   uint64
 		syncBlockIncrease uint64
 
+		startingHeight    uint64
 		lastTip           uint64
 		lastTipUpdateTime time.Time
 		targetHeight      uint64
@@ -111,8 +120,8 @@ func (*dummyBlockSync) ProcessBlock(context.Context, string, *block.Block) error
 	return nil
 }
 
-func (*dummyBlockSync) SyncStatus() string {
-	return ""
+func (*dummyBlockSync) SyncStatus() *Status {
+	return nil
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -190,6 +199,7 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
+	bs.startingHeight = bs.tipHeightHandler()
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
@@ -286,13 +296,21 @@ func (bs *blockSyncer) syncStageChecker() {
 	bs.syncStageHeight = tipHeight
 }
 
-func (bs *blockSyncer) SyncStatus() string {
+func (bs *blockSyncer) SyncStatus() *Status {
+	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
-	if syncBlockIncrease == 1 {
-		return "synced to blockchain tip"
+	switch {
+	case syncBlockIncrease == 1:
+		syncSpeedDesc = "synced to blockchain tip"
+	case bs.cfg.Interval == 0:
+		syncSpeedDesc = "no sync task"
+	default:
+		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 	}
-	if bs.cfg.Interval == 0 {
-		return "no sync task"
+	return &Status{
+		StartingHeight: bs.startingHeight,
+		CurrentHeight:  bs.tipHeightHandler(),
+		TargetHeight:   bs.targetHeight,
+		SyncSpeedDesc:  syncSpeedDesc,
 	}
-	return fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 }

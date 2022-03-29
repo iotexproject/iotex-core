@@ -279,7 +279,9 @@ func (core *coreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
 	}
 	syncStatus := ""
 	if core.bs != nil {
-		syncStatus = core.bs.SyncStatus()
+		if status := core.bs.SyncStatus(); status != nil {
+			syncStatus = status.SyncSpeedDesc
+		}
 	}
 	chainMeta := &iotextypes.ChainMeta{
 		Height:  tipHeight,
@@ -1640,7 +1642,9 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 
 // SyningProgress returns the syncing status of node
 func (core *coreService) SyningProgress() (uint64, uint64, uint64) {
-	return core.dao.StartingHeight(),
-		core.bc.TipHeight(),
-		core.bs.TargetHeight()
+	status := core.bs.SyncStatus()
+	if status == nil {
+		return 0, 0, 0
+	}
+	return status.StartingHeight, status.CurrentHeight, status.TargetHeight
 }

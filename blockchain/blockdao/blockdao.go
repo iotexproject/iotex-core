@@ -48,7 +48,6 @@ type (
 		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, uint32, error)
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		DeleteBlockToTarget(uint64) error
-		StartingHeight() uint64
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -61,15 +60,14 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore     filedao.FileDAO
-		indexers       []BlockIndexer
-		timerFactory   *prometheustimer.TimerFactory
-		lifecycle      lifecycle.Lifecycle
-		headerCache    *cache.ThreadSafeLruCache
-		bodyCache      *cache.ThreadSafeLruCache
-		footerCache    *cache.ThreadSafeLruCache
-		tipHeight      uint64
-		startingHeight uint64
+		blockStore   filedao.FileDAO
+		indexers     []BlockIndexer
+		timerFactory *prometheustimer.TimerFactory
+		lifecycle    lifecycle.Lifecycle
+		headerCache  *cache.ThreadSafeLruCache
+		bodyCache    *cache.ThreadSafeLruCache
+		footerCache  *cache.ThreadSafeLruCache
+		tipHeight    uint64
 	}
 )
 
@@ -104,7 +102,6 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	dao.startingHeight = tipHeight
 	return dao.checkIndexers(ctx)
 }
 
@@ -249,10 +246,6 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 
 func (dao *blockDAO) Height() (uint64, error) {
 	return dao.blockStore.Height()
-}
-
-func (dao *blockDAO) StartingHeight() uint64 {
-	return dao.startingHeight
 }
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {

@@ -582,5 +582,5 @@ func TestDummyBlockSync(t *testing.T) {
 	require.NoError(bs.ProcessBlock(nil, "", nil))
 	require.NoError(bs.ProcessSyncRequest(nil, 0, 0, nil))
 	require.Equal(bs.TargetHeight(), uint64(0))
-	require.Equal(bs.SyncStatus(), "")
+	require.Nil(bs.SyncStatus())
 }
