@@ -293,6 +293,8 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range beringTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), uint64(v.status))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(v.status))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(v.status))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(v.status))
@@ -310,7 +312,24 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range jutlandTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), uint64(v.status))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
+	}
+
+	newTests := []struct {
+		evmError error
+		status   iotextypes.ReceiptStatus
+	}{
+		{vm.ErrInvalidCode, iotextypes.ReceiptStatus_ErrInvalidCode},
+	}
+	for _, v := range newTests {
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), uint64(v.status))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
