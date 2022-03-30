@@ -17,9 +17,9 @@ import (
 func TestBlockDeserializer(t *testing.T) {
 	r := require.New(t)
 	bd := Deserializer{}
-	blk, err := bd.FromBlockProto(&pbBlock)
+	blk, err := bd.FromBlockProto(&_pbBlock)
 	r.NoError(err)
-	body, err := bd.FromBodyProto(pbBlock.Body)
+	body, err := bd.FromBodyProto(_pbBlock.Body)
 	r.NoError(err)
 	r.Equal(body, &blk.Body)
 

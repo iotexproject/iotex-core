@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	contentType                 = "application/json"
-	metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
+	_contentType                 = "application/json"
+	_metamaskBalanceContractAddr = "io1k8uw2hrlvnfq8s2qpwwc24ws2ru54heenx8chr"
 )
 
 // Web3Server contains web3 server and the pointer to api coreservice
@@ -65,7 +65,7 @@ type (
 )
 
 var (
-	web3ServerMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
+	_web3ServerMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "iotex_web3_api_metrics",
 		Help: "web3 api metrics.",
 	}, []string{"method"})
@@ -84,7 +84,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(web3ServerMtc)
+	prometheus.MustRegister(_web3ServerMtc)
 }
 
 // NewWeb3Server creates a new web3 server
@@ -250,8 +250,8 @@ func (svr *Web3Server) handleWeb3Req(web3Req *gjson.Result) interface{} {
 	} else {
 		log.Logger("api").Debug("web3Debug", zap.String("response", fmt.Sprintf("%+v", res)))
 	}
-	web3ServerMtc.WithLabelValues(method.(string)).Inc()
-	web3ServerMtc.WithLabelValues("requests_total").Inc()
+	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
+	_web3ServerMtc.WithLabelValues("requests_total").Inc()
 	return &web3Response{
 		id:     int(web3Req.Get("id").Int()),
 		result: res,
@@ -363,7 +363,7 @@ func (svr *Web3Server) call(in *gjson.Result) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if to == metamaskBalanceContractAddr {
+	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)

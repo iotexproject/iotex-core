@@ -44,14 +44,14 @@ func TestGenerateRlp(t *testing.T) {
 	rlpExec := &Execution{
 		AbstractAction: ab,
 		amount:         big.NewInt(100),
-		data:           signByte,
+		data:           _signByte,
 	}
 	hE1, _ := hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")
 	rlpExec1 := &Execution{
 		AbstractAction: ab,
 		contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
 		amount:         big.NewInt(100),
-		data:           signByte,
+		data:           _signByte,
 	}
 	hE2, _ := hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")
 	rlpTests := []struct {
@@ -60,13 +60,13 @@ func TestGenerateRlp(t *testing.T) {
 		err  string
 		hash hash.Hash256
 	}{
-		{nil, validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, validSig, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, signByte, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, validSig, "", hash.BytesToHash256(hT1)},
-		{rlpTsf2, validSig, "", hash.BytesToHash256(hT2)},
-		{rlpExec, validSig, "", hash.BytesToHash256(hE1)},
-		{rlpExec1, validSig, "", hash.BytesToHash256(hE2)},
+		{nil, _validSig, ErrNilAction.Error(), hash.ZeroHash256},
+		{rlpTsf, _validSig, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf1, _signByte, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf1, _validSig, "", hash.BytesToHash256(hT1)},
+		{rlpTsf2, _validSig, "", hash.BytesToHash256(hT2)},
+		{rlpExec, _validSig, "", hash.BytesToHash256(hE1)},
+		{rlpExec1, _validSig, "", hash.BytesToHash256(hE2)},
 	}
 
 	for _, v := range rlpTests {

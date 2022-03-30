@@ -58,11 +58,11 @@ func deregisterDID(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	_, exist := abi.Methods[deregisterDIDName]
+	_, exist := abi.Methods[_deregisterDIDName]
 	if !exist {
 		return errors.New("method is not found")
 	}
-	bytecode, err := abi.Pack(deregisterDIDName)
+	bytecode, err := abi.Pack(_deregisterDIDName)
 	if err != nil {
 		return
 	}

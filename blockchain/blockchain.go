@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	blockMtc = prometheus.NewGaugeVec(
+	_blockMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_block_metrics",
 
@@ -54,7 +54,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(blockMtc)
+	prometheus.MustRegister(_blockMtc)
 }
 
 type (
@@ -488,7 +488,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if blk.Height()%100 == 0 {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	}
-	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
+	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil

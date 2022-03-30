@@ -26,13 +26,13 @@ import (
 
 // namespace for hash, block, and header storage
 const (
-	hashDataNS   = "hsh"
-	blockDataNS  = "bdn"
-	headerDataNs = "hdr"
+	_hashDataNS   = "hsh"
+	_blockDataNS  = "bdn"
+	_headerDataNs = "hdr"
 )
 
 var (
-	fileHeaderKey = []byte("fh")
+	_fileHeaderKey = []byte("fh")
 )
 
 type (
@@ -100,25 +100,25 @@ func (fd *fileDAOv2) Start(ctx context.Context) error {
 		if err = WriteHeaderV2(fd.kvStore, fd.header); err != nil {
 			return err
 		}
-		if err = WriteTip(fd.kvStore, headerDataNs, topHeightKey, fd.tip); err != nil {
+		if err = WriteTip(fd.kvStore, _headerDataNs, _topHeightKey, fd.tip); err != nil {
 			return err
 		}
 	} else {
 		fd.header = header
 		// read file tip
-		if fd.tip, err = ReadTip(fd.kvStore, headerDataNs, topHeightKey); err != nil {
+		if fd.tip, err = ReadTip(fd.kvStore, _headerDataNs, _topHeightKey); err != nil {
 			return err
 		}
 	}
 
 	// create counting index for hash, blk, and transaction log
-	if fd.hashStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(hashDataNS)); err != nil {
+	if fd.hashStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(_hashDataNS)); err != nil {
 		return err
 	}
-	if fd.blkStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(blockDataNS)); err != nil {
+	if fd.blkStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(_blockDataNS)); err != nil {
 		return err
 	}
-	if fd.sysStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(systemLogNS)); err != nil {
+	if fd.sysStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(_systemLogNS)); err != nil {
 		return err
 	}
 
@@ -164,7 +164,7 @@ func (fd *fileDAOv2) GetBlockHeight(h hash.Hash256) (uint64, error) {
 	if h == block.GenesisHash() {
 		return 0, nil
 	}
-	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
+	value, err := getValueMustBe8Bytes(fd.kvStore, _blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
@@ -274,7 +274,7 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	}
 
 	// delete hash -> height mapping
-	fd.batch.Delete(blockHashHeightMappingNS, hashKey(tip.Hash), "failed to delete hash -> height mapping")
+	fd.batch.Delete(_blockHashHeightMappingNS, hashKey(tip.Hash), "failed to delete hash -> height mapping")
 
 	// update file tip
 	var (
@@ -292,7 +292,7 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	if err != nil {
 		return err
 	}
-	fd.batch.Put(headerDataNs, topHeightKey, ser, "failed to put file tip")
+	fd.batch.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
 
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return err
