@@ -150,6 +150,22 @@ func (mr *MockCoreServiceMockRecorder) ActionsByBlock(blkHash, start, count inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsByBlock", reflect.TypeOf((*MockCoreService)(nil).ActionsByBlock), blkHash, start, count)
 }
 
+// ActionsInBlockByHash mocks base method.
+func (m *MockCoreService) ActionsInBlockByHash(arg0 string) ([]action.SealedEnvelope, []*action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActionsInBlockByHash", arg0)
+	ret0, _ := ret[0].([]action.SealedEnvelope)
+	ret1, _ := ret[1].([]*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ActionsInBlockByHash indicates an expected call of ActionsInBlockByHash.
+func (mr *MockCoreServiceMockRecorder) ActionsInBlockByHash(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInBlockByHash", reflect.TypeOf((*MockCoreService)(nil).ActionsInBlockByHash), arg0)
+}
+
 // BlockMetaByHash mocks base method.
 func (m *MockCoreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
 	m.ctrl.T.Helper()

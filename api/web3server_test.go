@@ -203,7 +203,6 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-
 }
 
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
@@ -211,11 +210,9 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
-
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
-
 }
 
 func TestNewfilter(t *testing.T) {
