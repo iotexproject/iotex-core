@@ -42,11 +42,11 @@ import (
 )
 
 const (
-	dBPath     = "db.test"
-	dBPath2    = "db.test2"
-	triePath   = "trie.test"
-	triePath2  = "trie.test2"
-	disabledIP = "169.254."
+	_dBPath     = "db.test"
+	_dBPath2    = "db.test2"
+	_triePath   = "trie.test"
+	_triePath2  = "trie.test2"
+	_disabledIP = "169.254."
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -54,11 +54,11 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile(dBPath)
+	testDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	indexDBPath, err := testutil.PathOfTempFile(dBPath)
+	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
@@ -137,11 +137,11 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// create local chain
-	testTriePath2, err := testutil.PathOfTempFile(triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(_triePath2)
 	require.NoError(err)
-	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
@@ -310,11 +310,11 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile(dBPath)
+	testDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	indexDBPath, err := testutil.PathOfTempFile(dBPath)
+	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
@@ -366,11 +366,11 @@ func TestLocalSync(t *testing.T) {
 		blkHash[i-1] = blk.HashBlock()
 	}
 
-	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	testTriePath2, err := testutil.PathOfTempFile(triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(_triePath2)
 	require.NoError(err)
-	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 
 	cfg, err = newTestConfig()
@@ -425,11 +425,11 @@ func TestLocalSync(t *testing.T) {
 func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-	testDBPath, err := testutil.PathOfTempFile(dBPath)
+	testDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile(dBPath)
+	testIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
@@ -520,8 +520,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 func newTestConfig() (config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = triePath
-	cfg.Chain.ChainDBPath = dBPath
+	cfg.Chain.TrieDBPath = _triePath
+	cfg.Chain.ChainDBPath = _dBPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
@@ -540,7 +540,7 @@ func newTestConfig() (config.Config, error) {
 
 func validNetworkAddr(addrs []multiaddr.Multiaddr) (ret string) {
 	for _, addr := range addrs {
-		if !strings.Contains(addr.String(), disabledIP) {
+		if !strings.Contains(addr.String(), _disabledIP) {
 			return addr.String()
 		}
 	}

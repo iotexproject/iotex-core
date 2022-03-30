@@ -23,12 +23,12 @@ import (
 )
 
 var (
-	bucket1 = "test_ns1"
-	bucket2 = "test_ns2"
-	testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
-	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
-	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
-	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
+	_bucket1 = "test_ns1"
+	_bucket2 = "test_ns2"
+	_testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
+	_testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+	_testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
+	_testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -42,14 +42,14 @@ func TestKVStorePutGet(t *testing.T) {
 			assert.Nil(err)
 		}()
 
-		assert.Nil(kvStore.Put(bucket1, []byte("key"), []byte("value")))
-		value, err := kvStore.Get(bucket1, []byte("key"))
+		assert.Nil(kvStore.Put(_bucket1, []byte("key"), []byte("value")))
+		value, err := kvStore.Get(_bucket1, []byte("key"))
 		assert.Nil(err)
 		assert.Equal([]byte("value"), value)
 		value, err = kvStore.Get("test_ns_1", []byte("key"))
 		assert.NotNil(err)
 		assert.Nil(value)
-		value, err = kvStore.Get(bucket1, testK1[0])
+		value, err = kvStore.Get(_bucket1, _testK1[0])
 		assert.NotNil(err)
 		assert.Nil(value)
 	}
@@ -83,33 +83,33 @@ func TestBatchRollback(t *testing.T) {
 			assert.Nil(err)
 		}()
 
-		assert.Nil(kvStore.Put(bucket1, testK1[0], testV1[0]))
-		value, err := kvStore.Get(bucket1, testK1[0])
+		assert.Nil(kvStore.Put(_bucket1, _testK1[0], _testV1[0]))
+		value, err := kvStore.Get(_bucket1, _testK1[0])
 		assert.Nil(err)
-		assert.Equal(testV1[0], value)
-		assert.Nil(kvStore.Put(bucket1, testK1[1], testV1[1]))
-		value, err = kvStore.Get(bucket1, testK1[1])
+		assert.Equal(_testV1[0], value)
+		assert.Nil(kvStore.Put(_bucket1, _testK1[1], _testV1[1]))
+		value, err = kvStore.Get(_bucket1, _testK1[1])
 		assert.Nil(err)
-		assert.Equal(testV1[1], value)
-		assert.Nil(kvStore.Put(bucket1, testK1[2], testV1[2]))
-		value, err = kvStore.Get(bucket1, testK1[2])
+		assert.Equal(_testV1[1], value)
+		assert.Nil(kvStore.Put(_bucket1, _testK1[2], _testV1[2]))
+		value, err = kvStore.Get(_bucket1, _testK1[2])
 		assert.Nil(err)
-		assert.Equal(testV1[2], value)
+		assert.Equal(_testV1[2], value)
 
 		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
 		kvboltDB := kvStore.(*BoltDB)
-		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
+		err = kvboltDB.batchPutForceFail(_bucket1, _testK1[:], testV[:])
 		assert.NotNil(err)
 
-		value, err = kvStore.Get(bucket1, testK1[0])
+		value, err = kvStore.Get(_bucket1, _testK1[0])
 		assert.Nil(err)
-		assert.Equal(testV1[0], value)
-		value, err = kvStore.Get(bucket1, testK1[1])
+		assert.Equal(_testV1[0], value)
+		value, err = kvStore.Get(_bucket1, _testK1[1])
 		assert.Nil(err)
-		assert.Equal(testV1[1], value)
-		value, err = kvStore.Get(bucket1, testK1[2])
+		assert.Equal(_testV1[1], value)
+		value, err = kvStore.Get(_bucket1, _testK1[2])
 		assert.Nil(err)
-		assert.Equal(testV1[2], value)
+		assert.Equal(_testV1[2], value)
 	}
 
 	path := "test-batch-rollback.bolt"
@@ -136,20 +136,20 @@ func TestDBInMemBatchCommit(t *testing.T) {
 		require.NoError(kvStore.Stop(ctx))
 	}()
 
-	require.NoError(kvStore.Put(bucket1, testK1[0], testV1[1]))
-	require.NoError(kvStore.Put(bucket2, testK2[1], testV2[0]))
-	require.NoError(kvStore.Put(bucket1, testK1[2], testV1[0]))
-	b.Put(bucket1, testK1[0], testV1[0], "")
-	value, err := kvStore.Get(bucket1, testK1[0])
+	require.NoError(kvStore.Put(_bucket1, _testK1[0], _testV1[1]))
+	require.NoError(kvStore.Put(_bucket2, _testK2[1], _testV2[0]))
+	require.NoError(kvStore.Put(_bucket1, _testK1[2], _testV1[0]))
+	b.Put(_bucket1, _testK1[0], _testV1[0], "")
+	value, err := kvStore.Get(_bucket1, _testK1[0])
 	require.NoError(err)
-	require.Equal(testV1[1], value)
-	value, err = kvStore.Get(bucket2, testK2[1])
+	require.Equal(_testV1[1], value)
+	value, err = kvStore.Get(_bucket2, _testK2[1])
 	require.NoError(err)
-	require.Equal(testV2[0], value)
+	require.Equal(_testV2[0], value)
 	require.NoError(kvStore.WriteBatch(b))
-	value, err = kvStore.Get(bucket1, testK1[0])
+	value, err = kvStore.Get(_bucket1, _testK1[0])
 	require.NoError(err)
-	require.Equal(testV1[0], value)
+	require.Equal(_testV1[0], value)
 }
 
 func TestDBBatch(t *testing.T) {
@@ -163,74 +163,74 @@ func TestDBBatch(t *testing.T) {
 			require.NoError(kvStore.Stop(ctx))
 		}()
 
-		require.NoError(kvStore.Put(bucket1, testK1[0], testV1[1]))
-		require.NoError(kvStore.Put(bucket2, testK2[1], testV2[0]))
-		require.NoError(kvStore.Put(bucket1, testK1[2], testV1[0]))
+		require.NoError(kvStore.Put(_bucket1, _testK1[0], _testV1[1]))
+		require.NoError(kvStore.Put(_bucket2, _testK2[1], _testV2[0]))
+		require.NoError(kvStore.Put(_bucket1, _testK1[2], _testV1[0]))
 
-		batch.Put(bucket1, testK1[0], testV1[0], "")
-		batch.Put(bucket2, testK2[1], testV2[1], "")
-		value, err := kvStore.Get(bucket1, testK1[0])
+		batch.Put(_bucket1, _testK1[0], _testV1[0], "")
+		batch.Put(_bucket2, _testK2[1], _testV2[1], "")
+		value, err := kvStore.Get(_bucket1, _testK1[0])
 		require.NoError(err)
-		require.Equal(testV1[1], value)
+		require.Equal(_testV1[1], value)
 
-		value, err = kvStore.Get(bucket2, testK2[1])
+		value, err = kvStore.Get(_bucket2, _testK2[1])
 		require.NoError(err)
-		require.Equal(testV2[0], value)
+		require.Equal(_testV2[0], value)
 		require.NoError(kvStore.WriteBatch(batch))
 		batch.Clear()
 
-		value, err = kvStore.Get(bucket1, testK1[0])
+		value, err = kvStore.Get(_bucket1, _testK1[0])
 		require.NoError(err)
-		require.Equal(testV1[0], value)
+		require.Equal(_testV1[0], value)
 
-		value, err = kvStore.Get(bucket2, testK2[1])
+		value, err = kvStore.Get(_bucket2, _testK2[1])
 		require.NoError(err)
-		require.Equal(testV2[1], value)
+		require.Equal(_testV2[1], value)
 
-		value, err = kvStore.Get(bucket1, testK1[2])
+		value, err = kvStore.Get(_bucket1, _testK1[2])
 		require.NoError(err)
-		require.Equal(testV1[0], value)
+		require.Equal(_testV1[0], value)
 
-		batch.Put(bucket1, testK1[0], testV1[1], "")
+		batch.Put(_bucket1, _testK1[0], _testV1[1], "")
 		require.NoError(kvStore.WriteBatch(batch))
 		batch.Clear()
 
 		require.Equal(0, batch.Size())
 
-		value, err = kvStore.Get(bucket2, testK2[1])
+		value, err = kvStore.Get(_bucket2, _testK2[1])
 		require.NoError(err)
-		require.Equal(testV2[1], value)
+		require.Equal(_testV2[1], value)
 
-		value, err = kvStore.Get(bucket1, testK1[0])
+		value, err = kvStore.Get(_bucket1, _testK1[0])
 		require.NoError(err)
-		require.Equal(testV1[1], value)
+		require.Equal(_testV1[1], value)
 
 		require.NoError(kvStore.WriteBatch(batch))
 		batch.Clear()
 
-		batch.Put(bucket1, testK1[2], testV1[2], "")
+		batch.Put(_bucket1, _testK1[2], _testV1[2], "")
 		require.NoError(kvStore.WriteBatch(batch))
 		batch.Clear()
 
-		value, err = kvStore.Get(bucket1, testK1[2])
+		value, err = kvStore.Get(_bucket1, _testK1[2])
 		require.NoError(err)
-		require.Equal(testV1[2], value)
+		require.Equal(_testV1[2], value)
 
-		value, err = kvStore.Get(bucket2, testK2[1])
+		value, err = kvStore.Get(_bucket2, _testK2[1])
 		require.NoError(err)
-		require.Equal(testV2[1], value)
+		require.Equal(_testV2[1], value)
 
 		batch.Clear()
-		batch.Put(bucket1, testK1[2], testV1[2], "")
-		batch.Delete(bucket2, testK2[1], "")
+		batch.Put(_bucket1, _testK1[2], _testV1[2], "")
+		batch.Delete(_bucket2, _testK2[1], "")
 		require.NoError(kvStore.WriteBatch(batch))
 		batch.Clear()
 
-		value, err = kvStore.Get(bucket1, testK1[2])
+		value, err = kvStore.Get(_bucket1, _testK1[2])
 		require.NoError(err)
-		require.Equal(testV1[2], value)
+		require.Equal(_testV1[2], value)
 
-		_, err = kvStore.Get(bucket2, testK2[1])
+		_, err = kvStore.Get(_bucket2, _testK2[1])
 		require.Error(err)
 	}
 
@@ -261,26 +261,26 @@ func TestCacheKV(t *testing.T) {
 		}()
 
 		cb := batch.NewCachedBatch()
-		cb.Put(bucket1, testK1[0], testV1[0], "")
-		v, _ := cb.Get(bucket1, testK1[0])
-		require.Equal(testV1[0], v)
+		cb.Put(_bucket1, _testK1[0], _testV1[0], "")
+		v, _ := cb.Get(_bucket1, _testK1[0])
+		require.Equal(_testV1[0], v)
 		cb.Clear()
 		require.Equal(0, cb.Size())
-		_, err := cb.Get(bucket1, testK1[0])
+		_, err := cb.Get(_bucket1, _testK1[0])
 		require.Error(err)
-		cb.Put(bucket2, testK2[2], testV2[2], "")
-		v, _ = cb.Get(bucket2, testK2[2])
-		require.Equal(testV2[2], v)
-		// put testK1[1] with a new value
-		cb.Put(bucket1, testK1[1], testV1[2], "")
-		v, _ = cb.Get(bucket1, testK1[1])
-		require.Equal(testV1[2], v)
+		cb.Put(_bucket2, _testK2[2], _testV2[2], "")
+		v, _ = cb.Get(_bucket2, _testK2[2])
+		require.Equal(_testV2[2], v)
+		// put _testK1[1] with a new value
+		cb.Put(_bucket1, _testK1[1], _testV1[2], "")
+		v, _ = cb.Get(_bucket1, _testK1[1])
+		require.Equal(_testV1[2], v)
 		// delete a non-existing entry is OK
-		cb.Delete(bucket2, []byte("notexist"), "")
+		cb.Delete(_bucket2, []byte("notexist"), "")
 		require.NoError(kv.WriteBatch(cb))
 
-		v, _ = kv.Get(bucket1, testK1[1])
-		require.Equal(testV1[2], v)
+		v, _ = kv.Get(_bucket1, _testK1[1])
+		require.Equal(_testV1[2], v)
 
 		cb = batch.NewCachedBatch()
 		require.NoError(kv.WriteBatch(cb))
@@ -312,23 +312,23 @@ func TestDeleteBucket(t *testing.T) {
 			require.NoError(kv.Stop(context.Background()))
 		}()
 
-		require.NoError(kv.Put(bucket1, testK1[0], testV1[0]))
-		v, err := kv.Get(bucket1, testK1[0])
+		require.NoError(kv.Put(_bucket1, _testK1[0], _testV1[0]))
+		v, err := kv.Get(_bucket1, _testK1[0])
 		require.NoError(err)
-		require.Equal(testV1[0], v)
+		require.Equal(_testV1[0], v)
 
-		require.NoError(kv.Put(bucket2, testK1[0], testV1[0]))
-		v, err = kv.Get(bucket2, testK1[0])
+		require.NoError(kv.Put(_bucket2, _testK1[0], _testV1[0]))
+		v, err = kv.Get(_bucket2, _testK1[0])
 		require.NoError(err)
-		require.Equal(testV1[0], v)
+		require.Equal(_testV1[0], v)
 
-		require.NoError(kv.Delete(bucket1, nil))
-		v, err = kv.Get(bucket1, testK1[0])
+		require.NoError(kv.Delete(_bucket1, nil))
+		v, err = kv.Get(_bucket1, _testK1[0])
 		require.Equal(ErrNotExist, errors.Cause(err))
 		require.Equal([]uint8([]byte(nil)), v)
 
-		v, _ = kv.Get(bucket2, testK1[0])
-		require.Equal(testV1[0], v)
+		v, _ = kv.Get(_bucket2, _testK1[0])
+		require.Equal(_testV1[0], v)
 	}
 
 	path := "test-delete.bolt"
@@ -357,15 +357,15 @@ func TestFilter(t *testing.T) {
 			prefix []byte
 		}{
 			{
-				bucket1,
+				_bucket1,
 				[]byte("test"),
 			},
 			{
-				bucket1,
+				_bucket1,
 				[]byte("come"),
 			},
 			{
-				bucket2,
+				_bucket2,
 				[]byte("back"),
 			},
 		}

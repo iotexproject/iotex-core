@@ -22,7 +22,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 	buffer := newStagingBuffer(fd.header.BlockStoreSize)
 	blockStoreTip := fd.highestBlockOfStoreTip()
 	for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
-		v, err := fd.kvStore.Get(headerDataNs, byteutil.Uint64ToBytesBigEndian(i))
+		v, err := fd.kvStore.Get(_headerDataNs, byteutil.Uint64ToBytesBigEndian(i))
 		if err != nil {
 			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
 				break
@@ -59,14 +59,14 @@ func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 
 	// write hash <-> height mapping
 	height := blk.Height()
-	fd.batch.Put(blockHashHeightMappingNS, hashKey(h), byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	fd.batch.Put(_blockHashHeightMappingNS, hashKey(h), byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// update file tip
 	ser, err := (&FileTip{Height: height, Hash: h}).Serialize()
 	if err != nil {
 		return err
 	}
-	fd.batch.Put(headerDataNs, topHeightKey, ser, "failed to put file tip")
+	fd.batch.Put(_headerDataNs, _topHeightKey, ser, "failed to put file tip")
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 		return err
 	}
 	if !full {
-		fd.batch.Put(headerDataNs, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
+		fd.batch.Put(_headerDataNs, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
 		return nil
 	}
 

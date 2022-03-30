@@ -53,7 +53,7 @@ func getURI(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	bytecode, err := encodeGet(abi, getURIName, args[1])
+	bytecode, err := encodeGet(abi, _getURIName, args[1])
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
@@ -69,7 +69,7 @@ func getURI(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	res, err := abi.Unpack(getURIName, dec)
+	res, err := abi.Unpack(_getURIName, dec)
 	if err != nil {
 		return errors.New("DID does not exist")
 	}

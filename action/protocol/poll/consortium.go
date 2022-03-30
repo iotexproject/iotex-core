@@ -24,10 +24,10 @@ import (
 )
 
 var (
-	consortiumCommitteeContractCreator = address.ZeroAddress
-	consortiumCommitteeContractNonce   = uint64(0)
-	// this is a special execution that is not signed, set hash = hex-string of "consortiumCommitteeContractHash"
-	consortiumCommitteeContractHash, _ = hash.HexStringToHash256("00636f6e736f727469756d436f6d6d6974746565436f6e747261637448617368")
+	_consortiumCommitteeContractCreator = address.ZeroAddress
+	_consortiumCommitteeContractNonce   = uint64(0)
+	// this is a special execution that is not signed, set hash = hex-string of "_consortiumCommitteeContractHash"
+	_consortiumCommitteeContractHash, _ = hash.HexStringToHash256("00636f6e736f727469756d436f6d6d6974746565436f6e747261637448617368")
 )
 
 type contractReader interface {
@@ -61,7 +61,7 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 	if readContract == nil {
 		return nil, errors.New("failed to create consortium committee: empty read contract callback")
 	}
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
@@ -81,8 +81,8 @@ func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReade
 		return nil, errors.New("cannot find consortium committee contract in gensis")
 	}
 
-	caller, _ := address.FromString(consortiumCommitteeContractCreator)
-	ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), consortiumCommitteeContractNonce)
+	caller, _ := address.FromString(_consortiumCommitteeContractCreator)
+	ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), _consortiumCommitteeContractNonce)
 	iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
 	cc.contract = iotxAddr.String()
 	log.L().Debug("Loaded consortium committee contract", zap.String("address", iotxAddr.String()))
@@ -93,7 +93,7 @@ func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReade
 func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	blkCtx.Producer, _ = address.FromString(consortiumCommitteeContractCreator)
+	blkCtx.Producer, _ = address.FromString(_consortiumCommitteeContractCreator)
 	blkCtx.GasLimit = g.BlockGasLimit
 	bytes, err := hexutil.Decode(g.ConsortiumCommitteeContractCode)
 	if err != nil {
@@ -101,7 +101,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	execution, err := action.NewExecution(
 		"",
-		consortiumCommitteeContractNonce,
+		_consortiumCommitteeContractNonce,
 		big.NewInt(0),
 		g.BlockGasLimit,
 		big.NewInt(0),
@@ -111,12 +111,12 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		return err
 	}
 	actionCtx := protocol.ActionCtx{}
-	actionCtx.Caller, err = address.FromString(consortiumCommitteeContractCreator)
+	actionCtx.Caller, err = address.FromString(_consortiumCommitteeContractCreator)
 	if err != nil {
 		return err
 	}
-	actionCtx.Nonce = consortiumCommitteeContractNonce
-	actionCtx.ActionHash = consortiumCommitteeContractHash
+	actionCtx.Nonce = _consortiumCommitteeContractNonce
+	actionCtx.ActionHash = _consortiumCommitteeContractHash
 	actionCtx.GasPrice = execution.GasPrice()
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {
@@ -181,17 +181,17 @@ func (cc *consortiumCommittee) ReadState(
 
 // Register registers the protocol with a unique ID
 func (cc *consortiumCommittee) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, cc)
+	return r.Register(_protocolID, cc)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (cc *consortiumCommittee) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, cc)
+	return r.ForceRegister(_protocolID, cc)
 }
 
 // Name returns the name of protocol
 func (cc *consortiumCommittee) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, _ protocol.StateReader, _ uint64) (state.CandidateList, error) {

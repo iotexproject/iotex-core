@@ -29,10 +29,10 @@ import (
 )
 
 const (
-	multiSendSha3   = "e3b48f48"
-	multiSendOffset = "0000000000000000000000000000000000000000000000000000000000000060"
-	prefixZero      = "000000000000000000000000"
-	fixPayLoad      = "00000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000"
+	_multiSendSha3   = "e3b48f48"
+	_multiSendOffset = "0000000000000000000000000000000000000000000000000000000000000060"
+	_prefixZero      = "000000000000000000000000"
+	_fixPayLoad      = "00000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000"
 )
 
 // Execution defines a execution
@@ -118,7 +118,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 		err = errors.New("address len is not equal to amount len")
 		return
 	}
-	data := multiSendSha3 + multiSendOffset
+	data := _multiSendSha3 + _multiSendOffset
 	params2Offset := 32*3 + 1*32 + len(s.cfg.Execution.To.Address)*32
 	params := fmt.Sprintf("%x", params2Offset)
 	data += strings.Repeat("0", 64-len(params)) + params
@@ -135,7 +135,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 			err = errs
 			return
 		}
-		data += prefixZero + hex.EncodeToString(a.Bytes())
+		data += _prefixZero + hex.EncodeToString(a.Bytes())
 	}
 	data += strings.Repeat("0", 64-len(lenOfAddress)) + lenOfAddress
 	for _, amount := range s.cfg.Execution.To.Amount {
@@ -146,7 +146,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 		}
 		data += strings.Repeat("0", 64-len(amo.Text(16))) + amo.Text(16)
 	}
-	data += fixPayLoad
+	data += _fixPayLoad
 	dataBytes, err := hex.DecodeString(data)
 	if err != nil {
 		return
