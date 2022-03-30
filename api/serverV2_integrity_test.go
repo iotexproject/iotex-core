@@ -365,18 +365,25 @@ func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, erro
 	return ap, nil
 }
 
-func newConfig(t *testing.T) config.Config {
-	r := require.New(t)
+func newConfig() config.Config {
 	cfg := config.Default
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
-	r.NoError(err)
+	if err != nil {
+		panic(err)
+	}
 	testDBPath, err := testutil.PathOfTempFile("db")
-	r.NoError(err)
+	if err != nil {
+		panic(err)
+	}
 	testIndexPath, err := testutil.PathOfTempFile("index")
-	r.NoError(err)
+	if err != nil {
+		panic(err)
+	}
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
-	r.NoError(err)
+	if err != nil {
+		panic(err)
+	}
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
@@ -437,7 +444,7 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)

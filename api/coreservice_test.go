@@ -14,15 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	t.Run("blocks with four logs", func(t *testing.T) {
@@ -123,35 +121,8 @@ func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, er
 }
 
 func BenchmarkLogsInRange(b *testing.B) {
-	cfg := config.Default
-
-	testTriePath, _ := testutil.PathOfTempFile("trie")
-	testDBPath, _ := testutil.PathOfTempFile("db")
-	testIndexPath, _ := testutil.PathOfTempFile("index")
-	testSystemLogPath, _ := testutil.PathOfTempFile("systemlog")
-	defer func() {
-		testutil.CleanupPath(testTriePath)
-		testutil.CleanupPath(testDBPath)
-		testutil.CleanupPath(testIndexPath)
-		testutil.CleanupPath(testSystemLogPath)
-	}()
-
-	cfg.Plugins[config.GatewayPlugin] = true
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.System.SystemLogDBPath = testSystemLogPath
-	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Genesis.EnableGravityChainVoting = true
-	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.API.RangeQueryLimit = 100
-
-	config.SetEVMNetworkID(_evmNetworkID)
-	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
-
-	defer func() {
-		testutil.CleanupPath(bfIndexFile)
-	}()
+	svr, _, _, _, cleanCallback := setupTestServer()
+	defer cleanCallback()
 
 	filter := &filterObject{FromBlock: "0x1"}
 	from, _ := strconv.ParseInt(filter.FromBlock, 10, 64)

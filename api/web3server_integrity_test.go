@@ -39,7 +39,7 @@ const (
 
 func TestGasPriceIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.gasPrice()
@@ -48,7 +48,7 @@ func TestGasPriceIntegrity(t *testing.T) {
 
 func TestGetChainIDIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.getChainID()
@@ -57,7 +57,7 @@ func TestGetChainIDIntegrity(t *testing.T) {
 
 func TestGetBlockNumberIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.getBlockNumber()
@@ -66,7 +66,7 @@ func TestGetBlockNumberIntegrity(t *testing.T) {
 
 func TestGetBlockByNumberIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -96,7 +96,7 @@ func TestGetBlockByNumberIntegrity(t *testing.T) {
 
 func TestGetBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(`{"params": ["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
@@ -107,7 +107,7 @@ func TestGetBalanceIntegrity(t *testing.T) {
 
 func TestGetTransactionCountIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -129,7 +129,7 @@ func TestGetTransactionCountIntegrity(t *testing.T) {
 
 func TestCallIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -168,7 +168,7 @@ func TestCallIntegrity(t *testing.T) {
 
 func TestEstimateGasIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// deploy a contract
@@ -229,7 +229,7 @@ func TestEstimateGasIntegrity(t *testing.T) {
 
 func TestSendRawTransactionIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(`{"params": ["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]}`)
@@ -239,7 +239,7 @@ func TestSendRawTransactionIntegrity(t *testing.T) {
 
 func TestGetCodeIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// deploy a contract
@@ -254,7 +254,7 @@ func TestGetCodeIntegrity(t *testing.T) {
 
 func TestGetNodeInfoIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	_, err := svr.web3Server.getNodeInfo()
@@ -263,7 +263,7 @@ func TestGetNodeInfoIntegrity(t *testing.T) {
 
 func TestGetBlockTransactionCountByHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, _, _, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	header, err := bc.BlockHeaderByHeight(1)
@@ -277,7 +277,7 @@ func TestGetBlockTransactionCountByHashIntegrity(t *testing.T) {
 
 func TestGetBlockByHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, _, _, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	header, _ := bc.BlockHeaderByHeight(1)
@@ -298,7 +298,7 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 
 func TestGetTransactionByHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(transferHash1[:])))
@@ -314,7 +314,7 @@ func TestGetTransactionByHashIntegrity(t *testing.T) {
 
 func TestGetLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -342,7 +342,7 @@ func TestGetLogsIntegrity(t *testing.T) {
 
 func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(transferHash1[:])))
@@ -367,7 +367,7 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 
 func TestGetBlockTransactionCountByNumberIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
@@ -382,7 +382,7 @@ func TestGetBlockTransactionCountByNumberIntegrity(t *testing.T) {
 
 func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, _, _, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	header, _ := bc.BlockHeaderByHeight(1)
@@ -413,7 +413,7 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 
 func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(`{"params": ["0x1", "0x0"]}`)
@@ -441,7 +441,7 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 
 func TestNewfilterIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := &filterObject{FromBlock: "0x1"}
@@ -452,7 +452,7 @@ func TestNewfilterIntegrity(t *testing.T) {
 
 func TestNewBlockFilterIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, err := svr.web3Server.newBlockFilter()
@@ -462,7 +462,7 @@ func TestNewBlockFilterIntegrity(t *testing.T) {
 
 func TestGetFilterChangesIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// filter
@@ -491,7 +491,7 @@ func TestGetFilterChangesIntegrity(t *testing.T) {
 
 func TestGetFilterLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	filterReq := &filterObject{FromBlock: "0x1"}
@@ -520,7 +520,7 @@ func TestLocalAPICacheIntegrity(t *testing.T) {
 
 func TestGetStorageAtIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// deploy a contract
@@ -546,15 +546,15 @@ func TestGetStorageAtIntegrity(t *testing.T) {
 
 func TestGetNetworkIDIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	res, _ := svr.web3Server.getNetworkID()
 	require.Equal(fmt.Sprintf("%d", _evmNetworkID), res)
 }
 
-func setupTestServer(t *testing.T) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
-	cfg := newConfig(t)
+func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
+	cfg := newConfig()
 	config.SetEVMNetworkID(_evmNetworkID)
 	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2(cfg, false)
 	return svr, bc, dao, actPool, func() {
@@ -564,7 +564,7 @@ func setupTestServer(t *testing.T) (*ServerV2, blockchain.Blockchain, blockdao.B
 
 func TestEthAccountsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
@@ -576,7 +576,7 @@ func TestEthAccountsIntegrity(t *testing.T) {
 
 func TestWeb3StakingIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ecdsaPvk, ok := identityset.PrivateKey(28).EcdsaPrivateKey().(*ecdsa.PrivateKey)
