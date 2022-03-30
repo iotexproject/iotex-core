@@ -108,38 +108,3 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 	}
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
 }
-
-// NewStakingActionFromABIBinary creates staking action from abi binary data
-func NewStakingActionFromABIBinary(data []byte) (Action, error) {
-	if len(data) <= 4 {
-		return nil, ErrInvalidABI
-	}
-	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewDepositToStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewChangeCandidateFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewUnstakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewWithdrawStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewRestakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewTransferStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewCandidateRegisterFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	return nil, ErrInvalidABI
-}
