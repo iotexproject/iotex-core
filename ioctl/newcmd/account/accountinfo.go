@@ -24,19 +24,19 @@ import (
 
 // Multi-language support
 var (
-	infoCmdUses = map[config.Language]string{
+	_infoCmdUses = map[config.Language]string{
 		config.English: "info [ALIAS|ADDRESS]",
 		config.Chinese: "info [别名|地址]",
 	}
-	infoCmdShorts = map[config.Language]string{
+	_infoCmdShorts = map[config.Language]string{
 		config.English: "Display an account's information",
 		config.Chinese: "显示账号信息",
 	}
-	invalidAccountBalance = map[config.Language]string{
+	_invalidAccountBalance = map[config.Language]string{
 		config.English: "invalid account balance",
 		config.Chinese: "无效的账户余额",
 	}
-	failToGetAccountMeta = map[config.Language]string{
+	_failToGetAccountMeta = map[config.Language]string{
 		config.English: "failed to get account meta",
 		config.Chinese: "获取账户信息失败",
 	}
@@ -44,12 +44,12 @@ var (
 
 // NewAccountInfo represents the account info command
 func NewAccountInfo(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(infoCmdUses)
-	short, _ := client.SelectTranslation(infoCmdShorts)
-	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
-	failToConvertStringIntoAddress, _ := client.SelectTranslation(failToConvertStringIntoAddress)
-	invalidAccountBalance, _ := client.SelectTranslation(invalidAccountBalance)
-	failToGetAccountMeta, _ := client.SelectTranslation(failToGetAccountMeta)
+	use, _ := client.SelectTranslation(_infoCmdUses)
+	short, _ := client.SelectTranslation(_infoCmdShorts)
+	failToGetAddress, _ := client.SelectTranslation(_failToGetAddress)
+	failToConvertStringIntoAddress, _ := client.SelectTranslation(_failToConvertStringIntoAddress)
+	_invalidAccountBalance, _ := client.SelectTranslation(_invalidAccountBalance)
+	_failToGetAccountMeta, _ := client.SelectTranslation(_failToGetAccountMeta)
 
 	return &cobra.Command{
 		Use:   use,
@@ -68,11 +68,11 @@ func NewAccountInfo(client ioctl.Client) *cobra.Command {
 
 			accountMeta, err := Meta(client, addr)
 			if err != nil {
-				return errors.Wrap(err, failToGetAccountMeta)
+				return errors.Wrap(err, _failToGetAccountMeta)
 			}
 			balance, ok := new(big.Int).SetString(accountMeta.Balance, 10)
 			if !ok {
-				return errors.New(invalidAccountBalance)
+				return errors.New(_invalidAccountBalance)
 			}
 			ethAddr, err := address.FromString(addr)
 			if err != nil {

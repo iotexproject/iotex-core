@@ -15,19 +15,19 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-var signer string
+var _signer string
 
 // Multi-language support
 var (
-	signCmdShorts = map[config.Language]string{
+	_signCmdShorts = map[config.Language]string{
 		config.English: "Sign message with private key from wallet",
 		config.Chinese: "用钱包中的私钥对信息签名",
 	}
-	signCmdUses = map[config.Language]string{
+	_signCmdUses = map[config.Language]string{
 		config.English: "sign MESSAGE [-s SIGNER]",
 		config.Chinese: "sign 信息 [-s 签署人]",
 	}
-	flagSignerUsages = map[config.Language]string{
+	_flagSignerUsages = map[config.Language]string{
 		config.English: "choose a signing account",
 		config.Chinese: "选择一个签名账户",
 	}
@@ -35,9 +35,9 @@ var (
 
 // NewAccountSign represents the account sign command
 func NewAccountSign(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(signCmdUses)
-	short, _ := client.SelectTranslation(signCmdShorts)
-	usage, _ := client.SelectTranslation(flagSignerUsages)
+	use, _ := client.SelectTranslation(_signCmdUses)
+	short, _ := client.SelectTranslation(_signCmdShorts)
+	usage, _ := client.SelectTranslation(_flagSignerUsages)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -51,10 +51,10 @@ func NewAccountSign(client ioctl.Client) *cobra.Command {
 				addr string
 				err  error
 			)
-			if util.AliasIsHdwalletKey(signer) {
-				addr = signer
+			if util.AliasIsHdwalletKey(_signer) {
+				addr = _signer
 			} else {
-				addr, err = client.Address(signer)
+				addr, err = client.Address(_signer)
 				if err != nil {
 					return errors.Wrap(err, "failed to get address")
 				}
@@ -67,6 +67,6 @@ func NewAccountSign(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&signer, "signer", "s", "", usage)
+	cmd.Flags().StringVarP(&_signer, "_signer", "s", "", usage)
 	return cmd
 }
