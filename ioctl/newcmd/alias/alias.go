@@ -22,11 +22,11 @@ import (
 
 // Multi-language support
 var (
-	aliasCmdShorts = map[config.Language]string{
+	_aliasCmdShorts = map[config.Language]string{
 		config.English: "Manage aliases of IoTeX addresses",
 		config.Chinese: "管理IoTeX的地址别名",
 	}
-	aliasCmdUses = map[config.Language]string{
+	_aliasCmdUses = map[config.Language]string{
 		config.English: "alias",
 		config.Chinese: "alias",
 	}
@@ -39,8 +39,8 @@ var (
 
 // Flags
 var (
-	format      string
-	forceImport bool
+	_format      string
+	_forceImport bool
 )
 
 //type alias struct {
@@ -54,8 +54,8 @@ var (
 
 // NewAliasCmd represents the alias command
 func NewAliasCmd(client ioctl.Client) *cobra.Command {
-	aliasShorts, _ := client.SelectTranslation(aliasCmdShorts)
-	aliasUses, _ := client.SelectTranslation(aliasCmdUses)
+	aliasShorts, _ := client.SelectTranslation(_aliasCmdShorts)
+	aliasUses, _ := client.SelectTranslation(_aliasCmdUses)
 
 	ec := &cobra.Command{
 		Use:   aliasUses,
@@ -67,7 +67,7 @@ func NewAliasCmd(client ioctl.Client) *cobra.Command {
 	return ec
 }
 
-// IOAddress returns the address in IoTeX address format
+// IOAddress returns the address in IoTeX address _format
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
@@ -76,7 +76,7 @@ func IOAddress(in string) (address.Address, error) {
 	return address.FromString(addr)
 }
 
-// EtherAddress returns the address in ether format
+// EtherAddress returns the address in ether _format
 func EtherAddress(in string) (common.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
