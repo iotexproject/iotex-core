@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
@@ -16,10 +17,10 @@ import (
 )
 
 var (
-	_testContractIoAddr = "io1ryygckqjw06720cg9j6tkwtprxu4jgcag4w6vn"
-	_testSenderIoAddr   = "io154mvzs09vkgn0hw6gg3ayzw5w39jzp47f8py9v"
-	_testBlkHash, _     = hash.HexStringToHash256("c4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3")
-	_testTxHash, _      = hash.HexStringToHash256("25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0")
+	_testContractIoAddr  = "io1ryygckqjw06720cg9j6tkwtprxu4jgcag4w6vn"
+	_testSenderIoAddr, _ = address.FromString("io154mvzs09vkgn0hw6gg3ayzw5w39jzp47f8py9v")
+	_testBlkHash, _      = hash.HexStringToHash256("c4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3")
+	_testTxHash, _       = hash.HexStringToHash256("25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0")
 
 	_testTopic1, _ = hash.HexStringToHash256("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
 	_testTopic2, _ = hash.HexStringToHash256("0000000000000000000000008a68e01add9adc8b887025dc54c36cfa91432f58")
@@ -27,6 +28,45 @@ var (
 
 	_testPubKey, _ = crypto.HexStringToPublicKey("04e9f906040bf6f1df25d6fff3f36f6aa135060ff54acf96564a2a298e469ac7162c78564903d4cf39d976493b44906a2bb553997e12b747439d173adcd02d6552")
 )
+
+func TestWeb3ResponseMarshal(t *testing.T) {
+	require := require.New(t)
+
+	t.Run("Result", func(t *testing.T) {
+		res, err := json.Marshal(&web3Response{
+			id:     1,
+			result: false,
+			err:    nil,
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"jsonrpc":"2.0",
+			"id":1,
+			"result":false
+		 }
+		`, string(res))
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		res, err := json.Marshal(&web3Response{
+			id:     1,
+			result: nil,
+			err:    errInvalidBlock,
+		})
+		require.NoError(err)
+		require.JSONEq(`
+		{
+			"jsonrpc":"2.0",
+			"id":1,
+			"error":{
+			   "code":-32603,
+			   "message":"invalid block"
+			}
+		 }
+		`, string(res))
+	})
+}
 
 func TestBlockObjectMarshal(t *testing.T) {
 	require := require.New(t)
@@ -48,7 +88,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 	}
 
 	t.Run("BlockWithoutDetail", func(t *testing.T) {
-		res, err := json.Marshal(&blockObjectV2{
+		res, err := json.Marshal(&blockObject{
 			blkMeta:      blkMeta,
 			logsBloom:    _zeroLogsBloom,
 			transactions: []interface{}{string("0x2133ee7ff4562535166e3f16fd7407c19e5ed1acd036f78d3528a5a40e40ad42")},
@@ -93,7 +133,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 			ContractAddress: _testContractIoAddr,
 			TxIndex:         1,
 		}
-		tx := &transactionObjectV2{
+		tx := &transactionObject{
 			blockHash: _testBlkHash,
 			to:        nil,
 			ethTx:     types.NewContractCreation(1, big.NewInt(10), 21000, big.NewInt(0), []byte{}),
@@ -101,7 +141,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 			pubkey:    _testPubKey,
 			signature: []byte("69d89a0af27dcaa67f1b62a383594d97599aadd2b7b164cb4112aa8ddfd42f895649075cae1b7216c43a491c5e9be68d1d9a27b863d71155ecdd7c95dab5394f01"),
 		}
-		res, err := json.Marshal(&blockObjectV2{
+		res, err := json.Marshal(&blockObject{
 			blkMeta:      blkMeta,
 			logsBloom:    _zeroLogsBloom,
 			transactions: []interface{}{tx},
@@ -151,7 +191,6 @@ func TestBlockObjectMarshal(t *testing.T) {
 		 }
 		`, string(res))
 	})
-
 }
 
 func TestTransactionObjectMarshal(t *testing.T) {
@@ -167,7 +206,7 @@ func TestTransactionObjectMarshal(t *testing.T) {
 	}
 
 	t.Run("ContractCreation", func(t *testing.T) {
-		res, err := json.Marshal(&transactionObjectV2{
+		res, err := json.Marshal(&transactionObject{
 			blockHash: _testBlkHash,
 			to:        nil,
 			ethTx:     types.NewContractCreation(1, big.NewInt(10), 21000, big.NewInt(0), []byte{}),
@@ -211,7 +250,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 
 	t.Run("ContractCreation", func(t *testing.T) {
 		contractEthaddr, _ := ioAddrToEthAddr(_testContractIoAddr)
-		res, err := json.Marshal(&receiptObjectV2{
+		res, err := json.Marshal(&receiptObject{
 			blockHash:       _testBlkHash,
 			from:            _testSenderIoAddr,
 			to:              nil,
@@ -226,7 +265,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 			"transactionHash":"0x25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0",
 			"blockHash":"0xc4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3",
 			"blockNumber":"0x10",
-			"from":"0xA576C141e5659137ddDa4223d209d4744b2106BE",
+			"from":"0xa576c141e5659137ddda4223d209d4744b2106be",
 			"to":null,
 			"cumulativeGasUsed":"0x5208",
 			"gasUsed":"0x5208",
@@ -252,7 +291,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 			NotFixTopicCopyBug: false,
 		})
 		contractEthaddr, _ := ioAddrToEthAddr(_testContractIoAddr)
-		res, err := json.Marshal(&receiptObjectV2{
+		res, err := json.Marshal(&receiptObject{
 			blockHash:       _testBlkHash,
 			from:            _testSenderIoAddr,
 			to:              &contractEthaddr,
@@ -267,7 +306,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 			"transactionHash":"0x25bef7a7e20402a625973613b19bbc1793ed3a38cad270abf623222120a10fd0",
 			"blockHash":"0xc4aace64c1f4d7c0b6ebe74ba01e00e27c7ff4b2552c36ef617f38f0f2b1ebb3",
 			"blockNumber":"0x10",
-			"from":"0xA576C141e5659137ddDa4223d209d4744b2106BE",
+			"from":"0xa576c141e5659137ddda4223d209d4744b2106be",
 			"to":"0x19088c581273F5E53f082CB4BB396119b959231D",
 			"cumulativeGasUsed":"0x5208",
 			"gasUsed":"0x5208",

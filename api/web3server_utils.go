@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/go-redis/redis/v8"
 	"github.com/iotexproject/go-pkgs/cache/ttl"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -25,54 +26,6 @@ import (
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
-)
-
-type (
-	blockObject struct {
-		Author           string        `json:"author"`
-		Number           string        `json:"number"`
-		Hash             string        `json:"hash"`
-		ParentHash       string        `json:"parentHash"`
-		Sha3Uncles       string        `json:"sha3Uncles"`
-		LogsBloom        string        `json:"logsBloom"`
-		TransactionsRoot string        `json:"transactionsRoot"`
-		StateRoot        string        `json:"stateRoot"`
-		ReceiptsRoot     string        `json:"receiptsRoot"`
-		Miner            string        `json:"miner"`
-		Difficulty       string        `json:"difficulty"`
-		TotalDifficulty  string        `json:"totalDifficulty"`
-		ExtraData        string        `json:"extraData"`
-		Size             string        `json:"size"`
-		GasLimit         string        `json:"gasLimit"`
-		GasUsed          string        `json:"gasUsed"`
-		Timestamp        string        `json:"timestamp"`
-		Transactions     []interface{} `json:"transactions"`
-		Signature        string        `json:"signature"`
-		Step             string        `json:"step"`
-		Uncles           []string      `json:"uncles"`
-	}
-
-	transactionObject struct {
-		Hash             string  `json:"hash"`
-		Nonce            string  `json:"nonce"`
-		BlockHash        string  `json:"blockHash"`
-		BlockNumber      string  `json:"blockNumber"`
-		TransactionIndex string  `json:"transactionIndex"`
-		From             string  `json:"from"`
-		To               *string `json:"to"`
-		Value            string  `json:"value"`
-		GasPrice         string  `json:"gasPrice"`
-		Gas              string  `json:"gas"`
-		Input            string  `json:"input"`
-		R                string  `json:"r"`
-		S                string  `json:"s"`
-		V                string  `json:"v"`
-		StandardV        string  `json:"standardV"`
-		Condition        *string `json:"condition"`
-		Creates          *string `json:"creates"`
-		ChainID          string  `json:"chainId"`
-		PublicKey        string  `json:"publicKey"`
-	}
 )
 
 const (
@@ -113,12 +66,12 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (blockObject, error) {
+func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*blockObject, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
 		selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkMeta.Hash)
 		if err != nil {
-			return blockObject{}, err
+			return nil, err
 		}
 		for i, selp := range selps {
 			if isDetailed {
@@ -134,93 +87,49 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 			} else {
 				actHash, err := selp.Hash()
 				if err != nil {
-					return blockObject{}, err
+					return nil, err
 				}
 				transactions = append(transactions, "0x"+hex.EncodeToString(actHash[:]))
 			}
 		}
 	}
-
-	producerAddr, err := ioAddrToEthAddr(blkMeta.ProducerAddress)
-	if err != nil {
-		return blockObject{}, err
-	}
-	// TODO: the value is the same as Babel's. It will be corrected in next pr
-	return blockObject{
-		Author:           producerAddr,
-		Number:           uint64ToHex(blkMeta.Height),
-		Hash:             "0x" + blkMeta.Hash,
-		ParentHash:       "0x" + blkMeta.PreviousBlockHash,
-		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-		LogsBloom:        getLogsBloomFromBlkMeta(blkMeta),
-		TransactionsRoot: "0x" + blkMeta.TxRoot,
-		StateRoot:        "0x" + blkMeta.DeltaStateDigest,
-		ReceiptsRoot:     "0x" + blkMeta.TxRoot,
-		Miner:            producerAddr,
-		Difficulty:       "0xfffffffffffffffffffffffffffffffe",
-		TotalDifficulty:  "0xff14700000000000000000000000486001d72",
-		ExtraData:        "0x",
-		Size:             uint64ToHex(uint64(blkMeta.NumActions)),
-		GasLimit:         uint64ToHex(blkMeta.GasLimit),
-		GasUsed:          uint64ToHex(blkMeta.GasUsed),
-		Timestamp:        uint64ToHex(uint64(blkMeta.Timestamp.Seconds)),
-		Transactions:     transactions,
-		Step:             "373422302",
-		Signature:        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-		Uncles:           []string{},
+	return &blockObject{
+		blkMeta:      blkMeta,
+		logsBloom:    getLogsBloomFromBlkMeta(blkMeta),
+		transactions: transactions,
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (transactionObject, error) {
+func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*transactionObject, error) {
 	// sanity check
 	if receipt == nil {
-		return transactionObject{}, errors.New("receipt is empty")
+		return nil, errors.New("receipt is empty")
 	}
 	actHash, err := selp.Hash()
 	if err != nil || actHash != receipt.ActionHash {
-		return transactionObject{}, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
+		return nil, errors.Errorf("the action %s of receipt doesn't match", hex.EncodeToString(actHash[:]))
 	}
 	act, ok := selp.Action().(action.EthCompatibleAction)
 	if !ok {
 		actHash, _ := selp.Hash()
-		return transactionObject{}, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
+		return nil, errors.Wrapf(errUnsupportedAction, "actHash: %s", hex.EncodeToString(actHash[:]))
 	}
 	ethTx, err := act.ToEthTx()
 	if err != nil {
-		return transactionObject{}, err
+		return nil, err
 	}
-	to, create, err := getRecipientAndContractAddrFromAction(selp, receipt)
+	to, _, err := getRecipientAndContractAddrFromAction(selp, receipt)
 	if err != nil {
-		return transactionObject{}, err
+		return nil, err
 	}
-
-	sig := selp.Signature()
-	vVal := uint64(sig[64])
-	if vVal < 27 {
-		vVal += 27
-	}
-	gasPrice, _ := intStrToHex(ethTx.GasPrice().String())
-	value, _ := intStrToHex(ethTx.Value().String())
-	return transactionObject{
-		Hash:             "0x" + hex.EncodeToString(receipt.ActionHash[:]),
-		Nonce:            uint64ToHex(ethTx.Nonce()),
-		BlockHash:        "0x" + blkHash,
-		BlockNumber:      uint64ToHex(receipt.BlockHeight),
-		TransactionIndex: uint64ToHex(uint64(receipt.TxIndex)),
-		From:             selp.SrcPubkey().Address().Hex(),
-		To:               to,
-		Value:            value,
-		GasPrice:         gasPrice,
-		Gas:              uint64ToHex(ethTx.Gas()),
-		Input:            byteToHex(ethTx.Data()),
-		R:                byteToHex(sig[:32]),
-		S:                byteToHex(sig[32:64]),
-		V:                uint64ToHex(vVal),
-		// TODO: the value is the same as Babel's. It will be corrected in next pr
-		StandardV: uint64ToHex(vVal),
-		Creates:   create,
-		ChainID:   uint64ToHex(uint64(svr.coreService.EVMNetworkID())),
-		PublicKey: byteToHex(selp.SrcPubkey().Bytes()),
+	bkhash, _ := hash.HexStringToHash256(blkHash)
+	return &transactionObject{
+		blockHash: bkhash,
+		to:        to,
+		ethTx:     ethTx,
+		receipt:   receipt,
+		pubkey:    selp.SrcPubkey(),
+		signature: selp.Signature(),
 	}, nil
 }
 
@@ -298,7 +207,7 @@ func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
 	return accountMeta.IsContract, err
 }
 
-func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObject, error) {
+func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObjectRaw, error) {
 	// construct filter topics and addresses
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addrs {
@@ -319,13 +228,14 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		}
 		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
+	// TODO: replace iotextypes.Log with action.Log in the return from LogsInRange()
 	logs, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	// parse log results
-	ret := make([]logsObject, 0)
+	ret := make([]logsObjectRaw, 0)
 	for _, l := range logs {
 		topics := make([]string, 0)
 		for _, val := range l.Topics {
@@ -335,7 +245,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, logsObject{
+		ret = append(ret, logsObjectRaw{
 			BlockHash:        byteToHex(l.BlkHash),
 			TransactionHash:  byteToHex(l.ActHash),
 			LogIndex:         uint64ToHex(uint64(l.Index)),

@@ -7,20 +7,33 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 )
 
 type (
-	blockObjectV2 struct {
+	web3Response struct {
+		id     int
+		result interface{}
+		err    error
+	}
+
+	errMessage struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+
+	blockObject struct {
 		blkMeta      *iotextypes.BlockMeta
 		logsBloom    string
 		transactions []interface{}
 	}
 
-	transactionObjectV2 struct {
+	transactionObject struct {
 		blockHash hash.Hash256
 		to        *string
 		ethTx     *types.Transaction
@@ -29,9 +42,9 @@ type (
 		signature []byte
 	}
 
-	receiptObjectV2 struct {
+	receiptObject struct {
 		blockHash       hash.Hash256
-		from            string
+		from            address.Address
 		to              *string
 		contractAddress *string
 		logsBloom       string
@@ -48,7 +61,45 @@ var (
 	errInvalidObject = errors.New("invalid object")
 )
 
-func (obj *blockObjectV2) MarshalJSON() ([]byte, error) {
+func (obj *web3Response) MarshalJSON() ([]byte, error) {
+	if obj.err == nil {
+		return json.Marshal(&struct {
+			Jsonrpc string      `json:"jsonrpc"`
+			ID      int         `json:"id"`
+			Result  interface{} `json:"result"`
+		}{
+			Jsonrpc: "2.0",
+			ID:      obj.id,
+			Result:  obj.result,
+		})
+	}
+
+	var (
+		errCode int
+		errMsg  string
+	)
+	// error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
+	if s, ok := status.FromError(obj.err); ok {
+		errCode, errMsg = int(s.Code()), s.Message()
+	} else {
+		errCode, errMsg = -32603, obj.err.Error()
+	}
+
+	return json.Marshal(&struct {
+		Jsonrpc string     `json:"jsonrpc"`
+		ID      int        `json:"id"`
+		Error   errMessage `json:"error"`
+	}{
+		Jsonrpc: "2.0",
+		ID:      obj.id,
+		Error: errMessage{
+			Code:    errCode,
+			Message: errMsg,
+		},
+	})
+}
+
+func (obj *blockObject) MarshalJSON() ([]byte, error) {
 	if obj.blkMeta == nil {
 		return nil, errInvalidObject
 	}
@@ -101,7 +152,7 @@ func (obj *blockObjectV2) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *transactionObjectV2) MarshalJSON() ([]byte, error) {
+func (obj *transactionObject) MarshalJSON() ([]byte, error) {
 	if obj.receipt == nil || obj.pubkey == nil || obj.ethTx == nil {
 		return nil, errInvalidObject
 	}
@@ -146,13 +197,9 @@ func (obj *transactionObjectV2) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *receiptObjectV2) MarshalJSON() ([]byte, error) {
+func (obj *receiptObject) MarshalJSON() ([]byte, error) {
 	if obj.receipt == nil {
 		return nil, errInvalidObject
-	}
-	from, err := ioAddrToEthAddr(obj.from)
-	if err != nil {
-		return nil, err
 	}
 	logs := make([]*logsObjectV2, 0, len(obj.receipt.Logs()))
 	for _, v := range obj.receipt.Logs() {
@@ -177,7 +224,7 @@ func (obj *receiptObjectV2) MarshalJSON() ([]byte, error) {
 		TransactionHash:   "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
 		BlockHash:         "0x" + hex.EncodeToString(obj.blockHash[:]),
 		BlockNumber:       uint64ToHex(obj.receipt.BlockHeight),
-		From:              from,
+		From:              obj.from.Hex(),
 		To:                obj.to,
 		CumulativeGasUsed: uint64ToHex(obj.receipt.GasConsumed),
 		GasUsed:           uint64ToHex(obj.receipt.GasConsumed),

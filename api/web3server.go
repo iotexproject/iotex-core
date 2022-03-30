@@ -42,23 +42,7 @@ type Web3Server struct {
 }
 
 type (
-	web3Resp struct {
-		Jsonrpc string      `json:"jsonrpc"`
-		ID      int         `json:"id"`
-		Result  interface{} `json:"result"`
-	}
-	web3Err struct {
-		Jsonrpc string     `json:"jsonrpc"`
-		ID      int        `json:"id"`
-		Error   errMessage `json:"error"`
-	}
-
-	errMessage struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-	}
-
-	logsObject struct {
+	logsObjectRaw struct {
 		Removed          bool     `json:"removed"`
 		LogIndex         string   `json:"logIndex"`
 		TransactionIndex string   `json:"transactionIndex"`
@@ -68,21 +52,6 @@ type (
 		Address          string   `json:"address"`
 		Data             string   `json:"data"`
 		Topics           []string `json:"topics"`
-	}
-
-	receiptObject struct {
-		TransactionIndex  string       `json:"transactionIndex"`
-		TransactionHash   string       `json:"transactionHash"`
-		BlockHash         string       `json:"blockHash"`
-		BlockNumber       string       `json:"blockNumber"`
-		From              string       `json:"from"`
-		To                *string      `json:"to"`
-		CumulativeGasUsed string       `json:"cumulativeGasUsed"`
-		GasUsed           string       `json:"gasUsed"`
-		ContractAddress   *string      `json:"contractAddress"`
-		LogsBloom         string       `json:"logsBloom"`
-		Logs              []logsObject `json:"logs"`
-		Status            string       `json:"status"`
 	}
 
 	filterObject struct {
@@ -169,7 +138,11 @@ func (svr *Web3Server) handlePOSTReq(req *http.Request) interface{} {
 	web3Reqs, err := parseWeb3Reqs(req)
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
-		return packAPIResult(nil, err, 0)
+		return &web3Response{
+			id:     0,
+			result: nil,
+			err:    err,
+		}
 	}
 	if !web3Reqs.IsArray() {
 		return svr.handleWeb3Req(&web3Reqs)
@@ -279,7 +252,11 @@ func (svr *Web3Server) handleWeb3Req(web3Req *gjson.Result) interface{} {
 	}
 	web3ServerMtc.WithLabelValues(method.(string)).Inc()
 	web3ServerMtc.WithLabelValues("requests_total").Inc()
-	return packAPIResult(res, err, int(web3Req.Get("id").Int()))
+	return &web3Response{
+		id:     int(web3Req.Get("id").Int()),
+		result: res,
+		err:    err,
+	}
 }
 
 func parseWeb3Reqs(req *http.Request) (gjson.Result, error) {
@@ -300,34 +277,6 @@ func parseWeb3Reqs(req *http.Request) (gjson.Result, error) {
 		}
 	}
 	return ret, nil
-}
-
-// error code: https://eth.wiki/json-rpc/json-rpc-error-codes-improvement-proposal
-func packAPIResult(res interface{}, err error, id int) interface{} {
-	if err != nil {
-		var (
-			errCode int
-			errMsg  string
-		)
-		if s, ok := status.FromError(err); ok {
-			errCode, errMsg = int(s.Code()), s.Message()
-		} else {
-			errCode, errMsg = -32603, err.Error()
-		}
-		return web3Err{
-			Jsonrpc: "2.0",
-			ID:      id,
-			Error: errMessage{
-				Code:    errCode,
-				Message: errMsg,
-			},
-		}
-	}
-	return web3Resp{
-		Jsonrpc: "2.0",
-		ID:      id,
-		Result:  res,
-	}
 }
 
 func (svr *Web3Server) ethAccounts() (interface{}, error) {
@@ -638,42 +587,13 @@ func (svr *Web3Server) getTransactionReceipt(in *gjson.Result) (interface{}, err
 		return nil, err
 	}
 
-	// parse logs from receipt
-	logs := make([]logsObject, 0)
-	for _, v := range receipt.Logs() {
-		topics := make([]string, 0)
-		for _, tpc := range v.Topics {
-			topics = append(topics, "0x"+hex.EncodeToString(tpc[:]))
-		}
-		addr, err := ioAddrToEthAddr(v.Address)
-		if err != nil {
-			return nil, err
-		}
-		log := logsObject{
-			BlockHash:        "0x" + blkHash,
-			TransactionHash:  "0x" + hex.EncodeToString(actHash[:]),
-			TransactionIndex: uint64ToHex(uint64(v.TxIndex)),
-			LogIndex:         uint64ToHex(uint64(v.Index)),
-			BlockNumber:      uint64ToHex(v.BlockHeight),
-			Address:          addr,
-			Data:             "0x" + hex.EncodeToString(v.Data),
-			Topics:           topics,
-		}
-		logs = append(logs, log)
-	}
-	return receiptObject{
-		BlockHash:         "0x" + blkHash,
-		BlockNumber:       uint64ToHex(receipt.BlockHeight),
-		ContractAddress:   contractAddr,
-		CumulativeGasUsed: uint64ToHex(receipt.GasConsumed),
-		From:              selp.SrcPubkey().Address().Hex(),
-		GasUsed:           uint64ToHex(receipt.GasConsumed),
-		LogsBloom:         getLogsBloomFromBlkMeta(blkMeta),
-		Status:            uint64ToHex(receipt.Status),
-		To:                to,
-		TransactionHash:   "0x" + hex.EncodeToString(actHash[:]),
-		TransactionIndex:  uint64ToHex(uint64(receipt.TxIndex)),
-		Logs:              logs,
+	return &receiptObject{
+		blockHash:       blockHash,
+		from:            selp.SrcPubkey().Address(),
+		to:              to,
+		contractAddress: contractAddr,
+		logsBloom:       getLogsBloomFromBlkMeta(blkMeta),
+		receipt:         receipt,
 	}, nil
 
 }
@@ -848,14 +768,14 @@ func (svr *Web3Server) getFilterChanges(in *gjson.Result) (interface{}, error) {
 	switch filterObj.FilterType {
 	case "log":
 		if filterObj.LogHeight > tipHeight {
-			return []logsObject{}, nil
+			return []logsObjectRaw{}, nil
 		}
 		from, to, hasNewLogs, err := svr.getLogQueryRange(filterObj.FromBlock, filterObj.ToBlock, filterObj.LogHeight)
 		if err != nil {
 			return nil, err
 		}
 		if !hasNewLogs {
-			return []logsObject{}, nil
+			return []logsObjectRaw{}, nil
 		}
 		logs, err := svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
 		if err != nil {
