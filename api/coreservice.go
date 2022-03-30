@@ -134,8 +134,8 @@ type (
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
 		// SimulateExecution simulates execution
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
-		// SyningProgress returns the syncing status of node
-		SyningProgress() (uint64, uint64, uint64)
+		// SyncingProgress returns the syncing status of node
+		SyncingProgress() (uint64, uint64, uint64)
 		// TipHeight returns the tip of the chain
 		TipHeight() uint64
 		// PendingNonce returns the pending nonce of an account
@@ -279,9 +279,7 @@ func (core *coreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
 	}
 	syncStatus := ""
 	if core.bs != nil {
-		if status := core.bs.SyncStatus(); status != nil {
-			syncStatus = status.SyncSpeedDesc
-		}
+		_, _, _, syncStatus = core.bs.SyncStatus()
 	}
 	chainMeta := &iotextypes.ChainMeta{
 		Height:  tipHeight,
@@ -1640,11 +1638,8 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
 }
 
-// SyningProgress returns the syncing status of node
-func (core *coreService) SyningProgress() (uint64, uint64, uint64) {
-	status := core.bs.SyncStatus()
-	if status == nil {
-		return 0, 0, 0
-	}
-	return status.StartingHeight, status.CurrentHeight, status.TargetHeight
+// SyncingProgress returns the syncing status of node
+func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
+	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
+	return startingHeight, currentHeight, targetHeight
 }

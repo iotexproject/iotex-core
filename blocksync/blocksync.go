@@ -44,15 +44,7 @@ type (
 		// ProcessBlock processes an incoming block
 		ProcessBlock(context.Context, string, *block.Block) error
 		// SyncStatus report block sync status
-		SyncStatus() *Status
-	}
-
-	// Status report block sync status
-	Status struct {
-		StartingHeight uint64
-		CurrentHeight  uint64
-		TargetHeight   uint64
-		SyncSpeedDesc  string
+		SyncStatus() (startingHeight uint64, currentHeight uint64, targetHeight uint64, syncSpeedDesc string)
 	}
 
 	dummyBlockSync struct{}
@@ -120,8 +112,8 @@ func (*dummyBlockSync) ProcessBlock(context.Context, string, *block.Block) error
 	return nil
 }
 
-func (*dummyBlockSync) SyncStatus() *Status {
-	return nil
+func (*dummyBlockSync) SyncStatus() (uint64, uint64, uint64, string) {
+	return 0, 0, 0, ""
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -296,7 +288,7 @@ func (bs *blockSyncer) syncStageChecker() {
 	bs.syncStageHeight = tipHeight
 }
 
-func (bs *blockSyncer) SyncStatus() *Status {
+func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
 	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
 	switch {
@@ -307,10 +299,5 @@ func (bs *blockSyncer) SyncStatus() *Status {
 	default:
 		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 	}
-	return &Status{
-		StartingHeight: bs.startingHeight,
-		CurrentHeight:  bs.tipHeightHandler(),
-		TargetHeight:   bs.targetHeight,
-		SyncSpeedDesc:  syncSpeedDesc,
-	}
+	return bs.startingHeight, bs.tipHeightHandler(), bs.targetHeight, syncSpeedDesc
 }

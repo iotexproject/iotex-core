@@ -571,7 +571,7 @@ func (svr *Web3Server) getProtocolVersion() (interface{}, error) {
 }
 
 func (svr *Web3Server) isSyncing() (interface{}, error) {
-	start, curr, highest := svr.coreService.SyningProgress()
+	start, curr, highest := svr.coreService.SyncingProgress()
 	if curr >= highest {
 		return false, nil
 	}
