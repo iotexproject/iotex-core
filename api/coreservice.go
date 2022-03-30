@@ -113,6 +113,8 @@ type (
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
 		// ActionsByBlock returns all actions in a block
 		ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// ActionsInBlockByHash returns all actions in a block
+		ActionsInBlockByHash(string) ([]action.SealedEnvelope, []*action.Receipt, error)
 		// ActPoolActions returns the all Transaction Identifiers in the mempool
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -176,6 +178,11 @@ type (
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
 }
+
+var (
+	// ErrNotFound indicates the record isn't found
+	ErrNotFound = errors.New("not found")
+)
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
@@ -710,9 +717,13 @@ func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+	receipt, err := core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+	if err != nil {
+		return nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return receipt, nil
 }
 
 // TransactionLogByActionHash returns transaction log by action hash
@@ -1000,16 +1011,17 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-
 	selp, index, err := core.dao.GetActionByActionHash(h, actIndex.BlockHeight())
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, err
+	if err != nil {
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
 }
 
 // UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -1062,6 +1074,24 @@ func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint
 	}
 
 	return core.actionsInBlock(blk, start, count), nil
+}
+
+// TODO: replace ActionsByBlock with ActionsInBlockByHash
+// ActionsInBlockByHash returns all sealedEnvelopes and receipts in the block
+func (core *coreService) ActionsInBlockByHash(blkHash string) ([]action.SealedEnvelope, []*action.Receipt, error) {
+	hash, err := hash.HexStringToHash256(blkHash)
+	if err != nil {
+		return nil, nil, err
+	}
+	blk, err := core.dao.GetBlock(hash)
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	receipts, err := core.dao.GetReceipts(blk.Height())
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return blk.Actions, receipts, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
