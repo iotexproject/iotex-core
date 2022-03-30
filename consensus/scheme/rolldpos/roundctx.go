@@ -197,6 +197,9 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	if !endorsement.VerifyEndorsement(vote, en) {
 		return errors.New("invalid endorsement for the vote")
 	}
+	if addr := en.Endorser().Address(); addr == nil || !ctx.IsDelegate(addr.String()) {
+		return errors.New("invalid endorser")
+	}
 	blockHash := vote.BlockHash()
 	// TODO: (zhi) request for block
 	if len(blockHash) != 0 && ctx.block(blockHash) == nil {

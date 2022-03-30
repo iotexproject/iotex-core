@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -342,27 +341,16 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	elpBuilder.SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).SetNonce(tx.Nonce())
 	switch actType {
 	case "transfer":
-		tsf := &Transfer{}
-		tsf.amount = tx.Value()
-		ioAddr, _ := address.FromBytes(tx.To().Bytes())
-		tsf.recipient = ioAddr.String()
-		tsf.payload = tx.Data()
-		elpBuilder.SetAction(tsf)
+		elp, _ := elpBuilder.BuildTransfer(tx)
+		return elp.Proto()
 	case "execution":
-		ex := &Execution{}
-		ex.amount = tx.Value()
-		if tx.To() != nil {
-			ioAddr, _ := address.FromBytes(tx.To().Bytes())
-			ex.contract = ioAddr.String()
-		}
-		ex.data = tx.Data()
-		elpBuilder.SetAction(ex)
+		elp, _ := elpBuilder.BuildExecution(tx)
+		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate":
-		act, _ := NewStakingActionFromABIBinary(tx.Data())
-		elpBuilder.SetAction(act.(actionPayload))
+		elp, _ := elpBuilder.BuildStakingAction(tx)
+		return elp.Proto()
 	default:
 		panic("unsupported")
 	}
-	return elpBuilder.Build().Proto()
 }
