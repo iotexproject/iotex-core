@@ -353,6 +353,10 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	if err := validateAction(in); err != nil {
+		return "", err
+	}
+
 	// reject action if chainID is not matched at KamchatkaHeight
 	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {
 		return "", err
@@ -397,6 +401,55 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 
 func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 	return core.ap.GetPendingNonce(addr.String())
+}
+
+func validateAction(in *iotextypes.Action) error {
+	if in == nil || in.GetCore() == nil {
+		return errNullPointer
+	}
+
+	var (
+		recv []string
+		core = in.Core
+	)
+	switch {
+	case core.GetTransfer() != nil:
+		recv = append(recv, core.GetTransfer().Recipient)
+	case core.GetExecution() != nil:
+		addr := core.GetExecution().Contract
+		if len(addr) > 0 {
+			recv = append(recv, addr)
+		}
+	case core.GetStakeTransferOwnership() != nil:
+		recv = append(recv, core.GetStakeTransferOwnership().VoterAddress)
+	case core.GetCandidateRegister() != nil:
+		reg := core.GetCandidateRegister()
+		recv = append(recv, reg.OwnerAddress)
+		if cand := reg.Candidate; cand != nil {
+			recv = append(recv, cand.OperatorAddress)
+			recv = append(recv, cand.RewardAddress)
+		}
+	default:
+		return nil
+	}
+
+	for _, v := range recv {
+		if err := checkAddr(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkAddr(recv string) error {
+	err := status.Error(codes.InvalidArgument, errInvalidFormat.Error())
+	if len(recv) != 41 {
+		return err
+	}
+	if recv[:3] != "io1" {
+		return err
+	}
+	return nil
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
