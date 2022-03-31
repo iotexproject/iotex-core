@@ -1214,7 +1214,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	var pol poll.Protocol
-	for _, test := range getChainMetaTests {
+	for _, test := range _getChainMetaTests {
 		cfg := newConfig()
 		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
