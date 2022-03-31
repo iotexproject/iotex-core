@@ -28,8 +28,12 @@ type (
 	}
 
 	envelope struct {
-		AbstractAction
-		payload actionPayload
+		version  uint32
+		chainID  uint32
+		nonce    uint64
+		gasLimit uint64
+		gasPrice *big.Int
+		payload  actionPayload
 	}
 )
 
