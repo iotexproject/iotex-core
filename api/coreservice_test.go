@@ -96,6 +96,22 @@ func TestLogsInRange(t *testing.T) {
 	})
 }
 
+func BenchmarkLogsInRange(b *testing.B) {
+	svr, _, _, _, cleanCallback := setupTestServer()
+	defer cleanCallback()
+
+	testData := &filterObject{FromBlock: "0x1"}
+	filter, _ := getTopicsAddress(testData.Address, testData.Topics)
+	from, _ := strconv.ParseInt(testData.FromBlock, 10, 64)
+	to, _ := strconv.ParseInt(testData.ToBlock, 10, 64)
+
+	b.Run("five workers to extract logs", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0))
+		}
+	})
+}
+
 func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, error) {
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addr {
@@ -118,32 +134,4 @@ func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, er
 	}
 
 	return filter, nil
-}
-
-func BenchmarkLogsInRange(b *testing.B) {
-	svr, _, _, _, cleanCallback := setupTestServer()
-	defer cleanCallback()
-
-	filter := &filterObject{FromBlock: "0x1"}
-	from, _ := strconv.ParseInt(filter.FromBlock, 10, 64)
-	to, _ := strconv.ParseInt(filter.ToBlock, 10, 64)
-	var filters iotexapi.LogsFilter
-	for _, ethAddr := range filter.Address {
-		ioAddr, _ := ethAddrToIoAddr(ethAddr)
-		filters.Address = append(filters.Address, ioAddr.String())
-	}
-	for _, tp := range filter.Topics {
-		var topic [][]byte
-		for _, str := range tp {
-			b, _ := hexToBytes(str)
-			topic = append(topic, b)
-		}
-		filters.Topics = append(filters.Topics, &iotexapi.Topics{Topic: topic})
-	}
-
-	b.Run("five workers to extract logs", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filters, nil, nil), uint64(from), uint64(to), uint64(0))
-		}
-	})
 }
