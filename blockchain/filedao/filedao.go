@@ -24,14 +24,14 @@ import (
 )
 
 const (
-	blockHashHeightMappingNS = "h2h"
-	systemLogNS              = "syl"
+	_blockHashHeightMappingNS = "h2h"
+	_systemLogNS              = "syl"
 )
 
 var (
-	topHeightKey = []byte("th")
-	topHashKey   = []byte("ts")
-	hashPrefix   = []byte("ha.")
+	_topHeightKey = []byte("th")
+	_topHashKey   = []byte("ts")
+	_hashPrefix   = []byte("ha.")
 )
 
 // vars

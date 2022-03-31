@@ -18,7 +18,7 @@ import (
 
 // const
 const (
-	stakingCandCenter = "candCenter"
+	_stakingCandCenter = "candCenter"
 )
 
 type (
@@ -128,7 +128,7 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	}
 
 	// load change to sm
-	return csm.StateManager.Load(protocolID, stakingCandCenter, &delta)
+	return csm.StateManager.Load(protocolID, _stakingCandCenter, &delta)
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {

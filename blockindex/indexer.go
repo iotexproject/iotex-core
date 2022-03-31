@@ -27,14 +27,14 @@ import (
 // still we use 2-byte NS/bucket name here, to clearly differentiate from those (3-byte) in BlockDAO
 const (
 	// first 12-byte of hash is cut off, only last 20-byte is written to DB to reduce storage
-	hashOffset          = 12
-	blockHashToHeightNS = "hh"
-	actionToBlockHashNS = "ab"
+	_hashOffset          = 12
+	_blockHashToHeightNS = "hh"
+	_actionToBlockHashNS = "ab"
 )
 
 var (
-	totalBlocksBucket  = []byte("bk")
-	totalActionsBucket = []byte("ac")
+	_totalBlocksBucket  = []byte("bk")
+	_totalActionsBucket = []byte("ac")
 	// ErrActionIndexNA indicates action index is not supported
 	ErrActionIndexNA = errors.New("action index not supported")
 )
@@ -97,7 +97,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	}
 	// create the total block and action index
 	var err error
-	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, totalBlocksBucket); err != nil {
+	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, _totalBlocksBucket); err != nil {
 		return err
 	}
 	if x.tbk.Size() == 0 {
@@ -109,7 +109,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 			return err
 		}
 	}
-	x.tac, err = db.NewCountingIndexNX(x.kvStore, totalActionsBucket)
+	x.tac, err = db.NewCountingIndexNX(x.kvStore, _totalActionsBucket)
 	return err
 }
 
@@ -154,7 +154,7 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	}
 	// delete hash --> height
 	hash := blk.HashBlock()
-	x.batch.Delete(blockHashToHeightNS, hash[hashOffset:], "failed to delete block at height %d", height)
+	x.batch.Delete(_blockHashToHeightNS, hash[_hashOffset:], "failed to delete block at height %d", height)
 	// delete from total block index
 	if err := x.tbk.Revert(1); err != nil {
 		return err
@@ -166,7 +166,7 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 		if err != nil {
 			return err
 		}
-		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
+		x.batch.Delete(_actionToBlockHashNS, actHash[_hashOffset:], "failed to delete action hash %x", actHash)
 		if err := x.indexAction(actHash, selp, false); err != nil {
 			return err
 		}
@@ -203,7 +203,7 @@ func (x *blockIndexer) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	value, err := x.kvStore.Get(blockHashToHeightNS, hash[hashOffset:])
+	value, err := x.kvStore.Get(_blockHashToHeightNS, hash[_hashOffset:])
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
@@ -234,7 +234,7 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	v, err := x.kvStore.Get(actionToBlockHashNS, h[hashOffset:])
+	v, err := x.kvStore.Get(_actionToBlockHashNS, h[_hashOffset:])
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 
 	// index hash --> height
 	hash := blk.HashBlock()
-	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	x.batch.Put(_blockHashToHeightNS, hash[_hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// index height --> block hash, number of actions, and total transfer amount
 	bd := &blockIndex{
@@ -329,7 +329,7 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 		if err != nil {
 			return err
 		}
-		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
+		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, "failed to put action hash %x", actHash)
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err

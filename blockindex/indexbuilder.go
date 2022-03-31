@@ -36,12 +36,12 @@ func init() {
 // they are left here only for record
 // do NOT use them in the future to avoid potential conflict
 const (
-	blockActionBlockMappingNS        = "a2b"
-	blockAddressActionMappingNS      = "a2a"
-	blockAddressActionCountMappingNS = "a2c"
-	blockActionReceiptMappingNS      = "a2r"
-	numActionsNS                     = "nac"
-	transferAmountNS                 = "tfa"
+	_blockActionBlockMappingNS        = "a2b"
+	_blockAddressActionMappingNS      = "a2a"
+	_blockAddressActionCountMappingNS = "a2c"
+	_blockActionReceiptMappingNS      = "a2r"
+	_numActionsNS                     = "nac"
+	_transferAmountNS                 = "tfa"
 )
 
 // IndexBuilder defines the index builder

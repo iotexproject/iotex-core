@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	blockStoreBatchSize = 16
+	_blockStoreBatchSize = 16
 )
 
 func TestNewFileDAOv2(t *testing.T) {
@@ -43,11 +43,11 @@ func TestNewFileDAOv2(t *testing.T) {
 
 		// new file does not use legacy's namespaces
 		for _, v := range []string{
-			blockNS,
-			blockHeaderNS,
-			blockBodyNS,
-			blockFooterNS,
-			receiptsNS,
+			_blockNS,
+			_blockHeaderNS,
+			_blockBodyNS,
+			_blockFooterNS,
+			_receiptsNS,
 		} {
 			_, err := fd.kvStore.Get(v, []byte{})
 			r.Error(err)
@@ -148,7 +148,7 @@ func TestNewFdInterface(t *testing.T) {
 		r.NoError(err)
 		r.Equal(block.GenesisBlock(), blk)
 
-		// commit blockStoreBatchSize blocks
+		// commit _blockStoreBatchSize blocks
 		for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
 			blk = createTestingBlock(builder, start+i, h)
 			r.NoError(fd.PutBlock(ctx, blk))
@@ -262,7 +262,7 @@ func TestNewFdInterface(t *testing.T) {
 	block.LoadGenesisHash(&config.Default.Genesis)
 
 	for _, compress := range []string{"", compress.Snappy} {
-		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
+		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
 			t.Run("test fileDAOv2 interface", func(t *testing.T) {
 				testFdInterface(cfg, start, t)
@@ -275,7 +275,7 @@ func TestNewFdStart(t *testing.T) {
 	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
-		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
+		for _, num := range []uint64{3, _blockStoreBatchSize - 1, _blockStoreBatchSize, 2*_blockStoreBatchSize - 1} {
 			testutil.CleanupPath(cfg.DbPath)
 			fd, err := newFileDAOv2(start, cfg)
 			r.NoError(err)
@@ -340,7 +340,7 @@ func TestNewFdStart(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	for _, compress := range []string{"", compress.Gzip} {
-		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
+		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
 			t.Run("test fileDAOv2 start", func(t *testing.T) {
 				testFdStart(cfg, start, t)

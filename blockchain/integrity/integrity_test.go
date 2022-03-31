@@ -53,25 +53,25 @@ import (
 )
 
 var (
-	deployHash      hash.Hash256                                                                           // in block 1
-	setHash         hash.Hash256                                                                           // in block 2
-	shrHash         hash.Hash256                                                                           // in block 3
-	shlHash         hash.Hash256                                                                           // in block 4
-	sarHash         hash.Hash256                                                                           // in block 5
-	extHash         hash.Hash256                                                                           // in block 6
-	crt2Hash        hash.Hash256                                                                           // in block 7
-	storeHash       hash.Hash256                                                                           // in block 8
-	store2Hash      hash.Hash256                                                                           // in block 9
-	setTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 2
-	getTopic, _     = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 2
-	shrTopic, _     = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 3
-	shlTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 4
-	sarTopic, _     = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 5
-	extTopic, _     = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 6
-	crt2Topic, _    = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 7
-	preGrPreStore   *big.Int
-	preGrPostStore  *big.Int
-	postGrPostStore *big.Int
+	_deployHash      hash.Hash256                                                                           // in block 1
+	_setHash         hash.Hash256                                                                           // in block 2
+	_shrHash         hash.Hash256                                                                           // in block 3
+	_shlHash         hash.Hash256                                                                           // in block 4
+	_sarHash         hash.Hash256                                                                           // in block 5
+	_extHash         hash.Hash256                                                                           // in block 6
+	_crt2Hash        hash.Hash256                                                                           // in block 7
+	_storeHash       hash.Hash256                                                                           // in block 8
+	_store2Hash      hash.Hash256                                                                           // in block 9
+	_setTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 2
+	_getTopic, _     = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 2
+	_shrTopic, _     = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 3
+	_shlTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 4
+	_sarTopic, _     = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 5
+	_extTopic, _     = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 6
+	_crt2Topic, _    = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 7
+	_preGrPreStore   *big.Int
+	_preGrPostStore  *big.Int
+	_postGrPostStore *big.Int
 )
 
 func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.BlockDAO, sf factory.Factory, ap actpool.ActPool) error {
@@ -81,7 +81,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err != nil {
 		return err
 	}
-	deployHash, err = ex1.Hash()
+	_deployHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(_deployHash, 1)
 		if err != nil {
 			return err
 		}
@@ -139,8 +139,8 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 2
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
-	data := append(funcSig[:4], setTopic...)
-	setHash, err = addOneBlock(contract, 2, zero, gasLimit, gasPrice, data)
+	data := append(funcSig[:4], _setTopic...)
+	_setHash, err = addOneBlock(contract, 2, zero, gasLimit, gasPrice, data)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 3
 	// call shright() to test SHR opcode, storedData => 0x00fe...1f
 	funcSig = hash.Hash256b([]byte("shright()"))
-	shrHash, err = addOneBlock(contract, 3, zero, gasLimit, gasPrice, funcSig[:4])
+	_shrHash, err = addOneBlock(contract, 3, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 4
 	// call shleft() to test SHL opcode, storedData => 0xfe...1f00
 	funcSig = hash.Hash256b([]byte("shleft()"))
-	shlHash, err = addOneBlock(contract, 4, zero, gasLimit, gasPrice, funcSig[:4])
+	_shlHash, err = addOneBlock(contract, 4, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 5
 	// call saright() to test SAR opcode, storedData => 0xfffe...1f
 	funcSig = hash.Hash256b([]byte("saright()"))
-	sarHash, err = addOneBlock(contract, 5, zero, gasLimit, gasPrice, funcSig[:4])
+	_sarHash, err = addOneBlock(contract, 5, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	addr, _ := address.FromString(contract)
 	ethaddr := hash.BytesToHash256(addr.Bytes())
 	data = append(funcSig[:4], ethaddr[:]...)
-	extHash, err = addOneBlock(contract, 6, zero, gasLimit, gasPrice, data)
+	_extHash, err = addOneBlock(contract, 6, zero, gasLimit, gasPrice, data)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 7
 	// call create2() to test CREATE2 opcode
 	funcSig = hash.Hash256b([]byte("create2()"))
-	crt2Hash, err = addOneBlock(contract, 7, zero, gasLimit, gasPrice, funcSig[:4])
+	_crt2Hash, err = addOneBlock(contract, 7, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -198,14 +198,14 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err != nil {
 		return err
 	}
-	preGrPreStore = new(big.Int).Set(caller.Balance)
-	storeHash, err = addOneBlock(action.EmptyAddress, 8, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
+	_preGrPreStore = new(big.Int).Set(caller.Balance)
+	_storeHash, err = addOneBlock(action.EmptyAddress, 8, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
 	if err != nil {
 		return err
 	}
 
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(storeHash, 8)
+		r, err := dao.GetReceiptByActionHash(_storeHash, 8)
 		if err != nil {
 			return err
 		}
@@ -220,14 +220,14 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err != nil {
 		return err
 	}
-	preGrPostStore = new(big.Int).Set(caller.Balance)
-	store2Hash, err = addOneBlock(action.EmptyAddress, 9, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
+	_preGrPostStore = new(big.Int).Set(caller.Balance)
+	_store2Hash, err = addOneBlock(action.EmptyAddress, 9, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
 	if err != nil {
 		return err
 	}
 
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(store2Hash, 9)
+		r, err := dao.GetReceiptByActionHash(_store2Hash, 9)
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err != nil {
 		return err
 	}
-	postGrPostStore = new(big.Int).Set(caller.Balance)
+	_postGrPostStore = new(big.Int).Set(caller.Balance)
 	return nil
 }
 
@@ -321,7 +321,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err := ap.Add(context.Background(), ex1); err != nil {
 		return err
 	}
-	deployHash, err = ex1.Hash()
+	_deployHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -338,7 +338,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	var contract string
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		r, err := dao.GetReceiptByActionHash(deployHash, 2)
+		r, err := dao.GetReceiptByActionHash(_deployHash, 2)
 		if err != nil {
 			return err
 		}
@@ -364,12 +364,12 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	}
 	// call set() to set storedData = 0x1f40
 	data, _ = hex.DecodeString("60fe47b1")
-	data = append(data, setTopic...)
+	data = append(data, _setTopic...)
 	ex1, err = action.SignedExecution(contract, priKey2, 2, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return err
 	}
-	setHash, err = ex1.Hash()
+	_setHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -400,12 +400,12 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 		return err
 	}
 	data, _ = hex.DecodeString("c2bc2efc")
-	data = append(data, getTopic...)
+	data = append(data, _getTopic...)
 	ex1, err = action.SignedExecution(contract, priKey2, 3, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return err
 	}
-	sarHash, err = ex1.Hash()
+	_sarHash, err = ex1.Hash()
 	if err != nil {
 		return err
 	}
@@ -448,12 +448,12 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	}
 	// call set() to set storedData = 0x1f40
 	data, _ = hex.DecodeString("60fe47b1")
-	data = append(data, setTopic...)
+	data = append(data, _setTopic...)
 	if err := addOneExec(contract, priKey2, 4, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data); err != nil {
 		return err
 	}
 	data, _ = hex.DecodeString("c2bc2efc")
-	data = append(data, getTopic...)
+	data = append(data, _getTopic...)
 	if err := addOneExec(contract, priKey2, 5, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data); err != nil {
 		return err
 	}
@@ -582,7 +582,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 	ex1, err := action.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	require.NoError(err)
 	require.NoError(ap.Add(context.Background(), ex1))
-	deployHash, err = ex1.Hash()
+	_deployHash, err = ex1.Hash()
 	require.NoError(err)
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
@@ -593,7 +593,7 @@ func addTestingGetBlockHash(t *testing.T, g genesis.Genesis, bc blockchain.Block
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(_deployHash, 1)
 		require.NoError(err)
 		contract = r.ContractAddress
 	}
@@ -901,45 +901,45 @@ func TestConstantinople(t *testing.T) {
 		}{
 			{
 				1,
-				deployHash,
+				_deployHash,
 				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
 				nil,
 			},
 			{
 				2,
-				setHash,
+				_setHash,
 				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
-				setTopic,
+				_setTopic,
 			},
 			{
 				3,
-				shrHash,
+				_shrHash,
 				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
-				shrTopic,
+				_shrTopic,
 			},
 			{
 				4,
-				shlHash,
+				_shlHash,
 				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
-				shlTopic,
+				_shlTopic,
 			},
 			{
 				5,
-				sarHash,
+				_sarHash,
 				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
-				sarTopic,
+				_sarTopic,
 			},
 			{
 				6,
-				extHash,
+				_extHash,
 				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
-				extTopic,
+				_extTopic,
 			},
 			{
 				7,
-				crt2Hash,
+				_crt2Hash,
 				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
-				crt2Topic,
+				_crt2Topic,
 			},
 		}
 
@@ -989,10 +989,10 @@ func TestConstantinople(t *testing.T) {
 			postBalance *big.Int
 		}{
 			{
-				8, storeHash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, preGrPreStore, preGrPostStore,
+				8, _storeHash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, _preGrPreStore, _preGrPostStore,
 			},
 			{
-				9, store2Hash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, preGrPostStore, postGrPostStore,
+				9, _store2Hash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, _preGrPostStore, _postGrPostStore,
 			},
 		}
 		caller := identityset.Address(27)
@@ -1234,9 +1234,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		if gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// verify deployed contract
-			ai, err := indexer.GetActionIndex(deployHash[:])
+			ai, err := indexer.GetActionIndex(_deployHash[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(deployHash, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(_deployHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
@@ -1249,8 +1249,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			f := blk.Header.LogsBloomfilter()
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
-			require.True(f.Exist(setTopic))
-			r, err = dao.GetReceiptByActionHash(setHash, 3)
+			require.True(f.Exist(_setTopic))
+			r, err = dao.GetReceiptByActionHash(_setHash, 3)
 			require.NoError(err)
 			require.EqualValues(1, r.Status)
 			require.EqualValues(3, r.BlockHeight)
@@ -1263,9 +1263,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			f = blk.Header.LogsBloomfilter()
 			require.NotNil(f)
 			require.True(f.Exist(funcSig[:]))
-			require.True(f.Exist(setTopic))
-			require.True(f.Exist(getTopic))
-			r, err = dao.GetReceiptByActionHash(sarHash, 4)
+			require.True(f.Exist(_setTopic))
+			require.True(f.Exist(_getTopic))
+			r, err = dao.GetReceiptByActionHash(_sarHash, 4)
 			require.NoError(err)
 			require.EqualValues(1, r.Status)
 			require.EqualValues(4, r.BlockHeight)

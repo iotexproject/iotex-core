@@ -23,7 +23,7 @@ import (
  * without signature, which could be replaced with real signature
  */
 var (
-	consensusEvtsMtc = prometheus.NewCounterVec(
+	_consensusEvtsMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_consensus_events",
 			Help: "IoTeX consensus events",
@@ -33,7 +33,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(consensusEvtsMtc)
+	prometheus.MustRegister(_consensusEvtsMtc)
 }
 
 const (
@@ -306,7 +306,7 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	if evt == nil {
 		return
 	}
-	consensusEvtsMtc.WithLabelValues(string(evt.Type()), "produced").Inc()
+	_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "produced").Inc()
 	if delay > 0 {
 		m.wg.Add(1)
 		go func() {
@@ -325,14 +325,14 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsStaleEvent(evt) {
 		m.ctx.Logger().Debug("stale event", zap.Any("event", evt.Type()))
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 		return nil
 	}
 	if m.ctx.IsFutureEvent(evt) {
 		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
 		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 		return nil
 	}
 	src := m.fsm.CurrentState()
@@ -345,10 +345,10 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("dst", string(m.fsm.CurrentState())),
 			zap.String("evt", string(evt.Type())),
 		)
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "consumed").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "consumed").Inc()
 	case fsm.ErrTransitionNotFound:
 		if m.ctx.IsStaleUnmatchedEvent(evt) {
-			consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
+			_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 			return nil
 		}
 		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
@@ -358,7 +358,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("evt", string(evt.Type())),
 			zap.Error(err),
 		)
-		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
+		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 	case ErrOldCalibrateEvt:
 		m.ctx.Logger().Debug(
 			"failed to handle eCalibrate, event height is less than current height",

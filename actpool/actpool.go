@@ -31,14 +31,14 @@ import (
 )
 
 var (
-	actpoolMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
+	_actpoolMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "iotex_actpool_rejection_metrics",
 		Help: "actpool metrics.",
 	}, []string{"type"})
 )
 
 func init() {
-	prometheus.MustRegister(actpoolMtc)
+	prometheus.MustRegister(_actpoolMtc)
 }
 
 // ActPool is the interface of actpool
@@ -193,17 +193,17 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
-		actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
+		_actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 		return action.ErrTxPoolOverflow
 	}
 	span.AddEvent("act.IntrinsicGas")
 	intrinsicGas, err := act.IntrinsicGas()
 	if err != nil {
-		actpoolMtc.WithLabelValues("failedGetIntrinsicGas").Inc()
+		_actpoolMtc.WithLabelValues("failedGetIntrinsicGas").Inc()
 		return err
 	}
 	if ap.gasInPool+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
-		actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
+		_actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
 		return action.ErrGasLimit
 	}
 	hash, err := act.Hash()
@@ -212,12 +212,12 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	}
 	// Reject action if it already exists in pool
 	if _, exist := ap.allActions[hash]; exist {
-		actpoolMtc.WithLabelValues("existedAction").Inc()
+		_actpoolMtc.WithLabelValues("existedAction").Inc()
 		return action.ErrExistedInPool
 	}
 	// Reject action if the gas price is lower than the threshold
 	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
-		actpoolMtc.WithLabelValues("gasPriceLower").Inc()
+		_actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		log.L().Info("action rejected due to low gas price",
 			zap.String("actionHash", hex.EncodeToString(hash[:])),
 			zap.String("gasPrice", act.GasPrice().String()))
@@ -336,7 +336,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		return errors.New("failed to get address")
 	}
 	if _, ok := ap.senderBlackList[caller.String()]; ok {
-		actpoolMtc.WithLabelValues("blacklisted").Inc()
+		_actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 	// if already validated
@@ -365,7 +365,7 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 	defer span.End()
 	confirmedState, err := accountutil.AccountState(ap.sf, addr)
 	if err != nil {
-		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
+		_actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
 	confirmedNonce := confirmedState.Nonce
@@ -389,19 +389,19 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 			log.Hex("hash", actHash[:]),
 			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
-		actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
+		_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
 		return action.ErrNonceTooHigh
 	}
 
 	span.AddEvent("act cost")
 	cost, err := act.Cost()
 	if err != nil {
-		actpoolMtc.WithLabelValues("failedToGetCost").Inc()
+		_actpoolMtc.WithLabelValues("failedToGetCost").Inc()
 		return errors.Wrapf(err, "failed to get cost of action %x", actHash)
 	}
 	if queue.PendingBalance().Cmp(cost) < 0 {
 		// Pending balance is insufficient
-		actpoolMtc.WithLabelValues("insufficientBalance").Inc()
+		_actpoolMtc.WithLabelValues("insufficientBalance").Inc()
 		log.L().Info("insufficient balance for action",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.String("cost", cost.String()),
@@ -413,7 +413,7 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 
 	span.AddEvent("queue put")
 	if err := queue.Put(act); err != nil {
-		actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
+		_actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
 		log.L().Info("failed put action into ActQueue",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])))
 		return err

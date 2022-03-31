@@ -352,7 +352,7 @@ func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*Bloc
 
 // blockMetaKey returns key for storing block meta with prefix
 func blockMetaKey(blkHeight uint64, blocksInEpoch uint64) []byte {
-	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
+	prefixKey := candidatesutil.ConstructKey(_blockMetaPrefix)
 	if blkHeight == math.MaxUint64 {
 		return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blocksInEpoch)...)
 	}

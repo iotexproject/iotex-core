@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	loadGenesisHash sync.Once
-	genesisHash     hash.Hash256
+	_loadGenesisHash sync.Once
+	_genesisHash     hash.Hash256
 )
 
 // GenesisBlock returns the genesis block
@@ -38,12 +38,12 @@ func GenesisBlock() *Block {
 
 // GenesisHash returns the genesis block's hash
 func GenesisHash() hash.Hash256 {
-	return genesisHash
+	return _genesisHash
 }
 
 // LoadGenesisHash is done once to compute and save the genesis'es hash
 func LoadGenesisHash(g *genesis.Genesis) {
-	loadGenesisHash.Do(func() {
-		genesisHash = g.Hash()
+	_loadGenesisHash.Do(func() {
+		_genesisHash = g.Hash()
 	})
 }

@@ -59,7 +59,7 @@ func TestBucketPool(t *testing.T) {
 	r := require.New(t)
 
 	// bucket pool address does not interfere with buckets data
-	r.Equal(-1, bytes.Compare(bucketPoolAddrKey, bucketKey(0)))
+	r.Equal(-1, bytes.Compare(_bucketPoolAddrKey, bucketKey(0)))
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
@@ -157,7 +157,7 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if !testGreenland && v.postGreenland {
-			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 			r.NoError(err)
 			testGreenland = true
 		}
@@ -165,7 +165,7 @@ func TestBucketPool(t *testing.T) {
 
 	// verify state has been created successfully
 	var b totalAmount
-	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	r.NoError(err)
 	r.Equal(total, b.amount)
 	r.Equal(count, b.count)

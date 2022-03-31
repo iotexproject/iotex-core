@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	testPath = "ksTest"
+	_testPath = "ksTest"
 )
 
 func TestNewAccountCmd(t *testing.T) {
@@ -238,7 +238,7 @@ func TestMeta(t *testing.T) {
 
 func TestAccountError(t *testing.T) {
 	require := require.New(t)
-	testFilePath := filepath.Join(os.TempDir(), testPath)
+	testFilePath := filepath.Join(os.TempDir(), _testPath)
 	defer testutil.CleanupPath(testFilePath)
 	alias := "aaa"
 	passwordOfKeyStore := "123456"
@@ -407,7 +407,7 @@ func TestNewAccountByKey(t *testing.T) {
 }
 
 func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
-	testWallet := filepath.Join(os.TempDir(), testPath)
+	testWallet := filepath.Join(os.TempDir(), _testPath)
 	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
 		return testWallet, nil, "", "", err
 	}

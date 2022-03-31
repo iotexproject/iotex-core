@@ -240,7 +240,7 @@ func (c *roundCalculator) newRound(
 		eManager:           eManager,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
-		status:             open,
+		status:             _open,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 
