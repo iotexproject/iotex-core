@@ -103,7 +103,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 	}
 
 	ec.Flags().StringVarP(&_format,
-		"_format=", "f", "json", flagImportFormatUsage)
+		"format=", "f", "json", flagImportFormatUsage)
 	ec.Flags().BoolVarP(&_forceImport,
 		"force-import", "F", false, flagForceImportUsage)
 

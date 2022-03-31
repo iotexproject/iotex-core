@@ -67,6 +67,6 @@ func NewAccountSign(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&_signer, "_signer", "s", "", usage)
+	cmd.Flags().StringVarP(&_signer, "signer", "s", "", usage)
 	return cmd
 }
