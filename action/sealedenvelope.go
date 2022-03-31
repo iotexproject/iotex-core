@@ -141,7 +141,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.signature = make([]byte, sigSize)
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
-	elp.Action().SetEnvelopeContext(*sealed)
 	return nil
 }
 
