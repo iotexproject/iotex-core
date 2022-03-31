@@ -7,8 +7,9 @@
 package evm
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/stretchr/testify/require"
 )
@@ -23,9 +24,9 @@ func TestAccessList(t *testing.T) {
 		addr       common.Address
 		addrChange bool
 	}{
-		{c1, true},
-		{c2, true},
-		{c1, false},
+		{_c1, true},
+		{_c2, true},
+		{_c1, false},
 	}
 
 	for _, v := range addrTests {
@@ -38,12 +39,12 @@ func TestAccessList(t *testing.T) {
 		slot       common.Hash
 		slotChange bool
 	}{
-		{c1, false, k1, true},
-		{c1, false, k2, true},
-		{c1, false, k1, false},
-		{c3, true, k1, true},
-		{c3, false, k2, true},
-		{c3, false, k2, false},
+		{_c1, false, _k1, true},
+		{_c1, false, _k2, true},
+		{_c1, false, _k1, false},
+		{_c3, true, _k1, true},
+		{_c3, false, _k2, true},
+		{_c3, false, _k2, false},
 	}
 
 	for _, v := range slotTests {
@@ -58,10 +59,10 @@ func TestAccessList(t *testing.T) {
 		slots     []common.Hash
 		nxSlot    common.Hash
 	}{
-		{c1, true, []common.Hash{k1, k2}, k3},
-		{c3, true, []common.Hash{k1, k2}, k4},
-		{c2, true, nil, k1},
-		{C4, false, nil, k2},
+		{_c1, true, []common.Hash{_k1, _k2}, _k3},
+		{_c3, true, []common.Hash{_k1, _k2}, _k4},
+		{_c2, true, nil, _k1},
+		{_c4, false, nil, _k2},
 	}
 
 	for _, v := range containTests {

@@ -70,7 +70,7 @@ func TestFileReadWrite(t *testing.T) {
 		r.NoError(err)
 		r.Equal(h, h1)
 
-		c, err := ReadTip(kv, headerDataNs, topHeightKey)
+		c, err := ReadTip(kv, _headerDataNs, _topHeightKey)
 		r.Equal(db.ErrNotExist, errors.Cause(err))
 		r.Nil(c)
 
@@ -78,9 +78,9 @@ func TestFileReadWrite(t *testing.T) {
 			Height: 1003,
 			Hash:   hash.Hash256{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		}
-		r.NoError(WriteTip(kv, headerDataNs, topHeightKey, c))
+		r.NoError(WriteTip(kv, _headerDataNs, _topHeightKey, c))
 
-		c1, err := ReadTip(kv, headerDataNs, topHeightKey)
+		c1, err := ReadTip(kv, _headerDataNs, _topHeightKey)
 		r.NoError(err)
 		r.Equal(c, c1)
 	}

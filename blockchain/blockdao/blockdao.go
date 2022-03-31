@@ -32,7 +32,7 @@ import (
 
 // vars
 var (
-	cacheMtc = prometheus.NewCounterVec(
+	_cacheMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_blockdao_cache",
 			Help: "IoTeX blockdao cache counter.",
@@ -214,10 +214,10 @@ func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 
 func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	if v, ok := lruCacheGet(dao.headerCache, height); ok {
-		cacheMtc.WithLabelValues("hit_header").Inc()
+		_cacheMtc.WithLabelValues("hit_header").Inc()
 		return v.(*block.Header), nil
 	}
-	cacheMtc.WithLabelValues("miss_header").Inc()
+	_cacheMtc.WithLabelValues("miss_header").Inc()
 
 	header, err := dao.blockStore.HeaderByHeight(height)
 	if err != nil {
@@ -230,10 +230,10 @@ func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 
 func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	if v, ok := lruCacheGet(dao.footerCache, height); ok {
-		cacheMtc.WithLabelValues("hit_footer").Inc()
+		_cacheMtc.WithLabelValues("hit_footer").Inc()
 		return v.(*block.Footer), nil
 	}
-	cacheMtc.WithLabelValues("miss_footer").Inc()
+	_cacheMtc.WithLabelValues("miss_footer").Inc()
 
 	footer, err := dao.blockStore.FooterByHeight(height)
 	if err != nil {
@@ -250,10 +250,10 @@ func (dao *blockDAO) Height() (uint64, error) {
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	if header, ok := lruCacheGet(dao.headerCache, h); ok {
-		cacheMtc.WithLabelValues("hit_header").Inc()
+		_cacheMtc.WithLabelValues("hit_header").Inc()
 		return header.(*block.Header), nil
 	}
-	cacheMtc.WithLabelValues("miss_header").Inc()
+	_cacheMtc.WithLabelValues("miss_header").Inc()
 
 	header, err := dao.blockStore.Header(h)
 	if err != nil {

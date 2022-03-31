@@ -59,12 +59,12 @@ func (m *probationListMessage) String() string {
 }
 
 func init() {
-	nodeProbationlistCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
-		config.TranslateInLang(flagEpochNumUsages, config.UILanguage))
+	nodeProbationlistCmd.Flags().Uint64VarP(&_epochNum, "epoch-num", "e", 0,
+		config.TranslateInLang(_flagEpochNumUsages, config.UILanguage))
 }
 
 func probationlist() error {
-	if epochNum == 0 {
+	if _epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
 			return output.NewError(0, "failed to get chain meta", err)
@@ -73,18 +73,18 @@ func probationlist() error {
 		if epochData == nil {
 			return output.NewError(0, "ROLLDPOS is not registered", nil)
 		}
-		epochNum = epochData.Num
+		_epochNum = epochData.Num
 	}
-	response, err := bc.GetEpochMeta(epochNum)
+	response, err := bc.GetEpochMeta(_epochNum)
 	if err != nil {
 		return output.NewError(0, "failed to get epoch meta", err)
 	}
-	probationlist, err := getProbationList(epochNum, response.EpochData.Height)
+	probationlist, err := getProbationList(_epochNum, response.EpochData.Height)
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)
 	}
 	message := &probationListMessage{
-		EpochNumber:   epochNum,
+		EpochNumber:   _epochNum,
 		IntensityRate: probationlist.IntensityRate,
 		DelegateList:  make([]string, 0),
 	}

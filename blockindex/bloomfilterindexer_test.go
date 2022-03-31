@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	data1 = hash.Hash256b([]byte("Deposit"))
-	data2 = hash.Hash256b([]byte("Withdraw"))
+	_data1 = hash.Hash256b([]byte("Deposit"))
+	_data2 = hash.Hash256b([]byte("Withdraw"))
 )
 
 func newTestLog(addr string, topics []hash.Hash256) *action.Log {
@@ -59,23 +59,23 @@ func getTestLogBlocks(t *testing.T) []*block.Block {
 	execution2, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
 	require.NoError(t, err)
 
-	testLog1 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data1})
+	testLog1 := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data1})
 	receipt1 := &action.Receipt{}
 	receipt1.AddLogs(testLog1)
 
-	testLog2 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
+	testLog2 := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data2})
 	receipt2 := &action.Receipt{}
 	receipt2.AddLogs(testLog1, testLog2)
 
-	testLog3 := newTestLog(identityset.Address(18).String(), []hash.Hash256{data1})
+	testLog3 := newTestLog(identityset.Address(18).String(), []hash.Hash256{_data1})
 	receipt3 := &action.Receipt{}
 	receipt3.AddLogs(testLog3)
 
-	testLog4 := newTestLog(identityset.Address(18).String(), []hash.Hash256{data2})
+	testLog4 := newTestLog(identityset.Address(18).String(), []hash.Hash256{_data2})
 	receipt4 := &action.Receipt{}
 	receipt4.AddLogs(testLog4)
 
-	testLog5 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data1, data2})
+	testLog5 := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data1, _data2})
 	receipt5 := &action.Receipt{}
 	receipt5.AddLogs(testLog5)
 
@@ -152,8 +152,8 @@ func TestBloomfilterIndexer(t *testing.T) {
 			Topics: []*iotexapi.Topics{
 				{
 					Topic: [][]byte{
-						data1[:],
-						data2[:],
+						_data1[:],
+						_data2[:],
 					},
 				},
 				nil,
@@ -164,7 +164,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 			Topics: []*iotexapi.Topics{
 				{
 					Topic: [][]byte{
-						data1[:],
+						_data1[:],
 					},
 				},
 				nil,
@@ -176,7 +176,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 				nil,
 				{
 					Topic: [][]byte{
-						data2[:],
+						_data2[:],
 					},
 				},
 			},
@@ -286,7 +286,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 		Topics: []*iotexapi.Topics{
 			{
 				Topic: [][]byte{
-					data2[:],
+					_data2[:],
 				},
 			},
 		},
@@ -306,7 +306,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 			receipts := make([]*action.Receipt, receiptNumPerBlk)
 			for j := 0; j < receiptNumPerBlk; j++ {
 				receipt := &action.Receipt{}
-				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
+				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data2})
 				receipt.AddLogs(testLog)
 				receipts[j] = receipt
 			}

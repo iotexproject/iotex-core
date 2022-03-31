@@ -77,15 +77,15 @@ func TestMerkle(t *testing.T) {
 }
 
 var (
-	pkBytes = identityset.PrivateKey(27).PublicKey().Bytes()
-	pbBlock = iotextypes.Block{
+	_pkBytes = identityset.PrivateKey(27).PublicKey().Bytes()
+	_pbBlock = iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
 				Version:   version.ProtocolVersion,
 				Height:    123456789,
 				Timestamp: timestamppb.Now(),
 			},
-			ProducerPubkey: pkBytes,
+			ProducerPubkey: _pkBytes,
 		},
 		Body: &iotextypes.BlockBody{
 			Actions: []*iotextypes.Action{
@@ -101,7 +101,7 @@ var (
 						Nonce:   101,
 						ChainID: 1,
 					},
-					SenderPubKey: pkBytes,
+					SenderPubKey: _pkBytes,
 					Signature:    action.ValidSig,
 				},
 				{
@@ -117,7 +117,7 @@ var (
 						Nonce:   102,
 						ChainID: 2,
 					},
-					SenderPubKey: pkBytes,
+					SenderPubKey: _pkBytes,
 					Signature:    action.ValidSig,
 				},
 			},
@@ -127,7 +127,7 @@ var (
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	require.NoError(t, blk.ConvertFromBlockPb(&pbBlock))
+	require.NoError(t, blk.ConvertFromBlockPb(&_pbBlock))
 
 	txHash, err := blk.CalculateTxRoot()
 	require.NoError(t, err)
