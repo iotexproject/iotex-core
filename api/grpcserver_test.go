@@ -62,7 +62,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
 
-	for _, test := range sendActionTests {
+	for _, test := range _sendActionTests {
 		core.EXPECT().SendAction(context.Background(), test.actionPb).Return(test.actionHash, nil)
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := grpcSvr.SendAction(context.Background(), request)

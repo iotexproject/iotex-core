@@ -26,13 +26,13 @@ import (
 )
 
 const (
-	testPath = "ksTest"
+	_testPath = "ksTest"
 )
 
 func TestAccount(t *testing.T) {
 	r := require.New(t)
 
-	testWallet := filepath.Join(os.TempDir(), testPath)
+	testWallet := filepath.Join(os.TempDir(), _testPath)
 	defer testutil.CleanupPath(testWallet)
 	config.ReadConfig.Wallet = testWallet
 

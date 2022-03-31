@@ -223,7 +223,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); err != nil {
+		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
 			return err
 		}
 	}

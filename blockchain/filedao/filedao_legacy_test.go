@@ -46,7 +46,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		kv, _, err := fd.getTopDB(blk.Height())
 		r.NoError(err)
 		h := blk.HashBlock()
-		header, err := kv.Get(blockHeaderNS, h[:])
+		header, err := kv.Get(_blockHeaderNS, h[:])
 		r.NoError(err)
 		if cfg.CompressLegacy {
 			compressHeaderSize = len(header)
@@ -139,7 +139,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r.NoError(legacy.Start(ctx))
 
 	// getBlockValue when block is not exist
-	_, err = legacy.getBlockValue(blockHeaderNS, hash.ZeroHash256)
+	_, err = legacy.getBlockValue(_blockHeaderNS, hash.ZeroHash256)
 	r.Equal(db.ErrNotExist, errors.Cause(err))
 
 	// getBlockValue when block is exist
@@ -147,14 +147,14 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	blk := createTestingBlock(builder, 1, sha256.Sum256([]byte("1")))
 	r.NoError(legacy.PutBlock(ctx, blk))
 
-	value, err := legacy.getBlockValue(blockHeaderNS, blk.HashBlock())
+	value, err := legacy.getBlockValue(_blockHeaderNS, blk.HashBlock())
 	r.NoError(err)
 	header, err := blk.Header.Serialize()
 	r.NoError(err)
 	r.Equal(value, header)
 
 	// getBlockValue when NS is not exist
-	_, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
+	_, err = legacy.getBlockValue(_blockHeaderNS+"_error_case", blk.HashBlock())
 	r.Error(db.ErrNotExist, errors.Cause(err))
 
 	r.NoError(legacy.Stop(ctx))

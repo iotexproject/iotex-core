@@ -19,7 +19,7 @@ import (
 
 // const
 const (
-	stakingCandCenter = "candCenter"
+	_stakingCandCenter = "candCenter"
 )
 
 type (

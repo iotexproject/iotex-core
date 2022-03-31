@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	bcBucketOptMax   = "max"
-	bcBucketOptCount = "count"
+	_bcBucketOptMax   = "max"
+	_bcBucketOptCount = "count"
 )
 
 // Multi-language support
@@ -56,9 +56,9 @@ ioctl bc bucket count, to query total number of active buckets
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		cmd.SilenceUsage = true
 		switch args[0] {
-		case bcBucketOptMax:
+		case _bcBucketOptMax:
 			err = getBucketsTotalCount()
-		case bcBucketOptCount:
+		case _bcBucketOptCount:
 			err = getBucketsActiveCount()
 		default:
 			err = getBucket(args[0])

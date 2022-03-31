@@ -23,14 +23,14 @@ func BenchmarkTrie_UpsertLE(b *testing.B)       { benchTrieUpsert(b, binary.Litt
 func BenchmarkTrie_UpsertBE(b *testing.B)       { benchTrieUpsert(b, binary.BigEndian) }
 
 const (
-	benchElemCount = 20000
-	keyLength      = 32
+	_benchElemCount = 20000
+	_keyLength      = 32
 )
 
 func benchTrieGet(b *testing.B, async, withDB bool) {
 	var (
 		require = require.New(b)
-		opts    = []Option{KeyLengthOption(keyLength)}
+		opts    = []Option{KeyLengthOption(_keyLength)}
 		flush   func() error
 	)
 	if async {
@@ -57,12 +57,12 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 	require.NoError(tr.Start(context.Background()))
 	defer require.NoError(tr.Stop(context.Background()))
 
-	key := make([]byte, keyLength)
-	for i := 0; i < benchElemCount; i++ {
+	key := make([]byte, _keyLength)
+	for i := 0; i < _benchElemCount; i++ {
 		binary.LittleEndian.PutUint64(key, uint64(i))
 		require.NoError(tr.Upsert(key, key))
 	}
-	binary.LittleEndian.PutUint64(key, uint64(benchElemCount)/2)
+	binary.LittleEndian.PutUint64(key, uint64(_benchElemCount)/2)
 	if withDB {
 		require.NoError(flush())
 	}
@@ -78,13 +78,13 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 func benchTrieUpsert(b *testing.B, e binary.ByteOrder) {
 	var (
 		require = require.New(b)
-		opts    = []Option{KeyLengthOption(keyLength)}
+		opts    = []Option{KeyLengthOption(_keyLength)}
 	)
 	trie, err := New(opts...)
 	require.NoError(err)
 	require.NoError(trie.Start(context.Background()))
 	defer require.NoError(trie.Stop(context.Background()))
-	k := make([]byte, keyLength)
+	k := make([]byte, _keyLength)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		e.PutUint64(k, uint64(i))

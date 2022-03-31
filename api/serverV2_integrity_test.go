@@ -43,22 +43,22 @@ import (
 )
 
 var (
-	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
+	_testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1, _ = testTransfer1.Hash()
-	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
+	_transferHash1, _ = _testTransfer1.Hash()
+	_testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash2, _ = testTransfer2.Hash()
+	_transferHash2, _ = _testTransfer2.Hash()
 
-	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
+	_testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash1, _ = testExecution1.Hash()
-	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
+	_executionHash1, _ = _testExecution1.Hash()
+	_testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash3, _ = testExecution3.Hash()
+	_executionHash3, _ = _testExecution3.Hash()
 
-	blkHash      = map[uint64]string{}
-	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
+	_blkHash      = map[uint64]string{}
+	_implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
 
 func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
@@ -71,12 +71,12 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	addr4 := identityset.Address(31).String()
 	// Add block 1
 	// Producer transfer--> C
-	implicitLogs[transferHash1] = block.NewTransactionLog(transferHash1,
+	_implicitLogs[_transferHash1] = block.NewTransactionLog(_transferHash1,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
 	)
 
 	blk1Time := testutil.TimestampNow()
-	if err := ap.Add(ctx, testTransfer1); err != nil {
+	if err := ap.Add(ctx, _testTransfer1); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(blk1Time)
@@ -88,7 +88,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	}
 	ap.Reset()
 	h := blk.HashBlock()
-	blkHash[1] = hex.EncodeToString(h[:])
+	_blkHash[1] = hex.EncodeToString(h[:])
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
@@ -107,21 +107,21 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		if err != nil {
 			return err
 		}
-		implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
+		_implicitLogs[selpHash] = block.NewTransactionLog(selpHash,
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
 	}
-	implicitLogs[transferHash2] = block.NewTransactionLog(transferHash2,
+	_implicitLogs[_transferHash2] = block.NewTransactionLog(_transferHash2,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
 	)
-	if err := ap.Add(ctx, testTransfer2); err != nil {
+	if err := ap.Add(ctx, _testTransfer2); err != nil {
 		return err
 	}
-	implicitLogs[executionHash1] = block.NewTransactionLog(
-		executionHash1,
+	_implicitLogs[_executionHash1] = block.NewTransactionLog(
+		_executionHash1,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
-	if err := ap.Add(ctx, testExecution1); err != nil {
+	if err := ap.Add(ctx, _testExecution1); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
@@ -132,7 +132,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	}
 	ap.Reset()
 	h = blk.HashBlock()
-	blkHash[2] = hex.EncodeToString(h[:])
+	_blkHash[2] = hex.EncodeToString(h[:])
 
 	// Add block 3
 	// Empty actions
@@ -144,7 +144,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	}
 	ap.Reset()
 	h = blk.HashBlock()
-	blkHash[3] = hex.EncodeToString(h[:])
+	_blkHash[3] = hex.EncodeToString(h[:])
 
 	// Add block 4
 	// Charlie transfer--> C
@@ -159,7 +159,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf1Hash] = block.NewTransactionLog(tsf1Hash,
+	_implicitLogs[tsf1Hash] = block.NewTransactionLog(tsf1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
 	)
 	if err := ap.Add(ctx, tsf1); err != nil {
@@ -173,7 +173,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[tsf2Hash] = block.NewTransactionLog(tsf2Hash,
+	_implicitLogs[tsf2Hash] = block.NewTransactionLog(tsf2Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
 	)
 	if err := ap.Add(ctx, tsf2); err != nil {
@@ -188,25 +188,25 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1Hash] = block.NewTransactionLog(
+	_implicitLogs[execution1Hash] = block.NewTransactionLog(
 		execution1Hash,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
 	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
-	implicitLogs[executionHash3] = block.NewTransactionLog(
-		executionHash3,
+	_implicitLogs[_executionHash3] = block.NewTransactionLog(
+		_executionHash3,
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
-	if err := ap.Add(ctx, testExecution3); err != nil {
+	if err := ap.Add(ctx, _testExecution3); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
 		return err
 	}
 	h = blk.HashBlock()
-	blkHash[4] = hex.EncodeToString(h[:])
+	_blkHash[4] = hex.EncodeToString(h[:])
 	return bc.CommitBlock(blk)
 }
 
