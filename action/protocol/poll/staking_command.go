@@ -30,7 +30,7 @@ func NewStakingCommand(stkV1 Protocol, stkV2 Protocol) (Protocol, error) {
 		return nil, errors.New("empty staking protocol")
 	}
 
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
@@ -160,16 +160,16 @@ func (sc *stakingCommand) ReadState(ctx context.Context, sr protocol.StateReader
 
 // Register registers the protocol with a unique ID
 func (sc *stakingCommand) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, sc)
+	return r.Register(_protocolID, sc)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (sc *stakingCommand) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, sc)
+	return r.ForceRegister(_protocolID, sc)
 }
 
 func (sc *stakingCommand) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bool {

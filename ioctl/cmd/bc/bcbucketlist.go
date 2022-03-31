@@ -21,14 +21,14 @@ import (
 )
 
 const (
-	bucketlistMethodByVoter     = "voter"
-	bucketlistMethodByCandidate = "cand"
+	_bucketlistMethodByVoter     = "voter"
+	_bucketlistMethodByCandidate = "cand"
 )
 
 var (
 	validMethods = []string{
-		bucketlistMethodByVoter,
-		bucketlistMethodByCandidate,
+		_bucketlistMethodByVoter,
+		_bucketlistMethodByCandidate,
 	}
 )
 
@@ -101,9 +101,9 @@ func getBucketList(method, addr string, args ...string) (err error) {
 		}
 	}
 	switch method {
-	case bucketlistMethodByVoter:
+	case _bucketlistMethodByVoter:
 		return getBucketListByVoter(addr, uint32(offset), uint32(limit))
-	case bucketlistMethodByCandidate:
+	case _bucketlistMethodByCandidate:
 		return getBucketListByCand(addr, uint32(offset), uint32(limit))
 	}
 	return output.NewError(output.InputError, "unknown <method>", nil)

@@ -59,7 +59,7 @@ func getHash(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	bytecode, err := encodeGet(abi, getHashName, args[1])
+	bytecode, err := encodeGet(abi, _getHashName, args[1])
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
@@ -72,7 +72,7 @@ func getHash(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	res, err := abi.Unpack(getHashName, ret)
+	res, err := abi.Unpack(_getHashName, ret)
 	if err != nil {
 		return errors.New("DID does not exist")
 	}

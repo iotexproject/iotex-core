@@ -102,14 +102,14 @@ func init() {
 		completeness = false
 	}
 	if ReadConfig.Language == "" {
-		ReadConfig.Language = supportedLanguage[0]
+		ReadConfig.Language = _supportedLanguage[0]
 		completeness = false
 	}
 	if ReadConfig.Nsv2height == 0 {
 		ReadConfig.Nsv2height = config.Default.Genesis.FairbankBlockHeight
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
-		ReadConfig.AnalyserEndpoint = defaultAnalyserEndpoint
+		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 		completeness = false
 	}
 	if !completeness {
@@ -127,9 +127,9 @@ func init() {
 		fmt.Println(message.Warn())
 	}
 	// Init subcommands
-	ConfigCmd.AddCommand(configGetCmd)
-	ConfigCmd.AddCommand(configSetCmd)
-	ConfigCmd.AddCommand(configResetCmd)
+	ConfigCmd.AddCommand(_configGetCmd)
+	ConfigCmd.AddCommand(_configSetCmd)
+	ConfigCmd.AddCommand(_configResetCmd)
 }
 
 // LoadConfig loads config file in yaml format

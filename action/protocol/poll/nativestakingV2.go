@@ -28,7 +28,7 @@ func newNativeStakingV2(
 	scoreThreshold *big.Int,
 	stkV2 *staking.Protocol,
 ) (Protocol, error) {
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
@@ -122,16 +122,16 @@ func (ns *nativeStakingV2) ReadState(ctx context.Context, sr protocol.StateReade
 }
 
 func (ns *nativeStakingV2) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, ns)
+	return r.Register(_protocolID, ns)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (ns *nativeStakingV2) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, ns)
+	return r.ForceRegister(_protocolID, ns)
 }
 
 func (ns *nativeStakingV2) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (ns *nativeStakingV2) filterAndSortCandidatesByVoteScore(list state.CandidateList, ts time.Time) state.CandidateList {

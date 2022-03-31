@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	bucket1 = "test_ns1"
-	testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
-	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
-	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
-	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
+	_bucket1 = "test_ns1"
+	_testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
+	_testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+	_testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
+	_testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
 )
 
 func TestBaseKVStoreBatch(t *testing.T) {
@@ -81,32 +81,32 @@ func TestCachedBatch(t *testing.T) {
 	require := require.New(t)
 
 	cb := NewCachedBatch()
-	cb.Put(bucket1, testK1[0], testV1[0], "")
-	v, err := cb.Get(bucket1, testK1[0])
+	cb.Put(_bucket1, _testK1[0], _testV1[0], "")
+	v, err := cb.Get(_bucket1, _testK1[0])
 	require.NoError(err)
-	require.Equal(testV1[0], v)
-	v, err = cb.Get(bucket1, testK2[0])
+	require.Equal(_testV1[0], v)
+	v, err = cb.Get(_bucket1, _testK2[0])
 	require.Equal(ErrNotExist, err)
 	require.Equal([]byte(nil), v)
 	si := cb.Snapshot()
 	require.Equal(0, si)
 
-	cb.Delete(bucket1, testK2[0], "")
-	cb.Delete(bucket1, testK1[0], "")
-	_, err = cb.Get(bucket1, testK1[0])
+	cb.Delete(_bucket1, _testK2[0], "")
+	cb.Delete(_bucket1, _testK1[0], "")
+	_, err = cb.Get(_bucket1, _testK1[0])
 	require.Equal(ErrAlreadyDeleted, errors.Cause(err))
 
 	w, err := cb.Entry(1)
 	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK2[0], w.key)
+	require.Equal(_bucket1, w.namespace)
+	require.Equal(_testK2[0], w.key)
 	require.Equal([]byte(nil), w.value)
 	require.Equal(Delete, w.writeType)
 
 	w, err = cb.Entry(2)
 	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
+	require.Equal(_bucket1, w.namespace)
+	require.Equal(_testK1[0], w.key)
 	require.Equal([]byte(nil), w.value)
 	require.Equal(Delete, w.writeType)
 	require.True(bytes.Equal(
@@ -147,26 +147,26 @@ func TestSnapshot(t *testing.T) {
 
 	cb := NewCachedBatch()
 	cb.Clear()
-	cb.Put(bucket1, testK1[0], testV1[0], "")
-	cb.Put(bucket1, testK1[1], testV1[1], "")
+	cb.Put(_bucket1, _testK1[0], _testV1[0], "")
+	cb.Put(_bucket1, _testK1[1], _testV1[1], "")
 	s0 := cb.Snapshot()
 	require.Equal(0, s0)
 	require.Equal(2, cb.Size())
 
-	cb.Put(bucket1, testK2[0], testV2[0], "")
-	cb.Put(bucket1, testK2[1], testV2[1], "")
-	cb.Delete(bucket1, testK1[0], "")
-	v, err := cb.Get(bucket1, testK1[0])
+	cb.Put(_bucket1, _testK2[0], _testV2[0], "")
+	cb.Put(_bucket1, _testK2[1], _testV2[1], "")
+	cb.Delete(_bucket1, _testK1[0], "")
+	v, err := cb.Get(_bucket1, _testK1[0])
 	require.Equal(ErrAlreadyDeleted, err)
 	require.Nil(v)
 	s1 := cb.Snapshot()
 	require.Equal(1, s1)
 	require.Equal(5, cb.Size())
 
-	cb.Put(bucket1, testK1[2], testV1[2], "")
-	cb.Put(bucket1, testK2[2], testV2[2], "")
-	cb.Delete(bucket1, testK2[0], "")
-	_, err = cb.Get(bucket1, testK2[0])
+	cb.Put(_bucket1, _testK1[2], _testV1[2], "")
+	cb.Put(_bucket1, _testK2[2], _testV2[2], "")
+	cb.Delete(_bucket1, _testK2[0], "")
+	_, err = cb.Get(_bucket1, _testK2[0])
 	require.Equal(ErrAlreadyDeleted, err)
 	s2 := cb.Snapshot()
 	require.Equal(2, s2)
@@ -176,57 +176,57 @@ func TestSnapshot(t *testing.T) {
 	require.Error(cb.RevertSnapshot(3))
 	require.Error(cb.RevertSnapshot(-1))
 	require.NoError(cb.RevertSnapshot(2))
-	_, err = cb.Get(bucket1, testK2[0])
+	_, err = cb.Get(_bucket1, _testK2[0])
 	require.Equal(ErrAlreadyDeleted, err)
-	v, err = cb.Get(bucket1, testK1[1])
+	v, err = cb.Get(_bucket1, _testK1[1])
 	require.NoError(err)
-	require.Equal(testV1[1], v)
-	v, err = cb.Get(bucket1, testK2[1])
+	require.Equal(_testV1[1], v)
+	v, err = cb.Get(_bucket1, _testK2[1])
 	require.NoError(err)
-	require.Equal(testV2[1], v)
-	v, err = cb.Get(bucket1, testK1[2])
+	require.Equal(_testV2[1], v)
+	v, err = cb.Get(_bucket1, _testK1[2])
 	require.NoError(err)
-	require.Equal(testV1[2], v)
-	v, err = cb.Get(bucket1, testK2[2])
+	require.Equal(_testV1[2], v)
+	v, err = cb.Get(_bucket1, _testK2[2])
 	require.NoError(err)
-	require.Equal(testV2[2], v)
-	cb.Put(bucket1, testK2[2], testV2[1], "")
-	v, err = cb.Get(bucket1, testK2[2])
+	require.Equal(_testV2[2], v)
+	cb.Put(_bucket1, _testK2[2], _testV2[1], "")
+	v, err = cb.Get(_bucket1, _testK2[2])
 	require.NoError(err)
-	require.Equal(testV2[1], v)
+	require.Equal(_testV2[1], v)
 
 	// snapshot 1
 	require.NoError(cb.RevertSnapshot(2))
-	v, err = cb.Get(bucket1, testK2[2])
+	v, err = cb.Get(_bucket1, _testK2[2])
 	require.NoError(err)
-	require.Equal(testV2[2], v)
+	require.Equal(_testV2[2], v)
 	require.NoError(cb.RevertSnapshot(1))
-	_, err = cb.Get(bucket1, testK1[0])
+	_, err = cb.Get(_bucket1, _testK1[0])
 	require.Equal(ErrAlreadyDeleted, err)
-	v, err = cb.Get(bucket1, testK1[1])
+	v, err = cb.Get(_bucket1, _testK1[1])
 	require.NoError(err)
-	require.Equal(testV1[1], v)
-	v, err = cb.Get(bucket1, testK2[0])
+	require.Equal(_testV1[1], v)
+	v, err = cb.Get(_bucket1, _testK2[0])
 	require.NoError(err)
-	require.Equal(testV2[0], v)
-	v, err = cb.Get(bucket1, testK2[1])
+	require.Equal(_testV2[0], v)
+	v, err = cb.Get(_bucket1, _testK2[1])
 	require.NoError(err)
-	require.Equal(testV2[1], v)
-	_, err = cb.Get(bucket1, testK2[2])
+	require.Equal(_testV2[1], v)
+	_, err = cb.Get(_bucket1, _testK2[2])
 	require.Equal(ErrNotExist, err)
 
 	// snapshot 0
 	require.Error(cb.RevertSnapshot(2))
 	require.NoError(cb.RevertSnapshot(0))
-	v, err = cb.Get(bucket1, testK1[0])
+	v, err = cb.Get(_bucket1, _testK1[0])
 	require.NoError(err)
-	require.Equal(testV1[0], v)
-	v, err = cb.Get(bucket1, testK1[1])
+	require.Equal(_testV1[0], v)
+	v, err = cb.Get(_bucket1, _testK1[1])
 	require.NoError(err)
-	require.Equal(testV1[1], v)
-	_, err = cb.Get(bucket1, testK2[0])
+	require.Equal(_testV1[1], v)
+	_, err = cb.Get(_bucket1, _testK2[0])
 	require.Equal(ErrNotExist, err)
-	_, err = cb.Get(bucket1, testK1[2])
+	_, err = cb.Get(_bucket1, _testK1[2])
 	require.Equal(ErrNotExist, err)
 }
 
@@ -239,7 +239,7 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 		for i := range v {
 			v[i] = byte(rand.Intn(8))
 		}
-		cb.Put(bucket1, k[:], v[:], "")
+		cb.Put(_bucket1, k[:], v[:], "")
 	}
 	require.Equal(b, 10000, cb.Size())
 
@@ -261,13 +261,13 @@ func BenchmarkCachedBatch_Snapshot(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb.Put(bucket1, k[:], v[:], "")
-		_, _ = cb.Get(bucket1, k[:])
+		cb.Put(_bucket1, k[:], v[:], "")
+		_, _ = cb.Get(_bucket1, k[:])
 		sn := cb.Snapshot()
-		cb.Delete(bucket1, k[:], "")
-		_, _ = cb.Get(bucket1, k[:])
+		cb.Delete(_bucket1, k[:], "")
+		_, _ = cb.Get(_bucket1, k[:])
 		cb.RevertSnapshot(sn)
-		_, _ = cb.Get(bucket1, k[:])
-		cb.Delete(bucket1, k[:], "")
+		_, _ = cb.Get(_bucket1, k[:])
+		cb.Delete(_bucket1, k[:], "")
 	}
 }

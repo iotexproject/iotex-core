@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	timeSlotMtc = prometheus.NewGaugeVec(
+	_timeSlotMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_round",
 			Help: "Consensus round",
@@ -36,7 +36,7 @@ var (
 		[]string{},
 	)
 
-	blockIntervalMtc = prometheus.NewGaugeVec(
+	_blockIntervalMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_block_interval",
 			Help: "Consensus block interval",
@@ -44,7 +44,7 @@ var (
 		[]string{},
 	)
 
-	consensusDurationMtc = prometheus.NewGaugeVec(
+	_consensusDurationMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_elapse_time",
 			Help: "Consensus elapse time.",
@@ -52,7 +52,7 @@ var (
 		[]string{},
 	)
 
-	consensusHeightMtc = prometheus.NewGaugeVec(
+	_consensusHeightMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_height",
 			Help: "Consensus height",
@@ -62,10 +62,10 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(timeSlotMtc)
-	prometheus.MustRegister(blockIntervalMtc)
-	prometheus.MustRegister(consensusDurationMtc)
-	prometheus.MustRegister(consensusHeightMtc)
+	prometheus.MustRegister(_timeSlotMtc)
+	prometheus.MustRegister(_blockIntervalMtc)
+	prometheus.MustRegister(_consensusDurationMtc)
+	prometheus.MustRegister(_consensusHeightMtc)
 }
 
 // DelegatesByEpochFunc defines a function to overwrite candidates
@@ -304,8 +304,8 @@ func (ctx *rollDPoSCtx) Prepare() error {
 		zap.String("roundStartTime", newRound.roundStartTime.String()),
 	)
 	ctx.round = newRound
-	consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
-	timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
+	_consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
+	_timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
 	return nil
 }
 
@@ -504,7 +504,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		)
 	}
 
-	consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
+	_consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	if pendingBlock.Height() > 1 {
 		prevBlkHeader, err := ctx.chain.BlockHeaderByHeight(pendingBlock.Height() - 1)
 		if err != nil {
@@ -513,7 +513,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 				zap.Uint64("height", pendingBlock.Height()-1),
 			)
 		}
-		blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkHeader.Timestamp())))
+		_blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkHeader.Timestamp())))
 	}
 	return true, nil
 }

@@ -48,72 +48,72 @@ import (
 const lld = "lifeLongDelegates"
 
 var (
-	testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
-	testTransferHash, _ = testTransfer.Hash()
-	testTransferPb      = testTransfer.Proto()
+	_testTransferHash, _ = _testTransfer.Hash()
+	_testTransferPb      = _testTransfer.Proto()
 
-	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
+	_testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
-	testExecutionHash, _ = testExecution.Hash()
-	testExecutionPb      = testExecution.Proto()
+	_testExecutionHash, _ = _testExecution.Hash()
+	_testExecutionPb      = _testExecution.Proto()
 
 	// invalid nounce
-	testTransferInvalid1, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransferInvalid1, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 2, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid1Pb = testTransferInvalid1.Proto()
+	_testTransferInvalid1Pb = _testTransferInvalid1.Proto()
 
 	// invalid gas price
-	testTransferInvalid2, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransferInvalid2, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(-1))
-	testTransferInvalid2Pb = testTransferInvalid2.Proto()
+	_testTransferInvalid2Pb = _testTransferInvalid2.Proto()
 
 	// invalid balance
-	testTransferInvalid3, _ = action.SignedTransfer(identityset.Address(29).String(),
+	_testTransferInvalid3, _ = action.SignedTransfer(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 3, big.NewInt(29), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid3Pb = testTransferInvalid3.Proto()
+	_testTransferInvalid3Pb = _testTransferInvalid3.Proto()
 
 	// nonce is too high
-	testTransferInvalid4, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransferInvalid4, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), config.Default.ActPool.MaxNumActsPerAcct+10, big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
-	testTransferInvalid4Pb = testTransferInvalid4.Proto()
+	_testTransferInvalid4Pb = _testTransferInvalid4.Proto()
 
 	// replace act with lower gas
-	testTransferInvalid5, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransferInvalid5, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, 10000,
 		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid5Pb = testTransferInvalid5.Proto()
+	_testTransferInvalid5Pb = _testTransferInvalid5.Proto()
 
 	// gas is too low
-	testTransferInvalid6, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransferInvalid6, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, 100,
 		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid6Pb = testTransferInvalid6.Proto()
+	_testTransferInvalid6Pb = _testTransferInvalid6.Proto()
 
 	// negative transfer amout
-	testTransferInvalid7, _ = action.SignedTransfer(identityset.Address(28).String(),
+	_testTransferInvalid7, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(-10), []byte{}, 10000,
 		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid7Pb = testTransferInvalid7.Proto()
+	_testTransferInvalid7Pb = _testTransferInvalid7.Proto()
 
 	// gas is too large
-	largeData               = make([]byte, 1e7)
-	testTransferInvalid8, _ = action.SignedTransfer(identityset.Address(28).String(),
-		identityset.PrivateKey(28), 3, big.NewInt(10), largeData, 10000,
+	_largeData               = make([]byte, 1e7)
+	_testTransferInvalid8, _ = action.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), _largeData, 10000,
 		big.NewInt(testutil.TestGasPriceInt64))
-	testTransferInvalid8Pb = testTransferInvalid8.Proto()
+	_testTransferInvalid8Pb = _testTransferInvalid8.Proto()
 )
 
 var (
-	delegates = []genesis.Delegate{
+	_delegates = []genesis.Delegate{
 		{
 			OperatorAddrStr: identityset.Address(0).String(),
 			VotesStr:        "10",
@@ -130,7 +130,7 @@ var (
 )
 
 var (
-	getAccountTests = []struct {
+	_getAccountTests = []struct {
 		in           string
 		address      string
 		balance      string
@@ -155,7 +155,7 @@ var (
 		},
 	}
 
-	getActionsTests = []struct {
+	_getActionsTests = []struct {
 		start      uint64
 		count      uint64
 		numActions int
@@ -177,7 +177,7 @@ var (
 		},
 	}
 
-	getActionTests = []struct {
+	_getActionTests = []struct {
 		// Arguments
 		checkPending bool
 		in           string
@@ -188,28 +188,28 @@ var (
 	}{
 		{
 			checkPending: false,
-			in:           hex.EncodeToString(transferHash1[:]),
+			in:           hex.EncodeToString(_transferHash1[:]),
 			nonce:        1,
-			senderPubKey: testTransfer1.SrcPubkey().HexString(),
+			senderPubKey: _testTransfer1.SrcPubkey().HexString(),
 			blkNumber:    1,
 		},
 		{
 			checkPending: false,
-			in:           hex.EncodeToString(transferHash2[:]),
+			in:           hex.EncodeToString(_transferHash2[:]),
 			nonce:        5,
-			senderPubKey: testTransfer2.SrcPubkey().HexString(),
+			senderPubKey: _testTransfer2.SrcPubkey().HexString(),
 			blkNumber:    2,
 		},
 		{
 			checkPending: false,
-			in:           hex.EncodeToString(executionHash1[:]),
+			in:           hex.EncodeToString(_executionHash1[:]),
 			nonce:        6,
-			senderPubKey: testExecution1.SrcPubkey().HexString(),
+			senderPubKey: _testExecution1.SrcPubkey().HexString(),
 			blkNumber:    2,
 		},
 	}
 
-	getActionsByAddressTests = []struct {
+	_getActionsByAddressTests = []struct {
 		address    string
 		start      uint64
 		count      uint64
@@ -235,7 +235,7 @@ var (
 		},
 	}
 
-	getUnconfirmedActionsByAddressTests = []struct {
+	_getUnconfirmedActionsByAddressTests = []struct {
 		address    string
 		start      uint64
 		count      uint64
@@ -255,7 +255,7 @@ var (
 		},
 	}
 
-	getActionsByBlockTests = []struct {
+	_getActionsByBlockTests = []struct {
 		blkHeight  uint64
 		start      uint64
 		count      uint64
@@ -292,7 +292,7 @@ var (
 		},
 	}
 
-	getBlockMetasTests = []struct {
+	_getBlockMetasTests = []struct {
 		start, count      uint64
 		numBlks           int
 		gasLimit, gasUsed uint64
@@ -328,7 +328,7 @@ var (
 		},
 	}
 
-	getBlockMetaTests = []struct {
+	_getBlockMetaTests = []struct {
 		blkHeight      uint64
 		numActions     int64
 		transferAmount string
@@ -348,7 +348,7 @@ var (
 		},
 	}
 
-	getChainMetaTests = []struct {
+	_getChainMetaTests = []struct {
 		// Arguments
 		emptyChain       bool
 		tpsWindow        int
@@ -394,50 +394,50 @@ var (
 		},
 	}
 
-	sendActionTests = []struct {
+	_sendActionTests = []struct {
 		// Arguments
 		actionPb *iotextypes.Action
 		// Expected Values
 		actionHash string
 	}{
 		{
-			testTransferPb,
-			hex.EncodeToString(testTransferHash[:]),
+			_testTransferPb,
+			hex.EncodeToString(_testTransferHash[:]),
 		},
 		{
-			testExecutionPb,
-			hex.EncodeToString(testExecutionHash[:]),
+			_testExecutionPb,
+			hex.EncodeToString(_testExecutionHash[:]),
 		},
 	}
 
-	getReceiptByActionTests = []struct {
+	_getReceiptByActionTests = []struct {
 		in        string
 		status    uint64
 		blkHeight uint64
 	}{
 		{
-			hex.EncodeToString(transferHash1[:]),
+			hex.EncodeToString(_transferHash1[:]),
 			uint64(iotextypes.ReceiptStatus_Success),
 			1,
 		},
 		{
-			hex.EncodeToString(transferHash2[:]),
+			hex.EncodeToString(_transferHash2[:]),
 			uint64(iotextypes.ReceiptStatus_Success),
 			2,
 		},
 		{
-			hex.EncodeToString(executionHash1[:]),
+			hex.EncodeToString(_executionHash1[:]),
 			uint64(iotextypes.ReceiptStatus_Success),
 			2,
 		},
 		{
-			hex.EncodeToString(executionHash3[:]),
+			hex.EncodeToString(_executionHash3[:]),
 			uint64(iotextypes.ReceiptStatus_Success),
 			4,
 		},
 	}
 
-	readContractTests = []struct {
+	_readContractTests = []struct {
 		execHash    string
 		callerAddr  string
 		actionHash  string
@@ -445,7 +445,7 @@ var (
 		gasConsumed uint64
 	}{
 		{
-			hex.EncodeToString(executionHash1[:]),
+			hex.EncodeToString(_executionHash1[:]),
 			"",
 			"08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4",
 			"",
@@ -453,7 +453,7 @@ var (
 		},
 	}
 
-	suggestGasPriceTests = []struct {
+	_suggestGasPriceTests = []struct {
 		defaultGasPrice   uint64
 		suggestedGasPrice uint64
 	}{
@@ -463,21 +463,21 @@ var (
 		},
 	}
 
-	estimateGasForActionTests = []struct {
+	_estimateGasForActionTests = []struct {
 		actionHash   string
 		estimatedGas uint64
 	}{
 		{
-			hex.EncodeToString(transferHash1[:]),
+			hex.EncodeToString(_transferHash1[:]),
 			10000,
 		},
 		{
-			hex.EncodeToString(transferHash2[:]),
+			hex.EncodeToString(_transferHash2[:]),
 			10000,
 		},
 	}
 
-	readUnclaimedBalanceTests = []struct {
+	_readUnclaimedBalanceTests = []struct {
 		// Arguments
 		protocolID string
 		methodName string
@@ -514,7 +514,7 @@ var (
 		},
 	}
 
-	readCandidatesByEpochTests = []struct {
+	_readCandidatesByEpochTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
@@ -539,7 +539,7 @@ var (
 		},
 	}
 
-	readBlockProducersByEpochTests = []struct {
+	_readBlockProducersByEpochTests = []struct {
 		// Arguments
 		protocolID            string
 		protocolType          string
@@ -574,7 +574,7 @@ var (
 		},
 	}
 
-	readActiveBlockProducersByEpochTests = []struct {
+	_readActiveBlockProducersByEpochTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
@@ -609,7 +609,7 @@ var (
 		},
 	}
 
-	readRollDPoSMetaTests = []struct {
+	_readRollDPoSMetaTests = []struct {
 		// Arguments
 		protocolID string
 		methodName string
@@ -629,7 +629,7 @@ var (
 		},
 	}
 
-	readEpochCtxTests = []struct {
+	_readEpochCtxTests = []struct {
 		// Arguments
 		protocolID string
 		methodName string
@@ -675,7 +675,7 @@ var (
 		},
 	}
 
-	getEpochMetaTests = []struct {
+	_getEpochMetaTests = []struct {
 		// Arguments
 		EpochNumber      uint64
 		pollProtocolType string
@@ -711,7 +711,7 @@ var (
 		},
 	}
 
-	getRawBlocksTest = []struct {
+	_getRawBlocksTest = []struct {
 		// Arguments
 		startHeight  uint64
 		count        uint64
@@ -748,7 +748,7 @@ var (
 		},
 	}
 
-	getLogsByRangeTest = []struct {
+	_getLogsByRangeTest = []struct {
 		// Arguments
 		address   []string
 		topics    []*iotexapi.Topics
@@ -773,7 +773,7 @@ var (
 		},
 	}
 
-	getImplicitLogByBlockHeightTest = []struct {
+	_getImplicitLogByBlockHeightTest = []struct {
 		height uint64
 		code   codes.Code
 	}{
@@ -794,24 +794,24 @@ var (
 		},
 	}
 
-	getActionByActionHashTest = []struct {
+	_getActionByActionHashTest = []struct {
 		h              hash.Hash256
 		expectedNounce uint64
 	}{
 		{
-			transferHash1,
+			_transferHash1,
 			1,
 		},
 		{
-			transferHash2,
+			_transferHash2,
 			5,
 		},
 		{
-			executionHash1,
+			_executionHash1,
 			6,
 		},
 		{
-			executionHash3,
+			_executionHash3,
 			2,
 		},
 	}
@@ -848,7 +848,7 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 	require.Contains(contractCode, hex.EncodeToString(accountMeta.ContractByteCode))
 
 	// success
-	for _, test := range getAccountTests {
+	for _, test := range _getAccountTests {
 		request := &iotexapi.GetAccountRequest{Address: test.in}
 		res, err := svr.GrpcServer.GetAccount(context.Background(), request)
 		require.NoError(err)
@@ -890,7 +890,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getActionsTests {
+	for _, test := range _getActionsTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByIndex{
 				ByIndex: &iotexapi.GetActionsByIndexRequest{
@@ -950,7 +950,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getActionTests {
+	for _, test := range _getActionTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByHash{
 				ByHash: &iotexapi.GetActionByHashRequest{
@@ -969,8 +969,8 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 			blk, err := dao.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
-			blkHash := blk.HashBlock()
-			require.Equal(hex.EncodeToString(blkHash[:]), act.BlkHash)
+			_blkHash := blk.HashBlock()
+			require.Equal(hex.EncodeToString(_blkHash[:]), act.BlkHash)
 			require.Equal(test.blkNumber, act.BlkHeight)
 			require.Equal(timeStamp, act.Timestamp)
 		} else {
@@ -1003,7 +1003,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getActionsByAddressTests {
+	for _, test := range _getActionsByAddressTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByAddr{
 				ByAddr: &iotexapi.GetActionsByAddressRequest{
@@ -1054,7 +1054,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getUnconfirmedActionsByAddressTests {
+	for _, test := range _getUnconfirmedActionsByAddressTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_UnconfirmedByAddr{
 				UnconfirmedByAddr: &iotexapi.GetUnconfirmedActionsByAddressRequest{
@@ -1085,11 +1085,11 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getActionsByBlockTests {
+	for _, test := range _getActionsByBlockTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByBlk{
 				ByBlk: &iotexapi.GetActionsByBlockRequest{
-					BlkHash: blkHash[test.blkHeight],
+					BlkHash: _blkHash[test.blkHeight],
 					Start:   test.start,
 					Count:   test.count,
 				},
@@ -1107,7 +1107,7 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 		}
 		for _, v := range res.ActionInfo {
 			require.Equal(test.blkHeight, v.BlkHeight)
-			require.Equal(blkHash[test.blkHeight], v.BlkHash)
+			require.Equal(_blkHash[test.blkHeight], v.BlkHash)
 		}
 	}
 }
@@ -1124,7 +1124,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getBlockMetasTests {
+	for _, test := range _getBlockMetasTests {
 		request := &iotexapi.GetBlockMetasRequest{
 			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
@@ -1185,14 +1185,14 @@ func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getBlockMetaTests {
+	for _, test := range _getBlockMetaTests {
 		header, err := bc.BlockHeaderByHeight(test.blkHeight)
 		require.NoError(err)
-		blkHash := header.HashBlock()
+		_blkHash := header.HashBlock()
 		request := &iotexapi.GetBlockMetasRequest{
 			Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
 				ByHash: &iotexapi.GetBlockMetaByHashRequest{
-					BlkHash: hex.EncodeToString(blkHash[:]),
+					BlkHash: hex.EncodeToString(_blkHash[:]),
 				},
 			},
 		}
@@ -1293,7 +1293,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		return nil
 	}
 
-	for i, test := range sendActionTests {
+	for i, test := range _sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := svr.GrpcServer.SendAction(context.Background(), request)
 		require.NoError(err)
@@ -1330,28 +1330,28 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 				cfg.ActPool.MaxNumActsPerPool = 8
 				return cfg
 			},
-			testTransferPb,
+			_testTransferPb,
 			action.ErrTxPoolOverflow.Error(),
 		},
 		{
 			func() config.Config {
 				return newConfig()
 			},
-			testTransferInvalid1Pb,
+			_testTransferInvalid1Pb,
 			action.ErrNonceTooLow.Error(),
 		},
 		{
 			func() config.Config {
 				return newConfig()
 			},
-			testTransferInvalid2Pb,
+			_testTransferInvalid2Pb,
 			action.ErrUnderpriced.Error(),
 		},
 		{
 			func() config.Config {
 				return newConfig()
 			},
-			testTransferInvalid3Pb,
+			_testTransferInvalid3Pb,
 			action.ErrInsufficientFunds.Error(),
 		},
 	}
@@ -1393,7 +1393,7 @@ func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getReceiptByActionTests {
+	for _, test := range _getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
 		res, err := svr.GrpcServer.GetReceiptByAction(context.Background(), request)
 		require.NoError(err)
@@ -1441,7 +1441,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range readContractTests {
+	for _, test := range _readContractTests {
 		hash, err := hash.HexStringToHash256(test.execHash)
 		require.NoError(err)
 		ai, err := indexer.GetActionIndex(hash[:])
@@ -1468,7 +1468,7 @@ func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	for _, test := range suggestGasPriceTests {
+	for _, test := range _suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
@@ -1491,7 +1491,7 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range estimateGasForActionTests {
+	for _, test := range _estimateGasForActionTests {
 		hash, err := hash.HexStringToHash256(test.actionHash)
 		require.NoError(err)
 		ai, err := indexer.GetActionIndex(hash[:])
@@ -1693,7 +1693,7 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range readUnclaimedBalanceTests {
+	for _, test := range _readUnclaimedBalanceTests {
 		out, err := svr.GrpcServer.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
@@ -1771,10 +1771,10 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 		},
 	}
 
-	for _, test := range readCandidatesByEpochTests {
+	for _, test := range _readCandidatesByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
-			cfg.Genesis.Delegates = delegates
+			cfg.Genesis.Delegates = _delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
@@ -1817,9 +1817,9 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
-		var delegates state.CandidateList
-		require.NoError(delegates.Deserialize(res.Data))
-		require.Equal(test.numDelegates, len(delegates))
+		var _delegates state.CandidateList
+		require.NoError(_delegates.Deserialize(res.Data))
+		require.Equal(test.numDelegates, len(_delegates))
 	}
 }
 
@@ -1842,10 +1842,10 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 		},
 	}
 
-	for _, test := range readBlockProducersByEpochTests {
+	for _, test := range _readBlockProducersByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
-			cfg.Genesis.Delegates = delegates
+			cfg.Genesis.Delegates = _delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
@@ -1913,10 +1913,10 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 		},
 	}
 
-	for _, test := range readActiveBlockProducersByEpochTests {
+	for _, test := range _readActiveBlockProducersByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
-			cfg.Genesis.Delegates = delegates
+			cfg.Genesis.Delegates = _delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
@@ -1969,7 +1969,7 @@ func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	for _, test := range readRollDPoSMetaTests {
+	for _, test := range _readRollDPoSMetaTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
@@ -1990,7 +1990,7 @@ func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	for _, test := range readEpochCtxTests {
+	for _, test := range _readEpochCtxTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
 		defer func() {
@@ -2019,7 +2019,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
-	for _, test := range getEpochMetaTests {
+	for _, test := range _getEpochMetaTests {
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 			require.NoError(pol.ForceRegister(registry))
@@ -2151,7 +2151,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getRawBlocksTest {
+	for _, test := range _getRawBlocksTest {
 		request := &iotexapi.GetRawBlocksRequest{
 			StartHeight:  test.startHeight,
 			Count:        test.count,
@@ -2218,7 +2218,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getLogsByRangeTest {
+	for _, test := range _getLogsByRangeTest {
 		request := &iotexapi.GetLogsRequest{
 			Filter: &iotexapi.LogsFilter{
 				Address: test.address,
@@ -2237,7 +2237,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 		require.Equal(test.numLogs, len(logs))
 	}
 
-	for _, v := range blkHash {
+	for _, v := range _blkHash {
 		h, _ := hash.HexStringToHash256(v)
 		request := &iotexapi.GetLogsRequest{
 			Filter: &iotexapi.LogsFilter{
@@ -2294,7 +2294,7 @@ func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	for _, test := range getActionByActionHashTest {
+	for _, test := range _getActionByActionHashTest {
 		ret, _, _, _, err := svr.core.ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
@@ -2320,7 +2320,7 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 	require.Equal(true, ok)
 	require.Equal(codes.NotFound, sta.Code())
 
-	for h, log := range implicitLogs {
+	for h, log := range _implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
 		res, err := svr.GrpcServer.GetTransactionLogByActionHash(context.Background(), request)
 		require.NoError(err)
@@ -2347,7 +2347,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 	}()
 
 	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
-	for _, test := range getImplicitLogByBlockHeightTest {
+	for _, test := range _getImplicitLogByBlockHeightTest {
 		request.BlockHeight = test.height
 		res, err := svr.GrpcServer.GetTransactionLogByBlockHeight(context.Background(), request)
 		if test.code != codes.OK {
@@ -2359,12 +2359,12 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 			require.NotNil(res)
 			// verify log
 			for _, log := range res.TransactionLogs.Logs {
-				l, ok := implicitLogs[hash.BytesToHash256(log.ActionHash)]
+				l, ok := _implicitLogs[hash.BytesToHash256(log.ActionHash)]
 				require.True(ok)
 				require.Equal(l.Proto(), log)
 			}
 			require.Equal(test.height, res.BlockIdentifier.Height)
-			require.Equal(blkHash[test.height], res.BlockIdentifier.Hash)
+			require.Equal(_blkHash[test.height], res.BlockIdentifier.Hash)
 		}
 	}
 }
@@ -2477,7 +2477,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid1Pb},
+			[]*iotextypes.Action{_testTransferInvalid1Pb},
 			regexp.MustCompile(`(: |^)nonce too low$`),
 		},
 		{
@@ -2485,7 +2485,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid2Pb},
+			[]*iotextypes.Action{_testTransferInvalid2Pb},
 			regexp.MustCompile(`(: |^)transaction underpriced$`),
 		},
 		{
@@ -2493,7 +2493,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid3Pb},
+			[]*iotextypes.Action{_testTransferInvalid3Pb},
 			regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
 		},
 
@@ -2502,7 +2502,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid4Pb},
+			[]*iotextypes.Action{_testTransferInvalid4Pb},
 			gethFatal,
 		},
 		{
@@ -2510,7 +2510,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferPb, testTransferPb},
+			[]*iotextypes.Action{_testTransferPb, _testTransferPb},
 			regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 		},
 		{
@@ -2518,7 +2518,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferPb, testTransferInvalid5Pb},
+			[]*iotextypes.Action{_testTransferPb, _testTransferInvalid5Pb},
 			regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
 		},
 		{
@@ -2526,7 +2526,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid6Pb},
+			[]*iotextypes.Action{_testTransferInvalid6Pb},
 			gethFatal,
 		},
 		{
@@ -2534,7 +2534,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid7Pb},
+			[]*iotextypes.Action{_testTransferInvalid7Pb},
 			gethFatal,
 		},
 		{
@@ -2542,7 +2542,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			func() config.Config {
 				return newConfig()
 			},
-			[]*iotextypes.Action{testTransferInvalid8Pb},
+			[]*iotextypes.Action{_testTransferInvalid8Pb},
 			gethFatal,
 		},
 	}
@@ -2585,7 +2585,7 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	require.Error(err)
 
 	//unsupport type
-	request.ActionHash = hex.EncodeToString(transferHash1[:])
+	request.ActionHash = hex.EncodeToString(_transferHash1[:])
 	_, err = svr.GrpcServer.TraceTransactionStructLogs(context.Background(), request)
 	require.Error(err)
 
