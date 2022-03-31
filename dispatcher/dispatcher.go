@@ -235,25 +235,12 @@ func (d *IotxDispatcher) blockHandler() {
 	}
 }
 
-func (d *IotxDispatcher) checkSyncPermission(peerID string) bool {
-	now := time.Now()
-	last, ok := d.peerLastSync[peerID]
-	if ok && last.Add(d.syncInterval).After(now) {
-		return false
-	}
-
-	d.peerLastSync[peerID] = now
-	return true
-}
-
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
 	for {
 		select {
 		case m := <-d.syncChan:
-			if d.checkSyncPermission(m.peer.ID.Pretty()) {
-				d.handleBlockSyncMsg(m)
-			}
+			d.handleBlockSyncMsg(m)
 		case <-d.quit:
 			d.wg.Done()
 			log.L().Info("block sync handler done.")
@@ -397,8 +384,15 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		log.L().Debug("no subscriber for this chain id, drop the request", zap.Uint32("chain id", chainID))
 		return
 	}
+	now := time.Now()
+	peerID := peer.ID.Pretty()
 	d.syncChanLock.Lock()
 	defer d.syncChanLock.Unlock()
+	last, ok := d.peerLastSync[peerID]
+	if ok && last.Add(d.syncInterval).After(now) {
+		return
+	}
+	d.peerLastSync[peerID] = now
 	l := len(d.syncChan)
 	c := cap(d.syncChan)
 	if l < c {
