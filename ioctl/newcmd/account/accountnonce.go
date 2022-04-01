@@ -18,11 +18,11 @@ import (
 
 // Multi-language support
 var (
-	nonceCmdShorts = map[config.Language]string{
+	_nonceCmdShorts = map[config.Language]string{
 		config.English: "Get nonce of an account",
 		config.Chinese: "获取账户的nonce值",
 	}
-	nonceCmdUses = map[config.Language]string{
+	_nonceCmdUses = map[config.Language]string{
 		config.English: "nonce [ALIAS|ADDRESS]",
 		config.Chinese: "nonce [别名|地址]",
 	}
@@ -30,10 +30,10 @@ var (
 
 // NewAccountNonce represents the account nonce command
 func NewAccountNonce(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(nonceCmdUses)
-	short, _ := client.SelectTranslation(nonceCmdShorts)
-	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
-	failToGetAccountMeta, _ := client.SelectTranslation(failToGetAccountMeta)
+	use, _ := client.SelectTranslation(_nonceCmdUses)
+	short, _ := client.SelectTranslation(_nonceCmdShorts)
+	failToGetAddress, _ := client.SelectTranslation(_failToGetAddress)
+	failToGetAccountMeta, _ := client.SelectTranslation(_failToGetAccountMeta)
 
 	cmd := &cobra.Command{
 		Use:   use,

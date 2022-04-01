@@ -23,29 +23,29 @@ import (
 
 // Multi-language support
 var (
-	delegateUses = map[config.Language]string{
+	_delegateUses = map[config.Language]string{
 		config.English: "delegate [-e epoch-num|-n]",
 		config.Chinese: "delegate [-e epoch数|-n]",
 	}
-	delegateShorts = map[config.Language]string{
+	_delegateShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
 		config.Chinese: "打印在特定epoch内的共识委托信息",
 	}
-	flagEpochNumUsages = map[config.Language]string{
+	_flagEpochNumUsages = map[config.Language]string{
 		config.English: "specify specific epoch",
 		config.Chinese: "指定特定epoch",
 	}
-	flagNextEpochUsages = map[config.Language]string{
+	_flagNextEpochUsages = map[config.Language]string{
 		config.English: "query delegate of upcoming epoch",
 		config.Chinese: "查询即将到来的epoch的委托",
 	}
 )
 
 var (
-	epochNum       uint64
-	nextEpoch      bool
-	nodeStatus     map[bool]string
-	probatedStatus map[bool]string
+	_epochNum       uint64
+	_nextEpoch      bool
+	_nodeStatus     map[bool]string
+	_probatedStatus map[bool]string
 )
 
 type nextDelegatesMessage struct {
@@ -61,7 +61,7 @@ type delegate struct {
 	Active         bool   `json:"active"`
 	Production     int    `json:"production"`
 	Votes          string `json:"votes"`
-	ProbatedStatus bool   `json:"probatedStatus"`
+	ProbatedStatus bool   `json:"_probatedStatus"`
 }
 
 type delegatesMessage struct {
@@ -76,10 +76,10 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
 
-	use, _ := c.SelectTranslation(delegateUses)
-	short, _ := c.SelectTranslation(delegateShorts)
-	flagEpochNumUsage, _ := c.SelectTranslation(flagEpochNumUsages)
-	flagNextEpochUsage, _ := c.SelectTranslation(flagNextEpochUsages)
+	use, _ := c.SelectTranslation(_delegateUses)
+	short, _ := c.SelectTranslation(_delegateShorts)
+	flagEpochNumUsage, _ := c.SelectTranslation(_flagEpochNumUsages)
+	flagNextEpochUsage, _ := c.SelectTranslation(_flagNextEpochUsages)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -88,7 +88,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			var err error
-			if nextEpoch {
+			if _nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
 				apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
@@ -102,8 +102,8 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return output.NewError(0, "failed to get chain meta", err)
 				}
-				epochNum = chainMeta.Epoch.Num + 1
-				message := nextDelegatesMessage{Epoch: int(epochNum)}
+				_epochNum = chainMeta.Epoch.Num + 1
+				message := nextDelegatesMessage{Epoch: int(_epochNum)}
 
 				ctx := context.Background()
 				abpResponse, err := apiServiceClient.ReadState(
@@ -111,7 +111,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("poll"),
 						MethodName: []byte("ActiveBlockProducersByEpoch"),
-						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+						Arguments:  [][]byte{[]byte(strconv.FormatUint(_epochNum, 10))},
 					},
 				)
 
@@ -137,7 +137,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("poll"),
 						MethodName: []byte("BlockProducersByEpoch"),
-						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+						Arguments:  [][]byte{[]byte(strconv.FormatUint(_epochNum, 10))},
 					},
 				)
 
@@ -169,15 +169,15 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				}
 				fmt.Println(message.String())
 			} else {
-				if epochNum == 0 {
+				if _epochNum == 0 {
 					chainMeta, err := bc.GetChainMeta(c)
 					if err != nil {
 						return output.NewError(0, "failed to get chain meta", err)
 					}
-					epochNum = chainMeta.Epoch.Num
+					_epochNum = chainMeta.Epoch.Num
 				}
 
-				response, err := bc.GetEpochMeta(epochNum, c)
+				response, err := bc.GetEpochMeta(_epochNum, c)
 
 				if err != nil {
 					return output.NewError(0, "failed to get epoch meta", err)
@@ -189,7 +189,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-				probationListRes, err := bc.GetProbationList(epochNum, c)
+				probationListRes, err := bc.GetProbationList(_epochNum, c)
 				if err != nil {
 					return output.NewError(0, "failed to get probation list", err)
 				}
@@ -226,19 +226,19 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 			return output.PrintError(err)
 		},
 	}
-	cmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
+	cmd.Flags().Uint64VarP(&_epochNum, "epoch-num", "e", 0,
 		flagEpochNumUsage)
-	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
+	cmd.Flags().BoolVarP(&_nextEpoch, "next-epoch", "n", false,
 		flagNextEpochUsage)
-	nodeStatus = map[bool]string{true: "active", false: ""}
-	probatedStatus = map[bool]string{true: "probated", false: ""}
+	_nodeStatus = map[bool]string{true: "active", false: ""}
+	_probatedStatus = map[bool]string{true: "probated", false: ""}
 	return cmd
 }
 
 func (m *nextDelegatesMessage) String() string {
 	if output.Format == "" {
 		if !m.Determined {
-			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", epochNum)
+			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", _epochNum)
 		}
 		aliasLen := 5
 		for _, bp := range m.Delegates {
@@ -246,13 +246,13 @@ func (m *nextDelegatesMessage) String() string {
 				aliasLen = len(bp.Alias)
 			}
 		}
-		lines := []string{fmt.Sprintf("Epoch: %d\n", epochNum)}
+		lines := []string{fmt.Sprintf("Epoch: %d\n", _epochNum)}
 		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
 		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
 		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
 		for _, bp := range m.Delegates {
 			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, nodeStatus[bp.Active], bp.Votes))
+				bp.Alias, _nodeStatus[bp.Active], bp.Votes))
 		}
 		return strings.Join(lines, "\n")
 	}
@@ -274,7 +274,7 @@ func (m *delegatesMessage) String() string {
 			"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
 		for _, bp := range m.Delegates {
 			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, nodeStatus[bp.Active], bp.Production, probatedStatus[bp.ProbatedStatus], bp.Votes))
+				bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
 		}
 		return strings.Join(lines, "\n")
 	}

@@ -24,11 +24,11 @@ import (
 
 // Multi-language support
 var (
-	uses = map[config.Language]string{
+	_uses = map[config.Language]string{
 		config.English: "version",
 		config.Chinese: "版本",
 	}
-	shorts = map[config.Language]string{
+	_shorts = map[config.Language]string{
 		config.English: "Print the version of ioctl and node",
 		config.Chinese: "打印ioctl和节点的版本号",
 	}
@@ -43,8 +43,8 @@ type versionMessage struct {
 func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
-	use, _ := cli.SelectTranslation(uses)
-	short, _ := cli.SelectTranslation(shorts)
+	use, _ := cli.SelectTranslation(_uses)
+	short, _ := cli.SelectTranslation(_shorts)
 	vc := &cobra.Command{
 		Use:   use,
 		Short: short,

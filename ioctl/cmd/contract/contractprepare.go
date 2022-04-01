@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,11 +19,11 @@ import (
 
 // Multi-language support
 var (
-	prepareCmdUses = map[config.Language]string{
+	_prepareCmdUses = map[config.Language]string{
 		config.English: "prepare",
 		config.Chinese: "prepare",
 	}
-	prepareCmdShorts = map[config.Language]string{
+	_prepareCmdShorts = map[config.Language]string{
 		config.English: "Prepare solidity compiler",
 		config.Chinese: "准备solidity编译器",
 	}
@@ -31,8 +31,8 @@ var (
 
 // ContractPrepareCmd represents the contract prepare command
 var ContractPrepareCmd = &cobra.Command{
-	Use:   config.TranslateInLang(prepareCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(prepareCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(_prepareCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_prepareCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -42,7 +42,7 @@ var ContractPrepareCmd = &cobra.Command{
 }
 
 func prepare() error {
-	_, err := compiler.SolidityVersion(solCompiler)
+	_, err := compiler.SolidityVersion(_solCompiler)
 	if err != nil {
 		cmdString := "curl --silent https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-solc.sh | sh"
 		cmd := exec.Command("bash", "-c", cmdString)
@@ -53,7 +53,7 @@ func prepare() error {
 			return output.NewError(output.UpdateError, "failed to prepare solc", err)
 		}
 	}
-	solc, _ := compiler.SolidityVersion(solCompiler)
+	solc, _ := compiler.SolidityVersion(_solCompiler)
 
 	if !checkCompilerVersion(solc) {
 		return output.NewError(output.CompilerError,

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	updateCmdUses = map[config.Language]string{
+	_updateCmdUses = map[config.Language]string{
 		config.English: "update (CONTRACT_ADDRESS|ALIAS) hash uri",
 		config.Chinese: "update (合约地址|别名) hash uri",
 	}
-	updateCmdShorts = map[config.Language]string{
+	_updateCmdShorts = map[config.Language]string{
 		config.English: "Update DID on IoTeX blockchain",
 		config.Chinese: "Update 在IoTeX链上更新DID",
 	}
 )
 
-// didUpdateCmd represents the contract invoke update command
-var didUpdateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(updateCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(updateCmdShorts, config.UILanguage),
+// _didUpdateCmd represents the contract invoke update command
+var _didUpdateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_updateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_updateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -42,7 +42,7 @@ var didUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	action.RegisterWriteCommand(didUpdateCmd)
+	action.RegisterWriteCommand(_didUpdateCmd)
 }
 
 func updateDID(args []string) error {

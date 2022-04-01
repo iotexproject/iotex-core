@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	stateDBMtc = prometheus.NewCounterVec(
+	_stateDBMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_state_db",
 			Help: "IoTeX State DB",
@@ -38,7 +38,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(stateDBMtc)
+	prometheus.MustRegister(_stateDBMtc)
 }
 
 type (
@@ -231,7 +231,7 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 
 // State pulls a state from DB
 func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	stateDBMtc.WithLabelValues("get").Inc()
+	_stateDBMtc.WithLabelValues("get").Inc()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
@@ -260,7 +260,7 @@ func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterat
 
 // PutState puts a state into DB
 func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	stateDBMtc.WithLabelValues("put").Inc()
+	_stateDBMtc.WithLabelValues("put").Inc()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
@@ -274,7 +274,7 @@ func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uin
 
 // DelState deletes a state from DB
 func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
-	stateDBMtc.WithLabelValues("delete").Inc()
+	_stateDBMtc.WithLabelValues("delete").Inc()
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return ws.height, err
