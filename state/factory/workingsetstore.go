@@ -232,7 +232,7 @@ func (store *factoryWorkingSetStore) Finalize(h uint64) error {
 }
 
 func (store *factoryWorkingSetStore) Commit() error {
-	dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
+	_dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
 	return store.flusher.Flush()
 }
 

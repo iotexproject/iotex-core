@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	hdwalletDeleteCmdShorts = map[config.Language]string{
+	_hdwalletDeleteCmdShorts = map[config.Language]string{
 		config.English: "delete hdwallet",
 		config.Chinese: "删除钱包",
 	}
-	hdwalletDeleteCmdUses = map[config.Language]string{
+	_hdwalletDeleteCmdUses = map[config.Language]string{
 		config.English: "delete",
 		config.Chinese: "delete 删除",
 	}
 )
 
-// hdwalletDeleteCmd represents the hdwallet delete command
-var hdwalletDeleteCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hdwalletDeleteCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hdwalletDeleteCmdShorts, config.UILanguage),
+// _hdwalletDeleteCmd represents the hdwallet delete command
+var _hdwalletDeleteCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_hdwalletDeleteCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_hdwalletDeleteCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -54,5 +54,5 @@ func hdwalletDelete() error {
 		return nil
 	}
 
-	return os.Remove(hdWalletConfigFile)
+	return os.Remove(_hdWalletConfigFile)
 }

@@ -22,7 +22,7 @@ import (
 
 // Multi-language support
 var (
-	bcInfoCmdShorts = map[config.Language]string{
+	_bcInfoCmdShorts = map[config.Language]string{
 		config.English: "Get current block chain information",
 		config.Chinese: "获取当前区块链信息",
 	}
@@ -43,7 +43,7 @@ func (m *infoMessage) String() string {
 
 // NewBCInfoCmd represents the bc info command
 func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
-	bcInfoCmdShort, _ := client.SelectTranslation(bcInfoCmdShorts)
+	bcInfoCmdShort, _ := client.SelectTranslation(_bcInfoCmdShorts)
 
 	var endpoint string
 	var insecure bool
@@ -72,8 +72,8 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 		},
 	}
 
-	flagEndpointUsage, _ := client.SelectTranslation(flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(flagInsecureUsages)
+	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
+	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
 	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)

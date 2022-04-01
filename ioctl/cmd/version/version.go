@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -24,19 +24,19 @@ import (
 
 // Multi-language support
 var (
-	versionCmdUses = map[config.Language]string{
+	_versionCmdUses = map[config.Language]string{
 		config.English: "version",
 		config.Chinese: "version",
 	}
-	versionCmdShorts = map[config.Language]string{
+	_versionCmdShorts = map[config.Language]string{
 		config.English: "Print the version of ioctl and node",
 		config.Chinese: "打印ioctl和节点的版本",
 	}
-	flagEndpointUsage = map[config.Language]string{
+	_flagEndpointUsage = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecureUsage = map[config.Language]string{
+	_flagInsecureUsage = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
 	}
@@ -44,8 +44,8 @@ var (
 
 // VersionCmd represents the version command
 var VersionCmd = &cobra.Command{
-	Use:   config.TranslateInLang(versionCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(versionCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(_versionCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_versionCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -61,9 +61,9 @@ type versionMessage struct {
 
 func init() {
 	VersionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsage, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpointUsage, config.UILanguage))
 	VersionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		config.TranslateInLang(flagInsecureUsage, config.UILanguage))
+		config.TranslateInLang(_flagInsecureUsage, config.UILanguage))
 }
 
 func version() error {

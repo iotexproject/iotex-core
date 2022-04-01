@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -258,7 +258,7 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 }
 
 func sortAndPrint(message *delegatesMessage) error {
-	if allFlag.Value() == false && len(message.Delegates) > _defaultDelegateNum {
+	if _allFlag.Value() == false && len(message.Delegates) > _defaultDelegateNum {
 		message.Delegates = message.Delegates[:_defaultDelegateNum]
 		fmt.Println(message.String())
 		return nil

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -17,20 +17,20 @@ import (
 
 // Multi-language support
 var (
-	deployBytecodeCmdUses = map[config.Language]string{
+	_deployBytecodeCmdUses = map[config.Language]string{
 		config.English: "bytecode BYTECODE [ABI_PATH INIT_INPUT] [--init-amount AMOUNT_IOTX]",
 		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化输入] [--init-amount IOTX数量]",
 	}
-	deployBytecodeCmdShorts = map[config.Language]string{
+	_deployBytecodeCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bytecode on IoTeX blockchain",
 		config.Chinese: "deploy 使用 bytecode 文件方式在 IoTex区块链上部署智能合约",
 	}
 )
 
-// contractDeployBytecodeCmd represents the contract deploy bytecode command
-var contractDeployBytecodeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deployBytecodeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(deployBytecodeCmdShorts, config.UILanguage),
+// _contractDeployBytecodeCmd represents the contract deploy bytecode command
+var _contractDeployBytecodeCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_deployBytecodeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_deployBytecodeCmdShorts, config.UILanguage),
 	Args:  util.CheckArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -40,7 +40,7 @@ var contractDeployBytecodeCmd = &cobra.Command{
 }
 
 func init() {
-	initialAmountFlag.RegisterCommand(contractDeployBytecodeCmd)
+	_initialAmountFlag.RegisterCommand(_contractDeployBytecodeCmd)
 }
 
 func contractDeployBytecode(args []string) error {
@@ -63,7 +63,7 @@ func contractDeployBytecode(args []string) error {
 		bytecode = append(bytecode, packedArg...)
 	}
 
-	amount, err := util.StringToRau(initialAmountFlag.Value().(string), util.IotxDecimalNum)
+	amount, err := util.StringToRau(_initialAmountFlag.Value().(string), util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.FlagError, "invalid amount", err)
 	}
