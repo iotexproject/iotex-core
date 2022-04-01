@@ -151,17 +151,18 @@ func (svr *Web3Server) Stop(_ context.Context) error {
 }
 
 func (svr *Web3Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case "POST":
-		httpResp := svr.handlePOSTReq(req)
-
-		// write results into http reponse
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		if err := json.NewEncoder(w).Encode(httpResp); err != nil {
-			log.L().Warn("fail to respond request.")
-		}
-	default:
+	if req.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	httpResp := svr.handlePOSTReq(req)
+
+	// write results into http reponse
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	if err := json.NewEncoder(w).Encode(httpResp); err != nil {
+		log.L().Warn("fail to respond request.")
 	}
 }
 
