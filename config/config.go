@@ -36,7 +36,7 @@ import (
 
 var (
 	_evmNetworkID uint32
-	loadChainID   sync.Once
+	_loadChainID  sync.Once
 )
 
 const (
@@ -466,7 +466,7 @@ func NewSub(configPaths []string, validates ...Validate) (Config, error) {
 
 // SetEVMNetworkID sets the extern chain ID
 func SetEVMNetworkID(id uint32) {
-	loadChainID.Do(func() {
+	_loadChainID.Do(func() {
 		_evmNetworkID = id
 	})
 }

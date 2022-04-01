@@ -18,20 +18,20 @@ import (
 
 // Multi-language support
 var (
-	nonceCmdShorts = map[config.Language]string{
+	_nonceCmdShorts = map[config.Language]string{
 		config.English: "Get nonce of an account",
 		config.Chinese: "获取账户的nonce值",
 	}
-	nonceCmdUses = map[config.Language]string{
+	_nonceCmdUses = map[config.Language]string{
 		config.English: "nonce [ALIAS|ADDRESS]",
 		config.Chinese: "nonce [别名|地址]",
 	}
 )
 
-// accountNonceCmd represents the account nonce command
-var accountNonceCmd = &cobra.Command{
-	Use:   config.TranslateInLang(nonceCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(nonceCmdShorts, config.UILanguage),
+// _accountNonceCmd represents the account nonce command
+var _accountNonceCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_nonceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_nonceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

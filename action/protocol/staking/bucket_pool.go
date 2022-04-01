@@ -156,7 +156,7 @@ func (bp *BucketPool) Sync(sm protocol.StateManager) error {
 		return err
 	}
 	// get stashed total amount
-	err := sm.Unload(protocolID, _stakingBucketPool, bp.total)
+	err := sm.Unload(_protocolID, _stakingBucketPool, bp.total)
 	if err != nil && err != protocol.ErrNoName {
 		return err
 	}
@@ -178,7 +178,7 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
-	return sm.Load(protocolID, _stakingBucketPool, bp.total)
+	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
 }
 
 // DebitPool adds staked amount into the pool
@@ -188,5 +188,5 @@ func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBu
 		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
-	return sm.Load(protocolID, _stakingBucketPool, bp.total)
+	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
 }

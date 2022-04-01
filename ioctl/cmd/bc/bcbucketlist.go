@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	validMethods = []string{
+	_validMethods = []string{
 		_bucketlistMethodByVoter,
 		_bucketlistMethodByCandidate,
 	}
@@ -34,27 +34,27 @@ var (
 
 // Multi-language support
 var (
-	bcBucketListCmdShorts = map[config.Language]string{
+	_bcBucketListCmdShorts = map[config.Language]string{
 		config.English: "Get bucket list with method and arg(s) on IoTeX blockchain",
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表",
 	}
-	bcBucketListCmdUses = map[config.Language]string{
+	_bcBucketListCmdUses = map[config.Language]string{
 		config.English: "bucketlist <method> [arguments]",
 		config.Chinese: "bucketlist <方法> [参数]",
 	}
-	bcBucketListCmdLongs = map[config.Language]string{
+	_bcBucketListCmdLongs = map[config.Language]string{
 		config.English: "Read bucket list\nValid methods: [" +
-			strings.Join(validMethods, ", ") + "]",
+			strings.Join(_validMethods, ", ") + "]",
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表\n可用方法有：" +
-			strings.Join(validMethods, "，"),
+			strings.Join(_validMethods, "，"),
 	}
 )
 
-// bcBucketListCmd represents the bc bucketlist command
-var bcBucketListCmd = &cobra.Command{
-	Use:   config.TranslateInLang(bcBucketListCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(bcBucketListCmdShorts, config.UILanguage),
-	Long:  config.TranslateInLang(bcBucketListCmdLongs, config.UILanguage),
+// _bcBucketListCmd represents the bc bucketlist command
+var _bcBucketListCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_bcBucketListCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_bcBucketListCmdShorts, config.UILanguage),
+	Long:  config.TranslateInLang(_bcBucketListCmdLongs, config.UILanguage),
 	Args:  cobra.MinimumNArgs(2),
 	Example: `ioctl bc bucketlist voter [VOTER_ADDRESS] [OFFSET] [LIMIT]
 ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
