@@ -22,24 +22,24 @@ var numAccounts uint
 
 // Multi-language support
 var (
-	createCmdShorts = map[config.Language]string{
+	_createCmdShorts = map[config.Language]string{
 		config.English: "Create N new accounts and print them",
 		config.Chinese: "创建 N 个新账户，并打印",
 	}
-	createCmdUses = map[config.Language]string{
+	_createCmdUses = map[config.Language]string{
 		config.English: "create",
 		config.Chinese: "create 创建",
 	}
-	flagNumUsages = map[config.Language]string{
+	_flagNumUsages = map[config.Language]string{
 		config.English: "number of accounts to create",
 		config.Chinese: "指定创建账户的数量",
 	}
 )
 
-// accountCreateCmd represents the account create command
-var accountCreateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(createCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(createCmdShorts, config.UILanguage),
+// _accountCreateCmd represents the account create command
+var _accountCreateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_createCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_createCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -60,8 +60,8 @@ type generatedAccount struct {
 }
 
 func init() {
-	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1,
-		config.TranslateInLang(flagNumUsages, config.UILanguage))
+	_accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1,
+		config.TranslateInLang(_flagNumUsages, config.UILanguage))
 }
 
 func accountCreate() error {

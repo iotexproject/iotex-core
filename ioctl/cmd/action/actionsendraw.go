@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,20 +20,20 @@ import (
 
 // Multi-language support
 var (
-	sendRawCmdShorts = map[config.Language]string{
+	_sendRawCmdShorts = map[config.Language]string{
 		config.English: "Send raw action on IoTeX blokchain",
 		config.Chinese: "在IoTeX区块链上发送原始行为",
 	}
-	sendRawCmdUses = map[config.Language]string{
+	_sendRawCmdUses = map[config.Language]string{
 		config.English: "sendraw DATA [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "sendraw 数据 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 
-// actionSendRawCmd represents the action send raw transaction command
-var actionSendRawCmd = &cobra.Command{
-	Use:   config.TranslateInLang(sendRawCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(sendRawCmdShorts, config.UILanguage),
+// _actionSendRawCmd represents the action send raw transaction command
+var _actionSendRawCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_sendRawCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_sendRawCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -43,7 +43,7 @@ var actionSendRawCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(actionSendRawCmd)
+	RegisterWriteCommand(_actionSendRawCmd)
 }
 
 func sendRaw(arg string) error {

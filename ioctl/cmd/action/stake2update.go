@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -18,21 +18,21 @@ import (
 
 // Multi-language support
 var (
-	stake2UpdateCmdUses = map[config.Language]string{
+	_stake2UpdateCmdUses = map[config.Language]string{
 		config.English: "update NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS)" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "update 名字 (别名|操作者地址) (别名|奖励地址)" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
-	stake2UpdateCmdShorts = map[config.Language]string{
+	_stake2UpdateCmdShorts = map[config.Language]string{
 		config.English: "Update candidate on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上更新候选人",
 	}
 )
 
-var stake2UpdateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(stake2UpdateCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(stake2UpdateCmdShorts, config.UILanguage),
+var _stake2UpdateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_stake2UpdateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_stake2UpdateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -42,7 +42,7 @@ var stake2UpdateCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(stake2UpdateCmd)
+	RegisterWriteCommand(_stake2UpdateCmd)
 }
 
 func stake2Update(args []string) error {
@@ -65,7 +65,7 @@ func stake2Update(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
 
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.CandidateUpdateBaseIntrinsicGas
 	}

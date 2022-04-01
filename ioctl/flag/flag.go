@@ -14,12 +14,12 @@ import (
 
 // vars
 var (
-	flagWithArgumentsUsage = map[config.Language]string{
+	_flagWithArgumentsUsage = map[config.Language]string{
 		config.English: "pass arguments in JSON format",
 		config.Chinese: "按照JSON格式传入参数",
 	}
 	WithArgumentsFlag = NewStringVar("with-arguments", "",
-		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
+		config.TranslateInLang(_flagWithArgumentsUsage, config.UILanguage))
 )
 
 type (

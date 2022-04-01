@@ -41,20 +41,20 @@ type (
 
 // Multi-language support
 var (
-	actionsCmdShorts = map[config.Language]string{
+	_actionsCmdShorts = map[config.Language]string{
 		config.English: "Show the list of actions for an account",
 		config.Chinese: "显示账户的操作列表",
 	}
-	actionsCmdUses = map[config.Language]string{
+	_actionsCmdUses = map[config.Language]string{
 		config.English: "actions (ALIAS|ADDRESS)  [SKIP]",
 		config.Chinese: "actions (ALIAS|ADDRESS)  [SKIP]",
 	}
 )
 
-// accountActionsCmd represents the account sign command
-var accountActionsCmd = &cobra.Command{
-	Use:   config.TranslateInLang(actionsCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(actionsCmdShorts, config.UILanguage),
+// _accountActionsCmd represents the account sign command
+var _accountActionsCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_actionsCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_actionsCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

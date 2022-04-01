@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -21,20 +21,20 @@ import (
 
 // Multi-language support
 var (
-	hdwalletExportCmdShorts = map[config.Language]string{
+	_hdwalletExportCmdShorts = map[config.Language]string{
 		config.English: "export hdwallet mnemonic using password",
 		config.Chinese: "通过密码导出钱包助记词",
 	}
-	hdwalletExportCmdUses = map[config.Language]string{
+	_hdwalletExportCmdUses = map[config.Language]string{
 		config.English: "export",
 		config.Chinese: "export 导出",
 	}
 )
 
-// hdwalletExportCmd represents the hdwallet export command
-var hdwalletExportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hdwalletExportCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hdwalletExportCmdShorts, config.UILanguage),
+// _hdwalletExportCmd represents the hdwallet export command
+var _hdwalletExportCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_hdwalletExportCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_hdwalletExportCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -44,7 +44,7 @@ var hdwalletExportCmd = &cobra.Command{
 }
 
 func hdwalletExport() error {
-	if !fileutil.FileExists(hdWalletConfigFile) {
+	if !fileutil.FileExists(_hdWalletConfigFile) {
 		output.PrintResult("Run 'ioctl hdwallet create' to create your HDWallet first.")
 		return nil
 	}
@@ -55,7 +55,7 @@ func hdwalletExport() error {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
 
-	enctxt, err := os.ReadFile(hdWalletConfigFile)
+	enctxt, err := os.ReadFile(_hdWalletConfigFile)
 	if err != nil {
 		return output.NewError(output.InputError, "failed to read config", err)
 	}

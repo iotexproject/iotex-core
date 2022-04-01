@@ -29,7 +29,7 @@ const (
 	// CandidateRegisterBaseIntrinsicGas represents the base intrinsic gas for CandidateRegister
 	CandidateRegisterBaseIntrinsicGas = uint64(10000)
 
-	candidateRegisterInterfaceABI = `[
+	_candidateRegisterInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -104,7 +104,7 @@ type CandidateRegister struct {
 }
 
 func init() {
-	candidateRegisterInterface, err := abi.JSON(strings.NewReader(candidateRegisterInterfaceABI))
+	candidateRegisterInterface, err := abi.JSON(strings.NewReader(_candidateRegisterInterfaceABI))
 	if err != nil {
 		panic(err)
 	}

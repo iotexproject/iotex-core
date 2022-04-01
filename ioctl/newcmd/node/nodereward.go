@@ -24,15 +24,15 @@ import (
 
 // Multi-language support
 var (
-	rewardUses = map[config.Language]string{
+	_rewardUses = map[config.Language]string{
 		config.English: "reward [ALIAS|DELEGATE_ADDRESS]",
 		config.Chinese: "reward [别名|委托地址]",
 	}
-	rewardShorts = map[config.Language]string{
+	_rewardShorts = map[config.Language]string{
 		config.English: "Query rewards",
 		config.Chinese: "查询奖励",
 	}
-	rewardPoolMessageTranslations = map[config.Language]string{
+	_rewardPoolMessageTranslations = map[config.Language]string{
 		config.English: "Available Reward: %s IOTX   Total Reward: %s IOTX",
 		config.Chinese: "可用奖金: %s IOTX   总奖金: %s IOTX",
 	}
@@ -43,9 +43,9 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
 
-	use, _ := c.SelectTranslation(rewardUses)
-	short, _ := c.SelectTranslation(rewardShorts)
-	rewardPoolMessageTranslation, _ := c.SelectTranslation(rewardPoolMessageTranslations)
+	use, _ := c.SelectTranslation(_rewardUses)
+	short, _ := c.SelectTranslation(_rewardShorts)
+	rewardPoolMessageTranslation, _ := c.SelectTranslation(_rewardPoolMessageTranslations)
 	nc := &cobra.Command{
 		Use:   use,
 		Short: short,

@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const abiConst = `[
+const _abiConst = `[
 	{
 		"constant": false,
 		"inputs": [
@@ -184,11 +184,11 @@ const abiConst = `[
 	}
 ]`
 
-var xrc20ABI abi.ABI
+var _xrc20ABI abi.ABI
 
 func init() {
 	var err error
-	xrc20ABI, err = abi.JSON(strings.NewReader(abiConst))
+	_xrc20ABI, err = abi.JSON(strings.NewReader(_abiConst))
 	if err != nil {
 		log.L().Panic("cannot get abi JSON data", zap.Error(err))
 	}

@@ -30,7 +30,7 @@ const (
 	// ReclaimStakeBaseIntrinsicGas represents the base intrinsic gas for stake reclaim
 	ReclaimStakeBaseIntrinsicGas = uint64(10000)
 
-	reclaimStakeInterfaceABI = `[
+	_reclaimStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -78,7 +78,7 @@ var (
 )
 
 func init() {
-	reclaimStakeInterface, err := abi.JSON(strings.NewReader(reclaimStakeInterfaceABI))
+	reclaimStakeInterface, err := abi.JSON(strings.NewReader(_reclaimStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}

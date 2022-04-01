@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,28 +20,28 @@ import (
 
 // Multi-language support
 var (
-	importCmdShorts = map[config.Language]string{
+	_importCmdShorts = map[config.Language]string{
 		config.English: "Import aliases",
 		config.Chinese: "导入别名",
 	}
-	importCmdUses = map[config.Language]string{
+	_importCmdUses = map[config.Language]string{
 		config.English: "import 'DATA'",
 		config.Chinese: "import '数据'",
 	}
-	flagImportFormatUsages = map[config.Language]string{
+	_flagImportFormatUsages = map[config.Language]string{
 		config.English: "set format: json/yaml",
 		config.Chinese: "设置格式：json / yaml",
 	}
-	flagForceImportUsages = map[config.Language]string{
+	_flagForceImportUsages = map[config.Language]string{
 		config.English: "override existing aliases",
 		config.Chinese: "覆盖现有别名",
 	}
 )
 
-// aliasImportCmd represents the alias import command
-var aliasImportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(importCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
+// _aliasImportCmd represents the alias import command
+var _aliasImportCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_importCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_importCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -58,17 +58,17 @@ type importMessage struct {
 }
 
 func init() {
-	aliasImportCmd.Flags().StringVarP(&format,
-		"format=", "f", "json", config.TranslateInLang(flagImportFormatUsages, config.UILanguage))
-	aliasImportCmd.Flags().BoolVarP(&forceImport,
-		"force-import", "F", false, config.TranslateInLang(flagForceImportUsages, config.UILanguage))
+	_aliasImportCmd.Flags().StringVarP(&_format,
+		"format=", "f", "json", config.TranslateInLang(_flagImportFormatUsages, config.UILanguage))
+	_aliasImportCmd.Flags().BoolVarP(&_forceImport,
+		"force-import", "F", false, config.TranslateInLang(_flagForceImportUsages, config.UILanguage))
 }
 
 func aliasImport(cmd *cobra.Command, args []string) error {
 	var importedAliases aliases
-	switch format {
+	switch _format {
 	default:
-		return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag %s", format), nil)
+		return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag %s", _format), nil)
 	case "json":
 		if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
 			return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
@@ -81,7 +81,7 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 	aliases := GetAliasMap()
 	message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 	for _, importedAlias := range importedAliases.Aliases {
-		if !forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
+		if !_forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
 			message.Unimported = append(message.Unimported, importedAlias)
 			continue
 		}
