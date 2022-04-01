@@ -100,12 +100,20 @@ func BenchmarkLogsInRange(b *testing.B) {
 	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
+	ctrl := gomock.NewController(b)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	
 	testData := &filterObject{FromBlock: "0x1"}
 	filter, _ := getTopicsAddress(testData.Address, testData.Topics)
 	from, _ := strconv.ParseInt(testData.FromBlock, 10, 64)
 	to, _ := strconv.ParseInt(testData.ToBlock, 10, 64)
 
 	b.Run("five workers to extract logs", func(b *testing.B) {
+		core.EXPECT().LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0)).DoAndReturn(func(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+			logs, _ := svr.web3Server.coreService.LogsInRange(filter, start, end, paginationSize)
+			return logs, nil
+		}).AnyTimes()
 		for i := 0; i < b.N; i++ {
 			svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), uint64(from), uint64(to), uint64(0))
 		}
