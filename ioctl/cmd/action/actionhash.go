@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -33,20 +33,20 @@ import (
 
 // Multi-language support
 var (
-	hashCmdShorts = map[config.Language]string{
+	_hashCmdShorts = map[config.Language]string{
 		config.English: "Get action by hash",
 		config.Chinese: "依据哈希值，获取交易",
 	}
-	hashCmdUses = map[config.Language]string{
+	_hashCmdUses = map[config.Language]string{
 		config.English: "hash ACTION_HASH",
 		config.Chinese: "hash 交易哈希",
 	}
 )
 
-// actionHashCmd represents the action hash command
-var actionHashCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hashCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hashCmdShorts, config.UILanguage),
+// _actionHashCmd represents the action hash command
+var _actionHashCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_hashCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_hashCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

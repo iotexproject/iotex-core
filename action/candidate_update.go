@@ -27,7 +27,7 @@ const (
 	// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
 	CandidateUpdateBaseIntrinsicGas = uint64(10000)
 
-	candidateUpdateInterfaceABI = `[
+	_candidateUpdateInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -69,12 +69,12 @@ type CandidateUpdate struct {
 }
 
 func init() {
-	candidateUpdateInterface, err := abi.JSON(strings.NewReader(candidateUpdateInterfaceABI))
+	_candidateUpdateInterface, err := abi.JSON(strings.NewReader(_candidateUpdateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_candidateUpdateMethod, ok = candidateUpdateInterface.Methods["candidateUpdate"]
+	_candidateUpdateMethod, ok = _candidateUpdateInterface.Methods["candidateUpdate"]
 	if !ok {
 		panic("fail to load the method")
 	}

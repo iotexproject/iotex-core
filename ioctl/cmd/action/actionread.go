@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -16,20 +16,20 @@ import (
 
 // Multi-language support
 var (
-	readCmdShorts = map[config.Language]string{
+	_readCmdShorts = map[config.Language]string{
 		config.English: "read smart contract on IoTeX blockchain",
 		config.Chinese: "读取IoTeX区块链上的智能合约",
 	}
-	readCmdUses = map[config.Language]string{
+	_readCmdUses = map[config.Language]string{
 		config.English: "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
 		config.Chinese: "reads (别名|联系人地址) -b 类型码 [-s 签署人]",
 	}
 )
 
-// actionReadCmd represents the action Read command
-var actionReadCmd = &cobra.Command{
-	Use:   config.TranslateInLang(readCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(readCmdShorts, config.UILanguage),
+// _actionReadCmd represents the action Read command
+var _actionReadCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_readCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_readCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -39,9 +39,9 @@ var actionReadCmd = &cobra.Command{
 }
 
 func init() {
-	signerFlag.RegisterCommand(actionReadCmd)
-	bytecodeFlag.RegisterCommand(actionReadCmd)
-	bytecodeFlag.MarkFlagRequired(actionReadCmd)
+	_signerFlag.RegisterCommand(_actionReadCmd)
+	_bytecodeFlag.RegisterCommand(_actionReadCmd)
+	_bytecodeFlag.MarkFlagRequired(_actionReadCmd)
 }
 
 func read(arg string) error {

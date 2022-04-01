@@ -79,7 +79,7 @@ func TestBucketPool(t *testing.T) {
 
 	view, _, err := CreateBaseView(sm, false)
 	r.NoError(err)
-	sm.WriteView(protocolID, view)
+	sm.WriteView(_protocolID, view)
 	pool = view.bucketPool
 	total := big.NewInt(40000)
 	count := uint64(4)

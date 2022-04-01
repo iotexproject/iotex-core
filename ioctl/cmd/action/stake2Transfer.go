@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,23 +20,23 @@ import (
 
 // Multi-language support
 var (
-	stake2TransferCmdUses = map[config.Language]string{
+	_stake2TransferCmdUses = map[config.Language]string{
 		config.English: "transfer (ALIAS|VOTE_ADDRESS) BUCKET_INDEX [DATA]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "transfer (别名|投票地址) 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
-	stake2TransferCmdShorts = map[config.Language]string{
+	_stake2TransferCmdShorts = map[config.Language]string{
 		config.English: "Transfer bucket ownership on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上转移投票所有权",
 	}
 )
 
-// stake2TransferCmd represents the stake2 transfer command
-var stake2TransferCmd = &cobra.Command{
-	Use:   config.TranslateInLang(stake2TransferCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(stake2TransferCmdShorts, config.UILanguage),
+// _stake2TransferCmd represents the stake2 transfer command
+var _stake2TransferCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_stake2TransferCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_stake2TransferCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -47,7 +47,7 @@ var stake2TransferCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(stake2TransferCmd)
+	RegisterWriteCommand(_stake2TransferCmd)
 }
 
 func stake2Transfer(args []string) error {
@@ -74,7 +74,7 @@ func stake2Transfer(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
 
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.MoveStakeBaseIntrinsicGas +
 			action.MoveStakePayloadGas*uint64(len(payload))

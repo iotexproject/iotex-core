@@ -158,7 +158,7 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	}
 
 	// load change to sm
-	return csm.Load(protocolID, stakingCandCenter, &delta)
+	return csm.StateManager.Load(_protocolID, _stakingCandCenter, &delta)
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {
@@ -179,7 +179,7 @@ func (csm *candSM) Commit() error {
 	}
 
 	// write updated view back to state factory
-	return csm.WriteView(protocolID, csm.DirtyView())
+	return csm.WriteView(_protocolID, csm.DirtyView())
 }
 
 func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {

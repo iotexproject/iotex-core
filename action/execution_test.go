@@ -27,7 +27,8 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NoError(err)
 	ex, err := NewExecution(contractAddr.String(), 2, big.NewInt(10), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
-	require.Nil(ex.srcPubkey)
+	require.EqualValues(21, ex.BasicActionSize())
+	require.EqualValues(87, ex.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(ex.nonce).
@@ -42,12 +43,13 @@ func TestExecutionSignVerify(t *testing.T) {
 	ex2, ok := w.Envelope.Action().(*Execution)
 	require.True(ok)
 	require.Equal(ex, ex2)
-	require.NotNil(ex.srcPubkey)
 
 	// sign the Execution
 	selp, err := Sign(elp, executorKey)
 	require.NoError(err)
 	require.NotNil(selp)
+	require.EqualValues(21, ex.BasicActionSize())
+	require.EqualValues(87, ex.TotalSize())
 
 	// verify signature
 	require.NoError(selp.VerifySignature())

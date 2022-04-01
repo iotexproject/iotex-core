@@ -19,19 +19,19 @@ import (
 
 // Multi-language support
 var (
-	shorts = map[config.Language]string{
+	_shorts = map[config.Language]string{
 		config.English: "Export aliases to either json or yaml format",
 		config.Chinese: "以json或yaml格式导出别名",
 	}
-	uses = map[config.Language]string{
+	_uses = map[config.Language]string{
 		config.English: "export",
 		config.Chinese: "export",
 	}
-	flagUsages = map[config.Language]string{
+	_flagUsages = map[config.Language]string{
 		config.English: "set format: json/yaml",
 		config.Chinese: "设置格式：json / yaml",
 	}
-	invalidFlag = map[config.Language]string{
+	_invalidFlag = map[config.Language]string{
 		config.English: "invalid flag %s",
 		config.Chinese: "不可用的flag参数 %s",
 	}
@@ -41,10 +41,10 @@ var (
 func NewAliasExport(c ioctl.Client) *cobra.Command {
 	var format string
 
-	use, _ := c.SelectTranslation(uses)
-	short, _ := c.SelectTranslation(shorts)
-	flagUsage, _ := c.SelectTranslation(flagUsages)
-	invalidFlag, _ := c.SelectTranslation(invalidFlag)
+	use, _ := c.SelectTranslation(_uses)
+	short, _ := c.SelectTranslation(_shorts)
+	flagUsage, _ := c.SelectTranslation(_flagUsages)
+	_invalidFlag, _ := c.SelectTranslation(_invalidFlag)
 	ec := &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -61,7 +61,7 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 
 			default:
 				cmd.SilenceUsage = false
-				return fmt.Errorf(invalidFlag, format)
+				return fmt.Errorf(_invalidFlag, format)
 			case "json":
 				output, err := json.Marshal(exportAliases)
 				if err != nil {

@@ -21,11 +21,11 @@ import (
 
 // Multi-language support
 var (
-	ethaddrCmdShorts = map[config.Language]string{
+	_ethaddrCmdShorts = map[config.Language]string{
 		config.English: "Translate address between IOTX and ETH",
 		config.Chinese: "在IOTX和ETH间转换地址",
 	}
-	ethaddrCmdUses = map[config.Language]string{
+	_ethaddrCmdUses = map[config.Language]string{
 		config.English: "ethaddr (ALIAS|IOTEX_ADDRESS|ETH_ADDRESS)",
 		config.Chinese: "ethaddr (别名|IOTEX_地址|ETH_地址)",
 	}
@@ -33,8 +33,8 @@ var (
 
 // NewAccountEthAddr represents the account ethaddr command
 func NewAccountEthAddr(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(ethaddrCmdUses)
-	short, _ := client.SelectTranslation(ethaddrCmdShorts)
+	use, _ := client.SelectTranslation(_ethaddrCmdUses)
+	short, _ := client.SelectTranslation(_ethaddrCmdShorts)
 
 	return &cobra.Command{
 		Use:   use,

@@ -22,11 +22,11 @@ import (
 
 // Multi-language support
 var (
-	updateCmdShorts = map[config.Language]string{
+	_updateCmdShorts = map[config.Language]string{
 		config.English: "Update password for IoTeX account",
 		config.Chinese: "为IoTeX账户更新密码",
 	}
-	updateCmdUses = map[config.Language]string{
+	_updateCmdUses = map[config.Language]string{
 		config.English: "update [ALIAS|ADDRESS]",
 		config.Chinese: "update [别名|地址]",
 	}
@@ -34,8 +34,8 @@ var (
 
 // NewAccountUpdate represents the account update command
 func NewAccountUpdate(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(updateCmdShorts)
-	short, _ := client.SelectTranslation(updateCmdUses)
+	use, _ := client.SelectTranslation(_updateCmdShorts)
+	short, _ := client.SelectTranslation(_updateCmdUses)
 
 	return &cobra.Command{
 		Use:   use,

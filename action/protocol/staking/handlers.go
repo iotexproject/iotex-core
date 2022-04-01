@@ -864,7 +864,7 @@ func BucketIndexFromReceiptLog(log *iotextypes.Log) (uint64, bool) {
 		return 0, false
 	}
 
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, _ := address.FromBytes(h[:])
 	if log.ContractAddress != addr.String() {
 		return 0, false

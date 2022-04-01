@@ -13,15 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestActionBuilder(t *testing.T) {
-	srcPubKey := identityset.PrivateKey(27).PublicKey()
 	bd := &Builder{}
 	act := bd.SetVersion(version.ProtocolVersion).
 		SetNonce(2).
-		SetSourcePublicKey(srcPubKey).
 		SetGasLimit(10003).
 		SetGasPrice(big.NewInt(10004)).
 		Build()
