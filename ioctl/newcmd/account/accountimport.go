@@ -71,7 +71,7 @@ func NewAccountImportCmd(client ioctl.Client) *cobra.Command {
 	return accountImportCmd
 }
 
-// NewAccountImportKeyStoreCmd represents the account import key command
+// NewAccountImportKeyCmd represents the account import key command
 func NewAccountImportKeyCmd(client ioctl.Client) *cobra.Command {
 	importKeyUses, _ := client.SelectTranslation(importKeyCmdUses)
 	importKeyShorts, _ := client.SelectTranslation(importKeyCmdShorts)
