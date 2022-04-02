@@ -37,19 +37,19 @@ import (
 
 // Multi-language support
 var (
-	accountCmdShorts = map[config.Language]string{
+	_accountCmdShorts = map[config.Language]string{
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
 	}
-	accountCmdUses = map[config.Language]string{
+	_accountCmdUses = map[config.Language]string{
 		config.English: "account",
 		config.Chinese: "账户",
 	}
-	flagEndpoint = map[config.Language]string{
+	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecure = map[config.Language]string{
+	_flagInsecure = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全连接",
 	}
@@ -65,29 +65,29 @@ var CryptoSm2 bool
 
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
-	Use:   config.TranslateInLang(accountCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(accountCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(_accountCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_accountCmdShorts, config.UILanguage),
 }
 
 func init() {
 	AccountCmd.AddCommand(accountBalanceCmd)
-	AccountCmd.AddCommand(accountCreateCmd)
-	AccountCmd.AddCommand(accountCreateAddCmd)
-	AccountCmd.AddCommand(accountDeleteCmd)
-	AccountCmd.AddCommand(accountEthaddrCmd)
-	AccountCmd.AddCommand(accountExportCmd)
-	AccountCmd.AddCommand(accountExportPublicCmd)
-	AccountCmd.AddCommand(accountImportCmd)
-	AccountCmd.AddCommand(accountInfoCmd)
-	AccountCmd.AddCommand(accountListCmd)
-	AccountCmd.AddCommand(accountNonceCmd)
-	AccountCmd.AddCommand(accountSignCmd)
-	AccountCmd.AddCommand(accountUpdateCmd)
-	AccountCmd.AddCommand(accountVerifyCmd)
-	AccountCmd.AddCommand(accountActionsCmd)
+	AccountCmd.AddCommand(_accountCreateCmd)
+	AccountCmd.AddCommand(_accountCreateAddCmd)
+	AccountCmd.AddCommand(_accountDeleteCmd)
+	AccountCmd.AddCommand(_accountEthaddrCmd)
+	AccountCmd.AddCommand(_accountExportCmd)
+	AccountCmd.AddCommand(_accountExportPublicCmd)
+	AccountCmd.AddCommand(_accountImportCmd)
+	AccountCmd.AddCommand(_accountInfoCmd)
+	AccountCmd.AddCommand(_accountListCmd)
+	AccountCmd.AddCommand(_accountNonceCmd)
+	AccountCmd.AddCommand(_accountSignCmd)
+	AccountCmd.AddCommand(_accountUpdateCmd)
+	AccountCmd.AddCommand(_accountVerifyCmd)
+	AccountCmd.AddCommand(_accountActionsCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
-	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
+	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
 }
 
 // Sign sign message with signer

@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	// protocolID is the protocol ID
-	protocolID = "staking"
+	// _protocolID is the protocol ID
+	_protocolID = "staking"
 
 	// StakingNameSpace is the bucket name for staking state
 	StakingNameSpace = "Staking"
@@ -88,7 +88,7 @@ type (
 
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	return protocol.HashStringToAddress(protocolID)
+	return protocol.HashStringToAddress(_protocolID)
 }
 
 // Start starts the protocol
@@ -223,7 +223,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); err != nil {
+		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
 			return err
 		}
 	}
@@ -468,17 +468,17 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 
 // Register registers the protocol with a unique ID
 func (p *Protocol) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, p)
+	return r.Register(_protocolID, p)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, p)
+	return r.ForceRegister(_protocolID, p)
 }
 
 // Name returns the name of protocol
 func (p *Protocol) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {

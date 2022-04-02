@@ -19,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	verifyCmdShorts = map[config.Language]string{
+	_verifyCmdShorts = map[config.Language]string{
 		config.English: "Verify IoTeX public key and address by private key",
 		config.Chinese: "用私钥验证IoTeX的公钥和地址",
 	}
-	verifyCmdUses = map[config.Language]string{
+	_verifyCmdUses = map[config.Language]string{
 		config.English: "verify",
 		config.Chinese: "verify 验证",
 	}
 )
 var (
-	// accountVerifyCmd represents the account verify command
-	accountVerifyCmd = &cobra.Command{
-		Use:   config.TranslateInLang(verifyCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(verifyCmdShorts, config.UILanguage),
+	// _accountVerifyCmd represents the account verify command
+	_accountVerifyCmd = &cobra.Command{
+		Use:   config.TranslateInLang(_verifyCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(_verifyCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true

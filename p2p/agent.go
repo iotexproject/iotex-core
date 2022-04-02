@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -35,19 +35,19 @@ import (
 )
 
 const (
-	successStr = "success"
-	failureStr = "failure"
+	_successStr = "success"
+	_failureStr = "failure"
 )
 
 var (
-	p2pMsgCounter = prometheus.NewCounterVec(
+	_p2pMsgCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
 		[]string{"protocol", "message", "direction", "peer", "status"},
 	)
-	p2pMsgLatency = prometheus.NewHistogramVec(
+	_p2pMsgLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "iotex_p2p_message_latency",
 			Help:    "message latency",
@@ -60,16 +60,16 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(p2pMsgCounter)
-	prometheus.MustRegister(p2pMsgLatency)
+	prometheus.MustRegister(_p2pMsgCounter)
+	prometheus.MustRegister(_p2pMsgLatency)
 }
 
 const (
 	// TODO: the topic could be fine tuned
-	broadcastTopic    = "broadcast"
-	unicastTopic      = "unicast"
-	numDialRetries    = 8
-	dialRetryInterval = 2 * time.Second
+	_broadcastTopic    = "broadcast"
+	_unicastTopic      = "unicast"
+	_numDialRetries    = 8
+	_dialRetryInterval = 2 * time.Second
 )
 
 type (
@@ -218,7 +218,7 @@ func (p *agent) Start(ctx context.Context) error {
 	}
 
 	p.ctx = ctx
-	if err := host.AddBroadcastPubSub(ctx, broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
+	if err := host.AddBroadcastPubSub(ctx, _broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var (
@@ -232,12 +232,12 @@ func (p *agent) Start(ctx context.Context) error {
 			if skip {
 				return
 			}
-			status := successStr
+			status := _successStr
 			if err != nil {
-				status = failureStr
+				status = _failureStr
 			}
-			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
-			p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
+			_p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
+			_p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &broadcast); err != nil {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -274,7 +274,7 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 
-	if err := host.AddUnicastPubSub(unicastTopic+p.topicSuffix, func(ctx context.Context, _ io.Writer, data []byte) (err error) {
+	if err := host.AddUnicastPubSub(_unicastTopic+p.topicSuffix, func(ctx context.Context, _ io.Writer, data []byte) (err error) {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
 		var (
@@ -283,12 +283,12 @@ func (p *agent) Start(ctx context.Context) error {
 			latency int64
 		)
 		defer func() {
-			status := successStr
+			status := _successStr
 			if err != nil {
-				status = failureStr
+				status = _failureStr
 			}
-			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
-			p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
+			_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
+			_p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
@@ -372,11 +372,11 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	var msgType iotexrpc.MessageType
 	var msgBody []byte
 	defer func() {
-		status := successStr
+		status := _successStr
 		if err != nil {
-			status = failureStr
+			status = _failureStr
 		}
-		p2pMsgCounter.WithLabelValues(
+		_p2pMsgCounter.WithLabelValues(
 			"broadcast",
 			strconv.Itoa(int(msgType)),
 			"out",
@@ -401,7 +401,7 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(p.ctx, broadcastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Broadcast(p.ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
@@ -421,11 +421,11 @@ func (p *agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto
 		msgBody  []byte
 	)
 	defer func() {
-		status := successStr
+		status := _successStr
 		if err != nil {
-			status = failureStr
+			status = _failureStr
 		}
-		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
+		_p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
 
 	msgType, msgBody, err = convertAppMsg(msg)
@@ -446,7 +446,7 @@ func (p *agent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto
 	}
 
 	t := time.Now()
-	if err = host.Unicast(p.ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
+	if err = host.Unicast(p.ctx, peer, _unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		p.qosMetrics.updateSendUnicast(peerName, t, false)
 		return
@@ -507,8 +507,8 @@ func (p *agent) connect(ctx context.Context) error {
 		go func() {
 			if err := exponentialRetry(
 				func() error { return p.host.ConnectWithMultiaddr(ctx, bootAddr) },
-				dialRetryInterval,
-				numDialRetries,
+				_dialRetryInterval,
+				_numDialRetries,
 			); err != nil {
 				err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
 				connErrChan <- err

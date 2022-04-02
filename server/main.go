@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -39,7 +39,7 @@ import (
  * secretPath is the path to the  config file store secret values
  */
 var (
-	genesisPath    string
+	_genesisPath   string
 	_overwritePath string
 	_secretPath    string
 	_subChainPath  string
@@ -58,7 +58,7 @@ func (ss *strs) Set(str string) error {
 }
 
 func init() {
-	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+	flag.StringVar(&_genesisPath, "genesis-path", "", "Genesis path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
@@ -80,7 +80,7 @@ func main() {
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
-	genesisCfg, err := genesis.New(genesisPath)
+	genesisCfg, err := genesis.New(_genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -22,20 +22,20 @@ import (
 
 // Multi-language support
 var (
-	deregisterCmdUses = map[config.Language]string{
+	_deregisterCmdUses = map[config.Language]string{
 		config.English: "deregister (CONTRACT_ADDRESS|ALIAS)",
 		config.Chinese: "deregister (合约地址|别名)",
 	}
-	deregisterCmdShorts = map[config.Language]string{
+	_deregisterCmdShorts = map[config.Language]string{
 		config.English: "Deregister DID on IoTeX blockchain",
 		config.Chinese: "Deregister 在IoTeX链上注销DID",
 	}
 )
 
-// didDeregisterCmd represents the contract invoke deregister command
-var didDeregisterCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deregisterCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(deregisterCmdShorts, config.UILanguage),
+// _didDeregisterCmd represents the contract invoke deregister command
+var _didDeregisterCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_deregisterCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_deregisterCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -45,7 +45,7 @@ var didDeregisterCmd = &cobra.Command{
 }
 
 func init() {
-	action.RegisterWriteCommand(didDeregisterCmd)
+	action.RegisterWriteCommand(_didDeregisterCmd)
 }
 
 func deregisterDID(args []string) (err error) {
@@ -58,11 +58,11 @@ func deregisterDID(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	_, exist := abi.Methods[deregisterDIDName]
+	_, exist := abi.Methods[_deregisterDIDName]
 	if !exist {
 		return errors.New("method is not found")
 	}
-	bytecode, err := abi.Pack(deregisterDIDName)
+	bytecode, err := abi.Pack(_deregisterDIDName)
 	if err != nil {
 		return
 	}

@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	stateDBPath = "stateDB.test"
+	_stateDBPath = "stateDB.test"
 )
 
 func TestGetPutStaking(t *testing.T) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -15,23 +15,23 @@ import (
 
 // Multi-language support
 var (
-	deployCmdShorts = map[config.Language]string{
+	_deployCmdShorts = map[config.Language]string{
 		config.English: "Deploy smart contract on IoTeX blockchain \nWarning: 'ioctl action deploy' has been deprecated, use 'ioctl contract deploy' instead",
 		config.Chinese: "在IoTeX区块链上部署智能合约 \nWarning: 'ioctl action deploy' 已被废弃, 使用 'ioctl contract deploy' 代替",
 	}
-	deployCmdUses = map[config.Language]string{
+	_deployCmdUses = map[config.Language]string{
 		config.English: "deploy [AMOUNT_IOTX] [-s SIGNER] -b BYTE_CODE [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "deploy [IOTX数量] [-s 签署人] -b 类型码 [-n NONCE] [-l GAS限制] [-p GAS价格] [-P" +
 			" 密码] [-y]",
 	}
 )
 
-// actionDeployCmd represents the action deploy command
+// _actionDeployCmd represents the action deploy command
 // Deprecated: notify users to use the new ioctl contract command
 // TODO: this command will be deprecated soon
-var actionDeployCmd = &cobra.Command{
-	Use:                config.TranslateInLang(deployCmdUses, config.UILanguage),
-	Short:              config.TranslateInLang(deployCmdShorts, config.UILanguage),
+var _actionDeployCmd = &cobra.Command{
+	Use:                config.TranslateInLang(_deployCmdUses, config.UILanguage),
+	Short:              config.TranslateInLang(_deployCmdShorts, config.UILanguage),
 	Hidden:             true,
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

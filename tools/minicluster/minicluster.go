@@ -41,8 +41,8 @@ import (
 )
 
 const (
-	numNodes  = 4
-	numAdmins = 2
+	_numNodes  = 4
+	_numAdmins = 2
 )
 
 func main() {
@@ -73,16 +73,16 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
-	admins := chainAddrs[len(chainAddrs)-numAdmins:]
-	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
+	admins := chainAddrs[len(chainAddrs)-_numAdmins:]
+	delegates := chainAddrs[:len(chainAddrs)-_numAdmins]
 
 	dbFilePaths := make([]string, 0)
 	//a flag to indicate whether the DB files should be cleaned up upon completion of the minicluster.
 	deleteDBFiles := false
 
 	// Set mini-cluster configurations
-	configs := make([]config.Config, numNodes)
-	for i := 0; i < numNodes; i++ {
+	configs := make([]config.Config, _numNodes)
+	for i := 0; i < _numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
@@ -120,8 +120,8 @@ func main() {
 	}
 
 	// Create mini-cluster
-	svrs := make([]*itx.Server, numNodes)
-	for i := 0; i < numNodes; i++ {
+	svrs := make([]*itx.Server, _numNodes)
+	for i := 0; i < _numNodes; i++ {
 		svr, err := itx.NewServer(configs[i])
 		if err != nil {
 			log.L().Fatal("Failed to create server.", zap.Error(err))
@@ -140,7 +140,7 @@ func main() {
 	}()
 
 	// Start mini-cluster
-	for i := 0; i < numNodes; i++ {
+	for i := 0; i < _numNodes; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
@@ -296,16 +296,16 @@ func main() {
 			log.L().Error("Not all actions are settled")
 		}
 
-		chains := make([]blockchain.Blockchain, numNodes)
-		sfs := make([]factory.Factory, numNodes)
-		stateHeights := make([]uint64, numNodes)
-		bcHeights := make([]uint64, numNodes)
-		idealHeight := make([]uint64, numNodes)
+		chains := make([]blockchain.Blockchain, _numNodes)
+		sfs := make([]factory.Factory, _numNodes)
+		stateHeights := make([]uint64, _numNodes)
+		bcHeights := make([]uint64, _numNodes)
+		idealHeight := make([]uint64, _numNodes)
 
 		var netTimeout int
 		var minTimeout int
 
-		for i := 0; i < numNodes; i++ {
+		for i := 0; i < _numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 			sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 
@@ -333,8 +333,8 @@ func main() {
 			}
 		}
 
-		for i := 0; i < numNodes; i++ {
-			for j := i + 1; j < numNodes; j++ {
+		for i := 0; i < _numNodes; i++ {
+			for j := i + 1; j < _numNodes; j++ {
 				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
 					log.S().Errorf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j)
 				} else {
@@ -427,9 +427,9 @@ func newConfig(
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
-	cfg.Genesis.Blockchain.NumDelegates = numNodes
+	cfg.Genesis.Blockchain.NumDelegates = _numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
 	return cfg

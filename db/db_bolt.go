@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-const fileMode = 0600
+const _fileMode = 0600
 
 var (
 	// ErrDBNotStarted represents the error when a db has not started
@@ -45,7 +45,7 @@ func NewBoltDB(cfg Config) *BoltDB {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *BoltDB) Start(_ context.Context) error {
-	db, err := bolt.Open(b.path, fileMode, nil)
+	db, err := bolt.Open(b.path, _fileMode, nil)
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
 	}

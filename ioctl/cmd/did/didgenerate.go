@@ -24,20 +24,20 @@ import (
 
 // Multi-language support
 var (
-	generateCmdShorts = map[config.Language]string{
+	_generateCmdShorts = map[config.Language]string{
 		config.English: "Generate DID document using private key from wallet",
 		config.Chinese: "用钱包中的私钥产生DID document",
 	}
-	generateCmdUses = map[config.Language]string{
+	_generateCmdUses = map[config.Language]string{
 		config.English: "generate [-s SIGNER]",
 		config.Chinese: "generate [-s 签署人]",
 	}
 )
 
-// didGenerateCmd represents the generate command
-var didGenerateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(generateCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(generateCmdShorts, config.UILanguage),
+// _didGenerateCmd represents the generate command
+var _didGenerateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_generateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_generateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -47,7 +47,7 @@ var didGenerateCmd = &cobra.Command{
 }
 
 func init() {
-	action.RegisterWriteCommand(didGenerateCmd)
+	action.RegisterWriteCommand(_didGenerateCmd)
 }
 
 func generate() error {

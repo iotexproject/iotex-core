@@ -26,7 +26,7 @@ var (
 )
 
 const (
-	keyDelimiter = "."
+	_keyDelimiter = "."
 )
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
@@ -52,7 +52,7 @@ func (m *memKVStore) Put(namespace string, key, value []byte) error {
 	if _, ok := m.bucket.Get(namespace); !ok {
 		m.bucket.Add(namespace, struct{}{})
 	}
-	m.data.Add(namespace+keyDelimiter+string(key), value)
+	m.data.Add(namespace+_keyDelimiter+string(key), value)
 	return nil
 }
 
@@ -61,7 +61,7 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 	if _, ok := m.bucket.Get(namespace); !ok {
 		return nil, errors.Wrapf(ErrNotExist, "namespace = %x doesn't exist", []byte(namespace))
 	}
-	value, _ := m.data.Get(namespace + keyDelimiter + string(key))
+	value, _ := m.data.Get(namespace + _keyDelimiter + string(key))
 	if value != nil {
 		return value.([]byte), nil
 	}
@@ -77,7 +77,7 @@ func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte
 	start := byteutil.BytesToUint64BigEndian(key)
 	for i := uint64(0); i < count; i++ {
 		key = byteutil.Uint64ToBytesBigEndian(start + i)
-		v, _ := m.data.Get(namespace + keyDelimiter + string(key))
+		v, _ := m.data.Get(namespace + _keyDelimiter + string(key))
 		if v == nil {
 			return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
 		}
@@ -89,7 +89,7 @@ func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte
 
 // Delete deletes a record
 func (m *memKVStore) Delete(namespace string, key []byte) error {
-	m.data.Remove(namespace + keyDelimiter + string(key))
+	m.data.Remove(namespace + _keyDelimiter + string(key))
 	return nil
 }
 

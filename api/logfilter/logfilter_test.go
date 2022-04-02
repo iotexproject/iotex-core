@@ -13,19 +13,19 @@ import (
 )
 
 var (
-	topic1 = hash.Hash256b([]byte("topic1"))
-	topic2 = hash.Hash256b([]byte("topic2"))
-	topicA = hash.Hash256b([]byte("topicA"))
-	topicB = hash.Hash256b([]byte("topicB"))
-	topicN = hash.Hash256b([]byte("topicNotExist"))
+	_topic1 = hash.Hash256b([]byte("_topic1"))
+	_topic2 = hash.Hash256b([]byte("_topic2"))
+	_topicA = hash.Hash256b([]byte("_topicA"))
+	_topicB = hash.Hash256b([]byte("_topicB"))
+	_topicN = hash.Hash256b([]byte("topicNotExist"))
 
-	testFilter = []*iotexapi.LogsFilter{
+	_testFilter = []*iotexapi.LogsFilter{
 		{
 			Address: []string{},
 			Topics:  []*iotexapi.Topics{},
 		},
 		{
-			Address: []string{"topic1", "topic2", "topicA", "topicB"},
+			Address: []string{"_topic1", "_topic2", "_topicA", "_topicB"},
 			Topics:  nil,
 		},
 		{
@@ -33,45 +33,45 @@ var (
 			Topics: []*iotexapi.Topics{
 				{
 					Topic: [][]byte{
-						topic1[:],
-						topic2[:],
+						_topic1[:],
+						_topic2[:],
 					},
 				},
 				{
 					Topic: [][]byte{
-						topicA[:],
-						topicB[:],
+						_topicA[:],
+						_topicB[:],
 					},
 				},
 			},
 		},
 		{
-			Address: []string{"topic1", "topic2"},
+			Address: []string{"_topic1", "_topic2"},
 			Topics: []*iotexapi.Topics{
 				{
 					Topic: [][]byte{
-						topic1[:],
-						topic2[:],
+						_topic1[:],
+						_topic2[:],
 					},
 				},
 				nil,
 			},
 		},
 		{
-			Address: []string{"topicA", "topicB"},
+			Address: []string{"_topicA", "_topicB"},
 			Topics: []*iotexapi.Topics{
 				nil,
 				{
 					Topic: [][]byte{
-						topicA[:],
-						topicB[:],
+						_topicA[:],
+						_topicB[:],
 					},
 				},
 			},
 		},
 	}
 
-	testData = []struct {
+	_testData = []struct {
 		log    *action.Log
 		match  [5]bool
 		exist  [5]bool
@@ -79,8 +79,8 @@ var (
 	}{
 		{
 			&action.Log{
-				Address: "topicN",
-				Topics:  []hash.Hash256{topicN}, // both address and topic not exist
+				Address: "_topicN",
+				Topics:  []hash.Hash256{_topicN}, // both address and topic not exist
 			},
 			[5]bool{true, false, false, false, false},
 			[5]bool{true, true, false, false, false},
@@ -88,8 +88,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topicN",
-				Topics:  []hash.Hash256{topic1, topic2, topicA}, // topic longer than log's topic list
+				Address: "_topicN",
+				Topics:  []hash.Hash256{_topic1, _topic2, _topicA}, // topic longer than log's topic list
 			},
 			[5]bool{true, false, false, false, false},
 			[5]bool{true, true, true, true, true},
@@ -97,8 +97,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topicN",
-				Topics:  []hash.Hash256{topic1, topicN}, // topic not match
+				Address: "_topicN",
+				Topics:  []hash.Hash256{_topic1, _topicN}, // topic not match
 			},
 			[5]bool{true, false, false, false, false},
 			[5]bool{true, true, true, true, false},
@@ -106,8 +106,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topic1",
-				Topics:  []hash.Hash256{topicN}, // topic not exist
+				Address: "_topic1",
+				Topics:  []hash.Hash256{_topicN}, // topic not exist
 			},
 			[5]bool{true, true, false, false, false},
 			[5]bool{true, true, false, false, false},
@@ -115,8 +115,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topic2",
-				Topics:  []hash.Hash256{topicA, topicB}, // topic not match
+				Address: "_topic2",
+				Topics:  []hash.Hash256{_topicA, _topicB}, // topic not match
 			},
 			[5]bool{true, true, false, false, false},
 			[5]bool{true, true, true, false, true},
@@ -124,8 +124,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topicN",
-				Topics:  []hash.Hash256{topic1, topicB},
+				Address: "_topicN",
+				Topics:  []hash.Hash256{_topic1, _topicB},
 			},
 			[5]bool{true, false, true, false, false},
 			[5]bool{true, true, true, true, true},
@@ -133,8 +133,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topicN",
-				Topics:  []hash.Hash256{topic2, topicA},
+				Address: "_topicN",
+				Topics:  []hash.Hash256{_topic2, _topicA},
 			},
 			[5]bool{true, false, true, false, false},
 			[5]bool{true, true, true, true, true},
@@ -142,8 +142,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topic1",
-				Topics:  []hash.Hash256{topic1, topicN},
+				Address: "_topic1",
+				Topics:  []hash.Hash256{_topic1, _topicN},
 			},
 			[5]bool{true, true, false, true, false},
 			[5]bool{true, true, true, true, false},
@@ -151,8 +151,8 @@ var (
 		},
 		{
 			&action.Log{
-				Address: "topicB",
-				Topics:  []hash.Hash256{topicN, topicA},
+				Address: "_topicB",
+				Topics:  []hash.Hash256{_topicN, _topicA},
 			},
 			[5]bool{true, true, false, false, true},
 			[5]bool{true, true, true, false, true},
@@ -164,12 +164,12 @@ var (
 func TestLogFilter_MatchBlock(t *testing.T) {
 	require := require.New(t)
 
-	f := NewLogFilter(testFilter[0], nil, nil)
+	f := NewLogFilter(_testFilter[0], nil, nil)
 	require.True(f.ExistInBloomFilter(nil))
 
-	for i, q := range testFilter {
+	for i, q := range _testFilter {
 		f = NewLogFilter(q, nil, nil)
-		for _, v := range testData {
+		for _, v := range _testData {
 			bloom, err := bloom.NewBloomFilter(2048, 3)
 			require.NoError(err)
 			for _, topic := range v.log.Topics {
@@ -185,12 +185,12 @@ func TestLogFilter_MatchBlock(t *testing.T) {
 func TestLogFilter_ExistInBloomFilterv2(t *testing.T) {
 	require := require.New(t)
 
-	f := NewLogFilter(testFilter[0], nil, nil)
+	f := NewLogFilter(_testFilter[0], nil, nil)
 	require.True(f.ExistInBloomFilterv2(nil))
 
-	for i, q := range testFilter {
+	for i, q := range _testFilter {
 		f = NewLogFilter(q, nil, nil)
-		for _, v := range testData {
+		for _, v := range _testData {
 			bloom, err := bloom.NewBloomFilter(2048, 3)
 			require.NoError(err)
 			bloom.Add([]byte(v.log.Address))

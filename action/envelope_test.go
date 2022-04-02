@@ -32,8 +32,8 @@ func TestEnvelope_Basic(t *testing.T) {
 	req.True(ok)
 	req.Equal(tsf, tsf2)
 
-	evlp.SetNonce(nonce)
-	req.Equal(nonce, evlp.Nonce())
+	evlp.SetNonce(_nonce)
+	req.Equal(_nonce, evlp.Nonce())
 	evlp.SetChainID(tsf.chainID)
 	req.Equal(tsf.chainID, evlp.ChainID())
 }
@@ -67,31 +67,31 @@ func TestEnvelope_Actions(t *testing.T) {
 	candidates := state.CandidateList{}
 	putPollResult := NewPutPollResult(1, 10001, candidates)
 
-	createStake, err := NewCreateStake(uint64(10), addr2, "100", uint32(10000), true, payload, gasLimit, gasPrice)
+	createStake, err := NewCreateStake(uint64(10), _addr2, "100", uint32(10000), true, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), payload, gasLimit, gasPrice)
+	depositToStake, err := NewDepositToStake(1, 2, big.NewInt(10).String(), _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	changeCandidate, err := NewChangeCandidate(1, candidate1Name, 2, payload, gasLimit, gasPrice)
+	changeCandidate, err := NewChangeCandidate(1, _candidate1Name, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	unstake, err := NewUnstake(nonce, 2, payload, gasLimit, gasPrice)
+	unstake, err := NewUnstake(_nonce, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	withdrawStake, err := NewWithdrawStake(nonce, 2, payload, gasLimit, gasPrice)
+	withdrawStake, err := NewWithdrawStake(_nonce, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	restake, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
+	restake, err := NewRestake(_nonce, _index, _duration, _autoStake, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	transferStake, err := NewTransferStake(nonce, cand1Addr, 2, payload, gasLimit, gasPrice)
+	transferStake, err := NewTransferStake(_nonce, _cand1Addr, 2, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	candidateRegister, err := NewCandidateRegister(nonce, candidate1Name, cand1Addr, cand1Addr, cand1Addr, big.NewInt(10).String(), 91, true, payload, gasLimit, gasPrice)
+	candidateRegister, err := NewCandidateRegister(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _cand1Addr, big.NewInt(10).String(), 91, true, _payload, _gasLimit, _gasPrice)
 	require.NoError(err)
 
-	candidateUpdate, err := NewCandidateUpdate(nonce, candidate1Name, cand1Addr, cand1Addr, gasLimit, gasPrice)
+	candidateUpdate, err := NewCandidateUpdate(_nonce, _candidate1Name, _cand1Addr, _cand1Addr, _gasLimit, _gasPrice)
 	require.NoError(err)
 
 	gb := GrantRewardBuilder{}

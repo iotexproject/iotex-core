@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	deployBinCmdUses = map[config.Language]string{
+	_deployBinCmdUses = map[config.Language]string{
 		config.English: "bin BIN_PATH [ABI_PATH INIT_INPUT] [--init-amount AMOUNT_IOTX]",
 		config.Chinese: "bin BIN文件路径 [ABI文件路径 初始化输入] [--init-amount IOTX数量]",
 	}
-	deployBinCmdShorts = map[config.Language]string{
+	_deployBinCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bin on IoTeX blockchain",
 		config.Chinese: "deploy 使用 bin 文件方式在 IoTex区块链上部署智能合约",
 	}
 )
 
-// contractDeployBinCmd represents the contract deploy bin command
-var contractDeployBinCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deployBinCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(deployBinCmdShorts, config.UILanguage),
+// _contractDeployBinCmd represents the contract deploy bin command
+var _contractDeployBinCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_deployBinCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_deployBinCmdShorts, config.UILanguage),
 	Args:  util.CheckArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -42,7 +42,7 @@ var contractDeployBinCmd = &cobra.Command{
 }
 
 func init() {
-	initialAmountFlag.RegisterCommand(contractDeployBinCmd)
+	_initialAmountFlag.RegisterCommand(_contractDeployBinCmd)
 }
 
 func contractDeployBin(args []string) error {
@@ -69,7 +69,7 @@ func contractDeployBin(args []string) error {
 		bytecode = append(bytecode, packedArg...)
 	}
 
-	amount, err := util.StringToRau(initialAmountFlag.Value().(string), util.IotxDecimalNum)
+	amount, err := util.StringToRau(_initialAmountFlag.Value().(string), util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.FlagError, "invalid amount", err)
 	}

@@ -28,15 +28,15 @@ import (
 
 // Multi-language support
 var (
-	bcBlockCmdShorts = map[config.Language]string{
+	_bcBlockCmdShorts = map[config.Language]string{
 		config.English: "Get block from block chain",
 		config.Chinese: "获取IoTeX区块链中的区块",
 	}
-	bcBlockCmdUses = map[config.Language]string{
+	_bcBlockCmdUses = map[config.Language]string{
 		config.English: "block [HEIGHT|HASH] [--verbose]",
 		config.Chinese: "block [高度|哈希] [--verbose]",
 	}
-	flagVerboseUsages = map[config.Language]string{
+	_flagVerboseUsages = map[config.Language]string{
 		config.English: "returns block info and all actions within this block.",
 		config.Chinese: "返回区块信息和区块内的所有事务",
 	}
@@ -44,8 +44,8 @@ var (
 
 // NewBCBlockCmd represents the bc block command
 func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
-	bcBlockCmdUse, _ := client.SelectTranslation(bcBlockCmdUses)
-	bcBlockCmdShort, _ := client.SelectTranslation(bcBlockCmdShorts)
+	bcBlockCmdUse, _ := client.SelectTranslation(_bcBlockCmdUses)
+	bcBlockCmdShort, _ := client.SelectTranslation(_bcBlockCmdShorts)
 
 	var verbose bool
 	var endpoint string
@@ -118,9 +118,9 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 		},
 	}
 
-	flagVerboseUsage, _ := client.SelectTranslation(flagVerboseUsages)
-	flagEndpointUsage, _ := client.SelectTranslation(flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(flagInsecureUsages)
+	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
+	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
+	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, flagVerboseUsage)
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)

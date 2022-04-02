@@ -189,7 +189,7 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) build -t $(USER)/iotex-core:latest .
 
 .PHONY: minicluster
 minicluster:

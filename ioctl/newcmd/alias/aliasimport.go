@@ -21,19 +21,19 @@ import (
 
 // Multi-language support
 var (
-	importShorts = map[config.Language]string{
+	_importShorts = map[config.Language]string{
 		config.English: "Import aliases",
 		config.Chinese: "导入别名",
 	}
-	importUses = map[config.Language]string{
+	_importUses = map[config.Language]string{
 		config.English: "import 'DATA'",
 		config.Chinese: "import '数据'",
 	}
-	flagImportFormatUsages = map[config.Language]string{
-		config.English: "set format: json/yaml",
+	_flagImportFormatUsages = map[config.Language]string{
+		config.English: "set _format: json/yaml",
 		config.Chinese: "设置格式：json/yaml",
 	}
-	flagForceImportUsages = map[config.Language]string{
+	_flagForceImportUsages = map[config.Language]string{
 		config.English: "override existing aliases",
 		config.Chinese: "覆盖现有别名",
 	}
@@ -48,10 +48,10 @@ type importMessage struct {
 
 // NewAliasImportCmd represents the alias import command
 func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
-	use, _ := c.SelectTranslation(importUses)
-	short, _ := c.SelectTranslation(importShorts)
-	flagImportFormatUsage, _ := c.SelectTranslation(flagImportFormatUsages)
-	flagForceImportUsage, _ := c.SelectTranslation(flagForceImportUsages)
+	use, _ := c.SelectTranslation(_importUses)
+	short, _ := c.SelectTranslation(_importShorts)
+	flagImportFormatUsage, _ := c.SelectTranslation(_flagImportFormatUsages)
+	flagForceImportUsage, _ := c.SelectTranslation(_flagForceImportUsages)
 
 	ec := &cobra.Command{
 		Use:   use,
@@ -61,9 +61,9 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			var err error
 			var importedAliases aliases
-			switch format {
+			switch _format {
 			default:
-				return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag%s", format), nil)
+				return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag%s", _format), nil)
 			case "json":
 				if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
 					return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
@@ -76,7 +76,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 			aliases := c.AliasMap()
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 			for _, importedAlias := range importedAliases.Aliases {
-				if !forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
+				if !_forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
 					message.Unimported = append(message.Unimported, importedAlias)
 					continue
 				}
@@ -102,9 +102,9 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 		},
 	}
 
-	ec.Flags().StringVarP(&format,
+	ec.Flags().StringVarP(&_format,
 		"format=", "f", "json", flagImportFormatUsage)
-	ec.Flags().BoolVarP(&forceImport,
+	ec.Flags().BoolVarP(&_forceImport,
 		"force-import", "F", false, flagForceImportUsage)
 
 	return ec

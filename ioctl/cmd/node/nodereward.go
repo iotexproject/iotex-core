@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -24,26 +24,26 @@ import (
 
 // Multi-language support
 var (
-	rewardCmdUses = map[config.Language]string{
+	_rewardCmdUses = map[config.Language]string{
 		config.English: "reward unclaimed|pool [ALIAS|DELEGATE_ADDRESS]",
 		config.Chinese: "reward 未支取|奖金池 [别名|委托地址]",
 	}
-	rewardCmdShorts = map[config.Language]string{
+	_rewardCmdShorts = map[config.Language]string{
 		config.English: "Query rewards",
 		config.Chinese: "查询奖励",
 	}
-	rewardPoolLong = map[config.Language]string{
+	_rewardPoolLong = map[config.Language]string{
 		config.English: "ioctl node reward pool returns unclaimed and available Rewards in fund pool.\nTotalUnclaimed is the amount of all delegates that have been issued but are not claimed;\nTotalAvailable is the amount of balance that has not been issued to anyone.\n\nioctl node reward unclaimed [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
 		config.Chinese: "ioctl node reward 返回奖金池中的未支取奖励和可获取的奖励. TotalUnclaimed是所有代表已被发放但未支取的奖励的总和; TotalAvailable 是奖金池中未被发放的奖励的总和.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] 返回特定代表的已被发放但未支取的奖励.",
 	}
 )
 
-// nodeRewardCmd represents the node reward command
-var nodeRewardCmd = &cobra.Command{
-	Use:   config.TranslateInLang(rewardCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(rewardCmdShorts, config.UILanguage),
+// _nodeRewardCmd represents the node reward command
+var _nodeRewardCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_rewardCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_rewardCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
-	Long:  config.TranslateInLang(rewardPoolLong, config.UILanguage),
+	Long:  config.TranslateInLang(_rewardPoolLong, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		var err error

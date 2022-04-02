@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -45,14 +44,14 @@ func TestGenerateRlp(t *testing.T) {
 	rlpExec := &Execution{
 		AbstractAction: ab,
 		amount:         big.NewInt(100),
-		data:           signByte,
+		data:           _signByte,
 	}
 	hE1, _ := hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")
 	rlpExec1 := &Execution{
 		AbstractAction: ab,
 		contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
 		amount:         big.NewInt(100),
-		data:           signByte,
+		data:           _signByte,
 	}
 	hE2, _ := hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")
 	rlpTests := []struct {
@@ -61,13 +60,13 @@ func TestGenerateRlp(t *testing.T) {
 		err  string
 		hash hash.Hash256
 	}{
-		{nil, validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, validSig, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, signByte, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, validSig, "", hash.BytesToHash256(hT1)},
-		{rlpTsf2, validSig, "", hash.BytesToHash256(hT2)},
-		{rlpExec, validSig, "", hash.BytesToHash256(hE1)},
-		{rlpExec1, validSig, "", hash.BytesToHash256(hE2)},
+		{nil, _validSig, ErrNilAction.Error(), hash.ZeroHash256},
+		{rlpTsf, _validSig, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf1, _signByte, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf1, _validSig, "", hash.BytesToHash256(hT1)},
+		{rlpTsf2, _validSig, "", hash.BytesToHash256(hT2)},
+		{rlpExec, _validSig, "", hash.BytesToHash256(hE1)},
+		{rlpExec1, _validSig, "", hash.BytesToHash256(hE2)},
 	}
 
 	for _, v := range rlpTests {
@@ -342,27 +341,16 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	elpBuilder.SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).SetNonce(tx.Nonce())
 	switch actType {
 	case "transfer":
-		tsf := &Transfer{}
-		tsf.amount = tx.Value()
-		ioAddr, _ := address.FromBytes(tx.To().Bytes())
-		tsf.recipient = ioAddr.String()
-		tsf.payload = tx.Data()
-		elpBuilder.SetAction(tsf)
+		elp, _ := elpBuilder.BuildTransfer(tx)
+		return elp.Proto()
 	case "execution":
-		ex := &Execution{}
-		ex.amount = tx.Value()
-		if tx.To() != nil {
-			ioAddr, _ := address.FromBytes(tx.To().Bytes())
-			ex.contract = ioAddr.String()
-		}
-		ex.data = tx.Data()
-		elpBuilder.SetAction(ex)
+		elp, _ := elpBuilder.BuildExecution(tx)
+		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate":
-		act, _ := NewStakingActionFromABIBinary(tx.Data())
-		elpBuilder.SetAction(act.(actionPayload))
+		elp, _ := elpBuilder.BuildStakingAction(tx)
+		return elp.Proto()
 	default:
 		panic("unsupported")
 	}
-	return elpBuilder.Build().Proto()
 }

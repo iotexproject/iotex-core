@@ -19,23 +19,23 @@ import (
 
 // Multi-language support
 var (
-	verifyCmdShorts = map[config.Language]string{
+	_verifyCmdShorts = map[config.Language]string{
 		config.English: "Verify IoTeX public key and address by private key",
 		config.Chinese: "用私钥验证IoTeX的公钥和地址",
 	}
-	verifyCmdUses = map[config.Language]string{
+	_verifyCmdUses = map[config.Language]string{
 		config.English: "verify",
 		config.Chinese: "verify 验证",
 	}
-	enterPrivateKey = map[config.Language]string{
+	_enterPrivateKey = map[config.Language]string{
 		config.English: "Enter private key:",
 		config.Chinese: "输入私钥:",
 	}
-	failToGetPrivateKey = map[config.Language]string{
+	_failToGetPrivateKey = map[config.Language]string{
 		config.English: "failed to get private key",
 		config.Chinese: "获取私钥失败",
 	}
-	failToCovertHexStringToPrivateKey = map[config.Language]string{
+	_failToCovertHexStringToPrivateKey = map[config.Language]string{
 		config.English: "failed to covert hex string to private key",
 		config.Chinese: "十六进制字符串转换私钥失败",
 	}
@@ -43,12 +43,12 @@ var (
 
 // NewAccountVerify represents the account verify command
 func NewAccountVerify(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(verifyCmdUses)
-	short, _ := client.SelectTranslation(verifyCmdShorts)
-	enterPrivateKey, _ := client.SelectTranslation(enterPrivateKey)
-	failToGetPrivateKey, _ := client.SelectTranslation(failToGetPrivateKey)
-	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(failToConvertPublicKeyIntoAddress)
-	failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(failToCovertHexStringToPrivateKey)
+	use, _ := client.SelectTranslation(_verifyCmdUses)
+	short, _ := client.SelectTranslation(_verifyCmdShorts)
+	_enterPrivateKey, _ := client.SelectTranslation(_enterPrivateKey)
+	_failToGetPrivateKey, _ := client.SelectTranslation(_failToGetPrivateKey)
+	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(_failToConvertPublicKeyIntoAddress)
+	_failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(_failToCovertHexStringToPrivateKey)
 
 	return &cobra.Command{
 		Use:   use,
@@ -57,14 +57,14 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			cmd.Println(enterPrivateKey)
+			cmd.Println(_enterPrivateKey)
 			privateKey, err := client.ReadSecret()
 			if err != nil {
-				return errors.Wrap(err, failToGetPrivateKey)
+				return errors.Wrap(err, _failToGetPrivateKey)
 			}
 			priKey, err := crypto.HexStringToPrivateKey(privateKey)
 			if err != nil {
-				return errors.Wrap(err, failToCovertHexStringToPrivateKey)
+				return errors.Wrap(err, _failToCovertHexStringToPrivateKey)
 			}
 			addr := priKey.PublicKey().Address()
 			if addr == nil {

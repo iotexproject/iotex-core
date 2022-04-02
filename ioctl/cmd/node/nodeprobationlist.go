@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -18,20 +18,20 @@ import (
 
 // Multi-language support
 var (
-	probationlistCmdUses = map[config.Language]string{
+	_probationlistCmdUses = map[config.Language]string{
 		config.English: "probationlist [-e epoch-num]",
 		config.Chinese: "probationlist [-e epoch数]",
 	}
-	probationlistCmdShorts = map[config.Language]string{
+	_probationlistCmdShorts = map[config.Language]string{
 		config.English: "Print probation list at given epoch",
 		config.Chinese: "",
 	}
 )
 
-// nodeProbationlistCmd represents querying probation list command
-var nodeProbationlistCmd = &cobra.Command{
-	Use:   config.TranslateInLang(probationlistCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(probationlistCmdShorts, config.UILanguage),
+// _nodeProbationlistCmd represents querying probation list command
+var _nodeProbationlistCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_probationlistCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_probationlistCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -59,12 +59,12 @@ func (m *probationListMessage) String() string {
 }
 
 func init() {
-	nodeProbationlistCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
-		config.TranslateInLang(flagEpochNumUsages, config.UILanguage))
+	_nodeProbationlistCmd.Flags().Uint64VarP(&_epochNum, "epoch-num", "e", 0,
+		config.TranslateInLang(_flagEpochNumUsages, config.UILanguage))
 }
 
 func probationlist() error {
-	if epochNum == 0 {
+	if _epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
 			return output.NewError(0, "failed to get chain meta", err)
@@ -73,18 +73,18 @@ func probationlist() error {
 		if epochData == nil {
 			return output.NewError(0, "ROLLDPOS is not registered", nil)
 		}
-		epochNum = epochData.Num
+		_epochNum = epochData.Num
 	}
-	response, err := bc.GetEpochMeta(epochNum)
+	response, err := bc.GetEpochMeta(_epochNum)
 	if err != nil {
 		return output.NewError(0, "failed to get epoch meta", err)
 	}
-	probationlist, err := getProbationList(epochNum, response.EpochData.Height)
+	probationlist, err := getProbationList(_epochNum, response.EpochData.Height)
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)
 	}
 	message := &probationListMessage{
-		EpochNumber:   epochNum,
+		EpochNumber:   _epochNum,
 		IntensityRate: probationlist.IntensityRate,
 		DelegateList:  make([]string, 0),
 	}

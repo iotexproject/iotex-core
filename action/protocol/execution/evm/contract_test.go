@@ -72,13 +72,13 @@ func TestCreateContract(t *testing.T) {
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
-	stateDB.SetCode(evmContract, bytecode)
+	stateDB.SetCode(evmContract, _bytecode)
 	// contract exist
 	codeHash := stateDB.GetCodeHash(evmContract)
 	var emptyEVMHash common.Hash
 	require.NotEqual(emptyEVMHash, codeHash)
 	v := stateDB.GetCode(evmContract)
-	require.Equal(bytecode, v)
+	require.Equal(_bytecode, v)
 	// non-existing contract
 	addr1 := hash.Hash160b([]byte("random"))
 	var evmAddr1 common.Address
@@ -101,40 +101,40 @@ func TestLoadStoreCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, sm, enableAsync)
+		cntr1, err := newContract(hash.BytesToHash160(_c1[:]), &state.Account{}, sm, enableAsync)
 		require.NoError(err)
 
 		tests := []cntrTest{
 			{
 				cntr1,
 				[]code{
-					{c1, []byte("2nd contract creation")},
+					{_c1, []byte("2nd contract creation")},
 				},
 				[]set{
-					{k1b, v1b[:], nil},
-					{k2b, v2b[:], nil},
+					{_k1b, _v1b[:], nil},
+					{_k2b, _v2b[:], nil},
 				},
 			},
 			{
 				cntr1,
 				[]code{
-					{c2, bytecode},
+					{_c2, _bytecode},
 				},
 				[]set{
-					{k1b, v4b[:], nil},
-					{k2b, v3b[:], nil},
-					{k3b, v2b[:], nil},
-					{k4b, v1b[:], nil},
+					{_k1b, _v4b[:], nil},
+					{_k2b, _v3b[:], nil},
+					{_k3b, _v2b[:], nil},
+					{_k4b, _v1b[:], nil},
 				},
 			},
 			{
 				cntr1,
 				nil,
 				[]set{
-					{k1b, v2b[:], nil},
-					{k2b, v1b[:], nil},
-					{k3b, v4b[:], nil},
-					{k4b, nil, nil},
+					{_k1b, _v2b[:], nil},
+					{_k2b, _v1b[:], nil},
+					{_k3b, _v4b[:], nil},
+					{_k4b, nil, nil},
 				},
 			},
 		}
@@ -168,13 +168,13 @@ func TestLoadStoreCommit(t *testing.T) {
 			{
 				cntr1,
 				[]code{
-					{c1, bytecode},
+					{_c1, _bytecode},
 				},
 				[]set{
-					{k1b, v2b[:], nil},
-					{k2b, v1b[:], nil},
-					{k3b, v4b[:], nil},
-					{k4b, nil, nil},
+					{_k1b, _v2b[:], nil},
+					{_k2b, _v1b[:], nil},
+					{_k3b, _v4b[:], nil},
+					{_k4b, nil, nil},
 				},
 			},
 		}
@@ -255,19 +255,19 @@ func TestSnapshot(t *testing.T) {
 		s := &state.Account{
 			Balance: big.NewInt(5),
 		}
-		c1, err := newContract(
+		_c1, err := newContract(
 			hash.BytesToHash160(identityset.Address(28).Bytes()),
 			s,
 			sm,
 			enableAsync,
 		)
 		require.NoError(err)
-		require.NoError(c1.SetState(k2b, v2[:]))
-		c2 := c1.Snapshot()
-		require.NoError(c1.SelfState().AddBalance(big.NewInt(7)))
-		require.NoError(c1.SetState(k1b, v1[:]))
-		require.Equal(big.NewInt(12), c1.SelfState().Balance)
-		require.Equal(big.NewInt(5), c2.SelfState().Balance)
+		require.NoError(_c1.SetState(_k2b, _v2[:]))
+		_c2 := _c1.Snapshot()
+		require.NoError(_c1.SelfState().AddBalance(big.NewInt(7)))
+		require.NoError(_c1.SetState(_k1b, _v1[:]))
+		require.Equal(big.NewInt(12), _c1.SelfState().Balance)
+		require.Equal(big.NewInt(5), _c2.SelfState().Balance)
 	}
 	t.Run("sync mode", func(t *testing.T) {
 		testfunc(false)

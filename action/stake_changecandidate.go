@@ -30,7 +30,7 @@ const (
 	// MoveStakeBaseIntrinsicGas represents the base intrinsic gas for stake move
 	MoveStakeBaseIntrinsicGas = uint64(10000)
 
-	changeCandidateInterfaceABI = `[
+	_changeCandidateInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -73,7 +73,7 @@ type ChangeCandidate struct {
 
 func init() {
 	var err error
-	changeCandidateInterface, err := abi.JSON(strings.NewReader(changeCandidateInterfaceABI))
+	changeCandidateInterface, err := abi.JSON(strings.NewReader(_changeCandidateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}

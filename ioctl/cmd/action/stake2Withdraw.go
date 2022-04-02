@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,22 +19,22 @@ import (
 
 // Multi-language support
 var (
-	stake2WithDrawCmdUses = map[config.Language]string{
+	_stake2WithDrawCmdUses = map[config.Language]string{
 		config.English: "withdraw BUCKET_INDEX [DATA]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "withdraw 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
-	stake2WithDrawCmdShorts = map[config.Language]string{
+	_stake2WithDrawCmdShorts = map[config.Language]string{
 		config.English: "Withdraw bucket from IoTeX blockchain",
 		config.Chinese: "提取IoTeX区块链上的投票",
 	}
 )
 
-// stake2WithdrawCmd represents the stake2 withdraw command
-var stake2WithdrawCmd = &cobra.Command{
-	Use:   config.TranslateInLang(stake2WithDrawCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(stake2WithDrawCmdShorts, config.UILanguage),
+// _stake2WithdrawCmd represents the stake2 withdraw command
+var _stake2WithdrawCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_stake2WithDrawCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_stake2WithDrawCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -44,7 +44,7 @@ var stake2WithdrawCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(stake2WithdrawCmd)
+	RegisterWriteCommand(_stake2WithdrawCmd)
 }
 
 func stake2Withdraw(args []string) error {
@@ -66,7 +66,7 @@ func stake2Withdraw(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
 
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
 	}

@@ -24,19 +24,19 @@ import (
 
 // Multi-language support
 var (
-	bcCmdShorts = map[config.Language]string{
+	_bcCmdShorts = map[config.Language]string{
 		config.English: "Deal with blockchain of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链上的区块",
 	}
-	bcCmdUses = map[config.Language]string{
+	_bcCmdUses = map[config.Language]string{
 		config.English: "bc",
 		config.Chinese: "bc",
 	}
-	flagEndpointUsages = map[config.Language]string{
+	_flagEndpointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecureUsages = map[config.Language]string{
+	_flagInsecureUsages = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
 	}
@@ -44,8 +44,8 @@ var (
 
 // NewBCCmd represents the bc(block chain) command
 func NewBCCmd(client ioctl.Client) *cobra.Command {
-	bcShorts, _ := client.SelectTranslation(bcCmdShorts)
-	bcUses, _ := client.SelectTranslation(bcCmdUses)
+	bcShorts, _ := client.SelectTranslation(_bcCmdShorts)
+	bcUses, _ := client.SelectTranslation(_bcCmdUses)
 
 	var endpoint string
 	var insecure bool

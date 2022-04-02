@@ -23,7 +23,7 @@ import (
 func TestReceiptLog(t *testing.T) {
 	r := require.New(t)
 
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, _ := address.FromBytes(h[:])
 	cand := identityset.Address(5)
 	voter := identityset.Address(11)
@@ -166,7 +166,7 @@ func createLog(
 	}
 	topics = append(topics, hash.Hash256b(voterAddr.Bytes()))
 
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, _ := address.FromBytes(h[:])
 	return &action.Log{
 		Address:     addr.String(),

@@ -2,21 +2,22 @@ package alias
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/spf13/cobra"
-	"sort"
-	"strings"
 )
 
 // Multi-language support
 var (
-	listShorts = map[config.Language]string{
+	_listShorts = map[config.Language]string{
 		config.English: "list all alias",
 		config.Chinese: "列出全部别名",
 	}
-	listUses = map[config.Language]string{
+	_listUses = map[config.Language]string{
 		config.English: "list",
 		config.Chinese: "list",
 	}
@@ -24,8 +25,8 @@ var (
 
 // NewAliasListCmd represents the alias list command
 func NewAliasListCmd(c ioctl.Client) *cobra.Command {
-	use, _ := c.SelectTranslation(listUses)
-	short, _ := c.SelectTranslation(listShorts)
+	use, _ := c.SelectTranslation(_listUses)
+	short, _ := c.SelectTranslation(_listShorts)
 	return &cobra.Command{
 		Use:   use,
 		Short: short,

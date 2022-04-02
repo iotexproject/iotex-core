@@ -32,7 +32,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
-
+		require.Equal(65, len(selp.SrcPubkey().Bytes()))
 		require.NoError(selp.VerifySignature())
 
 		nselp := &SealedEnvelope{}

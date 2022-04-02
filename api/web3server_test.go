@@ -56,7 +56,7 @@ func TestGetWeb3Reqs(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
 			if test.hasHeader {
-				test.req.Header.Set("Content-Type", contentType)
+				test.req.Header.Set("Content-Type", _contentType)
 			}
 			_, err := parseWeb3Reqs(test.req)
 			if test.hasError {
@@ -124,7 +124,7 @@ func TestServeHTTP(t *testing.T) {
 }
 
 func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {
-	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Content-Type", _contentType)
 	resp := httptest.NewRecorder()
 	svr.ServeHTTP(resp, req)
 	return resp
@@ -203,7 +203,6 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-
 }
 
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
@@ -211,11 +210,9 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
-
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
-
 }
 
 func TestNewfilter(t *testing.T) {
