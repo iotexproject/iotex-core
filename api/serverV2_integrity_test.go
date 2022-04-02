@@ -210,7 +210,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	return bc.CommitBlock(blk)
 }
 
-func deployContractV2(svr *ServerV2, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
+func deployContractV2(bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
 	data, _ := hex.DecodeString(code)
 	ex1, err := action.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {

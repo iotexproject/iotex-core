@@ -32,8 +32,9 @@ func TestNewHeartbeatHandler(t *testing.T) {
 		testutil.CleanupPath(triePath)
 	}()
 	cfg := config.Default
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""

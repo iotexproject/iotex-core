@@ -153,10 +153,11 @@ var (
 		},
 		Dispatcher: dispatcher.DefaultConfig,
 		API: API{
-			UseRDS:    false,
-			Port:      14014,
-			Web3Port:  15014,
-			TpsWindow: 10,
+			UseRDS:        false,
+			GRPCPort:      14014,
+			HTTPPort:      15014,
+			WebSocketPort: 16014,
+			TpsWindow:     10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
 				DefaultGas:         uint64(unit.Qev),
@@ -305,8 +306,9 @@ type (
 	// API is the api service config
 	API struct {
 		UseRDS          bool          `yaml:"useRDS"`
-		Port            int           `yaml:"port"`
-		Web3Port        int           `yaml:"web3port"`
+		GRPCPort        int           `yaml:"port"`
+		HTTPPort        int           `yaml:"web3port"`
+		WebSocketPort   int           `yaml:"webSocketPort"`
 		RedisCacheURL   string        `yaml:"redisCacheURL"`
 		TpsWindow       int           `yaml:"tpsWindow"`
 		GasStation      GasStation    `yaml:"gasStation"`

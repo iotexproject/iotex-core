@@ -7,21 +7,28 @@
 package api
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 func TestLogsInRange(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer()
+	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
 	defer cleanCallback()
 
 	t.Run("blocks with four logs", func(t *testing.T) {
@@ -33,7 +40,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
 		require.NoError(err)
 		require.Equal(4, len(logs))
 		require.Equal(4, len(hashes))
@@ -47,7 +54,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
 		require.NoError(err)
 		require.Equal(0, len(logs))
 		require.Equal(0, len(hashes))
@@ -61,7 +68,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		logs, hashes, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(5001))
+		logs, hashes, err := svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(5001))
 		require.NoError(err)
 		require.Equal(4, len(logs))
 		require.Equal(4, len(hashes))
@@ -75,7 +82,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		_, _, err = svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
 		expectedErr := errors.New("invalid start and end height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
@@ -89,7 +96,7 @@ func TestLogsInRange(t *testing.T) {
 		to, err := strconv.ParseUint(testData.ToBlock, 10, 64)
 		require.NoError(err)
 
-		_, _, err = svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
+		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
 		expectedErr := errors.New("start block > tip height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
@@ -97,7 +104,7 @@ func TestLogsInRange(t *testing.T) {
 }
 
 func BenchmarkLogsInRange(b *testing.B) {
-	svr, _, _, _, cleanCallback := setupTestServer()
+	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
 	defer cleanCallback()
 
 	ctrl := gomock.NewController(b)
@@ -112,7 +119,7 @@ func BenchmarkLogsInRange(b *testing.B) {
 	b.Run("five workers to extract logs", func(b *testing.B) {
 		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to)).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
 		for i := 0; i < b.N; i++ {
-			svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), uint64(0))
+			svr.LogsInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), uint64(0))
 		}
 	})
 }
@@ -139,4 +146,41 @@ func getTopicsAddress(addr []string, topics [][]string) (iotexapi.LogsFilter, er
 	}
 
 	return filter, nil
+}
+
+func setupTestCoreSerivce() (CoreService, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
+	cfg := newConfig()
+	config.SetEVMNetworkID(_evmNetworkID)
+
+	// TODO (zhi): revise
+	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.Background()
+
+	// Start blockchain
+	if err := bc.Start(ctx); err != nil {
+		panic(err)
+	}
+	// Add testing blocks
+	if err := addTestingBlocks(bc, ap); err != nil {
+		panic(err)
+	}
+
+	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+		return nil
+	})}
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
+		opts = append(opts, WithActionIndex())
+	}
+	svr, err := newCoreService(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
+	if err != nil {
+		panic(err)
+	}
+
+	return svr, bc, dao, ap, func() {
+		testutil.CleanupPath(bfIndexFile)
+	}
 }
