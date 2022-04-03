@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -124,26 +124,26 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, _, err := getVoterBucketIndices(csr, e.voterAddr)
+			_, _, err := csr.(*candSR).GetVoterBucketIndices(e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
-			_, _, err = getCandBucketIndices(csr, e.candAddr)
+			_, _, err = csr.(*candSR).GetCandBucketIndices(e.candAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			// put voter bucket index
-			require.NoError(putVoterBucketIndex(csm, e.voterAddr, e.index))
-			bis, _, err := getVoterBucketIndices(csr, e.voterAddr)
+			require.NoError(csm.(*candSM).PutVoterBucketIndex(e.voterAddr, e.index))
+			bis, _, err := csr.(*candSR).GetVoterBucketIndices(e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(e.voterIndexSize, len(bucketIndices))
 			require.Equal(bucketIndices[e.voterIndexSize-1], e.index)
 
 			// put candidate bucket index
-			require.NoError(putCandBucketIndex(csm, e.candAddr, e.index))
-			bis, _, err = getCandBucketIndices(csr, e.candAddr)
+			require.NoError(csm.(*candSM).PutCandBucketIndex(e.candAddr, e.index))
+			bis, _, err = csr.(*candSR).GetCandBucketIndices(e.candAddr)
 			require.NoError(err)
 			bucketIndices = *bis
 			require.Equal(e.candIndexSize, len(bucketIndices))
@@ -152,8 +152,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		for _, e := range tests {
 			// delete voter bucket index
-			require.NoError(delVoterBucketIndex(csm, e.voterAddr, e.index))
-			bis, _, err := getVoterBucketIndices(csr, e.voterAddr)
+			require.NoError(csm.(*candSM).DelVoterBucketIndex(e.voterAddr, e.index))
+			bis, _, err := csr.(*candSR).GetVoterBucketIndices(e.voterAddr)
 			if e.voterIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.voterIndexSize, len(bucketIndices))
@@ -162,8 +162,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 			}
 
 			// delete candidate bucket index
-			require.NoError(delCandBucketIndex(csm, e.candAddr, e.index))
-			bis, _, err = getCandBucketIndices(csr, e.candAddr)
+			require.NoError(csm.(*candSM).DelCandBucketIndex(e.candAddr, e.index))
+			bis, _, err = csr.(*candSR).GetCandBucketIndices(e.candAddr)
 			if e.candIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.candIndexSize, len(bucketIndices))

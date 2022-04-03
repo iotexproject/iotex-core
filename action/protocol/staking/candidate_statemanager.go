@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -237,11 +237,11 @@ func (csm *candSM) putBucketAndIndex(bucket *VoteBucket) (uint64, error) {
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
 
-	if err := putVoterBucketIndex(csm, bucket.Owner, index); err != nil {
+	if err := csm.PutVoterBucketIndex(bucket.Owner, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket index")
 	}
 
-	if err := putCandBucketIndex(csm, bucket.Candidate, index); err != nil {
+	if err := csm.PutCandBucketIndex(bucket.Candidate, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put candidate index")
 	}
 	return index, nil
@@ -252,11 +252,11 @@ func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) 
 		return errors.Wrap(err, "failed to delete bucket")
 	}
 
-	if err := delVoterBucketIndex(csm, owner, index); err != nil {
+	if err := csm.DelVoterBucketIndex(owner, index); err != nil {
 		return errors.Wrap(err, "failed to delete bucket index")
 	}
 
-	if err := delCandBucketIndex(csm, cand, index); err != nil {
+	if err := csm.DelCandBucketIndex(cand, index); err != nil {
 		return errors.Wrap(err, "failed to delete candidate index")
 	}
 	return nil

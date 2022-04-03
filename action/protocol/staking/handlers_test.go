@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -203,10 +203,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.Equal(test.amount, cLog.Amount.String())
 
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(csr, candidateAddr)
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(candidateAddr)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, stakerAddr)
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(stakerAddr)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -1109,10 +1109,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
 			csr = srToCsr(sm)
-			bucketIndices, _, err := getCandBucketIndices(csr, candidate.Owner)
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, candidate.Owner)
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -1343,9 +1343,9 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Equal(test.amount, wLog.Amount.String())
 
 			// test bucket index and bucket
-			_, _, err := getCandBucketIndices(csr, candidate.Owner)
+			_, _, err := csr.(*candSR).GetCandBucketIndices(candidate.Owner)
 			require.Error(err)
-			_, _, err = getVoterBucketIndices(csr, candidate.Owner)
+			_, _, err = csr.(*candSR).GetVoterBucketIndices(candidate.Owner)
 			require.Error(err)
 
 			// test staker's account
@@ -1624,10 +1624,10 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(csr, identityset.Address(1))
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(identityset.Address(1))
 			require.NoError(err)
 			require.Equal(2, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, identityset.Address(1))
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(identityset.Address(1))
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -1825,10 +1825,10 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(csr, candidate2.Owner)
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(candidate2.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, test.to)
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(test.to)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -2058,10 +2058,10 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(csr, cand2.Owner)
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(cand2.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, test.to)
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(test.to)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -2330,10 +2330,10 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(csr, candidate.Owner)
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, candidate.Owner)
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -2550,10 +2550,10 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(test.amount, dLog.Amount.String())
 
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(csr, candidate.Owner)
+			bucketIndices, _, err := csr.(*candSR).GetCandBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(csr, candidate.Owner)
+			bucketIndices, _, err = csr.(*candSR).GetVoterBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices

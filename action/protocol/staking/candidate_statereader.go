@@ -331,7 +331,7 @@ func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
 	}
 
 	if bp.enableSMStorage {
-		switch _, err := c.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
+		switch _, err := c.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); errors.Cause(err) {
 		case nil:
 			return &bp, nil
 		case state.ErrStateNotExist:
@@ -378,7 +378,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 	}
 
 	// csr := srToCsr(sr)
-	indices, height, err := getVoterBucketIndices(c, voter)
+	indices, height, err := c.GetVoterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
@@ -403,7 +403,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := getCandBucketIndices(c, cand.Owner)
+	indices, height, err := c.GetCandBucketIndices(cand.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}

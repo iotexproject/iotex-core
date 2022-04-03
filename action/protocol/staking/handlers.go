@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -323,10 +323,10 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update bucket index
-	if err := delCandBucketIndex(csm, bucket.Candidate, act.BucketIndex()); err != nil {
+	if err := csm.(*candSM).DelCandBucketIndex(bucket.Candidate, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", bucket.Candidate.String())
 	}
-	if err := putCandBucketIndex(csm, candidate.Owner, act.BucketIndex()); err != nil {
+	if err := csm.(*candSM).PutCandBucketIndex(candidate.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to put candidate bucket index for candidate %s", candidate.Owner.String())
 	}
 	// update bucket
@@ -400,10 +400,10 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	// update bucket index
-	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {
+	if err := csm.(*candSM).DelVoterBucketIndex(bucket.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
-	if err := putVoterBucketIndex(csm, newOwner, act.BucketIndex()); err != nil {
+	if err := csm.(*candSM).PutVoterBucketIndex(newOwner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", act.VoterAddress().String())
 	}
 

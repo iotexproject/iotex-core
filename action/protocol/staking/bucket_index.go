@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -66,26 +66,26 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func getVoterBucketIndices(csr CandidateStateReader, addr address.Address) (*BucketIndices, uint64, error) {
+func (csr *candSR) GetVoterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
 	return csr.getBucketIndices(addr, _voterIndex)
 }
 
-func putVoterBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+func (csm *candSM) PutVoterBucketIndex(addr address.Address, index uint64) error {
 	return csm.putBucketIndex(addr, _voterIndex, index)
 }
 
-func delVoterBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+func (csm *candSM) DelVoterBucketIndex(addr address.Address, index uint64) error {
 	return csm.delBucketIndex(addr, _voterIndex, index)
 }
 
-func getCandBucketIndices(csr CandidateStateReader, addr address.Address) (*BucketIndices, uint64, error) {
+func (csr *candSR) GetCandBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
 	return csr.getBucketIndices(addr, _candIndex)
 }
 
-func putCandBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+func (csm *candSM) PutCandBucketIndex(addr address.Address, index uint64) error {
 	return csm.putBucketIndex(addr, _candIndex, index)
 }
 
-func delCandBucketIndex(csm CandidateStateManager, addr address.Address, index uint64) error {
+func (csm *candSM) DelCandBucketIndex(addr address.Address, index uint64) error {
 	return csm.delBucketIndex(addr, _candIndex, index)
 }
