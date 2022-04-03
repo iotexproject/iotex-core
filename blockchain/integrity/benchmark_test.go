@@ -120,6 +120,22 @@ func BenchmarkValidateBlock(b *testing.B) {
 	}
 }
 
+func BenchmarkActpool(b *testing.B) {
+	require := require.New(b)
+	rand.Seed(time.Now().Unix())
+	_, ap, err := newChainInDB()
+	require.NoError(err)
+	nonceMap := make(map[string]uint64)
+
+	for n := 0; n < b.N; n++ {
+		nonceMap[userA.String()]++
+		tsf1, err := action.SignedTransfer(userB.String(), priKeyA, nonceMap[userA.String()], big.NewInt(int64(rand.Intn(2))), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+		require.NoError(err)
+		err = ap.Add(context.Background(), tsf1)
+		require.NoError(err)
+	}
+}
+
 func injectTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
 	for i := 0; i < _totalActionPair; i++ {
 		nonceMap[userA.String()]++
@@ -222,7 +238,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = config.Default.Genesis.BlockGasLimit * 100
 	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.ActPool.MaxNumActsPerAcct = 1000000000
+	cfg.ActPool.MaxNumActsPerAcct = 1e15
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.NewRegistry()
 	var sf factory.Factory

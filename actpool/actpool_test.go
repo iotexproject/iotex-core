@@ -204,7 +204,7 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(err)
 		nTsfHash, err := nTsf.Hash()
 		require.NoError(err)
-		ap2.allActions[nTsfHash] = nTsf
+		ap2.allActions.Set(nTsfHash, nTsf)
 	}
 	err = ap2.Add(ctx, tsf1)
 	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
@@ -220,7 +220,7 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(err)
 		nTsfHash, err := nTsf.Hash()
 		require.NoError(err)
-		ap3.allActions[nTsfHash] = nTsf
+		ap3.allActions.Set(nTsfHash, nTsf)
 		intrinsicGas, err := nTsf.IntrinsicGas()
 		require.NoError(err)
 		ap3.gasInPool += intrinsicGas
@@ -396,7 +396,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(ap.Add(context.Background(), tsf3))
 	require.NoError(ap.Add(context.Background(), tsf4))
 
-	require.Equal(4, len(ap.allActions))
+	require.Equal(4, ap.allActions.Count())
 	require.NotNil(ap.accountActs[_addr1])
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
@@ -407,7 +407,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		return 0, nil
 	}).Times(1)
 	ap.removeConfirmedActs()
-	require.Equal(0, len(ap.allActions))
+	require.Equal(0, ap.allActions.Count())
 	require.Nil(ap.accountActs[_addr1])
 }
 
@@ -744,11 +744,15 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	hash2, err := tsf4.Hash()
 	require.NoError(err)
 	acts := []action.SealedEnvelope{tsf1, tsf4}
-	require.NotNil(ap.allActions[hash1])
-	require.NotNil(ap.allActions[hash2])
+	_, exist1 := ap.allActions.Get(hash1)
+	require.True(exist1)
+	_, exist2 := ap.allActions.Get(hash2)
+	require.True(exist2)
 	ap.removeInvalidActs(acts)
-	require.Equal(action.SealedEnvelope{}, ap.allActions[hash1])
-	require.Equal(action.SealedEnvelope{}, ap.allActions[hash2])
+	_, exist1 = ap.allActions.Get(hash1)
+	require.False(exist1)
+	_, exist2 = ap.allActions.Get(hash2)
+	require.False(exist2)
 }
 
 func TestActPool_GetPendingNonce(t *testing.T) {
@@ -860,7 +864,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	hash2, err := tsf2.Hash()
 	require.NoError(err)
 
-	ap.allActions[hash1] = tsf1
+	ap.allActions.Set(hash1, tsf1)
 	act, err := ap.GetActionByHash(hash1)
 	require.NoError(err)
 	require.Equal(tsf1, act)
@@ -868,7 +872,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require.Equal(action.ErrNotFound, errors.Cause(err))
 	require.Equal(action.SealedEnvelope{}, act)
 
-	ap.allActions[hash2] = tsf2
+	ap.allActions.Set(hash2, tsf2)
 	act, err = ap.GetActionByHash(hash2)
 	require.NoError(err)
 	require.Equal(tsf2, act)
