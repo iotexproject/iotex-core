@@ -10,10 +10,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -103,7 +105,7 @@ func BenchmarkLogsInRange(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	
+
 	testData := &filterObject{FromBlock: "0x1"}
 	filter, _ := getTopicsAddress(testData.Address, testData.Topics)
 	from, _ := strconv.ParseInt(testData.FromBlock, 10, 64)
