@@ -65,10 +65,10 @@ type (
 		syncStageHeight   uint64
 		syncBlockIncrease uint64
 
-		startingHeight    uint64
+		startingHeight    uint64 // block number this node started to synchronise from
 		lastTip           uint64
 		lastTipUpdateTime time.Time
-		targetHeight      uint64
+		targetHeight      uint64 // block number of the highest block header this node has received from peers
 		mu                sync.RWMutex
 
 		peerBlockList sync.Map
@@ -170,13 +170,14 @@ func (bs *blockSyncer) sync() {
 	if updateTime.Add(bs.cfg.Interval).After(time.Now()) {
 		return
 	}
+	bs.startingHeight = bs.tipHeightHandler()
 	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
-	if intervals != nil {
-		log.L().Info("block sync intervals.",
-			zap.Any("intervals", intervals),
-			zap.Uint64("targetHeight", targetHeight))
+	if len(intervals) == 0 {
+		return
 	}
-
+	log.L().Info("block sync intervals.",
+		zap.Any("intervals", intervals),
+		zap.Uint64("targetHeight", targetHeight))
 	for i, interval := range intervals {
 		bs.requestBlocksHandler(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
@@ -191,7 +192,6 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
-	bs.startingHeight = bs.tipHeightHandler()
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
