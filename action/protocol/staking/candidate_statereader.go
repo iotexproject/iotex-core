@@ -180,7 +180,8 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, 0, ErrMissingField
 	}
 
-	all, height, err := newCandidateStateReader(sr).getAllCandidates()
+	csr := newCandidateStateReader(sr)
+	all, height, err := csr.getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, height, err
 	}
@@ -190,7 +191,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
-	pool, err := newCandidateStateReader(sr).NewBucketPool(enableSMStorage)
+	pool, err := csr.NewBucketPool(enableSMStorage)
 	if err != nil {
 		return nil, height, err
 	}
@@ -358,7 +359,6 @@ func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
 }
 
 func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
-	// all, height, err := newCandidateStateReader(sr).getAllBuckets()
 	all, height, err := c.getAllBuckets()
 	if err != nil {
 		return nil, height, err
@@ -377,7 +377,6 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 		return nil, 0, err
 	}
 
-	// csr := newCandidateStateReader(sr)
 	indices, height, err := c.VoterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
