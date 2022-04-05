@@ -196,10 +196,10 @@ func (builder *Builder) createElectionCommittee() (committee.Committee, error) {
 	cfg := builder.cfg
 
 	committeeConfig := builder.cfg.Chain.Committee
+	committeeConfig.GravityChainStartHeight = builder.cfg.Genesis.GravityChainStartHeight
 	if committeeConfig.GravityChainStartHeight == 0 {
 		return nil, nil
 	}
-	committeeConfig.GravityChainStartHeight = builder.cfg.Genesis.GravityChainStartHeight
 	committeeConfig.GravityChainCeilingHeight = cfg.Genesis.GravityChainCeilingHeight
 	committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
 	committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
