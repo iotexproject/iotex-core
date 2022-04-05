@@ -61,7 +61,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
-	csr := srToCsr(sm)
+	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -241,7 +241,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm, p, _, _ := initAll(t, ctrl)
-	csr := srToCsr(sm)
+	csr := newCandidateStateReader(sm)
 	tests := []struct {
 		initBalance     int64
 		caller          address.Address
@@ -517,7 +517,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	for _, test := range tests {
 		if test.newProtocol {
 			sm, p, _, _ = initAll(t, ctrl)
-			csr = srToCsr(sm)
+			csr = newCandidateStateReader(sm)
 		}
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
@@ -821,7 +821,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, _, _ := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -919,7 +919,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sm, p, candidate, candidate2 := initAll(t, ctrl)
-	csr := srToCsr(sm)
+	csr := newCandidateStateReader(sm)
 	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 
 	callerAddr := identityset.Address(1)
@@ -1108,7 +1108,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			csr = srToCsr(sm)
+			csr = newCandidateStateReader(sm)
 			bucketIndices, _, err := csr.(*candSR).CandBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
@@ -1277,7 +1277,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, _, candidate := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		caller := identityset.Address(2)
 		require.NoError(setupAccount(sm, caller, test.initBalance))
 		gasPrice := big.NewInt(unit.Qev)
@@ -1575,7 +1575,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		// candidate2 vote self,index 0
 		ctx, _ := initCreateStake(t, sm, candidate2.Owner, 101, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 		// candidate vote self,index 1
@@ -1790,7 +1790,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candi, candidate2 := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, false)
 		if test.init {
 			initCreateStake(t, sm, candi.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candi, test.amount, false)
@@ -2016,7 +2016,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	}
 	for _, test := range tests {
 		sm, p, cand1, cand2 := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		caller := identityset.Address(1)
 		initBalance := int64(1000)
 		require.NoError(setupAccount(sm, caller, initBalance))
@@ -2283,7 +2283,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
 
 		if test.newAccount {
@@ -2497,7 +2497,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, _ := initAll(t, ctrl)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, test.amount, test.autoStake)
 
 		if test.newAccount {

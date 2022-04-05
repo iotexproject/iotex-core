@@ -84,7 +84,7 @@ type (
 	}
 )
 
-func srToCsr(sr protocol.StateReader) CandidateStateReader {
+func newCandidateStateReader(sr protocol.StateReader) CandidateStateReader {
 	return &candSR{
 		StateReader: sr,
 	}
@@ -180,7 +180,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, 0, ErrMissingField
 	}
 
-	all, height, err := srToCsr(sr).getAllCandidates()
+	all, height, err := newCandidateStateReader(sr).getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, height, err
 	}
@@ -190,7 +190,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
-	pool, err := srToCsr(sr).NewBucketPool(enableSMStorage)
+	pool, err := newCandidateStateReader(sr).NewBucketPool(enableSMStorage)
 	if err != nil {
 		return nil, height, err
 	}
@@ -358,7 +358,7 @@ func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
 }
 
 func (c *candSR) readStateBuckets(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, uint64, error) {
-	// all, height, err := srToCsr(sr).getAllBuckets()
+	// all, height, err := newCandidateStateReader(sr).getAllBuckets()
 	all, height, err := c.getAllBuckets()
 	if err != nil {
 		return nil, height, err
@@ -377,7 +377,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 		return nil, 0, err
 	}
 
-	// csr := srToCsr(sr)
+	// csr := newCandidateStateReader(sr)
 	indices, height, err := c.VoterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil

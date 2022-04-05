@@ -46,7 +46,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		sm := testdb.NewMockStateManager(ctrl)
 		csm := newCandidateStateManager(sm)
-		csr := srToCsr(sm)
+		csr := newCandidateStateReader(sm)
 
 		tests := []struct {
 			index          uint64

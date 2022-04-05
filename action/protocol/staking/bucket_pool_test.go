@@ -64,7 +64,7 @@ func TestBucketPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 
-	pool, err := NewBucketPool(srToCsr(sm), false)
+	pool, err := NewBucketPool(newCandidateStateReader(sm), false)
 	r.NoError(err)
 	r.Equal(big.NewInt(0), pool.Total())
 	r.EqualValues(0, pool.Count())

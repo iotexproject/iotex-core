@@ -33,7 +33,7 @@ func TestGetPutStaking(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
-	csr := srToCsr(sm)
+	csr := newCandidateStateReader(sm)
 	sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),

@@ -182,7 +182,7 @@ func TestGetPutCandidate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := newCandidateStateManager(sm)
-	csr := srToCsr(sm)
+	csr := newCandidateStateReader(sm)
 
 	// put candidates and get
 	for _, e := range testCandidates {

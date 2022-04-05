@@ -183,7 +183,7 @@ func (csm *candSM) Commit() error {
 }
 
 func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {
-	return srToCsr(csm).getBucket(index)
+	return newCandidateStateReader(csm).getBucket(index)
 }
 
 func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
