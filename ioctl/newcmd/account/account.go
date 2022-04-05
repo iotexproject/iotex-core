@@ -36,19 +36,19 @@ import (
 
 // Multi-language support
 var (
-	accountCmdShorts = map[config.Language]string{
+	_accountCmdShorts = map[config.Language]string{
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
 	}
-	accountCmdUses = map[config.Language]string{
+	_accountCmdUses = map[config.Language]string{
 		config.English: "account",
 		config.Chinese: "账户",
 	}
-	flagEndpoint = map[config.Language]string{
+	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecure = map[config.Language]string{
+	_flagInsecure = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全连接",
 	}
@@ -62,8 +62,8 @@ var (
 
 // NewAccountCmd represents the account command
 func NewAccountCmd(client ioctl.Client) *cobra.Command {
-	accountUses, _ := client.SelectTranslation(accountCmdUses)
-	accountShorts, _ := client.SelectTranslation(accountCmdShorts)
+	accountUses, _ := client.SelectTranslation(_accountCmdUses)
+	accountShorts, _ := client.SelectTranslation(_accountCmdShorts)
 
 	var endpoint string
 	var insecure bool
@@ -85,11 +85,11 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountExportPublic(client))
 	ac.AddCommand(NewAccountExport(client))
 
-	flagEndpointUsage, _ := client.SelectTranslation(flagEndpoint)
-	flagInsecureUsage, _ := client.SelectTranslation(flagInsecure)
+	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpoint)
+	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecure)
 
-	ac.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	ac.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
+	ac.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, _flagEndpointUsage)
+	ac.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, _flagInsecureUsage)
 
 	return ac
 }

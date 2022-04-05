@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -22,23 +22,23 @@ import (
 
 // Multi-language support
 var (
-	stake2ReclaimCmdUses = map[config.Language]string{
+	_stake2ReclaimCmdUses = map[config.Language]string{
 		config.English: "reclaim BUCKET_INDEX TYPE" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "reclaim 票索引 类型" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
-	stake2ReclaimCmdShorts = map[config.Language]string{
+	_stake2ReclaimCmdShorts = map[config.Language]string{
 		config.English: "Reclaim bucket on IoTeX blockchain",
 		config.Chinese: "认领IoTeX区块链上的投票",
 	}
 )
 
-// stake2ReclaimCmd represents the stake2 reclaim command
-var stake2ReclaimCmd = &cobra.Command{
-	Use:   config.TranslateInLang(stake2ReclaimCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(stake2ReclaimCmdShorts, config.UILanguage),
+// _stake2ReclaimCmd represents the stake2 reclaim command
+var _stake2ReclaimCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_stake2ReclaimCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_stake2ReclaimCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -48,7 +48,7 @@ var stake2ReclaimCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(stake2ReclaimCmd)
+	RegisterWriteCommand(_stake2ReclaimCmd)
 }
 
 func stake2Reclaim(args []string) error {
@@ -87,7 +87,7 @@ func stake2Reclaim(args []string) error {
 		return output.NewError(output.InputError, "failed to create reclaim JSON", err)
 	}
 
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.MoveStakeBaseIntrinsicGas +
 			action.MoveStakePayloadGas*uint64(len(payload))

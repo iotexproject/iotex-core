@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,21 +20,21 @@ import (
 
 // Multi-language support
 var (
-	registerCmdUses = map[config.Language]string{
+	_registerCmdUses = map[config.Language]string{
 		config.English: "register NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-stake] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）IOTX数量 质押持续时间 [数据] [--auto-stake] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
-	registerCmdShorts = map[config.Language]string{
+	_registerCmdShorts = map[config.Language]string{
 		config.English: "Register a candidate",
 		config.Chinese: "在IoTeX区块链上注册候选人",
 	}
 )
 
-// stake2RegisterCmd represents the stake2 register a candidate command
-var stake2RegisterCmd = &cobra.Command{
-	Use:   config.TranslateInLang(registerCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(registerCmdShorts, config.UILanguage),
+// _stake2RegisterCmd represents the stake2 register a candidate command
+var _stake2RegisterCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_registerCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_registerCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(6, 7),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -44,8 +44,8 @@ var stake2RegisterCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(stake2RegisterCmd)
-	stake2RegisterCmd.Flags().BoolVar(&stake2AutoStake, "auto-stake", false, config.TranslateInLang(stake2FlagAutoStakeUsages, config.UILanguage))
+	RegisterWriteCommand(_stake2RegisterCmd)
+	_stake2RegisterCmd.Flags().BoolVar(&_stake2AutoStake, "auto-stake", false, config.TranslateInLang(_stake2FlagAutoStakeUsages, config.UILanguage))
 }
 
 func register(args []string) error {
@@ -91,7 +91,7 @@ func register(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
 
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.CandidateRegisterBaseIntrinsicGas +
 			action.CandidateRegisterPayloadGas*uint64(len(payload))
@@ -105,7 +105,7 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoStake, payload, gasLimit, gasPriceRau)
+	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, _stake2AutoStake, payload, gasLimit, gasPriceRau)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)

@@ -10,6 +10,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -118,12 +119,12 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 }
 
 func TestSealedEnvelope_Proto(t *testing.T) {
+	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
 	req := require.New(t)
 	se, err := createSealedEnvelope()
 	req.NoError(err)
 	tsf, ok := se.Envelope.Action().(*Transfer)
 	req.True(ok)
-	tsf.srcPubkey = se.SrcPubkey()
 	proto := se.Proto()
 	ac := &iotextypes.Action{
 		Core:         se.Envelope.Proto(),
@@ -146,12 +147,26 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		req.Contains(se2.LoadProto(se.Proto()).Error(), v.err)
 	}
 
-	se.encoding = 1
 	se.signature = _validSig
-	req.NoError(se.LoadProto(se.Proto()))
-	tsf2, ok := se.Envelope.Action().(*Transfer)
-	req.True(ok)
-	req.Equal(tsf, tsf2)
+	for _, v := range []struct {
+		enc  iotextypes.Encoding
+		hash string
+	}{
+		{0, "0562e100b057804ee3cb4fa906a897852aa8075013a02ef1e229360f1e5ee339"},
+		{1, "d5dc789026c12cc69f1ea7997fbe0aa1bcc02e85176848c7b2ecf4da6b4560d0"},
+	} {
+		se.encoding = v.enc
+		req.NoError(se2.LoadProto(se.Proto()))
+		if v.enc > 0 {
+			se.evmNetworkID = config.EVMNetworkID()
+		}
+		req.Equal(se, se2)
+		tsf2, ok := se2.Envelope.Action().(*Transfer)
+		req.True(ok)
+		req.Equal(tsf, tsf2)
+		h, _ := se.Hash()
+		req.Equal(v.hash, hex.EncodeToString(h[:]))
+	}
 }
 
 func createSealedEnvelope() (SealedEnvelope, error) {
@@ -173,7 +188,6 @@ func createSealedEnvelope() (SealedEnvelope, error) {
 		Build()
 
 	cPubKey, err := crypto.HexStringToPublicKey(_publicKey)
-	tsf.srcPubkey = cPubKey
 	se := SealedEnvelope{}
 	se.Envelope = evlp
 	se.srcPubkey = cPubKey

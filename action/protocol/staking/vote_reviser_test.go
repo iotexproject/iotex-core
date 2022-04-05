@@ -131,7 +131,7 @@ func TestVoteReviser(t *testing.T) {
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
-	sm.WriteView(protocolID, v)
+	sm.WriteView(_protocolID, v)
 	r.NoError(err)
 	_, ok := v.(*ViewData)
 	r.True(ok)

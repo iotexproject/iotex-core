@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,25 +19,25 @@ import (
 )
 
 var (
-	abiOut string
-	binOut string
+	_abiOut string
+	_binOut string
 )
 
 // Multi-language support
 var (
-	contractCompileCmdUses = map[config.Language]string{
+	_contractCompileCmdUses = map[config.Language]string{
 		config.English: "compile CONTRACT_NAME [CODE_FILES...] [--abi-out ABI_PATH] [--bin-out BIN_PATH]",
 		config.Chinese: "compile 合约名 [代码文件...] [--abi-out ABI路径] [--bin-out BIN路径]",
 	}
-	contractCompileCmdShorts = map[config.Language]string{
+	_contractCompileCmdShorts = map[config.Language]string{
 		config.English: "Compile smart contract of IoTeX blockchain from source code file(s).",
 		config.Chinese: "编译IoTeX区块链的智能合约代码,支持多文件编译",
 	}
-	flagAbiOutUsage = map[config.Language]string{
+	_flagAbiOutUsage = map[config.Language]string{
 		config.English: "set abi file output path",
 		config.Chinese: "设置abi文件输出路径",
 	}
-	flagBinOutUsage = map[config.Language]string{
+	_flagBinOutUsage = map[config.Language]string{
 		config.English: "set bin file output path",
 		config.Chinese: "设置bin文件输出路径",
 	}
@@ -45,8 +45,8 @@ var (
 
 // ContractCompileCmd represents the contract compile command
 var ContractCompileCmd = &cobra.Command{
-	Use:   config.TranslateInLang(contractCompileCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(contractCompileCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(_contractCompileCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_contractCompileCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -56,11 +56,11 @@ var ContractCompileCmd = &cobra.Command{
 }
 
 func init() {
-	ContractCompileCmd.Flags().StringVar(&abiOut, "abi-out", "",
-		config.TranslateInLang(flagAbiOutUsage, config.UILanguage))
+	ContractCompileCmd.Flags().StringVar(&_abiOut, "abi-out", "",
+		config.TranslateInLang(_flagAbiOutUsage, config.UILanguage))
 
-	ContractCompileCmd.Flags().StringVar(&binOut, "bin-out", "",
-		config.TranslateInLang(flagBinOutUsage, config.UILanguage))
+	ContractCompileCmd.Flags().StringVar(&_binOut, "bin-out", "",
+		config.TranslateInLang(_flagBinOutUsage, config.UILanguage))
 }
 
 func compile(args []string) error {
@@ -117,15 +117,15 @@ func compile(args []string) error {
 	}
 	output.PrintResult(strings.Join(result, "\n"))
 
-	if binOut != "" {
+	if _binOut != "" {
 		// bin file starts with "0x" prefix
-		if err := os.WriteFile(binOut, []byte(contract.Code), 0600); err != nil {
+		if err := os.WriteFile(_binOut, []byte(contract.Code), 0600); err != nil {
 			return output.NewError(output.WriteFileError, "failed to write bin file", err)
 		}
 	}
 
-	if abiOut != "" {
-		if err := os.WriteFile(abiOut, abiByte, 0600); err != nil {
+	if _abiOut != "" {
+		if err := os.WriteFile(_abiOut, abiByte, 0600); err != nil {
 			return output.NewError(output.WriteFileError, "failed to write abi file", err)
 		}
 	}

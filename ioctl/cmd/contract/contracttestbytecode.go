@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -21,20 +21,20 @@ import (
 
 // Multi-language support
 var (
-	testBytecodeCmdUses = map[config.Language]string{
+	_testBytecodeCmdUses = map[config.Language]string{
 		config.English: "bytecode (CONTRACT_ADDRESS|ALIAS) PACKED_ARGUMENTS [AMOUNT_IOTX]",
 		config.Chinese: "bytecode (合约地址|别名) 已打包参数 [IOTX数量]",
 	}
-	testBytecodeCmdShorts = map[config.Language]string{
+	_testBytecodeCmdShorts = map[config.Language]string{
 		config.English: "test smart contract on IoTeX blockchain with packed arguments",
 		config.Chinese: "传入bytecode测试IoTeX区块链上的智能合约",
 	}
 )
 
-// contractTestBytecodeCmd represents the contract test bytecode command
-var contractTestBytecodeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(testBytecodeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(testBytecodeCmdShorts, config.UILanguage),
+// _contractTestBytecodeCmd represents the contract test bytecode command
+var _contractTestBytecodeCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_testBytecodeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_testBytecodeCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

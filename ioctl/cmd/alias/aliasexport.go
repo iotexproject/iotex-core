@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 202 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -16,28 +16,28 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
-// aliasExportCmd doesn't support global flag "output-format", use `ioctl alias list -o [FORMAT]` instead
+// _aliasExportCmd doesn't support global flag "output-format", use `ioctl alias list -o [FORMAT]` instead
 
 // Multi-language support
 var (
-	exportCmd = map[config.Language]string{
+	_exportCmd = map[config.Language]string{
 		config.English: "Export aliases to either json or yaml format",
 		config.Chinese: "以json或yaml格式导出别名",
 	}
-	aliasExportUses = map[config.Language]string{
+	_aliasExportUses = map[config.Language]string{
 		config.English: "export",
 		config.Chinese: "export",
 	}
-	flagExportFormatUsages = map[config.Language]string{
+	_flagExportFormatUsages = map[config.Language]string{
 		config.English: "set format: json/yaml",
 		config.Chinese: "设置格式：json / yaml",
 	}
 )
 
-// aliasExportCmd represents the alias export command
-var aliasExportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(aliasExportUses, config.UILanguage),
-	Short: config.TranslateInLang(exportCmd, config.UILanguage),
+// _aliasExportCmd represents the alias export command
+var _aliasExportCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_aliasExportUses, config.UILanguage),
+	Short: config.TranslateInLang(_exportCmd, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -50,8 +50,8 @@ var aliasExportCmd = &cobra.Command{
 }
 
 func init() {
-	aliasExportCmd.Flags().StringVarP(&format,
-		"format", "f", "json", config.TranslateInLang(flagExportFormatUsages, config.UILanguage))
+	_aliasExportCmd.Flags().StringVarP(&_format,
+		"format", "f", "json", config.TranslateInLang(_flagExportFormatUsages, config.UILanguage))
 }
 
 func aliasExport(cmd *cobra.Command) (string, error) {
@@ -59,10 +59,10 @@ func aliasExport(cmd *cobra.Command) (string, error) {
 	for name, address := range config.ReadConfig.Aliases {
 		exportAliases.Aliases = append(exportAliases.Aliases, alias{Name: name, Address: address})
 	}
-	switch format {
+	switch _format {
 	default:
 		cmd.SilenceUsage = false
-		return "", fmt.Errorf("invalid flag %s", format)
+		return "", fmt.Errorf("invalid flag %s", _format)
 	case "json":
 		output, err := json.Marshal(exportAliases)
 		if err != nil {

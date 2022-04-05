@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disdeposited. This source code is governed by Apache
@@ -17,21 +17,21 @@ import (
 
 // Multi-language support
 var (
-	depositCmdShorts = map[config.Language]string{
+	_depositCmdShorts = map[config.Language]string{
 		config.English: "Deposit rewards to rewarding fund",
 		config.Chinese: "将奖励存入奖励基金",
 	}
-	depositCmdUses = map[config.Language]string{
+	_depositCmdUses = map[config.Language]string{
 		config.English: "deposit AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "deposit IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P" +
 			" 密码] [-y]",
 	}
 )
 
-// actionDepositCmd represents the action deposit command
-var actionDepositCmd = &cobra.Command{
-	Use:   config.TranslateInLang(depositCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(depositCmdShorts, config.UILanguage),
+// _actionDepositCmd represents the action deposit command
+var _actionDepositCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_depositCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_depositCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -41,7 +41,7 @@ var actionDepositCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(actionDepositCmd)
+	RegisterWriteCommand(_actionDepositCmd)
 }
 
 func deposit(args []string) error {
@@ -57,7 +57,7 @@ func deposit(args []string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.DepositToRewardingFundBaseGas +
 			action.DepositToRewardingFundGasPerByte*uint64(len(payload))

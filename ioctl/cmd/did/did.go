@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -22,11 +22,11 @@ var (
 		config.English: "did command",
 		config.Chinese: "did command",
 	}
-	flagEndpoint = map[config.Language]string{
+	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecure = map[config.Language]string{
+	_flagInsecure = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全连接",
 	}
@@ -39,13 +39,13 @@ var DIDCmd = &cobra.Command{
 }
 
 func init() {
-	DIDCmd.AddCommand(didGenerateCmd)
+	DIDCmd.AddCommand(_didGenerateCmd)
 	DIDCmd.AddCommand(_didRegisterCmd)
-	DIDCmd.AddCommand(didGetHashCmd)
-	DIDCmd.AddCommand(didGetURICmd)
-	DIDCmd.AddCommand(didUpdateCmd)
-	DIDCmd.AddCommand(didDeregisterCmd)
+	DIDCmd.AddCommand(_didGetHashCmd)
+	DIDCmd.AddCommand(_didGetURICmd)
+	DIDCmd.AddCommand(_didUpdateCmd)
+	DIDCmd.AddCommand(_didDeregisterCmd)
 	DIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
-	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
+	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
 }

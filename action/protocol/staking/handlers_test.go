@@ -82,7 +82,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
 	require.True(ok)
-	require.NoError(sm.WriteView(protocolID, cc))
+	require.NoError(sm.WriteView(_protocolID, cc))
 
 	stakerAddr := identityset.Address(1)
 	tests := []struct {
@@ -2598,7 +2598,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
 	require.True(ok)
-	require.NoError(sm.WriteView(protocolID, cc))
+	require.NoError(sm.WriteView(_protocolID, cc))
 	_, err = p.Handle(ctx, a, sm)
 	require.NoError(err)
 	cost, err := a.Cost()
@@ -2633,7 +2633,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
 	require.True(ok)
-	require.NoError(sm.WriteView(protocolID, cc))
+	require.NoError(sm.WriteView(_protocolID, cc))
 	return sm, p, candidate, candidate2
 }
 

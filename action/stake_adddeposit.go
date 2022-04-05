@@ -30,7 +30,7 @@ const (
 	// DepositToStakeBaseIntrinsicGas represents the base intrinsic gas for DepositToStake
 	DepositToStakeBaseIntrinsicGas = uint64(10000)
 
-	depositToStakeInterfaceABI = `[
+	_depositToStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -72,7 +72,7 @@ type DepositToStake struct {
 }
 
 func init() {
-	depositToStakeInterface, err := abi.JSON(strings.NewReader(depositToStakeInterfaceABI))
+	depositToStakeInterface, err := abi.JSON(strings.NewReader(_depositToStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
