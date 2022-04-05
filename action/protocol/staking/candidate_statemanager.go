@@ -96,7 +96,7 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	return csm, nil
 }
 
-func smToCsm(sm protocol.StateManager) CandidateStateManager {
+func newCandidateStateManager(sm protocol.StateManager) CandidateStateManager {
 	return &candSM{
 		StateManager: sm,
 	}

@@ -60,7 +60,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csm := smToCsm(sm)
+	csm := newCandidateStateManager(sm)
 	csr := srToCsr(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
@@ -2623,7 +2623,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate) {
 	require := require.New(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csm := smToCsm(sm)
+	csm := newCandidateStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),

@@ -73,7 +73,7 @@ func TestBucketPool(t *testing.T) {
 	// add 4 buckets
 	addr := identityset.Address(1)
 	for i := 0; i < 4; i++ {
-		_, err = smToCsm(sm).putBucket(NewVoteBucket(addr, addr, big.NewInt(10000), 21, time.Now(), true))
+		_, err = newCandidateStateManager(sm).putBucket(NewVoteBucket(addr, addr, big.NewInt(10000), 21, time.Now(), true))
 		r.NoError(err)
 	}
 

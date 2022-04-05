@@ -40,7 +40,7 @@ func TestProtocol(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 	csr := srToCsr(sm)
-	csmTemp := smToCsm(sm)
+	csmTemp := newCandidateStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
