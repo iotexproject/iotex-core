@@ -27,13 +27,13 @@ type (
 		Message string `json:"message"`
 	}
 
-	blockObject struct {
+	getBlockResult struct {
 		blkMeta      *iotextypes.BlockMeta
 		logsBloom    string
 		transactions []interface{}
 	}
 
-	transactionObject struct {
+	getTransactionResult struct {
 		blockHash hash.Hash256
 		to        *string
 		ethTx     *types.Transaction
@@ -42,7 +42,7 @@ type (
 		signature []byte
 	}
 
-	receiptObject struct {
+	getReceiptResult struct {
 		blockHash       hash.Hash256
 		from            address.Address
 		to              *string
@@ -51,7 +51,7 @@ type (
 		receipt         *action.Receipt
 	}
 
-	logsObjectV2 struct {
+	getLogsResult struct {
 		blockHash hash.Hash256
 		log       *action.Log
 	}
@@ -99,7 +99,7 @@ func (obj *web3Response) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *blockObject) MarshalJSON() ([]byte, error) {
+func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 	if obj.blkMeta == nil {
 		return nil, errInvalidObject
 	}
@@ -152,7 +152,7 @@ func (obj *blockObject) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *transactionObject) MarshalJSON() ([]byte, error) {
+func (obj *getTransactionResult) MarshalJSON() ([]byte, error) {
 	if obj.receipt == nil || obj.pubkey == nil || obj.ethTx == nil {
 		return nil, errInvalidObject
 	}
@@ -197,28 +197,28 @@ func (obj *transactionObject) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *receiptObject) MarshalJSON() ([]byte, error) {
+func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 	if obj.receipt == nil {
 		return nil, errInvalidObject
 	}
-	logs := make([]*logsObjectV2, 0, len(obj.receipt.Logs()))
+	logs := make([]*getLogsResult, 0, len(obj.receipt.Logs()))
 	for _, v := range obj.receipt.Logs() {
-		logs = append(logs, &logsObjectV2{obj.blockHash, v})
+		logs = append(logs, &getLogsResult{obj.blockHash, v})
 	}
 
 	return json.Marshal(&struct {
-		TransactionIndex  string          `json:"transactionIndex"`
-		TransactionHash   string          `json:"transactionHash"`
-		BlockHash         string          `json:"blockHash"`
-		BlockNumber       string          `json:"blockNumber"`
-		From              string          `json:"from"`
-		To                *string         `json:"to"`
-		CumulativeGasUsed string          `json:"cumulativeGasUsed"`
-		GasUsed           string          `json:"gasUsed"`
-		ContractAddress   *string         `json:"contractAddress"`
-		LogsBloom         string          `json:"logsBloom"`
-		Logs              []*logsObjectV2 `json:"logs"`
-		Status            string          `json:"status"`
+		TransactionIndex  string           `json:"transactionIndex"`
+		TransactionHash   string           `json:"transactionHash"`
+		BlockHash         string           `json:"blockHash"`
+		BlockNumber       string           `json:"blockNumber"`
+		From              string           `json:"from"`
+		To                *string          `json:"to"`
+		CumulativeGasUsed string           `json:"cumulativeGasUsed"`
+		GasUsed           string           `json:"gasUsed"`
+		ContractAddress   *string          `json:"contractAddress"`
+		LogsBloom         string           `json:"logsBloom"`
+		Logs              []*getLogsResult `json:"logs"`
+		Status            string           `json:"status"`
 	}{
 		TransactionIndex:  uint64ToHex(uint64(obj.receipt.TxIndex)),
 		TransactionHash:   "0x" + hex.EncodeToString(obj.receipt.ActionHash[:]),
@@ -235,7 +235,7 @@ func (obj *receiptObject) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *logsObjectV2) MarshalJSON() ([]byte, error) {
+func (obj *getLogsResult) MarshalJSON() ([]byte, error) {
 	if obj.log == nil {
 		return nil, errInvalidObject
 	}

@@ -86,7 +86,7 @@ func TestGetBlockByNumberIntegrity(t *testing.T) {
 				require.Nil(ret)
 				return
 			}
-			blk, ok := ret.(*blockObject)
+			blk, ok := ret.(*getBlockResult)
 			require.True(ok)
 			require.Equal(len(blk.transactions), v.expected)
 		})
@@ -285,7 +285,7 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(blkHash[:])))
 	ret, err := svr.web3Server.getBlockByHash(&testData)
 	require.NoError(err)
-	ans := ret.(*blockObject)
+	ans := ret.(*getBlockResult)
 	require.Equal(hex.EncodeToString(blkHash[:]), ans.blkMeta.Hash)
 	require.Equal(2, len(ans.transactions))
 
@@ -303,7 +303,7 @@ func TestGetTransactionByHashIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(_transferHash1[:])))
 	ret, err := svr.web3Server.getTransactionByHash(&testData)
 	require.NoError(err)
-	require.Equal(_transferHash1, ret.(*transactionObject).receipt.ActionHash)
+	require.Equal(_transferHash1, ret.(*getTransactionResult).receipt.ActionHash)
 
 	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, "0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e"))
 	ret, err = svr.web3Server.getTransactionByHash(&testData2)
@@ -347,7 +347,7 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(_transferHash1[:])))
 	ret, err := svr.web3Server.getTransactionReceipt(&testData)
 	require.NoError(err)
-	ans, ok := ret.(*receiptObject)
+	ans, ok := ret.(*getReceiptResult)
 	require.True(ok)
 	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
@@ -388,7 +388,7 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, hex.EncodeToString(blkHash[:])))
 	ret, err := svr.web3Server.getTransactionByBlockHashAndIndex(&testData)
-	ans := ret.(*transactionObject)
+	ans := ret.(*getTransactionResult)
 	require.NoError(err)
 	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
@@ -415,7 +415,7 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 
 	testData := gjson.Parse(`{"params": ["0x1", "0x0"]}`)
 	ret, err := svr.web3Server.getTransactionByBlockNumberAndIndex(&testData)
-	ans := ret.(*transactionObject)
+	ans := ret.(*getTransactionResult)
 	require.NoError(err)
 	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())

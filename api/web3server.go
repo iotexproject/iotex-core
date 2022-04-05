@@ -587,7 +587,7 @@ func (svr *Web3Server) getTransactionReceipt(in *gjson.Result) (interface{}, err
 		return nil, err
 	}
 
-	return &receiptObject{
+	return &getReceiptResult{
 		blockHash:       blockHash,
 		from:            selp.SrcPubkey().Address(),
 		to:              to,

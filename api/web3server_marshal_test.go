@@ -88,7 +88,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 	}
 
 	t.Run("BlockWithoutDetail", func(t *testing.T) {
-		res, err := json.Marshal(&blockObject{
+		res, err := json.Marshal(&getBlockResult{
 			blkMeta:      blkMeta,
 			logsBloom:    _zeroLogsBloom,
 			transactions: []interface{}{string("0x2133ee7ff4562535166e3f16fd7407c19e5ed1acd036f78d3528a5a40e40ad42")},
@@ -133,7 +133,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 			ContractAddress: _testContractIoAddr,
 			TxIndex:         1,
 		}
-		tx := &transactionObject{
+		tx := &getTransactionResult{
 			blockHash: _testBlkHash,
 			to:        nil,
 			ethTx:     types.NewContractCreation(1, big.NewInt(10), 21000, big.NewInt(0), []byte{}),
@@ -141,7 +141,7 @@ func TestBlockObjectMarshal(t *testing.T) {
 			pubkey:    _testPubKey,
 			signature: []byte("69d89a0af27dcaa67f1b62a383594d97599aadd2b7b164cb4112aa8ddfd42f895649075cae1b7216c43a491c5e9be68d1d9a27b863d71155ecdd7c95dab5394f01"),
 		}
-		res, err := json.Marshal(&blockObject{
+		res, err := json.Marshal(&getBlockResult{
 			blkMeta:      blkMeta,
 			logsBloom:    _zeroLogsBloom,
 			transactions: []interface{}{tx},
@@ -206,7 +206,7 @@ func TestTransactionObjectMarshal(t *testing.T) {
 	}
 
 	t.Run("ContractCreation", func(t *testing.T) {
-		res, err := json.Marshal(&transactionObject{
+		res, err := json.Marshal(&getTransactionResult{
 			blockHash: _testBlkHash,
 			to:        nil,
 			ethTx:     types.NewContractCreation(1, big.NewInt(10), 21000, big.NewInt(0), []byte{}),
@@ -250,7 +250,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 
 	t.Run("ContractCreation", func(t *testing.T) {
 		contractEthaddr, _ := ioAddrToEthAddr(_testContractIoAddr)
-		res, err := json.Marshal(&receiptObject{
+		res, err := json.Marshal(&getReceiptResult{
 			blockHash:       _testBlkHash,
 			from:            _testSenderIoAddr,
 			to:              nil,
@@ -291,7 +291,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 			NotFixTopicCopyBug: false,
 		})
 		contractEthaddr, _ := ioAddrToEthAddr(_testContractIoAddr)
-		res, err := json.Marshal(&receiptObject{
+		res, err := json.Marshal(&getReceiptResult{
 			blockHash:       _testBlkHash,
 			from:            _testSenderIoAddr,
 			to:              &contractEthaddr,
@@ -338,7 +338,7 @@ func TestReceiptObjectMarshal(t *testing.T) {
 func TestLogsObjectMarshal(t *testing.T) {
 	require := require.New(t)
 
-	res, err := json.Marshal(&logsObjectV2{
+	res, err := json.Marshal(&getLogsResult{
 		blockHash: _testBlkHash,
 		log: &action.Log{
 			Address:            _testContractIoAddr,

@@ -66,7 +66,7 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*blockObject, error) {
+func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
 		selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkMeta.Hash)
@@ -93,14 +93,14 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 			}
 		}
 	}
-	return &blockObject{
+	return &getBlockResult{
 		blkMeta:      blkMeta,
 		logsBloom:    getLogsBloomFromBlkMeta(blkMeta),
 		transactions: transactions,
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*transactionObject, error) {
+func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -123,7 +123,7 @@ func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.
 		return nil, err
 	}
 	bkhash, _ := hash.HexStringToHash256(blkHash)
-	return &transactionObject{
+	return &getTransactionResult{
 		blockHash: bkhash,
 		to:        to,
 		ethTx:     ethTx,
