@@ -124,18 +124,18 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, _, err := csr.(*candSR).GetVoterBucketIndices(e.voterAddr)
+			_, _, err := csr.(*candSR).VoterBucketIndices(e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
-			_, _, err = csr.(*candSR).GetCandBucketIndices(e.candAddr)
+			_, _, err = csr.(*candSR).CandBucketIndices(e.candAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			// put voter bucket index
 			require.NoError(csm.(*candSM).PutVoterBucketIndex(e.voterAddr, e.index))
-			bis, _, err := csr.(*candSR).GetVoterBucketIndices(e.voterAddr)
+			bis, _, err := csr.(*candSR).VoterBucketIndices(e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(e.voterIndexSize, len(bucketIndices))
@@ -143,7 +143,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 			// put candidate bucket index
 			require.NoError(csm.(*candSM).PutCandBucketIndex(e.candAddr, e.index))
-			bis, _, err = csr.(*candSR).GetCandBucketIndices(e.candAddr)
+			bis, _, err = csr.(*candSR).CandBucketIndices(e.candAddr)
 			require.NoError(err)
 			bucketIndices = *bis
 			require.Equal(e.candIndexSize, len(bucketIndices))
@@ -153,7 +153,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		for _, e := range tests {
 			// delete voter bucket index
 			require.NoError(csm.(*candSM).DelVoterBucketIndex(e.voterAddr, e.index))
-			bis, _, err := csr.(*candSR).GetVoterBucketIndices(e.voterAddr)
+			bis, _, err := csr.(*candSR).VoterBucketIndices(e.voterAddr)
 			if e.voterIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.voterIndexSize, len(bucketIndices))
@@ -163,7 +163,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 			// delete candidate bucket index
 			require.NoError(csm.(*candSM).DelCandBucketIndex(e.candAddr, e.index))
-			bis, _, err = csr.(*candSR).GetCandBucketIndices(e.candAddr)
+			bis, _, err = csr.(*candSR).CandBucketIndices(e.candAddr)
 			if e.candIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.candIndexSize, len(bucketIndices))

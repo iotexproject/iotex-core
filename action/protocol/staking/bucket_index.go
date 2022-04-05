@@ -66,7 +66,7 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func (csr *candSR) GetVoterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+func (csr *candSR) VoterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
 	return csr.getBucketIndices(addr, _voterIndex)
 }
 
@@ -78,7 +78,7 @@ func (csm *candSM) DelVoterBucketIndex(addr address.Address, index uint64) error
 	return csm.delBucketIndex(addr, _voterIndex, index)
 }
 
-func (csr *candSR) GetCandBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+func (csr *candSR) CandBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
 	return csr.getBucketIndices(addr, _candIndex)
 }
 

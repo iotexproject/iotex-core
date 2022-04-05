@@ -378,7 +378,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 	}
 
 	// csr := srToCsr(sr)
-	indices, height, err := c.GetVoterBucketIndices(voter)
+	indices, height, err := c.VoterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
@@ -403,7 +403,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := c.GetCandBucketIndices(cand.Owner)
+	indices, height, err := c.CandBucketIndices(cand.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
