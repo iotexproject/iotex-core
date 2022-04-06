@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"math/rand"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -87,9 +86,9 @@ func TestGetBlockByNumberIntegrity(t *testing.T) {
 				require.Nil(ret)
 				return
 			}
-			blk, ok := ret.(blockObject)
+			blk, ok := ret.(*getBlockResult)
 			require.True(ok)
-			require.Equal(len(blk.Transactions), v.expected)
+			require.Equal(len(blk.transactions), v.expected)
 		})
 	}
 }
@@ -286,9 +285,9 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(blkHash[:])))
 	ret, err := svr.web3Server.getBlockByHash(&testData)
 	require.NoError(err)
-	ans := ret.(blockObject)
-	require.Equal("0x"+hex.EncodeToString(blkHash[:]), ans.Hash)
-	require.Equal(2, len(ans.Transactions))
+	ans := ret.(*getBlockResult)
+	require.Equal(hex.EncodeToString(blkHash[:]), ans.blkMeta.Hash)
+	require.Equal(2, len(ans.transactions))
 
 	testData2 := gjson.Parse(`{"params":["0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false]}`)
 	ret, err = svr.web3Server.getBlockByHash(&testData2)
@@ -304,7 +303,7 @@ func TestGetTransactionByHashIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(_transferHash1[:])))
 	ret, err := svr.web3Server.getTransactionByHash(&testData)
 	require.NoError(err)
-	require.Equal("0x"+hex.EncodeToString(_transferHash1[:]), ret.(transactionObject).Hash)
+	require.Equal(_transferHash1, ret.(*getTransactionResult).receipt.ActionHash)
 
 	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, "0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e"))
 	ret, err = svr.web3Server.getTransactionByHash(&testData2)
@@ -335,7 +334,7 @@ func TestGetLogsIntegrity(t *testing.T) {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
 			ret, err := svr.web3Server.getLogs(v.data)
 			require.NoError(err)
-			require.Equal(len(ret.([]logsObject)), v.logLen)
+			require.Equal(len(ret.([]logsObjectRaw)), v.logLen)
 		})
 	}
 }
@@ -348,16 +347,15 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(_transferHash1[:])))
 	ret, err := svr.web3Server.getTransactionReceipt(&testData)
 	require.NoError(err)
-	ans, ok := ret.(receiptObject)
+	ans, ok := ret.(*getReceiptResult)
 	require.True(ok)
-	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(_transferHash1[:]))
-	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
+	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(strings.ToLower(fromAddr), ans.From)
-	require.Equal(toAddr, *ans.To)
-	require.Nil(nil, ans.ContractAddress)
-	require.Equal(uint64ToHex(10000), ans.GasUsed)
-	require.Equal(uint64ToHex(1), ans.BlockNumber)
+	require.Equal(identityset.Address(27), ans.from)
+	require.Equal(toAddr, *ans.to)
+	require.Nil(nil, ans.contractAddress)
+	require.Equal(uint64(10000), ans.receipt.GasConsumed)
+	require.Equal(uint64(1), ans.receipt.BlockHeight)
 
 	testData2 := gjson.Parse(`{"params": ["0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1]}`)
 	ret, err = svr.web3Server.getTransactionReceipt(&testData2)
@@ -390,15 +388,14 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, hex.EncodeToString(blkHash[:])))
 	ret, err := svr.web3Server.getTransactionByBlockHashAndIndex(&testData)
-	ans := ret.(transactionObject)
+	ans := ret.(*getTransactionResult)
 	require.NoError(err)
-	require.Equal(ans.Hash, "0x"+hex.EncodeToString(_transferHash1[:]))
-	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
+	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(strings.ToLower(fromAddr), ans.From)
-	require.Equal(toAddr, *ans.To)
-	require.Equal(ans.Gas, uint64ToHex(20000))
-	require.Equal(ans.GasPrice, uint64ToHex(0))
+	require.Equal(identityset.Address(27), ans.pubkey.Address())
+	require.Equal(toAddr, *ans.to)
+	require.Equal(uint64(20000), ans.ethTx.Gas())
+	require.Equal(big.NewInt(0), ans.ethTx.GasPrice())
 
 	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x10"]}`, hex.EncodeToString(blkHash[:])))
 	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData2)
@@ -418,15 +415,14 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 
 	testData := gjson.Parse(`{"params": ["0x1", "0x0"]}`)
 	ret, err := svr.web3Server.getTransactionByBlockNumberAndIndex(&testData)
-	ans := ret.(transactionObject)
+	ans := ret.(*getTransactionResult)
 	require.NoError(err)
-	require.Equal(ans.Hash, "0x"+hex.EncodeToString(_transferHash1[:]))
-	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
+	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, strings.ToLower(fromAddr))
-	require.Equal(toAddr, *ans.To)
-	require.Equal(ans.Gas, uint64ToHex(20000))
-	require.Equal(ans.GasPrice, uint64ToHex(0))
+	require.Equal(identityset.Address(27), ans.pubkey.Address())
+	require.Equal(toAddr, *ans.to)
+	require.Equal(uint64(20000), ans.ethTx.Gas())
+	require.Equal(big.NewInt(0), ans.ethTx.GasPrice())
 
 	testData2 := gjson.Parse(`{"params": ["0x1", "0x10"]}`)
 	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData2)
@@ -471,11 +467,11 @@ func TestGetFilterChangesIntegrity(t *testing.T) {
 	filterID1Req := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID1.(string)))
 	ret, err := svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 4)
+	require.Equal(len(ret.([]logsObjectRaw)), 4)
 	// request again after last rolling
 	ret, err = svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 0)
+	require.Equal(len(ret.([]logsObjectRaw)), 0)
 
 	// blockfilter
 	filterID2, _ := svr.web3Server.newBlockFilter()
@@ -499,7 +495,7 @@ func TestGetFilterLogsIntegrity(t *testing.T) {
 	filterIDReq := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID.(string)))
 	ret, err := svr.web3Server.getFilterLogs(&filterIDReq)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 4)
+	require.Equal(len(ret.([]logsObjectRaw)), 4)
 }
 
 func TestLocalAPICacheIntegrity(t *testing.T) {

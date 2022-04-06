@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"io"
 	"math/rand"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -102,18 +102,15 @@ func TestServeHTTP(t *testing.T) {
 	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
 	response5 := getServerResp(svr, request5)
 	bodyBytes5, _ := io.ReadAll(response5.Body)
-	var web3Reqs []web3Resp
-	err := json.Unmarshal(bodyBytes5, &web3Reqs)
-	require.NoError(err)
-	require.Equal(len(web3Reqs), 2)
+	require.True(gjson.Valid(string(bodyBytes5)))
+	require.Equal(2, len(gjson.Parse(string(bodyBytes5)).Array()))
 
 	// multiple web3 req2
 	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}]`))
 	response6 := getServerResp(svr, request6)
 	bodyBytes6, _ := io.ReadAll(response6.Body)
-	err = json.Unmarshal(bodyBytes6, &web3Reqs)
-	require.NoError(err)
-	require.Equal(len(web3Reqs), 1)
+	require.True(gjson.Valid(string(bodyBytes6)))
+	require.Equal(1, len(gjson.Parse(string(bodyBytes6)).Array()))
 
 	// web3 req without params
 	request7, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
