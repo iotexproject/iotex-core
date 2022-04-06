@@ -141,3 +141,9 @@ mockgen -destination=./test/mock/mock_apicoreservice/mock_apicoreservice.go  \
         -source=./api/coreservice.go \
         -package=mock_apicoreservice \
         CoreService
+
+mkdir -p ./test/mock/mock_blockindex
+mockgen -destination=./test/mock/mock_blockindex/mock_blockindex.go  \
+        -source=./blockindex/bloomfilterindexer.go \
+        -package=mock_blockindex \
+        BlockIndex
