@@ -53,6 +53,7 @@ func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*action.Log {
 }
 
 // match checks if a given log matches the filter
+// TODO: replace iotextypes.Log with action.log
 func (l *LogFilter) match(log *iotextypes.Log) bool {
 	addrMatch := len(l.pbFilter.Address) == 0
 	if !addrMatch {

@@ -40,6 +40,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -84,10 +85,6 @@ type (
 		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
 		// RawBlocks gets raw block data
 		RawBlocks(startHeight uint64, count uint64, withReceipts bool, withTransactionLogs bool) ([]*iotexapi.BlockInfo, error)
-		// StreamBlocks streams blocks
-		StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error
-		// StreamLogs streams logs that match the filter condition
-		StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error
 		// ElectionBuckets returns the native election buckets.
 		ElectionBuckets(epochNum uint64) ([]*iotextypes.ElectionBucket, error)
 		// ReceiptByActionHash returns receipt by action hash
@@ -135,6 +132,8 @@ type (
 		ChainID() uint32
 		// ReadContractStorage reads contract's storage
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
+		// ChainListener returns the instance of Listener
+		ChainListener() apitypes.Listener
 		// SimulateExecution simulates execution
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 		// SyncingProgress returns the syncing status of node
@@ -164,7 +163,7 @@ type (
 		broadcastHandler  BroadcastOutbound
 		cfg               config.API
 		registry          *protocol.Registry
-		chainListener     Listener
+		chainListener     apitypes.Listener
 		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
@@ -664,44 +663,9 @@ func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipt
 	return res, nil
 }
 
-// StreamBlocks streams blocks
-func (core *coreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error {
-	errChan := make(chan error)
-	if err := core.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
-		return status.Error(codes.Internal, err.Error())
-	}
-
-	for {
-		select {
-		case err := <-errChan:
-			if err != nil {
-				err = status.Error(codes.Aborted, err.Error())
-			}
-			return err
-		}
-	}
-}
-
-// StreamLogs streams logs that match the filter condition
-func (core *coreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error {
-	if in == nil {
-		return status.Error(codes.InvalidArgument, "empty filter")
-	}
-	errChan := make(chan error)
-	// register the log filter so it will match logs in new blocks
-	if err := core.chainListener.AddResponder(NewLogListener(logfilter.NewLogFilter(in), stream, errChan)); err != nil {
-		return status.Error(codes.Internal, err.Error())
-	}
-
-	for {
-		select {
-		case err := <-errChan:
-			if err != nil {
-				err = status.Error(codes.Aborted, err.Error())
-			}
-			return err
-		}
-	}
+// ChainListener returns the instance of Listener
+func (core *coreService) ChainListener() apitypes.Listener {
+	return core.chainListener
 }
 
 // ElectionBuckets returns the native election buckets.
