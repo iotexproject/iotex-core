@@ -18,6 +18,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -54,6 +55,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+)
+
+var (
+	_workerNumbers int = 5
 )
 
 type (
@@ -161,6 +166,12 @@ type (
 		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
+	}
+
+	// jobDesc provides a struct to get and store logs in core.LogsInRange
+	jobDesc struct {
+		idx    int
+		blkNum uint64
 	}
 )
 
@@ -1373,6 +1384,7 @@ func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber ui
 }
 
 func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
@@ -1406,27 +1418,59 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	if err != nil {
 		return nil, err
 	}
+	var (
+		logs      = []*iotextypes.Log{}
+		logsInBlk = make([][]*iotextypes.Log, len(blockNumbers))
+		jobs      = make(chan jobDesc, len(blockNumbers))
+		eg, ctx   = errgroup.WithContext(context.Background())
+	)
+	if len(blockNumbers) == 0 {
+		return logs, nil
+	}
 
-	// TODO: improve using goroutine
+	for i, v := range blockNumbers {
+		jobs <- jobDesc{i, v}
+	}
+	close(jobs)
+	for w := 0; w < _workerNumbers; w++ {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+					job, ok := <-jobs
+					if !ok {
+						return nil
+					}
+					logsInBlock, err := core.logsInBlock(filter, job.blkNum)
+					if err != nil {
+						return err
+					}
+					logsInBlk[job.idx] = logsInBlock
+				}
+			}
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
 	if paginationSize == 0 {
 		paginationSize = 1000
 	}
 	if paginationSize > 5000 {
 		paginationSize = 5000
 	}
-	logs := []*iotextypes.Log{}
-	for _, i := range blockNumbers {
-		logsInBlock, err := core.LogsInBlock(filter, i)
-		if err != nil {
-			return nil, err
-		}
-		for _, log := range logsInBlock {
+
+	for i := 0; i < len(blockNumbers); i++ {
+		for _, log := range logsInBlk[i] {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
 			}
 		}
 	}
+
 	return logs, nil
 }
 
