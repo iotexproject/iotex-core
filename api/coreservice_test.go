@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
-	"github.com/iotexproject/iotex-core/test/mock_blockindex"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
