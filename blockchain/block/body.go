@@ -47,7 +47,19 @@ func (b *Body) LoadProto(pbBlock *iotextypes.BlockBody) error {
 		}
 		b.Actions = append(b.Actions, act)
 	}
+	return nil
+}
 
+// LoadProtoWithChainID loads body from proto
+func (b *Body) LoadProtoWithChainID(pbBlock *iotextypes.BlockBody) error {
+	b.Actions = []action.SealedEnvelope{}
+	for _, actPb := range pbBlock.Actions {
+		act := action.SealedEnvelope{}
+		if err := act.LoadProtoWithChainID(actPb); err != nil {
+			return err
+		}
+		b.Actions = append(b.Actions, act)
+	}
 	return nil
 }
 

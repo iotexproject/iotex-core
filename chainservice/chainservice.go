@@ -94,7 +94,12 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	bcCtx, err := cs.chain.Context(ctx)
+	if err != nil {
+		return err
+	}
+	g := genesis.MustExtractGenesisContext(bcCtx)
+	blk, err := (&block.Deserializer{}).WithChainID(g.IsToBeEnabled(pbBlock.Header.Core.Height)).FromBlockProto(pbBlock)
 	if err != nil {
 		return err
 	}
