@@ -204,7 +204,7 @@ func main() {
 		// Wait until the smart contract is successfully deployed
 		var receipt *iotextypes.Receipt
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = util.GetReceiptByAction(svrs[0].ChainService(uint32(1)).APIServer(), eHash)
+			receipt, err = util.GetReceiptByAction(svrs[0].APIServer(uint32(1)).GrpcServer, eHash)
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
@@ -270,12 +270,12 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
+			expectedBalancesMap, svrs[0].APIServer(1).GrpcServer, pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			empty, err := util.CheckPendingActionList(
-				svrs[0].ChainService(1),
+				svrs[0].APIServer(1).GrpcServer,
 				pendingActionMap,
 				expectedBalancesMap,
 			)

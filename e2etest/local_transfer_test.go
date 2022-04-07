@@ -375,7 +375,7 @@ func TestLocalTransfer(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
 	ap := svr.ChainService(chainID).ActionPool()
-	as := svr.ChainService(chainID).APIServer()
+	as := svr.APIServer(chainID)
 
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc, sf)
@@ -407,7 +407,7 @@ func TestLocalTransfer(t *testing.T) {
 				if err1 != nil {
 					return err1
 				}
-				actInfo, err = util.GetActionByActionHash(as, tsfHash)
+				actInfo, err = util.GetActionByActionHash(as.GrpcServer, tsfHash)
 				if err != nil {
 					return err
 				}
@@ -472,7 +472,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = util.GetActionByActionHash(as, tsfHash)
+			_, err = util.GetActionByActionHash(as.GrpcServer, tsfHash)
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -497,7 +497,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = util.GetActionByActionHash(as, tsfHash)
+			_, err = util.GetActionByActionHash(as.GrpcServer, tsfHash)
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)

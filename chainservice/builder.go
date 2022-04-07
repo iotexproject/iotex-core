@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -586,47 +585,6 @@ func (builder *Builder) buildConsensusComponent() error {
 	return nil
 }
 
-func (builder *Builder) buildAPIServer() error {
-	if builder.cfg.API.Port == 0 && builder.cfg.API.Web3Port == 0 {
-		return nil
-	}
-	p2pAgent := builder.cs.p2pAgent
-	apiServerOptions := []api.Option{
-		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
-		}),
-		api.WithNativeElection(builder.cs.electionCommittee),
-	}
-	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
-	if gateway {
-		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
-	}
-
-	svr, err := api.NewServerV2(
-		builder.cfg.API,
-		builder.cs.chain,
-		builder.cs.blocksync,
-		builder.cs.factory,
-		builder.cs.blockdao,
-		builder.cs.indexer,
-		builder.cs.bfIndexer,
-		builder.cs.actpool,
-		builder.cs.registry,
-		apiServerOptions...,
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to create API server")
-	}
-	if err := builder.cs.chain.AddSubscriber(svr); err != nil {
-		return errors.Wrap(err, "failed to add api server as subscriber")
-	}
-	builder.cs.api = svr
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	builder.cs.lifecycle.Add(svr)
-
-	return nil
-}
-
 func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) {
 	builder.cs.registry = protocol.NewRegistry()
 	if builder.cs.p2pAgent == nil {
@@ -673,9 +631,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockSyncer(); err != nil {
-		return nil, err
-	}
-	if err := builder.buildAPIServer(); err != nil {
 		return nil, err
 	}
 	cs := builder.cs

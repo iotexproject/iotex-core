@@ -121,8 +121,8 @@ func TestSign(t *testing.T) {
 func TestAccount(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, nonce, err := newTestAccount()
-	defer testutil.CleanupPath(testWallet)
 	require.NoError(err)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

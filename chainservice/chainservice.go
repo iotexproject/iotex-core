@@ -8,14 +8,12 @@ package chainservice
 
 import (
 	"context"
-	"math/rand"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -50,7 +48,6 @@ type ChainService struct {
 	p2pAgent          p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	api                *api.ServerV2
 	indexer            blockindex.Indexer
 	bfIndexer          blockindex.BloomFilterIndexer
 	candidateIndexer   *poll.CandidateIndexer
@@ -138,17 +135,6 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
-// APIServer defines the interface of core service of the server
-type APIServer interface {
-	GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error)
-	GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error)
-}
-
-// APIServer returns the API server
-func (cs *ChainService) APIServer() APIServer {
-	return cs.api.GrpcServer
-}
-
 // Consensus returns the consensus instance
 func (cs *ChainService) Consensus() consensus.Consensus {
 	return cs.consensus
@@ -162,85 +148,37 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
-// TODO: replace isDummyBlockSyncer by declaring BlockSyncerMode in blocksyncer package
-func createBlockSyncer(
-	isDummyBlockSyncer bool,
-	cfgBS config.BlockSync,
-	cons consensus.Consensus,
-	chain blockchain.Blockchain,
-	p2pAgent p2p.Agent,
-	dao blockdao.BlockDAO,
-	isHawaiiHeightHandler func(uint64) bool,
-) (blocksync.BlockSync, error) {
-	if isDummyBlockSyncer {
-		return blocksync.NewDummyBlockSyncer(), nil
+// NewAPIServer creates a new api server
+func (cs *ChainService) NewAPIServer(cfg config.API, plugins map[int]interface{}) (*api.ServerV2, error) {
+	if cfg.Port == 0 && cfg.Web3Port == 0 {
+		return nil, nil
 	}
-	return blocksync.NewBlockSyncer(
-		cfgBS,
-		chain.TipHeight,
-		func(height uint64) (*block.Block, error) {
-			return dao.GetBlockByHeight(height)
-		},
-		func(blk *block.Block) error {
-			if err := cons.ValidateBlockFooter(blk); err != nil {
-				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
-				return err
-			}
-			retries := 1
-			if !isHawaiiHeightHandler(blk.Height()) {
-				retries = 4
-			}
-			var err error
-			for i := 0; i < retries; i++ {
-				if err = chain.ValidateBlock(blk); err == nil {
-					if err = chain.CommitBlock(blk); err == nil {
-						break
-					}
-				}
-				switch errors.Cause(err) {
-				case blockchain.ErrInvalidTipHeight:
-					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return nil
-				case block.ErrDeltaStateMismatch:
-					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
-				default:
-					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-					return err
-				}
-			}
-			if err != nil {
-				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-				return err
-			}
-			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
-			cons.Calibrate(blk.Height())
-			return nil
-		},
-		func(ctx context.Context, start uint64, end uint64, repeat int) {
-			peers, err := p2pAgent.Neighbors(ctx)
-			if err != nil {
-				log.L().Error("failed to get neighbours", zap.Error(err))
-				return
-			}
-			if len(peers) == 0 {
-				log.L().Error("no peers")
-			}
-			if repeat < 2 {
-				repeat = 2
-			}
-			if repeat > len(peers) {
-				repeat = len(peers)
-			}
-			for i := 0; i < repeat; i++ {
-				peer := peers[rand.Intn(len(peers)-i)]
-				if err := p2pAgent.UnicastOutbound(
-					ctx,
-					peer,
-					&iotexrpc.BlockSync{Start: start, End: end},
-				); err != nil {
-					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
-				}
-			}
-		},
+	p2pAgent := cs.p2pAgent
+	apiServerOptions := []api.Option{
+		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			return p2pAgent.BroadcastOutbound(ctx, msg)
+		}),
+		api.WithNativeElection(cs.electionCommittee),
+	}
+	if _, gateway := plugins[config.GatewayPlugin]; gateway {
+		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
+	}
+
+	svr, err := api.NewServerV2(
+		cfg,
+		cs.chain,
+		cs.blocksync,
+		cs.factory,
+		cs.blockdao,
+		cs.indexer,
+		cs.bfIndexer,
+		cs.actpool,
+		cs.registry,
+		apiServerOptions...,
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create API server")
+	}
+
+	return svr, nil
 }
