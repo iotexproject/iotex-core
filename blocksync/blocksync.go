@@ -170,11 +170,13 @@ func (bs *blockSyncer) sync() {
 	if updateTime.Add(bs.cfg.Interval).After(time.Now()) {
 		return
 	}
-	bs.startingHeight = bs.tipHeightHandler()
 	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
+	// no sync
 	if len(intervals) == 0 {
 		return
 	}
+	// start syncing
+	bs.startingHeight = bs.tipHeightHandler()
 	log.L().Info("block sync intervals.",
 		zap.Any("intervals", intervals),
 		zap.Uint64("targetHeight", targetHeight))
