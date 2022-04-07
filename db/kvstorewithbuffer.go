@@ -198,7 +198,13 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 	checkMin := len(minKey) > 0
 	checkMax := len(maxKey) > 0
 	for i := 0; i < kvb.buffer.Size(); i++ {
-		entry, _ := kvb.buffer.Entry(i)
+		entry, err := kvb.buffer.Entry(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		if entry.Namespace() != ns {
+			continue
+		}
 		k, v := entry.Key(), entry.Value()
 
 		if checkMin && bytes.Compare(k, minKey) == -1 {
