@@ -334,7 +334,7 @@ func TestGetLogsIntegrity(t *testing.T) {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
 			ret, err := svr.web3Server.getLogs(v.data)
 			require.NoError(err)
-			require.Equal(len(ret.([]logsObjectRaw)), v.logLen)
+			require.Equal(len(ret.([]*getLogsResult)), v.logLen)
 		})
 	}
 }
@@ -467,11 +467,11 @@ func TestGetFilterChangesIntegrity(t *testing.T) {
 	filterID1Req := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID1.(string)))
 	ret, err := svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObjectRaw)), 4)
+	require.Equal(len(ret.([]*getLogsResult)), 4)
 	// request again after last rolling
 	ret, err = svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObjectRaw)), 0)
+	require.Equal(len(ret.([]*getLogsResult)), 0)
 
 	// blockfilter
 	filterID2, _ := svr.web3Server.newBlockFilter()
@@ -495,7 +495,7 @@ func TestGetFilterLogsIntegrity(t *testing.T) {
 	filterIDReq := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID.(string)))
 	ret, err := svr.web3Server.getFilterLogs(&filterIDReq)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObjectRaw)), 4)
+	require.Equal(len(ret.([]*getLogsResult)), 4)
 }
 
 func TestLocalAPICacheIntegrity(t *testing.T) {

@@ -42,18 +42,6 @@ type Web3Server struct {
 }
 
 type (
-	logsObjectRaw struct {
-		Removed          bool     `json:"removed"`
-		LogIndex         string   `json:"logIndex"`
-		TransactionIndex string   `json:"transactionIndex"`
-		TransactionHash  string   `json:"transactionHash"`
-		BlockHash        string   `json:"blockHash"`
-		BlockNumber      string   `json:"blockNumber"`
-		Address          string   `json:"address"`
-		Data             string   `json:"data"`
-		Topics           []string `json:"topics"`
-	}
-
 	filterObject struct {
 		LogHeight  uint64     `json:"logHeight"`
 		FilterType string     `json:"filterType"`
@@ -776,14 +764,14 @@ func (svr *Web3Server) getFilterChanges(in *gjson.Result) (interface{}, error) {
 	switch filterObj.FilterType {
 	case "log":
 		if filterObj.LogHeight > tipHeight {
-			return []logsObjectRaw{}, nil
+			return []*getLogsResult{}, nil
 		}
 		from, to, hasNewLogs, err := svr.getLogQueryRange(filterObj.FromBlock, filterObj.ToBlock, filterObj.LogHeight)
 		if err != nil {
 			return nil, err
 		}
 		if !hasNewLogs {
-			return []logsObjectRaw{}, nil
+			return []*getLogsResult{}, nil
 		}
 		logs, err := svr.getLogsWithFilter(from, to, filterObj.Address, filterObj.Topics)
 		if err != nil {
