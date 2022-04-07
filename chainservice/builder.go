@@ -143,10 +143,6 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if builder.cs.factory != nil {
 		return builder.cs.factory, nil
 	}
-	if forTest {
-		return factory.NewFactory(builder.cfg, factory.InMemTrieOption(), factory.RegistryOption(builder.cs.registry))
-	}
-
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if forTest {
 			return factory.NewStateDB(builder.cfg, factory.InMemStateDBOption(), factory.RegistryStateDBOption(builder.cs.registry))
