@@ -644,7 +644,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	if topics[0] == inContractTransfer {
+	if topics[0] == _inContractTransfer {
 		if len(topics) != 3 {
 			panic("Invalid in contract transfer topics")
 		}

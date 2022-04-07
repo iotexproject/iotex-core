@@ -22,23 +22,23 @@ import (
 
 // Multi-language support
 var (
-	deleteShorts = map[config.Language]string{
+	_deleteShorts = map[config.Language]string{
 		config.English: "Delete an IoTeX account/address from wallet/config",
 		config.Chinese: "从 钱包/配置 中删除一个IoTeX的账户或地址",
 	}
-	deleteUses = map[config.Language]string{
+	_deleteUses = map[config.Language]string{
 		config.English: "delete [ALIAS|ADDRESS]",
 		config.Chinese: "delete [别名|地址]",
 	}
-	failToGetAddress = map[config.Language]string{
+	_failToGetAddress = map[config.Language]string{
 		config.English: "failed to get address",
 		config.Chinese: "获取账户地址失败",
 	}
-	failToConvertStringIntoAddress = map[config.Language]string{
+	_failToConvertStringIntoAddress = map[config.Language]string{
 		config.English: "failed to convert string into address",
 		config.Chinese: "转换字符串到账户地址失败",
 	}
-	infoWarn = map[config.Language]string{
+	_infoWarn = map[config.Language]string{
 		config.English: "** This is an irreversible action!\n" +
 			"Once an account is deleted, all the assets under this account may be lost!\n" +
 			"Type 'YES' to continue, quit for anything else.",
@@ -46,23 +46,23 @@ var (
 			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
 			"输入 'YES' 以继续, 否则退出",
 	}
-	infoQuit = map[config.Language]string{
+	_infoQuit = map[config.Language]string{
 		config.English: "quit",
 		config.Chinese: "退出",
 	}
-	failToRemoveKeystoreFile = map[config.Language]string{
+	_failToRemoveKeystoreFile = map[config.Language]string{
 		config.English: "failed to remove keystore file",
 		config.Chinese: "移除keystore文件失败",
 	}
-	failToWriteToConfigFile = map[config.Language]string{
+	_failToWriteToConfigFile = map[config.Language]string{
 		config.English: "Failed to write to config file.",
 		config.Chinese: "写入配置文件失败",
 	}
-	resultSuccess = map[config.Language]string{
+	_resultSuccess = map[config.Language]string{
 		config.English: "Account #%s has been deleted.",
 		config.Chinese: "账户 #%s 已被删除",
 	}
-	failToFindAccount = map[config.Language]string{
+	_failToFindAccount = map[config.Language]string{
 		config.English: "account #%s not found",
 		config.Chinese: "账户 #%s 未找到",
 	}
@@ -70,16 +70,16 @@ var (
 
 // NewAccountDelete represents the account delete command
 func NewAccountDelete(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(deleteUses)
-	short, _ := client.SelectTranslation(deleteShorts)
-	failToGetAddress, _ := client.SelectTranslation(failToGetAddress)
-	failToConvertStringIntoAddress, _ := client.SelectTranslation(failToConvertStringIntoAddress)
-	infoWarn, _ := client.SelectTranslation(infoWarn)
-	failToRemoveKeystoreFile, _ := client.SelectTranslation(failToRemoveKeystoreFile)
-	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
-	resultSuccess, _ := client.SelectTranslation(resultSuccess)
-	failToFindAccount, _ := client.SelectTranslation(failToFindAccount)
-	infoQuit, _ := client.SelectTranslation(infoQuit)
+	use, _ := client.SelectTranslation(_deleteUses)
+	short, _ := client.SelectTranslation(_deleteShorts)
+	_failToGetAddress, _ := client.SelectTranslation(_failToGetAddress)
+	_failToConvertStringIntoAddress, _ := client.SelectTranslation(_failToConvertStringIntoAddress)
+	_infoWarn, _ := client.SelectTranslation(_infoWarn)
+	_failToRemoveKeystoreFile, _ := client.SelectTranslation(_failToRemoveKeystoreFile)
+	_failToWriteToConfigFile, _ := client.SelectTranslation(_failToWriteToConfigFile)
+	_resultSuccess, _ := client.SelectTranslation(_resultSuccess)
+	_failToFindAccount, _ := client.SelectTranslation(_failToFindAccount)
+	_infoQuit, _ := client.SelectTranslation(_infoQuit)
 
 	return &cobra.Command{
 		Use:   use,
@@ -94,11 +94,11 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 
 			addr, err := client.AddressWithDefaultIfNotExist(arg)
 			if err != nil {
-				return errors.Wrap(err, failToGetAddress)
+				return errors.Wrap(err, _failToGetAddress)
 			}
 			account, err := address.FromString(addr)
 			if err != nil {
-				return errors.Wrap(err, failToConvertStringIntoAddress)
+				return errors.Wrap(err, _failToConvertStringIntoAddress)
 			}
 
 			var filePath string
@@ -118,19 +118,19 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 
 			// check whether crypto file exists
 			if _, err = os.Stat(filePath); err != nil {
-				return errors.Wrapf(err, failToFindAccount, addr)
+				return errors.Wrapf(err, _failToFindAccount, addr)
 			}
-			if !client.AskToConfirm(infoWarn) {
-				cmd.Println(infoQuit)
+			if !client.AskToConfirm(_infoWarn) {
+				cmd.Println(_infoQuit)
 				return nil
 			}
 			if err := os.Remove(filePath); err != nil {
-				return errors.Wrap(err, failToRemoveKeystoreFile)
+				return errors.Wrap(err, _failToRemoveKeystoreFile)
 			}
 			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
-				return errors.Wrap(err, failToWriteToConfigFile)
+				return errors.Wrap(err, _failToWriteToConfigFile)
 			}
-			cmd.Println(fmt.Sprintf(resultSuccess, addr))
+			cmd.Println(fmt.Sprintf(_resultSuccess, addr))
 			return nil
 		},
 	}

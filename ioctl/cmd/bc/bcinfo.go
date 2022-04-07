@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	bcInfoCmdShorts = map[config.Language]string{
+	_bcInfoCmdShorts = map[config.Language]string{
 		config.English: "Get current blockchain information",
 		config.Chinese: "获取当前区块链信息",
 	}
-	bcInfoCmdUses = map[config.Language]string{
+	_bcInfoCmdUses = map[config.Language]string{
 		config.English: "info",
 		config.Chinese: "info",
 	}
 )
 
-// bcInfoCmd represents the bc info command
-var bcInfoCmd = &cobra.Command{
-	Use:   config.TranslateInLang(bcInfoCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(bcInfoCmdShorts, config.UILanguage),
+// _bcInfoCmd represents the bc info command
+var _bcInfoCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_bcInfoCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_bcInfoCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

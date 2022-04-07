@@ -18,6 +18,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -54,6 +55,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+)
+
+var (
+	_workerNumbers int = 5
 )
 
 type (
@@ -108,6 +113,8 @@ type (
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
 		// ActionsByBlock returns all actions in a block
 		ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
+		// ActionsInBlockByHash returns all actions in a block
+		ActionsInBlockByHash(string) ([]action.SealedEnvelope, []*action.Receipt, error)
 		// ActPoolActions returns the all Transaction Identifiers in the mempool
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -140,6 +147,8 @@ type (
 		TipHeight() uint64
 		// PendingNonce returns the pending nonce of an account
 		PendingNonce(address.Address) (uint64, error)
+		// ReceiveBlock broadcasts the block to api subscribers
+		ReceiveBlock(blk *block.Block) error
 	}
 
 	// coreService implements the CoreService interface
@@ -160,11 +169,22 @@ type (
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 	}
+
+	// jobDesc provides a struct to get and store logs in core.LogsInRange
+	jobDesc struct {
+		idx    int
+		blkNum uint64
+	}
 )
 
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
 }
+
+var (
+	// ErrNotFound indicates the record isn't found
+	ErrNotFound = errors.New("not found")
+)
 
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
@@ -699,9 +719,13 @@ func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+	receipt, err := core.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+	if err != nil {
+		return nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return receipt, nil
 }
 
 // TransactionLogByActionHash returns transaction log by action hash
@@ -785,12 +809,6 @@ func (core *coreService) TipHeight() uint64 {
 
 // Start starts the API server
 func (core *coreService) Start(_ context.Context) error {
-	if err := core.bc.AddSubscriber(core.readCache); err != nil {
-		return errors.Wrap(err, "failed to add readCache")
-	}
-	if err := core.bc.AddSubscriber(core.chainListener); err != nil {
-		return errors.Wrap(err, "failed to add chainListener")
-	}
 	if err := core.chainListener.Start(); err != nil {
 		return errors.Wrap(err, "failed to start blockchain listener")
 	}
@@ -995,16 +1013,17 @@ func (core *coreService) ActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-
 	blk, err := core.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
 	}
-
 	selp, index, err := core.dao.GetActionByActionHash(h, actIndex.BlockHeight())
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, err
+	if err != nil {
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, nil
 }
 
 // UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -1057,6 +1076,24 @@ func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint
 	}
 
 	return core.actionsInBlock(blk, start, count), nil
+}
+
+// TODO: replace ActionsByBlock with ActionsInBlockByHash
+// ActionsInBlockByHash returns all sealedEnvelopes and receipts in the block
+func (core *coreService) ActionsInBlockByHash(blkHash string) ([]action.SealedEnvelope, []*action.Receipt, error) {
+	hash, err := hash.HexStringToHash256(blkHash)
+	if err != nil {
+		return nil, nil, err
+	}
+	blk, err := core.dao.GetBlock(hash)
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	receipts, err := core.dao.GetReceipts(blk.Height())
+	if err != nil {
+		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+	}
+	return blk.Actions, receipts, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
@@ -1349,6 +1386,7 @@ func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber ui
 }
 
 func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
@@ -1382,27 +1420,59 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	if err != nil {
 		return nil, err
 	}
+	var (
+		logs      = []*iotextypes.Log{}
+		logsInBlk = make([][]*iotextypes.Log, len(blockNumbers))
+		jobs      = make(chan jobDesc, len(blockNumbers))
+		eg, ctx   = errgroup.WithContext(context.Background())
+	)
+	if len(blockNumbers) == 0 {
+		return logs, nil
+	}
 
-	// TODO: improve using goroutine
+	for i, v := range blockNumbers {
+		jobs <- jobDesc{i, v}
+	}
+	close(jobs)
+	for w := 0; w < _workerNumbers; w++ {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+					job, ok := <-jobs
+					if !ok {
+						return nil
+					}
+					logsInBlock, err := core.logsInBlock(filter, job.blkNum)
+					if err != nil {
+						return err
+					}
+					logsInBlk[job.idx] = logsInBlock
+				}
+			}
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
 	if paginationSize == 0 {
 		paginationSize = 1000
 	}
 	if paginationSize > 5000 {
 		paginationSize = 5000
 	}
-	logs := []*iotextypes.Log{}
-	for _, i := range blockNumbers {
-		logsInBlock, err := core.LogsInBlock(filter, i)
-		if err != nil {
-			return nil, err
-		}
-		for _, log := range logsInBlock {
+
+	for i := 0; i < len(blockNumbers); i++ {
+		for _, log := range logsInBlk[i] {
 			logs = append(logs, log)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
 			}
 		}
 	}
+
 	return logs, nil
 }
 
@@ -1618,6 +1688,11 @@ func (core *coreService) ReadContractStorage(ctx context.Context, addr address.A
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return core.sf.ReadContractStorage(ctx, addr, key)
+}
+
+func (core *coreService) ReceiveBlock(blk *block.Block) error {
+	core.readCache.Clear()
+	return core.chainListener.ReceiveBlock(blk)
 }
 
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {

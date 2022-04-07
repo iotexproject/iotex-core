@@ -24,7 +24,7 @@ const (
 	// ExecutionSizeLimit is the maximum size of execution allowed
 	ExecutionSizeLimit = 32 * 1024
 	// TODO: it works only for one instance per protocol definition now
-	protocolID = "smart_contract"
+	_protocolID = "smart_contract"
 )
 
 // Protocol defines the protocol of handling executions
@@ -36,7 +36,7 @@ type Protocol struct {
 
 // NewProtocol instantiates the protocol of exeuction
 func NewProtocol(getBlockHash evm.GetBlockHash, depostGas evm.DepositGas) *Protocol {
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
@@ -49,7 +49,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		return nil
 	}
@@ -95,15 +95,15 @@ func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[
 
 // Register registers the protocol with a unique ID
 func (p *Protocol) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, p)
+	return r.Register(_protocolID, p)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, p)
+	return r.ForceRegister(_protocolID, p)
 }
 
 // Name returns the name of protocol
 func (p *Protocol) Name() string {
-	return protocolID
+	return _protocolID
 }

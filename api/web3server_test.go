@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"io"
 	"math/rand"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -56,7 +56,7 @@ func TestGetWeb3Reqs(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
 			if test.hasHeader {
-				test.req.Header.Set("Content-Type", contentType)
+				test.req.Header.Set("Content-Type", _contentType)
 			}
 			_, err := parseWeb3Reqs(test.req)
 			if test.hasError {
@@ -102,18 +102,15 @@ func TestServeHTTP(t *testing.T) {
 	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}, {"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":2}]`))
 	response5 := getServerResp(svr, request5)
 	bodyBytes5, _ := io.ReadAll(response5.Body)
-	var web3Reqs []web3Resp
-	err := json.Unmarshal(bodyBytes5, &web3Reqs)
-	require.NoError(err)
-	require.Equal(len(web3Reqs), 2)
+	require.True(gjson.Valid(string(bodyBytes5)))
+	require.Equal(2, len(gjson.Parse(string(bodyBytes5)).Array()))
 
 	// multiple web3 req2
 	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}]`))
 	response6 := getServerResp(svr, request6)
 	bodyBytes6, _ := io.ReadAll(response6.Body)
-	err = json.Unmarshal(bodyBytes6, &web3Reqs)
-	require.NoError(err)
-	require.Equal(len(web3Reqs), 1)
+	require.True(gjson.Valid(string(bodyBytes6)))
+	require.Equal(1, len(gjson.Parse(string(bodyBytes6)).Array()))
 
 	// web3 req without params
 	request7, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"web3_clientVersion","id":67}`))
@@ -124,7 +121,7 @@ func TestServeHTTP(t *testing.T) {
 }
 
 func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {
-	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Content-Type", _contentType)
 	resp := httptest.NewRecorder()
 	svr.ServeHTTP(resp, req)
 	return resp
@@ -203,7 +200,6 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-
 }
 
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
@@ -211,11 +207,9 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 }
 
 func TestGetTransactionByBlockHashAndIndex(t *testing.T) {
-
 }
 
 func TestGetTransactionByBlockNumberAndIndex(t *testing.T) {
-
 }
 
 func TestNewfilter(t *testing.T) {

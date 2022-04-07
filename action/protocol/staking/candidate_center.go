@@ -155,7 +155,7 @@ func (m *CandidateCenter) Commit() error {
 // Sync syncs the data from state manager
 func (m *CandidateCenter) Sync(sm protocol.StateManager) error {
 	delta := CandidateList{}
-	if err := sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
+	if err := sm.Unload(_protocolID, _stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
 		return err
 	}
 

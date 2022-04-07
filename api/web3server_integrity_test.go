@@ -7,6 +7,7 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -15,10 +16,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/go-pkgs/util"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -33,7 +38,7 @@ const (
 
 func TestGasPriceIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.gasPrice()
@@ -42,7 +47,7 @@ func TestGasPriceIntegrity(t *testing.T) {
 
 func TestGetChainIDIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.getChainID()
@@ -51,7 +56,7 @@ func TestGetChainIDIntegrity(t *testing.T) {
 
 func TestGetBlockNumberIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, _ := svr.web3Server.getBlockNumber()
@@ -60,7 +65,7 @@ func TestGetBlockNumberIntegrity(t *testing.T) {
 
 func TestGetBlockByNumberIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -81,16 +86,16 @@ func TestGetBlockByNumberIntegrity(t *testing.T) {
 				require.Nil(ret)
 				return
 			}
-			blk, ok := ret.(blockObject)
+			blk, ok := ret.(*getBlockResult)
 			require.True(ok)
-			require.Equal(len(blk.Transactions), v.expected)
+			require.Equal(len(blk.transactions), v.expected)
 		})
 	}
 }
 
 func TestGetBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(`{"params": ["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]}`)
@@ -101,7 +106,7 @@ func TestGetBalanceIntegrity(t *testing.T) {
 
 func TestGetTransactionCountIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -123,7 +128,7 @@ func TestGetTransactionCountIntegrity(t *testing.T) {
 
 func TestCallIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -162,7 +167,7 @@ func TestCallIntegrity(t *testing.T) {
 
 func TestEstimateGasIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// deploy a contract
@@ -223,7 +228,7 @@ func TestEstimateGasIntegrity(t *testing.T) {
 
 func TestSendRawTransactionIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(`{"params": ["f8600180830186a09412745fec82b585f239c01090882eb40702c32b04808025a0b0e1aab5b64d744ae01fc9f1c3e9919844a799e90c23129d611f7efe6aec8a29a0195e28d22d9b280e00d501ff63525bb76f5c87b8646c89d5d9c5485edcb1b498"]}`)
@@ -233,7 +238,7 @@ func TestSendRawTransactionIntegrity(t *testing.T) {
 
 func TestGetCodeIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// deploy a contract
@@ -248,7 +253,7 @@ func TestGetCodeIntegrity(t *testing.T) {
 
 func TestGetNodeInfoIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	_, err := svr.web3Server.getNodeInfo()
@@ -257,7 +262,7 @@ func TestGetNodeInfoIntegrity(t *testing.T) {
 
 func TestGetBlockTransactionCountByHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, _, _, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	header, err := bc.BlockHeaderByHeight(1)
@@ -271,7 +276,7 @@ func TestGetBlockTransactionCountByHashIntegrity(t *testing.T) {
 
 func TestGetBlockByHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, _, _, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	header, _ := bc.BlockHeaderByHeight(1)
@@ -280,9 +285,9 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(blkHash[:])))
 	ret, err := svr.web3Server.getBlockByHash(&testData)
 	require.NoError(err)
-	ans := ret.(blockObject)
-	require.Equal("0x"+hex.EncodeToString(blkHash[:]), ans.Hash)
-	require.Equal(2, len(ans.Transactions))
+	ans := ret.(*getBlockResult)
+	require.Equal(hex.EncodeToString(blkHash[:]), ans.blkMeta.Hash)
+	require.Equal(2, len(ans.transactions))
 
 	testData2 := gjson.Parse(`{"params":["0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false]}`)
 	ret, err = svr.web3Server.getBlockByHash(&testData2)
@@ -292,13 +297,13 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 
 func TestGetTransactionByHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
-	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(transferHash1[:])))
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, hex.EncodeToString(_transferHash1[:])))
 	ret, err := svr.web3Server.getTransactionByHash(&testData)
 	require.NoError(err)
-	require.Equal("0x"+hex.EncodeToString(transferHash1[:]), ret.(transactionObject).Hash)
+	require.Equal(_transferHash1, ret.(*getTransactionResult).receipt.ActionHash)
 
 	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", false]}`, "0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e"))
 	ret, err = svr.web3Server.getTransactionByHash(&testData2)
@@ -308,7 +313,7 @@ func TestGetTransactionByHashIntegrity(t *testing.T) {
 
 func TestGetLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := []struct {
@@ -329,28 +334,28 @@ func TestGetLogsIntegrity(t *testing.T) {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
 			ret, err := svr.web3Server.getLogs(v.data)
 			require.NoError(err)
-			require.Equal(len(ret.([]logsObject)), v.logLen)
+			require.Equal(len(ret.([]logsObjectRaw)), v.logLen)
 		})
 	}
 }
 
 func TestGetTransactionReceiptIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
-	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(transferHash1[:])))
+	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", 1]}`, hex.EncodeToString(_transferHash1[:])))
 	ret, err := svr.web3Server.getTransactionReceipt(&testData)
 	require.NoError(err)
-	ans, ok := ret.(receiptObject)
+	ans, ok := ret.(*getReceiptResult)
 	require.True(ok)
-	require.Equal(ans.TransactionHash, "0x"+hex.EncodeToString(transferHash1[:]))
-	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
+	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
-	require.Equal(*ans.To, toAddr)
-	require.Nil(nil, ans.ContractAddress)
-	require.Equal(uint64ToHex(10000), ans.GasUsed)
+	require.Equal(identityset.Address(27), ans.from)
+	require.Equal(toAddr, *ans.to)
+	require.Nil(nil, ans.contractAddress)
+	require.Equal(uint64(10000), ans.receipt.GasConsumed)
+	require.Equal(uint64(1), ans.receipt.BlockHeight)
 
 	testData2 := gjson.Parse(`{"params": ["0x58df1e9cb0572fea48e8ce9d9b787ae557c304657d01890f4fc5ea88a1f44c3e", 1]}`)
 	ret, err = svr.web3Server.getTransactionReceipt(&testData2)
@@ -360,7 +365,7 @@ func TestGetTransactionReceiptIntegrity(t *testing.T) {
 
 func TestGetBlockTransactionCountByNumberIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
@@ -375,7 +380,7 @@ func TestGetBlockTransactionCountByNumberIntegrity(t *testing.T) {
 
 func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, _, _, cleanCallback := setupTestServer(t)
+	svr, bc, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	header, _ := bc.BlockHeaderByHeight(1)
@@ -383,19 +388,19 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 
 	testData := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, hex.EncodeToString(blkHash[:])))
 	ret, err := svr.web3Server.getTransactionByBlockHashAndIndex(&testData)
-	ans := ret.(transactionObject)
+	ans := ret.(*getTransactionResult)
 	require.NoError(err)
-	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
-	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
+	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
-	require.Equal(*ans.To, toAddr)
-	require.Equal(ans.Gas, uint64ToHex(20000))
-	require.Equal(ans.GasPrice, uint64ToHex(0))
+	require.Equal(identityset.Address(27), ans.pubkey.Address())
+	require.Equal(toAddr, *ans.to)
+	require.Equal(uint64(20000), ans.ethTx.Gas())
+	require.Equal(big.NewInt(0), ans.ethTx.GasPrice())
 
 	testData2 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x10"]}`, hex.EncodeToString(blkHash[:])))
-	_, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := gjson.Parse(fmt.Sprintf(`{"params":["0x%s", "0x0"]}`, "0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a"))
 	ret, err = svr.web3Server.getTransactionByBlockHashAndIndex(&testData3)
@@ -405,24 +410,24 @@ func TestGetTransactionByBlockHashAndIndexIntegrity(t *testing.T) {
 
 func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := gjson.Parse(`{"params": ["0x1", "0x0"]}`)
 	ret, err := svr.web3Server.getTransactionByBlockNumberAndIndex(&testData)
-	ans := ret.(transactionObject)
+	ans := ret.(*getTransactionResult)
 	require.NoError(err)
-	require.Equal(ans.Hash, "0x"+hex.EncodeToString(transferHash1[:]))
-	fromAddr, _ := ioAddrToEthAddr(identityset.Address(27).String())
+	require.Equal(_transferHash1, ans.receipt.ActionHash)
 	toAddr, _ := ioAddrToEthAddr(identityset.Address(30).String())
-	require.Equal(ans.From, fromAddr)
-	require.Equal(*ans.To, toAddr)
-	require.Equal(ans.Gas, uint64ToHex(20000))
-	require.Equal(ans.GasPrice, uint64ToHex(0))
+	require.Equal(identityset.Address(27), ans.pubkey.Address())
+	require.Equal(toAddr, *ans.to)
+	require.Equal(uint64(20000), ans.ethTx.Gas())
+	require.Equal(big.NewInt(0), ans.ethTx.GasPrice())
 
 	testData2 := gjson.Parse(`{"params": ["0x1", "0x10"]}`)
-	_, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData2)
-	require.Error(err)
+	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData2)
+	require.NoError(err)
+	require.Nil(ret)
 
 	testData3 := gjson.Parse(`{"params": ["0x10", "0x0"]}`)
 	ret, err = svr.web3Server.getTransactionByBlockNumberAndIndex(&testData3)
@@ -432,7 +437,7 @@ func TestGetTransactionByBlockNumberAndIndexIntegrity(t *testing.T) {
 
 func TestNewfilterIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	testData := &filterObject{FromBlock: "0x1"}
@@ -443,7 +448,7 @@ func TestNewfilterIntegrity(t *testing.T) {
 
 func TestNewBlockFilterIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	ret, err := svr.web3Server.newBlockFilter()
@@ -453,7 +458,7 @@ func TestNewBlockFilterIntegrity(t *testing.T) {
 
 func TestGetFilterChangesIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// filter
@@ -462,11 +467,11 @@ func TestGetFilterChangesIntegrity(t *testing.T) {
 	filterID1Req := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID1.(string)))
 	ret, err := svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 4)
+	require.Equal(len(ret.([]logsObjectRaw)), 4)
 	// request again after last rolling
 	ret, err = svr.web3Server.getFilterChanges(&filterID1Req)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 0)
+	require.Equal(len(ret.([]logsObjectRaw)), 0)
 
 	// blockfilter
 	filterID2, _ := svr.web3Server.newBlockFilter()
@@ -482,7 +487,7 @@ func TestGetFilterChangesIntegrity(t *testing.T) {
 
 func TestGetFilterLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	filterReq := &filterObject{FromBlock: "0x1"}
@@ -490,7 +495,7 @@ func TestGetFilterLogsIntegrity(t *testing.T) {
 	filterIDReq := gjson.Parse(fmt.Sprintf(`{"params":["%s"]}`, filterID.(string)))
 	ret, err := svr.web3Server.getFilterLogs(&filterIDReq)
 	require.NoError(err)
-	require.Equal(len(ret.([]logsObject)), 4)
+	require.Equal(len(ret.([]logsObjectRaw)), 4)
 }
 
 func TestLocalAPICacheIntegrity(t *testing.T) {
@@ -511,7 +516,7 @@ func TestLocalAPICacheIntegrity(t *testing.T) {
 
 func TestGetStorageAtIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, bc, dao, actPool, cleanCallback := setupTestServer(t)
+	svr, bc, dao, actPool, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	// deploy a contract
@@ -537,15 +542,15 @@ func TestGetStorageAtIntegrity(t *testing.T) {
 
 func TestGetNetworkIDIntegrity(t *testing.T) {
 	require := require.New(t)
-	svr, _, _, _, cleanCallback := setupTestServer(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
 	defer cleanCallback()
 
 	res, _ := svr.web3Server.getNetworkID()
 	require.Equal(fmt.Sprintf("%d", _evmNetworkID), res)
 }
 
-func setupTestServer(t *testing.T) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
-	cfg := newConfig(t)
+func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
+	cfg := newConfig()
 	config.SetEVMNetworkID(_evmNetworkID)
 	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2(cfg, false)
 	return svr, bc, dao, actPool, func() {
@@ -555,7 +560,7 @@ func setupTestServer(t *testing.T) (*ServerV2, blockchain.Blockchain, blockdao.B
 
 func TestEthAccountsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, _ := createServerV2(cfg, false)
 	defer func() {
@@ -563,4 +568,137 @@ func TestEthAccountsIntegrity(t *testing.T) {
 	}()
 	res, _ := svr.web3Server.ethAccounts()
 	require.Equal(0, len(res.([]string)))
+}
+
+func TestWeb3StakingIntegrity(t *testing.T) {
+	require := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestServer()
+	defer cleanCallback()
+
+	ecdsaPvk, ok := identityset.PrivateKey(28).EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	require.True(ok)
+
+	type stakeData struct {
+		testName         string
+		stakeEncodedData []byte
+	}
+	testData := []stakeData{}
+	toAddr, err := ioAddrToEthAddr(address.StakingProtocolAddr)
+	require.NoError(err)
+
+	// encode stake data
+	act1, err := action.NewCreateStake(1, "test", "100", 7, false, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data, err := act1.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"createStake", data})
+
+	act2, err := action.NewDepositToStake(2, 7, "100", []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data2, err := act2.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"depositToStake", data2})
+
+	act3, err := action.NewChangeCandidate(3, "test", 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data3, err := act3.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"changeCandidate", data3})
+
+	act4, err := action.NewUnstake(4, 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data4, err := act4.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"unstake", data4})
+
+	act5, err := action.NewWithdrawStake(5, 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data5, err := act5.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"withdrawStake", data5})
+
+	act6, err := action.NewRestake(6, 7, 7, false, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data6, err := act6.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"restake", data6})
+
+	act7, err := action.NewTransferStake(7, "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza", 7, []byte{}, 1000000, big.NewInt(0))
+	require.NoError(err)
+	data7, err := act7.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"transferStake", data7})
+
+	act8, err := action.NewCandidateRegister(
+		8,
+		"test",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"100",
+		7,
+		false,
+		[]byte{},
+		1000000,
+		big.NewInt(0))
+	require.NoError(err)
+	data8, err := act8.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"candidateRegister", data8})
+
+	act9, err := action.NewCandidateUpdate(
+		9,
+		"test",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		"io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza",
+		1000000,
+		big.NewInt(0))
+	require.NoError(err)
+	data9, err := act9.EncodeABIBinary()
+	require.NoError(err)
+	testData = append(testData, stakeData{"candidateUpdate", data9})
+
+	for i, test := range testData {
+		t.Run(test.testName, func(t *testing.T) {
+			// estimate gas
+			gasLimit, err := estimateStakeGas(svr, identityset.Address(28).Hex(), toAddr, test.stakeEncodedData)
+			require.NoError(err)
+
+			// create tx
+			rawTx := types.NewTransaction(
+				uint64(9+i),
+				common.HexToAddress(toAddr),
+				big.NewInt(0),
+				gasLimit,
+				big.NewInt(0),
+				test.stakeEncodedData,
+			)
+			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))), ecdsaPvk)
+			require.NoError(err)
+			BinaryData, err := tx.MarshalBinary()
+			require.NoError(err)
+
+			// send tx
+			fmt.Println(hex.EncodeToString(BinaryData))
+			rawData := gjson.Parse(fmt.Sprintf(`{"params": ["%s"]}`, hex.EncodeToString(BinaryData)))
+			_, err = svr.web3Server.sendRawTransaction(&rawData)
+			require.NoError(err)
+		})
+	}
+}
+
+func estimateStakeGas(svr *ServerV2, fromAddr, toAddr string, data []byte) (uint64, error) {
+	input := gjson.Parse(fmt.Sprintf(`{"params": [{
+		"from":     "%s",
+		"to":       "%s",
+		"gas":      "0x0",
+		"gasPrice": "0x0",
+		"value":    "0x0",
+		"data":     "%s"},
+	1]}`, fromAddr, toAddr, hex.EncodeToString(data)))
+	ret, err := svr.web3Server.estimateGas(&input)
+	if err != nil {
+		panic(err)
+	}
+	return hexStringToNumber(ret.(string))
 }

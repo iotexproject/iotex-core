@@ -22,32 +22,32 @@ import (
 
 // Regexp patterns
 const (
-	ipPattern               = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
-	domainPattern           = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
-	urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
-	localPattern            = "localhost"
-	endpointPattern         = "(" + ipPattern + "|(" + domainPattern + ")" + "|(" + localPattern + "))" + `(:\d{1,5})?`
-	defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
+	_ipPattern               = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
+	_domainPattern           = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
+	_urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
+	_localPattern            = "localhost"
+	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
+	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 )
 
 var (
-	supportedLanguage = []string{"English", "中文"}
-	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height"}
-	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "all"}
-	validExpl         = []string{"iotexscan", "iotxplorer"}
-	endpointCompile   = regexp.MustCompile("^" + endpointPattern + "$")
+	_supportedLanguage = []string{"English", "中文"}
+	_validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height"}
+	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "all"}
+	_validExpl         = []string{"iotexscan", "iotxplorer"}
+	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
 
-// configGetCmd represents the config get command
-var configGetCmd = &cobra.Command{
+// _configGetCmd represents the config get command
+var _configGetCmd = &cobra.Command{
 	Use:       "get VARIABLE",
 	Short:     "Get config fields from ioctl",
-	Long:      "Get config fields from ioctl\nValid Variables: [" + strings.Join(validGetArgs, ", ") + "]",
-	ValidArgs: validGetArgs,
+	Long:      "Get config fields from ioctl\nValid Variables: [" + strings.Join(_validGetArgs, ", ") + "]",
+	ValidArgs: _validGetArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("accepts 1 arg(s), received %d\n"+
-				"Valid arg(s): %s", len(args), validGetArgs)
+				"Valid arg(s): %s", len(args), _validGetArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args)
 	},
@@ -58,16 +58,16 @@ var configGetCmd = &cobra.Command{
 	},
 }
 
-// configSetCmd represents the config set command
-var configSetCmd = &cobra.Command{
+// _configSetCmd represents the config set command
+var _configSetCmd = &cobra.Command{
 	Use:       "set VARIABLE VALUE",
 	Short:     "Set config fields for ioctl",
-	Long:      "Set config fields for ioctl\nValid Variables: [" + strings.Join(validArgs, ", ") + "]",
-	ValidArgs: validArgs,
+	Long:      "Set config fields for ioctl\nValid Variables: [" + strings.Join(_validArgs, ", ") + "]",
+	ValidArgs: _validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 2 {
 			return fmt.Errorf("accepts 2 arg(s), received %d\n"+
-				"Valid arg(s): %s", len(args), validArgs)
+				"Valid arg(s): %s", len(args), _validArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args[:1])
 	},
@@ -78,8 +78,8 @@ var configSetCmd = &cobra.Command{
 	},
 }
 
-// configResetCmd represents the config reset command
-var configResetCmd = &cobra.Command{
+// _configResetCmd represents the config reset command
+var _configResetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset config to default",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -119,7 +119,7 @@ func (m *Config) String() string {
 }
 
 func init() {
-	configSetCmd.Flags().BoolVar(&Insecure, "insecure", false,
+	_configSetCmd.Flags().BoolVar(&Insecure, "insecure", false,
 		"set insecure connection as default")
 }
 
@@ -177,12 +177,12 @@ func GetAddressOrAlias(in string) (address string, err error) {
 
 // isValidEndpoint makes sure the endpoint matches the endpoint match pattern
 func isValidEndpoint(endpoint string) bool {
-	return endpointCompile.MatchString(endpoint)
+	return _endpointCompile.MatchString(endpoint)
 }
 
 // isValidExplorer checks if the explorer is a valid option
 func isValidExplorer(arg string) bool {
-	for _, exp := range validExpl {
+	for _, exp := range _validExpl {
 		if arg == exp {
 			return true
 		}
@@ -192,10 +192,10 @@ func isValidExplorer(arg string) bool {
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
 func isSupportedLanguage(arg string) Language {
-	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(supportedLanguage) {
+	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
 		return Language(index)
 	}
-	for i, lang := range supportedLanguage {
+	for i, lang := range _supportedLanguage {
 		if strings.EqualFold(arg, lang) {
 			return Language(i)
 		}
@@ -240,7 +240,7 @@ func set(args []string) error {
 			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
 			fmt.Scanln(&link)
-			match, err := regexp.MatchString(urlPattern, link)
+			match, err := regexp.MatchString(_urlPattern, link)
 			if err != nil {
 				return output.NewError(output.UndefinedError, "failed to validate link", nil)
 			}
@@ -252,7 +252,7 @@ func set(args []string) error {
 		default:
 			return output.NewError(output.ConfigError,
 				fmt.Sprintf("Explorer %s is not valid\nValid explorers: %s",
-					args[1], append(validExpl, "custom")), nil)
+					args[1], append(_validExpl, "custom")), nil)
 		}
 	case "defaultacc":
 		err1 := validator.ValidateAlias(args[1])
@@ -266,9 +266,9 @@ func set(args []string) error {
 		if language == -1 {
 			return output.NewError(output.ConfigError,
 				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
-					args[1], supportedLanguage), nil)
+					args[1], _supportedLanguage), nil)
 		}
-		ReadConfig.Language = supportedLanguage[language]
+		ReadConfig.Language = _supportedLanguage[language]
 	case "nsv2height":
 		height, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
@@ -292,7 +292,7 @@ func reset() error {
 	ReadConfig.DefaultAccount = *new(Context)
 	ReadConfig.Explorer = "iotexscan"
 	ReadConfig.Language = "English"
-	ReadConfig.AnalyserEndpoint = defaultAnalyserEndpoint
+	ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 
 	err := writeConfig()
 	if err != nil {

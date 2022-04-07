@@ -26,28 +26,28 @@ func TestChecksumNamespaceAndKeys(t *testing.T) {
 
 	a := []hash.Hash256{
 		// filedao
-		hash.BytesToHash256([]byte(blockHashHeightMappingNS)),
-		hash.BytesToHash256([]byte(systemLogNS)),
-		hash.BytesToHash256(topHeightKey),
-		hash.BytesToHash256(topHashKey),
-		hash.BytesToHash256(hashPrefix),
+		hash.BytesToHash256([]byte(_blockHashHeightMappingNS)),
+		hash.BytesToHash256([]byte(_systemLogNS)),
+		hash.BytesToHash256(_topHeightKey),
+		hash.BytesToHash256(_topHashKey),
+		hash.BytesToHash256(_hashPrefix),
 		// filedao_legacy
-		hash.BytesToHash256([]byte(blockNS)),
-		hash.BytesToHash256([]byte(blockHeaderNS)),
-		hash.BytesToHash256([]byte(blockBodyNS)),
-		hash.BytesToHash256([]byte(blockFooterNS)),
-		hash.BytesToHash256([]byte(receiptsNS)),
-		hash.BytesToHash256(heightPrefix),
-		hash.BytesToHash256(heightToFileBucket),
+		hash.BytesToHash256([]byte(_blockNS)),
+		hash.BytesToHash256([]byte(_blockHeaderNS)),
+		hash.BytesToHash256([]byte(_blockBodyNS)),
+		hash.BytesToHash256([]byte(_blockFooterNS)),
+		hash.BytesToHash256([]byte(_receiptsNS)),
+		hash.BytesToHash256(_heightPrefix),
+		hash.BytesToHash256(_heightToFileBucket),
 		// filedao_v2
 		hash.BytesToHash256([]byte(FileV2)),
 		hash.BytesToHash256([]byte{16}),
 		hash.BytesToHash256([]byte(compress.Gzip)),
 		hash.BytesToHash256([]byte(compress.Snappy)),
-		hash.BytesToHash256([]byte(hashDataNS)),
-		hash.BytesToHash256([]byte(blockDataNS)),
-		hash.BytesToHash256([]byte(headerDataNs)),
-		hash.BytesToHash256(fileHeaderKey),
+		hash.BytesToHash256([]byte(_hashDataNS)),
+		hash.BytesToHash256([]byte(_blockDataNS)),
+		hash.BytesToHash256([]byte(_headerDataNs)),
+		hash.BytesToHash256(_fileHeaderKey),
 	}
 
 	checksum := crypto.NewMerkleTree(a)

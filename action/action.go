@@ -18,7 +18,6 @@ import (
 type (
 	// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 	Action interface {
-		SetEnvelopeContext(SealedEnvelope)
 		SanityCheck() error
 	}
 
@@ -30,7 +29,7 @@ type (
 	actionPayload interface {
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
-		SetEnvelopeContext(SealedEnvelope)
+		SetEnvelopeContext(Envelope)
 		SanityCheck() error
 	}
 
@@ -55,7 +54,6 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		return sealed, ErrInvalidSender
 	}
 	sealed.signature = sig
-	act.Action().SetEnvelopeContext(sealed)
 	return sealed, nil
 }
 
@@ -66,7 +64,6 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
-	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -78,7 +75,6 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 		srcPubkey: pk,
 		signature: sig,
 	}
-	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -107,39 +103,4 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 		return 0, ErrInsufficientFunds
 	}
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
-}
-
-// NewStakingActionFromABIBinary creates staking action from abi binary data
-func NewStakingActionFromABIBinary(data []byte) (Action, error) {
-	if len(data) <= 4 {
-		return nil, ErrInvalidABI
-	}
-	if act, err := NewCreateStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewDepositToStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewChangeCandidateFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewUnstakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewWithdrawStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewRestakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewTransferStakeFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewCandidateRegisterFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	if act, err := NewCandidateUpdateFromABIBinary(data); err == nil {
-		return act, nil
-	}
-	return nil, ErrInvalidABI
 }

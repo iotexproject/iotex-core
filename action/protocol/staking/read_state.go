@@ -223,7 +223,7 @@ func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.I
 	if featureCtx.ReadStateFromDB(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
-		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		if err != nil {
 			return nil, h, err
 		}
@@ -239,7 +239,7 @@ func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint6
 	if featureCtx.ReadStateFromDB(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
-		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		if err != nil {
 			return 0, h, err
 		}

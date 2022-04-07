@@ -30,10 +30,10 @@ const (
 )
 
 var (
-	candHeightKey        = []byte("cht")
-	bucketHeightKey      = []byte("bht")
-	latestCandidatesHash = []byte("lch")
-	latestBucketsHash    = []byte("lbh")
+	_candHeightKey        = []byte("cht")
+	_bucketHeightKey      = []byte("bht")
+	_latestCandidatesHash = []byte("lch")
+	_latestBucketsHash    = []byte("lbh")
 )
 
 // CandidatesBucketsIndexer is an indexer to store candidates by given height
@@ -60,7 +60,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 	if err := cbi.kvStore.Start(ctx); err != nil {
 		return err
 	}
-	ret, err := cbi.kvStore.Get(StakingMetaNamespace, candHeightKey)
+	ret, err := cbi.kvStore.Get(StakingMetaNamespace, _candHeightKey)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestCandidatesHeight = byteutil.BytesToUint64BigEndian(ret)
@@ -70,7 +70,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 
-	ret, err = cbi.kvStore.Get(StakingMetaNamespace, latestCandidatesHash)
+	ret, err = cbi.kvStore.Get(StakingMetaNamespace, _latestCandidatesHash)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestCandidatesHash = hash.BytesToHash160(ret)
@@ -80,7 +80,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 
-	ret, err = cbi.kvStore.Get(StakingMetaNamespace, bucketHeightKey)
+	ret, err = cbi.kvStore.Get(StakingMetaNamespace, _bucketHeightKey)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestBucketsHeight = byteutil.BytesToUint64BigEndian(ret)
@@ -90,7 +90,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 
-	ret, err = cbi.kvStore.Get(StakingMetaNamespace, latestBucketsHash)
+	ret, err = cbi.kvStore.Get(StakingMetaNamespace, _latestBucketsHash)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestBucketsHash = hash.BytesToHash160(ret)
@@ -209,12 +209,12 @@ func (cbi *CandidatesBucketsIndexer) putToIndexer(ns string, height uint64, data
 	switch ns {
 	case StakingCandidatesNamespace:
 		dataExist = (h == cbi.latestCandidatesHash)
-		heightKey = candHeightKey
-		latestHash = latestCandidatesHash
+		heightKey = _candHeightKey
+		latestHash = _latestCandidatesHash
 	case StakingBucketsNamespace:
 		dataExist = (h == cbi.latestBucketsHash)
-		heightKey = bucketHeightKey
-		latestHash = latestBucketsHash
+		heightKey = _bucketHeightKey
+		latestHash = _latestBucketsHash
 	default:
 		return ErrTypeAssertion
 	}

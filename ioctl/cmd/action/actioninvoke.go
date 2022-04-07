@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -15,23 +15,23 @@ import (
 
 // Multi-language support
 var (
-	invokeCmdShorts = map[config.Language]string{
+	_invokeCmdShorts = map[config.Language]string{
 		config.English: "Invoke smart contract on IoTeX blockchain\nWarning: 'ioctl action invoke' has been deprecated, use 'ioctl contract invoke' instead",
 		config.Chinese: "在IoTeX区块链上调用智能合约\nWarning: 'ioctl action invoke' 已被废弃, 使用 'ioctl contract invoke' 代替",
 	}
-	invokeCmdUses = map[config.Language]string{
+	_invokeCmdUses = map[config.Language]string{
 		config.English: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX] -b BYTE_CODE [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "invoke (别名|联系人地址) [IOTX数量] -b 类型码 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS" +
 			"价格] [-P 密码] [-y]",
 	}
 )
 
-// actionInvokeCmd represents the action invoke command
+// _actionInvokeCmd represents the action invoke command
 // Deprecated: notify users to use the new ioctl contract command
 // TODO: this command will be deprecated soon
-var actionInvokeCmd = &cobra.Command{
-	Use:                config.TranslateInLang(invokeCmdUses, config.UILanguage),
-	Short:              config.TranslateInLang(invokeCmdShorts, config.UILanguage),
+var _actionInvokeCmd = &cobra.Command{
+	Use:                config.TranslateInLang(_invokeCmdUses, config.UILanguage),
+	Short:              config.TranslateInLang(_invokeCmdShorts, config.UILanguage),
 	Hidden:             true,
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

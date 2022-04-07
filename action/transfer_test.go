@@ -23,7 +23,8 @@ func TestTransferSignVerify(t *testing.T) {
 
 	tsf, err := NewTransfer(1, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Nil(tsf.srcPubkey)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(87, tsf.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(tsf.nonce).
@@ -38,12 +39,13 @@ func TestTransferSignVerify(t *testing.T) {
 	tsf2, ok := w.Envelope.Action().(*Transfer)
 	require.True(ok)
 	require.Equal(tsf, tsf2)
-	require.NotNil(tsf.srcPubkey)
 
 	// sign the transfer
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(87, tsf.TotalSize())
 
 	// verify signature
 	require.NoError(selp.VerifySignature())

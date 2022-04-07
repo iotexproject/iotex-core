@@ -126,8 +126,8 @@ func (ex *Execution) TotalSize() uint32 {
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		size += uint32(len(ex.amount.Bytes()))
 	}
-
-	return size + uint32(len(ex.data))
+	// 65 is the pubkey size
+	return size + uint32(len(ex.data)) + 65
 }
 
 // Serialize returns a raw byte stream of this Transfer

@@ -21,27 +21,27 @@ import (
 
 // Multi-language support
 var (
-	createShorts = map[config.Language]string{
+	_createShorts = map[config.Language]string{
 		config.English: "Create N new accounts and print them",
 		config.Chinese: "创建 N 个新账户，并打印",
 	}
-	createUses = map[config.Language]string{
+	_createUses = map[config.Language]string{
 		config.English: "create",
 		config.Chinese: "create 创建",
 	}
-	createFlagUsages = map[config.Language]string{
+	_createFlagUsages = map[config.Language]string{
 		config.English: "number of accounts to create",
 		config.Chinese: "指定创建账户的数量",
 	}
-	failToGenerateNewPrivateKey = map[config.Language]string{
+	_failToGenerateNewPrivateKey = map[config.Language]string{
 		config.English: "failed to generate new private key",
 		config.Chinese: "生成新私钥失败",
 	}
-	failToGenerateNewPrivateKeySm2 = map[config.Language]string{
+	_failToGenerateNewPrivateKeySm2 = map[config.Language]string{
 		config.English: "failed to generate new sm2 private key",
 		config.Chinese: "生成新sm2私钥失败",
 	}
-	failToConvertPublicKeyIntoAddress = map[config.Language]string{
+	_failToConvertPublicKeyIntoAddress = map[config.Language]string{
 		config.English: "failed to convert public key into address",
 		config.Chinese: "将公钥转换为地址失败",
 	}
@@ -50,12 +50,12 @@ var (
 // NewAccountCreate represents the account create command
 func NewAccountCreate(client ioctl.Client) *cobra.Command {
 	var numAccounts uint
-	use, _ := client.SelectTranslation(createUses)
-	short, _ := client.SelectTranslation(createShorts)
-	usage, _ := client.SelectTranslation(createFlagUsages)
-	failToGenerateNewPrivateKey, _ := client.SelectTranslation(failToGenerateNewPrivateKey)
-	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(failToGenerateNewPrivateKeySm2)
-	failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(failToConvertPublicKeyIntoAddress)
+	use, _ := client.SelectTranslation(_createUses)
+	short, _ := client.SelectTranslation(_createShorts)
+	usage, _ := client.SelectTranslation(_createFlagUsages)
+	_failToGenerateNewPrivateKey, _ := client.SelectTranslation(_failToGenerateNewPrivateKey)
+	_failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(_failToGenerateNewPrivateKeySm2)
+	_failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(_failToConvertPublicKeyIntoAddress)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -71,18 +71,18 @@ func NewAccountCreate(client ioctl.Client) *cobra.Command {
 				if !client.IsCryptoSm2() {
 					private, err = crypto.GenerateKey()
 					if err != nil {
-						return errors.Wrap(err, failToGenerateNewPrivateKey)
+						return errors.Wrap(err, _failToGenerateNewPrivateKey)
 					}
 				} else {
 					private, err = crypto.GenerateKeySm2()
 					if err != nil {
-						return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
+						return errors.Wrap(err, _failToGenerateNewPrivateKeySm2)
 					}
 				}
 
 				addr := private.PublicKey().Address()
 				if addr == nil {
-					return errors.New(failToConvertPublicKeyIntoAddress)
+					return errors.New(_failToConvertPublicKeyIntoAddress)
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),

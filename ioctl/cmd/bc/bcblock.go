@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -25,29 +25,29 @@ import (
 )
 
 var (
-	verbose bool
+	_verbose bool
 )
 
 // Multi-language support
 var (
-	bcBlockCmdShorts = map[config.Language]string{
+	_bcBlockCmdShorts = map[config.Language]string{
 		config.English: "Get block from block chain",
 		config.Chinese: "获取IoTeX区块链中的区块",
 	}
-	bcBlockCmdUses = map[config.Language]string{
-		config.English: "block [HEIGHT|HASH] [--verbose]",
-		config.Chinese: "block [高度|哈希] [--verbose]",
+	_bcBlockCmdUses = map[config.Language]string{
+		config.English: "block [HEIGHT|HASH] [--_verbose]",
+		config.Chinese: "block [高度|哈希] [--_verbose]",
 	}
-	flagVerboseUsage = map[config.Language]string{
+	_flagVerboseUsage = map[config.Language]string{
 		config.English: "returns block info and all actions within this block.",
 		config.Chinese: "返回区块信息和区块内的所有事务",
 	}
 )
 
-// bcBlockCmd represents the bc Block command
-var bcBlockCmd = &cobra.Command{
-	Use:   config.TranslateInLang(bcBlockCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(bcBlockCmdShorts, config.UILanguage),
+// _bcBlockCmd represents the bc Block command
+var _bcBlockCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_bcBlockCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_bcBlockCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -57,7 +57,7 @@ var bcBlockCmd = &cobra.Command{
 }
 
 func init() {
-	bcBlockCmd.Flags().BoolVar(&verbose, "verbose", false, config.TranslateInLang(flagVerboseUsage, config.UILanguage))
+	_bcBlockCmd.Flags().BoolVar(&_verbose, "_verbose", false, config.TranslateInLang(_flagVerboseUsage, config.UILanguage))
 }
 
 type blockMessage struct {
@@ -159,7 +159,7 @@ func getBlock(args []string) error {
 		Node:  config.ReadConfig.Endpoint,
 		Block: blockMeta,
 	}
-	if verbose {
+	if _verbose {
 		blocksInfos, err = getActionInfoWithinBlock(blockMeta.Height)
 		if err != nil {
 			return output.NewError(0, "failed to get actions info", err)

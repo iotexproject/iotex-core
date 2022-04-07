@@ -20,12 +20,12 @@ import (
 
 // const
 const (
-	stakingBucketPool = "bucketPool"
+	_stakingBucketPool = "bucketPool"
 )
 
 var (
-	bucketPoolAddr    = hash.Hash160b([]byte(stakingBucketPool))
-	bucketPoolAddrKey = append([]byte{_const}, bucketPoolAddr[:]...)
+	_bucketPoolAddr    = hash.Hash160b([]byte(_stakingBucketPool))
+	_bucketPoolAddrKey = append([]byte{_const}, _bucketPoolAddr[:]...)
 )
 
 // when a bucket is created, the amount of staked IOTX token is deducted from user, but does not transfer to any address
@@ -102,7 +102,7 @@ func NewBucketPool(sr protocol.StateReader, enableSMStorage bool) (*BucketPool, 
 	}
 
 	if bp.enableSMStorage {
-		switch _, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
+		switch _, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); errors.Cause(err) {
 		case nil:
 			return &bp, nil
 		case state.ErrStateNotExist:
@@ -152,11 +152,11 @@ func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
 // Sync syncs the data from state manager
 func (bp *BucketPool) Sync(sm protocol.StateManager) error {
 	if bp.enableSMStorage {
-		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
 	// get stashed total amount
-	err := sm.Unload(protocolID, stakingBucketPool, bp.total)
+	err := sm.Unload(_protocolID, _stakingBucketPool, bp.total)
 	if err != nil && err != protocol.ErrNoName {
 		return err
 	}
@@ -175,18 +175,18 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 	}
 
 	if bp.enableSMStorage {
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
-	return sm.Load(protocolID, stakingBucketPool, bp.total)
+	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
 }
 
 // DebitPool adds staked amount into the pool
 func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket bool) error {
 	bp.total.AddBalance(amount, newBucket)
 	if bp.enableSMStorage {
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
-	return sm.Load(protocolID, stakingBucketPool, bp.total)
+	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
 }

@@ -109,7 +109,7 @@ func TestProtocol(t *testing.T) {
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := stk.Start(ctx, sm)
-	sm.WriteView(protocolID, v)
+	sm.WriteView(_protocolID, v)
 	r.NoError(err)
 	_, ok := v.(*ViewData)
 	r.True(ok)
@@ -198,14 +198,14 @@ func TestCreatePreStates(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	require.NoError(sm.WriteView(protocolID, v))
+	require.NoError(sm.WriteView(_protocolID, v))
 	csm, err := NewCandidateStateManager(sm, false)
 	require.NoError(err)
 	require.NotNil(csm)
 	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 	require.NoError(p.CreatePreStates(ctx, sm))
-	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -214,7 +214,7 @@ func TestCreatePreStates(t *testing.T) {
 		},
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
-	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -224,7 +224,7 @@ func TestCreatePreStates(t *testing.T) {
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
 	total := &totalAmount{}
-	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.NoError(err)
 }
 
@@ -264,7 +264,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	require.NoError(sm.WriteView(protocolID, v))
+	require.NoError(sm.WriteView(_protocolID, v))
 	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 
@@ -365,7 +365,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 
 		v, err := p.Start(ctx, sm)
 		require.NoError(err)
-		require.NoError(sm.WriteView(protocolID, v))
+		require.NoError(sm.WriteView(_protocolID, v))
 
 		err = p.CreateGenesisStates(ctx, sm)
 		if err != nil {

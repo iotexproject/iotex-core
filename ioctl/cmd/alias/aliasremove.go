@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,20 +20,20 @@ import (
 
 // Multi-language support
 var (
-	removeCmdShorts = map[config.Language]string{
+	_removeCmdShorts = map[config.Language]string{
 		config.English: "Remove alias",
 		config.Chinese: "移除别名",
 	}
-	removeCmdUses = map[config.Language]string{
+	_removeCmdUses = map[config.Language]string{
 		config.English: "remove ALIAS",
 		config.Chinese: "remove 别名",
 	}
 )
 
-// aliasRemoveCmd represents the alias remove command
-var aliasRemoveCmd = &cobra.Command{
-	Use:   config.TranslateInLang(removeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(removeCmdShorts, config.UILanguage),
+// _aliasRemoveCmd represents the alias remove command
+var _aliasRemoveCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_removeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_removeCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
