@@ -141,6 +141,8 @@ type (
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
 		// SimulateExecution simulates execution
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
+		// SyncingProgress returns the syncing status of node
+		SyncingProgress() (uint64, uint64, uint64)
 		// TipHeight returns the tip of the chain
 		TipHeight() uint64
 		// PendingNonce returns the pending nonce of an account
@@ -297,7 +299,7 @@ func (core *coreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
 	}
 	syncStatus := ""
 	if core.bs != nil {
-		syncStatus = core.bs.SyncStatus()
+		_, _, _, syncStatus = core.bs.SyncStatus()
 	}
 	chainMeta := &iotextypes.ChainMeta{
 		Height:  tipHeight,
@@ -1709,4 +1711,10 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 	}
 	exec.SetGasLimit(core.bc.Genesis().BlockGasLimit)
 	return core.sf.SimulateExecution(ctx, addr, exec, core.dao.GetBlockHash)
+}
+
+// SyncingProgress returns the syncing status of node
+func (core *coreService) SyncingProgress() (uint64, uint64, uint64) {
+	startingHeight, currentHeight, targetHeight, _ := core.bs.SyncStatus()
+	return startingHeight, currentHeight, targetHeight
 }

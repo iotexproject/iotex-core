@@ -475,7 +475,15 @@ func (svr *Web3Server) getProtocolVersion() (interface{}, error) {
 }
 
 func (svr *Web3Server) isSyncing() (interface{}, error) {
-	return false, nil
+	start, curr, highest := svr.coreService.SyncingProgress()
+	if curr >= highest {
+		return false, nil
+	}
+	return &getSyncingResult{
+		StartingBlock: uint64ToHex(start),
+		CurrentBlock:  uint64ToHex(curr),
+		HighestBlock:  uint64ToHex(highest),
+	}, nil
 }
 
 func (svr *Web3Server) isMining() (interface{}, error) {

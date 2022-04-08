@@ -93,20 +93,20 @@ func TestServeHTTP(t *testing.T) {
 	require.Contains(string(bodyBytes3), "method not found")
 
 	// single web3 req
-	request4, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":67}`))
+	request4, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":67}`))
 	response4 := getServerResp(svr, request4)
 	bodyBytes4, _ := io.ReadAll(response4.Body)
 	require.Contains(string(bodyBytes4), "result")
 
 	// multiple web3 req
-	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
+	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}, {"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":2}]`))
 	response5 := getServerResp(svr, request5)
 	bodyBytes5, _ := io.ReadAll(response5.Body)
 	require.True(gjson.Valid(string(bodyBytes5)))
 	require.Equal(2, len(gjson.Parse(string(bodyBytes5)).Array()))
 
 	// multiple web3 req2
-	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}]`))
+	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}]`))
 	response6 := getServerResp(svr, request6)
 	bodyBytes6, _ := io.ReadAll(response6.Body)
 	require.True(gjson.Valid(string(bodyBytes6)))
