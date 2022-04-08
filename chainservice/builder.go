@@ -657,17 +657,17 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 	if err := builder.registerStakingProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register staking protocol")
 	}
-	if err := builder.registerRewardingProtocol(); err != nil {
-		return nil, errors.Wrap(err, "failed to register rewarding protocol")
-	}
 	if err := builder.registerAccountProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register rewarding protocol")
+	}
+	if err := builder.registerRollDPoSProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register roll dpos related protocols")
 	}
 	if err := builder.registerExecutionProtocol(); err != nil {
 		return nil, errors.Wrap(err, "failed to register execution protocol")
 	}
-	if err := builder.registerRollDPoSProtocol(); err != nil {
-		return nil, errors.Wrap(err, "failed to register roll dpos related protocols")
+	if err := builder.registerRewardingProtocol(); err != nil {
+		return nil, errors.Wrap(err, "failed to register rewarding protocol")
 	}
 	if err := builder.buildConsensusComponent(); err != nil {
 		return nil, err
