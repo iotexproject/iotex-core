@@ -16,6 +16,7 @@ import (
 	ioAddress "github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -61,7 +62,7 @@ func NewAccountBalance(client ioctl.Client) *cobra.Command {
 			if !ok {
 				return errors.Wrap(err, "failed to convert account balance")
 			}
-			cmd.Println(fmt.Sprintf("%s: %s IOTX", addr, balance))
+			cmd.Println(fmt.Sprintf("%s: %s IOTX", addr, util.RauToString(balance, util.IotxDecimalNum)))
 			return nil
 		},
 	}
