@@ -38,7 +38,7 @@ func NewAccountBalance(client ioctl.Client) *cobra.Command {
 	return &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			addr := ""
