@@ -44,7 +44,7 @@ type (
 		// ProcessBlock processes an incoming block
 		ProcessBlock(context.Context, string, *block.Block) error
 		// SyncStatus report block sync status
-		SyncStatus() string
+		SyncStatus() (startingHeight uint64, currentHeight uint64, targetHeight uint64, syncSpeedDesc string)
 	}
 
 	dummyBlockSync struct{}
@@ -65,9 +65,10 @@ type (
 		syncStageHeight   uint64
 		syncBlockIncrease uint64
 
+		startingHeight    uint64 // block number this node started to synchronise from
 		lastTip           uint64
 		lastTipUpdateTime time.Time
-		targetHeight      uint64
+		targetHeight      uint64 // block number of the highest block header this node has received from peers
 		mu                sync.RWMutex
 
 		peerBlockList sync.Map
@@ -111,8 +112,8 @@ func (*dummyBlockSync) ProcessBlock(context.Context, string, *block.Block) error
 	return nil
 }
 
-func (*dummyBlockSync) SyncStatus() string {
-	return ""
+func (*dummyBlockSync) SyncStatus() (uint64, uint64, uint64, string) {
+	return 0, 0, 0, ""
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -170,12 +171,15 @@ func (bs *blockSyncer) sync() {
 		return
 	}
 	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
-	if intervals != nil {
-		log.L().Info("block sync intervals.",
-			zap.Any("intervals", intervals),
-			zap.Uint64("targetHeight", targetHeight))
+	// no sync
+	if len(intervals) == 0 {
+		return
 	}
-
+	// start syncing
+	bs.startingHeight = bs.tipHeightHandler()
+	log.L().Info("block sync intervals.",
+		zap.Any("intervals", intervals),
+		zap.Uint64("targetHeight", targetHeight))
 	for i, interval := range intervals {
 		bs.requestBlocksHandler(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
@@ -286,13 +290,16 @@ func (bs *blockSyncer) syncStageChecker() {
 	bs.syncStageHeight = tipHeight
 }
 
-func (bs *blockSyncer) SyncStatus() string {
+func (bs *blockSyncer) SyncStatus() (uint64, uint64, uint64, string) {
+	var syncSpeedDesc string
 	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
-	if syncBlockIncrease == 1 {
-		return "synced to blockchain tip"
+	switch {
+	case syncBlockIncrease == 1:
+		syncSpeedDesc = "synced to blockchain tip"
+	case bs.cfg.Interval == 0:
+		syncSpeedDesc = "no sync task"
+	default:
+		syncSpeedDesc = fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 	}
-	if bs.cfg.Interval == 0 {
-		return "no sync task"
-	}
-	return fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
+	return bs.startingHeight, bs.tipHeightHandler(), bs.targetHeight, syncSpeedDesc
 }
