@@ -603,6 +603,22 @@ func (mr *MockCoreServiceMockRecorder) SuggestGasPrice() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockCoreService)(nil).SuggestGasPrice))
 }
 
+// SyncingProgress mocks base method.
+func (m *MockCoreService) SyncingProgress() (uint64, uint64, uint64) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SyncingProgress")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(uint64)
+	return ret0, ret1, ret2
+}
+
+// SyncingProgress indicates an expected call of SyncingProgress.
+func (mr *MockCoreServiceMockRecorder) SyncingProgress() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncingProgress", reflect.TypeOf((*MockCoreService)(nil).SyncingProgress))
+}
+
 // TipHeight mocks base method.
 func (m *MockCoreService) TipHeight() uint64 {
 	m.ctrl.T.Helper()
