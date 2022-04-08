@@ -91,7 +91,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		return nil
 	}
