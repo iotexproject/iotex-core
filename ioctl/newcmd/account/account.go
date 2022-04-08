@@ -84,6 +84,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountEthAddr(client))
 	ac.AddCommand(NewAccountExportPublic(client))
 	ac.AddCommand(NewAccountExport(client))
+	ac.AddCommand(NewAccountImportCmd(client))
 
 	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpoint)
 	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecure)
