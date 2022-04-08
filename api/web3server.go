@@ -62,12 +62,6 @@ type (
 		Address    []string   `json:"address,omitempty"`
 		Topics     [][]string `json:"topics,omitempty"`
 	}
-
-	syncingObject struct {
-		startingBlock string `json:"startingBlock"`
-		currentBlock  string `json:"currentBlock"`
-		highestBlock  string `json:"highestBlock"`
-	}
 )
 
 var (
@@ -485,10 +479,10 @@ func (svr *Web3Server) isSyncing() (interface{}, error) {
 	if curr >= highest {
 		return false, nil
 	}
-	return &syncingObject{
-		startingBlock: uint64ToHex(start),
-		currentBlock:  uint64ToHex(curr),
-		highestBlock:  uint64ToHex(highest),
+	return &getSyncingResult{
+		StartingBlock: uint64ToHex(start),
+		CurrentBlock:  uint64ToHex(curr),
+		HighestBlock:  uint64ToHex(highest),
 	}, nil
 }
 
