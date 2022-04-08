@@ -400,6 +400,8 @@ func newConfig() config.Config {
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.API.RangeQueryLimit = 100
+	cfg.API.Port = testutil.RandomPort()
+	cfg.API.Web3Port = testutil.RandomPort()
 
 	return cfg
 }
