@@ -819,7 +819,7 @@ var (
 
 func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
@@ -883,7 +883,7 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -942,7 +942,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, dao, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
@@ -995,7 +995,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1046,7 +1046,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
@@ -1077,7 +1077,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1114,7 +1114,7 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash(&cfg.Genesis)
@@ -1177,7 +1177,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, bc, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1215,7 +1215,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 
 	var pol poll.Protocol
 	for _, test := range _getChainMetaTests {
-		cfg := newConfig(t)
+		cfg := newConfig()
 		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
@@ -1277,7 +1277,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 
 func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	cfg.Genesis.MidwayBlockHeight = 10
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
@@ -1310,14 +1310,14 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	}{
 		{
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			&iotextypes.Action{},
 			"invalid signature length",
 		},
 		{
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			&iotextypes.Action{
 				Signature: action.ValidSig,
@@ -1326,7 +1326,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		},
 		{
 			func() config.Config {
-				cfg := newConfig(t)
+				cfg := newConfig()
 				cfg.ActPool.MaxNumActsPerPool = 8
 				return cfg
 			},
@@ -1335,21 +1335,21 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		},
 		{
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			_testTransferInvalid1Pb,
 			action.ErrNonceTooLow.Error(),
 		},
 		{
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			_testTransferInvalid2Pb,
 			action.ErrUnderpriced.Error(),
 		},
 		{
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			_testTransferInvalid3Pb,
 			action.ErrInsufficientFunds.Error(),
@@ -1371,7 +1371,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 
 func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
@@ -1385,7 +1385,7 @@ func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1414,7 +1414,7 @@ func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1433,7 +1433,7 @@ func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1466,7 +1466,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 
 func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	for _, test := range _suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
@@ -1483,7 +1483,7 @@ func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 
 func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1508,7 +1508,7 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 
 func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -1685,7 +1685,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1712,7 +1712,7 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 
 func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1733,7 +1733,7 @@ func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 
 func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -1754,7 +1754,7 @@ func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -1825,7 +1825,7 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -1896,7 +1896,7 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -1967,7 +1967,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	for _, test := range _readRollDPoSMetaTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
@@ -1988,7 +1988,7 @@ func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 
 func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	for _, test := range _readEpochCtxTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
@@ -2010,7 +2010,7 @@ func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 
@@ -2143,7 +2143,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -2210,7 +2210,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -2269,7 +2269,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -2287,7 +2287,7 @@ func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -2303,7 +2303,7 @@ func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -2338,7 +2338,7 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -2371,7 +2371,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 	ctx := context.Background()
 
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
@@ -2429,7 +2429,7 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 
 func TestGrpcServer_GetEstimateGasSpecialIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
@@ -2475,7 +2475,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"NonceTooLow",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid1Pb},
 			regexp.MustCompile(`(: |^)nonce too low$`),
@@ -2483,7 +2483,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"TerminallyUnderpriced",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid2Pb},
 			regexp.MustCompile(`(: |^)transaction underpriced$`),
@@ -2491,7 +2491,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"InsufficientEth",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid3Pb},
 			regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
@@ -2500,7 +2500,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"NonceTooHigh",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid4Pb},
 			gethFatal,
@@ -2508,7 +2508,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"TransactionAlreadyInMempool",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferPb, _testTransferPb},
 			regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
@@ -2516,7 +2516,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"ReplacementTransactionUnderpriced",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferPb, _testTransferInvalid5Pb},
 			regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
@@ -2524,7 +2524,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"IntrinsicGasTooLow",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid6Pb},
 			gethFatal,
@@ -2532,7 +2532,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"NegativeValue",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid7Pb},
 			gethFatal,
@@ -2540,7 +2540,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"ExceedsBlockGasLimit",
 			func() config.Config {
-				return newConfig(t)
+				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid8Pb},
 			gethFatal,
@@ -2570,7 +2570,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 
 func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(t)
+	cfg := newConfig()
 
 	svr, bc, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
