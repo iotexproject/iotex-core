@@ -108,7 +108,7 @@ func (svr *ServerV2) Start(ctx context.Context) error {
 	if err := svr.core.Start(ctx); err != nil {
 		return err
 	}
-	if svr.httpSvr != nil {
+	if svr.GrpcServer != nil {
 		if err := svr.GrpcServer.Start(ctx); err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 			return err
 		}
 	}
-	if svr.httpSvr != nil {
+	if svr.GrpcServer != nil {
 		if err := svr.GrpcServer.Stop(ctx); err != nil {
 			return err
 		}
