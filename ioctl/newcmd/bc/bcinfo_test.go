@@ -10,15 +10,15 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // test for bc info command
@@ -29,7 +29,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
 	client.EXPECT().Config().Return(config.ReadConfig).Times(3)
 
-	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
 	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}

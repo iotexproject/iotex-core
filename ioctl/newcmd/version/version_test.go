@@ -10,14 +10,13 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -27,7 +26,7 @@ func TestVersionCommand(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
 	cfg := config.Config{}
 	client.EXPECT().Config().Return(cfg).Times(2)
-	apiClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	response := iotexapi.GetServerMetaResponse{
 		ServerMeta: &iotextypes.ServerMeta{PackageVersion: "1.0"},
 	}
