@@ -42,15 +42,15 @@ var (
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
 
-// ConfigInfo contains the information of config file
-type ConfigInfo struct {
+// Info contains the information of config file
+type Info struct {
 	readConfig        config.Config
 	defaultConfigFile string
 }
 
 // InitConfig load config data from default config file
 func InitConfig() (config.Config, string) {
-	info := &ConfigInfo{}
+	info := &Info{}
 	configDir := os.Getenv("HOME") + "/.config/ioctl/default"
 	// Create path to config directory
 	if err := os.MkdirAll(configDir, 0700); err != nil {
@@ -102,16 +102,16 @@ func InitConfig() (config.Config, string) {
 	return info.readConfig, info.defaultConfigFile
 }
 
-// newConfigInfo create config info
-func newConfigInfo(readConfig config.Config, defaultConfigFile string) *ConfigInfo {
-	return &ConfigInfo{
+// newInfo create config info
+func newInfo(readConfig config.Config, defaultConfigFile string) *Info {
+	return &Info{
 		readConfig:        readConfig,
 		defaultConfigFile: defaultConfigFile,
 	}
 }
 
 // reset resets all values of config
-func (c *ConfigInfo) reset() error {
+func (c *Info) reset() error {
 	c.readConfig.Wallet = path.Dir(c.defaultConfigFile)
 	c.readConfig.Endpoint = ""
 	c.readConfig.SecureConnect = true
@@ -130,7 +130,7 @@ func (c *ConfigInfo) reset() error {
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
-func (c *ConfigInfo) isSupportedLanguage(arg string) config.Language {
+func (c *Info) isSupportedLanguage(arg string) config.Language {
 	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
 		return config.Language(index)
 	}
@@ -143,7 +143,7 @@ func (c *ConfigInfo) isSupportedLanguage(arg string) config.Language {
 }
 
 // writeConfig writes to config file
-func (c *ConfigInfo) writeConfig() error {
+func (c *Info) writeConfig() error {
 	out, err := yaml.Marshal(&c.readConfig)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal config")
