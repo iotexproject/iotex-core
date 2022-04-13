@@ -42,6 +42,7 @@ var (
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
 
+// ConfigInfo contains the information of config file
 type ConfigInfo struct {
 	readConfig        config.Config
 	defaultConfigFile string
