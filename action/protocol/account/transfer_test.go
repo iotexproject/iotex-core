@@ -34,12 +34,24 @@ import (
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(rewarding.DepositGas)
-	t.Run("Oversized data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		payload := tmpPayload[:]
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0), big.NewInt(0))
+	t.Run("invalid transfer", func(t *testing.T) {
+		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", make([]byte, 32683), uint64(0), big.NewInt(0))
 		require.NoError(err)
-		require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), tsf, nil)))
+		tsf1, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", nil, uint64(0), big.NewInt(0))
+		require.NoError(err)
+		g := genesis.Default
+		ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+			BlockHeight: g.ToBeEnabledBlockHeight,
+		}), g))
+		for _, v := range []struct {
+			tsf *action.Transfer
+			err error
+		}{
+			{tsf, action.ErrOversizedData},
+			{tsf1, address.ErrInvalidAddr},
+		} {
+			require.Equal(v.err, errors.Cause(p.Validate(ctx, v.tsf, nil)))
+		}
 	})
 }
 

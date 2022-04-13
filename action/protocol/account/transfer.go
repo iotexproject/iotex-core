@@ -156,7 +156,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error {
+func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -165,6 +165,14 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 	if tsf.TotalSize() > TransferSizeLimit {
 		return action.ErrOversizedData
 	}
-
-	return nil
+	var (
+		fCtx = protocol.MustGetFeatureCtx(ctx)
+		err  error
+	)
+	if fCtx.TolerateLegacyAddress {
+		_, err = address.FromStringLegacy(tsf.Recipient())
+	} else {
+		_, err = address.FromString(tsf.Recipient())
+	}
+	return err
 }
