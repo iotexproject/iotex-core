@@ -74,6 +74,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	}
 
 	ac.AddCommand(NewAccountCreate(client))
+	ac.AddCommand(NewAccountCreateAdd(client))
 	ac.AddCommand(NewAccountDelete(client))
 	ac.AddCommand(NewAccountNonce(client))
 	ac.AddCommand(NewAccountList(client))
@@ -85,6 +86,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountExportPublic(client))
 	ac.AddCommand(NewAccountExport(client))
 	ac.AddCommand(NewAccountImportCmd(client))
+	ac.AddCommand(NewAccountBalance(client))
 
 	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpoint)
 	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecure)
