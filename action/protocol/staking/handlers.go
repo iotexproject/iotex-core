@@ -254,12 +254,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// update withdrawer balance
-	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
-		return log, nil, &handleError{
-			err:           errors.Wrapf(err, "failed to update the balance of withdrawer %s", actionCtx.Caller.String()),
-			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
-		}
-	}
+	withdrawer.AddBalance(bucket.StakedAmount)
 	// put updated withdrawer's account state to trie
 	if err := accountutil.StoreAccount(csm, actionCtx.Caller, withdrawer); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
