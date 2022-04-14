@@ -398,7 +398,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
+func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 

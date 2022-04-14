@@ -74,7 +74,7 @@ func (ib *IndexBuilder) Start(ctx context.Context) error {
 	if err := ib.indexer.Start(ctx); err != nil {
 		return err
 	}
-	if err := ib.init(); err != nil {
+	if err := ib.init(ctx); err != nil {
 		return err
 	}
 	// start handler to index incoming new block
@@ -109,7 +109,7 @@ func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	return nil
 }
 
-func (ib *IndexBuilder) init() error {
+func (ib *IndexBuilder) init(ctx context.Context) error {
 	startHeight, err := ib.indexer.Height()
 	if err != nil {
 		return err
@@ -141,7 +141,7 @@ func (ib *IndexBuilder) init() error {
 		blks = append(blks, blk)
 		// commit once every 5000 blocks
 		if startHeight%5000 == 0 || startHeight == tipHeight {
-			if err := ib.indexer.PutBlocks(blks); err != nil {
+			if err := ib.indexer.PutBlocks(ctx, blks); err != nil {
 				return err
 			}
 			blks = blks[:0]

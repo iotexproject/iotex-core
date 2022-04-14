@@ -266,7 +266,7 @@ func TestIndexer(t *testing.T) {
 				continue
 			}
 
-			require.NoError(indexer.DeleteTipBlock(blks[3-i]))
+			require.NoError(indexer.DeleteTipBlock(ctx, blks[3-i]))
 			tipHeight, err := indexer.Height()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)

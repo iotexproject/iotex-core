@@ -47,8 +47,8 @@ type (
 		Start(context.Context) error
 		Stop(context.Context) error
 		PutBlock(context.Context, *block.Block) error
-		PutBlocks([]*block.Block) error
-		DeleteTipBlock(*block.Block) error
+		PutBlocks(context.Context, []*block.Block) error
+		DeleteTipBlock(context.Context, *block.Block) error
 		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
@@ -119,11 +119,11 @@ func (x *blockIndexer) Stop(ctx context.Context) error {
 }
 
 // PutBlocks writes the batch to DB
-func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
+func (x *blockIndexer) PutBlocks(ctx context.Context, blks []*block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 	for _, blk := range blks {
-		if err := x.putBlock(blk); err != nil {
+		if err := x.putBlock(ctx, blk); err != nil {
 			// TODO: Revert changes
 			return err
 		}
@@ -132,18 +132,18 @@ func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
 }
 
 // PutBlock index the block
-func (x *blockIndexer) PutBlock(_ context.Context, blk *block.Block) error {
+func (x *blockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
-	if err := x.putBlock(blk); err != nil {
+	if err := x.putBlock(ctx, blk); err != nil {
 		return err
 	}
 	return x.commit()
 }
 
 // DeleteBlock deletes a block's index
-func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
+func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -294,7 +294,7 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	return addr.Range(start, count)
 }
 
-func (x *blockIndexer) putBlock(blk *block.Block) error {
+func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
 	height := blk.Height()
 	if height != x.tbk.Size() {
