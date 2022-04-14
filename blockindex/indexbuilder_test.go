@@ -88,7 +88,7 @@ func TestIndexBuilder(t *testing.T) {
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks
-		require.NoError(ib.init())
+		require.NoError(ib.init(ctx))
 		height, err := ib.indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)
