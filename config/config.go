@@ -112,7 +112,7 @@ var (
 			MaxNumActsPerPool:  32000,
 			MaxGasLimitPerPool: 320000000,
 			MaxNumActsPerAcct:  2000,
-			ActionExpiry:       10 * time.Minute,
+			ActionExpiry:       3 * time.Minute,
 			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 			BlackList:          []string{},
 		},
