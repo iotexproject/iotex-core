@@ -7,14 +7,19 @@
 package account
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewAccountAction(t *testing.T) {
@@ -24,40 +29,49 @@ func TestNewAccountAction(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
+	accAddr := identityset.Address(28).String()
+
+	t.Run("empty offset", func(t *testing.T) {
+		cmd := NewAccountActions(client)
+		_, err := util.ExecuteCmd(cmd, accAddr, "")
+		require.Error(err)
+		require.Contains(err.Error(), "failed to convert skip")
+	})
 
 	t.Run("failed to send request", func(t *testing.T) {
-		accAddr := identityset.Address(28).String()
-		client.EXPECT().Config().Return(config.Config{})
+		client.EXPECT().QueryAnalyser(gomock.Any()).Return(nil, errors.New("failed to send request")).Times(1)
 		client.EXPECT().Address(gomock.Any()).Return(accAddr, nil)
-		cmd := NewAccountActionsCmd(client)
+		cmd := NewAccountActions(client)
 		_, err := util.ExecuteCmd(cmd, accAddr, "0")
 		require.Error(err)
 		require.Contains(err.Error(), "failed to send request")
 	})
 
-	client.EXPECT().Config().Return(config.Config{
-		AnalyserEndpoint: "https://iotex-analyser-api-mainnet.chainanalytics.org",
-	}).AnyTimes()
+	client.EXPECT().QueryAnalyser(gomock.Any()).DoAndReturn(func(reqData interface{}) (*http.Response, error) {
+		jsonData, err := json.Marshal(reqData)
+		require.NoError(err)
+		resp, err := http.Post("https://iotex-analyser-api-mainnet.chainanalytics.org/api.ActionsService.GetActionsByAddress", "application/json",
+			bytes.NewBuffer(jsonData))
+		require.NoError(err)
+		return resp, nil
+	}).Times(3)
 
 	t.Run("get account action", func(t *testing.T) {
-		accAddr := identityset.Address(28).String()
-		client.EXPECT().Address(gomock.Any()).Return(accAddr, nil)
-		cmd := NewAccountActionsCmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr, "0")
+		client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(2)
+		cmd := NewAccountActions(client)
+		result, err := util.ExecuteCmd(cmd, accAddr, "0")
 		require.NoError(err)
-	})
-
-	t.Run("empty offset", func(t *testing.T) {
-		accAddr := identityset.Address(28).String()
-		cmd := NewAccountActionsCmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr, "")
-		require.Error(err)
+		require.Contains(result, "Total")
+		result, err = util.ExecuteCmd(cmd, accAddr)
+		require.NoError(err)
+		require.Contains(result, "Total")
 	})
 
 	t.Run("empty address", func(t *testing.T) {
 		client.EXPECT().Address(gomock.Any()).Return("", nil)
-		cmd := NewAccountActionsCmd(client)
+		cmd := NewAccountActions(client)
 		_, err := util.ExecuteCmd(cmd, "", "0")
 		require.Error(err)
+		require.Contains(err.Error(), "failed to deserialize the response")
 	})
 }

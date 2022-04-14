@@ -7,10 +7,13 @@
 package ioctl
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -62,6 +65,8 @@ type (
 		DeleteAlias(string) error
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
 		IsCryptoSm2() bool
+		// QueryAnalyser sends request to Analyser endpoint
+		QueryAnalyser(interface{}) (*http.Response, error)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -265,6 +270,19 @@ func (c *client) writeAlias() error {
 
 func (c *client) IsCryptoSm2() bool {
 	return c.cryptoSm2
+}
+
+func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
+	jsonData, err := json.Marshal(reqData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to pack in json")
+	}
+	resp, err := http.Post(c.cfg.AnalyserEndpoint+"/api.ActionsService.GetActionsByAddress", "application/json",
+		bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to send request")
+	}
+	return resp, nil
 }
 
 func (m *ConfirmationMessage) String() string {

@@ -7,10 +7,8 @@
 package account
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -22,6 +20,7 @@ import (
 )
 
 type (
+	// allActionsByAddressResult is the struct of an Confirmation output
 	allActionsByAddressResult struct {
 		ActHash    string
 		BlkHeight  string
@@ -33,6 +32,7 @@ type (
 		RecordType string
 	}
 
+	// allActionsByAddressResponse is the struct of an Confirmation output
 	allActionsByAddressResponse struct {
 		Count   string
 		Results []*allActionsByAddressResult
@@ -46,13 +46,13 @@ var (
 		config.Chinese: "显示账户的操作列表",
 	}
 	_actionsCmdUses = map[config.Language]string{
-		config.English: "actions (ALIAS|ADDRESS)  [SKIP]",
-		config.Chinese: "actions (ALIAS|ADDRESS)  [SKIP]",
+		config.English: "actions [ALIAS|ADDRESS] [SKIP]",
+		config.Chinese: "actions [别名|地址] [SKIP]",
 	}
 )
 
-// NewAccountActionsCmd represents the account sign command
-func NewAccountActionsCmd(client ioctl.Client) *cobra.Command {
+// NewAccountActions represents the account sign command
+func NewAccountActions(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_actionsCmdUses)
 	short, _ := client.SelectTranslation(_actionsCmdShorts)
 	return &cobra.Command{
@@ -78,14 +78,9 @@ func NewAccountActionsCmd(client ioctl.Client) *cobra.Command {
 				"address": addr,
 				"offset":  fmt.Sprint(skip),
 			}
-			jsonData, err := json.Marshal(reqData)
+			resp, err := client.QueryAnalyser(reqData)
 			if err != nil {
-				return errors.Wrap(err, "failed to pack in json")
-			}
-			resp, err := http.Post(client.Config().AnalyserEndpoint+"/api.ActionsService.GetActionsByAddress", "application/json",
-				bytes.NewBuffer(jsonData))
-			if err != nil {
-				return errors.Wrap(err, "failed to send request")
+				return err
 			}
 
 			var respData allActionsByAddressResponse
