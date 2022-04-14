@@ -29,10 +29,10 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 		priKey.PublicKey(),
 		sig,
 	)
-	endorsedMessage := NewEndorsedConsensusMessage(10, vote, en)
+	endorsedMessage := NewEndorsedConsensusMessage(10, vote, en, dummyChainIDChecker)
 	pb, err := endorsedMessage.Proto()
 	require.NoError(err)
-	cem := &EndorsedConsensusMessage{}
+	cem := &EndorsedConsensusMessage{checker: dummyChainIDChecker}
 	require.NoError(cem.LoadProto(pb))
 	require.Equal(uint64(10), cem.Height())
 	cvote, ok := cem.Document().(*ConsensusVote)

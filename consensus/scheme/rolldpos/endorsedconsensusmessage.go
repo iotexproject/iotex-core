@@ -18,6 +18,7 @@ type EndorsedConsensusMessage struct {
 	height      uint64
 	message     endorsement.Document
 	endorsement *endorsement.Endorsement
+	checker     chainIDChecker
 }
 
 // NewEndorsedConsensusMessage creates an EndorsedConsensusMessage for an consensus vote
@@ -25,11 +26,13 @@ func NewEndorsedConsensusMessage(
 	height uint64,
 	message endorsement.Document,
 	endorsement *endorsement.Endorsement,
+	checker chainIDChecker,
 ) *EndorsedConsensusMessage {
 	return &EndorsedConsensusMessage{
 		height:      height,
 		message:     message,
 		endorsement: endorsement,
+		checker:     checker,
 	}
 }
 
@@ -89,7 +92,8 @@ func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage)
 		ecm.message = vote
 	case msg.GetBlockProposal() != nil:
 		proposal := &blockProposal{}
-		if err := proposal.LoadProto(msg.GetBlockProposal()); err != nil {
+		pb := msg.GetBlockProposal()
+		if err := proposal.LoadProto(pb, ecm.checker(pb.Block.Header.Core.Height)); err != nil {
 			return err
 		}
 		ecm.message = proposal

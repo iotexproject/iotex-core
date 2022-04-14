@@ -24,6 +24,7 @@ type roundCalculator struct {
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc DelegatesByEpochFunc
 	beringHeight         uint64
+	checker              chainIDChecker
 }
 
 // UpdateRound updates previous roundCtx
@@ -89,6 +90,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		status:             status,
 		blockInLock:        blockInLock,
 		proofOfLock:        proofOfLock,
+		checker:            c.checker,
 	}, nil
 }
 
@@ -224,7 +226,7 @@ func (c *roundCalculator) newRound(
 		}
 	}
 	if eManager == nil {
-		if eManager, err = newEndorsementManager(nil); err != nil {
+		if eManager, err = newEndorsementManager(nil, c.checker); err != nil {
 			return nil, err
 		}
 	}
@@ -241,6 +243,7 @@ func (c *roundCalculator) newRound(
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
 		status:             _open,
+		checker:            c.checker,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 

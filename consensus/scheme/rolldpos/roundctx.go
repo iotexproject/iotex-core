@@ -44,6 +44,7 @@ type roundCtx struct {
 	proofOfLock []*endorsement.Endorsement
 	status      status
 	eManager    *endorsementManager
+	checker     chainIDChecker
 }
 
 func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
@@ -139,6 +140,7 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 		blk.Height(),
 		NewConsensusVote(blkHash[:], COMMIT),
 		en,
+		ctx.checker,
 	)
 }
 
