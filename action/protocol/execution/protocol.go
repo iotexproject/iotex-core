@@ -85,14 +85,14 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 	if exec.TotalSize() > ExecutionSizeLimit {
 		return action.ErrOversizedData
 	}
-	var (
-		dest = exec.Contract()
-		fCtx = protocol.MustGetFeatureCtx(ctx)
-		err  error
-	)
+	dest := exec.Contract()
 	if dest == action.EmptyAddress {
 		return nil
 	}
+	var (
+		fCtx = protocol.MustGetFeatureCtx(ctx)
+		err  error
+	)
 	if fCtx.TolerateLegacyAddress {
 		_, err = address.FromStringLegacy(dest)
 	} else {
