@@ -214,7 +214,7 @@ func ExecuteContract(
 		ContractAddress: contractAddress,
 	}
 
-	receipt.Status = statusCode
+	receipt.Status = uint64(statusCode)
 	var burnLog *action.TransactionLog
 	if featureCtx.FixDoubleChargeGas {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
@@ -332,11 +332,11 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
+func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
-		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
+		return nil, 0, 0, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	var (
 		config     vm.Config
@@ -352,10 +352,10 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList)
 	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrInsufficientFunds
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, action.ErrInsufficientFunds
 	}
 	remainingGas -= intriGas
 
@@ -392,7 +392,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		// sufficient balance to make the transfer happen.
 		// Should be a hard fork (Bering)
 		if evmErr == vm.ErrInsufficientBalance && g.IsBering(blockHeight) {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), evmErr
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, iotextypes.ReceiptStatus_Failure, evmErr
 		}
 	}
 	if stateDB.Error() != nil {
@@ -410,10 +410,10 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	remainingGas += refund
 
-	errCode := uint64(iotextypes.ReceiptStatus_Success)
+	errCode := iotextypes.ReceiptStatus_Success
 	if evmErr != nil {
 		errCode = evmErrToErrStatusCode(evmErr, g, blockHeight)
-		if errCode == uint64(iotextypes.ReceiptStatus_ErrUnknown) {
+		if errCode == iotextypes.ReceiptStatus_ErrUnknown {
 			var addr string
 			if evmParams.contract != nil {
 				ioAddr, _ := address.FromBytes((*evmParams.contract)[:])
@@ -430,11 +430,11 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 }
 
 // evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
-func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) uint64 {
+func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) iotextypes.ReceiptStatus {
 	// specific error starting London
 	if g.IsToBeEnabled(height) {
 		if evmErr == vm.ErrInvalidCode {
-			return uint64(iotextypes.ReceiptStatus_ErrInvalidCode)
+			return iotextypes.ReceiptStatus_ErrInvalidCode
 		}
 	}
 
@@ -442,13 +442,13 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) ui
 	if g.IsJutland(height) {
 		switch evmErr {
 		case vm.ErrInsufficientBalance:
-			return uint64(iotextypes.ReceiptStatus_ErrInsufficientBalance)
+			return iotextypes.ReceiptStatus_ErrInsufficientBalance
 		case vm.ErrInvalidJump:
-			return uint64(iotextypes.ReceiptStatus_ErrInvalidJump)
+			return iotextypes.ReceiptStatus_ErrInvalidJump
 		case vm.ErrReturnDataOutOfBounds:
-			return uint64(iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds)
+			return iotextypes.ReceiptStatus_ErrReturnDataOutOfBounds
 		case vm.ErrGasUintOverflow:
-			return uint64(iotextypes.ReceiptStatus_ErrGasUintOverflow)
+			return iotextypes.ReceiptStatus_ErrGasUintOverflow
 		}
 	}
 
@@ -456,31 +456,31 @@ func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) ui
 	if g.IsBering(height) {
 		switch evmErr {
 		case vm.ErrOutOfGas:
-			return uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
+			return iotextypes.ReceiptStatus_ErrOutOfGas
 		case vm.ErrCodeStoreOutOfGas:
-			return uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
+			return iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas
 		case vm.ErrDepth:
-			return uint64(iotextypes.ReceiptStatus_ErrDepth)
+			return iotextypes.ReceiptStatus_ErrDepth
 		case vm.ErrContractAddressCollision:
-			return uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
+			return iotextypes.ReceiptStatus_ErrContractAddressCollision
 		case vm.ErrExecutionReverted:
-			return uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
+			return iotextypes.ReceiptStatus_ErrExecutionReverted
 		case vm.ErrMaxCodeSizeExceeded:
-			return uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
+			return iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded
 		case vm.ErrWriteProtection:
-			return uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
+			return iotextypes.ReceiptStatus_ErrWriteProtection
 		default:
 			// internal errors from go-ethereum are not directly accessible
 			switch evmErr.Error() {
 			case "no compatible interpreter":
-				return uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
+				return iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter
 			default:
-				return uint64(iotextypes.ReceiptStatus_ErrUnknown)
+				return iotextypes.ReceiptStatus_ErrUnknown
 			}
 		}
 	}
 	// before Bering height, return one common failure
-	return uint64(iotextypes.ReceiptStatus_Failure)
+	return iotextypes.ReceiptStatus_Failure
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
