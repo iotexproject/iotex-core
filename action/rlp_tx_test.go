@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -61,8 +62,8 @@ func TestGenerateRlp(t *testing.T) {
 		hash hash.Hash256
 	}{
 		{nil, _validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, _validSig, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, _signByte, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
+		{rlpTsf1, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
 		{rlpTsf1, _validSig, "", hash.BytesToHash256(hT1)},
 		{rlpTsf2, _validSig, "", hash.BytesToHash256(hT2)},
 		{rlpExec, _validSig, "", hash.BytesToHash256(hE1)},
