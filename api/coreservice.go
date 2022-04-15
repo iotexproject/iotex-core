@@ -132,7 +132,7 @@ type (
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
-		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error)
+		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, error)
 		// EVMNetworkID returns the network id of evm
 		EVMNetworkID() uint32
 		// ChainID returns the chain id of evm
@@ -1410,7 +1410,7 @@ func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber ui
 }
 
 // LogsInRange filter logs among [start, end] blocks
-func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, error) {
 	start, end, err := core.correctLogsRange(start, end)
 	if err != nil {
 		return nil, err
@@ -1421,7 +1421,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		return nil, err
 	}
 	var (
-		logs      = []*iotextypes.Log{}
+		logs      = []*action.Log{}
 		logsInBlk = make([][]*iotextypes.Log, len(blockNumbers))
 		jobs      = make(chan jobDesc, len(blockNumbers))
 		eg, ctx   = errgroup.WithContext(context.Background())
@@ -1466,7 +1466,9 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 
 	for i := 0; i < len(blockNumbers); i++ {
 		for _, log := range logsInBlk[i] {
-			logs = append(logs, log)
+			actionLog := &action.Log{}
+			actionLog.ConvertFromLogPb(log)
+			logs = append(logs, actionLog)
 			if len(logs) >= int(paginationSize) {
 				return logs, nil
 			}

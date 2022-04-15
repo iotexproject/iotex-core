@@ -394,15 +394,19 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
 	var (
-		ret []*iotextypes.Log
-		err error
+		ret        []*iotextypes.Log
+		actionLogs []*action.Log
+		err        error
 	)
 	switch {
 	case in.GetByBlock() != nil:
 		ret, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter(), nil, nil), hash.BytesToHash256(in.GetByBlock().BlockHash))
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
-		ret, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		actionLogs, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		for _, actionLog := range actionLogs {
+			ret = append(ret, actionLog.ConvertToLogPb())
+		}
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}

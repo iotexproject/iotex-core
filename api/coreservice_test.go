@@ -14,10 +14,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -75,7 +75,7 @@ func TestLogsInRange(t *testing.T) {
 
 		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, uint64(0))
 		expectedErr := errors.New("invalid start and end height")
-		expectedValue := []*iotextypes.Log(nil)
+		expectedValue := []*action.Log(nil)
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
 		require.Equal(expectedValue, logs)
@@ -91,7 +91,7 @@ func TestLogsInRange(t *testing.T) {
 
 		logs, err := svr.web3Server.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, uint64(0))
 		expectedErr := errors.New("start block > tip height")
-		expectedValue := []*iotextypes.Log(nil)
+		expectedValue := []*action.Log(nil)
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
 		require.Equal(expectedValue, logs)

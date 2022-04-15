@@ -348,10 +348,10 @@ func (mr *MockCoreServiceMockRecorder) LogsInBlockByHash(filter, blockHash inter
 }
 
 // LogsInRange mocks base method.
-func (m *MockCoreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+func (m *MockCoreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogsInRange", filter, start, end, paginationSize)
-	ret0, _ := ret[0].([]*iotextypes.Log)
+	ret0, _ := ret[0].([]*action.Log)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

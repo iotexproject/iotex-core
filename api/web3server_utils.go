@@ -238,18 +238,28 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 	ret := make([]logsObjectRaw, 0)
 	for _, l := range logs {
 		topics := make([]string, 0)
-		for _, val := range l.Topics {
+		logTopics := [][]byte{}
+		for _, topic := range l.Topics {
+			if l.NotFixTopicCopyBug {
+				logTopics = append(logTopics, topic[:])
+			} else {
+				data := make([]byte, len(topic))
+				copy(data, topic[:])
+				logTopics = append(logTopics, data)
+			}
+		}
+		for _, val := range logTopics {
 			topics = append(topics, byteToHex(val))
 		}
-		contractAddr, err := ioAddrToEthAddr(l.ContractAddress)
+		contractAddr, err := ioAddrToEthAddr(l.Address)
 		if err != nil {
 			return nil, err
 		}
 		ret = append(ret, logsObjectRaw{
-			BlockHash:        byteToHex(l.BlkHash),
-			TransactionHash:  byteToHex(l.ActHash),
+			// BlockHash:        byteToHex(l.BlkHash),
+			TransactionHash:  byteToHex(l.ActionHash[:]),
 			LogIndex:         uint64ToHex(uint64(l.Index)),
-			BlockNumber:      uint64ToHex(l.BlkHeight),
+			BlockNumber:      uint64ToHex(l.BlockHeight),
 			TransactionIndex: uint64ToHex(uint64(l.TxIndex)),
 			Address:          contractAddr,
 			Data:             byteToHex(l.Data),
