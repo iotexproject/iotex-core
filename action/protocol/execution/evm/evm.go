@@ -95,10 +95,18 @@ func newParams(
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
-	if execution.Contract() != action.EmptyAddress {
-		contract, err := address.FromString(execution.Contract())
+	if dest := execution.Contract(); dest != action.EmptyAddress {
+		var (
+			contract address.Address
+			err      error
+		)
+		if featureCtx.TolerateLegacyAddress {
+			contract, err = address.FromStringLegacy(dest)
+		} else {
+			contract, err = address.FromString(dest)
+		}
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert encoded contract address to address")
+			return nil, errors.Wrapf(err, "failed to decode contract address %s", dest)
 		}
 		contractAddr := common.BytesToAddress(contract.Bytes())
 		contractAddrPointer = &contractAddr
