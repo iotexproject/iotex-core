@@ -8,16 +8,12 @@ package chainservice
 
 import (
 	"context"
-	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -25,14 +21,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -42,14 +32,15 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
+	lifecycle         lifecycle.Lifecycle
 	actpool           actpool.ActPool
 	blocksync         blocksync.BlockSync
 	consensus         consensus.Consensus
@@ -60,451 +51,21 @@ type ChainService struct {
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api                *api.ServerV2
-	indexBuilder       *blockindex.IndexBuilder
+	indexer            blockindex.Indexer
 	bfIndexer          blockindex.BloomFilterIndexer
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
 }
 
-type optionParams struct {
-	isTesting  bool
-	isSubchain bool
-}
-
-// Option sets ChainService construction parameter.
-type Option func(ops *optionParams) error
-
-// WithTesting is an option to create a testing ChainService.
-func WithTesting() Option {
-	return func(ops *optionParams) error {
-		ops.isTesting = true
-		return nil
-	}
-}
-
-//WithSubChain is an option to create subChainService
-func WithSubChain() Option {
-	return func(ops *optionParams) error {
-		ops.isSubchain = true
-		return nil
-	}
-}
-
-// New creates a ChainService from config and network.Overlay
-func New(
-	cfg config.Config,
-	p2pAgent p2p.Agent,
-	opts ...Option,
-) (*ChainService, error) {
-	// create indexers
-	var (
-		indexers           []blockdao.BlockIndexer
-		indexer            blockindex.Indexer
-		bfIndexer          blockindex.BloomFilterIndexer
-		candidateIndexer   *poll.CandidateIndexer
-		candBucketsIndexer *staking.CandidatesBucketsIndexer
-		err                error
-		ops                optionParams
-	)
-	for _, opt := range opts {
-		if err = opt(&ops); err != nil {
-			return nil, err
-		}
-	}
-	registry := protocol.NewRegistry()
-	// create state factory
-	var sf factory.Factory
-	if ops.isTesting {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-		if err != nil {
-			return nil, errors.Wrapf(err, "Failed to create state factory")
-		}
-	} else {
-		if cfg.Chain.EnableTrielessStateDB {
-			opts := []factory.StateDBOption{
-				factory.RegistryStateDBOption(registry),
-				factory.DefaultPatchOption(),
-			}
-			if cfg.Chain.EnableStateDBCaching {
-				opts = append(opts, factory.CachedStateDBOption())
-			} else {
-				opts = append(opts, factory.DefaultStateDBOption())
-			}
-			sf, err = factory.NewStateDB(cfg, opts...)
-		} else {
-			sf, err = factory.NewFactory(
-				cfg,
-				factory.DefaultTrieOption(),
-				factory.RegistryOption(registry),
-				factory.DefaultTriePatchOption(),
-			)
-		}
-		if err != nil {
-			return nil, errors.Wrapf(err, "Failed to create state factory")
-		}
-	}
-	indexers = append(indexers, sf)
-	var chainOpts []blockchain.Option
-	var electionCommittee committee.Committee
-	if cfg.Genesis.EnableGravityChainVoting {
-		committeeConfig := cfg.Chain.Committee
-		committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
-		committeeConfig.GravityChainCeilingHeight = cfg.Genesis.GravityChainCeilingHeight
-		committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
-		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
-		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
-		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
-		committeeConfig.ScoreThreshold = "0"
-		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
-		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
-
-		if committeeConfig.GravityChainStartHeight != 0 {
-			arch, err := committee.NewArchive(
-				cfg.Chain.GravityChainDB.DbPath,
-				cfg.Chain.GravityChainDB.NumRetries,
-				committeeConfig.GravityChainStartHeight,
-				committeeConfig.GravityChainHeightInterval,
-			)
-			if err != nil {
-				return nil, err
-			}
-			if electionCommittee, err = committee.NewCommittee(arch, committeeConfig); err != nil {
-				return nil, err
-			}
-		}
-	}
-	_, gateway := cfg.Plugins[config.GatewayPlugin]
-	if gateway {
-		cfg.DB.DbPath = cfg.Chain.IndexDBPath
-		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
-		if err != nil {
-			return nil, err
-		}
-		if !cfg.Chain.EnableAsyncIndexWrite {
-			indexers = append(indexers, indexer)
-		}
-
-		// create bloomfilter indexer
-		cfg.DB.DbPath = cfg.Chain.BloomfilterIndexDBPath
-		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
-		if err != nil {
-			return nil, err
-		}
-		indexers = append(indexers, bfIndexer)
-
-		// create candidate indexer
-		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
-		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
-		if err != nil {
-			return nil, err
-		}
-		if cfg.Chain.EnableStakingIndexer {
-			cfg.DB.DbPath = cfg.Chain.StakingIndexDBPath
-			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(cfg.DB))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// create BlockDAO
-	var dao blockdao.BlockDAO
-	if ops.isTesting {
-		dao = blockdao.NewBlockDAOInMemForTest(indexers)
-	} else {
-		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		dao = blockdao.NewBlockDAO(indexers, cfg.DB)
-	}
-
-	// Create ActPool
-	actPool, err := actpool.NewActPool(sf, cfg.ActPool)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create actpool")
-	}
-
-	// Add action validators
-	actPool.AddActionEnvelopeValidators(
-		protocol.NewGenericValidator(sf, accountutil.AccountState),
-	)
-	if !ops.isSubchain {
-		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(sf, actPool)))
-	} else {
-		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(sf))
-	}
-
-	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, actPool), chainOpts...)
-	if chain == nil {
-		panic("failed to create blockchain")
-	}
-	if err := chain.AddSubscriber(actPool); err != nil {
-		return nil, errors.Wrap(err, "failed to add subscriber: action pool.")
-	}
-	// config asks for a standalone indexer
-	var indexBuilder *blockindex.IndexBuilder
-	if gateway && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockindex.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
-			return nil, errors.Wrap(err, "failed to create index builder")
-		}
-		if err := chain.AddSubscriber(indexBuilder); err != nil {
-			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
-		}
-	}
-	copts := []consensus.Option{
-		consensus.WithBroadcast(func(msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(context.Background(), msg)
-		}),
-	}
-	var (
-		rDPoSProtocol   *rolldpos.Protocol
-		pollProtocol    poll.Protocol
-		stakingProtocol *staking.Protocol
-	)
-	// staking protocol need to be put in registry before poll protocol when enabling
-	if cfg.Chain.EnableStakingProtocol {
-		stakingProtocol, err = staking.NewProtocol(
-			rewarding.DepositGas,
-			cfg.Genesis.Staking,
-			candBucketsIndexer,
-			cfg.Genesis.GreenlandBlockHeight,
-			cfg.Genesis.HawaiiBlockHeight,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if err = stakingProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	if cfg.Consensus.Scheme == config.RollDPoSScheme {
-		rDPoSProtocol = rolldpos.NewProtocol(
-			cfg.Genesis.NumCandidateDelegates,
-			cfg.Genesis.NumDelegates,
-			cfg.Genesis.NumSubEpochs,
-			rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
-		)
-		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
-		pollProtocol, err = poll.NewProtocol(
-			cfg,
-			candidateIndexer,
-			func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
-				gasLimit := uint64(1000000)
-				if correctGas {
-					gasLimit *= 10
-				}
-				ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
-				if err != nil {
-					return nil, err
-				}
-
-				addr, err := address.FromString(address.ZeroAddress)
-				if err != nil {
-					return nil, err
-				}
-
-				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
-
-				return data, err
-			},
-			candidatesutil.CandidatesFromDB,
-			candidatesutil.ProbationListFromDB,
-			candidatesutil.UnproductiveDelegateFromDB,
-			electionCommittee,
-			stakingProtocol,
-			func(height uint64) (time.Time, error) {
-				header, err := chain.BlockHeaderByHeight(height)
-				if err != nil {
-					return time.Now(), errors.Wrapf(
-						err, "error when getting the block at height: %d",
-						height,
-					)
-				}
-				return header.Timestamp(), nil
-			},
-			func(start, end uint64) (map[string]uint64, error) {
-				return blockchain.Productivity(chain, start, end)
-			},
-			dao.GetBlockHash,
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate poll protocol")
-		}
-		if pollProtocol != nil {
-			copts = append(copts, consensus.WithPollProtocol(pollProtocol))
-		}
-	}
-	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	cons, err := consensus.NewConsensus(cfg, chain, sf, copts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create consensus")
-	}
-	bs, err := createBlockSyncer(
-		cfg.Consensus.Scheme == config.StandaloneScheme,
-		cfg.BlockSync,
-		cons,
-		chain,
-		p2pAgent,
-		dao,
-		cfg.Genesis.IsHawaii,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create blockSyncer")
-	}
-	apiServerOptions := []api.Option{
-		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
-		}),
-		api.WithNativeElection(electionCommittee),
-	}
-	if gateway {
-		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
-	}
-
-	apiSvr, err := api.NewServerV2(
-		cfg.API,
-		chain,
-		bs,
-		sf,
-		dao,
-		indexer,
-		bfIndexer,
-		actPool,
-		registry,
-		apiServerOptions...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := chain.AddSubscriber(apiSvr); err != nil {
-		log.L().Warn("Failed to add subscriber: api server.", zap.Error(err))
-	}
-	accountProtocol := account.NewProtocol(rewarding.DepositGas)
-	if accountProtocol != nil {
-		if err = accountProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	if rDPoSProtocol != nil {
-		if err = rDPoSProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	if pollProtocol != nil {
-		if err = pollProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	executionProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
-	if executionProtocol != nil {
-		if err = executionProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	if rewardingProtocol != nil {
-		if err = rewardingProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-
-	return &ChainService{
-		actpool:            actPool,
-		chain:              chain,
-		factory:            sf,
-		blockdao:           dao,
-		blocksync:          bs,
-		p2pAgent:           p2pAgent,
-		consensus:          cons,
-		electionCommittee:  electionCommittee,
-		indexBuilder:       indexBuilder,
-		bfIndexer:          bfIndexer,
-		candidateIndexer:   candidateIndexer,
-		candBucketsIndexer: candBucketsIndexer,
-		api:                apiSvr,
-		registry:           registry,
-	}, nil
-}
-
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
-	if cs.electionCommittee != nil {
-		if err := cs.electionCommittee.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting election committee")
-		}
-	}
-	if cs.candidateIndexer != nil {
-		if err := cs.candidateIndexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting candidate indexer")
-		}
-	}
-	if cs.candBucketsIndexer != nil {
-		if err := cs.candBucketsIndexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting staking candidates indexer")
-		}
-	}
-	if err := cs.chain.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting blockchain")
-	}
-	if err := cs.consensus.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting consensus")
-	}
-	if cs.indexBuilder != nil {
-		if err := cs.indexBuilder.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting index builder")
-		}
-	}
-	if err := cs.blocksync.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting blocksync")
-	}
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	if cs.api != nil {
-		if err := cs.api.Start(ctx); err != nil {
-			return errors.Wrap(err, "err when starting API server")
-		}
-	}
-
-	return nil
+	return cs.lifecycle.OnStart(ctx)
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
-	if cs.indexBuilder != nil {
-		if err := cs.indexBuilder.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping index builder")
-		}
-	}
-	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	if cs.api != nil {
-		if err := cs.api.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping API server")
-		}
-	}
-	if err := cs.consensus.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping consensus")
-	}
-	if err := cs.blocksync.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping blocksync")
-	}
-	if err := cs.chain.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping blockchain")
-	}
-	if cs.candidateIndexer != nil {
-		if err := cs.candidateIndexer.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping candidate indexer")
-		}
-	}
-	if cs.candBucketsIndexer != nil {
-		if err := cs.candBucketsIndexer.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping staking candidates indexer")
-		}
-	}
-	if cs.electionCommittee != nil {
-		return cs.electionCommittee.Stop(ctx)
-	}
-	return nil
+	return cs.lifecycle.OnStop(ctx)
 }
 
 // ReportFullness switch on or off block sync
