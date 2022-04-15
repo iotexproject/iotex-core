@@ -19,7 +19,9 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
+BUILD_TARGET_NEWIOCTL=newioctl
 BUILD_TARGET_XCTL=xctl
+BUILD_TARGET_NEWXCTL=newxctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
 BUILD_TARGET_IOMIGRATER=iomigrater
@@ -218,6 +220,10 @@ recover:
 .PHONY: ioctl
 ioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+
+.PHONY: newioctl
+newioctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWIOCTL) -v ./tools/ioctl/newmain
 	
 .PHONY: ioctl-cross
 ioctl-cross:
@@ -232,6 +238,10 @@ ioctl-cross:
 .PHONY: xctl
 xctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/xctl
+
+.PHONY: newxctl
+newxctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWXCTL) -v ./tools/xctl/newmain
 
 .PHONY: iomigrater
 iomigrater:
