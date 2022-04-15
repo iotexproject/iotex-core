@@ -326,7 +326,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock,
 		b.cfg.Genesis.BeringBlockHeight,
 		func(h uint64) bool {
-			return b.cfg.Genesis.IsToBeEnabled(h)
+			return b.cfg.Genesis.IsNewfoundland(h)
 		},
 	)
 	if err != nil {
