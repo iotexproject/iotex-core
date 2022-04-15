@@ -76,7 +76,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 // Validate validates an execution
-func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.StateReader) error {
+func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.StateReader) error {
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil
@@ -85,7 +85,20 @@ func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.Sta
 	if exec.TotalSize() > ExecutionSizeLimit {
 		return action.ErrOversizedData
 	}
-	return nil
+	dest := exec.Contract()
+	if dest == action.EmptyAddress {
+		return nil
+	}
+	var (
+		fCtx = protocol.MustGetFeatureCtx(ctx)
+		err  error
+	)
+	if fCtx.TolerateLegacyAddress {
+		_, err = address.FromStringLegacy(dest)
+	} else {
+		_, err = address.FromString(dest)
+	}
+	return err
 }
 
 // ReadState read the state on blockchain via protocol

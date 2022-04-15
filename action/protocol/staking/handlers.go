@@ -378,7 +378,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		}
 
 		// check whether the payload contains a valid consignment transfer
-		if consignment, ok := p.handleConsignmentTransfer(csm, actionCtx, act, bucket); ok {
+		if consignment, ok := p.handleConsignmentTransfer(csm, actionCtx, act, bucket, featureCtx.TolerateLegacyAddress); ok {
 			newOwner = consignment.Transferee()
 		} else {
 			return log, fetchErr
@@ -416,7 +416,7 @@ func (p *Protocol) handleConsignmentTransfer(
 	csm CandidateStateManager,
 	actCtx protocol.ActionCtx,
 	act *action.TransferStake,
-	bucket *VoteBucket) (action.Consignment, bool) {
+	bucket *VoteBucket, tolerateLegacyAddress bool) (action.Consignment, bool) {
 	if len(act.Payload()) == 0 {
 		return nil, false
 	}
@@ -426,7 +426,7 @@ func (p *Protocol) handleConsignmentTransfer(
 		return nil, false
 	}
 
-	con, err := action.NewConsignment(act.Payload())
+	con, err := action.NewConsignment(act.Payload(), tolerateLegacyAddress)
 	if err != nil {
 		return nil, false
 	}
