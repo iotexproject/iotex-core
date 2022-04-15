@@ -295,7 +295,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: "test123",
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -307,7 +307,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: selfStake.String(),
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -319,7 +319,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: selfStake.String(),
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
