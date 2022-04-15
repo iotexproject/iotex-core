@@ -71,6 +71,7 @@ func TestIndexBuilder(t *testing.T) {
 		ib := &IndexBuilder{
 			dao:     dao,
 			indexer: indexer,
+			genesis: genesis.Default,
 		}
 		defer func() {
 			require.NoError(ib.Stop(ctx))

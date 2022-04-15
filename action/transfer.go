@@ -149,11 +149,6 @@ func (tsf *Transfer) SanityCheck() error {
 	if tsf.Amount().Sign() < 0 {
 		return ErrNegativeValue
 	}
-	// check if recipient's address is valid
-	if _, err := address.FromString(tsf.Recipient()); err != nil {
-		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
-	}
-
 	return tsf.AbstractAction.SanityCheck()
 }
 
