@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -161,13 +162,16 @@ func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) err
 	}
 
 	// delete action index
+	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: blk.Height(),
+	})))
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {
 			return err
 		}
 		x.batch.Delete(_actionToBlockHashNS, actHash[_hashOffset:], "failed to delete action hash %x", actHash)
-		if err := x.indexAction(actHash, selp, false); err != nil {
+		if err := x.indexAction(actHash, selp, false, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
 	}
@@ -324,6 +328,9 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	// index actions in the block
+	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: blk.Height(),
+	})))
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {
@@ -334,7 +341,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err
 		}
-		if err := x.indexAction(actHash, selp, true); err != nil {
+		if err := x.indexAction(actHash, selp, true, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
 	}
@@ -393,7 +400,7 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert bool) error {
+func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert, tolerateLegacyAddress bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
 	sender, err := x.getIndexerForAddr(callerAddrBytes, insert)
@@ -413,7 +420,13 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 	if !ok || dst == "" {
 		return nil
 	}
-	dstAddr, err := address.FromString(dst)
+
+	var dstAddr address.Address
+	if tolerateLegacyAddress {
+		dstAddr, err = address.FromStringLegacy(dst)
+	} else {
+		dstAddr, err = address.FromString(dst)
+	}
 	if err != nil {
 		return err
 	}

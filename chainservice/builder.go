@@ -353,7 +353,7 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	}
 	if builder.cs.indexer != nil && builder.cfg.Chain.EnableAsyncIndexWrite {
 		// config asks for a standalone indexer
-		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cs.blockdao, builder.cs.indexer)
+		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cfg.Genesis, builder.cs.blockdao, builder.cs.indexer)
 		if err != nil {
 			return errors.Wrap(err, "failed to create index builder")
 		}

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -26,12 +25,9 @@ func TestIoAddrToEvmAddr(t *testing.T) {
 	})
 
 	t.Run("failed to convert IoTeX address into evm address", func(t *testing.T) {
-		ioAddr := ""
-		expectedErr := errors.Errorf("hrp  and address prefix io don't match: invalid bech32 string length %d", len(ioAddr))
-
-		ethAddr, err := IoAddrToEvmAddr(ioAddr)
+		ethAddr, err := IoAddrToEvmAddr("")
 		require.Error(t, err)
 		require.Equal(t, common.Address{}, ethAddr)
-		require.Equal(t, err.Error(), expectedErr.Error())
+		require.Contains(t, err.Error(), "address length = 0, expecting 41")
 	})
 }
