@@ -37,6 +37,7 @@ type (
 		SerializeQueue() []byte
 		Flush() error
 		KVStoreWithBuffer() KVStoreWithBuffer
+		BaseKVStore() KVStore
 	}
 
 	flusher struct {
@@ -126,6 +127,10 @@ func (f *flusher) SerializeQueue() []byte {
 
 func (f *flusher) KVStoreWithBuffer() KVStoreWithBuffer {
 	return f.kvb
+}
+
+func (f *flusher) BaseKVStore() KVStore {
+	return f.kvb.store
 }
 
 func (kvb *kvStoreWithBuffer) Start(ctx context.Context) error {
