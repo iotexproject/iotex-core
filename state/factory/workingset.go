@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -35,6 +36,8 @@ var (
 		},
 		[]string{"type"},
 	)
+
+	errUnsupport = errors.New("supported action")
 )
 
 func init() {
@@ -122,6 +125,9 @@ func (ws *workingSet) runActions(
 }
 
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
+	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Staking && isWeb3StakingAction(selp) {
+		return nil, errUnsupport
+	}
 	var actionCtx protocol.ActionCtx
 	var err error
 	caller := selp.SrcPubkey().Address()
@@ -150,6 +156,9 @@ func (ws *workingSet) runAction(
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
 		return nil, action.ErrGasLimit
+	}
+	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Staking && isWeb3StakingAction(elp) {
+		return nil, errUnsupport
 	}
 	// Reject execution of chainID not equal the node's chainID
 	if err := validateChainID(ctx, elp.ChainID()); err != nil {
@@ -569,4 +578,38 @@ func (ws *workingSet) CreateBuilder(
 		SetReceiptRoot(calculateReceiptRoot(ws.receipts)).
 		SetLogsBloom(calculateLogsBloom(ctx, ws.receipts))
 	return blkBuilder, nil
+}
+
+func isWeb3StakingAction(selp action.SealedEnvelope) bool {
+	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		act := selp.Action()
+		if _, ok := act.(*action.CreateStake); ok {
+			return true
+		}
+		if _, ok := act.(*action.DepositToStake); ok {
+			return true
+		}
+		if _, ok := act.(*action.ChangeCandidate); ok {
+			return true
+		}
+		if _, ok := act.(*action.Unstake); ok {
+			return true
+		}
+		if _, ok := act.(*action.WithdrawStake); ok {
+			return true
+		}
+		if _, ok := act.(*action.Restake); ok {
+			return true
+		}
+		if _, ok := act.(*action.TransferStake); ok {
+			return true
+		}
+		if _, ok := act.(*action.CandidateRegister); ok {
+			return true
+		}
+		if _, ok := act.(*action.CandidateUpdate); ok {
+			return true
+		}
+	}
+	return false
 }
