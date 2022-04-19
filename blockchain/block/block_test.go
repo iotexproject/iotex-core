@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -263,4 +263,18 @@ func TestVerifyBlock(t *testing.T) {
 		require.True(blk.Header.VerifySignature())
 		require.Error(blk.VerifyTxRoot())
 	})
+}
+
+// ActionHashs returns action hashs in the block
+func (b *Block) ActionHashs() []string {
+	actHash := make([]string, len(b.Actions))
+	for i := range b.Actions {
+		h, err := b.Actions[i].Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		actHash[i] = hex.EncodeToString(h[:])
+	}
+	return actHash
 }
