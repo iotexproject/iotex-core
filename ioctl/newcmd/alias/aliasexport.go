@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -8,8 +8,8 @@ package alias
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
@@ -50,7 +50,6 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			cmd.SilenceUsage = true
 			exportAliases := aliases{}
 			for name, address := range config.ReadConfig.Aliases {
@@ -61,20 +60,20 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 
 			default:
 				cmd.SilenceUsage = false
-				return fmt.Errorf(_invalidFlag, format)
+				return errors.Errorf(_invalidFlag, format)
 			case "json":
 				output, err := json.Marshal(exportAliases)
 				if err != nil {
 					return nil
 				}
-				println(string(output))
+				cmd.Println(string(output))
 				return nil
 			case "yaml":
 				output, err := yaml.Marshal(exportAliases)
 				if err != nil {
 					return nil
 				}
-				println(string(output))
+				cmd.Println(string(output))
 				return nil
 			}
 
