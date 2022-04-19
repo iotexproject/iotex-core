@@ -404,10 +404,14 @@ func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 
 // State returns a confirmed state in the state factory
 func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+	_, span := tracer.NewSpan(context.Background(), "stateDB.State")
+	defer span.End()
+	span.AddEvent("processOptions")
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
+	span.AddEvent("sdb.state")
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if cfg.Keys != nil {
@@ -475,6 +479,9 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 }
 
 func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
+	_, span := tracer.NewSpan(context.Background(), "stateDB.state")
+	defer span.End()
+	span.AddEvent("dao.Get")
 	data, err := sdb.dao.Get(ns, addr)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -482,6 +489,7 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 		}
 		return errors.Wrapf(err, "error when getting the state of %x", addr)
 	}
+	span.AddEvent("state.Deserialize")
 	if err := state.Deserialize(s, data); err != nil {
 		return errors.Wrapf(err, "error when deserializing state data into %T", s)
 	}
