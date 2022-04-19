@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -225,14 +226,20 @@ func (svr *GRPCServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
+	// receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
+	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
+	blkHash, err := svr.coreService.GetBlockHashByActionHash(actHash)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
 	return &iotexapi.GetReceiptByActionResponse{
 		ReceiptInfo: &iotexapi.ReceiptInfo{
 			Receipt: receipt.ConvertToReceiptPb(),
-			BlkHash: blkHash,
+			BlkHash: hex.EncodeToString(blkHash[:]),
 		},
 	}, nil
 }

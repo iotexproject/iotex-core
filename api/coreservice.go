@@ -72,8 +72,6 @@ type (
 		ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string)
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
-		// ReceiptByAction gets receipt with corresponding action hash
-		ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error)
 		// ReadContract reads the state in a contract address specified by the slot
 		ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error)
 		// ReadState reads state on blockchain
@@ -149,6 +147,8 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
+		// GetBlockHashByActionHash returns public method for getBlockHashByActionHash
+		GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -431,22 +431,6 @@ func (core *coreService) validateChainID(chainID uint32) error {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
-}
-
-// ReceiptByAction gets receipt with corresponding action hash
-func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
-	if !core.hasActionIndex || core.indexer == nil {
-		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	receipt, err := core.ReceiptByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	blkHash, err := core.getBlockHashByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	return receipt, hex.EncodeToString(blkHash[:]), nil
 }
 
 // ReadContract reads the state in a contract address specified by the slot
@@ -994,6 +978,11 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 		res = append(res, act)
 	}
 	return res, nil
+}
+
+// GetBlockHashByActionHash returns public method for getBlockHashByActionHash
+func (core *coreService) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	return core.getBlockHashByActionHash(h)
 }
 
 // getBlockHashByActionHash returns block hash by action hash

@@ -317,6 +317,21 @@ func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(arg0 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForNonExecution", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForNonExecution), arg0)
 }
 
+// GetBlockHashByActionHash mocks base method.
+func (m *MockCoreService) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockHashByActionHash", h)
+	ret0, _ := ret[0].(hash.Hash256)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockHashByActionHash indicates an expected call of GetBlockHashByActionHash.
+func (mr *MockCoreServiceMockRecorder) GetBlockHashByActionHash(h interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByActionHash", reflect.TypeOf((*MockCoreService)(nil).GetBlockHashByActionHash), h)
+}
+
 // LogsInBlock mocks base method.
 func (m *MockCoreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	m.ctrl.T.Helper()
@@ -436,22 +451,6 @@ func (m *MockCoreService) ReadState(protocolID, height string, methodName []byte
 func (mr *MockCoreServiceMockRecorder) ReadState(protocolID, height, methodName, arguments interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockCoreService)(nil).ReadState), protocolID, height, methodName, arguments)
-}
-
-// ReceiptByAction mocks base method.
-func (m *MockCoreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReceiptByAction", actHash)
-	ret0, _ := ret[0].(*action.Receipt)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ReceiptByAction indicates an expected call of ReceiptByAction.
-func (mr *MockCoreServiceMockRecorder) ReceiptByAction(actHash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByAction", reflect.TypeOf((*MockCoreService)(nil).ReceiptByAction), actHash)
 }
 
 // ReceiptByActionHash mocks base method.
