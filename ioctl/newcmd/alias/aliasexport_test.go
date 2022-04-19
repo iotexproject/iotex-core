@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2019 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,31 +23,42 @@ func TestNewAliasExport(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation",
 		config.English).Times(12)
-	client.EXPECT().Config().Return(config.Config{}).Times(3)
+	cfg := config.Config{
+		Aliases: map[string]string{
+			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+			"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+			"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		},
+	}
 	client.EXPECT().AliasMap().Return(map[string]string{
-		"aaa": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-		"bbb": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-	})
+		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+	}).AnyTimes()
+	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	t.Run("invalid flag", func(t *testing.T) {
 		cmd := NewAliasExport(client)
-		_, err := util.ExecuteCmd(cmd, "")
+		_, err := util.ExecuteCmd(cmd, "-f", "")
 		require.Error(err)
+		require.Contains(err.Error(), "EXTRA string=")
 	})
 
 	t.Run("export alias with json format", func(t *testing.T) {
 		cmd := NewAliasExport(client)
-		_, err := util.ExecuteCmd(cmd, "json")
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.NotNil(result)
+		require.Contains(result, "alias")
 	})
 
 	t.Run("export alias with yaml format", func(t *testing.T) {
 		cmd := NewAliasExport(client)
-		_, err := util.ExecuteCmd(cmd, "yaml")
+		result, err := util.ExecuteCmd(cmd, "-f", "yaml")
 		require.NoError(err)
+		require.NotNil(result)
+		require.Contains(result, "alias")
 	})
-	// 	cmd := NewAliasExport(client)
-	// 	result, err := util.ExecuteCmd(cmd)
-	// 	require.NoError(t, err)
-	// 	require.NotNil(t, result)
 }

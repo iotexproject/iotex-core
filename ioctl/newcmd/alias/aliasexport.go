@@ -1,4 +1,4 @@
-// Copyright (c) 2022 IoTeX Foundation
+// Copyright (c) 2019 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -48,20 +48,16 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 	ec := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
+
 			cmd.SilenceUsage = true
-			format = args[0]
 			exportAliases := aliases{}
 			for name, address := range c.Config().Aliases {
 				exportAliases.Aliases = append(exportAliases.Aliases, alias{Name: name, Address: address})
 			}
 
 			switch format {
-
-			default:
-				cmd.SilenceUsage = false
-				return errors.Errorf(_invalidFlag, format)
 			case "json":
 				output, err := json.Marshal(exportAliases)
 				if err != nil {
@@ -76,8 +72,9 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 				}
 				cmd.Println(string(output))
 				return nil
+			default:
+				return errors.Errorf(_invalidFlag, format)
 			}
-
 		},
 	}
 	ec.Flags().StringVarP(&format,
