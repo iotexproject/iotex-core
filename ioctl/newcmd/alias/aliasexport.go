@@ -48,11 +48,12 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 	ec := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			format = args[0]
 			exportAliases := aliases{}
-			for name, address := range config.ReadConfig.Aliases {
+			for name, address := range c.Config().Aliases {
 				exportAliases.Aliases = append(exportAliases.Aliases, alias{Name: name, Address: address})
 			}
 
