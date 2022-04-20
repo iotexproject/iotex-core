@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -9,14 +9,13 @@ package alias
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -30,7 +29,7 @@ var (
 		config.Chinese: "import '数据'",
 	}
 	_flagImportFormatUsages = map[config.Language]string{
-		config.English: "set _format: json/yaml",
+		config.English: "set format: json/yaml",
 		config.Chinese: "设置格式：json/yaml",
 	}
 	_flagForceImportUsages = map[config.Language]string{
@@ -59,44 +58,39 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var err error
 			var importedAliases aliases
 			switch _format {
-			default:
-				return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag%s", _format), nil)
 			case "json":
 				if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
-					return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
+					return errors.Wrap(err, "failed to unmarshal imported aliases")
 				}
 			case "yaml":
 				if err := yaml.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
-					return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
+					return errors.Wrap(err, "failed to unmarshal imported aliases")
 				}
+			default:
+				return errors.New(fmt.Sprintf("invalid format flag%s", _format))
 			}
 			aliases := c.AliasMap()
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 			for _, importedAlias := range importedAliases.Aliases {
-				if !_forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
+				if !_forceImport && c.Config().Aliases[importedAlias.Name] != "" {
 					message.Unimported = append(message.Unimported, importedAlias)
 					continue
 				}
 				for aliases[importedAlias.Address] != "" {
-					delete(config.ReadConfig.Aliases, aliases[importedAlias.Address])
+					delete(c.Config().Aliases, aliases[importedAlias.Address])
 					aliases = c.AliasMap()
 				}
-				config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
+				c.Config().Aliases[importedAlias.Name] = importedAlias.Address
 				message.Imported = append(message.Imported, importedAlias)
 				message.ImportedNumber++
 			}
-			out, err := yaml.Marshal(&config.ReadConfig)
-			if err != nil {
-				return output.NewError(output.SerializationError, "failed to marshal config", err)
+			line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber)
+			for _, alias := range message.Unimported {
+				line += fmt.Sprint(" " + alias.Name)
 			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return output.NewError(output.WriteFileError,
-					fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
-			}
-			fmt.Println(message.String())
+			cmd.Println(line)
 			return nil
 
 		},
@@ -108,15 +102,4 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 		"force-import", "F", false, flagForceImportUsage)
 
 	return ec
-}
-
-func (m *importMessage) String() string {
-	if output.Format == "" {
-		line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber)
-		for _, alias := range m.Unimported {
-			line += fmt.Sprint(" " + alias.Name)
-		}
-		return line
-	}
-	return output.FormatString(output.Result, m)
 }
