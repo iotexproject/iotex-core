@@ -20,7 +20,7 @@ func TestNewAliasImportCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", config.English).Times(4)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation", config.English).Times(24)
 	client.EXPECT().Config().Return(config.Config{
 		Aliases: map[string]string{
 			"mhs2": "io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks",
@@ -34,38 +34,56 @@ func TestNewAliasImportCmd(t *testing.T) {
 		"mhs":  "io1tyc2yt68qx7hmxl2rhssm99jxnhrccz9sneh08",
 	}).AnyTimes()
 
-	cmd := NewAliasImportCmd(client)
+	t.Run("invalid flag", func(t *testing.T) {
+		cmd := NewAliasImportCmd(client)
+		result, err := util.ExecuteCmd(cmd, "-f", "test", "test")
+		require.Error(err)
+		require.Contains(err.Error(), "invalid flag")
+		require.NotNil(result)
+	})
 
-	result, err := util.ExecuteCmd(cmd, `{"name":"test","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
+	t.Run("import alias with json format", func(t *testing.T) {
+		cmd := NewAliasImportCmd(client)
+		result, err := util.ExecuteCmd(cmd, `{"name":"test","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
+		require.NoError(err)
+		require.NotNil(result)
+	})
 
-	require.NoError(err)
-	require.NotNil(result)
-
-	result, err = util.ExecuteCmd(cmd, "-F", `{"name":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
-	require.NoError(err)
-	require.NotNil(result)
-
-	result, err = util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
-	require.Error(err)
-	require.NotNil(result)
-
-	result, err = util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
+	t.Run("import alias with yaml format", func(t *testing.T) {
+		cmd := NewAliasImportCmd(client)
+		result, err := util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
 - name: mhs2
   address: io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks
 - name: yqr
   address: io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng
 - name: mhs
   address: io1tyc2yt68qx7hmxl2rhssm99jxnhrccz9sneh08`)
-	require.NoError(err)
-	require.NotNil(result)
+		require.NoError(err)
+		require.NotNil(result)
+	})
 
-	result, err = util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
-name: mhs2
-  address: io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks`)
-	require.Error(err)
-	require.NotNil(result)
+	t.Run("force import", func(t *testing.T) {
+		cmd := NewAliasImportCmd(client)
+		result, err := util.ExecuteCmd(cmd, "-F", `{"name":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
+		require.NoError(err)
+		require.NotNil(result)
+	})
 
-	result, err = util.ExecuteCmd(cmd, "-f", "test", "test")
-	require.Error(err)
-	require.NotNil(result)
+	t.Run("failed to unmarshal json imported aliases", func(t *testing.T) {
+		cmd := NewAliasImportCmd(client)
+		result, err := util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
+		require.Error(err)
+		require.Contains(err.Error(), "failed to unmarshal imported aliases")
+		require.NotNil(result)
+	})
+
+	t.Run("failed to unmarshal yaml imported aliases", func(t *testing.T) {
+		cmd := NewAliasImportCmd(client)
+		result, err := util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
+			name: mhs2
+			address: io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks`)
+		require.Error(err)
+		require.Contains(err.Error(), "failed to unmarshal imported aliases")
+		require.NotNil(result)
+	})
 }

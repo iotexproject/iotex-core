@@ -69,7 +69,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to unmarshal imported aliases")
 				}
 			default:
-				return errors.New(fmt.Sprintf("invalid format flag%s", _format))
+				return errors.New(fmt.Sprintf("invalid flag%s", _format))
 			}
 			aliases := c.AliasMap()
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
