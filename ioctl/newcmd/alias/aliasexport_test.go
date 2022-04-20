@@ -33,13 +33,6 @@ func TestNewAliasExport(t *testing.T) {
 	}
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 
-	t.Run("invalid flag", func(t *testing.T) {
-		cmd := NewAliasExport(client)
-		_, err := util.ExecuteCmd(cmd, "-f", "")
-		require.Error(err)
-		require.Contains(err.Error(), "EXTRA string=")
-	})
-
 	t.Run("export alias with json format", func(t *testing.T) {
 		cmd := NewAliasExport(client)
 		result, err := util.ExecuteCmd(cmd)
@@ -54,5 +47,12 @@ func TestNewAliasExport(t *testing.T) {
 		require.NoError(err)
 		require.NotNil(result)
 		require.Contains(result, "alias")
+	})
+
+	t.Run("invalid flag", func(t *testing.T) {
+		cmd := NewAliasExport(client)
+		_, err := util.ExecuteCmd(cmd, "-f", "")
+		require.Error(err)
+		require.Contains(err.Error(), "EXTRA string=")
 	})
 }
