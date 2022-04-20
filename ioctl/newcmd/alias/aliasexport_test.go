@@ -31,12 +31,6 @@ func TestNewAliasExport(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 		},
 	}
-	client.EXPECT().AliasMap().Return(map[string]string{
-		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
-		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-	}).AnyTimes()
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	t.Run("invalid flag", func(t *testing.T) {
