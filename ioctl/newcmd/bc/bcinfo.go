@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -8,7 +8,9 @@ package bc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 
@@ -17,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -33,17 +34,11 @@ type infoMessage struct {
 	Info *iotextypes.ChainMeta `json:"info"`
 }
 
-func (m *infoMessage) String() string {
-	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, output.JSONString(m.Info))
-		return message
-	}
-	return output.FormatString(output.Result, m)
-}
-
 // NewBCInfoCmd represents the bc info command
 func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 	bcInfoCmdShort, _ := client.SelectTranslation(_bcInfoCmdShorts)
+	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
+	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	var endpoint string
 	var insecure bool
@@ -67,16 +62,21 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 			}
 
 			message := infoMessage{Node: client.Config().Endpoint, Info: chainMetaResponse.ChainMeta}
-			fmt.Println(message.String())
+			cmd.Println(message.String())
 			return nil
 		},
 	}
-
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
 	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
 
 	return cmd
+}
+
+func (m *infoMessage) String() string {
+	byteAsJSON, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		log.Panic(err)
+	}
+	return fmt.Sprint(string(byteAsJSON))
 }
