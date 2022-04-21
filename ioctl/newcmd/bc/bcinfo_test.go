@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,42 +23,42 @@ import (
 
 // test for bc info command
 func TestNewBCInfoCmd(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
-
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
-	client.EXPECT().Config().Return(config.ReadConfig).Times(3)
-
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
-	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
+	client.EXPECT().Config().Return(config.Config{}).Times(7)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
 
-	cmd := NewBCInfoCmd(client)
-	_, err := util.ExecuteCmd(cmd)
-	require.NoError(t, err)
+	t.Run("get blockchain info", func(t *testing.T) {
+		chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
+		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
-	client.EXPECT().Config().Return(config.ReadConfig).Times(2)
+		cmd := NewBCInfoCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+	})
 
-	expectedErr := errors.New("failed to dial grpc connection")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
+	t.Run("failed to get chain meta", func(t *testing.T) {
+		expectedErr := errors.New("failed to get chain meta")
+		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
 
-	cmd = NewBCInfoCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Equal(t, expectedErr, err)
+		cmd := NewBCInfoCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.Error(err)
+		require.Equal(expectedErr, err)
+	})
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
-	client.EXPECT().Config().Return(config.ReadConfig).Times(2)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+	t.Run("failed to dial grpc connection", func(t *testing.T) {
+		expectedErr := errors.New("failed to dial grpc connection")
+		client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
 
-	expectedErr = errors.New("failed to get chain meta")
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
+		cmd := NewBCInfoCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.Error(err)
+		require.Equal(expectedErr, err)
+	})
 
-	cmd = NewBCInfoCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Equal(t, expectedErr, err)
 }
