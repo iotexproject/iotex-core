@@ -7,8 +7,6 @@
 package alias
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -47,8 +45,7 @@ func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "invalid address")
 			}
 			if err := c.SetAlias(args[0], args[1]); err != nil {
-				return errors.Wrap(err,
-					fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
+				return errors.Wrap(err, "failed to write to config file ")
 			}
 			cmd.Println(args[0] + " has been set!")
 			return nil
