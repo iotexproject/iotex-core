@@ -54,13 +54,13 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 		},
 	}
 	vc.PersistentFlags().StringVar(
-		&ioctl.ApiServiceCfg.Endpoint,
+		&ioctl.APIServiceCfg.Endpoint,
 		"endpoint",
 		cli.Config().Endpoint,
 		"set endpoint for once",
 	)
 	vc.PersistentFlags().BoolVar(
-		&ioctl.ApiServiceCfg.Insecure,
+		&ioctl.APIServiceCfg.Insecure,
 		"insecure",
 		!cli.Config().SecureConnect,
 		"insecure connection for once",

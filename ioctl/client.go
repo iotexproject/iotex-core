@@ -93,8 +93,8 @@ type (
 )
 
 var (
-	// ApiServiceCfg represents the persistent flags of cobra command and will be parsed after rootCmd.Execute() in main
-	ApiServiceCfg = APIServiceConfig{Insecure: false}
+	// APIServiceCfg represents the persistent flags of cobra command and will be parsed after rootCmd.Execute() in main
+	APIServiceCfg = APIServiceConfig{Insecure: false}
 )
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
@@ -167,15 +167,15 @@ func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 		}
 	}
 
-	if ApiServiceCfg.Endpoint == "" {
+	if APIServiceCfg.Endpoint == "" {
 		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 
 	var err error
-	if ApiServiceCfg.Insecure {
-		c.conn, err = grpc.Dial(ApiServiceCfg.Endpoint, grpc.WithInsecure())
+	if APIServiceCfg.Insecure {
+		c.conn, err = grpc.Dial(APIServiceCfg.Endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(ApiServiceCfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(APIServiceCfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		return nil, err
