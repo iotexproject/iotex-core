@@ -8,8 +8,8 @@ package alias
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
@@ -53,31 +53,28 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 
 			cmd.SilenceUsage = true
 			exportAliases := aliases{}
-			for name, address := range config.ReadConfig.Aliases {
+			for name, address := range c.Config().Aliases {
 				exportAliases.Aliases = append(exportAliases.Aliases, alias{Name: name, Address: address})
 			}
 
 			switch format {
-
-			default:
-				cmd.SilenceUsage = false
-				return fmt.Errorf(_invalidFlag, format)
 			case "json":
 				output, err := json.Marshal(exportAliases)
 				if err != nil {
 					return nil
 				}
-				println(string(output))
+				cmd.Println(string(output))
 				return nil
 			case "yaml":
 				output, err := yaml.Marshal(exportAliases)
 				if err != nil {
 					return nil
 				}
-				println(string(output))
+				cmd.Println(string(output))
 				return nil
+			default:
+				return errors.Errorf(_invalidFlag, format)
 			}
-
 		},
 	}
 	ec.Flags().StringVarP(&format,

@@ -293,12 +293,12 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range beringTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), iotextypes.ReceiptStatus_Failure)
 	}
 
 	jutlandTests := []struct {
@@ -312,12 +312,12 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range jutlandTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), iotextypes.ReceiptStatus_Failure)
 	}
 
 	newTests := []struct {
@@ -327,12 +327,12 @@ func TestEvmError(t *testing.T) {
 		{vm.ErrInvalidCode, iotextypes.ReceiptStatus_ErrInvalidCode},
 	}
 	for _, v := range newTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), uint64(v.status))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), uint64(iotextypes.ReceiptStatus_ErrUnknown))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), uint64(iotextypes.ReceiptStatus_ErrUnknown))
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), uint64(iotextypes.ReceiptStatus_Failure))
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight-1), iotextypes.ReceiptStatus_Failure)
 	}
 }
 
