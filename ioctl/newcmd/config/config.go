@@ -93,10 +93,10 @@ func InitConfig() (config.Config, string) {
 		}
 	}
 	// Set language for ioctl
-	UILanguage := info.isSupportedLanguage(info.readConfig.Language)
-	if UILanguage == -1 {
-		UILanguage = 0
-		fmt.Printf("Language %s is not supported, English instead.\n",
+	uiLanguage := info.isSupportedLanguage(info.readConfig.Language)
+	if uiLanguage == -1 {
+		uiLanguage = 0
+		fmt.Printf("Warn: Language %s is not supported, English instead.\n",
 			info.readConfig.Language)
 	}
 	return info.readConfig, info.defaultConfigFile

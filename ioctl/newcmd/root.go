@@ -40,18 +40,18 @@ var (
 		config.English: "xctl",
 		config.Chinese: "xctl",
 	}
-	_flagOutputFormatUsages = map[config.Language]string{
-		config.English: "output format",
-		config.Chinese: "指定输出格式",
-	}
 )
 
 // NewIoctl returns ioctl root cmd
 func NewIoctl(client ioctl.Client) *cobra.Command {
-	var rootCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_ioctlRootCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(_ioctlRootCmdShorts, config.UILanguage),
-		Long:  config.TranslateInLang(_ioctlRootCmdLongs, config.UILanguage),
+	rootUses, _ := client.SelectTranslation(_ioctlRootCmdUses)
+	rootShorts, _ := client.SelectTranslation(_ioctlRootCmdShorts)
+	rootLongs, _ := client.SelectTranslation(_ioctlRootCmdLongs)
+
+	rootCmd := &cobra.Command{
+		Use:   rootUses,
+		Short: rootShorts,
+		Long:  rootLongs,
 	}
 
 	rootCmd.AddCommand(config.ConfigCmd)
@@ -62,10 +62,14 @@ func NewIoctl(client ioctl.Client) *cobra.Command {
 
 // NewXctl returns xctl root cmd
 func NewXctl(client ioctl.Client) *cobra.Command {
+	rootUses, _ := client.SelectTranslation(_xctlRootCmdUses)
+	rootShorts, _ := client.SelectTranslation(_xctlRootCmdShorts)
+	rootLongs, _ := client.SelectTranslation(_xctlRootCmdLongs)
+
 	var rootCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_xctlRootCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(_xctlRootCmdShorts, config.UILanguage),
-		Long:  config.TranslateInLang(_xctlRootCmdLongs, config.UILanguage),
+		Use:   rootUses,
+		Short: rootShorts,
+		Long:  rootLongs,
 	}
 
 	rootCmd.AddCommand(config.ConfigCmd)
