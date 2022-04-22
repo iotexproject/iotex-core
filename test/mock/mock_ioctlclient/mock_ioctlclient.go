@@ -7,6 +7,7 @@ package mock_ioctlclient
 import (
 	context "context"
 	ecdsa "crypto/ecdsa"
+	http "net/http"
 	reflect "reflect"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -195,6 +196,21 @@ func (m *MockClient) NewKeyStore() *keystore.KeyStore {
 func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
+}
+
+// QueryAnalyser mocks base method.
+func (m *MockClient) QueryAnalyser(arg0 interface{}) (*http.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryAnalyser", arg0)
+	ret0, _ := ret[0].(*http.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryAnalyser indicates an expected call of QueryAnalyser.
+func (mr *MockClientMockRecorder) QueryAnalyser(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAnalyser", reflect.TypeOf((*MockClient)(nil).QueryAnalyser), arg0)
 }
 
 // ReadSecret mocks base method.
