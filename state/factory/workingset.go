@@ -37,7 +37,7 @@ var (
 		[]string{"type"},
 	)
 
-	errUnsupport = errors.New("supported action")
+	errUnsupportWeb3Staking = errors.New("unsupported web3 staking")
 )
 
 func init() {
@@ -125,9 +125,6 @@ func (ws *workingSet) runActions(
 }
 
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
-	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Staking && isWeb3StakingAction(selp) {
-		return nil, errUnsupport
-	}
 	var actionCtx protocol.ActionCtx
 	var err error
 	caller := selp.SrcPubkey().Address()
@@ -158,7 +155,7 @@ func (ws *workingSet) runAction(
 		return nil, action.ErrGasLimit
 	}
 	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Staking && isWeb3StakingAction(elp) {
-		return nil, errUnsupport
+		return nil, errUnsupportWeb3Staking
 	}
 	// Reject execution of chainID not equal the node's chainID
 	if err := validateChainID(ctx, elp.ChainID()); err != nil {
@@ -466,7 +463,7 @@ func (ws *workingSet) pickAndRunActions(
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
-			case action.ErrChainID:
+			case action.ErrChainID, errUnsupportWeb3Staking:
 				continue
 			case action.ErrGasLimit:
 				actionIterator.PopAccount()
@@ -583,32 +580,19 @@ func (ws *workingSet) CreateBuilder(
 func isWeb3StakingAction(selp action.SealedEnvelope) bool {
 	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
 		act := selp.Action()
-		if _, ok := act.(*action.CreateStake); ok {
+		switch act.(type) {
+		case *action.CreateStake,
+			*action.DepositToStake,
+			*action.ChangeCandidate,
+			*action.Unstake,
+			*action.WithdrawStake,
+			*action.Restake,
+			*action.TransferStake,
+			*action.CandidateRegister,
+			*action.CandidateUpdate:
 			return true
-		}
-		if _, ok := act.(*action.DepositToStake); ok {
-			return true
-		}
-		if _, ok := act.(*action.ChangeCandidate); ok {
-			return true
-		}
-		if _, ok := act.(*action.Unstake); ok {
-			return true
-		}
-		if _, ok := act.(*action.WithdrawStake); ok {
-			return true
-		}
-		if _, ok := act.(*action.Restake); ok {
-			return true
-		}
-		if _, ok := act.(*action.TransferStake); ok {
-			return true
-		}
-		if _, ok := act.(*action.CandidateRegister); ok {
-			return true
-		}
-		if _, ok := act.(*action.CandidateUpdate); ok {
-			return true
+		default:
+			return false
 		}
 	}
 	return false
