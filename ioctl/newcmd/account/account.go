@@ -65,14 +65,10 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	accountUses, _ := client.SelectTranslation(_accountCmdUses)
 	accountShorts, _ := client.SelectTranslation(_accountCmdShorts)
 
-	var endpoint string
-	var insecure bool
-
 	ac := &cobra.Command{
 		Use:   accountUses,
 		Short: accountShorts,
 	}
-
 	ac.AddCommand(NewAccountCreate(client))
 	ac.AddCommand(NewAccountDelete(client))
 	ac.AddCommand(NewAccountNonce(client))
@@ -89,8 +85,8 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpoint)
 	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecure)
 
-	ac.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, _flagEndpointUsage)
-	ac.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, _flagInsecureUsage)
+	ac.PersistentFlags().StringVar(&ioctl.ApiServiceCfg.Endpoint, "endpoint", client.Config().Endpoint, _flagEndpointUsage)
+	ac.PersistentFlags().BoolVar(&ioctl.ApiServiceCfg.Insecure, "insecure", !client.Config().SecureConnect, _flagInsecureUsage)
 
 	return ac
 }
@@ -185,12 +181,7 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 
 // Meta gets account metadata
 func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
-	endpoint := client.Config().Endpoint
-	insecure := client.Config().SecureConnect && !config.Insecure
-	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
 	}

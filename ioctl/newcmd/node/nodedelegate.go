@@ -73,9 +73,6 @@ type delegatesMessage struct {
 
 // NewNodeDelegateCmd represents the node delegate command
 func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
-	var endpoint string
-	var insecure bool
-
 	use, _ := c.SelectTranslation(_delegateUses)
 	short, _ := c.SelectTranslation(_delegateShorts)
 	flagEpochNumUsage, _ := c.SelectTranslation(_flagEpochNumUsages)
@@ -91,10 +88,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 			if _nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-					Endpoint: endpoint,
-					Insecure: insecure,
-				})
+				apiServiceClient, err := c.APIServiceClient()
 				if err != nil {
 					return err
 				}

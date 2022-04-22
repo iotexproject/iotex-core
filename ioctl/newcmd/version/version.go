@@ -41,8 +41,6 @@ type versionMessage struct {
 
 // NewVersionCmd represents the version command
 func NewVersionCmd(cli ioctl.Client) *cobra.Command {
-	var endpoint string
-	var insecure bool
 	use, _ := cli.SelectTranslation(_uses)
 	short, _ := cli.SelectTranslation(_shorts)
 	vc := &cobra.Command{
@@ -51,18 +49,18 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			err := version(cli, endpoint, insecure)
+			err := version(cli)
 			return err
 		},
 	}
 	vc.PersistentFlags().StringVar(
-		&endpoint,
+		&ioctl.ApiServiceCfg.Endpoint,
 		"endpoint",
 		cli.Config().Endpoint,
 		"set endpoint for once",
 	)
 	vc.PersistentFlags().BoolVar(
-		&insecure,
+		&ioctl.ApiServiceCfg.Insecure,
 		"insecure",
 		!cli.Config().SecureConnect,
 		"insecure connection for once",
@@ -70,7 +68,7 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 	return vc
 }
 
-func version(cli ioctl.Client, endpoint string, insecure bool) error {
+func version(cli ioctl.Client) error {
 	message := versionMessage{
 		Object: "Client",
 		VersionInfo: &iotextypes.ServerMeta{
@@ -82,10 +80,7 @@ func version(cli ioctl.Client, endpoint string, insecure bool) error {
 		},
 	}
 	fmt.Println(message.String())
-	apiClient, err := cli.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiClient, err := cli.APIServiceClient()
 	if err != nil {
 		return err
 	}

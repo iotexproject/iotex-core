@@ -47,9 +47,6 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 	bcShorts, _ := client.SelectTranslation(_bcCmdShorts)
 	bcUses, _ := client.SelectTranslation(_bcCmdUses)
 
-	var endpoint string
-	var insecure bool
-
 	bc := &cobra.Command{
 		Use:   bcUses,
 		Short: bcShorts,
@@ -58,11 +55,12 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 	bc.AddCommand(NewBCInfoCmd(client))
 
 	bc.PersistentFlags().StringVar(
-		&endpoint,
+		&ioctl.ApiServiceCfg.Endpoint,
 		"endpoint",
 		client.Config().Endpoint,
 		"set endpoint for once")
-	bc.PersistentFlags().BoolVar(&insecure,
+	bc.PersistentFlags().BoolVar(
+		&ioctl.ApiServiceCfg.Insecure,
 		"insecure",
 		!client.Config().SecureConnect,
 		"insecure connection for once")
@@ -72,12 +70,7 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 
 // GetChainMeta gets blockchain metadata
 func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
-	var endpoint string
-	var insecure bool
-	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
 	}
@@ -96,13 +89,7 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 
 // GetEpochMeta gets blockchain epoch meta
 func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaResponse, error) {
-
-	var endpoint string
-	var insecure bool
-	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
 	}
@@ -120,12 +107,7 @@ func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaR
 
 // GetProbationList gets probation list
 func GetProbationList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadStateResponse, error) {
-	var endpoint string
-	var insecure bool
-	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
 	}

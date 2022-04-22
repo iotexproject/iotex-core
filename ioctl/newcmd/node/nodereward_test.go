@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
-	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
@@ -53,14 +52,7 @@ func TestNewNodeRewardCmd(t *testing.T) {
 		Data: []byte("52331682309272536203174665")},
 		nil)
 
-	var endpoint string
-	var insecure bool
-
-	client.EXPECT().APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	}).Return(apiClient, nil).AnyTimes()
-
+	client.EXPECT().APIServiceClient().Return(apiClient, nil).AnyTimes()
 	cmd := NewNodeRewardCmd(client)
 
 	result, err := util.ExecuteCmd(cmd, "test")

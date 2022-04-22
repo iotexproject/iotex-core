@@ -40,7 +40,7 @@ type (
 		// Config returns the config of the client
 		Config() config.Config
 		// APIServiceClient returns an API service client
-		APIServiceClient(APIServiceConfig) (iotexapi.APIServiceClient, error)
+		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
@@ -91,6 +91,9 @@ type (
 		Options []string `json:"options"`
 	}
 )
+
+// ApiServiceCfg represents the persistent flags of cobra command and will be parsed after rootCmd.Execute() in main
+var ApiServiceCfg = APIServiceConfig{Insecure: false}
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
 func EnableCryptoSm2() Option {
@@ -155,21 +158,22 @@ func (c *client) ReadSecret() (string, error) {
 	return util.ReadSecretFromStdin()
 }
 
-func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClient, error) {
+func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
 			return nil, err
 		}
 	}
-	if cfg.Endpoint == "" {
+
+	if ApiServiceCfg.Endpoint == "" {
 		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 
 	var err error
-	if cfg.Insecure {
-		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithInsecure())
+	if ApiServiceCfg.Insecure {
+		c.conn, err = grpc.Dial(ApiServiceCfg.Endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(ApiServiceCfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		return nil, err

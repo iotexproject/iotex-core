@@ -47,7 +47,7 @@ func TestNewAccountInfo(t *testing.T) {
 	}}
 
 	t.Run("retrieve account information successfully", func(t *testing.T) {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 
 		cmd := NewAccountInfo(client)
@@ -64,7 +64,7 @@ func TestNewAccountInfo(t *testing.T) {
 
 	t.Run("failed to invoke GetAccount api", func(t *testing.T) {
 		expectedErr := errors.New("failed to dial grpc connection")
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewAccountInfo(client)
@@ -73,7 +73,7 @@ func TestNewAccountInfo(t *testing.T) {
 	})
 
 	t.Run("invalid account balance", func(t *testing.T) {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		accountResponse.AccountMeta.Balance = "61xx44"
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 

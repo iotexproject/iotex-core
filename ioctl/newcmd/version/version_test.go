@@ -32,7 +32,7 @@ func TestVersionCommand(t *testing.T) {
 		ServerMeta: &iotextypes.ServerMeta{PackageVersion: "1.0"},
 	}
 	apiClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).Times(1)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiClient, nil).Times(1)
+	client.EXPECT().APIServiceClient().Return(apiClient, nil).Times(1)
 	cmd := NewVersionCmd(client)
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)

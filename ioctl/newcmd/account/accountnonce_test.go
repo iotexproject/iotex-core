@@ -60,7 +60,7 @@ func TestNewAccountNonce(t *testing.T) {
 
 	// success
 	for i := 0; i < len(accountNoneTests); i++ {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
 		accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 			Address:      accAddr,
@@ -86,7 +86,7 @@ func TestNewAccountNonce(t *testing.T) {
 	// fail to dial grpc
 	expectedErr = errors.New("failed to dial grpc connection")
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
+	client.EXPECT().APIServiceClient().Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)
 	require.Contains(err.Error(), expectedErr.Error())
@@ -94,7 +94,7 @@ func TestNewAccountNonce(t *testing.T) {
 	// fail to invoke grpc api
 	expectedErr = errors.New("failed to invoke GetAccount api")
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	cmd = NewAccountNonce(client)
 	_, err = util.ExecuteCmd(cmd)

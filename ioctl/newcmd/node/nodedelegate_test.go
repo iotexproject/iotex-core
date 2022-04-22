@@ -30,7 +30,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	}).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(
+	client.EXPECT().APIServiceClient().Return(
 		apiServiceClient, nil).AnyTimes()
 
 	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{Epoch: &iotextypes.EpochData{Num: 7000}}}

@@ -53,10 +53,7 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 		Short: bcInfoCmdShort,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
+			apiServiceClient, err := client.APIServiceClient()
 			if err != nil {
 				return err
 			}

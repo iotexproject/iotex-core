@@ -12,7 +12,6 @@ import (
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	gomock "github.com/golang/mock/gomock"
-	ioctl "github.com/iotexproject/iotex-core/ioctl"
 	config "github.com/iotexproject/iotex-core/ioctl/config"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
@@ -41,18 +40,18 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // APIServiceClient mocks base method.
-func (m *MockClient) APIServiceClient(arg0 ioctl.APIServiceConfig) (iotexapi.APIServiceClient, error) {
+func (m *MockClient) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIServiceClient", arg0)
+	ret := m.ctrl.Call(m, "APIServiceClient")
 	ret0, _ := ret[0].(iotexapi.APIServiceClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIServiceClient indicates an expected call of APIServiceClient.
-func (mr *MockClientMockRecorder) APIServiceClient(arg0 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) APIServiceClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServiceClient", reflect.TypeOf((*MockClient)(nil).APIServiceClient), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServiceClient", reflect.TypeOf((*MockClient)(nil).APIServiceClient))
 }
 
 // Address mocks base method.

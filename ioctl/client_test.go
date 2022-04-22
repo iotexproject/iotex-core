@@ -22,7 +22,8 @@ import (
 func TestStop(t *testing.T) {
 	r := require.New(t)
 	c := NewClient(config.Config{}, "", EnableCryptoSm2())
-	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
+	ApiServiceCfg = APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true}
+	_, err := c.APIServiceClient()
 	r.NoError(err)
 	err = c.Stop(context.Background())
 	r.NoError(err)
@@ -41,15 +42,19 @@ func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
 	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
-	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
+
+	ApiServiceCfg = APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true}
+	apiServiceClient, err := c.APIServiceClient()
 	r.NoError(err)
 	r.NotNil(apiServiceClient)
 
-	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.199:14014", Insecure: false})
+	ApiServiceCfg = APIServiceConfig{Endpoint: "127.0.0.199:14014", Insecure: false}
+	apiServiceClient, err = c.APIServiceClient()
 	r.NoError(err)
 	r.NotNil(apiServiceClient)
 
-	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "", Insecure: false})
+	ApiServiceCfg = APIServiceConfig{Endpoint: "", Insecure: false}
+	apiServiceClient, err = c.APIServiceClient()
 	r.Contains(err.Error(), `use "ioctl config set endpoint" to config endpoint first`)
 	r.Nil(apiServiceClient)
 }

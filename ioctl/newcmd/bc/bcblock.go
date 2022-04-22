@@ -48,8 +48,6 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 	bcBlockCmdShort, _ := client.SelectTranslation(_bcBlockCmdShorts)
 
 	var verbose bool
-	var endpoint string
-	var insecure bool
 
 	cmd := &cobra.Command{
 		Use:   bcBlockCmdUse,
@@ -61,10 +59,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 			var err error
 			isHeight := true
 
-			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
+			apiServiceClient, err := client.APIServiceClient()
 			if err != nil {
 				return err
 			}
@@ -119,12 +114,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 	}
 
 	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
-
 	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, flagVerboseUsage)
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
 
 	return cmd
 }

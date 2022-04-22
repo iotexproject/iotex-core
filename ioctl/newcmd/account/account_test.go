@@ -152,7 +152,7 @@ func TestAccount(t *testing.T) {
 		sk, err := crypto.GenerateKey()
 		require.NoError(err)
 		p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-		require.Equal(true, ok)
+		require.True(ok)
 		account, err = ks.ImportECDSA(p256k1, passwd)
 		require.NoError(err)
 		require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
@@ -207,7 +207,7 @@ func TestMeta(t *testing.T) {
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 
 	accAddr := identityset.Address(28).String()
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
@@ -221,14 +221,14 @@ func TestMeta(t *testing.T) {
 	require.Equal(accountResponse.AccountMeta, result)
 
 	expectedErr := errors.New("failed to dial grpc connection")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
+	client.EXPECT().APIServiceClient().Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)
 	require.Equal(expectedErr, err)
 	require.Nil(result)
 
 	expectedErr = errors.New("failed to invoke GetAccount api")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)
