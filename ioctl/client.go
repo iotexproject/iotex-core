@@ -92,8 +92,10 @@ type (
 	}
 )
 
-// ApiServiceCfg represents the persistent flags of cobra command and will be parsed after rootCmd.Execute() in main
-var ApiServiceCfg = APIServiceConfig{Insecure: false}
+var (
+	// ApiServiceCfg represents the persistent flags of cobra command and will be parsed after rootCmd.Execute() in main
+	ApiServiceCfg = APIServiceConfig{Insecure: false}
+)
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
 func EnableCryptoSm2() Option {
