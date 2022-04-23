@@ -37,7 +37,6 @@ func TestNewAliasSetCmd(t *testing.T) {
 		cmd := NewAliasSetCmd(client)
 		result, err := util.ExecuteCmd(cmd, "d", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
 		require.NoError(err)
-		require.NotNil(result)
 		require.Contains(result, "d has been set!")
 	})
 
