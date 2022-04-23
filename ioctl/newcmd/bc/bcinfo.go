@@ -7,14 +7,12 @@
 package bc
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -48,20 +46,12 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 		Short: bcInfoCmdShort,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
+			chainMeta, err := GetChainMeta(client)
 			if err != nil {
 				return err
 			}
 
-			chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
-			if err != nil {
-				return err
-			}
-
-			message := infoMessage{Node: client.Config().Endpoint, Info: chainMetaResponse.ChainMeta}
+			message := infoMessage{Node: client.Config().Endpoint, Info: chainMeta}
 			cmd.Println(message.String())
 			return nil
 		},

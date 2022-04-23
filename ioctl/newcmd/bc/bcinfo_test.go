@@ -48,7 +48,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 		cmd := NewBCInfoCmd(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Error(err)
-		require.Equal(expectedErr, err)
+		require.Contains(err.Error(), "failed to get chain meta")
 	})
 
 	t.Run("failed to dial grpc connection", func(t *testing.T) {

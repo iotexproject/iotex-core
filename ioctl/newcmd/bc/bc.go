@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -10,6 +10,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -87,9 +88,9 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetChainMeta api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetChainMeta api")
 	}
 	return chainMetaResponse.ChainMeta, nil
 }
