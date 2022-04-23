@@ -18,12 +18,41 @@ import (
 )
 
 func TestNewAliasExport(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation",
-		config.English).Times(4)
-	cmd := NewAliasExport(client)
-	result, err := util.ExecuteCmd(cmd)
-	require.NoError(t, err)
-	require.NotNil(t, result)
+		config.English).Times(12)
+	cfg := config.Config{
+		Aliases: map[string]string{
+			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+			"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+			"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+		},
+	}
+	client.EXPECT().Config().Return(cfg).AnyTimes()
+
+	t.Run("export alias with json format", func(t *testing.T) {
+		cmd := NewAliasExport(client)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.NotNil(result)
+		require.Contains(result, "alias")
+	})
+
+	t.Run("export alias with yaml format", func(t *testing.T) {
+		cmd := NewAliasExport(client)
+		result, err := util.ExecuteCmd(cmd, "-f", "yaml")
+		require.NoError(err)
+		require.NotNil(result)
+		require.Contains(result, "alias")
+	})
+
+	t.Run("invalid flag", func(t *testing.T) {
+		cmd := NewAliasExport(client)
+		_, err := util.ExecuteCmd(cmd, "-f", "")
+		require.Error(err)
+		require.Contains(err.Error(), "EXTRA string=")
+	})
 }
