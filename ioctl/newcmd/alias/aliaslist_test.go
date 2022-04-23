@@ -17,6 +17,7 @@ import (
 
 // test for alias list command
 func TestNewAliasListCmd(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
@@ -30,9 +31,12 @@ func TestNewAliasListCmd(t *testing.T) {
 	client.EXPECT().Config().Return(cfg).AnyTimes()
 
 	t.Run("list aliases", func(t *testing.T) {
+		expectedValue := "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx - a\n" +
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx - b\n" +
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1 - c\n"
 		cmd := NewAliasListCmd(client)
-		res, err := util.ExecuteCmd(cmd)
-		require.NotNil(t, res)
-		require.NoError(t, err)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.Equal(expectedValue, result)
 	})
 }
