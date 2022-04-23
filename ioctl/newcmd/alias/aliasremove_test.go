@@ -22,26 +22,25 @@ func TestNewAliasRemoveCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	cfg := config.Config{
 		Aliases: map[string]string{
-			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-			"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542se",
-			"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "a",
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542se": "b",
+			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "c",
 		},
 	}
 	client.EXPECT().AliasMap().Return(map[string]string{
-		"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
-		"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542se",
-		"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "a",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542se": "b",
+		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "c",
 	}).Times(2)
 	client.EXPECT().Config().Return(cfg).Times(2)
 
 	t.Run("remove alias", func(t *testing.T) {
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("%s is removed", config.English).Times(5)
-		client.EXPECT().DeleteAlias("io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx").Return(nil)
+		client.EXPECT().DeleteAlias("a").Return(nil)
 		cmd := NewAliasRemove(client)
 		result, err := util.ExecuteCmd(cmd, "a")
-		require.NotNil(result)
-		require.Contains(result, "a is removed")
 		require.NoError(err)
+		require.Contains(result, "a is removed")
 	})
 
 	t.Run("invalid alias", func(t *testing.T) {

@@ -53,11 +53,12 @@ func NewAliasRemove(c ioctl.Client) *cobra.Command {
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			alias := args[0]
 			if err := validator.ValidateAlias(alias); err != nil {
 				return errors.Errorf(invalidAlias, alias)
 			}
-			if err := c.DeleteAlias(c.AliasMap()[alias]); err != nil {
+			if err := c.DeleteAlias(alias); err != nil {
 				return errors.Wrap(err, writeError)
 			}
 			cmd.Println(fmt.Sprintf(result, alias))
