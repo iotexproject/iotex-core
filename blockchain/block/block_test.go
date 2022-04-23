@@ -66,7 +66,7 @@ func TestMerkle(t *testing.T) {
 	require.NoError(err)
 	require.Equal("eb5cb75ae199d96de7c1cd726d5e1a3dff15022ed7bdc914a3d8b346f1ef89c9", hex.EncodeToString(hash[:]))
 
-	hashes := block.ActionHashs()
+	hashes := actionHashs(block)
 	for i := range hashes {
 		h, err := actions[i].Hash()
 		require.NoError(err)
@@ -266,10 +266,10 @@ func TestVerifyBlock(t *testing.T) {
 }
 
 // ActionHashs returns action hashs in the block
-func (b *Block) ActionHashs() []string {
-	actHash := make([]string, len(b.Actions))
-	for i := range b.Actions {
-		h, err := b.Actions[i].Hash()
+func actionHashs(blk *Block) []string {
+	actHash := make([]string, len(blk.Actions))
+	for i := range blk.Actions {
+		h, err := blk.Actions[i].Hash()
 		if err != nil {
 			log.L().Debug("Skipping action due to hash error", zap.Error(err))
 			continue
