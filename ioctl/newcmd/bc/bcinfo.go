@@ -48,7 +48,7 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 			}
 
 			message := infoMessage{Node: client.Config().Endpoint, Info: chainMeta}
-			cmd.Println(message.String())
+			cmd.Println(fmt.Sprintf("Blockchain Node: %s\n%s", message.Node, JSONString(message.Info)))
 			return nil
 		},
 	}
@@ -58,8 +58,9 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 	return cmd
 }
 
-func (m *infoMessage) String() string {
-	byteAsJSON, err := json.MarshalIndent(m, "", "  ")
+// JSONString returns json string for message
+func JSONString(out interface{}) string {
+	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		log.Panic(err)
 	}
