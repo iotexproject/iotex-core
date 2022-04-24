@@ -24,8 +24,8 @@ import (
 
 // test for bc info command
 func TestNewBCBlockCmd(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
-
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	cfg := config.Config{}
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
@@ -46,27 +46,27 @@ func TestNewBCBlockCmd(t *testing.T) {
 
 	cmd := NewBCBlockCmd(client)
 	_, err := util.ExecuteCmd(cmd)
-	require.NoError(t, err)
+	require.NoError(err)
 
 	_, err = util.ExecuteCmd(cmd, "1")
-	require.NoError(t, err)
+	require.NoError(err)
 
 	_, err = util.ExecuteCmd(cmd, "abcd")
-	require.NoError(t, err)
+	require.NoError(err)
 
 	expectedError := errors.New("failed to dial grpc connection")
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedError).Times(1)
 
 	cmd = NewBCBlockCmd(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Equal(t, expectedError, err)
+	require.Error(err)
+	require.Equal(expectedError, err)
 	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
 	cmd = NewBCBlockCmd(client)
 	_, err = util.ExecuteCmd(cmd, "0")
-	require.Error(t, err)
+	require.Error(err)
 
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 	expectedError = errors.New("failed to get chain meta")
@@ -74,8 +74,8 @@ func TestNewBCBlockCmd(t *testing.T) {
 
 	cmd = NewBCBlockCmd(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
-	require.Equal(t, expectedError, err)
+	require.Error(err)
+	require.Equal(expectedError, err)
 
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
@@ -86,7 +86,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 
 	cmd = NewBCBlockCmd(client)
 	_, err = util.ExecuteCmd(cmd, "--verbose")
-	require.Error(t, err)
+	require.Error(err)
 
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
@@ -123,7 +123,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 
 	cmd = NewBCBlockCmd(client)
 	_, err = util.ExecuteCmd(cmd, "--verbose")
-	require.NoError(t, err)
+	require.NoError(err)
 
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
@@ -133,5 +133,5 @@ func TestNewBCBlockCmd(t *testing.T) {
 
 	cmd = NewBCBlockCmd(client)
 	_, err = util.ExecuteCmd(cmd)
-	require.Error(t, err)
+	require.Error(err)
 }
