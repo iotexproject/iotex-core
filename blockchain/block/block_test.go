@@ -265,7 +265,7 @@ func TestVerifyBlock(t *testing.T) {
 	})
 }
 
-// ActionHashs returns action hashs in the block
+// actionHashs returns action hashs in the block
 func actionHashs(blk *Block) []string {
 	actHash := make([]string, len(blk.Actions))
 	for i := range blk.Actions {
