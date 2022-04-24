@@ -1403,7 +1403,7 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 		return nil, nil, err
 	}
 	// getLogs via range Blooom filter [start, end]
-	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end)
+	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end, paginationSize)
 	if err != nil {
 		return nil, nil, err
 	}
