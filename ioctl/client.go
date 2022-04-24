@@ -59,8 +59,10 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
-		// SetAlias write alias and account address to the default config file
+		// SetAlias remove default value, set alias and account address to the default config file
 		SetAlias(string, string) error
+		// WriteAlias write alias and account address to the default config file
+		WriteAlias() error
 		// DeleteAlias delete alias from the default config file
 		DeleteAlias(string) error
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
@@ -249,15 +251,15 @@ func (c *client) SetAlias(alias string, addr string) error {
 		}
 	}
 	c.cfg.Aliases[alias] = addr
-	return c.writeAlias()
+	return c.WriteAlias()
 }
 
 func (c *client) DeleteAlias(alias string) error {
 	delete(c.cfg.Aliases, alias)
-	return c.writeAlias()
+	return c.WriteAlias()
 }
 
-func (c *client) writeAlias() error {
+func (c *client) WriteAlias() error {
 	out, err := yaml.Marshal(&c.cfg)
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal config to config file %s", c.configFilePath)

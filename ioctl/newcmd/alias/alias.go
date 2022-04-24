@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
@@ -67,20 +66,20 @@ func NewAliasCmd(client ioctl.Client) *cobra.Command {
 	return ec
 }
 
-// IOAddress returns the address in IoTeX address _format
+// IOAddress returns the address in IoTeX address format
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return nil, output.NewError(output.AddressError, "", err)
+		return nil, errors.Wrap(err, "")
 	}
 	return address.FromString(addr)
 }
 
-// EtherAddress returns the address in ether _format
+// EtherAddress returns the address in ether format
 func EtherAddress(in string) (common.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return common.Address{}, output.NewError(output.AddressError, "", err)
+		return common.Address{}, errors.Wrap(err, "")
 	}
 	return addrutil.IoAddrToEvmAddr(addr)
 }
@@ -88,12 +87,12 @@ func EtherAddress(in string) (common.Address, error) {
 // Alias returns the alias corresponding to address
 func Alias(address string) (string, error) {
 	if err := validator.ValidateAddress(address); err != nil {
-		return "", output.NewError(output.ValidationError, "", err)
+		return "", errors.Wrap(err, "")
 	}
 	for alias, addr := range config.ReadConfig.Aliases {
 		if addr == address {
 			return alias, nil
 		}
 	}
-	return "", output.NewError(output.AddressError, ErrNoAliasFound.Error(), nil)
+	return "", errors.Wrap(nil, ErrNoAliasFound.Error())
 }

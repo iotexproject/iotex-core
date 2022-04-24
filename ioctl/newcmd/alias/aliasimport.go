@@ -36,6 +36,10 @@ var (
 		config.English: "override existing aliases",
 		config.Chinese: "覆盖现有别名",
 	}
+	_failToWriteToConfigFile = map[config.Language]string{
+		config.English: "Failed to write to config file.",
+		config.Chinese: "写入配置文件失败",
+	}
 )
 
 type importMessage struct {
@@ -47,10 +51,16 @@ type importMessage struct {
 
 // NewAliasImportCmd represents the alias import command
 func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
+	var (
+		format      string
+		forceImport bool
+	)
+
 	use, _ := c.SelectTranslation(_importUses)
 	short, _ := c.SelectTranslation(_importShorts)
 	flagImportFormatUsage, _ := c.SelectTranslation(_flagImportFormatUsages)
 	flagForceImportUsage, _ := c.SelectTranslation(_flagForceImportUsages)
+	failToWriteToConfigFile, _ := c.SelectTranslation(_failToWriteToConfigFile)
 
 	ec := &cobra.Command{
 		Use:   use,
@@ -59,7 +69,8 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			var importedAliases aliases
-			switch _format {
+
+			switch format {
 			case "json":
 				if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
 					return errors.Wrap(err, "failed to unmarshal imported aliases")
@@ -74,18 +85,23 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 			aliases := c.AliasMap()
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 			for _, importedAlias := range importedAliases.Aliases {
-				if !_forceImport && c.Config().Aliases[importedAlias.Name] != "" {
+				if !forceImport && c.Config().Aliases[importedAlias.Name] != "" {
 					message.Unimported = append(message.Unimported, importedAlias)
 					continue
 				}
 				for aliases[importedAlias.Address] != "" {
-					delete(c.Config().Aliases, aliases[importedAlias.Address])
+					if err := c.DeleteAlias(aliases[importedAlias.Address]); err != nil {
+						return errors.Wrap(err, failToWriteToConfigFile)
+					}
 					aliases = c.AliasMap()
 				}
-				c.Config().Aliases[importedAlias.Name] = importedAlias.Address
+				if err := c.SetAlias(args[0], importedAlias.Address); err != nil {
+					return errors.Wrapf(err, failToWriteToConfigFile)
+				}
 				message.Imported = append(message.Imported, importedAlias)
 				message.ImportedNumber++
 			}
+			c.WriteAlias()
 			line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber)
 			for _, alias := range message.Unimported {
 				line += fmt.Sprint(" " + alias.Name)
@@ -96,7 +112,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 		},
 	}
 
-	ec.Flags().StringVarP(&_format,
+	ec.Flags().StringVarP(&format,
 		"format=", "f", "json", flagImportFormatUsage)
 	ec.Flags().BoolVarP(&_forceImport,
 		"force-import", "F", false, flagForceImportUsage)

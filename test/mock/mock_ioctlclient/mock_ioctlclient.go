@@ -284,3 +284,17 @@ func (mr *MockClientMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockClient)(nil).Stop), arg0)
 }
+
+// WriteAlias mocks base method.
+func (m *MockClient) WriteAlias() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteAlias")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteAlias indicates an expected call of WriteAlias.
+func (mr *MockClientMockRecorder) WriteAlias() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteAlias", reflect.TypeOf((*MockClient)(nil).WriteAlias))
+}
