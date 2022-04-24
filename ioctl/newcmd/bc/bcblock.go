@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/pkg/errors"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
@@ -46,6 +47,9 @@ var (
 func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 	bcBlockCmdUse, _ := client.SelectTranslation(_bcBlockCmdUses)
 	bcBlockCmdShort, _ := client.SelectTranslation(_bcBlockCmdShorts)
+	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
+	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
+	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	var verbose bool
 	var endpoint string
@@ -74,7 +78,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 				if err != nil {
 					isHeight = false
 				} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-					return output.NewError(output.ValidationError, "invalid height", err)
+					return errors.Wrap(err, "invalid height")
 				}
 			} else {
 				chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
@@ -91,9 +95,9 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 				blockMeta, err = getBlockMetaByHash(&apiServiceClient, args[0])
 			}
 			if err != nil {
-				return output.NewError(0, "failed to get block meta", err)
+				return errors.Wrap(err, "failed to get block meta")
 			}
-			blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, Actions: nil}
+			blockInfoMessage := blockMessage{Node: client.Config().Endpoint, Block: blockMeta, Actions: nil}
 			if verbose {
 				blocksInfo, err = getActionInfoWithinBlock(&apiServiceClient, blockMeta.Height, uint64(blockMeta.NumActions))
 				if err != nil {
@@ -117,10 +121,6 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-
-	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, flagVerboseUsage)
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
