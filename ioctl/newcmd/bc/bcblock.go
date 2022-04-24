@@ -49,8 +49,6 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 	bcBlockCmdUse, _ := client.SelectTranslation(_bcBlockCmdUses)
 	bcBlockCmdShort, _ := client.SelectTranslation(_bcBlockCmdShorts)
 	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	var verbose bool
 	var endpoint string
@@ -124,8 +122,6 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 	}
 
 	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, flagVerboseUsage)
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
 
 	return cmd
 }
