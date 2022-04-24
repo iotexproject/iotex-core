@@ -8,7 +8,9 @@ package bc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -22,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
@@ -97,7 +98,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get block meta")
 			}
-			blockInfoMessage := blockMessage{Node: client.Config().Endpoint, Block: blockMeta, Actions: nil}
+			message := blockMessage{Node: client.Config().Endpoint, Block: blockMeta, Actions: nil}
 			if verbose {
 				blocksInfo, err = getActionInfoWithinBlock(&apiServiceClient, blockMeta.Height, uint64(blockMeta.NumActions))
 				if err != nil {
@@ -113,11 +114,11 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 							SenderPubKey: item.SenderPubKey,
 							Signature:    item.Signature,
 						}
-						blockInfoMessage.Actions = append(blockInfoMessage.Actions, actionInfo)
+						message.Actions = append(message.Actions, actionInfo)
 					}
 				}
 			}
-			fmt.Println(blockInfoMessage.String())
+			cmd.Println(fmt.Sprintf("Blockchain Node: %s\n%s\n%s", message.Node, JSONString(message.Block), JSONString(message.Actions)))
 			return nil
 		},
 	}
@@ -144,12 +145,13 @@ type actionInfo struct {
 	Signature    []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
-func (m *blockMessage) String() string {
-	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s\n%s", m.Node, output.JSONString(m.Block), output.JSONString(m.Actions))
-		return message
+// JSONString returns json string for message
+func JSONString(out interface{}) string {
+	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		log.Panic(err)
 	}
-	return output.FormatString(output.Result, m)
+	return fmt.Sprint(string(byteAsJSON))
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
