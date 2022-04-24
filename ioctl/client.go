@@ -39,6 +39,10 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// Endpoint returns the address of the member to receive input flag value
+		Endpoint() *string
+		// Insecure returns the address of the member to receive input flag value
+		Insecure() *bool
 		// APIServiceClient returns an API service client
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
@@ -69,17 +73,13 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 	}
 
-	// APIServiceConfig defines a config of APIServiceClient
-	APIServiceConfig struct {
-		Endpoint string
-		Insecure bool
-	}
-
 	client struct {
 		cfg            config.Config
 		conn           *grpc.ClientConn
 		cryptoSm2      bool
 		configFilePath string
+		endpoint       string
+		insecure       bool
 	}
 
 	// Option sets client construction parameter
@@ -90,11 +90,6 @@ type (
 		Info    string   `json:"info"`
 		Options []string `json:"options"`
 	}
-)
-
-var (
-	// APIServiceCfg represents the persistent flags of cobra command and will be parsed after rootCmd.Execute() in main
-	APIServiceCfg = APIServiceConfig{Insecure: false}
 )
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
@@ -134,6 +129,14 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
+func (c *client) Endpoint() *string {
+	return &c.endpoint
+}
+
+func (c *client) Insecure() *bool {
+	return &c.insecure
+}
+
 func (c *client) AskToConfirm(info string) bool {
 	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
@@ -167,15 +170,15 @@ func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 		}
 	}
 
-	if APIServiceCfg.Endpoint == "" {
+	if c.endpoint == "" {
 		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 
 	var err error
-	if APIServiceCfg.Insecure {
-		c.conn, err = grpc.Dial(APIServiceCfg.Endpoint, grpc.WithInsecure())
+	if c.insecure {
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(APIServiceCfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		return nil, err

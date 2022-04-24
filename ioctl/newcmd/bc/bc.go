@@ -55,12 +55,12 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 	bc.AddCommand(NewBCInfoCmd(client))
 
 	bc.PersistentFlags().StringVar(
-		&ioctl.APIServiceCfg.Endpoint,
+		client.Endpoint(),
 		"endpoint",
 		client.Config().Endpoint,
 		"set endpoint for once")
 	bc.PersistentFlags().BoolVar(
-		&ioctl.APIServiceCfg.Insecure,
+		client.Insecure(),
 		"insecure",
 		!client.Config().SecureConnect,
 		"insecure connection for once")

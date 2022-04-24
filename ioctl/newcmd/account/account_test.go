@@ -45,11 +45,36 @@ func TestNewAccountCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
-	cmd := NewAccountCmd(client)
-	result, err := util.ExecuteCmd(cmd)
-	require.NotNil(result)
-	require.NoError(err)
+
+	testData := []struct {
+		endpoint string
+		insecure bool
+	}{
+		{
+			endpoint: "111:222:333:444:5678",
+			insecure: false,
+		},
+		{
+			endpoint: "",
+			insecure: true,
+		},
+	}
+	for _, test := range testData {
+		client.EXPECT().Config().Return(config.Config{Endpoint: test.endpoint, SecureConnect: !test.insecure}).Times(2)
+		client.EXPECT().Endpoint().Return(&test.endpoint)
+		client.EXPECT().Insecure().Return(&test.insecure)
+
+		cmd := NewAccountCmd(client)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.Contains(result, "Available Commands")
+
+		result, err = util.ExecuteCmd(cmd, "--endpoint", "0.0.0.0:1", "--insecure")
+		require.NoError(err)
+		require.Contains(result, "Available Commands")
+		require.Equal("0.0.0.0:1", test.endpoint)
+		require.True(test.insecure)
+	}
 }
 
 func TestSign(t *testing.T) {

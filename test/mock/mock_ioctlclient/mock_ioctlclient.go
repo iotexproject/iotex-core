@@ -155,6 +155,20 @@ func (mr *MockClientMockRecorder) DeleteAlias(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAlias", reflect.TypeOf((*MockClient)(nil).DeleteAlias), arg0)
 }
 
+// Endpoint mocks base method.
+func (m *MockClient) Endpoint() *string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Endpoint")
+	ret0, _ := ret[0].(*string)
+	return ret0
+}
+
+// Endpoint indicates an expected call of Endpoint.
+func (mr *MockClientMockRecorder) Endpoint() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoint", reflect.TypeOf((*MockClient)(nil).Endpoint))
+}
+
 // Execute mocks base method.
 func (m *MockClient) Execute(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -167,6 +181,20 @@ func (m *MockClient) Execute(arg0 string) error {
 func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
+}
+
+// Insecure mocks base method.
+func (m *MockClient) Insecure() *bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Insecure")
+	ret0, _ := ret[0].(*bool)
+	return ret0
+}
+
+// Insecure indicates an expected call of Insecure.
+func (mr *MockClientMockRecorder) Insecure() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insecure", reflect.TypeOf((*MockClient)(nil).Insecure))
 }
 
 // IsCryptoSm2 mocks base method.

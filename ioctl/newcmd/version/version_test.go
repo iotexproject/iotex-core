@@ -25,8 +25,12 @@ func TestVersionCommand(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
+	endpoint := ""
+	insecure := false
 	cfg := config.Config{}
 	client.EXPECT().Config().Return(cfg).Times(2)
+	client.EXPECT().Endpoint().Return(&endpoint)
+	client.EXPECT().Insecure().Return(&insecure)
 	apiClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 	response := iotexapi.GetServerMetaResponse{
 		ServerMeta: &iotextypes.ServerMeta{PackageVersion: "1.0"},
