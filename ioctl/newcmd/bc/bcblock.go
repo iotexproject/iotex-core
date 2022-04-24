@@ -101,7 +101,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 			if verbose {
 				blocksInfo, err = getActionInfoWithinBlock(&apiServiceClient, blockMeta.Height, uint64(blockMeta.NumActions))
 				if err != nil {
-					return output.NewError(0, "failed to get actions info", err)
+					return errors.Wrap(err, "failed to get actions info")
 				}
 				for _, ele := range blocksInfo {
 					for _, item := range ele.Block.Body.Actions {
@@ -166,12 +166,12 @@ func getActionInfoWithinBlock(cli *iotexapi.APIServiceClient, height uint64, cou
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetRawBlocks api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetRawBlocks api")
 	}
 	if len(response.Blocks) == 0 {
-		return nil, output.NewError(output.APIError, "no actions returned", err)
+		return nil, errors.Wrap(err, "no actions returned")
 	}
 	return response.Blocks, nil
 
@@ -198,12 +198,12 @@ func getBlockMetaByHeight(cli *iotexapi.APIServiceClient, height uint64) (*iotex
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, output.NewError(output.APIError, "no block returned", err)
+		return nil, errors.Wrap(err, "no block returned")
 	}
 	return response.BlkMetas[0], nil
 }
@@ -226,12 +226,12 @@ func getBlockMetaByHash(cli *iotexapi.APIServiceClient, hash string) (*iotextype
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, output.NewError(output.APIError, "no block returned", err)
+		return nil, errors.Wrap(err, "no block returned")
 	}
 	return response.BlkMetas[0], nil
 }
