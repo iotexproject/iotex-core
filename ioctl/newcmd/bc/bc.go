@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -112,9 +111,9 @@ func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaR
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetEpochMeta api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetEpochMeta api")
 	}
 	return epochMetaresponse, nil
 }
@@ -143,9 +142,9 @@ func GetProbationList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadState
 		if ok && sta.Code() == codes.NotFound {
 			return nil, nil
 		} else if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
 	return response, nil
 }
