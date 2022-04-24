@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -30,6 +30,10 @@ var (
 		config.English: `set version type, "stable" or "unstable"`,
 		config.Chinese: `设置版本类型, "稳定版" 或 "非稳定版"`,
 	}
+	_invalidVersionType = map[config.Language]string{
+		config.English: "invalid version-type flag:%s",
+		config.Chinese: "无效版本状态:%s",
+	}
 	_resultSuccess = map[config.Language]string{
 		config.English: "ioctl is up-to-date now.",
 		config.Chinese: "ioctl 现已更新完毕。",
@@ -47,13 +51,19 @@ var (
 // NewUpdateCmd represents the update command
 func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 	var versionType string
-	// TODO create function func MustSelectTranslation(map[config.Language]string) string
-	use, _ := c.SelectTranslation(_uses)
-	short, _ := c.SelectTranslation(_shorts)
-	flagUsage, _ := c.SelectTranslation(_flagUsages)
-	success, _ := c.SelectTranslation(_resultSuccess)
-	fail, _ := c.SelectTranslation(_resultFail)
-	info, _ := c.SelectTranslation(_resultInfo)
+	MustSelectTranslation := func(in map[config.Language]string) string {
+		translation, _ := c.SelectTranslation(in)
+		return translation
+	}
+
+	use := MustSelectTranslation(_uses)
+	short := MustSelectTranslation(_shorts)
+	flagUsage := MustSelectTranslation(_flagUsages)
+	success := MustSelectTranslation(_resultSuccess)
+	fail := MustSelectTranslation(_resultFail)
+	info := MustSelectTranslation(_resultInfo)
+	invalidVersionType := MustSelectTranslation(_invalidVersionType)
+
 	uc := &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -63,27 +73,22 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 			var cmdString string
 			switch versionType {
 			default:
-				//TODO: add translations
-				errors.Wrap(nil, "invalid version-type flag:"+versionType)
+				errors.Wrap(nil, fmt.Sprintf(invalidVersionType, versionType))
 			case "stable":
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh"
 			case "unstable":
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh -s \"unstable\""
 
 			}
-			// TODO: Validate secret
 			_, err := c.ReadSecret()
 			if err != nil {
-				//TODO: add translations
 				return errors.Wrap(err, fail)
 			}
-			//TODO: add translations
 			cmd.Println(fmt.Sprintf(info, versionType))
 
 			if err := c.Execute(cmdString); err != nil {
 				return errors.Wrap(err, fail)
 			}
-			//TODO: add translations
 			cmd.Println(success)
 			return nil
 
