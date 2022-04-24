@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
@@ -39,99 +38,130 @@ func TestNewBCBlockCmd(t *testing.T) {
 	blockMetaResponse := &iotexapi.GetBlockMetasResponse{BlkMetas: blockMeta}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(35)
-	client.EXPECT().Config().Return(cfg).Times(18)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(3)
+	client.EXPECT().Config().Return(cfg).Times(20)
+
+	t.Run("failed to dial grpc connection", func(t *testing.T) {
+		expectedErr := errors.New("failed to dial grpc connection")
+		client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
+
+		cmd := NewBCBlockCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.Error(err)
+		require.Equal(expectedErr, err)
+	})
+
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(9)
+
+	t.Run("failed to get chain meta", func(t *testing.T) {
+		expectedErr := errors.New("failed to get chain meta")
+		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
+
+		cmd := NewBCBlockCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.Error(err)
+		require.Equal(expectedErr, err)
+	})
+
+	t.Run("failed to invoke GetBlockMetas api", func(t *testing.T) {
+		expectedErr := errors.New("failed to invoke GetBlockMetas api")
+		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
+		apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
+
+		cmd := NewBCBlockCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.Error(err)
+		require.Contains(err.Error(), expectedErr.Error())
+
+	})
+
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
 	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(3)
 
-	cmd := NewBCBlockCmd(client)
-	_, err := util.ExecuteCmd(cmd)
-	require.NoError(err)
+	t.Run("get blockchain block", func(t *testing.T) {
+		expectedValue := "Blockchain Node: \n{\n  \"hash\": \"abcd\",\n  \"height\": 1\n}\nnull\n"
 
-	_, err = util.ExecuteCmd(cmd, "1")
-	require.NoError(err)
+		cmd := NewBCBlockCmd(client)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.Equal(expectedValue, result)
+	})
 
-	_, err = util.ExecuteCmd(cmd, "abcd")
-	require.NoError(err)
+	t.Run("get block meta by height", func(t *testing.T) {
+		expectedValue := "\"height\": 1"
 
-	expectedError := errors.New("failed to dial grpc connection")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedError).Times(1)
+		cmd := NewBCBlockCmd(client)
+		result, err := util.ExecuteCmd(cmd, "1")
+		require.NoError(err)
+		require.Contains(result, expectedValue)
+	})
 
-	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(err)
-	require.Equal(expectedError, err)
-	client.EXPECT().Config().Return(cfg).Times(2)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+	t.Run("get block meta by hash", func(t *testing.T) {
+		expectedValue := "\"hash\": \"abcd\""
 
-	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd, "0")
-	require.Error(err)
+		cmd := NewBCBlockCmd(client)
+		result, err := util.ExecuteCmd(cmd, "abcd")
+		require.NoError(err)
+		require.Contains(result, expectedValue)
+	})
 
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
-	expectedError = errors.New("failed to get chain meta")
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
+	t.Run("invalid height", func(t *testing.T) {
+		expectedErr := errors.New("invalid height")
 
-	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(err)
-	require.Equal(expectedError, err)
+		cmd := NewBCBlockCmd(client)
+		_, err := util.ExecuteCmd(cmd, "0")
+		require.Error(err)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(2)
+	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(2)
 
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
-	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(1)
-	expectedError = errors.New("failed to get raw block")
-	apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
+	t.Run("failed to get actions info", func(t *testing.T) {
+		expectedErr := errors.New("failed to get actions info")
+		apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
 
-	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd, "--verbose")
-	require.Error(err)
+		cmd := NewBCBlockCmd(client)
+		_, err := util.ExecuteCmd(cmd, "--verbose")
+		require.Error(err)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
-
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
-	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(1)
-	blockInfo := []*iotexapi.BlockInfo{
-		{
-			Block: &iotextypes.Block{
-				Body: &iotextypes.BlockBody{
-					Actions: []*iotextypes.Action{
-						&iotextypes.Action{
-							Core: &iotextypes.ActionCore{
-								Version:  1,
-								Nonce:    2,
-								GasLimit: 3,
-								GasPrice: "4",
+	t.Run("verbose", func(t *testing.T) {
+		blockInfo := []*iotexapi.BlockInfo{
+			{
+				Block: &iotextypes.Block{
+					Body: &iotextypes.BlockBody{
+						Actions: []*iotextypes.Action{
+							&iotextypes.Action{
+								Core: &iotextypes.ActionCore{
+									Version:  1,
+									Nonce:    2,
+									GasLimit: 3,
+									GasPrice: "4",
+								},
 							},
-						},
-						&iotextypes.Action{
-							Core: &iotextypes.ActionCore{
-								Version:  5,
-								Nonce:    6,
-								GasLimit: 7,
-								GasPrice: "8",
+							&iotextypes.Action{
+								Core: &iotextypes.ActionCore{
+									Version:  5,
+									Nonce:    6,
+									GasLimit: 7,
+									GasPrice: "8",
+								},
 							},
 						},
 					},
 				},
 			},
-		},
-	}
-	rawBlocksResponse := &iotexapi.GetRawBlocksResponse{Blocks: blockInfo}
-	apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(rawBlocksResponse, nil).Times(1)
+		}
+		rawBlocksResponse := &iotexapi.GetRawBlocksResponse{Blocks: blockInfo}
+		expectedValue1 := "{\n    \"version\": 1,\n    \"nonce\": 2,\n    \"gasLimit\": 3,\n    \"gasPrice\": \"4\"\n  }"
+		expectedValue2 := "{\n    \"version\": 5,\n    \"nonce\": 6,\n    \"gasLimit\": 7,\n    \"gasPrice\": \"8\"\n  }"
+		apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(rawBlocksResponse, nil).Times(1)
 
-	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd, "--verbose")
-	require.NoError(err)
-
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
-
-	err = output.ErrorMessage{}
-	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(nil, err).Times(1)
-
-	cmd = NewBCBlockCmd(client)
-	_, err = util.ExecuteCmd(cmd)
-	require.Error(err)
+		cmd := NewBCBlockCmd(client)
+		result, err := util.ExecuteCmd(cmd, "--verbose")
+		require.NoError(err)
+		require.Contains(result, expectedValue1)
+		require.Contains(result, expectedValue2)
+	})
 }
