@@ -34,10 +34,8 @@ type infoMessage struct {
 func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 	bcInfoCmdShort, _ := client.SelectTranslation(_bcInfoCmdShorts)
 	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
 
 	var endpoint string
-	var insecure bool
 
 	cmd := &cobra.Command{
 		Use:   "info",
@@ -56,7 +54,6 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 	}
 
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
 
 	return cmd
 }

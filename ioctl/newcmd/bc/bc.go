@@ -10,6 +10,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -72,8 +74,10 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 
 // GetChainMeta gets blockchain metadata
 func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
-	var endpoint string
-	var insecure bool
+	var (
+		endpoint string
+		insecure bool
+	)
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 		Endpoint: endpoint,
 		Insecure: insecure,
@@ -81,8 +85,13 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	if err != nil {
 		return nil, err
 	}
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(context.Background())
+	}
 
-	chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+	chainMetaResponse, err := apiServiceClient.GetChainMeta(ctx, &iotexapi.GetChainMetaRequest{})
 
 	if err != nil {
 		sta, ok := status.FromError(err)
