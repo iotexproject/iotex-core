@@ -9,11 +9,11 @@ package update
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -64,7 +64,7 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 			switch versionType {
 			default:
 				//TODO: add translations
-				output.NewError(output.FlagError, "invalid version-type flag:"+versionType, nil)
+				errors.Wrap(nil, "invalid version-type flag:"+versionType)
 			case "stable":
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh"
 			case "unstable":
@@ -75,16 +75,16 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 			_, err := c.ReadSecret()
 			if err != nil {
 				//TODO: add translations
-				return output.NewError(output.UpdateError, fail, err)
+				return errors.Wrap(err, fail)
 			}
 			//TODO: add translations
-			output.PrintResult(fmt.Sprintf(info, versionType))
+			cmd.Println(fmt.Sprintf(info, versionType))
 
 			if err := c.Execute(cmdString); err != nil {
-				return output.NewError(output.UpdateError, fail, err)
+				return errors.Wrap(err, fail)
 			}
 			//TODO: add translations
-			output.PrintResult(success)
+			cmd.Println(success)
 			return nil
 
 		},
