@@ -201,7 +201,7 @@ func (p *Protocol) CreateGenesisStates(
 			return ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
-		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		bucketIdx, err := csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
 		}
@@ -270,7 +270,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
-	allBuckets, _, err := getAllBuckets(sm)
+	csr := newCandidateStateReader(sm)
+	allBuckets, _, err := csr.getAllBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -282,7 +283,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil {
 		return err
 	}
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -356,14 +357,14 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err
 }
@@ -449,26 +450,26 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
 		}
-		resp, height, err = readStateBuckets(ctx, sr, r.GetBuckets())
+		resp, height, err = csr.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+		resp, height, err = csr.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = readStateBucketsByCandidate(ctx, csr, r.GetBucketsByCandidate())
+		resp, height, err = csr.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+		resp, height, err = csr.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
-		resp, height, err = readStateBucketCount(ctx, csr, r.GetBucketsCount())
+		resp, height, err = csr.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
 		}
-		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
+		resp, height, err = csr.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
+		resp, height, err = csr.readStateCandidateByName(ctx, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
+		resp, height, err = csr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = readStateTotalStakingAmount(ctx, csr, r.GetTotalStakingAmount())
+		resp, height, err = csr.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
