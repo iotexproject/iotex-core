@@ -17,11 +17,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -180,128 +178,6 @@ func (tc *totalBucketCount) Serialize() ([]byte, error) {
 
 func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
-}
-
-func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
-	var tc totalBucketCount
-	_, err := sr.State(
-		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(TotalBucketKey))
-	return tc.count, err
-}
-
-func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
-	var vb VoteBucket
-	var err error
-	if _, err = sr.State(
-		&vb,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(bucketKey(index))); err != nil {
-		return nil, err
-	}
-	var tc totalBucketCount
-	if _, err := sr.State(
-		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return nil, err
-	}
-	if errors.Cause(err) == state.ErrStateNotExist && index < tc.Count() {
-		return nil, ErrWithdrawnBucket
-	}
-	return &vb, nil
-}
-
-func updateBucket(sm protocol.StateManager, index uint64, bucket *VoteBucket) error {
-	if _, err := getBucket(sm, index); err != nil {
-		return err
-	}
-
-	_, err := sm.PutState(
-		bucket,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(bucketKey(index)))
-	return err
-}
-
-func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
-	var tc totalBucketCount
-	if _, err := sm.State(
-		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return 0, err
-	}
-
-	index := tc.Count()
-	// Add index inside bucket
-	bucket.Index = index
-	if _, err := sm.PutState(
-		bucket,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(bucketKey(index))); err != nil {
-		return 0, err
-	}
-	tc.count++
-	_, err := sm.PutState(
-		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(TotalBucketKey))
-	return index, err
-}
-
-func delBucket(sm protocol.StateManager, index uint64) error {
-	_, err := sm.DelState(
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(bucketKey(index)))
-	return err
-}
-
-func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, uint64, error) {
-	height, iter, err := sr.States(
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeysOption(func() ([][]byte, error) {
-			// TODO (zhi): fix potential racing issue
-			count, err := getTotalBucketCount(sr)
-			if err != nil {
-				return nil, err
-			}
-			keys := [][]byte{}
-			for i := uint64(0); i < count; i++ {
-				keys = append(keys, bucketKey(i))
-			}
-			return keys, nil
-		}),
-	)
-	if err != nil {
-		return nil, height, err
-	}
-
-	buckets := make([]*VoteBucket, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		vb := &VoteBucket{}
-		switch err := iter.Next(vb); errors.Cause(err) {
-		case nil:
-			buckets = append(buckets, vb)
-		case state.ErrNilValue:
-		default:
-			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
-		}
-	}
-	return buckets, height, nil
-}
-
-func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
-	buckets := make([]*VoteBucket, 0, len(indices))
-	for _, i := range indices {
-		b, err := getBucket(sr, i)
-		if err != nil && err != ErrWithdrawnBucket {
-			return buckets, err
-		}
-		buckets = append(buckets, b)
-	}
-	return buckets, nil
 }
 
 func bucketKey(index uint64) []byte {
