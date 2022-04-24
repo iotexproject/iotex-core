@@ -72,13 +72,12 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			var cmdString string
 			switch versionType {
-			default:
-				errors.Wrap(nil, fmt.Sprintf(invalidVersionType, versionType))
 			case "stable":
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh"
 			case "unstable":
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh -s \"unstable\""
-
+			default:
+				return errors.New(fmt.Sprintf(invalidVersionType, versionType))
 			}
 			_, err := c.ReadSecret()
 			if err != nil {
