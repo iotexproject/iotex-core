@@ -8,9 +8,7 @@ package bc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -139,15 +137,6 @@ type actionInfo struct {
 	GasPrice     string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
 	SenderPubKey []byte `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
 	Signature    []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-}
-
-// JSONString returns json string for message
-func JSONString(out interface{}) string {
-	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		log.Panic(err)
-	}
-	return fmt.Sprint(string(byteAsJSON))
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
