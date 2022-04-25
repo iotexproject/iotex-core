@@ -1,3 +1,9 @@
+// Copyright (c) 2022 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package node
 
 import (
@@ -8,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -100,7 +107,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				}
 				chainMeta, err := bc.GetChainMeta(c)
 				if err != nil {
-					return output.NewError(0, "failed to get chain meta", err)
+					return errors.Wrap(err, "failed to get chain meta")
 				}
 				_epochNum = chainMeta.Epoch.Num + 1
 				message := nextDelegatesMessage{Epoch: int(_epochNum)}
@@ -122,14 +129,14 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 						fmt.Println(message.String())
 						return nil
 					} else if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+					return errors.Wrap(err, "failed to invoke ReadState api")
 				}
 				message.Determined = true
 				var ABPs state.CandidateList
 				if err := ABPs.Deserialize(abpResponse.Data); err != nil {
-					return output.NewError(output.SerializationError, "failed to deserialize active BPs", err)
+					return errors.Wrap(err, "failed to deserialize active BPs")
 				}
 
 				bpResponse, err := apiServiceClient.ReadState(
@@ -144,13 +151,13 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+					return errors.Wrap(err, "failed to invoke ReadState api")
 				}
 				var BPs state.CandidateList
 				if err := BPs.Deserialize(bpResponse.Data); err != nil {
-					return output.NewError(output.SerializationError, "failed to deserialize BPs", err)
+					return errors.Wrap(err, "failed to deserialize BPs")
 				}
 				isActive := make(map[string]bool)
 				for _, abp := range ABPs {
@@ -172,7 +179,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				if _epochNum == 0 {
 					chainMeta, err := bc.GetChainMeta(c)
 					if err != nil {
-						return output.NewError(0, "failed to get chain meta", err)
+						return errors.Wrap(err, "failed to get chain meta")
 					}
 					_epochNum = chainMeta.Epoch.Num
 				}
@@ -180,7 +187,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				response, err := bc.GetEpochMeta(_epochNum, c)
 
 				if err != nil {
-					return output.NewError(0, "failed to get epoch meta", err)
+					return errors.Wrap(err, "failed to get epoch meta")
 				}
 				epochData := response.EpochData
 				aliases := c.AliasMap()
@@ -191,18 +198,18 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				}
 				probationListRes, err := bc.GetProbationList(_epochNum, c)
 				if err != nil {
-					return output.NewError(0, "failed to get probation list", err)
+					return errors.Wrap(err, "failed to get probation list")
 				}
 				probationList := &vote.ProbationList{}
 				if probationListRes != nil {
 					if err := probationList.Deserialize(probationListRes.Data); err != nil {
-						return output.NewError(output.SerializationError, "failed to deserialize probation list", err)
+						return errors.Wrap(err, "failed to deserialize probation list")
 					}
 				}
 				for rank, bp := range response.BlockProducersInfo {
 					votes, ok := new(big.Int).SetString(bp.Votes, 10)
 					if !ok {
-						return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
+						return errors.New("failed to convert votes into big int")
 					}
 					isProbated := false
 					if _, ok := probationList.ProbationInfo[bp.Address]; ok {
