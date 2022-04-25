@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -227,10 +226,13 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					}
 					message.Delegates = append(message.Delegates, delegate)
 				}
-				fmt.Println(message.String())
+				cmd.Println(message.String())
+			}
+			if err != nil {
+				cmd.Println(err.Error())
 			}
 
-			return output.PrintError(err)
+			return nil
 		},
 	}
 	cmd.Flags().Uint64VarP(&_epochNum, "epoch-num", "e", 0,
@@ -243,47 +245,42 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 }
 
 func (m *nextDelegatesMessage) String() string {
-	if output.Format == "" {
-		if !m.Determined {
-			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", _epochNum)
-		}
-		aliasLen := 5
-		for _, bp := range m.Delegates {
-			if len(bp.Alias) > aliasLen {
-				aliasLen = len(bp.Alias)
-			}
-		}
-		lines := []string{fmt.Sprintf("Epoch: %d\n", _epochNum)}
-		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
-		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
-		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
-		for _, bp := range m.Delegates {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, _nodeStatus[bp.Active], bp.Votes))
-		}
-		return strings.Join(lines, "\n")
+	if !m.Determined {
+		return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", _epochNum)
 	}
-	return output.FormatString(output.Result, m)
+	aliasLen := 5
+	for _, bp := range m.Delegates {
+		if len(bp.Alias) > aliasLen {
+			aliasLen = len(bp.Alias)
+		}
+	}
+	lines := []string{fmt.Sprintf("Epoch: %d\n", _epochNum)}
+	formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
+	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
+	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
+	for _, bp := range m.Delegates {
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+			bp.Alias, _nodeStatus[bp.Active], bp.Votes))
+	}
+	return strings.Join(lines, "\n")
 }
+
 func (m *delegatesMessage) String() string {
-	if output.Format == "" {
-		aliasLen := 5
-		for _, bp := range m.Delegates {
-			if len(bp.Alias) > aliasLen {
-				aliasLen = len(bp.Alias)
-			}
+	aliasLen := 5
+	for _, bp := range m.Delegates {
+		if len(bp.Alias) > aliasLen {
+			aliasLen = len(bp.Alias)
 		}
-		lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks in epoch: %d\n",
-			m.Epoch, m.StartBlock, m.TotalBlocks)}
-		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
-		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
-		lines = append(lines, fmt.Sprintf(formatTitleString,
-			"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
-		for _, bp := range m.Delegates {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
-		}
-		return strings.Join(lines, "\n")
 	}
-	return output.FormatString(output.Result, m)
+	lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks in epoch: %d\n",
+		m.Epoch, m.StartBlock, m.TotalBlocks)}
+	formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
+	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
+	lines = append(lines, fmt.Sprintf(formatTitleString,
+		"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
+	for _, bp := range m.Delegates {
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+			bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
+	}
+	return strings.Join(lines, "\n")
 }
