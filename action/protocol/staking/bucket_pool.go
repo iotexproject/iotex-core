@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -93,39 +92,8 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 }
 
 // NewBucketPool creates an instance of BucketPool
-func NewBucketPool(sr protocol.StateReader, enableSMStorage bool) (*BucketPool, error) {
-	bp := BucketPool{
-		enableSMStorage: enableSMStorage,
-		total: &totalAmount{
-			amount: big.NewInt(0),
-		},
-	}
-
-	if bp.enableSMStorage {
-		switch _, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); errors.Cause(err) {
-		case nil:
-			return &bp, nil
-		case state.ErrStateNotExist:
-			// fall back to load all buckets
-		default:
-			return nil, err
-		}
-	}
-
-	// sum up all existing buckets
-	all, _, err := getAllBuckets(sr)
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return nil, err
-	}
-
-	for _, v := range all {
-		if v.StakedAmount.Cmp(big.NewInt(0)) <= 0 {
-			return nil, state.ErrNotEnoughBalance
-		}
-		bp.total.amount.Add(bp.total.amount, v.StakedAmount)
-	}
-	bp.total.count = uint64(len(all))
-	return &bp, nil
+func NewBucketPool(csr CandidateStateReader, enableSMStorage bool) (*BucketPool, error) {
+	return csr.NewBucketPool(enableSMStorage)
 }
 
 // Total returns the total amount staked in bucket pool
