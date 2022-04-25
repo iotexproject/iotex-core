@@ -1,3 +1,9 @@
+// Copyright (c) 2022 IoTeX Foundation
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package api
 
 import (
@@ -226,7 +232,6 @@ func (svr *GRPCServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	// receipt, blkHash, err := svr.coreService.ReceiptByAction(actHash)
 	receipt, err := svr.coreService.ReceiptByActionHash(actHash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())

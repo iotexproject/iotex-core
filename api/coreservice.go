@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -147,7 +147,7 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
-		// GetBlockHashByActionHash returns public method for getBlockHashByActionHash
+		// GetBlockHashByActionHash returns block hash by action hash
 		GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 	}
 
@@ -980,13 +980,8 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 	return res, nil
 }
 
-// GetBlockHashByActionHash returns public method for getBlockHashByActionHash
+// GetBlockHashByActionHash returns block hash by action hash
 func (core *coreService) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	return core.getBlockHashByActionHash(h)
-}
-
-// getBlockHashByActionHash returns block hash by action hash
-func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return hash.ZeroHash256, err
