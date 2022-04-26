@@ -26,11 +26,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(3)
-	client.EXPECT().Config().Return(config.ReadConfig).Times(3)
-
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
 	client.EXPECT().Config().Return(config.Config{}).Times(7)
