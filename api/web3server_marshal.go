@@ -55,6 +55,12 @@ type (
 		blockHash hash.Hash256
 		log       *action.Log
 	}
+
+	getSyncingResult struct {
+		StartingBlock string `json:"startingBlock"`
+		CurrentBlock  string `json:"currentBlock"`
+		HighestBlock  string `json:"highestBlock"`
+	}
 )
 
 var (

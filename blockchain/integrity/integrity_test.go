@@ -1221,7 +1221,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		// invalid address returns error
 		_, err = address.FromString("")
-		require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
+		require.Contains(err.Error(), "address length = 0, expecting 41")
 
 		// valid but unused address should return empty account
 		addr, err := address.FromString("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")

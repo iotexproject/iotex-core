@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -303,40 +302,4 @@ func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 	}
 	sort.Sort(list)
 	return list, nil
-}
-
-func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, uint64, error) {
-	if name == nil {
-		return nil, 0, ErrNilParameters
-	}
-	var d Candidate
-	height, err := sr.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
-	return &d, height, err
-}
-
-func putCandidate(sm protocol.StateManager, d *Candidate) error {
-	_, err := sm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
-	return err
-}
-
-func delCandidate(sm protocol.StateManager, name address.Address) error {
-	_, err := sm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
-	return err
-}
-
-func getAllCandidates(sr protocol.StateReader) (CandidateList, uint64, error) {
-	height, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if err != nil {
-		return nil, height, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, height, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, height, nil
 }

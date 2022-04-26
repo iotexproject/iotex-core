@@ -27,7 +27,6 @@ const TransferSizeLimit = 32 * 1024
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	fixDoubleChargeGas := protocol.MustGetFeatureCtx(ctx).FixDoubleChargeGas
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
@@ -49,8 +48,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	var depositLog *action.TransactionLog
-	if !fixDoubleChargeGas {
+	var (
+		depositLog *action.TransactionLog
+		fCtx       = protocol.MustGetFeatureCtx(ctx)
+	)
+	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
@@ -63,11 +65,21 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 
-	recipientAddr, err := address.FromString(tsf.Recipient())
+	var recipientAddr address.Address
+	if fCtx.TolerateLegacyAddress {
+		recipientAddr, err = address.FromStringLegacy(tsf.Recipient())
+	} else {
+		recipientAddr, err = address.FromString(tsf.Recipient())
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
 	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
+	if !fCtx.TolerateLegacyAddress {
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
+		}
+	}
 	if err == nil && recipientAcct.IsContract() {
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
@@ -75,7 +87,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if fixDoubleChargeGas {
+		if fCtx.FixDoubleChargeGas {
 			if p.depositGas != nil {
 				depositLog, err = p.depositGas(ctx, sm, gasFee)
 				if err != nil {
@@ -109,15 +121,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
-	if err := recipient.AddBalance(tsf.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
-	}
+	recipient.AddBalance(tsf.Amount())
 	// put updated recipient's state to trie
 	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if fixDoubleChargeGas {
+	if fCtx.FixDoubleChargeGas {
 		if p.depositGas != nil {
 			depositLog, err = p.depositGas(ctx, sm, gasFee)
 			if err != nil {
@@ -144,7 +154,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error {
+func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -153,6 +163,14 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 	if tsf.TotalSize() > TransferSizeLimit {
 		return action.ErrOversizedData
 	}
-
-	return nil
+	var (
+		fCtx = protocol.MustGetFeatureCtx(ctx)
+		err  error
+	)
+	if fCtx.TolerateLegacyAddress {
+		_, err = address.FromStringLegacy(tsf.Recipient())
+	} else {
+		_, err = address.FromString(tsf.Recipient())
+	}
+	return err
 }

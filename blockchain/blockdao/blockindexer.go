@@ -26,7 +26,7 @@ type (
 		Stop(ctx context.Context) error
 		Height() (uint64, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(blk *block.Block) error
+		DeleteTipBlock(context.Context, *block.Block) error
 	}
 
 	// BlockIndexerChecker defines a checker of block indexer

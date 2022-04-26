@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -156,7 +157,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
-		ctx := context.Background()
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
@@ -168,11 +169,11 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(0, height)
 
-		require.NoError(indexer.PutBlock(context.Background(), blks[0]))
+		require.NoError(indexer.PutBlock(ctx, blks[0]))
 		// cannot skip block when indexing
 		err = indexer.PutBlock(context.Background(), blks[2])
 		require.Equal(db.ErrInvalid, errors.Cause(err))
-		require.NoError(indexer.PutBlock(context.Background(), blks[1]))
+		require.NoError(indexer.PutBlock(ctx, blks[1]))
 		height, err = indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)
@@ -180,7 +181,7 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(6, total)
 
-		require.NoError(indexer.PutBlock(context.Background(), blks[2]))
+		require.NoError(indexer.PutBlock(ctx, blks[2]))
 		height, err = indexer.Height()
 		require.NoError(err)
 		require.EqualValues(3, height)
@@ -241,7 +242,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testDelete := func(kvStore db.KVStore, t *testing.T) {
-		ctx := context.Background()
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
@@ -250,7 +251,7 @@ func TestIndexer(t *testing.T) {
 		}()
 
 		for i := 0; i < 3; i++ {
-			require.NoError(indexer.PutBlock(context.Background(), blks[i]))
+			require.NoError(indexer.PutBlock(ctx, blks[i]))
 		}
 
 		for i := range indexTests[0].actions {
@@ -266,7 +267,7 @@ func TestIndexer(t *testing.T) {
 				continue
 			}
 
-			require.NoError(indexer.DeleteTipBlock(blks[3-i]))
+			require.NoError(indexer.DeleteTipBlock(ctx, blks[3-i]))
 			tipHeight, err := indexer.Height()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
