@@ -29,8 +29,8 @@ var (
 
 // NewAccountExport represents the account export command
 func NewAccountExport(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_exportCmdShorts)
-	short, _ := client.SelectTranslation(_exportCmdUses)
+	use, _ := client.SelectTranslation(_exportCmdUses)
+	short, _ := client.SelectTranslation(_exportCmdShorts)
 
 	return &cobra.Command{
 		Use:   use,
