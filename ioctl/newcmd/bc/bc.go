@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -10,6 +10,8 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,7 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -74,15 +76,20 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	if err != nil {
 		return nil, err
 	}
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(context.Background())
+	}
 
-	chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+	chainMetaResponse, err := apiServiceClient.GetChainMeta(ctx, &iotexapi.GetChainMetaRequest{})
 
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetChainMeta api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetChainMeta api")
 	}
 	return chainMetaResponse.ChainMeta, nil
 }
@@ -98,9 +105,9 @@ func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaR
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetEpochMeta api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetEpochMeta api")
 	}
 	return epochMetaresponse, nil
 }
@@ -124,9 +131,9 @@ func GetProbationList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadState
 		if ok && sta.Code() == codes.NotFound {
 			return nil, nil
 		} else if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.Wrap(nil, sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
 	return response, nil
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,17 +7,14 @@
 package bc
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
-
-	"github.com/spf13/cobra"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"log"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -33,47 +30,39 @@ type infoMessage struct {
 	Info *iotextypes.ChainMeta `json:"info"`
 }
 
-func (m *infoMessage) String() string {
-	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, output.JSONString(m.Info))
-		return message
-	}
-	return output.FormatString(output.Result, m)
-}
-
 // NewBCInfoCmd represents the bc info command
 func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 	bcInfoCmdShort, _ := client.SelectTranslation(_bcInfoCmdShorts)
+	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
 
 	var endpoint string
-	var insecure bool
 
 	cmd := &cobra.Command{
 		Use:   "info",
 		Short: bcInfoCmdShort,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiServiceClient, err := client.APIServiceClient()
+			chainMeta, err := GetChainMeta(client)
 			if err != nil {
 				return err
 			}
 
-			chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
-			if err != nil {
-				return err
-			}
-
-			message := infoMessage{Node: client.Config().Endpoint, Info: chainMetaResponse.ChainMeta}
-			fmt.Println(message.String())
+			message := infoMessage{Node: client.Config().Endpoint, Info: chainMeta}
+			cmd.Println(fmt.Sprintf("Blockchain Node: %s\n%s", message.Node, JSONString(message.Info)))
 			return nil
 		},
 	}
 
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
-
 	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
 
 	return cmd
+}
+
+// JSONString returns json string for message
+func JSONString(out interface{}) string {
+	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		log.Panic(err)
+	}
+	return fmt.Sprint(string(byteAsJSON))
 }
