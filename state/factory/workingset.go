@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -35,6 +36,8 @@ var (
 		},
 		[]string{"type"},
 	)
+
+	errUnsupportWeb3Staking = errors.New("unsupported web3 staking")
 )
 
 func init() {
@@ -150,6 +153,9 @@ func (ws *workingSet) runAction(
 ) (*action.Receipt, error) {
 	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
 		return nil, action.ErrGasLimit
+	}
+	if !protocol.MustGetFeatureCtx(ctx).EnableWeb3Staking && isWeb3StakingAction(elp) {
+		return nil, errUnsupportWeb3Staking
 	}
 	// Reject execution of chainID not equal the node's chainID
 	if err := validateChainID(ctx, elp.ChainID()); err != nil {
@@ -457,7 +463,7 @@ func (ws *workingSet) pickAndRunActions(
 			switch errors.Cause(err) {
 			case nil:
 				// do nothing
-			case action.ErrChainID:
+			case action.ErrChainID, errUnsupportWeb3Staking:
 				continue
 			case action.ErrGasLimit:
 				actionIterator.PopAccount()
@@ -569,4 +575,25 @@ func (ws *workingSet) CreateBuilder(
 		SetReceiptRoot(calculateReceiptRoot(ws.receipts)).
 		SetLogsBloom(calculateLogsBloom(ctx, ws.receipts))
 	return blkBuilder, nil
+}
+
+func isWeb3StakingAction(selp action.SealedEnvelope) bool {
+	if selp.Encoding() == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+		act := selp.Action()
+		switch act.(type) {
+		case *action.CreateStake,
+			*action.DepositToStake,
+			*action.ChangeCandidate,
+			*action.Unstake,
+			*action.WithdrawStake,
+			*action.Restake,
+			*action.TransferStake,
+			*action.CandidateRegister,
+			*action.CandidateUpdate:
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }
