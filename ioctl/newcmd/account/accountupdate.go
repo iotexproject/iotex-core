@@ -34,8 +34,8 @@ var (
 
 // NewAccountUpdate represents the account update command
 func NewAccountUpdate(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_updateCmdShorts)
-	short, _ := client.SelectTranslation(_updateCmdUses)
+	use, _ := client.SelectTranslation(_updateCmdUses)
+	short, _ := client.SelectTranslation(_updateCmdShorts)
 
 	return &cobra.Command{
 		Use:   use,
