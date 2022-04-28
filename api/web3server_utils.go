@@ -207,7 +207,7 @@ func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
 	return accountMeta.IsContract, err
 }
 
-func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObjectRaw, error) {
+func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
 	// construct filter topics and addresses
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addrs {
@@ -228,33 +228,13 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		}
 		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
-	// TODO: replace iotextypes.Log with action.Log in the return from LogsInRange()
-	logs, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
+	logs, hashes, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	// parse log results
-	ret := make([]logsObjectRaw, 0)
-	for _, l := range logs {
-		topics := make([]string, 0)
-		for _, val := range l.Topics {
-			topics = append(topics, byteToHex(val))
-		}
-		contractAddr, err := ioAddrToEthAddr(l.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, logsObjectRaw{
-			BlockHash:        byteToHex(l.BlkHash),
-			TransactionHash:  byteToHex(l.ActHash),
-			LogIndex:         uint64ToHex(uint64(l.Index)),
-			BlockNumber:      uint64ToHex(l.BlkHeight),
-			TransactionIndex: uint64ToHex(uint64(l.TxIndex)),
-			Address:          contractAddr,
-			Data:             byteToHex(l.Data),
-			Topics:           topics,
-		})
+	ret := make([]*getLogsResult, 0, len(logs))
+	for i := range logs {
+		ret = append(ret, &getLogsResult{hashes[i], logs[i]})
 	}
 	return ret, nil
 }
