@@ -270,11 +270,27 @@ func (svr *GRPCServer) ReadState(ctx context.Context, in *iotexapi.ReadStateRequ
 
 // EstimateGasForAction estimates gas for action
 func (svr *GRPCServer) EstimateGasForAction(ctx context.Context, in *iotexapi.EstimateGasForActionRequest) (*iotexapi.EstimateGasForActionResponse, error) {
-	estimateGas, err := svr.coreService.EstimateGasForAction(in.Action)
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in.Action)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
+	callerAddr := selp.SrcPubkey().Address()
+	if callerAddr == nil {
+		return nil, status.Error(codes.Internal, "failed to get address")
+	}
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		gas, err := selp.IntrinsicGas()
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		return &iotexapi.EstimateGasForActionResponse{Gas: gas}, nil
+	}
+	_, receipt, err := svr.coreService.SimulateExecution(ctx, callerAddr, sc)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &iotexapi.EstimateGasForActionResponse{Gas: receipt.GasConsumed}, nil
 }
 
 // EstimateActionGasConsumption estimate gas consume for action without signature

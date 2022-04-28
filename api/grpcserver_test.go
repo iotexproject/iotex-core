@@ -12,9 +12,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -105,7 +109,22 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 }
 
 func TestGrpcServer_EstimateGasForAction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
 
+	resp, err := grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getAction()})
+	require.NoError(err)
+	require.Equal(uint64(10000), resp.Gas)
+
+	resp, err = grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getActionWithPayload()})
+	require.NoError(err)
+	require.Equal(uint64(10000)+10*action.ExecutionDataGas, resp.Gas)
+
+	_, err = grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: nil})
+	require.Contains(err.Error(), action.ErrNilProto.Error())
 }
 
 func TestGrpcServer_EstimateActionGasConsumption(t *testing.T) {
@@ -186,4 +205,40 @@ func TestChainlinkErrTest(t *testing.T) {
 
 func TestGrpcServer_TraceTransactionStructLogs(t *testing.T) {
 
+}
+
+func getAction() (act *iotextypes.Action) {
+	pubKey1 := identityset.PrivateKey(28).PublicKey()
+	addr2 := identityset.Address(29).String()
+
+	act = &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Transfer{
+				Transfer: &iotextypes.Transfer{Recipient: addr2},
+			},
+			Version: version.ProtocolVersion,
+			Nonce:   101,
+		},
+		SenderPubKey: pubKey1.Bytes(),
+		Signature:    action.ValidSig,
+	}
+	return
+}
+
+func getActionWithPayload() (act *iotextypes.Action) {
+	pubKey1 := identityset.PrivateKey(28).PublicKey()
+	addr2 := identityset.Address(29).String()
+
+	act = &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Transfer{
+				Transfer: &iotextypes.Transfer{Recipient: addr2, Payload: []byte("1234567890")},
+			},
+			Version: version.ProtocolVersion,
+			Nonce:   101,
+		},
+		SenderPubKey: pubKey1.Bytes(),
+		Signature:    action.ValidSig,
+	}
+	return
 }

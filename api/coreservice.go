@@ -80,8 +80,6 @@ type (
 		ReadState(protocolID string, height string, methodName []byte, arguments [][]byte) (*iotexapi.ReadStateResponse, error)
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
-		// EstimateGasForAction estimates gas for action
-		EstimateGasForAction(in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
 		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
 		// RawBlocks gets raw block data
@@ -519,15 +517,6 @@ func (core *coreService) ReadState(protocolID string, height string, methodName 
 // SuggestGasPrice suggests gas price
 func (core *coreService) SuggestGasPrice() (uint64, error) {
 	return core.gs.SuggestGasPrice()
-}
-
-// EstimateGasForAction estimates gas for action
-func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
-	estimateGas, err := core.gs.EstimateGasForAction(in)
-	if err != nil {
-		return 0, status.Error(codes.Internal, err.Error())
-	}
-	return estimateGas, nil
 }
 
 // EpochMeta gets epoch metadata

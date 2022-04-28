@@ -12,8 +12,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -29,11 +27,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -175,38 +170,6 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.Equal(t, gs.cfg.GasStation.DefaultGas, gp)
 }
 
-func TestEstimateGasForAction(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-
-	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	dao := mock_blockdao.NewMockBlockDAO(ctrl)
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	gs := NewGasStation(mBc, sf.SimulateExecution, dao, config.Default.API)
-	require.NotNil(gs)
-
-	act := getAction()
-	require.NotNil(act)
-	ret, err := gs.EstimateGasForAction(act)
-	require.NoError(err)
-	// base intrinsic gas 10000
-	require.Equal(uint64(10000), ret)
-
-	// test for payload
-	act = getActionWithPayload()
-	require.NotNil(act)
-	ret, err = gs.EstimateGasForAction(act)
-	require.NoError(err)
-	// base intrinsic gas 10000,plus data size*ExecutionDataGas
-	require.Equal(uint64(10000)+10*action.ExecutionDataGas, ret)
-
-	ret, err = gs.EstimateGasForAction(nil)
-	require.ErrorIs(err, action.ErrNilProto)
-	require.Equal(ret, uint64(0))
-}
-
 func TestIsSystemAction(t *testing.T) {
 	require := require.New(t)
 	gs := NewGasStation(nil, nil, nil, config.Default.API)
@@ -231,40 +194,4 @@ func TestIsSystemAction(t *testing.T) {
 	sel, err = action.Sign(act, identityset.PrivateKey(1))
 	require.NoError(err)
 	require.True(gs.IsSystemAction(sel))
-}
-
-func getAction() (act *iotextypes.Action) {
-	pubKey1 := identityset.PrivateKey(28).PublicKey()
-	addr2 := identityset.Address(29).String()
-
-	act = &iotextypes.Action{
-		Core: &iotextypes.ActionCore{
-			Action: &iotextypes.ActionCore_Transfer{
-				Transfer: &iotextypes.Transfer{Recipient: addr2},
-			},
-			Version: version.ProtocolVersion,
-			Nonce:   101,
-		},
-		SenderPubKey: pubKey1.Bytes(),
-		Signature:    action.ValidSig,
-	}
-	return
-}
-
-func getActionWithPayload() (act *iotextypes.Action) {
-	pubKey1 := identityset.PrivateKey(28).PublicKey()
-	addr2 := identityset.Address(29).String()
-
-	act = &iotextypes.Action{
-		Core: &iotextypes.ActionCore{
-			Action: &iotextypes.ActionCore_Transfer{
-				Transfer: &iotextypes.Transfer{Recipient: addr2, Payload: []byte("1234567890")},
-			},
-			Version: version.ProtocolVersion,
-			Nonce:   101,
-		},
-		SenderPubKey: pubKey1.Bytes(),
-		Signature:    action.ValidSig,
-	}
-	return
 }
