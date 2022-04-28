@@ -66,7 +66,7 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
+func (svr *web3Handler) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
 		selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkMeta.Hash)
@@ -100,7 +100,7 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+func (svr *web3Handler) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -155,7 +155,7 @@ func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *
 	return &toTmp, nil, nil
 }
 
-func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
+func (svr *web3Handler) parseBlockNumber(str string) (uint64, error) {
 	switch str {
 	case _earliestBlockNumber:
 		return 1, nil
@@ -166,7 +166,7 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	}
 }
 
-func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
+func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
 	from, err = svr.parseBlockNumber(fromStr)
 	if err != nil {
 		return
@@ -175,7 +175,7 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 	return
 }
 
-func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
+func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
 	to := ""
 	if tx.To() != nil {
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
@@ -195,7 +195,7 @@ func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, 
 	return elpBuilder.BuildTransfer(tx)
 }
 
-func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
+func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if to == "" {
 		return true, nil
 	}
@@ -207,7 +207,7 @@ func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
 	return accountMeta.IsContract, err
 }
 
-func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
+func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
 	// construct filter topics and addresses
 	var filter iotexapi.LogsFilter
 	for _, ethAddr := range addrs {
@@ -327,7 +327,7 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 	return from, to, gasLimit, value, data, nil
 }
 
-func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
+func (svr *web3Handler) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
 	if from, to, err = svr.parseBlockRange(fromStr, toStr); err != nil {
 		return
 	}
