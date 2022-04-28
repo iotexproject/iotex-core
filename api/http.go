@@ -46,8 +46,8 @@ func (hSvr *HTTPServer) Start(_ context.Context) error {
 }
 
 // Stop stops the http server
-func (hSvr *HTTPServer) Stop(_ context.Context) error {
-	return hSvr.svr.Shutdown(context.Background())
+func (hSvr *HTTPServer) Stop(ctx context.Context) error {
+	return hSvr.svr.Shutdown(ctx)
 }
 
 func (hSvr *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
