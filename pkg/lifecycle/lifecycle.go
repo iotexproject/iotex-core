@@ -85,8 +85,8 @@ func (lc *Lifecycle) OnStartSequentially(ctx context.Context) error {
 
 // OnStopSequentially runs models' Stop function if models implmented it.
 func (lc *Lifecycle) OnStopSequentially(ctx context.Context) error {
-	for _, m := range lc.models {
-		if stopper, ok := m.(Stopper); ok {
+	for i := len(lc.models) - 1; i >= 0; i-- {
+		if stopper, ok := lc.models[i].(Stopper); ok {
 			if err := stopper.Stop(ctx); err != nil {
 				return err
 			}
