@@ -165,7 +165,7 @@ func (bfx *bloomfilterIndexer) PutBlock(ctx context.Context, blk *block.Block) (
 }
 
 // DeleteTipBlock deletes tip height from underlying DB if necessary
-func (bfx *bloomfilterIndexer) DeleteTipBlock(blk *block.Block) (err error) {
+func (bfx *bloomfilterIndexer) DeleteTipBlock(_ context.Context, blk *block.Block) (err error) {
 	bfx.mutex.Lock()
 	defer bfx.mutex.Unlock()
 	height := blk.Height()

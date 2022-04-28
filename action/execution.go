@@ -198,12 +198,6 @@ func (ex *Execution) SanityCheck() error {
 	if ex.Amount().Sign() < 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
-	// check if contract's address is valid
-	if ex.Contract() != EmptyAddress {
-		if _, err := address.FromString(ex.Contract()); err != nil {
-			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
-		}
-	}
 	return ex.AbstractAction.SanityCheck()
 }
 

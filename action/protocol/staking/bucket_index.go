@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -12,9 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -68,86 +66,26 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, uint64, error) {
-	var bis BucketIndices
-	height, err := sr.State(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key))
-	if err != nil {
-		return nil, height, err
-	}
-	return &bis, height, nil
+func (csr *candSR) VoterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+	return csr.getBucketIndices(addr, _voterIndex)
 }
 
-func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
-	var bis BucketIndices
-	if _, err := sm.State(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return err
-	}
-	bis.addBucketIndex(index)
-	_, err := sm.PutState(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key))
-	return err
+func (csm *candSM) PutVoterBucketIndex(addr address.Address, index uint64) error {
+	return csm.putBucketIndex(addr, _voterIndex, index)
 }
 
-func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
-	var bis BucketIndices
-	if _, err := sm.State(
-		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key)); err != nil {
-		return err
-	}
-	bis.deleteBucketIndex(index)
-
-	var err error
-	if len(bis) == 0 {
-		_, err = sm.DelState(
-			protocol.NamespaceOption(StakingNameSpace),
-			protocol.KeyOption(key))
-	} else {
-		_, err = sm.PutState(
-			&bis,
-			protocol.NamespaceOption(StakingNameSpace),
-			protocol.KeyOption(key))
-	}
-	return err
+func (csm *candSM) DelVoterBucketIndex(addr address.Address, index uint64) error {
+	return csm.delBucketIndex(addr, _voterIndex, index)
 }
 
-func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, uint64, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
+func (csr *candSR) CandBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+	return csr.getBucketIndices(addr, _candIndex)
 }
 
-func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
+func (csm *candSM) PutCandBucketIndex(addr address.Address, index uint64) error {
+	return csm.putBucketIndex(addr, _candIndex, index)
 }
 
-func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
-}
-
-func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, uint64, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
-}
-
-func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
-}
-
-func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
-}
-
-func addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
-	k := addr.Bytes()
-	key := make([]byte, len(k)+1)
-	key[0] = prefix
-	copy(key[1:], k)
-	return key
+func (csm *candSM) DelCandBucketIndex(addr address.Address, index uint64) error {
+	return csm.delBucketIndex(addr, _candIndex, index)
 }
