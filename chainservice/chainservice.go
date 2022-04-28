@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -138,14 +137,8 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
-// APIServer defines the interface of core service of the server
-type APIServer interface {
-	GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error)
-	GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error)
-}
-
-// APIServer returns the API server
-func (cs *ChainService) APIServer() APIServer {
+// APIServer returns the grpc server
+func (cs *ChainService) APIServer() *api.GRPCServer {
 	return cs.api.GrpcServer
 }
 

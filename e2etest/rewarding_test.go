@@ -26,9 +26,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -239,7 +239,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
-	apis := make([]chainservice.APIServer, numNodes)
+	grpcs := make([]*api.GRPCServer, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -259,7 +259,7 @@ func TestBlockEpochReward(t *testing.T) {
 		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
-		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
+		grpcs[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
 
 		rewardAddr := identityset.Address(i + numNodes)
 		rewardAddrStr := identityset.Address(i + numNodes).String()
@@ -326,7 +326,7 @@ func TestBlockEpochReward(t *testing.T) {
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
 				//Wait until all the pending actions are settled
 
-				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, grpcs[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 				if len(pendingClaimActions) > 0 {
 					// if there is pending action, retry
 					return false, nil
@@ -380,7 +380,7 @@ func TestBlockEpochReward(t *testing.T) {
 				}
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
-				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, grpcs[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
@@ -448,7 +448,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 	//Wait until all the pending actions are settled
 	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
-		updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+		updateExpectationWithPendingClaimList(t, grpcs[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
 	require.NoError(t, err)
@@ -530,16 +530,16 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api chainservice.APIServer,
+	grpc *api.GRPCServer,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := util.GetReceiptByAction(api, selpHash)
+		receipt, err := util.GetReceiptByAction(grpc, selpHash)
 		if err == nil {
-			actInfo, err := util.GetActionByActionHash(api, selpHash)
+			actInfo, err := util.GetActionByActionHash(grpc, selpHash)
 			require.NoError(t, err)
 			addr := actInfo.GetSender()
 			require.NotNil(t, addr)

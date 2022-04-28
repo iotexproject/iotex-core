@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -838,8 +839,8 @@ func updateStakeExpectedBalanceMap(
 }
 
 // GetActionByActionHash acquires action by sending api request to api grpc server
-func GetActionByActionHash(api chainservice.APIServer, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
-	ret, err := api.GetActions(context.Background(), &iotexapi.GetActionsRequest{
+func GetActionByActionHash(grpc *api.GRPCServer, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
+	ret, err := grpc.GetActions(context.Background(), &iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
 			ByHash: &iotexapi.GetActionByHashRequest{
 				ActionHash: hex.EncodeToString(actHash[:]),
@@ -851,8 +852,8 @@ func GetActionByActionHash(api chainservice.APIServer, actHash hash.Hash256) (*i
 }
 
 // GetReceiptByAction acquires receipt by sending api request to api grpc server
-func GetReceiptByAction(api chainservice.APIServer, actHash hash.Hash256) (*iotextypes.Receipt, error) {
-	ret, err := api.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
+func GetReceiptByAction(grpc *api.GRPCServer, actHash hash.Hash256) (*iotextypes.Receipt, error) {
+	ret, err := grpc.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
 		ActionHash: hex.EncodeToString(actHash[:])})
 	if err != nil {
 		return nil, err
