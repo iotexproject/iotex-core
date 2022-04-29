@@ -28,7 +28,7 @@ type ReturnedContract struct {
 
 // StartContracts deploys and starts fp token smart contract and stable token smart contract,erc721 token smart contract
 func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
-	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
+	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.GRPCPort)
 
 	// deploy allowance sheet
 	allowance, err := deployContract(blockchain.AllowanceSheetBinary, endpoint)

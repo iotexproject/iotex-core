@@ -602,7 +602,7 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
-	cfg.API.Port = apiPort
+	cfg.API.GRPCPort = apiPort
 
 	cfg.Genesis.Blockchain.NumSubEpochs = 4
 	cfg.Genesis.Blockchain.NumDelegates = numNodes

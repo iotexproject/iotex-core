@@ -232,7 +232,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(0, height)
 
-		testinglf := logfilter.NewLogFilter(testFilter[2], nil, nil)
+		testinglf := logfilter.NewLogFilter(testFilter[2])
 
 		for i := 0; i < len(blks); i++ {
 			require.NoError(indexer.PutBlock(context.Background(), blks[i]))
@@ -246,7 +246,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 		}
 
 		for i, l := range testFilter {
-			lf := logfilter.NewLogFilter(l, nil, nil)
+			lf := logfilter.NewLogFilter(l)
 
 			res, err := indexer.FilterBlocksInRange(lf, 1, 5)
 			require.NoError(err)
@@ -291,7 +291,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 			},
 		},
 	}
-	testinglf := logfilter.NewLogFilter(&testFilter, nil, nil)
+	testinglf := logfilter.NewLogFilter(&testFilter)
 
 	var (
 		blkNum           = 2000

@@ -141,3 +141,9 @@ mockgen -destination=./test/mock/mock_blockindex/mock_blockindex.go  \
         -source=./blockindex/bloomfilterindexer.go \
         -package=mock_blockindex \
         BlockIndex
+        
+mkdir -p ./test/mock/mock_web3server
+mockgen -destination=./test/mock/mock_web3server/mock_web3server.go  \
+        -source=./api/web3server.go \
+        -package=mock_web3server \
+        Web3Handler
