@@ -166,6 +166,21 @@ func (mr *MockCoreServiceMockRecorder) ActionsInBlockByHash(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInBlockByHash", reflect.TypeOf((*MockCoreService)(nil).ActionsInBlockByHash), arg0)
 }
 
+// BlockHashByActionHash mocks base method.
+func (m *MockCoreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockHashByActionHash", h)
+	ret0, _ := ret[0].(hash.Hash256)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockHashByActionHash indicates an expected call of BlockHashByActionHash.
+func (mr *MockCoreServiceMockRecorder) BlockHashByActionHash(h interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHashByActionHash", reflect.TypeOf((*MockCoreService)(nil).BlockHashByActionHash), h)
+}
+
 // BlockMetaByHash mocks base method.
 func (m *MockCoreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
 	m.ctrl.T.Helper()
@@ -315,36 +330,6 @@ func (m *MockCoreService) EstimateGasForNonExecution(arg0 action.Action) (uint64
 func (mr *MockCoreServiceMockRecorder) EstimateGasForNonExecution(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForNonExecution", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForNonExecution), arg0)
-}
-
-// GetBlockHashByActionHash mocks base method.
-func (m *MockCoreService) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBlockHashByActionHash", h)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlockHashByActionHash indicates an expected call of GetBlockHashByActionHash.
-func (mr *MockCoreServiceMockRecorder) GetBlockHashByActionHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByActionHash", reflect.TypeOf((*MockCoreService)(nil).GetBlockHashByActionHash), h)
-}
-
-// LogsInBlock mocks base method.
-func (m *MockCoreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LogsInBlock", filter, blockNumber)
-	ret0, _ := ret[0].([]*iotextypes.Log)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LogsInBlock indicates an expected call of LogsInBlock.
-func (mr *MockCoreServiceMockRecorder) LogsInBlock(filter, blockNumber interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogsInBlock", reflect.TypeOf((*MockCoreService)(nil).LogsInBlock), filter, blockNumber)
 }
 
 // LogsInBlockByHash mocks base method.

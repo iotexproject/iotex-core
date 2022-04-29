@@ -145,8 +145,8 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
-		// GetBlockHashByActionHash returns block hash by action hash
-		GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
+		// BlockHashByActionHash returns block hash by action hash
+		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -978,8 +978,8 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 	return res, nil
 }
 
-// GetBlockHashByActionHash returns block hash by action hash
-func (core *coreService) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+// BlockHashByActionHash returns block hash by action hash
+func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	actIndex, err := core.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return hash.ZeroHash256, err
