@@ -125,12 +125,10 @@ type (
 		BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error)
 		// BlockMetaByHash returns blockmeta response by block hash
 		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
-		// LogsInBlock filter logs in the block x
-		LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error)
 		// LogsInBlockByHash filter logs in the block by hash
-		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error)
+		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
-		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error)
+		LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, []hash.Hash256, error)
 		// EVMNetworkID returns the network id of evm
 		EVMNetworkID() uint32
 		// ChainID returns the chain id of evm
@@ -661,7 +659,7 @@ func (core *coreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.API
 	}
 	errChan := make(chan error)
 	// register the log filter so it will match logs in new blocks
-	if err := core.chainListener.AddResponder(logfilter.NewLogFilter(in, stream, errChan)); err != nil {
+	if err := core.chainListener.AddResponder(NewLogListener(logfilter.NewLogFilter(in), stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -1361,7 +1359,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	return res
 }
 
-func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error) {
+func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error) {
 	blkHeight, err := core.dao.GetBlockHeight(blockHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid block hash")
@@ -1369,20 +1367,14 @@ func (core *coreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHas
 	return core.logsInBlock(filter, blkHeight)
 }
 
-// LogsInBlock filter logs in the block x
-func (core *coreService) LogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	return core.logsInBlock(filter, blockNumber)
-}
-
-func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-
+func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*action.Log, error) {
 	logBloomFilter, err := core.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, err
 	}
 
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
-		return []*iotextypes.Log{}, nil
+		return []*action.Log{}, nil
 	}
 
 	receipts, err := core.dao.GetReceipts(blockNumber)
@@ -1390,33 +1382,30 @@ func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber ui
 		return nil, err
 	}
 
-	h, err := core.dao.GetBlockHash(blockNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	return filter.MatchLogs(receipts, h), nil
+	return filter.MatchLogs(receipts), nil
 }
 
 // LogsInRange filter logs among [start, end] blocks
-func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, []hash.Hash256, error) {
 	start, end, err := core.correctLogsRange(start, end)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// getLogs via range Blooom filter [start, end]
 	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var (
-		logs      = []*iotextypes.Log{}
-		logsInBlk = make([][]*iotextypes.Log, len(blockNumbers))
+		logs      = []*action.Log{}
+		hashes    = []hash.Hash256{}
+		logsInBlk = make([][]*action.Log, len(blockNumbers))
+		HashInBlk = make([]hash.Hash256, len(blockNumbers))
 		jobs      = make(chan jobDesc, len(blockNumbers))
 		eg, ctx   = errgroup.WithContext(context.Background())
 	)
 	if len(blockNumbers) == 0 {
-		return logs, nil
+		return logs, hashes, nil
 	}
 
 	for i, v := range blockNumbers {
@@ -1438,13 +1427,18 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 					if err != nil {
 						return err
 					}
+					blkHash, err := core.dao.GetBlockHash(job.blkNum)
+					if err != nil {
+						return err
+					}
 					logsInBlk[job.idx] = logsInBlock
+					HashInBlk[job.idx] = blkHash
 				}
 			}
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if paginationSize == 0 {
 		paginationSize = 1000
@@ -1454,15 +1448,16 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 
 	for i := 0; i < len(blockNumbers); i++ {
-		for _, log := range logsInBlk[i] {
-			logs = append(logs, log)
+		for j := range logsInBlk[i] {
+			logs = append(logs, logsInBlk[i][j])
+			hashes = append(hashes, HashInBlk[i])
 			if len(logs) >= int(paginationSize) {
-				return logs, nil
+				return logs, hashes, nil
 			}
 		}
 	}
 
-	return logs, nil
+	return logs, hashes, nil
 }
 
 func (core *coreService) correctLogsRange(start, end uint64) (uint64, uint64, error) {
