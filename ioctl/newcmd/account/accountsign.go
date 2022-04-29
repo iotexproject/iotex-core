@@ -15,8 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-var _signer string
-
 // Multi-language support
 var (
 	_signCmdShorts = map[config.Language]string{
@@ -35,6 +33,7 @@ var (
 
 // NewAccountSign represents the account sign command
 func NewAccountSign(client ioctl.Client) *cobra.Command {
+	var _signer string
 	use, _ := client.SelectTranslation(_signCmdUses)
 	short, _ := client.SelectTranslation(_signCmdShorts)
 	usage, _ := client.SelectTranslation(_flagSignerUsages)

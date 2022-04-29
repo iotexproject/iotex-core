@@ -23,8 +23,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -600,8 +600,9 @@ func newTransferConfig(
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.API.Port = apiPort
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = apiPort
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
