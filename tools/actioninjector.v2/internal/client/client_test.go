@@ -36,8 +36,9 @@ func TestClient(t *testing.T) {
 	b := identityset.Address(29).String()
 
 	cfg := config.Default
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)
@@ -88,7 +89,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	require.NoError(apiServer.Start(ctx))
 	// test New()
-	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.Port)
+	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.GRPCPort)
 	cli, err := New(serverAddr, true)
 	require.NoError(err)
 

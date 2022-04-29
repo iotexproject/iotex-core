@@ -587,7 +587,7 @@ func (builder *Builder) buildConsensusComponent() error {
 }
 
 func (builder *Builder) buildAPIServer() error {
-	if builder.cfg.API.Port == 0 && builder.cfg.API.Web3Port == 0 {
+	if builder.cfg.API.GRPCPort == 0 && builder.cfg.API.HTTPPort == 0 {
 		return nil
 	}
 	p2pAgent := builder.cs.p2pAgent
