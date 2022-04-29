@@ -7,6 +7,7 @@
 package bc
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -50,7 +51,7 @@ func TestNewBCBlockCmd(t *testing.T) {
 		require.Equal(expectedErr, err)
 	})
 
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(9)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(16)
 
 	t.Run("failed to get chain meta", func(t *testing.T) {
 		expectedErr := errors.New("failed to get chain meta")
@@ -59,7 +60,8 @@ func TestNewBCBlockCmd(t *testing.T) {
 		cmd := NewBCBlockCmd(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Error(err)
-		require.Equal(expectedErr, err)
+		fmt.Println(err.Error())
+		require.Contains(err.Error(), expectedErr.Error())
 	})
 
 	t.Run("failed to invoke GetBlockMetas api", func(t *testing.T) {
@@ -151,11 +153,29 @@ func TestNewBCBlockCmd(t *testing.T) {
 						},
 					},
 				},
+				Receipts: []*iotextypes.Receipt{
+					{
+						Status:          1,
+						BlkHeight:       1,
+						ActHash:         []byte("02ae2a956d21e8d481c3a69e146633470cf625ec"),
+						GasConsumed:     1,
+						ContractAddress: "test",
+						Logs:            []*iotextypes.Log{},
+					},
+					{
+						Status:          1,
+						BlkHeight:       1,
+						ActHash:         []byte("02ae2a956d21e8d481c3a69e146633470cf625ec"),
+						GasConsumed:     1,
+						ContractAddress: "test",
+						Logs:            []*iotextypes.Log{},
+					},
+				},
 			},
 		}
 		rawBlocksResponse := &iotexapi.GetRawBlocksResponse{Blocks: blockInfo}
-		expectedValue1 := "{\n    \"version\": 1,\n    \"nonce\": 2,\n    \"gasLimit\": 3,\n    \"gasPrice\": \"4\"\n  }"
-		expectedValue2 := "{\n    \"version\": 5,\n    \"nonce\": 6,\n    \"gasLimit\": 7,\n    \"gasPrice\": \"8\"\n  }"
+		expectedValue1 := "\"version\": 1,\n    \"nonce\": 2,\n    \"gasLimit\": 3,\n    \"gasPrice\": \"4\""
+		expectedValue2 := "\"version\": 5,\n    \"nonce\": 6,\n    \"gasLimit\": 7,\n    \"gasPrice\": \"8\""
 		apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(rawBlocksResponse, nil).Times(1)
 
 		cmd := NewBCBlockCmd(client)

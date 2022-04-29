@@ -11,19 +11,19 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/pkg/errors"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -78,11 +78,11 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "invalid height")
 				}
 			} else {
-				chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+				chainMeta, err := GetChainMeta(client)
 				if err != nil {
 					return err
 				}
-				height = chainMetaResponse.ChainMeta.Height
+				height = chainMeta.Height
 			}
 			var blockMeta *iotextypes.BlockMeta
 			var blocksInfo []*iotexapi.BlockInfo
@@ -101,14 +101,20 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to get actions info")
 				}
 				for _, ele := range blocksInfo {
-					for _, item := range ele.Block.Body.Actions {
+					for i, item := range ele.Block.Body.Actions {
 						actionInfo := actionInfo{
-							Version:      item.Core.Version,
-							Nonce:        item.Core.Nonce,
-							GasLimit:     item.Core.GasLimit,
-							GasPrice:     item.Core.GasPrice,
-							SenderPubKey: item.SenderPubKey,
-							Signature:    item.Signature,
+							Version:         item.Core.Version,
+							Nonce:           item.Core.Nonce,
+							GasLimit:        item.Core.GasLimit,
+							GasPrice:        item.Core.GasPrice,
+							SenderPubKey:    item.SenderPubKey,
+							Signature:       item.Signature,
+							Status:          ele.Receipts[i].Status,
+							BlkHeight:       ele.Receipts[i].BlkHeight,
+							ActHash:         hash.Hash256b(ele.Receipts[i].ActHash),
+							GasConsumed:     ele.Receipts[i].GasConsumed,
+							ContractAddress: ele.Receipts[i].ContractAddress,
+							Logs:            ele.Receipts[i].Logs,
 						}
 						message.Actions = append(message.Actions, actionInfo)
 					}
@@ -131,12 +137,18 @@ type blockMessage struct {
 }
 
 type actionInfo struct {
-	Version      uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Nonce        uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	GasLimit     uint64 `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
-	GasPrice     string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
-	SenderPubKey []byte `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	Signature    []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Version         uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce           uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasLimit        uint64 `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
+	GasPrice        string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
+	SenderPubKey    []byte `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
+	Signature       []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Status          uint64
+	BlkHeight       uint64
+	ActHash         hash.Hash256
+	GasConsumed     uint64
+	ContractAddress string
+	Logs            []*iotextypes.Log
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
@@ -185,7 +197,7 @@ func getBlockMetaByHeight(cli *iotexapi.APIServiceClient, height uint64) (*iotex
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
 	}
@@ -213,7 +225,7 @@ func getBlockMetaByHash(cli *iotexapi.APIServiceClient, hash string) (*iotextype
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
 	}
