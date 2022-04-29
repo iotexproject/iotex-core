@@ -60,12 +60,12 @@ type ChainService struct {
 
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
-	return cs.lifecycle.OnStart(ctx)
+	return cs.lifecycle.OnStartSequentially(ctx)
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
-	return cs.lifecycle.OnStop(ctx)
+	return cs.lifecycle.OnStopSequentially(ctx)
 }
 
 // ReportFullness switch on or off block sync
