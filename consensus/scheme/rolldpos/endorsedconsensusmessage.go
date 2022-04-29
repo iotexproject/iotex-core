@@ -18,7 +18,6 @@ type EndorsedConsensusMessage struct {
 	height      uint64
 	message     endorsement.Document
 	endorsement *endorsement.Endorsement
-	checker     chainIDChecker
 }
 
 // NewEndorsedConsensusMessage creates an EndorsedConsensusMessage for an consensus vote
@@ -26,13 +25,11 @@ func NewEndorsedConsensusMessage(
 	height uint64,
 	message endorsement.Document,
 	endorsement *endorsement.Endorsement,
-	checker chainIDChecker,
 ) *EndorsedConsensusMessage {
 	return &EndorsedConsensusMessage{
 		height:      height,
 		message:     message,
 		endorsement: endorsement,
-		checker:     checker,
 	}
 }
 
@@ -82,7 +79,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 }
 
 // LoadProto creates an endorsement message from protobuf message
-func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage) error {
+func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage, checker chainIDChecker) error {
 	switch {
 	case msg.GetVote() != nil:
 		vote := &ConsensusVote{}
@@ -93,7 +90,7 @@ func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage)
 	case msg.GetBlockProposal() != nil:
 		proposal := &blockProposal{}
 		pb := msg.GetBlockProposal()
-		if err := proposal.LoadProto(pb, ecm.checker(pb.Block.Header.Core.Height)); err != nil {
+		if err := proposal.LoadProto(pb, checker(pb.Block.Header.Core.Height)); err != nil {
 			return err
 		}
 		ecm.message = proposal

@@ -618,7 +618,7 @@ func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*Endorsed
 	if err != nil {
 		return nil, err
 	}
-	return NewEndorsedConsensusMessage(proposal.block.Height(), proposal, en, ctx.roundCalc.checker), nil
+	return NewEndorsedConsensusMessage(proposal.block.Height(), proposal, en), nil
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
@@ -709,5 +709,5 @@ func (ctx *rollDPoSCtx) newEndorsement(
 		return nil, err
 	}
 
-	return NewEndorsedConsensusMessage(ctx.round.Height(), vote, en, ctx.roundCalc.checker), nil
+	return NewEndorsedConsensusMessage(ctx.round.Height(), vote, en), nil
 }

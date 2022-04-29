@@ -115,8 +115,8 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		)
 		return nil
 	}
-	endorsedMessage := &EndorsedConsensusMessage{checker: r.ctx.roundCalc.checker}
-	if err := endorsedMessage.LoadProto(msg); err != nil {
+	endorsedMessage := &EndorsedConsensusMessage{}
+	if err := endorsedMessage.LoadProto(msg, r.ctx.roundCalc.checker); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {

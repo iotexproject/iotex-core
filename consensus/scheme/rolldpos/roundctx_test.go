@@ -64,7 +64,6 @@ func TestRoundCtx(t *testing.T) {
 			blockHeight+1,
 			&blockProposal{},
 			&endorsement.Endorsement{},
-			dummyChainIDChecker,
 		)))
 		require.True(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
 			blockHeight+1,
@@ -73,7 +72,6 @@ func TestRoundCtx(t *testing.T) {
 				PROPOSAL,
 			),
 			&endorsement.Endorsement{},
-			dummyChainIDChecker,
 		)))
 		require.False(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
 			blockHeight+1,
@@ -82,7 +80,6 @@ func TestRoundCtx(t *testing.T) {
 				COMMIT,
 			),
 			&endorsement.Endorsement{},
-			dummyChainIDChecker,
 		)))
 		require.False(round.IsStale(blockHeight+1, 3, nil))
 		require.False(round.IsStale(blockHeight+1, 4, nil))
