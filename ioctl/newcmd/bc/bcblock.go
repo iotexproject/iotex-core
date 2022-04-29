@@ -149,18 +149,18 @@ type blockMessage struct {
 }
 
 type actionInfo struct {
-	Version         uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Nonce           uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	GasLimit        uint64 `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
-	GasPrice        string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
-	SenderPubKey    []byte `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	Signature       []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-	Status          uint64
-	BlkHeight       uint64
-	ActHash         hash.Hash256
-	GasConsumed     uint64
-	ContractAddress string
-	Logs            []*iotextypes.Log
+	Version         uint32            `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce           uint64            `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasLimit        uint64            `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
+	GasPrice        string            `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
+	SenderPubKey    []byte            `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
+	Signature       []byte            `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Status          uint64            `protobuf:"varint,4,opt,name=status,proto3" json:"status,omitempty"`
+	BlkHeight       uint64            `protobuf:"varint,5,opt,name=blkheight,proto3" json:"blkheight,omitempty"`
+	ActHash         hash.Hash256      `protobuf:"bytes,4,opt,name=acthash,proto3" json:"acthash,omitempty"`
+	GasConsumed     uint64            `protobuf:"varint,6,opt,name=gasconsumed,proto3" json:"gasconsumed,omitempty"`
+	ContractAddress string            `protobuf:"bytes,5,opt,name=contractaddress,proto3" json:"contractaddress,omitempty"`
+	Logs            []*iotextypes.Log `protobuf:"bytes,6,opt,name=logs,proto3" json:"logs,omitempty"`
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
