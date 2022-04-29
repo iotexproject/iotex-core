@@ -177,12 +177,12 @@ func getActionInfoWithinBlock(cli *iotexapi.APIServiceClient, height uint64, cou
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke GetRawBlocks api")
 	}
 	if len(response.Blocks) == 0 {
-		return nil, errors.Wrap(err, "no actions returned")
+		return nil, errors.New("no actions returned")
 	}
 	return response.Blocks, nil
 
@@ -206,7 +206,7 @@ func getBlockMeta(cli *iotexapi.APIServiceClient, request *iotexapi.GetBlockMeta
 		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, errors.Wrap(err, "no block returned")
+		return nil, errors.New("no block returned")
 	}
 	return response.BlkMetas[0], nil
 }
