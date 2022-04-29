@@ -11,19 +11,18 @@ import (
 	"fmt"
 	"strconv"
 
-	"google.golang.org/grpc/status"
-
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -87,9 +86,22 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 			var blockMeta *iotextypes.BlockMeta
 			var blocksInfo []*iotexapi.BlockInfo
 			if isHeight {
-				blockMeta, err = getBlockMetaByHeight(&apiServiceClient, height)
+				request := &iotexapi.GetBlockMetasRequest{
+					Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+						ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+							Start: height,
+							Count: 1,
+						},
+					},
+				}
+				blockMeta, err = getBlockMeta(&apiServiceClient, request)
 			} else {
-				blockMeta, err = getBlockMetaByHash(&apiServiceClient, args[0])
+				request := &iotexapi.GetBlockMetasRequest{
+					Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+						ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: args[0]},
+					},
+				}
+				blockMeta, err = getBlockMeta(&apiServiceClient, request)
 			}
 			if err != nil {
 				return errors.Wrap(err, "failed to get block meta")
@@ -176,44 +188,8 @@ func getActionInfoWithinBlock(cli *iotexapi.APIServiceClient, height uint64, cou
 
 }
 
-// getBlockMetaByHeight gets block metadata by height
-func getBlockMetaByHeight(cli *iotexapi.APIServiceClient, height uint64) (*iotextypes.BlockMeta, error) {
-	request := &iotexapi.GetBlockMetasRequest{
-		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
-			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-				Start: height,
-				Count: 1,
-			},
-		},
-	}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
-
-	response, err := (*cli).GetBlockMetas(ctx, request)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, errors.New(sta.Message())
-		}
-		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
-	}
-	if len(response.BlkMetas) == 0 {
-		return nil, errors.Wrap(err, "no block returned")
-	}
-	return response.BlkMetas[0], nil
-}
-
-// getBlockMetaByHash gets block metadata by hash
-func getBlockMetaByHash(cli *iotexapi.APIServiceClient, hash string) (*iotextypes.BlockMeta, error) {
-	request := &iotexapi.GetBlockMetasRequest{
-		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
-			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: hash},
-		},
-	}
+// getBlockMeta gets block metadata
+func getBlockMeta(cli *iotexapi.APIServiceClient, request *iotexapi.GetBlockMetasRequest) (*iotextypes.BlockMeta, error) {
 	ctx := context.Background()
 
 	jwtMD, err := util.JwtAuth()

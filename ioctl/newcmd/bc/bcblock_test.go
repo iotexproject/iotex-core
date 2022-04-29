@@ -7,10 +7,11 @@
 package bc
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -18,8 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // test for bc info command
@@ -60,7 +59,6 @@ func TestNewBCBlockCmd(t *testing.T) {
 		cmd := NewBCBlockCmd(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Error(err)
-		fmt.Println(err.Error())
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
