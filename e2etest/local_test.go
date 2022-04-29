@@ -525,8 +525,9 @@ func newTestConfig() (config.Config, error) {
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.MidwayBlockHeight = 1
 	sk, err := crypto.GenerateKey()
