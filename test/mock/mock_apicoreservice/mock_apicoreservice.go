@@ -348,10 +348,10 @@ func (mr *MockCoreServiceMockRecorder) LogsInBlock(filter, blockNumber interface
 }
 
 // LogsInBlockByHash mocks base method.
-func (m *MockCoreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*iotextypes.Log, error) {
+func (m *MockCoreService) LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogsInBlockByHash", filter, blockHash)
-	ret0, _ := ret[0].([]*iotextypes.Log)
+	ret0, _ := ret[0].([]*action.Log)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -363,12 +363,13 @@ func (mr *MockCoreServiceMockRecorder) LogsInBlockByHash(filter, blockHash inter
 }
 
 // LogsInRange mocks base method.
-func (m *MockCoreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+func (m *MockCoreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, []hash.Hash256, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogsInRange", filter, start, end, paginationSize)
-	ret0, _ := ret[0].([]*iotextypes.Log)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].([]*action.Log)
+	ret1, _ := ret[1].([]hash.Hash256)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // LogsInRange indicates an expected call of LogsInRange.
