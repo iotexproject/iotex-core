@@ -164,11 +164,11 @@ var (
 func TestLogFilter_MatchBlock(t *testing.T) {
 	require := require.New(t)
 
-	f := NewLogFilter(_testFilter[0], nil, nil)
+	f := NewLogFilter(_testFilter[0])
 	require.True(f.ExistInBloomFilter(nil))
 
 	for i, q := range _testFilter {
-		f = NewLogFilter(q, nil, nil)
+		f = NewLogFilter(q)
 		for _, v := range _testData {
 			bloom, err := bloom.NewBloomFilter(2048, 3)
 			require.NoError(err)
@@ -185,11 +185,11 @@ func TestLogFilter_MatchBlock(t *testing.T) {
 func TestLogFilter_ExistInBloomFilterv2(t *testing.T) {
 	require := require.New(t)
 
-	f := NewLogFilter(_testFilter[0], nil, nil)
+	f := NewLogFilter(_testFilter[0])
 	require.True(f.ExistInBloomFilterv2(nil))
 
 	for i, q := range _testFilter {
-		f = NewLogFilter(q, nil, nil)
+		f = NewLogFilter(q)
 		for _, v := range _testData {
 			bloom, err := bloom.NewBloomFilter(2048, 3)
 			require.NoError(err)

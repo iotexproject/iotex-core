@@ -98,10 +98,11 @@ func main() {
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := config.Default.Network.Port + i
-		apiPort := config.Default.API.Port + i
-		web3APIPort := config.Default.API.Web3Port + i
+		apiPort := config.Default.API.GRPCPort + i
+		web3APIPort := config.Default.API.HTTPPort + i
+		web3SocketPort := config.Default.API.WebSocketPort + i
 		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, HTTPAdminPort)
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, web3SocketPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
@@ -395,6 +396,7 @@ func newConfig(
 	networkPort,
 	apiPort int,
 	web3APIPort int,
+	webSocketPort int,
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
@@ -422,8 +424,9 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
-	cfg.API.Port = apiPort
-	cfg.API.Web3Port = web3APIPort
+	cfg.API.GRPCPort = apiPort
+	cfg.API.HTTPPort = web3APIPort
+	cfg.API.WebSocketPort = webSocketPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
