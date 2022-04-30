@@ -269,6 +269,7 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 
 					br := bufPool.Get().(*bloomRange)
 					if err := bfx.loadBloomRangeFromDB(br, job.key); err != nil {
+						bufPool.Put(br)
 						return err
 					}
 					if l.ExistInBloomFilterv2(br.BloomFilter) {
