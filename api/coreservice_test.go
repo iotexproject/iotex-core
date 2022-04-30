@@ -83,7 +83,7 @@ func TestLogsInRange(t *testing.T) {
 		require.NoError(err)
 
 		_, _, err = svr.LogsInRange(logfilter.NewLogFilter(&filter), from, to, uint64(0))
-		expectedErr := errors.New("invalid start and end height")
+		expectedErr := errors.New("invalid start or end height")
 		require.Error(err)
 		require.Equal(expectedErr.Error(), err.Error())
 	})

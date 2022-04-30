@@ -1398,7 +1398,7 @@ func (core *coreService) logsInBlock(filter *logfilter.LogFilter, blockNumber ui
 
 // LogsInRange filter logs among [start, end] blocks
 func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*action.Log, []hash.Hash256, error) {
-	start, end, err := core.correctLogsRange(start, end)
+	start, end, err := core.correctQueryRange(start, end)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1471,17 +1471,20 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	return logs, hashes, nil
 }
 
-func (core *coreService) correctQuerryRange(start, end uint64) (uint64, uint64, error) {
-	if start > end {
-		return 0, 0, errors.New("invalid start and end height")
-	}
+func (core *coreService) correctQueryRange(start, end uint64) (uint64, uint64, error) {
 	if start == 0 {
-		return 0, 0, errors.New("start height shouldn't be 0")
+		start = core.bc.TipHeight()
+	}
+	if end == 0 {
+		end = core.bc.TipHeight()
+	}
+	if start > end {
+		return 0, 0, errors.New("invalid start or end height")
 	}
 	if start > core.bc.TipHeight() {
 		return 0, 0, errors.New("start block > tip height")
 	}
-	if end > core.bc.TipHeight() || end == 0 {
+	if end > core.bc.TipHeight() {
 		end = core.bc.TipHeight()
 	}
 	return start, end, nil
