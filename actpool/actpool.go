@@ -174,11 +174,10 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	// Remove the actions that are already timeout
-	ap.reset()
-
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for from, queue := range ap.accountActs {
+		// Remove the actions that are already timeout
+		ap.updateAccount(from)
 		actionMap[from] = append(actionMap[from], queue.PendingActs()...)
 	}
 	return actionMap
