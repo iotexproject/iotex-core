@@ -33,10 +33,6 @@ type (
 		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
 		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
 	}
-	// BktPool related to create bucket pool
-	BktPool interface {
-		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
-	}
 	// CandidateGet related to obtaining Candidate
 	CandidateGet interface {
 		getCandidate(name address.Address) (*Candidate, uint64, error)
@@ -57,12 +53,12 @@ type (
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
 		BucketGet
-		BktPool
 		CandidateGet
 		ReadState
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
+		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
 		GetCandidateByName(string) *Candidate
 		GetCandidateByOwner(address.Address) *Candidate
 		AllCandidates() CandidateList
