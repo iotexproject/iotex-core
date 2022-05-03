@@ -74,27 +74,3 @@ func AddrKeyWithPrefix(addr address.Address, prefix byte) []byte {
 	copy(key[1:], k)
 	return key
 }
-
-func (csr *candSR) VoterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
-	return csr.getBucketIndices(addr, _voterIndex)
-}
-
-func (csm *candSM) PutVoterBucketIndex(addr address.Address, index uint64) error {
-	return csm.putBucketIndex(addr, _voterIndex, index)
-}
-
-func (csm *candSM) DelVoterBucketIndex(addr address.Address, index uint64) error {
-	return csm.delBucketIndex(addr, _voterIndex, index)
-}
-
-func (csr *candSR) CandBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
-	return csr.getBucketIndices(addr, _candIndex)
-}
-
-func (csm *candSM) PutCandBucketIndex(addr address.Address, index uint64) error {
-	return csm.putBucketIndex(addr, _candIndex, index)
-}
-
-func (csm *candSM) DelCandBucketIndex(addr address.Address, index uint64) error {
-	return csm.delBucketIndex(addr, _candIndex, index)
-}
