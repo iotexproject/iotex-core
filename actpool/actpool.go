@@ -171,14 +171,20 @@ func (ap *actPool) ReceiveBlock(*block.Block) error {
 
 // PendingActionIterator returns an action interator with all accepted actions
 func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
+	actionMap := make(map[string][]action.SealedEnvelope)
+
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
-
-	actionMap := make(map[string][]action.SealedEnvelope)
+	// TODO: improve with parallel
 	for from, queue := range ap.accountActs {
 		// Remove the actions that are already timeout
-		ap.updateAccount(from)
-		actionMap[from] = append(actionMap[from], queue.PendingActs()...)
+		acts := queue.UpdateQueue(queue.PendingNonce())
+		ap.removeInvalidActs(acts)
+		if queue.Empty() {
+			delete(ap.accountActs, from)
+			continue
+		}
+		actionMap[from] = queue.PendingActs()
 	}
 	return actionMap
 }
