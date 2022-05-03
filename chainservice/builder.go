@@ -303,10 +303,9 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 		if err != nil {
 			return
 		}
-		if !builder.cfg.Chain.EnableStakingIndexer {
-			return
+		if builder.cfg.Chain.EnableStakingIndexer {
+			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
 		}
-		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
 		return
 	}
 	dbConfig := builder.cfg.DB
@@ -331,11 +330,10 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	}
 
 	// create staking indexer
-	if !builder.cfg.Chain.EnableStakingIndexer {
-		return
+	if builder.cfg.Chain.EnableStakingIndexer {
+		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
+		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
 	}
-	dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
-	candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
 	return
 }
 
