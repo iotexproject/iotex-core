@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -61,8 +63,13 @@ func NewVersionCmd(c ioctl.Client) *cobra.Command {
 				return err
 			}
 
+			jwtMD, err := util.JwtAuth()
+			var ctx context.Context
+			if err == nil {
+				ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+			}
 			response, err := apiClient.GetServerMeta(
-				context.Background(),
+				ctx,
 				&iotexapi.GetServerMetaRequest{},
 			)
 			if err != nil {
