@@ -44,7 +44,7 @@ func TestNewAliasImportCmd(t *testing.T) {
 
 	t.Run("import alias with json format", func(t *testing.T) {
 		cmd := NewAliasImportCmd(client)
-		_, err := util.ExecuteCmd(cmd, `{"name":"test","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
+		_, err := util.ExecuteCmd(cmd, `{"aliases":[{"name":"mhs2","address":"io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks"}]}`)
 		require.NoError(err)
 	})
 
@@ -62,8 +62,10 @@ func TestNewAliasImportCmd(t *testing.T) {
 	})
 
 	t.Run("force import", func(t *testing.T) {
+		client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
 		cmd := NewAliasImportCmd(client)
-		result, err := util.ExecuteCmd(cmd, "-F", `{"name":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx","address":"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"}`)
+		result, err := util.ExecuteCmd(cmd, "-F", `{"aliases":[{"name":"mhs2","address":"io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks"}]}`)
 		require.NoError(err)
 		require.NotNil(result)
 	})

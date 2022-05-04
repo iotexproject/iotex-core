@@ -72,6 +72,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 
 			switch format {
 			case "json":
+				// fmt.Println(args[0])
 				if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
 					return errors.Wrap(err, "failed to unmarshal imported aliases")
 				}
@@ -84,7 +85,10 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 			}
 			aliases := c.AliasMap()
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
+			// fmt.Println("before imported alias: ", forceImport)
+			fmt.Println(importedAliases.Aliases)
 			for _, importedAlias := range importedAliases.Aliases {
+				// fmt.Println("after imported alias: ", forceImport)
 				if !forceImport && c.Config().Aliases[importedAlias.Name] != "" {
 					message.Unimported = append(message.Unimported, importedAlias)
 					continue
@@ -114,7 +118,7 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 
 	ec.Flags().StringVarP(&format,
 		"format=", "f", "json", flagImportFormatUsage)
-	ec.Flags().BoolVarP(&_forceImport,
+	ec.Flags().BoolVarP(&forceImport,
 		"force-import", "F", false, flagForceImportUsage)
 
 	return ec
