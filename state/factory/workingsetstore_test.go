@@ -26,7 +26,7 @@ func TestStateDBWorkingSetStore(t *testing.T) {
 	inMemStore := db.NewMemKVStore()
 	flusher, err := db.NewKVStoreFlusher(inMemStore, batch.NewCachedBatch())
 	require.NoError(err)
-	store := newStateDBWorkingSetStore(view, flusher)
+	store := newStateDBWorkingSetStore(view, flusher, true)
 	require.NotNil(store)
 	require.NoError(store.Start(ctx))
 	name := "name"
