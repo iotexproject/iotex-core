@@ -34,7 +34,7 @@ func TestVersionCommand(t *testing.T) {
 	}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(6)
-	client.EXPECT().Config().Return(cfg).Times(6)
+	client.EXPECT().Config().Return(cfg).Times(7)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiClient, nil).Times(2)
 
 	t.Run("get ioctl version", func(t *testing.T) {

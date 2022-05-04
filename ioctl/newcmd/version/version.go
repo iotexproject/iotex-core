@@ -34,35 +34,26 @@ var (
 	}
 )
 
-type versionMessage struct {
-	Object      string                 `json:"object"`
-	VersionInfo *iotextypes.ServerMeta `json:"versionInfo"`
-}
-
 // NewVersionCmd represents the version command
-func NewVersionCmd(cli ioctl.Client) *cobra.Command {
+func NewVersionCmd(c ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
-	use, _ := cli.SelectTranslation(_uses)
-	short, _ := cli.SelectTranslation(_shorts)
+	use, _ := c.SelectTranslation(_uses)
+	short, _ := c.SelectTranslation(_shorts)
 	vc := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			message := versionMessage{
-				Object: "Client",
-				VersionInfo: &iotextypes.ServerMeta{
-					PackageVersion:  ver.PackageVersion,
-					PackageCommitID: ver.PackageCommitID,
-					GitStatus:       ver.GitStatus,
-					GoVersion:       ver.GoVersion,
-					BuildTime:       ver.BuildTime,
-				},
-			}
-			cmd.Println(fmt.Sprintf("%s:\n%+v\n", message.Object, message.VersionInfo))
-			apiClient, err := cli.APIServiceClient(ioctl.APIServiceConfig{
+			cmd.Println(fmt.Sprintf("Client:\n%+v\n", &iotextypes.ServerMeta{
+				PackageVersion:  ver.PackageVersion,
+				PackageCommitID: ver.PackageCommitID,
+				GitStatus:       ver.GitStatus,
+				GoVersion:       ver.GoVersion,
+				BuildTime:       ver.BuildTime,
+			}))
+			apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
 				Endpoint: endpoint,
 				Insecure: insecure,
 			})
@@ -80,24 +71,20 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 				}
 				return errors.Wrap(err, "failed to get version from server")
 			}
-			message = versionMessage{
-				Object:      config.ReadConfig.Endpoint,
-				VersionInfo: response.ServerMeta,
-			}
-			cmd.Println(fmt.Sprintf("%s:\n%+v\n", message.Object, message.VersionInfo))
+			cmd.Println(fmt.Sprintf("%s:\n%+v\n", c.Config().Endpoint, response.ServerMeta))
 			return nil
 		},
 	}
 	vc.PersistentFlags().StringVar(
 		&endpoint,
 		"endpoint",
-		cli.Config().Endpoint,
+		c.Config().Endpoint,
 		"set endpoint for once",
 	)
 	vc.PersistentFlags().BoolVar(
 		&insecure,
 		"insecure",
-		!cli.Config().SecureConnect,
+		!c.Config().SecureConnect,
 		"insecure connection for once",
 	)
 	return vc
