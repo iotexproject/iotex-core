@@ -76,14 +76,11 @@ func NewBCBlockCmd(c ioctl.Client) *cobra.Command {
 			}
 			if len(args) != 0 {
 				request, err = parseArg(c, args[0])
-				if err != nil {
-					return err
-				}
 			} else {
 				request, err = parseArg(c, "")
-				if err != nil {
-					return err
-				}
+			}
+			if err != nil {
+				return err
 			}
 
 			blockMeta, err = getBlockMeta(&apiServiceClient, request)
