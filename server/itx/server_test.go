@@ -78,8 +78,9 @@ func newConfig(t *testing.T) (config.Config, func()) {
 	triePath, err := testutil.PathOfTempFile("trie.db")
 	require.NoError(err)
 	cfg := config.Default
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Chain.ChainDBPath = dbPath
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.TrieDBPatchFile = ""
