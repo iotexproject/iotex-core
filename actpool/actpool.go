@@ -379,8 +379,8 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
 		// Initialize pending nonce and balance for new account
-		queue.SetPendingNonce(confirmedNonce + 1)
-		queue.SetPendingBalance(confirmedState.Balance)
+		queue.SetConfirmedNonce(confirmedNonce)
+		queue.SetAccountBalance(confirmedState.Balance)
 	}
 
 	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {
@@ -399,13 +399,13 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 		_actpoolMtc.WithLabelValues("failedToGetCost").Inc()
 		return errors.Wrapf(err, "failed to get cost of action %x", actHash)
 	}
-	if queue.PendingBalance().Cmp(cost) < 0 {
+	if queue.AccountBalance().Cmp(cost) < 0 {
 		// Pending balance is insufficient
 		_actpoolMtc.WithLabelValues("insufficientBalance").Inc()
 		log.L().Info("insufficient balance for action",
 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
 			zap.String("cost", cost.String()),
-			zap.String("pendingBalance", queue.PendingBalance().String()),
+			zap.String("accountBalance", queue.AccountBalance().String()),
 			zap.String("sender", sender),
 		)
 		return action.ErrInsufficientFunds
@@ -502,7 +502,7 @@ func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope
 // updateAccount updates queue's status and remove invalidated actions from pool if necessary
 func (ap *actPool) updateAccount(sender string) {
 	queue := ap.accountActs[sender]
-	acts := queue.UpdateQueue(queue.PendingNonce())
+	acts := queue.UpdateQueue()
 	if len(acts) > 0 {
 		ap.removeInvalidActs(acts)
 	}
@@ -526,12 +526,9 @@ func (ap *actPool) reset() {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return
 		}
-		queue.SetPendingBalance(state.Balance)
-
+		queue.SetAccountBalance(state.Balance)
 		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce := state.Nonce
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
+		queue.SetConfirmedNonce(state.Nonce)
 		ap.updateAccount(from)
 	}
 }

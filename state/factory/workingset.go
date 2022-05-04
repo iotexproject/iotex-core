@@ -465,7 +465,7 @@ func (ws *workingSet) pickAndRunActions(
 				// do nothing
 			case action.ErrChainID, errUnsupportWeb3Staking:
 				continue
-			case action.ErrGasLimit:
+			case action.ErrGasLimit, action.ErrInsufficientFunds, state.ErrNotEnoughBalance:
 				actionIterator.PopAccount()
 				continue
 			default:

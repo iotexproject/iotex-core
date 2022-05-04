@@ -177,7 +177,7 @@ var (
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
 			AcntCreate, nil, big.NewInt(100000),
-			2, big.NewInt(20000),
+			2, big.NewInt(10000),
 			make([]byte, 0),
 			uint64(200000), big.NewInt(0),
 			TsfPending, "",
@@ -186,7 +186,7 @@ var (
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
 			AcntCreate, nil, big.NewInt(100000),
-			3, big.NewInt(20000),
+			3, big.NewInt(10000),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(0),
 			TsfPending, "",
@@ -276,7 +276,7 @@ var (
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
 			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(20000),
+			1, big.NewInt(10000),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(0),
 			TsfFinal, "",
