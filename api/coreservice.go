@@ -147,6 +147,8 @@ type (
 		ReceiveBlock(blk *block.Block) error
 		// BlockHashByActionHash returns block hash by action hash
 		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
+		// BlockHashByBlockHeight returns block hash by block height
+		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -985,6 +987,11 @@ func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, er
 		return hash.ZeroHash256, err
 	}
 	return core.dao.GetBlockHash(actIndex.BlockHeight())
+}
+
+// BlockHashByBlockHeight returns block hash by block height
+func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error) {
+	return core.dao.GetBlockHash(blkHeight)
 }
 
 // ActionByActionHash returns action by action hash

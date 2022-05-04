@@ -239,7 +239,7 @@ func (svr *GRPCServer) GetReceiptByAction(ctx context.Context, in *iotexapi.GetR
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	blkHash, err := svr.coreService.BlockHashByActionHash(actHash)
+	blkHash, err := svr.coreService.BlockHashByBlockHeight(receipt.BlockHeight)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
