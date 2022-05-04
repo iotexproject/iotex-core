@@ -42,6 +42,9 @@ type GRPCServer struct {
 
 // NewGRPCServer creates a new grpc server
 func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
+	if grpcPort == 0 {
+		return nil
+	}
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -394,20 +397,35 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
 	var (
-		ret []*iotextypes.Log
-		err error
+		logs   []*action.Log
+		hashes []hash.Hash256
+		err    error
 	)
 	switch {
 	case in.GetByBlock() != nil:
-		ret, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter(), nil, nil), hash.BytesToHash256(in.GetByBlock().BlockHash))
+		blkHash := hash.BytesToHash256(in.GetByBlock().BlockHash)
+		logs, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter()), blkHash)
+		if err != nil {
+			break
+		}
+		hashes = make([]hash.Hash256, 0, len(logs))
+		for range logs {
+			hashes = append(hashes, blkHash)
+		}
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
-		ret, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		logs, hashes, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter()), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	ret := make([]*iotextypes.Log, 0, len(logs))
+	for i := range logs {
+		logPb := logs[i].ConvertToLogPb()
+		logPb.BlkHash = hashes[i][:]
+		ret = append(ret, logPb)
 	}
 	return &iotexapi.GetLogsResponse{Logs: ret}, err
 }

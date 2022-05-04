@@ -439,6 +439,7 @@ func (builder *Builder) buildBlockSyncer() error {
 			}
 			if len(peers) == 0 {
 				log.L().Error("no peers")
+				return
 			}
 			if repeat < 2 {
 				repeat = 2
@@ -587,7 +588,7 @@ func (builder *Builder) buildConsensusComponent() error {
 }
 
 func (builder *Builder) buildAPIServer() error {
-	if builder.cfg.API.Port == 0 && builder.cfg.API.Web3Port == 0 {
+	if builder.cfg.API.GRPCPort == 0 && builder.cfg.API.HTTPPort == 0 {
 		return nil
 	}
 	p2pAgent := builder.cs.p2pAgent
