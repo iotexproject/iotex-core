@@ -44,8 +44,9 @@ func TestNewAliasImportCmd(t *testing.T) {
 
 	t.Run("import alias with json format", func(t *testing.T) {
 		cmd := NewAliasImportCmd(client)
-		_, err := util.ExecuteCmd(cmd, `{"aliases":[{"name":"mhs2","address":"io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks"}]}`)
+		result, err := util.ExecuteCmd(cmd, `{"aliases":[{"name":"mhs2","address":"io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks"}]}`)
 		require.NoError(err)
+		require.Contains(result, "Existed aliases: mhs2")
 	})
 
 	t.Run("import alias with yaml format", func(t *testing.T) {
@@ -58,7 +59,7 @@ func TestNewAliasImportCmd(t *testing.T) {
 - name: mhs
   address: io1tyc2yt68qx7hmxl2rhssm99jxnhrccz9sneh08`)
 		require.NoError(err)
-		require.NotNil(result)
+		require.Contains(result, "Existed aliases: mhs2")
 	})
 
 	t.Run("force import", func(t *testing.T) {
@@ -67,24 +68,22 @@ func TestNewAliasImportCmd(t *testing.T) {
 		cmd := NewAliasImportCmd(client)
 		result, err := util.ExecuteCmd(cmd, "-F", `{"aliases":[{"name":"mhs2","address":"io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks"}]}`)
 		require.NoError(err)
-		require.NotNil(result)
+		require.Contains(result, "1/1 aliases imported")
 	})
 
 	t.Run("failed to unmarshal json imported aliases", func(t *testing.T) {
 		cmd := NewAliasImportCmd(client)
-		result, err := util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
+		_, err := util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
 		require.Error(err)
 		require.Contains(err.Error(), "failed to unmarshal imported aliases")
-		require.NotNil(result)
 	})
 
 	t.Run("failed to unmarshal yaml imported aliases", func(t *testing.T) {
 		cmd := NewAliasImportCmd(client)
-		result, err := util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
+		_, err := util.ExecuteCmd(cmd, "-f", "yaml", `aliases:
 			name: mhs2
 			address: io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks`)
 		require.Error(err)
 		require.Contains(err.Error(), "failed to unmarshal imported aliases")
-		require.NotNil(result)
 	})
 }
