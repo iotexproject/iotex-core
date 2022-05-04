@@ -45,7 +45,7 @@ var (
 
 	errRangeTooLarge = errors.New("block range is too large")
 
-	_queryTimeout = 10 * time.Second
+	_queryTimeout = 20 * time.Second
 )
 
 type (
@@ -57,7 +57,7 @@ type (
 		// BlockFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
 		BlockFilterByHeight(uint64) (bloom.BloomFilter, error)
 		// FilterBlocksInRange returns the block numbers by given logFilter in range from start to end
-		FilterBlocksInRange(*filter.LogFilter, uint64, uint64, ...uint64) ([]uint64, error)
+		FilterBlocksInRange(*filter.LogFilter, uint64, uint64, uint64) ([]uint64, error)
 	}
 
 	// bloomfilterIndexer is a struct for bloomfilter indexer
@@ -215,8 +215,9 @@ func (bfx *bloomfilterIndexer) BlockFilterByHeight(height uint64) (bloom.BloomFi
 	return bf, nil
 }
 
-// FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
-func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64, pagination ...uint64) ([]uint64, error) {
+// FilterBlocksInRange returns the block numbers by given logFilter in range [start, end].
+// Result blocks are limited when pagination is larger than 0
+func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, end uint64, pagination uint64) ([]uint64, error) {
 	if start == 0 || end == 0 || end < start {
 		return nil, errors.New("start/end height should be bigger than zero")
 	}
@@ -261,12 +262,10 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
-				default:
-					job, ok := <-jobs
+				case job, ok := <-jobs:
 					if !ok {
 						return nil
 					}
-
 					br := bufPool.Get().(*bloomRange)
 					if err := bfx.loadBloomRangeFromDB(br, job.key); err != nil {
 						bufPool.Put(br)
@@ -304,7 +303,7 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 	for i := range blkNums {
 		if len(blkNums[i]) > 0 {
 			ret = append(ret, blkNums[i]...)
-			if len(pagination) > 0 && uint64(len(ret)) > pagination[0] {
+			if pagination > 0 && uint64(len(ret)) > pagination {
 				return ret, nil
 			}
 		}
