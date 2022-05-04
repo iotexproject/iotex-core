@@ -51,18 +51,14 @@ var (
 // NewUpdateCmd represents the update command
 func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 	var versionType string
-	MustSelectTranslation := func(in map[config.Language]string) string {
-		translation, _ := c.SelectTranslation(in)
-		return translation
-	}
 
-	use := MustSelectTranslation(_uses)
-	short := MustSelectTranslation(_shorts)
-	flagUsage := MustSelectTranslation(_flagUsages)
-	success := MustSelectTranslation(_resultSuccess)
-	fail := MustSelectTranslation(_resultFail)
-	info := MustSelectTranslation(_resultInfo)
-	invalidVersionType := MustSelectTranslation(_invalidVersionType)
+	use, _ := c.SelectTranslation(_uses)
+	short, _ := c.SelectTranslation(_shorts)
+	flagUsage, _ := c.SelectTranslation(_flagUsages)
+	success, _ := c.SelectTranslation(_resultSuccess)
+	fail, _ := c.SelectTranslation(_resultFail)
+	info, _ := c.SelectTranslation(_resultInfo)
+	invalidVersionType, _ := c.SelectTranslation(_invalidVersionType)
 
 	uc := &cobra.Command{
 		Use:   use,
