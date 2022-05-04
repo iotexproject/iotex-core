@@ -70,7 +70,7 @@ func NewAliasCmd(client ioctl.Client) *cobra.Command {
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return nil, errors.Wrap(err, "")
+		return nil, err
 	}
 	return address.FromString(addr)
 }
@@ -79,7 +79,7 @@ func IOAddress(in string) (address.Address, error) {
 func EtherAddress(in string) (common.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return common.Address{}, errors.Wrap(err, "")
+		return common.Address{}, err
 	}
 	return addrutil.IoAddrToEvmAddr(addr)
 }
@@ -87,12 +87,12 @@ func EtherAddress(in string) (common.Address, error) {
 // Alias returns the alias corresponding to address
 func Alias(address string) (string, error) {
 	if err := validator.ValidateAddress(address); err != nil {
-		return "", errors.Wrap(err, "")
+		return "", err
 	}
 	for alias, addr := range config.ReadConfig.Aliases {
 		if addr == address {
 			return alias, nil
 		}
 	}
-	return "", errors.Wrap(nil, ErrNoAliasFound.Error())
+	return "", ErrNoAliasFound
 }
