@@ -60,7 +60,6 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			var height uint64
 			var err error
-			isHeight := true
 
 			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 				Endpoint: endpoint,
@@ -70,12 +69,26 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 				return err
 			}
 
+			var request *iotexapi.GetBlockMetasRequest
 			if len(args) != 0 {
 				height, err = strconv.ParseUint(args[0], 10, 64)
 				if err != nil {
-					isHeight = false
+					request = &iotexapi.GetBlockMetasRequest{
+						Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+							ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: args[0]},
+						},
+					}
 				} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
 					return errors.Wrap(err, "invalid height")
+				} else {
+					request = &iotexapi.GetBlockMetasRequest{
+						Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+							ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+								Start: height,
+								Count: 1,
+							},
+						},
+					}
 				}
 			} else {
 				chainMeta, err := GetChainMeta(client)
@@ -83,11 +96,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 					return err
 				}
 				height = chainMeta.Height
-			}
-			var blockMeta *iotextypes.BlockMeta
-			var blocksInfo []*iotexapi.BlockInfo
-			if isHeight {
-				request := &iotexapi.GetBlockMetasRequest{
+				request = &iotexapi.GetBlockMetasRequest{
 					Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 						ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
 							Start: height,
@@ -95,15 +104,11 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 						},
 					},
 				}
-				blockMeta, err = getBlockMeta(&apiServiceClient, request)
-			} else {
-				request := &iotexapi.GetBlockMetasRequest{
-					Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
-						ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: args[0]},
-					},
-				}
-				blockMeta, err = getBlockMeta(&apiServiceClient, request)
 			}
+
+			var blockMeta *iotextypes.BlockMeta
+			var blocksInfo []*iotexapi.BlockInfo
+			blockMeta, err = getBlockMeta(&apiServiceClient, request)
 			if err != nil {
 				return errors.Wrap(err, "failed to get block meta")
 			}
