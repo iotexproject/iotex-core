@@ -43,14 +43,16 @@ var (
 )
 
 // NewBCBlockCmd represents the bc block command
-func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
-	bcBlockCmdUse, _ := client.SelectTranslation(_bcBlockCmdUses)
-	bcBlockCmdShort, _ := client.SelectTranslation(_bcBlockCmdShorts)
-	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
+func NewBCBlockCmd(c ioctl.Client) *cobra.Command {
+	bcBlockCmdUse, _ := c.SelectTranslation(_bcBlockCmdUses)
+	bcBlockCmdShort, _ := c.SelectTranslation(_bcBlockCmdShorts)
+	flagVerboseUsage, _ := c.SelectTranslation(_flagVerboseUsages)
 
-	var verbose bool
-	var endpoint string
-	var insecure bool
+	var (
+		verbose  bool
+		endpoint string
+		insecure bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   bcBlockCmdUse,
@@ -58,61 +60,37 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var height uint64
-			var err error
+			var (
+				err        error
+				request    *iotexapi.GetBlockMetasRequest
+				blockMeta  *iotextypes.BlockMeta
+				blocksInfo []*iotexapi.BlockInfo
+			)
 
-			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
+			apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
 				Endpoint: endpoint,
 				Insecure: insecure,
 			})
 			if err != nil {
 				return err
 			}
-
-			var request *iotexapi.GetBlockMetasRequest
 			if len(args) != 0 {
-				height, err = strconv.ParseUint(args[0], 10, 64)
-				if err != nil {
-					request = &iotexapi.GetBlockMetasRequest{
-						Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
-							ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: args[0]},
-						},
-					}
-				} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-					return errors.Wrap(err, "invalid height")
-				} else {
-					request = &iotexapi.GetBlockMetasRequest{
-						Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
-							ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-								Start: height,
-								Count: 1,
-							},
-						},
-					}
-				}
-			} else {
-				chainMeta, err := GetChainMeta(client)
+				request, err = parseArg(c, args[0])
 				if err != nil {
 					return err
 				}
-				height = chainMeta.Height
-				request = &iotexapi.GetBlockMetasRequest{
-					Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
-						ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-							Start: height,
-							Count: 1,
-						},
-					},
+			} else {
+				request, err = parseArg(c, "")
+				if err != nil {
+					return err
 				}
 			}
 
-			var blockMeta *iotextypes.BlockMeta
-			var blocksInfo []*iotexapi.BlockInfo
 			blockMeta, err = getBlockMeta(&apiServiceClient, request)
 			if err != nil {
 				return errors.Wrap(err, "failed to get block meta")
 			}
-			message := blockMessage{Node: client.Config().Endpoint, Block: blockMeta, Actions: nil}
+			message := blockMessage{Node: c.Config().Endpoint, Block: blockMeta, Actions: nil}
 			if verbose {
 				blocksInfo, err = getActionInfoWithinBlock(&apiServiceClient, blockMeta.Height, uint64(blockMeta.NumActions))
 				if err != nil {
@@ -215,4 +193,50 @@ func getBlockMeta(cli *iotexapi.APIServiceClient, request *iotexapi.GetBlockMeta
 		return nil, errors.New("no block returned")
 	}
 	return response.BlkMetas[0], nil
+}
+
+// parseArg parse argument and returns GetBlockMetasRequest
+func parseArg(c ioctl.Client, arg string) (*iotexapi.GetBlockMetasRequest, error) {
+	var (
+		height  uint64
+		err     error
+		request *iotexapi.GetBlockMetasRequest
+	)
+	if arg != "" {
+		height, err = strconv.ParseUint(arg, 10, 64)
+		if err != nil {
+			request = &iotexapi.GetBlockMetasRequest{
+				Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+					ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: arg},
+				},
+			}
+		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+			return nil, errors.Wrap(err, "invalid height")
+		} else {
+			request = &iotexapi.GetBlockMetasRequest{
+				Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+					ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+						Start: height,
+						Count: 1,
+					},
+				},
+			}
+		}
+	} else {
+		chainMeta, err := GetChainMeta(c)
+		if err != nil {
+			return nil, err
+		}
+		height = chainMeta.Height
+		request = &iotexapi.GetBlockMetasRequest{
+			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+					Start: height,
+					Count: 1,
+				},
+			},
+		}
+	}
+
+	return request, nil
 }
