@@ -59,10 +59,10 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
-		// SetAliasUnwritten updates aliasname and account address and not write them into the default config file
-		SetAliasUnwritten(string, string)
-		// SetAlias updates aliasname and account address and write them into the default config file
-		SetAlias(string, string) error
+		// SetAlias updates aliasname and account address and not write them into the default config file
+		SetAlias(string, string)
+		// SetAliasAndSave updates aliasname and account address and write them into the default config file
+		SetAliasAndSave(string, string) error
 		// DeleteAlias delete alias from the default config file
 		DeleteAlias(string) error
 		// WriteConfig write config datas to the default config file
@@ -246,7 +246,7 @@ func (c *client) AliasMap() map[string]string {
 	return aliases
 }
 
-func (c *client) SetAliasUnwritten(aliasName string, addr string) {
+func (c *client) SetAlias(aliasName string, addr string) {
 	for k, v := range c.cfg.Aliases {
 		if v == addr {
 			delete(c.cfg.Aliases, k)
@@ -255,8 +255,8 @@ func (c *client) SetAliasUnwritten(aliasName string, addr string) {
 	c.cfg.Aliases[aliasName] = addr
 }
 
-func (c *client) SetAlias(aliasName string, addr string) error {
-	c.SetAliasUnwritten(aliasName, addr)
+func (c *client) SetAliasAndSave(aliasName string, addr string) error {
+	c.SetAlias(aliasName, addr)
 	return c.WriteConfig()
 }
 
