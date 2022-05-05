@@ -169,7 +169,11 @@ func setCandidates(
 	}
 	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
 	for _, candidate := range candidates {
-		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
+		addr, err := address.FromString(candidate.Address)
+		if err != nil {
+			return errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
+		}
+		delegate, err := accountutil.LoadOrCreateAccount(sm, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}

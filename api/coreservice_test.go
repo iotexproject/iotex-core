@@ -117,7 +117,7 @@ func BenchmarkLogsInRange(b *testing.B) {
 	to, _ := strconv.ParseInt(testData.ToBlock, 10, 64)
 
 	b.Run("five workers to extract logs", func(b *testing.B) {
-		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to)).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
+		blk.EXPECT().FilterBlocksInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), 0).Return([]uint64{1, 2, 3, 4}, nil).AnyTimes()
 		for i := 0; i < b.N; i++ {
 			svr.LogsInRange(logfilter.NewLogFilter(&filter), uint64(from), uint64(to), uint64(0))
 		}
