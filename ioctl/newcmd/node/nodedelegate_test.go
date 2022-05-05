@@ -80,6 +80,13 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	probationList := &iotexapi.ReadStateResponse{}
 	apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).AnyTimes()
 
+	t.Run("next epoch", func(t *testing.T) {
+		cmd := NewNodeDelegateCmd(client)
+		result, err := util.ExecuteCmd(cmd, "-n", "-e", "1")
+		require.NoError(err)
+		require.Contains(result, "Epoch: 7001")
+	})
+
 	t.Run("get zero delegate epoch", func(t *testing.T) {
 		cmd := NewNodeDelegateCmd(client)
 		result, err := util.ExecuteCmd(cmd)

@@ -128,7 +128,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					sta, ok := status.FromError(err)
 					if ok && sta.Code() == codes.NotFound {
 						message.Determined = false
-						fmt.Println(message.String(epochNum))
+						cmd.Println(message.String(epochNum))
 						return nil
 					} else if ok {
 						return errors.New(sta.Message())
@@ -176,7 +176,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 						Votes:   util.RauToString(votes, util.IotxDecimalNum),
 					})
 				}
-				fmt.Println(message.String(epochNum))
+				cmd.Println(message.String(epochNum))
 			} else {
 				if epochNum == 0 {
 					chainMeta, err := bc.GetChainMeta(c)
