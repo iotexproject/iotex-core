@@ -34,16 +34,16 @@ func NewAliasCmd(client ioctl.Client) *cobra.Command {
 	aliasShorts, _ := client.SelectTranslation(_aliasCmdShorts)
 	aliasUses, _ := client.SelectTranslation(_aliasCmdUses)
 
-	cmd := &cobra.Command{
+	ac := &cobra.Command{
 		Use:   aliasUses,
 		Short: aliasShorts,
 	}
 
-	cmd.AddCommand(NewAliasImport(client))
-	cmd.AddCommand(NewAliasExport(client))
-	cmd.AddCommand(NewAliasRemove(client))
+	ac.AddCommand(NewAliasImport(client))
+	ac.AddCommand(NewAliasExport(client))
+	ac.AddCommand(NewAliasRemove(client))
 
-	return cmd
+	return ac
 }
 
 // IOAddress returns the address in IoTeX address format
