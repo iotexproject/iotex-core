@@ -32,7 +32,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, nil
 	}
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
+	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
@@ -117,7 +117,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, tsf.Recipient())
+	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
