@@ -58,7 +58,7 @@ func TestNewAliasImportCmd(t *testing.T) {
 	})
 
 	t.Run("force import", func(t *testing.T) {
-		client.EXPECT().SetAliasUnwritten(gomock.Any(), gomock.Any()).Times(1)
+		client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Times(1)
 
 		cmd := NewAliasImport(client)
 		result, err := util.ExecuteCmd(cmd, "-F", `{"aliases":[{"name":"mhs2","address":"io19sdfxkwegeaenvxk2kjqf98al52gm56wa2eqks"}]}`)

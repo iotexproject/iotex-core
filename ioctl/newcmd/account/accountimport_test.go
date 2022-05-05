@@ -53,7 +53,7 @@ func TestNewAccountImportKeyCmd(t *testing.T) {
 	client.EXPECT().ReadSecret().Return(prvKey.HexString(), nil).AnyTimes()
 	client.EXPECT().NewKeyStore().Return(ks).Times(1)
 	client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(1)
-	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	client.EXPECT().SetAliasAndSave(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 	cmd := NewAccountImportKeyCmd(client)
 	result, err := util.ExecuteCmd(cmd, "hhalias")
@@ -74,7 +74,7 @@ func TestNewAccountImportKeyStoreCmd(t *testing.T) {
 	client.EXPECT().ReadSecret().Return(passwd, nil).AnyTimes()
 	client.EXPECT().NewKeyStore().Return(ks).Times(1)
 	client.EXPECT().Config().Return(config.Config{Wallet: testWallet}).Times(1)
-	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	client.EXPECT().SetAliasAndSave(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 	client.EXPECT().DecryptPrivateKey(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
@@ -110,7 +110,7 @@ func TestNewAccountImportPemCmd(t *testing.T) {
 	require.NoError(crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), passwd))
 
 	client.EXPECT().ReadSecret().Return(passwd, nil).AnyTimes()
-	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	client.EXPECT().SetAliasAndSave(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 	cmd := NewAccountImportPemCmd(client)
 	result, err := util.ExecuteCmd(cmd, "hhalias", pemFilePath)
