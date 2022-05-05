@@ -30,15 +30,12 @@ func SetNonce(i noncer, state *state.Account) {
 }
 
 // LoadOrCreateAccount either loads an account state or creates an account state
-func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.Account, error) {
-	var account state.Account
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		account = state.EmptyAccount()
-		return &account, errors.Wrap(err, "failed to get address public key hash from encoded address")
-	}
-	addrHash := hash.BytesToHash160(addr.Bytes())
-	_, err = sm.State(&account, protocol.LegacyKeyOption(addrHash))
+func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address) (*state.Account, error) {
+	var (
+		account  state.Account
+		addrHash = hash.BytesToHash160(addr.Bytes())
+	)
+	_, err := sm.State(&account, protocol.LegacyKeyOption(addrHash))
 	if err == nil {
 		return &account, nil
 	}
