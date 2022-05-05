@@ -67,23 +67,18 @@ func (mr *MockBloomFilterIndexerMockRecorder) DeleteTipBlock(arg0, arg1 interfac
 }
 
 // FilterBlocksInRange mocks base method.
-func (m *MockBloomFilterIndexer) FilterBlocksInRange(arg0 *logfilter.LogFilter, arg1, arg2 uint64, arg3 ...uint64) ([]uint64, error) {
+func (m *MockBloomFilterIndexer) FilterBlocksInRange(arg0 *logfilter.LogFilter, arg1, arg2, arg3 uint64) ([]uint64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FilterBlocksInRange", varargs...)
+	ret := m.ctrl.Call(m, "FilterBlocksInRange", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FilterBlocksInRange indicates an expected call of FilterBlocksInRange.
-func (mr *MockBloomFilterIndexerMockRecorder) FilterBlocksInRange(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (mr *MockBloomFilterIndexerMockRecorder) FilterBlocksInRange(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterBlocksInRange", reflect.TypeOf((*MockBloomFilterIndexer)(nil).FilterBlocksInRange), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterBlocksInRange", reflect.TypeOf((*MockBloomFilterIndexer)(nil).FilterBlocksInRange), arg0, arg1, arg2, arg3)
 }
 
 // Height mocks base method.
