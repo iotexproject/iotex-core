@@ -9,13 +9,11 @@ package alias
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
@@ -31,39 +29,21 @@ var (
 	}
 )
 
-// Errors
-var (
-	ErrNoAliasFound = errors.New("no alias is found")
-)
-
-// Flags
-var (
-	_format      string
-	_forceImport bool
-)
-
-//type alias struct {
-//	Name    string `json:"name" yaml:"name"`
-//	Address string `json:"address" yaml:"address"`
-//}
-//
-//type aliases struct {
-//	Aliases []alias `json:"aliases" yaml:"aliases"`
-//}
-
 // NewAliasCmd represents the alias command
 func NewAliasCmd(client ioctl.Client) *cobra.Command {
 	aliasShorts, _ := client.SelectTranslation(_aliasCmdShorts)
 	aliasUses, _ := client.SelectTranslation(_aliasCmdUses)
 
-	ec := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   aliasUses,
 		Short: aliasShorts,
 	}
 
-	ec.AddCommand(NewAliasImportCmd(client))
+	cmd.AddCommand(NewAliasImport(client))
+	cmd.AddCommand(NewAliasExport(client))
+	cmd.AddCommand(NewAliasRemove(client))
 
-	return ec
+	return cmd
 }
 
 // IOAddress returns the address in IoTeX address format
@@ -82,17 +62,4 @@ func EtherAddress(in string) (common.Address, error) {
 		return common.Address{}, err
 	}
 	return addrutil.IoAddrToEvmAddr(addr)
-}
-
-// Alias returns the alias corresponding to address
-func Alias(address string) (string, error) {
-	if err := validator.ValidateAddress(address); err != nil {
-		return "", err
-	}
-	for alias, addr := range config.ReadConfig.Aliases {
-		if addr == address {
-			return alias, nil
-		}
-	}
-	return "", ErrNoAliasFound
 }
