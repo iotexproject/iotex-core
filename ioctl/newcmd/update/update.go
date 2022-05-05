@@ -46,6 +46,14 @@ var (
 		config.English: "Downloading the latest %s version ...\n",
 		config.Chinese: "正在下载最新的 %s 版本 ...\n",
 	}
+	_infoWarn = map[config.Language]string{
+		config.English: "Type 'YES' to continue, quit for anything else.",
+		config.Chinese: "输入 'YES' 以继续, 否则退出",
+	}
+	_infoQuit = map[config.Language]string{
+		config.English: "quit",
+		config.Chinese: "退出",
+	}
 )
 
 // NewUpdateCmd represents the update command
@@ -59,6 +67,8 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 	fail, _ := c.SelectTranslation(_resultFail)
 	info, _ := c.SelectTranslation(_resultInfo)
 	invalidVersionType, _ := c.SelectTranslation(_invalidVersionType)
+	_infoWarn, _ := c.SelectTranslation(_infoWarn)
+	_infoQuit, _ := c.SelectTranslation(_infoQuit)
 
 	uc := &cobra.Command{
 		Use:   use,
@@ -75,23 +85,21 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 			default:
 				return errors.New(fmt.Sprintf(invalidVersionType, versionType))
 			}
-			_, err := c.ReadSecret()
-			if err != nil {
-				return errors.Wrap(err, fail)
+
+			if !c.AskToConfirm(_infoWarn) {
+				cmd.Println(_infoQuit)
+				return nil
 			}
-			cmd.Println(fmt.Sprintf(info, versionType))
+			cmd.Printf(info, versionType)
 
 			if err := c.Execute(cmdString); err != nil {
 				return errors.Wrap(err, fail)
 			}
 			cmd.Println(success)
 			return nil
-
 		},
 	}
 
-	uc.Flags().StringVarP(&versionType, "version-type", "t", "stable",
-		flagUsage)
-
+	uc.Flags().StringVarP(&versionType, "version-type", "t", "stable", flagUsage)
 	return uc
 }

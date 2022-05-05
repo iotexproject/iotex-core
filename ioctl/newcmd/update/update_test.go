@@ -7,10 +7,10 @@
 package update
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -23,30 +23,31 @@ func TestNewUpdateCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 
-	client.EXPECT().ReadSecret().Return("abc", nil).Times(3)
 	expectedValue := "ioctl is up-to-date now."
 	client.EXPECT().SelectTranslation(gomock.Any()).Return(expectedValue,
-		config.English).Times(14)
+		config.English).Times(18)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(2)
 	client.EXPECT().Execute(gomock.Any()).Return(nil).Times(2)
 
 	t.Run("update cli with stable", func(t *testing.T) {
 		cmd := NewUpdateCmd(client)
 		result, err := util.ExecuteCmd(cmd)
-		require.Contains(result, expectedValue)
 		require.NoError(err)
+		require.Contains(result, expectedValue)
 	})
 
 	t.Run("update cli with unstable", func(t *testing.T) {
 		cmd := NewUpdateCmd(client)
 		result, err := util.ExecuteCmd(cmd, "-t", "unstable")
-		require.Contains(result, expectedValue)
 		require.NoError(err)
+		require.Contains(result, expectedValue)
 	})
 
 	t.Run("failed to execute bash command", func(t *testing.T) {
 		expectedError := errors.New("failed to execute bash command")
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
-			config.English).Times(7)
+			config.English).Times(9)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(1)
 		client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
 
 		cmd := NewUpdateCmd(client)
@@ -57,7 +58,7 @@ func TestNewUpdateCmd(t *testing.T) {
 	t.Run("invalid version type", func(t *testing.T) {
 		expectedError := errors.New("invalid version-type flag:pre-release")
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("invalid version-type flag:%s",
-			config.English).Times(7)
+			config.English).Times(9)
 		client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
 
 		cmd := NewUpdateCmd(client)
