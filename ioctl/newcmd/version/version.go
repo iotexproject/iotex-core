@@ -37,11 +37,11 @@ var (
 )
 
 // NewVersionCmd represents the version command
-func NewVersionCmd(c ioctl.Client) *cobra.Command {
+func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
-	use, _ := c.SelectTranslation(_uses)
-	short, _ := c.SelectTranslation(_shorts)
+	use, _ := cli.SelectTranslation(_uses)
+	short, _ := cli.SelectTranslation(_shorts)
 	vc := &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -55,7 +55,7 @@ func NewVersionCmd(c ioctl.Client) *cobra.Command {
 				GoVersion:       ver.GoVersion,
 				BuildTime:       ver.BuildTime,
 			}))
-			apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+			apiClient, err := cli.APIServiceClient(ioctl.APIServiceConfig{
 				Endpoint: endpoint,
 				Insecure: insecure,
 			})
@@ -78,20 +78,20 @@ func NewVersionCmd(c ioctl.Client) *cobra.Command {
 				}
 				return errors.Wrap(err, "failed to get version from server")
 			}
-			cmd.Println(fmt.Sprintf("%s:\n%+v\n", c.Config().Endpoint, response.ServerMeta))
+			cmd.Println(fmt.Sprintf("%s:\n%+v\n", cli.Config().Endpoint, response.ServerMeta))
 			return nil
 		},
 	}
 	vc.PersistentFlags().StringVar(
 		&endpoint,
 		"endpoint",
-		c.Config().Endpoint,
+		cli.Config().Endpoint,
 		"set endpoint for once",
 	)
 	vc.PersistentFlags().BoolVar(
 		&insecure,
 		"insecure",
-		!c.Config().SecureConnect,
+		!cli.Config().SecureConnect,
 		"insecure connection for once",
 	)
 	return vc
