@@ -1393,8 +1393,14 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	if err != nil {
 		return nil, nil, err
 	}
+	if paginationSize == 0 {
+		paginationSize = 1000
+	}
+	if paginationSize > 5000 {
+		paginationSize = 5000
+	}
 	// getLogs via range Blooom filter [start, end]
-	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end)
+	blockNumbers, err := core.bfIndexer.FilterBlocksInRange(filter, start, end, paginationSize)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1441,12 +1447,6 @@ func (core *coreService) LogsInRange(filter *logfilter.LogFilter, start, end, pa
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, nil, err
-	}
-	if paginationSize == 0 {
-		paginationSize = 1000
-	}
-	if paginationSize > 5000 {
-		paginationSize = 5000
 	}
 
 	for i := 0; i < len(blockNumbers); i++ {
