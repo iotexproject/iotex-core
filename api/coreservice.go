@@ -222,7 +222,7 @@ func newCoreService(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg),
+		gs:                gasstation.NewGasStation(chain, dao, cfg),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,

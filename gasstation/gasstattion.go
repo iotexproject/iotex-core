@@ -32,19 +32,17 @@ type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.
 
 // GasStation provide gas related api
 type GasStation struct {
-	bc        blockchain.Blockchain
-	simulator SimulateFunc
-	dao       BlockDAO
-	cfg       config.API
+	bc  blockchain.Blockchain
+	dao BlockDAO
+	cfg config.API
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, simulator SimulateFunc, dao BlockDAO, cfg config.API) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, dao BlockDAO, cfg config.API) *GasStation {
 	return &GasStation{
-		bc:        bc,
-		simulator: simulator,
-		dao:       dao,
-		cfg:       cfg,
+		bc:  bc,
+		dao: dao,
+		cfg: cfg,
 	}
 }
 

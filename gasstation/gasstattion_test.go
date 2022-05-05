@@ -34,7 +34,7 @@ import (
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, nil, nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, config.Default.API))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -103,7 +103,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -160,7 +160,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -172,7 +172,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 
 func TestIsSystemAction(t *testing.T) {
 	require := require.New(t)
-	gs := NewGasStation(nil, nil, nil, config.Default.API)
+	gs := NewGasStation(nil, nil, config.Default.API)
 	require.NotNil(gs)
 	builder := action.EnvelopeBuilder{}
 	cf := action.ClaimFromRewardingFundBuilder{}
