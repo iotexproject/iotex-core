@@ -10,6 +10,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -27,7 +29,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
 	client.EXPECT().Config().Return(config.Config{}).Times(7)
