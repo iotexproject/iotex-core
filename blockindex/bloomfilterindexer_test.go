@@ -248,15 +248,15 @@ func TestBloomfilterIndexer(t *testing.T) {
 		for i, l := range testFilter {
 			lf := logfilter.NewLogFilter(l)
 
-			res, err := indexer.FilterBlocksInRange(lf, 1, 5)
+			res, err := indexer.FilterBlocksInRange(lf, 1, 5, 0)
 			require.NoError(err)
 			require.Equal(expectedRes2[i], res)
 
-			res, err = indexer.FilterBlocksInRange(lf, 4, 5)
+			res, err = indexer.FilterBlocksInRange(lf, 4, 5, 0)
 			require.NoError(err)
 			require.Equal(expectedRes3[i], res)
 
-			res, err = indexer.FilterBlocksInRange(lf, 1, 3)
+			res, err = indexer.FilterBlocksInRange(lf, 1, 3, 0)
 			require.NoError(err)
 			require.Equal(expectedRes4[i], res)
 		}
@@ -340,7 +340,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))
 	}
 	runtime.GC()
-	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1))
+	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1), 0)
 	require.NoError(err)
 	require.Equal(blkNum-1, len(res))
 }

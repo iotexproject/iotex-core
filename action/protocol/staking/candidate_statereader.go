@@ -256,10 +256,13 @@ func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
 	buckets := make([]*VoteBucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		vb := &VoteBucket{}
-		if err := iter.Next(vb); err != nil {
+		switch err := iter.Next(vb); errors.Cause(err) {
+		case nil:
+			buckets = append(buckets, vb)
+		case state.ErrNilValue:
+		default:
 			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
 		}
-		buckets = append(buckets, vb)
 	}
 	return buckets, height, nil
 }
