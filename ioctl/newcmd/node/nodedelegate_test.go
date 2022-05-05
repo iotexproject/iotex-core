@@ -5,12 +5,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -29,7 +29,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
 	}).AnyTimes()
 
-	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(
 		apiServiceClient, nil).AnyTimes()
 

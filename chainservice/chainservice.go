@@ -217,6 +217,7 @@ func createBlockSyncer(
 			}
 			if len(peers) == 0 {
 				log.L().Error("no peers")
+				return
 			}
 			if repeat < 2 {
 				repeat = 2
