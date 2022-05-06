@@ -374,7 +374,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
 	g := core.bc.Genesis()
-	selp, err := (&action.Deserializer{}).WithChainID(g.IsToBeEnabled(core.bc.TipHeight())).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).WithChainID(g.IsNewfoundland(core.bc.TipHeight())).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
