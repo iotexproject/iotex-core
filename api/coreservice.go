@@ -373,7 +373,8 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	g := core.bc.Genesis()
+	selp, err := (&action.Deserializer{}).WithChainID(g.IsToBeEnabled(core.bc.TipHeight())).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
