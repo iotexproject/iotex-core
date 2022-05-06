@@ -87,7 +87,6 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		Version:  elp.version,
 		Nonce:    elp.nonce,
 		GasLimit: elp.gasLimit,
-		ChainID:  elp.chainID,
 	}
 	if elp.gasPrice != nil {
 		actCore.GasPrice = elp.gasPrice.String()
@@ -133,10 +132,6 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 
 // LoadProto loads fields from protobuf format.
 func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
-	return elp.loadProto(pbAct, false)
-}
-
-func (elp *envelope) loadProto(pbAct *iotextypes.ActionCore, withChain bool) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
@@ -145,9 +140,6 @@ func (elp *envelope) loadProto(pbAct *iotextypes.ActionCore, withChain bool) err
 	}
 	*elp = envelope{}
 	elp.version = pbAct.GetVersion()
-	if withChain {
-		elp.chainID = pbAct.GetChainID()
-	}
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
 	if pbAct.GetGasPrice() == "" {
@@ -264,7 +256,3 @@ func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }
-
-func (elp *envelope) LoadProtoWithChainID(pbAct *iotextypes.ActionCore) error {
-	return elp.loadProto(pbAct, true)
-}
