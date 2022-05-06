@@ -93,6 +93,10 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 
 // LoadProto loads from proto scheme.
 func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
+	return sealed.loadProto(pbAct, false)
+}
+
+func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, withChainID bool) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
@@ -104,8 +108,16 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		return errors.Errorf("invalid signature length = %d, expecting 65", sigSize)
 	}
 
-	var elp Envelope = &envelope{}
-	if err := elp.LoadProto(pbAct.GetCore()); err != nil {
+	var (
+		elp = &envelope{}
+		err error
+	)
+	if withChainID {
+		err = elp.LoadProtoWithChainID(pbAct.GetCore())
+	} else {
+		err = elp.LoadProto(pbAct.GetCore())
+	}
+	if err != nil {
 		return err
 	}
 	// populate pubkey and signature
@@ -160,4 +172,9 @@ func (sealed *SealedEnvelope) VerifySignature() error {
 		return ErrInvalidSender
 	}
 	return nil
+}
+
+// LoadProtoWithChainID use chainID while loading protobuf
+func (sealed *SealedEnvelope) LoadProtoWithChainID(pbAct *iotextypes.Action) error {
+	return sealed.loadProto(pbAct, true)
 }
