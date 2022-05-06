@@ -75,7 +75,7 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
 	g := cs.chain.Genesis()
-	act, err := (&action.Deserializer{}).WithChainID(g.IsToBeEnabled(cs.chain.TipHeight())).ActionToSealedEnvelope(actPb)
+	act, err := (&action.Deserializer{}).WithChainID(g.IsNewfoundland(cs.chain.TipHeight())).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
 	g := cs.chain.Genesis()
-	blk, err := (&block.Deserializer{}).WithChainID(g.IsToBeEnabled(pbBlock.Header.Core.Height)).FromBlockProto(pbBlock)
+	blk, err := (&block.Deserializer{}).WithChainID(g.IsNewfoundland(pbBlock.Header.Core.Height)).FromBlockProto(pbBlock)
 	if err != nil {
 		return err
 	}
