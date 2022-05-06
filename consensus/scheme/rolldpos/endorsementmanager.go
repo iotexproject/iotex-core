@@ -120,12 +120,12 @@ func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection
 	}
 }
 
-func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection, withChainID bool) error {
+func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
 	bc.endorsers = make(map[string]*endorserEndorsementCollection)
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
-		blk, err := (&block.Deserializer{}).WithChainID(withChainID).FromBlockProto(blockPro.Blk)
+		blk, err := (&block.Deserializer{}).FromBlockProto(blockPro.Blk)
 		if err != nil {
 			return err
 		}
@@ -224,7 +224,7 @@ type endorsementManager struct {
 	cachedMintedBlk *block.Block
 }
 
-func newEndorsementManager(eManagerDB db.KVStore, checker chainIDChecker) (*endorsementManager, error) {
+func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
 			eManagerDB:      nil,
@@ -241,7 +241,7 @@ func newEndorsementManager(eManagerDB db.KVStore, checker chainIDChecker) (*endo
 		if err = proto.Unmarshal(bytes, managerProto); err != nil {
 			return nil, err
 		}
-		if err = manager.fromProto(managerProto, checker); err != nil {
+		if err = manager.fromProto(managerProto); err != nil {
 			return nil, err
 		}
 		manager.eManagerDB = eManagerDB
@@ -279,18 +279,17 @@ func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorit
 	m.isMajorityFunc = isMajorityFunc
 }
 
-func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager, checker chainIDChecker) error {
+func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
 		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block, checker(block.Blk.Header.Core.Height)); err != nil {
+		if err := bc.fromProto(block); err != nil {
 			return err
 		}
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	if managerPro.CachedMintedBlk != nil {
-		withChainID := checker(managerPro.CachedMintedBlk.Header.Core.Height)
-		blk, err := (&block.Deserializer{}).WithChainID(withChainID).FromBlockProto(managerPro.CachedMintedBlk)
+		blk, err := (&block.Deserializer{}).FromBlockProto(managerPro.CachedMintedBlk)
 		if err != nil {
 			return err
 		}

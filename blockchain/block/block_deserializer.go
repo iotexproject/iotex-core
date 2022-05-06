@@ -14,24 +14,15 @@ import (
 
 // Deserializer de-serializes a block
 type Deserializer struct {
-	withChainID bool
 }
 
 // FromBlockProto converts protobuf to block
 func (bd *Deserializer) FromBlockProto(pbBlock *iotextypes.Block) (*Block, error) {
-	var (
-		b   = Block{}
-		err error
-	)
+	b := Block{}
 	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block header")
 	}
-	if bd.withChainID {
-		err = b.Body.LoadProtoWithChainID(pbBlock.GetBody())
-	} else {
-		err = b.Body.LoadProto(pbBlock.GetBody())
-	}
-	if err != nil {
+	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block body")
 	}
 	if err := b.ConvertFromBlockFooterPb(pbBlock.GetFooter()); err != nil {
@@ -59,16 +50,8 @@ func (bd *Deserializer) DeserializeBlock(buf []byte) (*Block, error) {
 
 // FromBodyProto converts protobuf to body
 func (bd *Deserializer) FromBodyProto(pbBody *iotextypes.BlockBody) (*Body, error) {
-	var (
-		b   = Body{}
-		err error
-	)
-	if bd.withChainID {
-		err = b.LoadProtoWithChainID(pbBody)
-	} else {
-		err = b.LoadProto(pbBody)
-	}
-	if err != nil {
+	b := Body{}
+	if err := b.LoadProto(pbBody); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block body")
 	}
 	return &b, nil
@@ -81,10 +64,4 @@ func (bd *Deserializer) DeserializeBody(buf []byte) (*Body, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal block body")
 	}
 	return bd.FromBodyProto(&pb)
-}
-
-// WithChainID sets whether or not to use chainID
-func (bd *Deserializer) WithChainID(with bool) *Deserializer {
-	bd.withChainID = with
-	return bd
 }

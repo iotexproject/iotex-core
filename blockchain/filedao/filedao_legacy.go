@@ -262,7 +262,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		// block body could be empty
 		return &block.Body{}, nil
 	}
-	return (&block.Deserializer{}).WithChainID(true).DeserializeBody(value)
+	return (&block.Deserializer{}).DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {

@@ -28,28 +28,19 @@ var (
 
 func TestSealedEnvelope_Basic(t *testing.T) {
 	req := require.New(t)
-	for _, v := range []struct {
-		id   uint32
-		hash string
-	}{
-		{0, "322884fb04663019be6fb461d9453827487eafdd57b4de3bd89a7d77c9bf8395"},
-		{1, "80af7840d73772d3022d8bdc46278fb755352e5e9d5f2a1f12ee7ec4f1ea98e9"},
-	} {
-		se, err := createSealedEnvelope(v.id)
-		req.NoError(err)
-		rHash, err := se.Hash()
-		req.NoError(err)
-		req.Equal(v.id, se.ChainID())
-		req.Equal(v.hash, hex.EncodeToString(rHash[:]))
-		req.Equal(_publicKey, se.SrcPubkey().HexString())
-		req.Equal(_signByte, se.Signature())
-		req.Zero(se.Encoding())
+	se, err := createSealedEnvelope()
+	req.NoError(err)
+	rHash, err := se.Hash()
+	req.NoError(err)
+	req.Equal("322884fb04663019be6fb461d9453827487eafdd57b4de3bd89a7d77c9bf8395", hex.EncodeToString(rHash[:]))
+	req.Equal(_publicKey, se.SrcPubkey().HexString())
+	req.Equal(_signByte, se.Signature())
+	req.Zero(se.Encoding())
 
-		var se1 SealedEnvelope
-		se.signature = _validSig
-		req.NoError(se1.LoadProtoWithChainID(se.Proto()))
-		req.Equal(se.Envelope, se1.Envelope)
-	}
+	var se1 SealedEnvelope
+	se.signature = _validSig
+	req.NoError(se1.LoadProto(se.Proto()))
+	req.Equal(se, se1)
 }
 
 func TestSealedEnvelope_InvalidType(t *testing.T) {
@@ -130,7 +121,7 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 func TestSealedEnvelope_Proto(t *testing.T) {
 	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
 	req := require.New(t)
-	se, err := createSealedEnvelope(0)
+	se, err := createSealedEnvelope()
 	req.NoError(err)
 	tsf, ok := se.Envelope.Action().(*Transfer)
 	req.True(ok)
@@ -178,7 +169,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	}
 }
 
-func createSealedEnvelope(chainID uint32) (SealedEnvelope, error) {
+func createSealedEnvelope() (SealedEnvelope, error) {
 	tsf, _ := NewTransfer(
 		uint64(10),
 		unit.ConvertIotxToRau(1000+int64(10)),
@@ -194,7 +185,7 @@ func createSealedEnvelope(chainID uint32) (SealedEnvelope, error) {
 		SetGasPrice(tsf.GasPrice()).
 		SetNonce(tsf.Nonce()).
 		SetVersion(1).
-		SetChainID(chainID).Build()
+		Build()
 
 	cPubKey, err := crypto.HexStringToPublicKey(_publicKey)
 	se := SealedEnvelope{}
