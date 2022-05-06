@@ -23,14 +23,17 @@ import (
 func TestVersionCommand(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
-	endpoint := ""
-	insecure := false
-	cfg := config.Config{}
-	client.EXPECT().Config().Return(cfg).Times(2)
-
-	client.EXPECT().Endpoint().Return(&endpoint)
-	client.EXPECT().Insecure().Return(&insecure)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(4)
+	endpoint := "111:222:333:444:5678"
+	insecure := true
+	callbackEndpoint := func(cb func(*string, string, string, string), usage string) {
+		cb(&endpoint, "endpoint", endpoint, usage)
+	}
+	callbackInsecure := func(cb func(*bool, string, bool, string), usage string) {
+		cb(&insecure, "insecure", !insecure, usage)
+	}
+	client.EXPECT().SetEndpointWithFlag(gomock.Any(), gomock.Any()).Do(callbackEndpoint)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any(), gomock.Any()).Do(callbackInsecure)
 	apiClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
 	response := iotexapi.GetServerMetaResponse{

@@ -39,10 +39,10 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
-		// Endpoint returns the address of the member to receive input flag value
-		Endpoint() *string
-		// Insecure returns the address of the member to receive input flag value
-		Insecure() *bool
+		// SetEndpointWithFlag receives input flag value
+		SetEndpointWithFlag(func(*string, string, string, string), string)
+		// SetInsecureWithFlag receives input flag value
+		SetInsecureWithFlag(func(*bool, string, bool, string), string)
 		// APIServiceClient returns an API service client
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
@@ -129,12 +129,12 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
-func (c *client) Endpoint() *string {
-	return &c.endpoint
+func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string), usage string) {
+	cb(&c.endpoint, "endpoint", c.cfg.Endpoint, usage)
 }
 
-func (c *client) Insecure() *bool {
-	return &c.insecure
+func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string), usage string) {
+	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
 }
 
 func (c *client) AskToConfirm(info string) bool {

@@ -60,9 +60,14 @@ func TestNewAccountCmd(t *testing.T) {
 		},
 	}
 	for _, test := range testData {
-		client.EXPECT().Config().Return(config.Config{Endpoint: test.endpoint, SecureConnect: !test.insecure}).Times(2)
-		client.EXPECT().Endpoint().Return(&test.endpoint)
-		client.EXPECT().Insecure().Return(&test.insecure)
+		callbackEndpoint := func(cb func(*string, string, string, string), usage string) {
+			cb(&test.endpoint, "endpoint", test.endpoint, usage)
+		}
+		callbackInsecure := func(cb func(*bool, string, bool, string), usage string) {
+			cb(&test.insecure, "insecure", !test.insecure, usage)
+		}
+		client.EXPECT().SetEndpointWithFlag(gomock.Any(), gomock.Any()).Do(callbackEndpoint)
+		client.EXPECT().SetInsecureWithFlag(gomock.Any(), gomock.Any()).Do(callbackInsecure)
 
 		cmd := NewAccountCmd(client)
 		result, err := util.ExecuteCmd(cmd)

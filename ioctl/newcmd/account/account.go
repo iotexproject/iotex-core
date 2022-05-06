@@ -84,10 +84,8 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 
 	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpoint)
 	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecure)
-
-	ac.PersistentFlags().StringVar(client.Endpoint(), "endpoint", client.Config().Endpoint, _flagEndpointUsage)
-	ac.PersistentFlags().BoolVar(client.Insecure(), "insecure", !client.Config().SecureConnect, _flagInsecureUsage)
-
+	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar, _flagEndpointUsage)
+	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar, _flagInsecureUsage)
 	return ac
 }
 
