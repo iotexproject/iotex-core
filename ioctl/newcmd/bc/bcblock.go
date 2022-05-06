@@ -207,18 +207,18 @@ func parseArg(c ioctl.Client, arg string) (*iotexapi.GetBlockMetasRequest, error
 					ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: arg},
 				},
 			}, nil
-		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-			return nil, errors.Wrap(err, "invalid height")
-		} else {
-			return &iotexapi.GetBlockMetasRequest{
-				Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
-					ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-						Start: height,
-						Count: 1,
-					},
-				},
-			}, nil
 		}
+		if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+			return nil, errors.Wrap(err, "invalid height")
+		}
+		return &iotexapi.GetBlockMetasRequest{
+			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+					Start: height,
+					Count: 1,
+				},
+			},
+		}, nil
 	}
 	chainMeta, err := GetChainMeta(c)
 	if err != nil {
