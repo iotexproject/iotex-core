@@ -34,4 +34,6 @@ func TestBlockDeserializer(t *testing.T) {
 	newblk, err := (&Deserializer{}).DeserializeBlock(raw)
 	r.NoError(err)
 	r.Equal(blk, newblk)
+	r.Equal(_pbBlock.Body.Actions[0].Core.ChainID, blk.Actions[0].ChainID())
+	r.Equal(_pbBlock.Body.Actions[1].Core.ChainID, blk.Actions[1].ChainID())
 }
