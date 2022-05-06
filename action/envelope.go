@@ -87,6 +87,7 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		Version:  elp.version,
 		Nonce:    elp.nonce,
 		GasLimit: elp.gasLimit,
+		ChainID:  elp.chainID,
 	}
 	if elp.gasPrice != nil {
 		actCore.GasPrice = elp.gasPrice.String()
@@ -142,6 +143,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
+	elp.chainID = pbAct.GetChainID()
 	if pbAct.GetGasPrice() == "" {
 		elp.gasPrice = big.NewInt(0)
 	} else {
