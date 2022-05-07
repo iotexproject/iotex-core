@@ -263,5 +263,6 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 			return addrs, nil
 		},
 		0,
+		dummyChainIDChecker,
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -39,7 +40,7 @@ func TestClient(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.API.WebSocketPort = testutil.RandomPort()
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -63,6 +64,7 @@ func TestClient(t *testing.T) {
 	bc.EXPECT().Genesis().Return(cfg.Genesis).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
+	bc.EXPECT().Context(gomock.Any()).Return(ctx, nil).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	bh := &iotextypes.BlockHeader{Core: &iotextypes.BlockHeaderCore{
 		Version:          chainID,
