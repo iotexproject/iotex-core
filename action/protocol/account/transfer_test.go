@@ -41,7 +41,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 		require.NoError(err)
 		g := genesis.Default
 		ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
-			BlockHeight: g.ToBeEnabledBlockHeight,
+			BlockHeight: g.NewfoundlandBlockHeight,
 		}), g))
 		for _, v := range []struct {
 			tsf *action.Transfer
