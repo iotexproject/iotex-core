@@ -573,7 +573,7 @@ func TestProtocol_Validate(t *testing.T) {
 
 	g := genesis.Default
 	ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
-		BlockHeight: g.ToBeEnabledBlockHeight,
+		BlockHeight: g.NewfoundlandBlockHeight,
 	}), g))
 	for _, v := range []struct {
 		ex  *action.Execution

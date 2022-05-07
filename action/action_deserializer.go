@@ -6,15 +6,31 @@
 
 package action
 
-import "github.com/iotexproject/iotex-proto/golang/iotextypes"
+import (
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+)
 
 // Deserializer de-serializes an action
 type Deserializer struct {
+	withChainID bool
 }
 
 // ActionToSealedEnvelope converts protobuf to SealedEnvelope
 func (ad *Deserializer) ActionToSealedEnvelope(pbAct *iotextypes.Action) (SealedEnvelope, error) {
-	var selp SealedEnvelope
-	err := selp.LoadProto(pbAct)
+	var (
+		selp SealedEnvelope
+		err  error
+	)
+	if ad.withChainID {
+		err = selp.LoadProtoWithChainID(pbAct)
+	} else {
+		err = selp.LoadProto(pbAct)
+	}
 	return selp, err
+}
+
+// WithChainID sets whether or not to use chainID
+func (ad *Deserializer) WithChainID(with bool) *Deserializer {
+	ad.withChainID = with
+	return ad
 }

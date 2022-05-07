@@ -33,7 +33,7 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	pb, err := endorsedMessage.Proto()
 	require.NoError(err)
 	cem := &EndorsedConsensusMessage{}
-	require.NoError(cem.LoadProto(pb))
+	require.NoError(cem.LoadProto(pb, dummyChainIDChecker))
 	require.Equal(uint64(10), cem.Height())
 	cvote, ok := cem.Document().(*ConsensusVote)
 	require.True(ok)
