@@ -79,7 +79,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 }
 
 // LoadProto creates an endorsement message from protobuf message
-func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage) error {
+func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage, checker chainIDChecker) error {
 	switch {
 	case msg.GetVote() != nil:
 		vote := &ConsensusVote{}
@@ -89,7 +89,8 @@ func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage)
 		ecm.message = vote
 	case msg.GetBlockProposal() != nil:
 		proposal := &blockProposal{}
-		if err := proposal.LoadProto(msg.GetBlockProposal()); err != nil {
+		pb := msg.GetBlockProposal()
+		if err := proposal.LoadProto(pb, checker(pb.Block.Header.Core.Height)); err != nil {
 			return err
 		}
 		ecm.message = proposal

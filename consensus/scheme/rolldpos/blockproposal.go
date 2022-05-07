@@ -61,8 +61,8 @@ func (bp *blockProposal) ProposerAddress() string {
 	return bp.block.ProducerAddress()
 }
 
-func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
-	blk, err := (&block.Deserializer{}).FromBlockProto(msg.Block)
+func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal, withChainID bool) error {
+	blk, err := (&block.Deserializer{}).WithChainID(withChainID).FromBlockProto(msg.Block)
 	if err != nil {
 		return err
 	}
