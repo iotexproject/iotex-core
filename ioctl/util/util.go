@@ -231,7 +231,7 @@ func IsNewfoundland(chainID uint32, h uint64) bool {
 	case 1:
 		newfoundland = 20027641
 	case 2:
-		newfoundland = 17057281
+		newfoundland = 14202721
 	}
 	return h >= newfoundland
 }
