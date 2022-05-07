@@ -17,21 +17,25 @@ import (
 func TestBlockDeserializer(t *testing.T) {
 	r := require.New(t)
 	bd := Deserializer{}
-	blk, err := bd.FromBlockProto(&_pbBlock)
-	r.NoError(err)
-	body, err := bd.FromBodyProto(_pbBlock.Body)
-	r.NoError(err)
-	r.Equal(body, &blk.Body)
+	for _, with := range []bool{false, true} {
+		blk, err := bd.WithChainID(with).FromBlockProto(&_pbBlock)
+		r.NoError(err)
+		body, err := bd.WithChainID(with).FromBodyProto(_pbBlock.Body)
+		r.NoError(err)
+		r.Equal(body, &blk.Body)
 
-	txHash, err := blk.CalculateTxRoot()
-	r.NoError(err)
-	blk.Header.txRoot = txHash
-	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
-	pb := blk.ConvertToBlockPb()
-	raw, err := proto.Marshal(pb)
-	r.NoError(err)
+		txHash, err := blk.CalculateTxRoot()
+		r.NoError(err)
+		blk.Header.txRoot = txHash
+		blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
+		pb := blk.ConvertToBlockPb()
+		raw, err := proto.Marshal(pb)
+		r.NoError(err)
 
-	newblk, err := (&Deserializer{}).DeserializeBlock(raw)
-	r.NoError(err)
-	r.Equal(blk, newblk)
+		newblk, err := (&Deserializer{}).WithChainID(with).DeserializeBlock(raw)
+		r.NoError(err)
+		r.Equal(blk, newblk)
+		r.Equal(with, blk.Actions[0].ChainID() != 0)
+		r.Equal(with, blk.Actions[1].ChainID() != 0)
+	}
 }
