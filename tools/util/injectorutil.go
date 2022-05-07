@@ -838,25 +838,20 @@ func updateStakeExpectedBalanceMap(
 	balancemap[candidateAddr].Sub(senderBalance, cost)
 }
 
-// GetActionByActionHash acquires action by sending api request to api grpc server
-func GetActionByActionHash(grpc *api.GRPCServer, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
-	ret, err := grpc.GetActions(context.Background(), &iotexapi.GetActionsRequest{
-		Lookup: &iotexapi.GetActionsRequest_ByHash{
-			ByHash: &iotexapi.GetActionByHashRequest{
-				ActionHash: hex.EncodeToString(actHash[:]),
-			}}})
-	if err != nil || len(ret.ActionInfo) != 1 {
-		return nil, err
-	}
-	return ret.ActionInfo[0], nil
-}
-
-// GetReceiptByAction acquires receipt by sending api request to api grpc server
-func GetReceiptByAction(grpc *api.GRPCServer, actHash hash.Hash256) (*iotextypes.Receipt, error) {
-	ret, err := grpc.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{
-		ActionHash: hex.EncodeToString(actHash[:])})
+// GetActionByActionHash acquires action by calling coreService
+func GetActionByActionHash(coreService api.CoreService, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
+	act, err := coreService.Action(hex.EncodeToString(actHash[:]), false)
 	if err != nil {
 		return nil, err
 	}
-	return ret.ReceiptInfo.Receipt, nil
+	return act, nil
+}
+
+// GetReceiptByAction acquires receipt by calling coreService
+func GetReceiptByAction(coreService api.CoreService, actHash hash.Hash256) (*iotextypes.Receipt, error) {
+	receipt, _, err := coreService.ReceiptByAction(actHash)
+	if err != nil {
+		return nil, err
+	}
+	return receipt.ConvertToReceiptPb(), nil
 }

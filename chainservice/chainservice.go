@@ -139,9 +139,9 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
-// APIServer returns the grpc server
-func (cs *ChainService) APIServer() *api.GRPCServer {
-	return cs.api.GrpcServer
+// APIServer returns the CoreService Interface
+func (cs *ChainService) APIServer() api.CoreService {
+	return cs.api.CoreService()
 }
 
 // Consensus returns the consensus instance
