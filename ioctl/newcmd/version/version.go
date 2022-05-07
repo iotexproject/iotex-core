@@ -8,15 +8,13 @@ package version
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -61,10 +59,7 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 				GoVersion:       ver.GoVersion,
 				BuildTime:       ver.BuildTime,
 			})
-			apiClient, err := cli.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
+			apiClient, err := cli.APIServiceClient()
 			if err != nil {
 				return err
 			}
