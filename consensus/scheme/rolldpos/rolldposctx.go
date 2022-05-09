@@ -138,7 +138,7 @@ func newRollDPoSCtx(
 		beringHeight:         beringHeight,
 		checker:              checker,
 	}
-	return &rollDPoSCtx{
+	c := &rollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
 		encodedAddr:       encodedAddr,
@@ -149,7 +149,11 @@ func newRollDPoSCtx(
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
 		toleratedOvertime: toleratedOvertime,
-	}, nil
+	}
+	if c.roundCalc.checker == nil {
+		panic("chainIDChecker is nil")
+	}
+	return c, nil
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
@@ -157,6 +161,9 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
+		}
+		if ctx.roundCalc.checker == nil {
+			panic("chainIDChecker is nil")
 		}
 		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.roundCalc.checker)
 	}
