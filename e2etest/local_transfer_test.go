@@ -617,6 +617,7 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 }
 
 func TestEnforceChainID(t *testing.T) {
+	require := require.New(t)
 
 	testCase := []struct {
 		chainID uint32
@@ -645,21 +646,21 @@ func TestEnforceChainID(t *testing.T) {
 	cfg.Genesis.MidwayBlockHeight = 3
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, acc.Register(registry))
+	require.NoError(acc.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	require.NoError(t, err)
+	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
-	require.NoError(t, err)
+	require.NoError(err)
 	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
 		factory.NewMinter(sf, ap),
 	)
-	require.NoError(t, bc.Start(ctx))
+	require.NoError(bc.Start(ctx))
 
 	defer func() {
-		require.NoError(t, bc.Stop(ctx))
+		require.NoError(bc.Stop(ctx))
 	}()
 	for i, c := range testCase {
 		tsf, err := action.NewTransfer(
@@ -669,7 +670,7 @@ func TestEnforceChainID(t *testing.T) {
 			[]byte{}, uint64(100000),
 			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
 		)
-		require.NoError(t, err)
+		require.NoError(err)
 
 		bd := &action.EnvelopeBuilder{}
 		elp1 := bd.SetAction(tsf).
@@ -677,16 +678,34 @@ func TestEnforceChainID(t *testing.T) {
 			SetNonce(uint64(i) + 1).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
-		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
-		require.NoError(t, err)
+		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
+		require.NoError(err)
 
-		err = ap.Add(context.Background(), selp1)
-		require.NoError(t, err)
+		// simulate API receives tx
+		withChainID := uint64(i) >= cfg.Genesis.MidwayBlockHeight
+		selp1, err := (&action.Deserializer{}).WithChainID(withChainID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
+
+		// mint block using received tx
+		require.NoError(ap.Add(context.Background(), selp1))
 		blk, err := bc.MintNewBlock(testutil.TimestampNow())
-		require.NoError(t, err)
-		err = bc.CommitBlock(blk)
-		require.NoError(t, err)
-		require.Equal(t, c.success, len(blk.Actions) == 1)
-		require.Equal(t, c.success, len(blk.Receipts) == 1)
+		require.NoError(err)
+		require.NoError(bc.CommitBlock(blk))
+		require.Equal(c.success, len(blk.Actions) == 1)
+		require.Equal(c.success, len(blk.Receipts) == 1)
+
+		// verify action has valid chainID
+		if c.success {
+			act := blk.Actions[0]
+			tsf, ok := act.Action().(*action.Transfer)
+			require.True(ok)
+			if withChainID {
+				require.Equal(c.chainID, act.ChainID())
+				require.Equal(c.chainID, tsf.ChainID())
+			} else {
+				require.Zero(act.ChainID())
+				require.Zero(tsf.ChainID())
+			}
+		}
 	}
 }
