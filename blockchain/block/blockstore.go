@@ -41,7 +41,7 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 
 // FromProto converts from proto message
 func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	blk, err := (&Deserializer{}).FromBlockProto(pb.Block)
+	blk, err := (&Deserializer{}).WithChainID(true).FromBlockProto(pb.Block)
 	if err != nil {
 		return err
 	}
