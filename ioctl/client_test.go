@@ -9,6 +9,7 @@ package ioctl
 import (
 	"context"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
@@ -114,7 +115,7 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
-		defer testutil.CleanupPath(configFilePath)
+		defer testutil.CleanupPath(path.Dir(configFilePath))
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
@@ -129,7 +130,7 @@ func TestGetAddress(t *testing.T) {
 
 func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
-	testWallet, err := os.MkdirTemp(os.TempDir(), "ksTest")
+	testWallet, err := os.MkdirTemp(os.TempDir(), "testKeyStore")
 	r.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -158,7 +159,7 @@ func TestAliasMap(t *testing.T) {
 	}
 
 	configFilePath := writeTempConfig(t, &cfg)
-	defer testutil.CleanupPath(configFilePath)
+	defer testutil.CleanupPath(path.Dir(configFilePath))
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
@@ -325,7 +326,7 @@ func TestDeleteAlias(t *testing.T) {
 
 func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
+	testPathd, err := os.MkdirTemp(os.TempDir(), "testConfig")
 	r.NoError(err)
 	configFilePath := testPathd + "/config.default"
 	out, err := yaml.Marshal(cfg)

@@ -8,7 +8,6 @@ package account
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountDelete(t *testing.T) {
@@ -30,11 +30,9 @@ func TestNewAccountDelete(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).Times(30)
 
-	testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
-	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
-	defer func() {
-		require.NoError(os.RemoveAll(testAccountFolder))
-	}()
+	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountDelete")
+	require.NoError(err)
+	defer testutil.CleanupPath(testAccountFolder)
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
