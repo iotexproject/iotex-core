@@ -205,7 +205,7 @@ func main() {
 		// Wait until the smart contract is successfully deployed
 		var (
 			receipt *iotextypes.Receipt
-			as = svrs[0].APIServer(1)
+			as      = svrs[0].APIServer(1)
 		)
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			receipt, err = util.GetReceiptByAction(as.GrpcServer, eHash)
