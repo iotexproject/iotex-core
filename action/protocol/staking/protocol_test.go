@@ -39,6 +39,8 @@ func TestProtocol(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	csr := newCandidateStateReader(sm)
+	csmTemp := newCandidateStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -87,10 +89,10 @@ func TestProtocol(t *testing.T) {
 	stk, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
 	r.NotNil(stk)
 	r.NoError(err)
-	buckets, _, err := getAllBuckets(sm)
+	buckets, _, err := csr.getAllBuckets()
 	r.NoError(err)
 	r.Equal(0, len(buckets))
-	c, _, err := getAllCandidates(sm)
+	c, _, err := csr.getAllCandidates()
 	r.Equal(state.ErrStateNotExist, err)
 	r.Equal(0, len(c))
 
@@ -100,7 +102,7 @@ func TestProtocol(t *testing.T) {
 	// write a number of buckets into stateDB
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
-		index, err := putBucketAndIndex(sm, vb)
+		index, err := csmTemp.putBucketAndIndex(vb)
 		r.NoError(err)
 		r.Equal(index, vb.Index)
 	}
@@ -144,7 +146,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load all candidates from stateDB and verify
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	r.NoError(err)
 	r.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
@@ -164,14 +166,14 @@ func TestProtocol(t *testing.T) {
 	r.Equal(c1, c2)
 
 	// load buckets from stateDB and verify
-	buckets, _, err = getAllBuckets(sm)
+	buckets, _, err = csr.getAllBuckets()
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
 	// delete one bucket
-	r.NoError(delBucket(sm, 1))
-	buckets, _, err = getAllBuckets(sm)
-	r.NoError(err)
-	r.Equal(len(tests)-1, len(buckets))
+	r.NoError(csm.delBucket(1))
+	buckets, _, err = csr.getAllBuckets()
+	r.NoError(csm.delBucket(1))
+	buckets, _, err = csr.getAllBuckets()
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {
@@ -293,7 +295,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: "test123",
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -305,7 +307,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: selfStake.String(),
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{
@@ -317,7 +319,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: selfStake.String(),
 				},
 			},
-			"address prefix io don't match",
+			"address length = 16, expecting 41",
 		},
 		{
 			[]genesis.BootstrapCandidate{

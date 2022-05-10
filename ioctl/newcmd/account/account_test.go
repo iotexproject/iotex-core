@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -30,13 +30,12 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
-	_testPath = "ksTest"
+	_testPath = "testNewAccount"
 )
 
 func TestNewAccountCmd(t *testing.T) {
@@ -206,7 +205,7 @@ func TestMeta(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
-	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
 
 	accAddr := identityset.Address(28).String()
@@ -238,7 +237,8 @@ func TestMeta(t *testing.T) {
 
 func TestAccountError(t *testing.T) {
 	require := require.New(t)
-	testFilePath := filepath.Join(os.TempDir(), _testPath)
+	testFilePath, err := os.MkdirTemp(os.TempDir(), _testPath)
+	require.NoError(err)
 	defer testutil.CleanupPath(testFilePath)
 	alias := "aaa"
 	passwordOfKeyStore := "123456"
@@ -258,7 +258,7 @@ func TestAccountError(t *testing.T) {
 		})
 	cmd := &cobra.Command{}
 	cmd.SetOut(new(bytes.Buffer))
-	_, err := newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
+	_, err = newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
 	require.Error(err)
 	require.Contains(err.Error(), fmt.Sprintf("keystore file \"%s\" read error", keyStorePath))
 
@@ -407,8 +407,8 @@ func TestNewAccountByKey(t *testing.T) {
 }
 
 func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
-	testWallet := filepath.Join(os.TempDir(), _testPath)
-	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
+	testWallet, err := os.MkdirTemp(os.TempDir(), _testPath)
+	if err != nil {
 		return testWallet, nil, "", "", err
 	}
 

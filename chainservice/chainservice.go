@@ -57,12 +57,12 @@ type ChainService struct {
 
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
-	return cs.lifecycle.OnStart(ctx)
+	return cs.lifecycle.OnStartSequentially(ctx)
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
-	return cs.lifecycle.OnStop(ctx)
+	return cs.lifecycle.OnStopSequentially(ctx)
 }
 
 // ReportFullness switch on or off block sync
@@ -71,7 +71,8 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	g := cs.chain.Genesis()
+	act, err := (&action.Deserializer{}).WithChainID(g.IsNewfoundland(cs.chain.TipHeight())).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
 	}
@@ -85,7 +86,8 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	g := cs.chain.Genesis()
+	blk, err := (&block.Deserializer{}).WithChainID(g.IsNewfoundland(pbBlock.Header.Core.Height)).FromBlockProto(pbBlock)
 	if err != nil {
 		return err
 	}

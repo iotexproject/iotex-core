@@ -451,8 +451,9 @@ github.com/iotexproject/go-pkgs v0.1.12-0.20220209063039-b876814568a0 h1:2afEg5W
 github.com/iotexproject/go-pkgs v0.1.12-0.20220209063039-b876814568a0/go.mod h1:wPM/LtoKhMvekRefuHe+oKPOBSpxmCPxlIuiQHeLrfQ=
 github.com/iotexproject/iotex-address v0.2.4/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-address v0.2.5/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
-github.com/iotexproject/iotex-address v0.2.6 h1:u3vh1fi1hdPyL9gjzqv4bqRj2nTKZG2cbqCcFIYho/s=
 github.com/iotexproject/iotex-address v0.2.6/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
+github.com/iotexproject/iotex-address v0.2.8 h1:jaTR5pZe/ljiYW4OqHl9NKPs0h1o91Gi6FILOTaBCXw=
+github.com/iotexproject/iotex-address v0.2.8/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-antenna-go/v2 v2.5.1-0.20210604061028-2c2056a5bfdb/go.mod h1:NqFzRL8RtA3xfXGpYbs0IY71HDiD6Dh2hD9iYngKLIU=
 github.com/iotexproject/iotex-antenna-go/v2 v2.5.1 h1:Z7X0qXxc/4hSSE3koBaFRpLAdiD6MlCxKbn7iAdI+xQ=
 github.com/iotexproject/iotex-antenna-go/v2 v2.5.1/go.mod h1:8pDZcM45M0gY6jm3PoM20rzoD2Z0vg3Hg64RS4c3qx0=
@@ -460,8 +461,8 @@ github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
 github.com/iotexproject/iotex-proto v0.5.2/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
-github.com/iotexproject/iotex-proto v0.5.10-0.20220324063310-405402bc20e8 h1:I6YPBKY6/7rye32ij6g4gmeGbrUcllzpVFjwdcY0+Ko=
-github.com/iotexproject/iotex-proto v0.5.10-0.20220324063310-405402bc20e8/go.mod h1:OfmLvjBmy5EYeLxxDv6kesJq+Mm3Adn5GKgDJgF9G9U=
+github.com/iotexproject/iotex-proto v0.5.10-0.20220415042310-0d4bcef3febf h1:WYy4bBinJXJBqkgIVQk7rTwQzW0d/Ci6DKQL6CnveM4=
+github.com/iotexproject/iotex-proto v0.5.10-0.20220415042310-0d4bcef3febf/go.mod h1:OfmLvjBmy5EYeLxxDv6kesJq+Mm3Adn5GKgDJgF9G9U=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

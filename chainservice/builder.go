@@ -239,13 +239,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 
 	var indexers []blockdao.BlockIndexer
 	indexers = append(indexers, builder.cs.factory)
-	if !builder.cfg.Chain.EnableAsyncIndexWrite {
-		if builder.cs.bfIndexer != nil {
-			indexers = append(indexers, builder.cs.bfIndexer)
-		}
-		if builder.cs.indexer != nil {
-			indexers = append(indexers, builder.cs.indexer)
-		}
+	if !builder.cfg.Chain.EnableAsyncIndexWrite && builder.cs.indexer != nil {
+		indexers = append(indexers, builder.cs.indexer)
+	}
+	if builder.cs.bfIndexer != nil {
+		indexers = append(indexers, builder.cs.bfIndexer)
 	}
 	if forTest {
 		builder.cs.blockdao = blockdao.NewBlockDAOInMemForTest(indexers)
@@ -260,37 +258,18 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	return nil
 }
 
-func (builder *Builder) buildStakingIndexer(forTest bool) error {
-	if !builder.cfg.Chain.EnableStakingIndexer {
-		return nil
-	}
-	var store db.KVStoreForRangeIndex
-	if forTest {
-		store = db.NewMemKVStore()
-	} else {
-		dbConfig := builder.cfg.DB
-		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
-
-		store = db.NewBoltDB(dbConfig)
-	}
-	indexer, err := staking.NewStakingCandidatesBucketsIndexer(store)
-	if err != nil {
-		return errors.Wrap(err, "failed to create staking candidate buckets indexer")
-	}
-	builder.cs.candBucketsIndexer = indexer
-	builder.cs.lifecycle.Add(builder.cs.candBucketsIndexer)
-
-	return nil
-}
-
 func (builder *Builder) buildGatewayComponents(forTest bool) error {
-	indexer, bfIndexer, candidateIndexer, err := builder.createGateWayComponents(forTest)
+	indexer, bfIndexer, candidateIndexer, candBucketsIndexer, err := builder.createGateWayComponents(forTest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create gateway components")
 	}
 	builder.cs.candidateIndexer = candidateIndexer
 	if builder.cs.candidateIndexer != nil {
 		builder.cs.lifecycle.Add(builder.cs.candidateIndexer)
+	}
+	builder.cs.candBucketsIndexer = candBucketsIndexer
+	if builder.cs.candBucketsIndexer != nil {
+		builder.cs.lifecycle.Add(builder.cs.candBucketsIndexer)
 	}
 	builder.cs.bfIndexer = bfIndexer
 	builder.cs.indexer = indexer
@@ -302,6 +281,7 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	indexer blockindex.Indexer,
 	bfIndexer blockindex.BloomFilterIndexer,
 	candidateIndexer *poll.CandidateIndexer,
+	candBucketsIndexer *staking.CandidatesBucketsIndexer,
 	err error,
 ) {
 	_, gateway := builder.cfg.Plugins[config.GatewayPlugin]
@@ -319,7 +299,12 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 			return
 		}
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewMemKVStore())
-
+		if err != nil {
+			return
+		}
+		if builder.cfg.Chain.EnableStakingIndexer {
+			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewMemKVStore())
+		}
 		return
 	}
 	dbConfig := builder.cfg.DB
@@ -339,7 +324,15 @@ func (builder *Builder) createGateWayComponents(forTest bool) (
 	// create candidate indexer
 	dbConfig.DbPath = builder.cfg.Chain.CandidateIndexDBPath
 	candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(dbConfig))
+	if err != nil {
+		return
+	}
 
+	// create staking indexer
+	if builder.cfg.Chain.EnableStakingIndexer {
+		dbConfig.DbPath = builder.cfg.Chain.StakingIndexDBPath
+		candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(dbConfig))
+	}
 	return
 }
 
@@ -352,7 +345,7 @@ func (builder *Builder) buildBlockchain(forSubChain, forTest bool) error {
 	}
 	if builder.cs.indexer != nil && builder.cfg.Chain.EnableAsyncIndexWrite {
 		// config asks for a standalone indexer
-		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cs.blockdao, builder.cs.indexer)
+		indexBuilder, err := blockindex.NewIndexBuilder(builder.cs.chain.ChainID(), builder.cfg.Genesis, builder.cs.blockdao, builder.cs.indexer)
 		if err != nil {
 			return errors.Wrap(err, "failed to create index builder")
 		}
@@ -438,6 +431,7 @@ func (builder *Builder) buildBlockSyncer() error {
 			}
 			if len(peers) == 0 {
 				log.L().Error("no peers")
+				return
 			}
 			if repeat < 2 {
 				repeat = 2
@@ -603,9 +597,6 @@ func (builder *Builder) build(forSubChain, forTest bool) (*ChainService, error) 
 		return nil, err
 	}
 	if err := builder.buildBlockDAO(forTest); err != nil {
-		return nil, err
-	}
-	if err := builder.buildStakingIndexer(forTest); err != nil {
 		return nil, err
 	}
 	if err := builder.buildBlockchain(forSubChain, forTest); err != nil {
