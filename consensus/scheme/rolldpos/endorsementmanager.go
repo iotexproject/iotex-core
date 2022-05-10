@@ -120,11 +120,12 @@ func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection
 	}
 }
 
-func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection, withChainID bool) error {
+func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection, checker chainIDChecker) error {
 	bc.endorsers = make(map[string]*endorserEndorsementCollection)
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
+		withChainID := checker(blockPro.Blk.Header.Core.Height)
 		blk, err := (&block.Deserializer{}).WithChainID(withChainID).FromBlockProto(blockPro.Blk)
 		if err != nil {
 			return err
@@ -283,7 +284,7 @@ func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementMana
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
 		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block, checker(block.Blk.Header.Core.Height)); err != nil {
+		if err := bc.fromProto(block, checker); err != nil {
 			return err
 		}
 		m.collections[managerPro.BlkHash[i]] = bc
