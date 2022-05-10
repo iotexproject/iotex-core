@@ -77,7 +77,7 @@ func TestNewAccountUpdate_FindPemFile(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountUpdate")
+	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountUpdate_FindPemFile")
 	require.NoError(err)
 	defer testutil.CleanupPath(testAccountFolder)
 	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
