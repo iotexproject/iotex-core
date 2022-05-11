@@ -195,9 +195,8 @@ func getBlockMeta(cli *iotexapi.APIServiceClient, request *iotexapi.GetBlockMeta
 // parseArg parse argument and returns GetBlockMetasRequest
 func parseArg(c ioctl.Client, arg string) (*iotexapi.GetBlockMetasRequest, error) {
 	var (
-		height  uint64
-		err     error
-		request *iotexapi.GetBlockMetasRequest
+		height uint64
+		err    error
 	)
 	if arg != "" {
 		height, err = strconv.ParseUint(arg, 10, 64)
@@ -225,14 +224,12 @@ func parseArg(c ioctl.Client, arg string) (*iotexapi.GetBlockMetasRequest, error
 		return nil, err
 	}
 	height = chainMeta.Height
-	request = &iotexapi.GetBlockMetasRequest{
+	return &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
 				Start: height,
 				Count: 1,
 			},
 		},
-	}
-
-	return request, nil
+	}, nil
 }
