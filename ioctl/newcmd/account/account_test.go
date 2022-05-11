@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -36,7 +35,7 @@ import (
 )
 
 const (
-	_testPath = "ksTest"
+	_testPath = "testNewAccount"
 )
 
 func TestNewAccountCmd(t *testing.T) {
@@ -121,8 +120,8 @@ func TestSign(t *testing.T) {
 func TestAccount(t *testing.T) {
 	require := require.New(t)
 	testWallet, ks, passwd, nonce, err := newTestAccount()
-	defer testutil.CleanupPath(testWallet)
 	require.NoError(err)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -238,7 +237,8 @@ func TestMeta(t *testing.T) {
 
 func TestAccountError(t *testing.T) {
 	require := require.New(t)
-	testFilePath := filepath.Join(os.TempDir(), _testPath)
+	testFilePath, err := os.MkdirTemp(os.TempDir(), _testPath)
+	require.NoError(err)
 	defer testutil.CleanupPath(testFilePath)
 	alias := "aaa"
 	passwordOfKeyStore := "123456"
@@ -258,7 +258,7 @@ func TestAccountError(t *testing.T) {
 		})
 	cmd := &cobra.Command{}
 	cmd.SetOut(new(bytes.Buffer))
-	_, err := newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
+	_, err = newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
 	require.Error(err)
 	require.Contains(err.Error(), fmt.Sprintf("keystore file \"%s\" read error", keyStorePath))
 
@@ -407,8 +407,8 @@ func TestNewAccountByKey(t *testing.T) {
 }
 
 func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
-	testWallet := filepath.Join(os.TempDir(), _testPath)
-	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
+	testWallet, err := os.MkdirTemp(os.TempDir(), _testPath)
+	if err != nil {
 		return testWallet, nil, "", "", err
 	}
 

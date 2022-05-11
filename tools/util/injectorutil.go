@@ -28,8 +28,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/api"
-	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
@@ -158,7 +156,7 @@ func InjectByAps(
 	retryInterval int,
 	resetInterval int,
 	expectedBalances map[string]*big.Int,
-	cs *chainservice.ChainService,
+	cs *api.GRPCServer,
 	pendingActionMap *ttl.Cache,
 ) {
 	timeout := time.After(duration)
@@ -692,7 +690,7 @@ func GetAllBalanceMap(
 // 1) update the expectation balance map if the action has been run successfully
 // 2) remove the action from pending list
 func CheckPendingActionList(
-	cs *chainservice.ChainService,
+	cs *api.GRPCServer,
 	pendingActionMap *ttl.Cache,
 	balancemap map[string]*big.Int,
 ) (bool, error) {
@@ -702,9 +700,9 @@ func CheckPendingActionList(
 	pendingActionMap.Range(func(selphash, vi interface{}) error {
 		empty = false
 		sh, _ := selphash.(hash.Hash256)
-		receipt, err := GetReceiptByAction(cs.APIServer(), sh)
+		receipt, err := GetReceiptByAction(cs, sh)
 		if err == nil {
-			actInfo, err := GetActionByActionHash(cs.APIServer(), selphash.(hash.Hash256))
+			actInfo, err := GetActionByActionHash(cs, selphash.(hash.Hash256))
 			if err != nil {
 				retErr = err
 				return nil
@@ -839,8 +837,8 @@ func updateStakeExpectedBalanceMap(
 }
 
 // GetActionByActionHash acquires action by calling coreService
-func GetActionByActionHash(coreService api.CoreService, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
-	act, err := coreService.Action(hex.EncodeToString(actHash[:]), false)
+func GetActionByActionHash(api api.CoreService, actHash hash.Hash256) (*iotexapi.ActionInfo, error) {
+	act, err := api.Action(hex.EncodeToString(actHash[:]), false)
 	if err != nil {
 		return nil, err
 	}
@@ -848,8 +846,8 @@ func GetActionByActionHash(coreService api.CoreService, actHash hash.Hash256) (*
 }
 
 // GetReceiptByAction acquires receipt by calling coreService
-func GetReceiptByAction(coreService api.CoreService, actHash hash.Hash256) (*iotextypes.Receipt, error) {
-	receipt, _, err := coreService.ReceiptByAction(actHash)
+func GetReceiptByAction(api api.CoreService, actHash hash.Hash256) (*iotextypes.Receipt, error) {
+	receipt, _, err := api.ReceiptByAction(actHash)
 	if err != nil {
 		return nil, err
 	}
