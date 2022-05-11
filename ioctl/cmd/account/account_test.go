@@ -25,7 +25,9 @@ import (
 )
 
 const (
-	_testPath = "ksTest"
+	_testPath        = "ksTest"
+	veryLightScryptN = 2
+	veryLightScryptP = 1
 )
 
 func TestAccount(t *testing.T) {
@@ -36,7 +38,7 @@ func TestAccount(t *testing.T) {
 	defer testutil.CleanupPath(testWallet)
 	config.ReadConfig.Wallet = testWallet
 
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, veryLightScryptN, veryLightScryptP)
 	r.NotNil(ks)
 
 	// create accounts

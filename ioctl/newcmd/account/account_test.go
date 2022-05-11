@@ -35,7 +35,9 @@ import (
 )
 
 const (
-	_testPath = "testNewAccount"
+	_testPath        = "testNewAccount"
+	veryLightScryptN = 2
+	veryLightScryptP = 1
 )
 
 func TestNewAccountCmd(t *testing.T) {
@@ -413,7 +415,7 @@ func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
 	}
 
 	// create accounts
-	ks := keystore.NewKeyStore(testWallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(testWallet, veryLightScryptN, veryLightScryptP)
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
 	return testWallet, ks, passwd, nonce, nil
