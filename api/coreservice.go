@@ -916,7 +916,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	if start+count > totalActions {
 		count = totalActions - start
 	}
-	if core.indexer == nil {
+	if core.indexer != nil {
 		return core.getActionsFromIndex(totalActions, start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
