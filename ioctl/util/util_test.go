@@ -105,8 +105,8 @@ func TestNewfoundland(t *testing.T) {
 	}{
 		{1, 20027640, false},
 		{1, 20027641, true},
-		{2, 14202720, false},
-		{2, 14202721, true},
+		{2, 14268960, false},
+		{2, 14268961, true},
 		{3, 1, false},
 		{3, 1000000000000000000, false},
 	} {
