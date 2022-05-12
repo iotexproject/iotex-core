@@ -32,7 +32,7 @@ func TestNewAccountExport(t *testing.T) {
 	require.NoError(err)
 	defer testutil.CleanupPath(testAccountFolder)
 
-	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
 	t.Run("true AliasIsHdwalletKey", func(t *testing.T) {
