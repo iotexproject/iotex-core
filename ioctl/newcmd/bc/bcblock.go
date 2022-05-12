@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2022 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -11,19 +11,19 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -43,13 +43,16 @@ var (
 )
 
 // NewBCBlockCmd represents the bc block command
-func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
-	bcBlockCmdUse, _ := client.SelectTranslation(_bcBlockCmdUses)
-	bcBlockCmdShort, _ := client.SelectTranslation(_bcBlockCmdShorts)
+func NewBCBlockCmd(c ioctl.Client) *cobra.Command {
+	bcBlockCmdUse, _ := c.SelectTranslation(_bcBlockCmdUses)
+	bcBlockCmdShort, _ := c.SelectTranslation(_bcBlockCmdShorts)
+	flagVerboseUsage, _ := c.SelectTranslation(_flagVerboseUsages)
 
-	var verbose bool
-	var endpoint string
-	var insecure bool
+	var (
+		verbose  bool
+		endpoint string
+		insecure bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   bcBlockCmdUse,
@@ -57,74 +60,65 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var height uint64
-			var err error
-			isHeight := true
+			var (
+				err        error
+				request    *iotexapi.GetBlockMetasRequest
+				blockMeta  *iotextypes.BlockMeta
+				blocksInfo []*iotexapi.BlockInfo
+			)
 
-			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
+			apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
 				Endpoint: endpoint,
 				Insecure: insecure,
 			})
 			if err != nil {
 				return err
 			}
-
 			if len(args) != 0 {
-				height, err = strconv.ParseUint(args[0], 10, 64)
-				if err != nil {
-					isHeight = false
-				} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-					return output.NewError(output.ValidationError, "invalid height", err)
-				}
+				request, err = parseArg(c, args[0])
 			} else {
-				chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
-				if err != nil {
-					return err
-				}
-				height = chainMetaResponse.ChainMeta.Height
-			}
-			var blockMeta *iotextypes.BlockMeta
-			var blocksInfo []*iotexapi.BlockInfo
-			if isHeight {
-				blockMeta, err = getBlockMetaByHeight(&apiServiceClient, height)
-			} else {
-				blockMeta, err = getBlockMetaByHash(&apiServiceClient, args[0])
+				request, err = parseArg(c, "")
 			}
 			if err != nil {
-				return output.NewError(0, "failed to get block meta", err)
+				return err
 			}
-			blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, Actions: nil}
+
+			blockMeta, err = getBlockMeta(&apiServiceClient, request)
+			if err != nil {
+				return errors.Wrap(err, "failed to get block meta")
+			}
+			message := blockMessage{Node: c.Config().Endpoint, Block: blockMeta, Actions: nil}
 			if verbose {
 				blocksInfo, err = getActionInfoWithinBlock(&apiServiceClient, blockMeta.Height, uint64(blockMeta.NumActions))
 				if err != nil {
-					return output.NewError(0, "failed to get actions info", err)
+					return errors.Wrap(err, "failed to get actions info")
 				}
 				for _, ele := range blocksInfo {
-					for _, item := range ele.Block.Body.Actions {
+					for i, item := range ele.Block.Body.Actions {
 						actionInfo := actionInfo{
-							Version:      item.Core.Version,
-							Nonce:        item.Core.Nonce,
-							GasLimit:     item.Core.GasLimit,
-							GasPrice:     item.Core.GasPrice,
-							SenderPubKey: item.SenderPubKey,
-							Signature:    item.Signature,
+							Version:         item.Core.Version,
+							Nonce:           item.Core.Nonce,
+							GasLimit:        item.Core.GasLimit,
+							GasPrice:        item.Core.GasPrice,
+							SenderPubKey:    item.SenderPubKey,
+							Signature:       item.Signature,
+							Status:          ele.Receipts[i].Status,
+							BlkHeight:       ele.Receipts[i].BlkHeight,
+							ActHash:         hash.Hash256b(ele.Receipts[i].ActHash),
+							GasConsumed:     ele.Receipts[i].GasConsumed,
+							ContractAddress: ele.Receipts[i].ContractAddress,
+							Logs:            ele.Receipts[i].Logs,
 						}
-						blockInfoMessage.Actions = append(blockInfoMessage.Actions, actionInfo)
+						message.Actions = append(message.Actions, actionInfo)
 					}
 				}
 			}
-			fmt.Println(blockInfoMessage.String())
+			cmd.Println(fmt.Sprintf("Blockchain Node: %s\n%s\n%s", message.Node, JSONString(message.Block), JSONString(message.Actions)))
 			return nil
 		},
 	}
 
-	flagVerboseUsage, _ := client.SelectTranslation(_flagVerboseUsages)
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
-
 	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, flagVerboseUsage)
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
 
 	return cmd
 }
@@ -136,20 +130,18 @@ type blockMessage struct {
 }
 
 type actionInfo struct {
-	Version      uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Nonce        uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	GasLimit     uint64 `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
-	GasPrice     string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
-	SenderPubKey []byte `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	Signature    []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-}
-
-func (m *blockMessage) String() string {
-	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s\n%s", m.Node, output.JSONString(m.Block), output.JSONString(m.Actions))
-		return message
-	}
-	return output.FormatString(output.Result, m)
+	Version         uint32            `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce           uint64            `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasLimit        uint64            `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
+	GasPrice        string            `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
+	SenderPubKey    []byte            `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
+	Signature       []byte            `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Status          uint64            `protobuf:"varint,4,opt,name=status,proto3" json:"status,omitempty"`
+	BlkHeight       uint64            `protobuf:"varint,5,opt,name=blkheight,proto3" json:"blkheight,omitempty"`
+	ActHash         hash.Hash256      `protobuf:"bytes,4,opt,name=acthash,proto3" json:"acthash,omitempty"`
+	GasConsumed     uint64            `protobuf:"varint,6,opt,name=gasconsumed,proto3" json:"gasconsumed,omitempty"`
+	ContractAddress string            `protobuf:"bytes,5,opt,name=contractaddress,proto3" json:"contractaddress,omitempty"`
+	Logs            []*iotextypes.Log `protobuf:"bytes,6,opt,name=logs,proto3" json:"logs,omitempty"`
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
@@ -166,72 +158,78 @@ func getActionInfoWithinBlock(cli *iotexapi.APIServiceClient, height uint64, cou
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.New(sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetRawBlocks api", err)
+		return nil, errors.Wrap(err, "failed to invoke GetRawBlocks api")
 	}
 	if len(response.Blocks) == 0 {
-		return nil, output.NewError(output.APIError, "no actions returned", err)
+		return nil, errors.New("no actions returned")
 	}
 	return response.Blocks, nil
 
 }
 
-// getBlockMetaByHeight gets block metadata by height
-func getBlockMetaByHeight(cli *iotexapi.APIServiceClient, height uint64) (*iotextypes.BlockMeta, error) {
-	request := &iotexapi.GetBlockMetasRequest{
+// getBlockMeta gets block metadata
+func getBlockMeta(cli *iotexapi.APIServiceClient, request *iotexapi.GetBlockMetasRequest) (*iotextypes.BlockMeta, error) {
+	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	response, err := (*cli).GetBlockMetas(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, errors.New(sta.Message())
+		}
+		return nil, errors.Wrap(err, "failed to invoke GetBlockMetas api")
+	}
+	if len(response.BlkMetas) == 0 {
+		return nil, errors.New("no block returned")
+	}
+	return response.BlkMetas[0], nil
+}
+
+// parseArg parse argument and returns GetBlockMetasRequest
+func parseArg(c ioctl.Client, arg string) (*iotexapi.GetBlockMetasRequest, error) {
+	var (
+		height uint64
+		err    error
+	)
+	if arg != "" {
+		height, err = strconv.ParseUint(arg, 10, 64)
+		if err != nil {
+			return &iotexapi.GetBlockMetasRequest{
+				Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+					ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: arg},
+				},
+			}, nil
+		}
+		if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+			return nil, errors.Wrap(err, "invalid height")
+		}
+		return &iotexapi.GetBlockMetasRequest{
+			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+					Start: height,
+					Count: 1,
+				},
+			},
+		}, nil
+	}
+	chainMeta, err := GetChainMeta(c)
+	if err != nil {
+		return nil, err
+	}
+	height = chainMeta.Height
+	return &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
 				Start: height,
 				Count: 1,
 			},
 		},
-	}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
-
-	response, err := (*cli).GetBlockMetas(ctx, request)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
-	}
-	if len(response.BlkMetas) == 0 {
-		return nil, output.NewError(output.APIError, "no block returned", err)
-	}
-	return response.BlkMetas[0], nil
-}
-
-// getBlockMetaByHash gets block metadata by hash
-func getBlockMetaByHash(cli *iotexapi.APIServiceClient, hash string) (*iotextypes.BlockMeta, error) {
-	request := &iotexapi.GetBlockMetasRequest{
-		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
-			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: hash},
-		},
-	}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
-
-	response, err := (*cli).GetBlockMetas(ctx, request)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
-	}
-	if len(response.BlkMetas) == 0 {
-		return nil, output.NewError(output.APIError, "no block returned", err)
-	}
-	return response.BlkMetas[0], nil
+	}, nil
 }
