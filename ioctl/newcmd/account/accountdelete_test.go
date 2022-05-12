@@ -36,8 +36,7 @@ func TestNewAccountDelete(t *testing.T) {
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
-		ks := keystore.NewKeyStore(testAccountFolder,
-			keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 		acc, _ := ks.NewAccount("test")
 		accAddr, _ := address.FromBytes(acc.Address.Bytes())
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(2)

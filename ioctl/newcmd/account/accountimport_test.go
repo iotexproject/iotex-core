@@ -38,7 +38,7 @@ func TestNewAccountImportCmd(t *testing.T) {
 
 func TestNewAccountImportKeyCmd(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, _, _, err := newTestAccount()
+	testWallet, ks, _, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -63,7 +63,7 @@ func TestNewAccountImportKeyCmd(t *testing.T) {
 
 func TestNewAccountImportKeyStoreCmd(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -93,7 +93,7 @@ func TestNewAccountImportKeyStoreCmd(t *testing.T) {
 
 func TestNewAccountImportPemCmd(t *testing.T) {
 	require := require.New(t)
-	testWallet, _, passwd, _, err := newTestAccount()
+	testWallet, passwd, _, err := newTestAccount()
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 

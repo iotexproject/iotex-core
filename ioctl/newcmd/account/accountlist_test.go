@@ -34,7 +34,7 @@ func TestNewAccountList(t *testing.T) {
 		require.NoError(err)
 		defer testutil.CleanupPath(testAccountFolder)
 
-		ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 		genAccount := func(passwd string) string {
 			account, err := ks.NewAccount(passwd)
 			require.NoError(err)

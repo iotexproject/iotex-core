@@ -26,7 +26,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testWallet, ks, pwd, _, err := newTestAccount()
+	testWallet, ks, pwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
