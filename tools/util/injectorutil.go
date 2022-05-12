@@ -157,7 +157,7 @@ func InjectByAps(
 	retryInterval int,
 	resetInterval int,
 	expectedBalances map[string]*big.Int,
-	cs *api.GRPCServer,
+	cs api.CoreService,
 	pendingActionMap *ttl.Cache,
 ) {
 	timeout := time.After(duration)
@@ -691,7 +691,7 @@ func GetAllBalanceMap(
 // 1) update the expectation balance map if the action has been run successfully
 // 2) remove the action from pending list
 func CheckPendingActionList(
-	cs *api.GRPCServer,
+	cs api.CoreService,
 	pendingActionMap *ttl.Cache,
 	balancemap map[string]*big.Int,
 ) (bool, error) {
