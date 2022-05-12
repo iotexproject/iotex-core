@@ -90,7 +90,7 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			if err := client.SetAlias(args[0], addr); err != nil {
+			if err := client.SetAliasAndSave(args[0], addr); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile)
 			}
 			cmd.Println(fmt.Sprintf(_outputMessage, args[0]))

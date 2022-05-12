@@ -40,7 +40,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 		},
 	}).Times(4)
 	client.EXPECT().NewKeyStore().Return(ks).Times(2)
-	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	client.EXPECT().SetAliasAndSave(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true)
