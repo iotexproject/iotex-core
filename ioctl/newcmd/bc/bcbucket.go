@@ -78,14 +78,14 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			switch args[0] {
 			case _bcBucketOptMax:
-				count, err := getBucketsCount()
+				count, err := getBucketsCount(c)
 				if err != nil {
 					return err
 				}
 				cmd.Println(count.GetTotal())
 				return nil
 			case _bcBucketOptCount:
-				count, err := getBucketsCount()
+				count, err := getBucketsCount(c)
 				if err != nil {
 					return err
 				}
@@ -95,7 +95,7 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				bucketpb, err := getBucketByIndex(bucketindex)
+				bucketpb, err := getBucketByIndex(c, bucketindex)
 				if err != nil {
 					return err
 				}
@@ -107,7 +107,7 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 					return err
 				}
 				message := bucketMessage{
-					Node:   config.ReadConfig.Endpoint,
+					Node:   c.Config().Endpoint,
 					Bucket: bucket,
 				}
 				cmd.Println(message.Bucket.String())
@@ -161,8 +161,8 @@ func (b *bucket) String() string {
 	return strings.Join(lines, "\n")
 }
 
-func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
+	conn, err := util.ConnectToEndpoint(c.Config().SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to endpoint")
 	}
@@ -217,8 +217,8 @@ func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
 	return buckets.GetBuckets()[0], nil
 }
 
-func getBucketsCount() (count *iotextypes.BucketsCount, err error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+func getBucketsCount(c ioctl.Client) (count *iotextypes.BucketsCount, err error) {
+	conn, err := util.ConnectToEndpoint(c.Config().SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to endpoint")
 	}
