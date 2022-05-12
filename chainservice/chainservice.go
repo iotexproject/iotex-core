@@ -137,11 +137,6 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
-// APIServer returns the CoreService Interface
-func (cs *ChainService) APIServer() api.CoreService {
-	return cs.api.CoreService()
-}
-
 // Consensus returns the consensus instance
 func (cs *ChainService) Consensus() consensus.Consensus {
 	return cs.consensus

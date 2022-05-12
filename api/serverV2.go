@@ -159,7 +159,7 @@ func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
 	return svr.core.ReceiveBlock(blk)
 }
 
-// CoreService returns the member
+// CoreService returns the coreservice of the api
 func (svr *ServerV2) CoreService() CoreService {
 	return svr.core
 }
