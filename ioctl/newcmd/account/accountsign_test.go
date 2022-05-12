@@ -30,7 +30,7 @@ func TestNewAccountSign(t *testing.T) {
 	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountSign")
 	require.NoError(err)
 	defer testutil.CleanupPath(testAccountFolder)
-	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
 	t.Run("invalid_account", func(t *testing.T) {
