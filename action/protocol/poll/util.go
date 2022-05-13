@@ -168,12 +168,16 @@ func setCandidates(
 		return errors.New("put poll result height should be epoch start height")
 	}
 	loadCandidatesLegacy := featureCtx.LoadCandidatesLegacy(height)
+	accountCreationOpts := []state.AccountCreationOption{state.DelegateCandidateOption()}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
 	for _, candidate := range candidates {
 		addr, err := address.FromString(candidate.Address)
 		if err != nil {
 			return errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
 		}
-		delegate, err := accountutil.LoadOrCreateAccount(sm, addr, state.DelegateCandidateOption())
+		delegate, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}

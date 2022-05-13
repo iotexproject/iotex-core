@@ -109,7 +109,7 @@ func TestProtocol_Initialize(t *testing.T) {
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 0,
 	})
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, ge))
 	p := NewProtocol(rewarding.DepositGas)
 	require.NoError(
 		p.CreateGenesisStates(

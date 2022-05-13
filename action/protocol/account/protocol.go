@@ -107,7 +107,7 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) error {
+func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int, opts ...state.AccountCreationOption) error {
 	account := state.NewEmptyAccount()
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
@@ -119,6 +119,10 @@ func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) 
 	case nil:
 		return errors.Errorf("failed to create account %s", encodedAddr)
 	case state.ErrStateNotExist:
+		account, err := state.NewAccount(opts...)
+		if err != nil {
+			return err
+		}
 		if err := account.AddBalance(init); err != nil {
 			return errors.Wrapf(err, "failed to add balance %s", init)
 		}
@@ -144,8 +148,12 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 	if err := p.assertAmounts(amounts); err != nil {
 		return err
 	}
+	opts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		opts = append(opts, state.ZeroNonceAccountTypeOption())
+	}
 	for i, addr := range addrs {
-		if err := createAccount(sm, addr.String(), amounts[i]); err != nil {
+		if err := createAccount(sm, addr.String(), amounts[i], opts...); err != nil {
 			return err
 		}
 	}

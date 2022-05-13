@@ -1361,9 +1361,9 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		require.NoError(t, err)
 		_, err = ws.DelState(protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
-		_, err = ws.State(&acc, protocol.LegacyKeyOption(key))
+		_, err = ws.State(acc, protocol.LegacyKeyOption(key))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-		_, err = ws.State(&acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
+		_, err = ws.State(acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
 	}
 	ctx := genesis.WithGenesisContext(

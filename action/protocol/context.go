@@ -105,6 +105,7 @@ type (
 		RevertLog                   bool
 		TolerateLegacyAddress       bool
 		ValidateRewardProtocol      bool
+		CreateZeroNonceAccount      bool
 		SkipUpdateForSystemAction   bool
 	}
 
@@ -235,6 +236,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			RevertLog:                   g.IsMidway(height),
 			TolerateLegacyAddress:       !g.IsNewfoundland(height),
 			ValidateRewardProtocol:      g.IsNewfoundland(height),
+			CreateZeroNonceAccount:      g.IsToBeEnabled(height),
 			SkipUpdateForSystemAction:   g.IsToBeEnabled(height),
 		},
 	)

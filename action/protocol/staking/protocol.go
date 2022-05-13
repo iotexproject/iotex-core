@@ -517,7 +517,11 @@ func (p *Protocol) settleAction(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, err
 	}

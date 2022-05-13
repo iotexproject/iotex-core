@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -65,8 +66,12 @@ func (p *Protocol) Deposit(
 	transactionLogType iotextypes.TransactionLogType,
 ) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
 	// Subtract balance from caller
-	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, err
 	}

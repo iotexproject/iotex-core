@@ -428,15 +428,19 @@ func (p *Protocol) settleAction(
 		if depositLog != nil {
 			tLogs = append(tLogs, depositLog)
 		}
-		if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce, isSystemAction); err != nil {
+		if err := p.increaseNonce(ctx, sm, actionCtx.Caller, actionCtx.Nonce, isSystemAction); err != nil {
 			return nil, err
 		}
 	}
 	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs, tLogs...), nil
 }
 
-func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64, isSystemAction bool) error {
-	acc, err := accountutil.LoadOrCreateAccount(sm, addr)
+func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, addr address.Address, nonce uint64, isSystemAction bool) error {
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}

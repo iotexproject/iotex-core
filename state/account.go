@@ -25,7 +25,17 @@ var (
 	ErrAccountCollision = errors.New("account already exists")
 	// ErrInvalidNonce is the error that the nonce to set is invalid
 	ErrInvalidNonce = errors.New("invalid nonce")
+	// ErrUnknownAccountType is the error that the account type is unknown
+	ErrUnknownAccountType = errors.New("unknown account type")
 )
+
+// ZeroNonceAccountTypeOption is an option to create account with new account type
+func ZeroNonceAccountTypeOption() AccountCreationOption {
+	return func(account *Account) error {
+		account.accountType = 1
+		return nil
+	}
+}
 
 // DelegateCandidateOption is an option to create a delegate candidate account
 func DelegateCandidateOption() AccountCreationOption {
@@ -41,7 +51,7 @@ type (
 
 	// Account is the canonical representation of an account.
 	Account struct {
-		// 0 is reserved from actions in genesis block and coinbase transfers nonces
+		// for Type 0, nonce 0 is reserved from actions in genesis block and coinbase transfers nonces
 		// other actions' nonces start from 1
 		nonce        uint64
 		Balance      *big.Int
@@ -49,6 +59,7 @@ type (
 		CodeHash     []byte       // hash of the smart contract byte-code for contract account
 		isCandidate  bool
 		votingWeight *big.Int
+		accountType  int32
 	}
 )
 
@@ -56,6 +67,10 @@ type (
 func (st *Account) ToProto() *accountpb.Account {
 	acPb := &accountpb.Account{}
 	acPb.Nonce = st.nonce
+	if _, ok := accountpb.AccountType_name[st.accountType]; !ok {
+		panic("unknown account type")
+	}
+	acPb.Type = accountpb.AccountType(st.accountType)
 	if st.Balance != nil {
 		acPb.Balance = st.Balance.String()
 	}
@@ -78,6 +93,7 @@ func (st Account) Serialize() ([]byte, error) {
 // FromProto converts from protobuf's Account
 func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.nonce = acPb.Nonce
+	st.accountType = int32(acPb.Type.Number())
 	if acPb.Balance == "" {
 		st.Balance = big.NewInt(0)
 	} else {
@@ -110,18 +126,39 @@ func (st *Account) Deserialize(buf []byte) error {
 	return nil
 }
 
-// SetNonce sets the nonce of the account
+// IsNewbieAccount returns true if the account has not sent any actions
+func (st *Account) IsNewbieAccount() bool {
+	return st.nonce == 0
+}
+
+// SetNonce sets the nonce according to type
 func (st *Account) SetNonce(nonce uint64) error {
-	if nonce != st.nonce+1 {
-		return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+1)
+	switch st.accountType {
+	case 1:
+		if nonce != st.nonce {
+			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce)
+		}
+		st.nonce = nonce + 1
+	case 0:
+		if nonce != st.nonce+1 {
+			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+1)
+		}
+		st.nonce = nonce
+	default:
+		return errors.Wrapf(ErrUnknownAccountType, "account type %d", st.accountType)
 	}
-	st.nonce = nonce
+
 	return nil
 }
 
 // PendingNonce returns the pending nonce of the account
 func (st *Account) PendingNonce() uint64 {
-	return st.nonce + 1
+	switch st.accountType {
+	case 1:
+		return st.nonce
+	default: // 0
+		return st.nonce + 1
+	}
 }
 
 // HasSufficientBalance returns true if balance is larger than amount
@@ -168,6 +205,8 @@ func (st *Account) Clone() *Account {
 	s := *st
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)
+	s.accountType = st.accountType
+	s.nonce = st.nonce
 	s.votingWeight = nil
 	if st.votingWeight != nil {
 		s.votingWeight = new(big.Int).Set(st.votingWeight)

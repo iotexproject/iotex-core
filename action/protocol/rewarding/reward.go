@@ -388,9 +388,12 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 			return err
 		}
 	}
-
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
 	// Update primary account
-	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr)
+	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}

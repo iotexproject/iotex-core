@@ -807,8 +807,11 @@ func (p *Protocol) fetchBucket(
 
 func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-
-	caller, err := accountutil.LoadAccount(csm.SM(), actionCtx.Caller)
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
+	caller, err := accountutil.LoadAccount(csm.SM(), actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, &handleError{
 			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),

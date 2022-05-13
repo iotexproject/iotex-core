@@ -25,14 +25,17 @@ const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
 	}
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	}
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller)
+	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
@@ -74,11 +77,14 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
-	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
+	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr, accountCreationOpts...)
+	if !fCtx.TolerateLegacyAddress {
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
+		}
 	}
-	if recipientAcct.IsContract() {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if err == nil && recipientAcct.IsContract() {
 		// update sender Nonce
 		if err := sender.SetNonce(tsf.Nonce()); err != nil {
 			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
@@ -119,7 +125,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr)
+	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
