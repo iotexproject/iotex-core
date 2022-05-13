@@ -254,6 +254,20 @@ func (mr *MockClientMockRecorder) SetAlias(arg0, arg1 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAlias", reflect.TypeOf((*MockClient)(nil).SetAlias), arg0, arg1)
 }
 
+// SetAliasAndSave mocks base method.
+func (m *MockClient) SetAliasAndSave(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAliasAndSave", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAliasAndSave indicates an expected call of SetAliasAndSave.
+func (mr *MockClientMockRecorder) SetAliasAndSave(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAliasAndSave", reflect.TypeOf((*MockClient)(nil).SetAliasAndSave), arg0, arg1)
+}
+
 // SetEndpointWithFlag mocks base method.
 func (m *MockClient) SetEndpointWithFlag(arg0 func(*string, string, string, string), arg1 string) {
 	m.ctrl.T.Helper()
@@ -276,19 +290,6 @@ func (m *MockClient) SetInsecureWithFlag(arg0 func(*bool, string, bool, string),
 func (mr *MockClientMockRecorder) SetInsecureWithFlag(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInsecureWithFlag", reflect.TypeOf((*MockClient)(nil).SetInsecureWithFlag), arg0, arg1)
-
-// SetAliasAndSave mocks base method.
-func (m *MockClient) SetAliasAndSave(arg0, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAliasAndSave", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetAliasAndSave indicates an expected call of SetAliasAndSave.
-func (mr *MockClientMockRecorder) SetAliasAndSave(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAliasAndSave", reflect.TypeOf((*MockClient)(nil).SetAliasAndSave), arg0, arg1)
 }
 
 // Start mocks base method.
