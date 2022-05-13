@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -249,7 +249,7 @@ func TestSetAlias(t *testing.T) {
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
 		c := NewClient(test.cfg, configFilePath)
-		r.NoError(c.SetAlias(test.alias, test.addr))
+		r.NoError(c.SetAliasAndSave(test.alias, test.addr))
 		cfgload := loadTempConfig(t, configFilePath)
 		count := 0
 		for _, v := range cfgload.Aliases {
