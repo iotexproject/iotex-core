@@ -63,10 +63,14 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
-		// SetAlias write alias and account address to the default config file
-		SetAlias(string, string) error
+		// SetAlias updates aliasname and account address and not write them into the default config file
+		SetAlias(string, string)
+		// SetAliasAndSave updates aliasname and account address and write them into the default config file
+		SetAliasAndSave(string, string) error
 		// DeleteAlias delete alias from the default config file
 		DeleteAlias(string) error
+		// WriteConfig write config datas to the default config file
+		WriteConfig() error
 		// IsCryptoSm2 return true if use sm2 cryptographic algorithm, false if not use
 		IsCryptoSm2() bool
 		// QueryAnalyser sends request to Analyser endpoint
@@ -251,22 +255,26 @@ func (c *client) AliasMap() map[string]string {
 	return aliases
 }
 
-func (c *client) SetAlias(alias string, addr string) error {
+func (c *client) SetAlias(aliasName string, addr string) {
 	for k, v := range c.cfg.Aliases {
 		if v == addr {
 			delete(c.cfg.Aliases, k)
 		}
 	}
-	c.cfg.Aliases[alias] = addr
-	return c.writeAlias()
+	c.cfg.Aliases[aliasName] = addr
 }
 
-func (c *client) DeleteAlias(alias string) error {
-	delete(c.cfg.Aliases, alias)
-	return c.writeAlias()
+func (c *client) SetAliasAndSave(aliasName string, addr string) error {
+	c.SetAlias(aliasName, addr)
+	return c.WriteConfig()
 }
 
-func (c *client) writeAlias() error {
+func (c *client) DeleteAlias(aliasName string) error {
+	delete(c.cfg.Aliases, aliasName)
+	return c.WriteConfig()
+}
+
+func (c *client) WriteConfig() error {
 	out, err := yaml.Marshal(&c.cfg)
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal config to config file %s", c.configFilePath)
