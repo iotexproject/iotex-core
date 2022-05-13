@@ -221,6 +221,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 
 func TestProtocol_Validate(t *testing.T) {
 	g := config.Default.Genesis
+	g.NewfoundlandBlockHeight = 0
 	p := NewProtocol(g.Rewarding)
 	act := createGrantRewardAction(0, uint64(0)).Action()
 	ctx := protocol.WithBlockCtx(
@@ -230,8 +231,12 @@ func TestProtocol_Validate(t *testing.T) {
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
-	ctx = protocol.WithActionCtx(
+	ctx = genesis.WithGenesisContext(
 		ctx,
+		genesis.Genesis{},
+	)
+	ctx = protocol.WithActionCtx(
+		protocol.WithFeatureCtx(ctx),
 		protocol.ActionCtx{
 			Caller:   identityset.Address(0),
 			GasPrice: big.NewInt(0),

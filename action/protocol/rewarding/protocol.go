@@ -184,6 +184,9 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 }
 
 func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	if !protocol.MustGetFeatureCtx(ctx).ValidateRewardProtocol {
+		return nil
+	}
 	switch act.(type) {
 	case *action.GrantReward:
 		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, protocol.MustGetActionCtx(ctx).Caller) {
