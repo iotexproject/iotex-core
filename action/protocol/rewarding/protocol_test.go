@@ -219,6 +219,35 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	test(t, ctx, sm, p)
 }
 
+func TestProtocol_Validate(t *testing.T) {
+	g := config.Default.Genesis
+	p := NewProtocol(g.Rewarding)
+	act := createGrantRewardAction(0, uint64(0)).Action()
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+		},
+	)
+	require.NoError(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(1),
+			GasPrice: big.NewInt(0),
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+}
+
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 

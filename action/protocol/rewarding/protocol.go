@@ -183,6 +183,16 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 		Build()
 }
 
+func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	switch act.(type) {
+	case *action.GrantReward:
+		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, protocol.MustGetActionCtx(ctx).Caller) {
+			return errors.New("Only producer could create reward")
+		}
+	}
+	return nil
+}
+
 // Handle handles the actions on the rewarding protocol
 func (p *Protocol) Handle(
 	ctx context.Context,
