@@ -103,6 +103,7 @@ type (
 		RevertLog                   bool
 		TolerateLegacyAddress       bool
 		EnableWeb3Staking           bool
+		ValidateRewardProtocol      bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -232,6 +233,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			RevertLog:                   g.IsMidway(height),
 			TolerateLegacyAddress:       !g.IsNewfoundland(height),
 			EnableWeb3Staking:           g.IsNewfoundland(height),
+			ValidateRewardProtocol:      g.IsNewfoundland(height),
 		},
 	)
 }
