@@ -190,8 +190,12 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 	}
 	switch act.(type) {
 	case *action.GrantReward:
-		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, protocol.MustGetActionCtx(ctx).Caller) {
+		actionCtx := protocol.MustGetActionCtx(ctx)
+		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
 			return errors.New("Only producer could create reward")
+		}
+		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
+			return errors.New("invalid gas price or intrinsic gas for reward action")
 		}
 	}
 	return nil

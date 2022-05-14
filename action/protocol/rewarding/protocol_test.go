@@ -251,6 +251,24 @@ func TestProtocol_Validate(t *testing.T) {
 		},
 	)
 	require.Error(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(1),
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+	require.Error(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       identityset.Address(0),
+			GasPrice:     big.NewInt(0),
+			IntrinsicGas: 1,
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
 }
 
 func TestProtocol_Handle(t *testing.T) {
