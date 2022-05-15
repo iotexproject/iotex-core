@@ -83,7 +83,6 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 					return err
 				}
 				cmd.Println(count.GetTotal())
-				return nil
 			case _bcBucketOptCount:
 				count, err := getBucketsCount(c)
 				if err != nil {
@@ -112,7 +111,6 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 				}
 				cmd.Println(message.Bucket.String())
 			}
-			cmd.Println(err)
 			return nil
 		},
 	}
@@ -162,6 +160,7 @@ func (b *bucket) String() string {
 }
 
 func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
+	config.ReadConfig.Endpoint = c.Config().Endpoint
 	conn, err := util.ConnectToEndpoint(c.Config().SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to endpoint")
