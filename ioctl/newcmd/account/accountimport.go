@@ -97,7 +97,7 @@ func NewAccountImportKeyCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.SetAlias(alias, addr)
+			return client.SetAliasAndSave(alias, addr)
 		},
 	}
 }
@@ -131,7 +131,7 @@ func NewAccountImportKeyStoreCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.SetAlias(alias, addr)
+			return client.SetAliasAndSave(alias, addr)
 		},
 	}
 }
@@ -165,7 +165,7 @@ func NewAccountImportPemCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.SetAlias(alias, addr)
+			return client.SetAliasAndSave(alias, addr)
 		},
 	}
 }

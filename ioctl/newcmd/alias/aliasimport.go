@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -9,14 +9,13 @@ package alias
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -30,12 +29,16 @@ var (
 		config.Chinese: "import '数据'",
 	}
 	_flagImportFormatUsages = map[config.Language]string{
-		config.English: "set _format: json/yaml",
+		config.English: "set format: json/yaml",
 		config.Chinese: "设置格式：json/yaml",
 	}
 	_flagForceImportUsages = map[config.Language]string{
 		config.English: "override existing aliases",
 		config.Chinese: "覆盖现有别名",
+	}
+	_failToWriteToConfigFile = map[config.Language]string{
+		config.English: "Failed to write to config file.",
+		config.Chinese: "写入配置文件失败",
 	}
 )
 
@@ -46,12 +49,18 @@ type importMessage struct {
 	Unimported     []alias `json:"unimported"`
 }
 
-// NewAliasImportCmd represents the alias import command
-func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
+// NewAliasImport represents the alias import command
+func NewAliasImport(c ioctl.Client) *cobra.Command {
+	var (
+		format      string
+		forceImport bool
+	)
+
 	use, _ := c.SelectTranslation(_importUses)
 	short, _ := c.SelectTranslation(_importShorts)
 	flagImportFormatUsage, _ := c.SelectTranslation(_flagImportFormatUsages)
 	flagForceImportUsage, _ := c.SelectTranslation(_flagForceImportUsages)
+	failToWriteToConfigFile, _ := c.SelectTranslation(_failToWriteToConfigFile)
 
 	ec := &cobra.Command{
 		Use:   use,
@@ -59,64 +68,48 @@ func NewAliasImportCmd(c ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var err error
 			var importedAliases aliases
-			switch _format {
-			default:
-				return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag%s", _format), nil)
+
+			switch format {
 			case "json":
 				if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
-					return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
+					return errors.Wrap(err, "failed to unmarshal imported aliases")
 				}
 			case "yaml":
 				if err := yaml.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
-					return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
+					return errors.Wrap(err, "failed to unmarshal imported aliases")
 				}
+			default:
+				return errors.New(fmt.Sprintf("invalid flag%s", format))
 			}
-			aliases := c.AliasMap()
+
 			message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 			for _, importedAlias := range importedAliases.Aliases {
-				if !_forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
+				if !forceImport && c.Config().Aliases[importedAlias.Name] != "" {
 					message.Unimported = append(message.Unimported, importedAlias)
 					continue
 				}
-				for aliases[importedAlias.Address] != "" {
-					delete(config.ReadConfig.Aliases, aliases[importedAlias.Address])
-					aliases = c.AliasMap()
-				}
-				config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
+				c.SetAlias(args[0], importedAlias.Address)
 				message.Imported = append(message.Imported, importedAlias)
 				message.ImportedNumber++
 			}
-			out, err := yaml.Marshal(&config.ReadConfig)
-			if err != nil {
-				return output.NewError(output.SerializationError, "failed to marshal config", err)
+			if err := c.WriteConfig(); err != nil {
+				return errors.Wrapf(err, failToWriteToConfigFile)
 			}
-			if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return output.NewError(output.WriteFileError,
-					fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
-			}
-			fmt.Println(message.String())
-			return nil
 
+			line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber)
+			for _, alias := range message.Unimported {
+				line += fmt.Sprint(" " + alias.Name)
+			}
+			cmd.Println(line)
+			return nil
 		},
 	}
 
-	ec.Flags().StringVarP(&_format,
+	ec.Flags().StringVarP(&format,
 		"format=", "f", "json", flagImportFormatUsage)
-	ec.Flags().BoolVarP(&_forceImport,
+	ec.Flags().BoolVarP(&forceImport,
 		"force-import", "F", false, flagForceImportUsage)
 
 	return ec
-}
-
-func (m *importMessage) String() string {
-	if output.Format == "" {
-		line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber)
-		for _, alias := range m.Unimported {
-			line += fmt.Sprint(" " + alias.Name)
-		}
-		return line
-	}
-	return output.FormatString(output.Result, m)
 }
