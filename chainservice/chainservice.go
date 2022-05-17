@@ -162,9 +162,6 @@ func (cs *ChainService) NewAPIServer(cfg config.API, plugins map[int]interface{}
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 	}
-	if _, gateway := plugins[config.GatewayPlugin]; gateway {
-		apiServerOptions = append(apiServerOptions, api.WithActionIndex())
-	}
 
 	svr, err := api.NewServerV2(
 		cfg,
