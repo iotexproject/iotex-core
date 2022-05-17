@@ -172,9 +172,6 @@ func setupTestCoreSerivce() (CoreService, blockchain.Blockchain, blockdao.BlockD
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
-		opts = append(opts, WithActionIndex())
-	}
 	svr, err := newCoreService(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		panic(err)
