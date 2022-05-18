@@ -406,7 +406,7 @@ func TestLocalTransfer(t *testing.T) {
 				if err1 != nil {
 					return err1
 				}
-				actInfo, err = util.GetActionByActionHash(as.GrpcServer, tsfHash)
+				actInfo, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 				if err != nil {
 					return err
 				}
@@ -474,7 +474,7 @@ func TestLocalTransfer(t *testing.T) {
 			}
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = util.GetActionByActionHash(as.GrpcServer, tsfHash)
+			_, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -499,7 +499,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = util.GetActionByActionHash(as.GrpcServer, tsfHash)
+			_, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)
