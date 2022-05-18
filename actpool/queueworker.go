@@ -126,7 +126,7 @@ func (worker *queueWorker) getConfirmedState(sender address.Address) (uint64, *b
 		}
 		return confirmedState.Nonce, confirmedState.Balance, nil
 	}
-	return queue.PendingNonce(), queue.PendingBalance(), nil
+	return queue.ConfirmedNonce(), queue.AccountBalance(), nil
 }
 
 func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, confirmedNonce uint64, confirmedBalance *big.Int) error {
@@ -166,8 +166,8 @@ func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, c
 
 	if queue == nil {
 		queue = NewActQueue(worker.ap, sender, WithTimeOut(worker.ap.cfg.ActionExpiry))
-		queue.SetPendingNonce(confirmedNonce + 1)
-		queue.SetPendingBalance(confirmedBalance)
+		queue.SetConfirmedNonce(confirmedNonce)
+		queue.SetAccountBalance(confirmedBalance)
 		worker.mu.Lock()
 		worker.accountActs[sender] = queue
 		worker.mu.Unlock()
@@ -215,12 +215,11 @@ func (worker *queueWorker) Reset() {
 			worker.emptyAccounts.Set(from, struct{}{})
 			continue
 		}
-		pendingNonce := confirmedState.Nonce + 1
-		queue.SetPendingNonce(pendingNonce)
-		queue.SetPendingBalance(confirmedState.Balance)
+		queue.SetConfirmedNonce(confirmedState.Nonce)
+		queue.SetAccountBalance(confirmedState.Balance)
 		// Remove all actions that are committed to new block
-		acts := queue.CleanConfrirmedAct()
-		acts2 := queue.UpdateQueue(queue.PendingNonce())
+		acts := queue.CleanConfirmedAct()
+		acts2 := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(append(acts, acts2...))
 		// Delete the queue entry if it becomes empty
 		if queue.IsEmpty() {
@@ -240,7 +239,7 @@ func (worker *queueWorker) PendingAction() []*pendingActions {
 			continue
 		}
 		// Remove the actions that are already timeout
-		acts := queue.UpdateQueue(queue.PendingNonce())
+		acts := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(acts)
 		actionArr = append(actionArr, &pendingActions{
 			sender: from,

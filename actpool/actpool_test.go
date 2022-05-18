@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
@@ -23,8 +24,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -176,10 +175,10 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf7))
 	require.NoError(ap.Add(ctx, tsf8))
 
-	pNonce1, _ := ap.getPendingNonce(_addr1)
+	pNonce1, _ := ap.GetPendingNonce(_addr1)
 	require.Equal(uint64(5), pNonce1)
 
-	pNonce2, _ := ap.getPendingNonce(_addr2)
+	pNonce2, _ := ap.GetPendingNonce(_addr2)
 	require.Equal(uint64(2), pNonce2)
 
 	tsf9, err := action.SignedTransfer(_addr2, _priKey2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
@@ -390,14 +389,16 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(8)
+	}).Times(5)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))
 	require.NoError(ap.Add(context.Background(), tsf4))
 
 	require.Equal(4, ap.allActions.Count())
-	require.NotNil(ap.accountActs[_addr1])
+	addr, err := address.FromString(_addr1)
+	require.NoError(err)
+	require.NotNil(ap.worker[ap.allocatedWorker(addr)].GetQueue(addr))
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
@@ -406,9 +407,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.Reset()
 	require.Equal(0, ap.allActions.Count())
-	require.Nil(ap.accountActs[_addr1])
+	require.True(ap.worker[ap.allocatedWorker(addr)].GetQueue(addr).IsEmpty())
 }
 
 func TestActPool_Reset(t *testing.T) {
@@ -519,23 +520,23 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ := ap1.getPendingNonce(_addr1)
+	ap1PNonce1, _ := ap1.GetPendingNonce(_addr1)
 	require.Equal(uint64(3), ap1PNonce1)
 	// Addr2
-	ap1PNonce2, _ := ap1.getPendingNonce(_addr2)
+	ap1PNonce2, _ := ap1.GetPendingNonce(_addr2)
 	require.Equal(uint64(3), ap1PNonce2)
 	// Addr3
-	ap1PNonce3, _ := ap1.getPendingNonce(_addr3)
+	ap1PNonce3, _ := ap1.GetPendingNonce(_addr3)
 	require.Equal(uint64(3), ap1PNonce3)
 	// ap2
 	// Addr1
-	ap2PNonce1, _ := ap2.getPendingNonce(_addr1)
+	ap2PNonce1, _ := ap2.GetPendingNonce(_addr1)
 	require.Equal(uint64(4), ap2PNonce1)
 	// Addr2
-	ap2PNonce2, _ := ap2.getPendingNonce(_addr2)
+	ap2PNonce2, _ := ap2.GetPendingNonce(_addr2)
 	require.Equal(uint64(3), ap2PNonce2)
 	// Addr3
-	ap2PNonce3, _ := ap2.getPendingNonce(_addr3)
+	ap2PNonce3, _ := ap2.GetPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
 	// Let ap1 be BP's actpool
 	balances[0] = big.NewInt(220)
@@ -550,23 +551,23 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(_addr1)
+	ap1PNonce1, _ = ap1.GetPendingNonce(_addr1)
 	require.Equal(uint64(3), ap1PNonce1)
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(_addr2)
+	ap1PNonce2, _ = ap1.GetPendingNonce(_addr2)
 	require.Equal(uint64(3), ap1PNonce2)
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(_addr3)
+	ap1PNonce3, _ = ap1.GetPendingNonce(_addr3)
 	require.Equal(uint64(3), ap1PNonce3)
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(_addr1)
+	ap2PNonce1, _ = ap2.GetPendingNonce(_addr1)
 	require.Equal(uint64(4), ap2PNonce1)
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(_addr2)
+	ap2PNonce2, _ = ap2.GetPendingNonce(_addr2)
 	require.Equal(uint64(3), ap2PNonce2)
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(_addr3)
+	ap2PNonce3, _ = ap2.GetPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
 	// Add more Tsfs after resetting
 	// Tsfs To be added to ap1 only
@@ -595,23 +596,23 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(_addr1)
+	ap1PNonce1, _ = ap1.GetPendingNonce(_addr1)
 	require.Equal(uint64(3), ap1PNonce1)
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(_addr2)
+	ap1PNonce2, _ = ap1.GetPendingNonce(_addr2)
 	require.Equal(uint64(3), ap1PNonce2)
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(_addr3)
+	ap1PNonce3, _ = ap1.GetPendingNonce(_addr3)
 	require.Equal(uint64(5), ap1PNonce3)
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(_addr1)
+	ap2PNonce1, _ = ap2.GetPendingNonce(_addr1)
 	require.Equal(uint64(5), ap2PNonce1)
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(_addr2)
+	ap2PNonce2, _ = ap2.GetPendingNonce(_addr2)
 	require.Equal(uint64(5), ap2PNonce2)
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(_addr3)
+	ap2PNonce3, _ = ap2.GetPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
 	// Let ap2 be BP's actpool
 	balances[0] = big.NewInt(140)
@@ -627,23 +628,23 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(_addr1)
+	ap1PNonce1, _ = ap1.GetPendingNonce(_addr1)
 	require.Equal(uint64(5), ap1PNonce1)
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(_addr2)
+	ap1PNonce2, _ = ap1.GetPendingNonce(_addr2)
 	require.Equal(uint64(5), ap1PNonce2)
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(_addr3)
+	ap1PNonce3, _ = ap1.GetPendingNonce(_addr3)
 	require.Equal(uint64(5), ap1PNonce3)
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(_addr1)
+	ap2PNonce1, _ = ap2.GetPendingNonce(_addr1)
 	require.Equal(uint64(5), ap2PNonce1)
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(_addr2)
+	ap2PNonce2, _ = ap2.GetPendingNonce(_addr2)
 	require.Equal(uint64(5), ap2PNonce2)
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(_addr3)
+	ap2PNonce3, _ = ap2.GetPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
 
 	// Add two more players
@@ -684,10 +685,10 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
 	// Addr4
-	ap1PNonce4, _ := ap1.getPendingNonce(_addr4)
+	ap1PNonce4, _ := ap1.GetPendingNonce(_addr4)
 	require.Equal(uint64(2), ap1PNonce4)
 	// Addr5
-	ap1PNonce5, _ := ap1.getPendingNonce(_addr5)
+	ap1PNonce5, _ := ap1.GetPendingNonce(_addr5)
 	require.Equal(uint64(3), ap1PNonce5)
 	// Let ap1 be BP's actpool
 	balances[3] = big.NewInt(10)
@@ -699,10 +700,10 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr4
-	ap1PNonce4, _ = ap1.getPendingNonce(_addr4)
+	ap1PNonce4, _ = ap1.GetPendingNonce(_addr4)
 	require.Equal(uint64(2), ap1PNonce4)
 	// Addr5
-	ap1PNonce5, _ = ap1.getPendingNonce(_addr5)
+	ap1PNonce5, _ = ap1.GetPendingNonce(_addr5)
 	require.Equal(uint64(3), ap1PNonce5)
 }
 
@@ -922,7 +923,7 @@ func TestActPool_GetSize(t *testing.T) {
 		acct.Balance = big.NewInt(100000000000000000)
 
 		return 0, nil
-	}).Times(8)
+	}).Times(5)
 	require.NoError(ap.Add(context.Background(), tsf1))
 	require.NoError(ap.Add(context.Background(), tsf2))
 	require.NoError(ap.Add(context.Background(), tsf3))
@@ -937,7 +938,7 @@ func TestActPool_GetSize(t *testing.T) {
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.Reset()
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())
 }
@@ -1001,16 +1002,16 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf2))
 
 	// check account and actpool status
-	pNonce1, _ := ap.getPendingNonce(_addr1)
+	pNonce1, _ := ap.GetPendingNonce(_addr1)
 	require.Equal(uint64(2), pNonce1)
-	pNonce2, _ := ap.getPendingNonce(_addr2)
+	pNonce2, _ := ap.GetPendingNonce(_addr2)
 	require.Equal(uint64(2), pNonce2)
 
 	// A send action tsf3 with nonce 1 and higher gas price
 	require.NoError(ap.Add(ctx, tsf3))
 
 	// check account and actpool status again after new action is inserted
-	pNonce3, _ := ap.getPendingNonce(_addr1)
+	pNonce3, _ := ap.GetPendingNonce(_addr1)
 	require.Equal(uint64(2), pNonce3)
 
 	ai := actioniterator.NewActionIterator(ap.PendingActionMap())
@@ -1024,36 +1025,6 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	}
 	// tsf1 is replaced by tsf3 with higher gas price
 	require.Equal(appliedActionList, []action.SealedEnvelope{tsf3, tsf2})
-}
-
-// Helper function to return the correct pending nonce just in case of empty queue
-func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
-	if queue, ok := ap.accountActs[addr]; ok {
-		return queue.PendingNonce(), nil
-	}
-	_addr1, err := address.FromString(addr)
-	if err != nil {
-		return 0, err
-	}
-	committedState, err := accountutil.AccountState(ap.sf, _addr1)
-	return committedState.Nonce + 1, err
-}
-
-// Helper function to return the correct pending balance just in case of empty queue
-func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
-	if queue, ok := ap.accountActs[addr]; ok {
-		return queue.AccountBalance(), nil
-	}
-	_addr1, err := address.FromString(addr)
-	if err != nil {
-		return nil, err
-	}
-	state, err := accountutil.AccountState(ap.sf, _addr1)
-	if err != nil {
-		return nil, err
-	}
-
-	return state.Balance, nil
 }
 
 func getActPoolCfg() config.ActPool {

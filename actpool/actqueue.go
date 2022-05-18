@@ -61,7 +61,7 @@ func (h *noncePriorityQueue) Pop() interface{} {
 // ActQueue is the interface of actQueue
 type ActQueue interface {
 	Put(action.SealedEnvelope) error
-	FilterNonce(uint64) []action.SealedEnvelope
+	CleanConfirmedAct() []action.SealedEnvelope
 	UpdateQueue() []action.SealedEnvelope
 	ConfirmedNonce() uint64
 	PendingNonce() uint64
@@ -156,7 +156,7 @@ func (q *actQueue) updatePendingNonce() {
 }
 
 // FilterNonce removes all actions from the map with a nonce lower than the given threshold
-func (q *actQueue) CleanConfrirmedAct() []action.SealedEnvelope {
+func (q *actQueue) CleanConfirmedAct() []action.SealedEnvelope {
 	var removed []action.SealedEnvelope
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -204,19 +204,13 @@ func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
 	defer q.mu.Unlock()
 	// First remove all timed out actions
 	removedFromQueue := q.cleanTimeout()
-
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce
-	for ; ; q.pendingNonce++ {
-		_, exist := q.items[q.pendingNonce]
-		if !exist {
-			break
-		}
-	}
+	q.updatePendingNonce()
 	return removedFromQueue
 }
 
-// SetPendingNonce sets pending nonce for the queue
-func (q *actQueue) SetPendingNonce(nonce uint64) {
+// SetConfirmedNonce sets pending nonce for the queue
+func (q *actQueue) SetConfirmedNonce(nonce uint64) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.confirmedNonce = nonce
@@ -232,6 +226,8 @@ func (q *actQueue) PendingNonce() uint64 {
 
 // ConfirmedNonce returns the current confirmed nonce of the queue
 func (q *actQueue) ConfirmedNonce() uint64 {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	return q.confirmedNonce
 }
 
@@ -239,7 +235,7 @@ func (q *actQueue) ConfirmedNonce() uint64 {
 func (q *actQueue) SetAccountBalance(balance *big.Int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.accountBalance = balance
+	q.accountBalance.Set(balance)
 }
 
 // PendingBalance returns the current pending balance of the queue
@@ -269,7 +265,8 @@ func (q *actQueue) Reset() {
 	defer q.mu.Unlock()
 	q.items = make(map[uint64]action.SealedEnvelope)
 	q.index = noncePriorityQueue{}
-	q.pendingNonce = uint64(1)
+	q.pendingNonce = 1
+	q.confirmedNonce = 0
 	q.accountBalance = big.NewInt(0)
 }
 
@@ -307,7 +304,7 @@ func (q *actQueue) AllActs() []action.SealedEnvelope {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	if q.Len() == 0 {
+	if len(q.items) == 0 {
 		return acts
 	}
 	sort.Sort(q.index)

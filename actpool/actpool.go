@@ -139,8 +139,8 @@ func NewActPool(sf protocol.StateReader, cfg config.ActPool, opts ...Option) (Ac
 		senderBlackList: senderBlackList,
 		accountDesActs:  &desActs{acts: make(map[string]map[hash.Hash256]action.SealedEnvelope)},
 		allActions:      actsMap,
-		jobQueue:        make([]chan workerJob, 0, _numWorker),
-		worker:          make([]*queueWorker, 0, _numWorker),
+		jobQueue:        make([]chan workerJob, _numWorker),
+		worker:          make([]*queueWorker, _numWorker),
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
@@ -203,7 +203,7 @@ func (ap *actPool) ReceiveBlock(*block.Block) error {
 func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	var (
 		wg             sync.WaitGroup
-		actsFromWorker = make([][]*pendingActions, 0, _numWorker)
+		actsFromWorker = make([][]*pendingActions, _numWorker)
 	)
 	for i := range ap.worker {
 		wg.Add(1)
@@ -428,115 +428,6 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	return nil
 }
 
-//======================================
-// private functions
-//======================================
-// func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
-// 	span := tracer.SpanFromContext(ctx)
-// 	defer span.End()
-// 	confirmedState, err := accountutil.AccountState(ap.sf, addr)
-// 	if err != nil {
-// 		_actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
-// 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
-// 	}
-// 	confirmedNonce := confirmedState.Nonce
-// 	if actNonce <= confirmedNonce {
-// 		return action.ErrNonceTooLow
-// 	}
-// 	sender := addr.String()
-// 	queue := ap.accountActs[sender]
-// 	if queue == nil {
-// 		span.AddEvent("new queue")
-// 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
-// 		ap.accountActs[sender] = queue
-// 		// Initialize pending nonce and balance for new account
-// 		queue.SetPendingNonce(confirmedNonce + 1)
-// 		queue.SetPendingBalance(confirmedState.Balance)
-// 	}
-
-// 	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {
-// 		// Nonce exceeds current range
-// 		log.L().Debug("Rejecting action because nonce is too large.",
-// 			log.Hex("hash", actHash[:]),
-// 			zap.Uint64("startNonce", confirmedNonce+1),
-// 			zap.Uint64("actNonce", actNonce))
-// 		_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
-// 		return action.ErrNonceTooHigh
-// 	}
-
-// 	span.AddEvent("act cost")
-// 	cost, err := act.Cost()
-// 	if err != nil {
-// 		_actpoolMtc.WithLabelValues("failedToGetCost").Inc()
-// 		return errors.Wrapf(err, "failed to get cost of action %x", actHash)
-// 	}
-// 	if queue.PendingBalance().Cmp(cost) < 0 {
-// 		// Pending balance is insufficient
-// 		_actpoolMtc.WithLabelValues("insufficientBalance").Inc()
-// 		log.L().Info("insufficient balance for action",
-// 			zap.String("actionHash", hex.EncodeToString(actHash[:])),
-// 			zap.String("cost", cost.String()),
-// 			zap.String("pendingBalance", queue.PendingBalance().String()),
-// 			zap.String("sender", sender),
-// 		)
-// 		return action.ErrInsufficientFunds
-// 	}
-
-// 	span.AddEvent("queue put")
-// 	if err := queue.Put(act); err != nil {
-// 		_actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
-// 		log.L().Info("failed put action into ActQueue",
-// 			zap.String("actionHash", hex.EncodeToString(actHash[:])))
-// 		return err
-// 	}
-// 	ap.allActions.Set(actHash, act)
-
-// 	//add actions to destination map
-// 	desAddress, ok := act.Destination()
-// 	if ok && !strings.EqualFold(sender, desAddress) {
-// 		desQueue := ap.accountDesActs[desAddress]
-// 		if desQueue == nil {
-// 			ap.accountDesActs[desAddress] = make(map[hash.Hash256]action.SealedEnvelope)
-// 		}
-// 		ap.accountDesActs[desAddress][actHash] = act
-// 	}
-
-// 	span.AddEvent("act.IntrinsicGas")
-// 	intrinsicGas, _ := act.IntrinsicGas()
-// 	ap.gasInPool += intrinsicGas
-// 	// If the pending nonce equals this nonce, update queue
-// 	span.AddEvent("queue.PendingNonce")
-// 	nonce := queue.PendingNonce()
-// 	if actNonce == nonce {
-// 		span.AddEvent("ap.updateAccount")
-// 		ap.updateAccount(sender)
-// 	}
-// 	return nil
-// }
-
-// removeConfirmedActs removes processed (committed to block) actions from pool
-// func (ap *actPool) removeConfirmedActs() {
-// 	for from, queue := range ap.accountActs {
-// 		addr, _ := address.FromString(from)
-// 		confirmedState, err := accountutil.AccountState(ap.sf, addr)
-// 		if err != nil {
-// 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
-// 			return
-// 		}
-// 		pendingNonce := confirmedState.Nonce + 1
-// 		queue.SetPendingNonce(pendingNonce)
-// 		// Remove all actions that are committed to new block
-// 		acts := queue.CleanConfrirmedAct()
-// 		ap.removeInvalidActs(acts)
-// 		//del actions in destination map
-// 		ap.deleteAccountDestinationActions(acts...)
-// 		// Delete the queue entry if it becomes empty
-// 		if queue.Empty() {
-// 			delete(ap.accountActs, from)
-// 		}
-// 	}
-// }
-
 func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash, err := act.Hash()
@@ -598,8 +489,9 @@ func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
 	return int(lastByte) % _numWorker
 }
 
-func (ap *actPool) stopWorkers() {
-	for i := 0; i < _numWorker; i++ {
-		close(ap.jobQueue[i])
-	}
-}
+// TODO: add start() and stop() in actpool
+// func (ap *actPool) stopWorkers() {
+// 	for i := 0; i < _numWorker; i++ {
+// 		close(ap.jobQueue[i])
+// 	}
+// }
