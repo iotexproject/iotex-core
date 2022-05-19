@@ -325,8 +325,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
 				//Wait until all the pending actions are settled
-
-				updateExpectationWithPendingClaimList(t, apis[0].GrpcServer, exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 				if len(pendingClaimActions) > 0 {
 					// if there is pending action, retry
 					return false, nil
@@ -380,7 +379,7 @@ func TestBlockEpochReward(t *testing.T) {
 				}
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
-				updateExpectationWithPendingClaimList(t, apis[0].GrpcServer, exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
@@ -448,7 +447,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 	//Wait until all the pending actions are settled
 	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
-		updateExpectationWithPendingClaimList(t, apis[0].GrpcServer, exptUnclaimed, claimedAmount, pendingClaimActions)
+		updateExpectationWithPendingClaimList(t, apis[0].CoreService(), exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
 	require.NoError(t, err)
@@ -530,7 +529,7 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	api *api.GRPCServer,
+	api api.CoreService,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,

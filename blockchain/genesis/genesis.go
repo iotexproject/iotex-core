@@ -212,7 +212,7 @@ type (
 		// 1. use correct chainID
 		// 2. check legacy address
 		// 3. enable web3 staking transaction
-		NewfoundlandBlockHeight uint64 `yaml:"newfoundlandBlockHeight"`
+		NewfoundlandBlockHeight uint64 `yaml:"newfoundlandHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`
