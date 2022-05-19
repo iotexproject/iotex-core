@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -134,7 +135,7 @@ func (p *Protocol) assertEnoughBalance(
 		return err
 	}
 	if acc.Balance.Cmp(amount) < 0 {
-		return errors.New("balance is not enough for donation")
+		return errors.Wrapf(state.ErrNotEnoughBalance, "%s balance is not enough for donation", actionCtx.Caller.String())
 	}
 	return nil
 }
