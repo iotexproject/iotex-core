@@ -226,10 +226,9 @@ func AliasIsHdwalletKey(addressOrAlias string) bool {
 // IsNewfoundland returns whether the height passed NewfoundlandHeight
 func IsNewfoundland(chainID uint32, h uint64) bool {
 	var newfoundland uint64 = math.MaxUint64
-	// TODO: when make next release, update newfoundland to correct HF block number
 	switch chainID {
 	case 1:
-		newfoundland = 20027641
+		newfoundland = 17662681
 	case 2:
 		newfoundland = 14268961
 	}

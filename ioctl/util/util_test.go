@@ -103,8 +103,8 @@ func TestNewfoundland(t *testing.T) {
 		h  uint64
 		is bool
 	}{
-		{1, 20027640, false},
-		{1, 20027641, true},
+		{1, 17662680, false},
+		{1, 17662681, true},
 		{2, 14268960, false},
 		{2, 14268961, true},
 		{3, 1, false},
