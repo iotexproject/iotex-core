@@ -19,6 +19,8 @@ import (
 var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
+	// ErrInvalidAmount is the error that the amount to add is negative
+	ErrInvalidAmount = errors.New("invalid amount")
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
 )
@@ -93,13 +95,32 @@ func (st *Account) Deserialize(buf []byte) error {
 	return nil
 }
 
+// HasSufficientBalance returns true if balance is larger than amount
+func (st *Account) HasSufficientBalance(amount *big.Int) bool {
+	if amount == nil {
+		return true
+	}
+	return amount.Cmp(st.Balance) <= 0
+}
+
 // AddBalance adds balance for account state
-func (st *Account) AddBalance(amount *big.Int) {
-	st.Balance.Add(st.Balance, amount)
+func (st *Account) AddBalance(amount *big.Int) error {
+	if amount == nil || amount.Sign() < 0 {
+		return errors.Wrapf(ErrInvalidAmount, "amount %s shouldn't be negative", amount.String())
+	}
+	if st.Balance != nil {
+		st.Balance = new(big.Int).Add(st.Balance, amount)
+	} else {
+		st.Balance = new(big.Int).Set(amount)
+	}
+	return nil
 }
 
 // SubBalance subtracts balance for account state
 func (st *Account) SubBalance(amount *big.Int) error {
+	if amount == nil || amount.Cmp(big.NewInt(0)) < 0 {
+		return errors.Wrapf(ErrInvalidAmount, "amount %s shouldn't be negative", amount.String())
+	}
 	// make sure there's enough fund to spend
 	if amount.Cmp(st.Balance) == 1 {
 		return ErrNotEnoughBalance

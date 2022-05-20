@@ -252,9 +252,8 @@ func TestSnapshot(t *testing.T) {
 	testfunc := func(enableAsync bool) {
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		s := &state.Account{
-			Balance: big.NewInt(5),
-		}
+		s := &state.Account{}
+		require.NoError(s.AddBalance(big.NewInt(5)))
 		_c1, err := newContract(
 			hash.BytesToHash160(identityset.Address(28).Bytes()),
 			s,
@@ -264,7 +263,7 @@ func TestSnapshot(t *testing.T) {
 		require.NoError(err)
 		require.NoError(_c1.SetState(_k2b, _v2[:]))
 		_c2 := _c1.Snapshot()
-		_c1.SelfState().AddBalance(big.NewInt(7))
+		require.NoError(_c1.SelfState().AddBalance(big.NewInt(7)))
 		require.NoError(_c1.SetState(_k1b, _v1[:]))
 		require.Equal(big.NewInt(12), _c1.SelfState().Balance)
 		require.Equal(big.NewInt(5), _c2.SelfState().Balance)

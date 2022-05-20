@@ -119,7 +119,9 @@ func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) 
 	case nil:
 		return errors.Errorf("failed to create account %s", encodedAddr)
 	case state.ErrStateNotExist:
-		account.Balance = init
+		if err := account.AddBalance(init); err != nil {
+			return errors.Wrapf(err, "failed to add balance %s", init)
+		}
 		account.VotingWeight = big.NewInt(0)
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return errors.Wrapf(err, "failed to put state for account %x", addrHash)

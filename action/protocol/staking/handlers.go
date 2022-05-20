@@ -254,7 +254,9 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// update withdrawer balance
-	withdrawer.AddBalance(bucket.StakedAmount)
+	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
+		return log, nil, errors.Wrapf(err, "failed to add balance %s", bucket.StakedAmount)
+	}
 	// put updated withdrawer's account state to trie
 	if err := accountutil.StoreAccount(csm.SM(), actionCtx.Caller, withdrawer); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
@@ -815,7 +817,7 @@ func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	// check caller's balance
-	if gasFee.Add(amount, gasFee).Cmp(caller.Balance) == 1 {
+	if !caller.HasSufficientBalance(new(big.Int).Add(amount, gasFee)) {
 		return nil, &handleError{
 			err:           errors.Wrapf(state.ErrNotEnoughBalance, "caller %s balance not enough", actionCtx.Caller.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,

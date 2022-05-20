@@ -50,8 +50,8 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, sf, ap, r)
 	r.NoError(err)
-	r.Equal(2, len(blk.Actions))
-	r.Error(bc.ValidateBlock(blk))
+	r.Equal(1, len(blk.Actions))
+	r.NoError(bc.ValidateBlock(blk))
 	state, err := accountutil.AccountState(sf, addr)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
@@ -69,8 +69,8 @@ func TestAction_Negative(t *testing.T) {
 	blk, err := prepareAction(bc, sf, ap, r)
 	r.NoError(err)
 	r.NotNil(blk)
-	r.Equal(2, len(blk.Actions))
-	r.Error(bc.ValidateBlock(blk))
+	r.Equal(1, len(blk.Actions))
+	r.NoError(bc.ValidateBlock(blk))
 	state, err := accountutil.AccountState(sf, addr)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
@@ -88,8 +88,10 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	r.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	r.NoError(err)
+	genericValidator := protocol.NewGenericValidator(sf, accountutil.AccountState)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	r.NoError(err)
+	ap.AddActionEnvelopeValidators(genericValidator)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
@@ -97,7 +99,7 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
+			genericValidator,
 		)),
 	)
 	r.NotNil(bc)
@@ -141,7 +143,7 @@ func prepare(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, e
 	r.NoError(err)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
-	r.NoError(ap.Add(context.Background(), selp))
+	r.Error(ap.Add(context.Background(), selp))
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	r.NoError(err)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil

@@ -38,7 +38,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
+	if !sender.HasSufficientBalance(big.NewInt(0).Add(tsf.Amount(), gasFee)) {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
 			"sender %s balance %s, required amount %s",
@@ -121,7 +121,9 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
-	recipient.AddBalance(tsf.Amount())
+	if err := recipient.AddBalance(tsf.Amount()); err != nil {
+		return nil, errors.Wrapf(err, "failed to add balance %s", tsf.Amount())
+	}
 	// put updated recipient's state to trie
 	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
