@@ -40,7 +40,9 @@ func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address) (*state
 		return &account, nil
 	}
 	if errors.Cause(err) == state.ErrStateNotExist {
-		account.Balance = big.NewInt(0)
+		if err := account.AddBalance(big.NewInt(0)); err != nil {
+			return nil, err
+		}
 		account.VotingWeight = big.NewInt(0)
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)

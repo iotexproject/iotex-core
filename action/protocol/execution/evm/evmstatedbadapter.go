@@ -239,7 +239,11 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 			return
 		}
 	}
-	state.AddBalance(amount)
+	if err := state.AddBalance(amount); err != nil {
+		log.L().Error("failed to add balance", zap.Error(err), zap.String("amount", amount.String()))
+		stateDB.logError(err)
+		return
+	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr, state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 		stateDB.logError(err)
@@ -365,8 +369,10 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 		return false
 	}
 	// clears the account balance
-	s.Balance = nil
-	s.Balance = big.NewInt(0)
+	if err := s.SubBalance(s.Balance); err != nil {
+		log.L().Debug("failed to clear balance", zap.Error(err), zap.String("address", addr.String()))
+		return false
+	}
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
 	if _, err := stateDB.sm.PutState(s, protocol.LegacyKeyOption(addrHash)); err != nil {
 		log.L().Error("Failed to kill contract.", zap.Error(err))

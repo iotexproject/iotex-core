@@ -2660,7 +2660,12 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	if err != nil {
 		return err
 	}
-	account.Balance = unit.ConvertIotxToRau(balance)
+	if err := account.SubBalance(account.Balance); err != nil {
+		return err
+	}
+	if err := account.AddBalance(unit.ConvertIotxToRau(balance)); err != nil {
+		return err
+	}
 	return accountutil.StoreAccount(sm, addr, account)
 }
 
@@ -2671,6 +2676,7 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 	if err != nil {
 		return nil, err
 	}
+	// TODO: replace with SubBalance, and then change `Balance` to a function
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
 	return nil, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }

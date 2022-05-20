@@ -135,9 +135,9 @@ func TestActPool_AddActs(t *testing.T) {
 			opt(cfg)
 		}
 		if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
-			acct.Balance = big.NewInt(100)
+			require.NoError(acct.AddBalance(big.NewInt(100)))
 		} else {
-			acct.Balance = big.NewInt(10)
+			require.NoError(acct.AddBalance(big.NewInt(10)))
 		}
 		return 0, nil
 	}).AnyTimes()
@@ -332,9 +332,9 @@ func TestActPool_PickActs(t *testing.T) {
 				opt(cfg)
 			}
 			if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
-				acct.Balance = big.NewInt(100)
+				require.NoError(acct.AddBalance(big.NewInt(100)))
 			} else {
-				acct.Balance = big.NewInt(10)
+				require.NoError(acct.AddBalance(big.NewInt(10)))
 			}
 			return 0, nil
 		}).AnyTimes()
@@ -395,7 +395,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
@@ -410,7 +410,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 4
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(1)
@@ -441,19 +441,19 @@ func TestActPool_Reset(t *testing.T) {
 		}
 		switch {
 		case bytes.Equal(cfg.Key, identityset.Address(28).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[0])
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[0])))
 			acct.Nonce = nonces[0]
 		case bytes.Equal(cfg.Key, identityset.Address(29).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[1])
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[1])))
 			acct.Nonce = nonces[1]
 		case bytes.Equal(cfg.Key, identityset.Address(30).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[2])
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[2])))
 			acct.Nonce = nonces[2]
 		case bytes.Equal(cfg.Key, identityset.Address(31).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[3])
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[3])))
 			acct.Nonce = nonces[3]
 		case bytes.Equal(cfg.Key, identityset.Address(32).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[4])
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[4])))
 			acct.Nonce = nonces[4]
 		}
 		return 0, nil
@@ -796,7 +796,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
@@ -841,7 +841,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(10)
@@ -889,7 +889,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(10)
@@ -989,7 +989,7 @@ func TestActPool_GetSize(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
@@ -1003,7 +1003,7 @@ func TestActPool_GetSize(t *testing.T) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
 		acct.Nonce = 4
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(1)
@@ -1046,7 +1046,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 		for _, opt := range opts {
 			opt(cfg)
 		}
-		acct.Balance = big.NewInt(10000000)
+		require.NoError(acct.AddBalance(big.NewInt(10000000)))
 		return 0, nil
 	}).AnyTimes()
 

@@ -78,9 +78,9 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	alfa := identityset.Address(28)
 	bravo := identityset.Address(29)
 	charlie := identityset.Address(30)
-	require.NoError(accountutil.StoreAccount(sm, alfa, &state.Account{
-		Balance: big.NewInt(50005),
-	}))
+	acct1 := &state.Account{}
+	require.NoError(acct1.AddBalance(big.NewInt(50005)))
+	require.NoError(accountutil.StoreAccount(sm, alfa, acct1))
 	require.NoError(accountutil.StoreAccount(sm, charlie, &state.Account{
 		CodeHash: []byte("codeHash"),
 	}))
@@ -156,13 +156,13 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			require.NoError(err)
 			newRecipient, err := accountutil.AccountState(sm, addr)
 			require.NoError(err)
-			recipient.AddBalance(v.amount)
+			require.NoError(recipient.AddBalance(v.amount))
 			require.Equal(recipient.Balance, newRecipient.Balance)
 		}
 		// verify sender balance/nonce
 		newSender, err := accountutil.AccountState(sm, v.caller)
 		require.NoError(err)
-		sender.SubBalance(gasFee)
+		require.NoError(sender.SubBalance(gasFee))
 		require.Equal(sender.Balance, newSender.Balance)
 		require.Equal(v.nonce, newSender.Nonce)
 

@@ -65,18 +65,14 @@ func (p *Protocol) Deposit(
 	transactionLogType iotextypes.TransactionLogType,
 ) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-	if err := p.assertAmount(amount); err != nil {
-		return nil, err
-	}
-	if err := p.assertEnoughBalance(actionCtx, sm, amount); err != nil {
-		return nil, err
-	}
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
 	if err != nil {
 		return nil, err
 	}
-	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
+	if err := acc.SubBalance(amount); err != nil {
+		return nil, err
+	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, err
 	}
@@ -122,21 +118,6 @@ func (p *Protocol) AvailableBalance(
 		return nil, height, err
 	}
 	return f.unclaimedBalance, height, nil
-}
-
-func (p *Protocol) assertEnoughBalance(
-	actionCtx protocol.ActionCtx,
-	sm protocol.StateReader,
-	amount *big.Int,
-) error {
-	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
-	if err != nil {
-		return err
-	}
-	if acc.Balance.Cmp(amount) < 0 {
-		return errors.New("balance is not enough for donation")
-	}
-	return nil
 }
 
 // DepositGas deposits gas into the rewarding fund
