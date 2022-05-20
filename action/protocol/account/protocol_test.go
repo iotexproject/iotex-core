@@ -61,7 +61,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	addrv1 := identityset.Address(27)
 	s, err := accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
-	require.Equal(s.Balance, state.EmptyAccount().Balance)
+	require.Equal(s.Balance, big.NewInt(0))
 
 	// create account
 	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))

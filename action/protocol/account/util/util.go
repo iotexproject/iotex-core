@@ -7,8 +7,6 @@
 package accountutil
 
 import (
-	"math/big"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -30,44 +28,45 @@ func SetNonce(i noncer, state *state.Account) {
 }
 
 // LoadOrCreateAccount either loads an account state or creates an account state
-func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address) (*state.Account, error) {
+func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address, opts ...state.AccountCreationOption) (*state.Account, error) {
 	var (
-		account  state.Account
+		account  = state.NewEmptyAccount()
 		addrHash = hash.BytesToHash160(addr.Bytes())
 	)
-	_, err := sm.State(&account, protocol.LegacyKeyOption(addrHash))
-	if err == nil {
-		return &account, nil
-	}
-	if errors.Cause(err) == state.ErrStateNotExist {
-		if err := account.AddBalance(big.NewInt(0)); err != nil {
-			return nil, err
+	_, err := sm.State(account, protocol.LegacyKeyOption(addrHash))
+	switch errors.Cause(err) {
+	case nil:
+		return account, nil
+	case state.ErrStateNotExist:
+		account, err := state.NewAccount(opts...)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create state account for %x", addrHash)
 		}
-		account.VotingWeight = big.NewInt(0)
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
-		return &account, nil
+		return account, nil
+	default:
+		return nil, err
 	}
-	return nil, err
 }
 
 // LoadAccount loads an account state by address.Address
-func LoadAccount(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
-	return LoadAccountByHash160(sr, hash.BytesToHash160(addr.Bytes()))
+func LoadAccount(sr protocol.StateReader, addr address.Address, opts ...state.AccountCreationOption) (*state.Account, error) {
+	return LoadAccountByHash160(sr, hash.BytesToHash160(addr.Bytes()), opts...)
 }
 
 // LoadAccountByHash160 loads an account state by 20-byte address
-func LoadAccountByHash160(sr protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
-	var account state.Account
-	if _, err := sr.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
+func LoadAccountByHash160(sr protocol.StateReader, addrHash hash.Hash160, opts ...state.AccountCreationOption) (*state.Account, error) {
+	account := state.NewEmptyAccount()
+	switch _, err := sr.State(account, protocol.LegacyKeyOption(addrHash)); errors.Cause(err) {
+	case state.ErrStateNotExist:
+		return state.NewAccount(opts...)
+	case nil:
+		return account, nil
+	default:
 		return nil, err
 	}
-	return &account, nil
 }
 
 // StoreAccount puts updated account state to trie
@@ -79,12 +78,12 @@ func StoreAccount(sm protocol.StateManager, addr address.Address, account *state
 
 // Recorded tests if an account has been actually stored
 func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
-	var account state.Account
-	_, err := sr.State(&account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
-	if err == nil {
+	account := state.NewEmptyAccount()
+	_, err := sr.State(account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
+	switch errors.Cause(err) {
+	case nil:
 		return true, nil
-	}
-	if errors.Cause(err) == state.ErrStateNotExist {
+	case state.ErrStateNotExist:
 		return false, nil
 	}
 	return false, err
@@ -99,14 +98,14 @@ func AccountState(sr protocol.StateReader, addr address.Address) (*state.Account
 // AccountStateWithHeight returns the confirmed account state on the chain with what height the state is read from.
 func AccountStateWithHeight(sr protocol.StateReader, addr address.Address) (*state.Account, uint64, error) {
 	pkHash := hash.BytesToHash160(addr.Bytes())
-	var account state.Account
-	h, err := sr.State(&account, protocol.LegacyKeyOption(pkHash))
-	if err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, h, nil
-		}
+	account := state.NewEmptyAccount()
+	h, err := sr.State(account, protocol.LegacyKeyOption(pkHash))
+	switch errors.Cause(err) {
+	case nil:
+		fallthrough
+	case state.ErrStateNotExist:
+		return account, h, nil
+	default:
 		return nil, h, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
-	return &account, h, nil
 }

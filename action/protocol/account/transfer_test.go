@@ -78,12 +78,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	alfa := identityset.Address(28)
 	bravo := identityset.Address(29)
 	charlie := identityset.Address(30)
-	acct1 := &state.Account{}
+	acct1 := state.NewEmptyAccount()
 	require.NoError(acct1.AddBalance(big.NewInt(50005)))
 	require.NoError(accountutil.StoreAccount(sm, alfa, acct1))
-	require.NoError(accountutil.StoreAccount(sm, charlie, &state.Account{
-		CodeHash: []byte("codeHash"),
-	}))
+	acct2 := state.NewEmptyAccount()
+	acct2.CodeHash = []byte("codeHash")
+	require.NoError(accountutil.StoreAccount(sm, charlie, acct2))
 
 	tests := []struct {
 		caller      address.Address

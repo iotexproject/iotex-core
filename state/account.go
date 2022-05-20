@@ -25,17 +25,30 @@ var (
 	ErrAccountCollision = errors.New("account already exists")
 )
 
-// Account is the canonical representation of an account.
-type Account struct {
-	// 0 is reserved from actions in genesis block and coinbase transfers nonces
-	// other actions' nonces start from 1
-	Nonce        uint64
-	Balance      *big.Int
-	Root         hash.Hash256 // storage trie root for contract account
-	CodeHash     []byte       // hash of the smart contract byte-code for contract account
-	IsCandidate  bool
-	VotingWeight *big.Int
+// DelegateCandidateOption is an option to create a delegate candidate account
+func DelegateCandidateOption() AccountCreationOption {
+	return func(account *Account) error {
+		account.isCandidate = true
+		return nil
+	}
 }
+
+type (
+	// AccountCreationOption is to create new account with specific settings
+	AccountCreationOption func(*Account) error
+
+	// Account is the canonical representation of an account.
+	Account struct {
+		// 0 is reserved from actions in genesis block and coinbase transfers nonces
+		// other actions' nonces start from 1
+		Nonce        uint64
+		Balance      *big.Int
+		Root         hash.Hash256 // storage trie root for contract account
+		CodeHash     []byte       // hash of the smart contract byte-code for contract account
+		isCandidate  bool
+		votingWeight *big.Int
+	}
+)
 
 // ToProto converts to protobuf's Account
 func (st *Account) ToProto() *accountpb.Account {
@@ -48,9 +61,9 @@ func (st *Account) ToProto() *accountpb.Account {
 	copy(acPb.Root, st.Root[:])
 	acPb.CodeHash = make([]byte, len(st.CodeHash))
 	copy(acPb.CodeHash, st.CodeHash)
-	acPb.IsCandidate = st.IsCandidate
-	if st.VotingWeight != nil {
-		acPb.VotingWeight = st.VotingWeight.Bytes()
+	acPb.IsCandidate = st.isCandidate
+	if st.votingWeight != nil {
+		acPb.VotingWeight = st.votingWeight.Bytes()
 	}
 	return acPb
 }
@@ -78,10 +91,10 @@ func (st *Account) FromProto(acPb *accountpb.Account) {
 		st.CodeHash = make([]byte, len(acPb.CodeHash))
 		copy(st.CodeHash, acPb.CodeHash)
 	}
-	st.IsCandidate = acPb.IsCandidate
-	st.VotingWeight = big.NewInt(0)
+	st.isCandidate = acPb.IsCandidate
+	st.votingWeight = big.NewInt(0)
 	if acPb.VotingWeight != nil {
-		st.VotingWeight.SetBytes(acPb.VotingWeight)
+		st.votingWeight.SetBytes(acPb.VotingWeight)
 	}
 }
 
@@ -139,9 +152,9 @@ func (st *Account) Clone() *Account {
 	s := *st
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)
-	s.VotingWeight = nil
-	if st.VotingWeight != nil {
-		s.VotingWeight = new(big.Int).Set(st.VotingWeight)
+	s.votingWeight = nil
+	if st.votingWeight != nil {
+		s.votingWeight = new(big.Int).Set(st.votingWeight)
 	}
 	if st.CodeHash != nil {
 		s.CodeHash = nil
@@ -151,10 +164,24 @@ func (st *Account) Clone() *Account {
 	return &s
 }
 
-// EmptyAccount returns an empty account
-func EmptyAccount() Account {
-	return Account{
+// NewEmptyAccount returns an empty account
+func NewEmptyAccount() *Account {
+	return &Account{
 		Balance:      big.NewInt(0),
-		VotingWeight: big.NewInt(0),
+		votingWeight: big.NewInt(0),
 	}
+}
+
+// NewAccount creates a new account with options
+func NewAccount(opts ...AccountCreationOption) (*Account, error) {
+	account := &Account{
+		Balance:      big.NewInt(0),
+		votingWeight: big.NewInt(0),
+	}
+	for _, opt := range opts {
+		if err := opt(account); err != nil {
+			return nil, errors.Wrap(err, "failed to apply account creation option")
+		}
+	}
+	return account, nil
 }

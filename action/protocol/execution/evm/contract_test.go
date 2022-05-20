@@ -101,7 +101,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		cntr1, err := newContract(hash.BytesToHash160(_c1[:]), &state.Account{}, sm, enableAsync)
+		cntr1, err := newContract(hash.BytesToHash160(_c1[:]), state.NewEmptyAccount(), sm, enableAsync)
 		require.NoError(err)
 
 		tests := []cntrTest{
@@ -252,7 +252,7 @@ func TestSnapshot(t *testing.T) {
 	testfunc := func(enableAsync bool) {
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		s := &state.Account{}
+		s := state.NewEmptyAccount()
 		require.NoError(s.AddBalance(big.NewInt(5)))
 		_c1, err := newContract(
 			hash.BytesToHash160(identityset.Address(28).Bytes()),

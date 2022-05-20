@@ -173,11 +173,10 @@ func setCandidates(
 		if err != nil {
 			return errors.Wrapf(err, "failed to decode delegate address %s", candidate.Address)
 		}
-		delegate, err := accountutil.LoadOrCreateAccount(sm, addr)
+		delegate, err := accountutil.LoadOrCreateAccount(sm, addr, state.DelegateCandidateOption())
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
-		delegate.IsCandidate = true
 		if loadCandidatesLegacy {
 			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
 				return err
