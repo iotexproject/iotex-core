@@ -447,7 +447,7 @@ func testState(sf Factory, t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), identityset.Address(31).String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -511,7 +511,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), b.String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -595,7 +595,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(

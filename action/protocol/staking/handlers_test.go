@@ -128,7 +128,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			false,
 			big.NewInt(unit.Qev),
 			10000,
-			1,
+			2,
 			1,
 			time.Now(),
 			10000,
@@ -143,7 +143,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			false,
 			big.NewInt(unit.Qev),
 			10000,
-			1,
+			2,
 			1,
 			time.Now(),
 			10000,
@@ -158,7 +158,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			false,
 			big.NewInt(unit.Qev),
 			10000,
-			1,
+			2,
 			1,
 			time.Now(),
 			10000,
@@ -266,7 +266,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1200000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -287,7 +287,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -308,7 +308,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			2,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -329,7 +329,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -350,7 +350,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"!invalid",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -371,7 +371,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -392,7 +392,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			2,
 			"test2",
 			identityset.Address(10).String(),
 			identityset.Address(10).String(),
@@ -411,9 +411,10 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		// act.OwnerAddress() is not nil,existing candidate, collide with existing name,this case cannot happen,b/c if ownerExist,it will return ReceiptStatus_ErrCandidateAlreadyExist
 		// act.OwnerAddress() is not nil,existing candidate, collide with existing operator,this case cannot happen,b/c if ownerExist,it will return ReceiptStatus_ErrCandidateAlreadyExist
 		// act.OwnerAddress() is not nil,new candidate, collide with existing name
-		{1201000,
+		{
+			1201000,
 			identityset.Address(27),
-			uint64(10),
+			3,
 			"test",
 			identityset.Address(10).String(),
 			identityset.Address(10).String(),
@@ -431,9 +432,10 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			iotextypes.ReceiptStatus_ErrCandidateConflict,
 		},
 		// act.OwnerAddress() is not nil,new candidate, collide with existing operator
-		{1201000,
+		{
+			1201000,
 			identityset.Address(27),
-			uint64(10),
+			4,
 			"test2",
 			identityset.Address(28).String(),
 			identityset.Address(10).String(),
@@ -451,9 +453,10 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			iotextypes.ReceiptStatus_ErrCandidateConflict,
 		},
 		// act.OwnerAddress() is nil,existing owner, but selfstake is not 0
-		{1201000,
+		{
+			1201000,
 			identityset.Address(30),
-			uint64(10),
+			1,
 			"test2",
 			identityset.Address(28).String(),
 			identityset.Address(10).String(),
@@ -473,9 +476,10 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		// act.OwnerAddress() is nil,existing candidate, collide with existing name,this case cannot happen,b/c if ownerExist,it will return ReceiptStatus_ErrCandidateAlreadyExist
 		// act.OwnerAddress() is nil,existing candidate, collide with existing operator,this case cannot happen,b/c if ownerExist,it will return ReceiptStatus_ErrCandidateAlreadyExist
 		// act.OwnerAddress() is nil,new candidate, collide with existing name
-		{1201000,
+		{
+			1201000,
 			identityset.Address(21),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(10).String(),
@@ -493,9 +497,10 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			iotextypes.ReceiptStatus_ErrCandidateConflict,
 		},
 		// act.OwnerAddress() is nil,new candidate, collide with existing operator
-		{1201000,
+		{
+			1201000,
 			identityset.Address(21),
-			uint64(10),
+			2,
 			"test2",
 			identityset.Address(28).String(),
 			identityset.Address(10).String(),
@@ -629,7 +634,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		{
 			1200101,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -653,7 +658,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		{
 			1000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -677,7 +682,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
@@ -701,7 +706,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
@@ -725,7 +730,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(27).String(),
 			identityset.Address(29).String(),
@@ -749,7 +754,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		{
 			1201000,
 			identityset.Address(27),
-			uint64(10),
+			1,
 			"test",
 			identityset.Address(27).String(),
 			identityset.Address(29).String(),
@@ -842,14 +847,14 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 		_, err = p.Handle(ctx, act, sm)
 		require.NoError(err)
 
-		cu, err := action.NewCandidateUpdate(test.nonce, test.updateName, test.updateOperator, test.updateReward, test.gasLimit, test.gasPrice)
+		cu, err := action.NewCandidateUpdate(test.nonce+1, test.updateName, test.updateOperator, test.updateReward, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, _ = cu.IntrinsicGas()
 		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
-			Nonce:        test.nonce,
+			Nonce:        test.nonce + 1,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    1,
@@ -909,7 +914,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			require.NoError(err)
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, cuCost).Add(total, p.config.RegistrationConsts.Fee))
-			require.Equal(test.nonce+1, caller.PendingNonce())
+			require.Equal(test.nonce+2, caller.PendingNonce())
 		}
 	}
 }
@@ -1077,15 +1082,22 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		var createCost *big.Int
 		ctx, createCost = initCreateStake(t, sm, test.caller, test.initBalance, big.NewInt(unit.Qev), gasLimit, nonce, blkHeight, test.blkTimestamp, gasLimit, p, candidate, test.amount, test.autoStake)
-		act, err := action.NewUnstake(nonce, test.index,
-			nil, gasLimit, gasPrice)
+		act, err := action.NewUnstake(nonce+1, test.index, nil, gasLimit, gasPrice)
 		require.NoError(err)
 		if test.blkTimestamp != test.ctxTimestamp {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			blkCtx.BlockTimeStamp = test.ctxTimestamp
 			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 		}
+		intrinsicGas, err := act.IntrinsicGas()
+		require.NoError(err)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:       test.caller,
+			GasPrice:     gasPrice,
+			IntrinsicGas: intrinsicGas,
+			Nonce:        nonce + 1,
+		})
 		var r *action.Receipt
 		if test.clear {
 			csm, err := NewCandidateStateManager(sm, false)
@@ -1137,7 +1149,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(nonce+1, caller.PendingNonce())
+			require.Equal(nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
@@ -1174,7 +1186,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{restake, false, iotextypes.ReceiptStatus_ErrNotEnoughBalance},
 	}
 
-	for _, v := range unstakedBucketTests {
+	for i, v := range unstakedBucketTests {
 		greenland := genesis.Default
 		if v.greenland {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -1182,6 +1194,12 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 		ctx = genesis.WithGenesisContext(ctx, greenland)
 		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:   callerAddr,
+			GasPrice: gasPrice,
+			Nonce:    nonce + 2 + uint64(i),
+		})
 		_, err = p.Start(ctx, sm)
 		require.NoError(err)
 		r, err := p.Handle(ctx, v.act, sm)
@@ -1581,7 +1599,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		// candidate vote self,index 1
 		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
 
-		act, err := action.NewChangeCandidate(test.nonce, test.candidateName, test.index, nil, test.gasLimit, test.gasPrice)
+		act, err := action.NewChangeCandidate(test.nonce+1, test.candidateName, test.index, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -1589,7 +1607,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
-			Nonce:        test.nonce,
+			Nonce:        test.nonce + 1,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    test.blkHeight,
@@ -1658,7 +1676,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce+1, caller.PendingNonce())
+			require.Equal(test.nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
@@ -1798,7 +1816,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.NoError(setupAccount(sm, identityset.Address(1), 1))
 		}
 
-		act, err := action.NewTransferStake(test.nonce, test.to.String(), test.index, nil, test.gasLimit, test.gasPrice)
+		act, err := action.NewTransferStake(test.nonce+1, test.to.String(), test.index, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -1807,7 +1825,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
-			Nonce:        test.nonce,
+			Nonce:        test.nonce + 1,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    test.blkHeight,
@@ -1859,7 +1877,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce+1, caller.PendingNonce())
+			require.Equal(test.nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
@@ -2284,15 +2302,19 @@ func TestProtocol_HandleRestake(t *testing.T) {
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
 		csr := newCandidateStateReader(sm)
-		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
+		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, test.nonce, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
 
 		if test.newAccount {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		} else {
 			candidate = candidate2
 		}
+		nonce := test.nonce
+		if test.caller.String() == candidate2.Owner.String() {
+			nonce++
+		}
 
-		act, err := action.NewRestake(test.nonce, test.index, test.duration, test.autoStake, nil, test.gasLimit, test.gasPrice)
+		act, err := action.NewRestake(nonce, test.index, test.duration, test.autoStake, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -2300,7 +2322,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
-			Nonce:        test.nonce,
+			Nonce:        nonce,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    1,
@@ -2358,7 +2380,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce+1, caller.PendingNonce())
+			require.Equal(test.nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}
@@ -2504,7 +2526,11 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		}
 
-		act, err := action.NewDepositToStake(test.nonce, test.index, test.amount, nil, test.gasLimit, test.gasPrice)
+		nonce := test.nonce
+		if test.caller.String() == candidate.Owner.String() {
+			nonce++
+		}
+		act, err := action.NewDepositToStake(nonce, test.index, test.amount, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -2512,7 +2538,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			Caller:       test.caller,
 			GasPrice:     test.gasPrice,
 			IntrinsicGas: intrinsic,
-			Nonce:        test.nonce,
+			Nonce:        nonce,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    1,
@@ -2580,7 +2606,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce+1, caller.PendingNonce())
+			require.Equal(test.nonce+2, caller.PendingNonce())
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
 		}

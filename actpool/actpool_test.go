@@ -406,7 +406,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		require.NoError(acct.SetNonce(4))
+		for i := uint64(1); i <= 4; i++ {
+			require.NoError(acct.SetNonce(i))
+		}
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -439,19 +441,29 @@ func TestActPool_Reset(t *testing.T) {
 		switch {
 		case bytes.Equal(cfg.Key, identityset.Address(28).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[0])))
-			require.NoError(acct.SetNonce(nonces[0]))
+			for i := uint64(1); i <= nonces[0]; i++ {
+				require.NoError(acct.SetNonce(i))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(29).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[1])))
-			require.NoError(acct.SetNonce(nonces[1]))
+			for i := uint64(1); i <= nonces[1]; i++ {
+				require.NoError(acct.SetNonce(i))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(30).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[2])))
-			require.NoError(acct.SetNonce(nonces[2]))
+			for i := uint64(1); i <= nonces[2]; i++ {
+				require.NoError(acct.SetNonce(i))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(31).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[3])))
-			require.NoError(acct.SetNonce(nonces[3]))
+			for i := uint64(1); i <= nonces[3]; i++ {
+				require.NoError(acct.SetNonce(i))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(32).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[4])))
-			require.NoError(acct.SetNonce(nonces[4]))
+			for i := uint64(1); i <= nonces[4]; i++ {
+				require.NoError(acct.SetNonce(i))
+			}
 		}
 		return 0, nil
 	}).AnyTimes()
@@ -987,7 +999,9 @@ func TestActPool_GetSize(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		require.NoError(acct.SetNonce(4))
+		for i := uint64(1); i <= 4; i++ {
+			require.NoError(acct.SetNonce(i))
+		}
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
