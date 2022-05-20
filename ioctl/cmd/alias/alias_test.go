@@ -15,12 +15,15 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestAlias(t *testing.T) {
 	require := require.New(t)
 
-	require.NoError(testInit())
+	testPathd, err := testInit()
+	require.NoError(err)
+	defer testutil.CleanupPath(testPathd)
 
 	raullen := "raullen"
 	qevan := "qevan"
@@ -62,22 +65,24 @@ func TestAlias(t *testing.T) {
 	require.Equal(jing, aliases["io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"])
 }
 
-func testInit() error {
-	testPathd, _ := os.MkdirTemp(os.TempDir(), "kstest")
+func testInit() (string, error) {
+	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
+	if err != nil {
+		return testPathd, err
+	}
 	config.ConfigDir = testPathd
-	var err error
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 	config.ReadConfig, err = config.LoadConfig()
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return testPathd, err
 	}
 	config.ReadConfig.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return err
+		return testPathd, err
 	}
 	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return err
+		return testPathd, err
 	}
-	return nil
+	return testPathd, nil
 }

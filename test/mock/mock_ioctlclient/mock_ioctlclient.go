@@ -244,17 +244,29 @@ func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Ca
 }
 
 // SetAlias mocks base method.
-func (m *MockClient) SetAlias(arg0, arg1 string) error {
+func (m *MockClient) SetAlias(arg0, arg1 string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAlias", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "SetAlias", arg0, arg1)
 }
 
 // SetAlias indicates an expected call of SetAlias.
 func (mr *MockClientMockRecorder) SetAlias(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAlias", reflect.TypeOf((*MockClient)(nil).SetAlias), arg0, arg1)
+}
+
+// SetAliasAndSave mocks base method.
+func (m *MockClient) SetAliasAndSave(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAliasAndSave", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAliasAndSave indicates an expected call of SetAliasAndSave.
+func (mr *MockClientMockRecorder) SetAliasAndSave(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAliasAndSave", reflect.TypeOf((*MockClient)(nil).SetAliasAndSave), arg0, arg1)
 }
 
 // Start mocks base method.
@@ -283,4 +295,18 @@ func (m *MockClient) Stop(arg0 context.Context) error {
 func (mr *MockClientMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockClient)(nil).Stop), arg0)
+}
+
+// WriteConfig mocks base method.
+func (m *MockClient) WriteConfig() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteConfig indicates an expected call of WriteConfig.
+func (mr *MockClientMockRecorder) WriteConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig))
 }
