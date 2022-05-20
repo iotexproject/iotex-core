@@ -16,19 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-type noncer interface {
-	Nonce() uint64
-}
-
-// SetNonce sets nonce for account
-func SetNonce(i noncer, state *state.Account) {
-	if i.Nonce() >= state.PendingNonce() {
-		if err := state.SetNonce(i.Nonce()); err != nil {
-			panic("invalid nonce")
-		}
-	}
-}
-
 // LoadOrCreateAccount either loads an account state or creates an account state
 func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address, opts ...state.AccountCreationOption) (*state.Account, error) {
 	var (

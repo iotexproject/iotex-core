@@ -23,6 +23,8 @@ var (
 	ErrInvalidAmount = errors.New("invalid amount")
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
+	// ErrInvalidNonce is the error that the nonce to set is invalid
+	ErrInvalidNonce = errors.New("invalid nonce")
 )
 
 // DelegateCandidateOption is an option to create a delegate candidate account
@@ -110,6 +112,9 @@ func (st *Account) Deserialize(buf []byte) error {
 
 // SetNonce sets the nonce of the account
 func (st *Account) SetNonce(nonce uint64) error {
+	if nonce != st.nonce+1 {
+		return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+1)
+	}
 	st.nonce = nonce
 	return nil
 }
