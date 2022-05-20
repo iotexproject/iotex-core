@@ -1,0 +1,51 @@
+{
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "60806040526000805460ff1916905534801561001a57600080fd5b5061015b8061002a6000396000f3fe6080604052600436106100345760003560e01c8063590e1ae314610039578063e420264a14610043578063fc68521a14610063575b600080fd5b610041610083565b005b34801561004f57600080fd5b5061004161005e3660046100dc565b6100b0565b34801561006f57600080fd5b5061004161007e3660046100f5565b6100c4565b60405133906108fc9060009081818181818888f193505050501580156100ad573d6000803e3d6000fd5b50565b80600a8082116100bf57600080fd5b505050565b806001600160a01b0381166100d857600080fd5b5050565b6000602082840312156100ee57600080fd5b5035919050565b60006020828403121561010757600080fd5b81356001600160a01b038116811461011e57600080fd5b939250505056fea26469706673582212209640b8983c3c50dee60be4865271f520ba5ae96a496ab4d64f90b3f88e3cf02d64736f6c634300080e0033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 5000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 120035,
+        "expectedStatus": 1,
+        "expectedBalances": [],
+        "comment": "deploy modifiers contract"
+    }],
+    "executions": [{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "fc68521a0000000000000000000000000000000000000000000000000000000000000000",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 13923,
+        "expectedStatus": 106,
+        "failed": true,
+        "comment": "call validAddress"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "e420264a0000000000000000000000000000000000000000000000000000000000000009",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 13846,
+        "expectedStatus": 106,
+        "failed": true,
+        "comment": "call greaterThan"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "590e1ae3",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 11278,
+        "expectedStatus": 1,
+        "comment": "call refund"
+    }]
+}

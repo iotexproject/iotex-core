@@ -1,0 +1,55 @@
+{
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "608060405234801561001057600080fd5b50600080546001600160a01b0319163317905560ca806100316000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c80632e64cec114604157806343d726d61460565780636057361d14605e575b600080fd5b60015460405190815260200160405180910390f35b605c606e565b005b605c6069366004607c565b600155565b6000546001600160a01b0316ff5b600060208284031215608d57600080fd5b503591905056fea264697066735822122098bc5d8b70d15684ea7303282380aeb7ae56863ca02d3ce8aec3e624652d7b6164736f6c634300080e0033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 5000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 95828,
+        "expectedBalances": [],
+        "comment": "deploy self-destruct contract"
+    }],
+    "executions": [{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "6057361d0000000000000000000000000000000000000000000000000000000000000014",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 33834,
+        "comment": "store 20"
+    },{
+        "readOnly": true,
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "2e64cec1",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10746,
+        "hasReturnValue": true,
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000014",
+        "comment": "retrieve"
+    },{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "43d726d6",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 5378,
+        "comment": "self destruct"
+    },{
+        "readOnly": true,
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "2e64cec1",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10400,
+        "hasReturnValue": true,
+        "rawReturnValue": "",
+        "comment": "return nil because contract is destoried"
+    }]
+}

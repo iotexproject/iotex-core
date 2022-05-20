@@ -1,0 +1,60 @@
+{
+  "initGenesis": {
+    "isBering" : true,
+    "isIceland" : true
+  },
+  "initBalances": [{
+    "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+    "rawBalance": "1000000000000000000000000000"
+  }],
+  "deployments": [{
+    "rawByteCode": "60806040526000805534801561001457600080fd5b5060d2806100236000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c8063048a5fed146041578063564b81ef146055578063d09de08a14605a575b600080fd5b475b60405190815260200160405180910390f35b466043565b60606062565b005b600080549080606f836076565b9190505550565b600060018201609557634e487b7160e01b600052601160045260246000fd5b506001019056fea2646970667358221220de81d1f134e1b02a16ed79b75c1bd5dfab4be2e471e7dc9446b51da91e4cbb8f64736f6c634300080e0033",
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawAmount": "0",
+    "rawGasLimit": 5000000,
+    "rawGasPrice": "1",
+    "rawExpectedGasConsumed": 77399,
+    "expectedStatus": 1,
+    "expectedBalances": [{
+      "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+      "rawBalance": "999999999999999999999863365"
+    }],
+    "comment": "deploy chainid contract"
+  }],
+  "executions": [{
+    "readOnly": true,
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawByteCode": "564b81ef",
+    "rawAmount": "0",
+    "rawGasLimit": 1000000,
+    "rawGasPrice": "0",
+    "expectedStatus": 1,
+    "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000001251",
+    "comment": "call getChainID"
+  },
+  {
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawByteCode": "d09de08a",
+    "rawAmount": "0",
+    "rawGasLimit": 1000000,
+    "rawGasPrice": "1",
+    "rawExpectedGasConsumed": 31452,
+    "expectedStatus": 1,
+    "expectedBalances": [{
+      "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+      "rawBalance": "999999999999999999999891149"
+    }],
+    "comment": "call increment"
+  },
+  {
+    "readOnly": true,
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawByteCode": "048a5fed",
+    "rawAmount": "0",
+    "rawGasLimit": 1000000,
+    "rawGasPrice": "0",
+    "expectedStatus": 1,
+    "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+    "comment": "call getSelfBalance"
+  }]
+}

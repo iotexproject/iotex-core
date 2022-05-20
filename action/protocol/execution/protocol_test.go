@@ -1020,6 +1020,89 @@ func TestIstanbulEVM(t *testing.T) {
 	})
 }
 
+func TestLondonEVM(t *testing.T) {
+	cfg := config.Default
+	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
+	t.Run("AccessList", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/accesslist.json")
+	})
+	t.Run("ArrayReturn", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/array-return.json")
+	})
+	t.Run("BasicToken", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/basic-token.json")
+	})
+	t.Run("CallDynamic", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/call-dynamic.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/chainid-selfbalance.json")
+	})
+	t.Run("ChangeState", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/changestate.json")
+	})
+	t.Run("F.value", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/f.value.json")
+	})
+	t.Run("Gas-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/gas-test.json")
+	})
+	t.Run("InfiniteLoop", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/infiniteloop.json")
+	})
+	t.Run("MappingDelete", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/mapping-delete.json")
+	})
+	t.Run("max-time", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/maxtime.json")
+	})
+	t.Run("Modifier", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/modifiers.json")
+	})
+	t.Run("Multisend", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/multisend.json")
+	})
+	t.Run("NoVariableLengthReturns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/no-variable-length-returns.json")
+	})
+	t.Run("PublicMapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/public-mapping.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/reentry-attack.json")
+	})
+	t.Run("RemoveFromArray", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/remove-from-array.json")
+	})
+	t.Run("SendEth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/send-eth.json")
+	})
+	t.Run("Sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/storage-test.json")
+	})
+	t.Run("TailRecursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/tail-recursion.json")
+	})
+	t.Run("Tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/wireconnection.json")
+	})
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/self-destruct.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/datacopy.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
+}
+
 func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	sct := SmartContractTest{
 		InitBalances: []ExpectedBalance{
