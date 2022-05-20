@@ -159,7 +159,7 @@ func NewActPool(sf protocol.StateReader, cfg config.ActPool, opts ...Option) (Ac
 	ap.timerFactory = timerFactory
 
 	for i := 0; i < _numWorker; i++ {
-		ap.jobQueue[i] = make(chan workerJob, ap.cfg.MaxNumActsPerAcct)
+		ap.jobQueue[i] = make(chan workerJob, ap.cfg.MaxNumActsPerPool)
 		ap.worker[i] = newQueueWorker(ap, ap.jobQueue[i])
 		go ap.worker[i].Start()
 	}
