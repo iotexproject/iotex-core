@@ -468,13 +468,13 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	//test AccountState() & State()
-	var testAccount state.Account
+	testAccount := state.NewEmptyAccount()
 	accountA, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	_, err = sf.State(&testAccount, protocol.LegacyKeyOption(sHash))
+	_, err = sf.State(testAccount, protocol.LegacyKeyOption(sHash))
 	require.NoError(t, err)
-	require.Equal(t, accountA, &testAccount)
+	require.Equal(t, accountA, testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 }
 
@@ -631,7 +631,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, 3, iter.Size())
 	accounts := make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
-		c := &state.Account{}
+		c := state.NewEmptyAccount()
 		err = iter.Next(c)
 		if err != nil {
 			continue
@@ -650,7 +650,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, 3, iter.Size())
 	accounts = make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
-		c := &state.Account{}
+		c := state.NewEmptyAccount()
 		err = iter.Next(c)
 		if err != nil {
 			continue
@@ -669,7 +669,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, 3, iter.Size())
 	accounts = make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
-		c := &state.Account{}
+		c := state.NewEmptyAccount()
 		err = iter.Next(c)
 		if err != nil {
 			continue
@@ -690,7 +690,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	require.Equal(t, 1, iter.Size())
 	accounts = make([]*state.Account, 0)
 	for i := 0; i < iter.Size(); i++ {
-		c := &state.Account{}
+		c := state.NewEmptyAccount()
 		require.NoError(t, iter.Next(c))
 		accounts = append(accounts, c)
 	}
@@ -1206,14 +1206,14 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 
 	// test PutState()
 	hashA := hash.BytesToHash160(identityset.Address(28).Bytes())
-	accountA := state.EmptyAccount()
+	accountA := state.NewEmptyAccount()
 	require.NoError(accountA.AddBalance(big.NewInt(70)))
 	_, err := ws.PutState(accountA, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 
 	// test State()
-	testAccount := state.EmptyAccount()
-	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	testAccount := state.NewEmptyAccount()
+	_, err = ws.State(testAccount, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 	require.Equal(accountA, testAccount)
 
@@ -1222,7 +1222,7 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 	require.NoError(err)
 
 	// can't state account "alfa" anymore
-	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	_, err = ws.State(testAccount, protocol.LegacyKeyOption(hashA))
 	require.Error(err)
 }
 
@@ -1355,9 +1355,8 @@ func TestStateDBPatch(t *testing.T) {
 func TestDeleteAndPutSameKey(t *testing.T) {
 	testDeleteAndPutSameKey := func(t *testing.T, ws *workingSet) {
 		key := hash.Hash160b([]byte("test"))
-		acc := state.Account{
-			Nonce: 1,
-		}
+		acc := state.NewEmptyAccount()
+		acc.Nonce = 1
 		_, err := ws.PutState(acc, protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
 		_, err = ws.DelState(protocol.LegacyKeyOption(key))

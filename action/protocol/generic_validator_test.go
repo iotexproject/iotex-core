@@ -67,7 +67,10 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
-		return &state.Account{Nonce: 2}, nil
+		acct := state.NewEmptyAccount()
+		acct.Nonce = 2
+
+		return acct, nil
 	})
 	data, err := hex.DecodeString("")
 	require.NoError(err)

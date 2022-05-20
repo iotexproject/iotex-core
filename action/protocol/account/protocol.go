@@ -108,13 +108,13 @@ func (p *Protocol) Name() string {
 }
 
 func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) error {
-	var account state.Account
+	account := state.NewEmptyAccount()
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	_, err = sm.State(&account, protocol.LegacyKeyOption(addrHash))
+	_, err = sm.State(account, protocol.LegacyKeyOption(addrHash))
 	switch errors.Cause(err) {
 	case nil:
 		return errors.Errorf("failed to create account %s", encodedAddr)
@@ -122,7 +122,6 @@ func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) 
 		if err := account.AddBalance(init); err != nil {
 			return errors.Wrapf(err, "failed to add balance %s", init)
 		}
-		account.VotingWeight = big.NewInt(0)
 		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}

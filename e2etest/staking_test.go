@@ -58,8 +58,8 @@ func TestStakingContract(t *testing.T) {
 		require.NotNil(registry)
 		admin := identityset.PrivateKey(26)
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
-		var s state.Account
-		_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+		s := state.NewEmptyAccount()
+		_, err = sf.State(s, protocol.LegacyKeyOption(state0))
 		require.NoError(err)
 		require.Equal(unit.ConvertIotxToRau(100000000), s.Balance)
 
@@ -101,7 +101,7 @@ func TestStakingContract(t *testing.T) {
 			require.NoError(bc.CommitBlock(blk))
 
 			state0 = hash.BytesToHash160(identityset.Address(i).Bytes())
-			_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+			_, err = sf.State(s, protocol.LegacyKeyOption(state0))
 			require.NoError(err)
 			require.Equal(unit.ConvertIotxToRau(100000000-int64(numBucket)*200), s.Balance)
 		}
