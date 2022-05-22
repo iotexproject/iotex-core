@@ -41,7 +41,7 @@ type (
 	Account struct {
 		// 0 is reserved from actions in genesis block and coinbase transfers nonces
 		// other actions' nonces start from 1
-		Nonce        uint64
+		nonce        uint64
 		Balance      *big.Int
 		Root         hash.Hash256 // storage trie root for contract account
 		CodeHash     []byte       // hash of the smart contract byte-code for contract account
@@ -53,7 +53,7 @@ type (
 // ToProto converts to protobuf's Account
 func (st *Account) ToProto() *accountpb.Account {
 	acPb := &accountpb.Account{}
-	acPb.Nonce = st.Nonce
+	acPb.Nonce = st.nonce
 	if st.Balance != nil {
 		acPb.Balance = st.Balance.String()
 	}
@@ -75,7 +75,7 @@ func (st Account) Serialize() ([]byte, error) {
 
 // FromProto converts from protobuf's Account
 func (st *Account) FromProto(acPb *accountpb.Account) {
-	st.Nonce = acPb.Nonce
+	st.nonce = acPb.Nonce
 	if acPb.Balance == "" {
 		st.Balance = big.NewInt(0)
 	} else {
@@ -106,6 +106,17 @@ func (st *Account) Deserialize(buf []byte) error {
 	}
 	st.FromProto(acPb)
 	return nil
+}
+
+// SetNonce sets the nonce of the account
+func (st *Account) SetNonce(nonce uint64) error {
+	st.nonce = nonce
+	return nil
+}
+
+// PendingNonce returns the pending nonce of the account
+func (st *Account) PendingNonce() uint64 {
+	return st.nonce + 1
 }
 
 // HasSufficientBalance returns true if balance is larger than amount

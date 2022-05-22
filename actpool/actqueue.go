@@ -265,7 +265,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil
 	}
-	nonce := confirmedState.Nonce + 1
+	nonce := confirmedState.PendingNonce()
 	for ; ; nonce++ {
 		if _, exist := q.items[nonce]; !exist {
 			break

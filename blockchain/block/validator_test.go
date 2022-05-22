@@ -40,7 +40,7 @@ func TestValidator(t *testing.T) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
 		account := state.NewEmptyAccount()
-		account.Nonce = 2
+		require.NoError(account.SetNonce(2))
 		return account, nil
 	})
 

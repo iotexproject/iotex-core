@@ -129,7 +129,6 @@ func TestActPool_AddActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		cfg := &protocol.StateConfig{}
 		for _, opt := range opts {
 			opt(cfg)
@@ -326,7 +325,6 @@ func TestActPool_PickActs(t *testing.T) {
 		sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 			acct, ok := account.(*state.Account)
 			require.True(ok)
-			acct.Nonce = 0
 			cfg := &protocol.StateConfig{}
 			for _, opt := range opts {
 				opt(cfg)
@@ -394,7 +392,6 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -409,7 +406,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 4
+		require.NoError(acct.SetNonce(4))
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -442,19 +439,19 @@ func TestActPool_Reset(t *testing.T) {
 		switch {
 		case bytes.Equal(cfg.Key, identityset.Address(28).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[0])))
-			acct.Nonce = nonces[0]
+			require.NoError(acct.SetNonce(nonces[0]))
 		case bytes.Equal(cfg.Key, identityset.Address(29).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[1])))
-			acct.Nonce = nonces[1]
+			require.NoError(acct.SetNonce(nonces[1]))
 		case bytes.Equal(cfg.Key, identityset.Address(30).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[2])))
-			acct.Nonce = nonces[2]
+			require.NoError(acct.SetNonce(nonces[2]))
 		case bytes.Equal(cfg.Key, identityset.Address(31).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[3])))
-			acct.Nonce = nonces[3]
+			require.NoError(acct.SetNonce(nonces[3]))
 		case bytes.Equal(cfg.Key, identityset.Address(32).Bytes()):
 			require.NoError(acct.AddBalance(new(big.Int).Set(balances[4])))
-			acct.Nonce = nonces[4]
+			require.NoError(acct.SetNonce(nonces[4]))
 		}
 		return 0, nil
 	}).AnyTimes()
@@ -795,7 +792,6 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -840,7 +836,6 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -888,7 +883,6 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -980,7 +974,6 @@ func TestActPool_GetSize(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -994,7 +987,7 @@ func TestActPool_GetSize(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 4
+		require.NoError(acct.SetNonce(4))
 		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
@@ -1033,7 +1026,6 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		cfg := &protocol.StateConfig{}
 		for _, opt := range opts {
 			opt(cfg)
@@ -1102,7 +1094,10 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 		return 0, err
 	}
 	committedState, err := accountutil.AccountState(ap.sf, _addr1)
-	return committedState.Nonce + 1, err
+	if err != nil {
+		return 0, err
+	}
+	return committedState.PendingNonce(), nil
 }
 
 // Helper function to return the correct pending balance just in case of empty queue

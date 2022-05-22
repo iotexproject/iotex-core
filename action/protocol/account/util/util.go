@@ -22,8 +22,10 @@ type noncer interface {
 
 // SetNonce sets nonce for account
 func SetNonce(i noncer, state *state.Account) {
-	if i.Nonce() > state.Nonce {
-		state.Nonce = i.Nonce()
+	if i.Nonce() >= state.PendingNonce() {
+		if err := state.SetNonce(i.Nonce()); err != nil {
+			panic("invalid nonce")
+		}
 	}
 }
 

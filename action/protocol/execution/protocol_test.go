@@ -240,7 +240,7 @@ func readExecution(
 	}
 	exec, err := action.NewExecution(
 		contractAddr,
-		state.Nonce+1,
+		state.PendingNonce(),
 		ecfg.Amount(),
 		ecfg.GasLimit(),
 		ecfg.GasPrice(),
@@ -273,7 +273,7 @@ func runExecutions(
 	hashes := []hash.Hash256{}
 	for i, ecfg := range ecfgs {
 		log.S().Info(ecfg.Comment)
-		var nonce uint64
+		nonce := uint64(1)
 		var ok bool
 		executor := ecfg.Executor()
 		if nonce, ok = nonces[executor.String()]; !ok {
@@ -281,9 +281,8 @@ func runExecutions(
 			if err != nil {
 				return nil, nil, err
 			}
-			nonce = state.Nonce
+			nonce = state.PendingNonce()
 		}
-		nonce = nonce + 1
 		nonces[executor.String()] = nonce
 		exec, err := action.NewExecution(
 			contractAddrs[i],

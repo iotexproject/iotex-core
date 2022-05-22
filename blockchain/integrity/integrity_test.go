@@ -1228,7 +1228,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(err)
 		act, err := accountutil.AccountState(sf, addr)
 		require.NoError(err)
-		require.Equal(uint64(0), act.Nonce)
+		require.Equal(uint64(1), act.PendingNonce())
 		require.Equal(big.NewInt(0), act.Balance)
 
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
@@ -1458,7 +1458,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require.NotNil(bc)
 	s, err := accountutil.AccountState(sf, identityset.Address(0))
 	require.NoError(err)
-	require.Equal(uint64(0), s.Nonce)
+	require.Equal(uint64(1), s.PendingNonce())
 	require.Equal(big.NewInt(100), s.Balance)
 	require.Equal(hash.ZeroHash256, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)

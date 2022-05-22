@@ -352,15 +352,16 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 		}
 		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		pendingNonce := confirmedState.PendingNonce()
 		for i, nonce := range receivedNonces {
-			if nonce != confirmedState.Nonce+uint64(i+1) {
+			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
 					action.ErrNonceTooHigh,
 					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
-					confirmedState.Nonce,
+					pendingNonce,
 				)
 			}
 		}

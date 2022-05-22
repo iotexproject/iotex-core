@@ -66,7 +66,9 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
 		acct := state.NewEmptyAccount()
-		acct.Nonce = 2
+		if err := acct.SetNonce(2); err != nil {
+			return nil, err
+		}
 
 		return acct, nil
 	})

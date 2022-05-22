@@ -20,7 +20,7 @@ import (
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
 	s1 := Account{
-		Nonce:    0x10,
+		nonce:    0x10,
 		Balance:  big.NewInt(20000000),
 		CodeHash: []byte("testing codehash"),
 	}
@@ -32,7 +32,7 @@ func TestEncodeDecode(t *testing.T) {
 	s2 := Account{}
 	require.NoError(s2.Deserialize(ss))
 	require.Equal(big.NewInt(20000000), s2.Balance)
-	require.Equal(uint64(0x10), s2.Nonce)
+	require.Equal(uint64(0x11), s2.PendingNonce())
 	require.Equal(hash.ZeroHash256, s2.Root)
 	require.Equal([]byte("testing codehash"), s2.CodeHash)
 }
@@ -65,7 +65,7 @@ func TestBalance(t *testing.T) {
 func TestClone(t *testing.T) {
 	require := require.New(t)
 	ss := &Account{
-		Nonce:   0x10,
+		nonce:   0x10,
 		Balance: big.NewInt(200),
 	}
 	account := ss.Clone()

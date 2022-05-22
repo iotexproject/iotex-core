@@ -129,7 +129,7 @@ func TestActQueuePendingActs(t *testing.T) {
 	cfg := config.Default
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
-		accountState.Nonce = uint64(1)
+		require.NoError(accountState.SetNonce(accountState.PendingNonce()))
 	}).Return(uint64(0), nil).Times(1)
 	ap, err := NewActPool(sf, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)

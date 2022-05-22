@@ -782,7 +782,7 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), state.Nonce)
+	require.Equal(t, uint64(1), state.PendingNonce())
 
 	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -802,7 +802,7 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), state.Nonce)
+	require.Equal(t, uint64(2), state.PendingNonce())
 }
 
 func TestLoadStoreHeight(t *testing.T) {
@@ -1356,7 +1356,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	testDeleteAndPutSameKey := func(t *testing.T, ws *workingSet) {
 		key := hash.Hash160b([]byte("test"))
 		acc := state.NewEmptyAccount()
-		acc.Nonce = 1
+		require.NoError(t, acc.SetNonce(1))
 		_, err := ws.PutState(acc, protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
 		_, err = ws.DelState(protocol.LegacyKeyOption(key))
