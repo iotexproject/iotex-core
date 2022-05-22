@@ -191,7 +191,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 1
 	// C --> A
 	s, _ = accountutil.AccountState(sf, identityset.Address(30))
-	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf1))
@@ -212,7 +212,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 2
 	// F --> D
 	s, _ = accountutil.AccountState(sf, identityset.Address(33))
-	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf2))
@@ -233,7 +233,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 3
 	// B --> B
 	s, _ = accountutil.AccountState(sf, identityset.Address(29))
-	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf3))
@@ -254,7 +254,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 4
 	// test --> E
 	s, _ = accountutil.AccountState(sf, identityset.Address(27))
-	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf4))

@@ -250,7 +250,7 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return confirmedState.Nonce + 1, err
+	return confirmedState.PendingNonce(), err
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -368,8 +368,8 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 		_actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
-	confirmedNonce := confirmedState.Nonce
-	if actNonce <= confirmedNonce {
+	pendingNonce := confirmedState.PendingNonce()
+	if actNonce < pendingNonce {
 		return action.ErrNonceTooLow
 	}
 	sender := addr.String()
@@ -379,15 +379,15 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
 		// Initialize pending nonce and balance for new account
-		queue.SetPendingNonce(confirmedNonce + 1)
+		queue.SetPendingNonce(pendingNonce)
 		queue.SetPendingBalance(confirmedState.Balance)
 	}
 
-	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {
+	if actNonce-pendingNonce >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
 		log.L().Debug("Rejecting action because nonce is too large.",
 			log.Hex("hash", actHash[:]),
-			zap.Uint64("startNonce", confirmedNonce+1),
+			zap.Uint64("startNonce", pendingNonce),
 			zap.Uint64("actNonce", actNonce))
 		_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
 		return action.ErrNonceTooHigh
@@ -452,7 +452,7 @@ func (ap *actPool) removeConfirmedActs() {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
 		}
-		pendingNonce := confirmedState.Nonce + 1
+		pendingNonce := confirmedState.PendingNonce()
 		// Remove all actions that are committed to new block
 		acts := queue.FilterNonce(pendingNonce)
 		ap.removeInvalidActs(acts)
@@ -529,9 +529,7 @@ func (ap *actPool) reset() {
 		queue.SetPendingBalance(state.Balance)
 
 		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce := state.Nonce
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
+		queue.SetPendingNonce(state.PendingNonce())
 		ap.updateAccount(from)
 	}
 }

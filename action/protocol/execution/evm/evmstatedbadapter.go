@@ -282,22 +282,25 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		log.L().Error("Failed to convert evm address.", zap.Error(err))
 		return 0
 	}
-	nonce := uint64(0)
+	pendingNonce := uint64(1)
 	state, err := stateDB.AccountState(addr.String())
 	if err != nil {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
 		// stateDB.logError(err)
 	} else {
-		nonce = state.Nonce
+		pendingNonce = state.PendingNonce()
 	}
-	if stateDB.usePendingNonce {
-		nonce++
+	if !stateDB.usePendingNonce {
+		if pendingNonce == 0 {
+			panic("invalid pending nonce")
+		}
+		pendingNonce--
 	}
 	log.L().Debug("Called GetNonce.",
 		zap.String("address", addr.String()),
-		zap.Uint64("nonce", nonce))
+		zap.Uint64("pendingNonce", pendingNonce))
 
-	return nonce
+	return pendingNonce
 }
 
 // SetNonce sets the nonce of account
@@ -322,7 +325,9 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	log.L().Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
-	s.Nonce = nonce
+	if err := s.SetNonce(nonce); err != nil {
+		return
+	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr, s); err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
 		stateDB.logError(err)
@@ -472,7 +477,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 		return true
 	}
 	// TODO: delete hash.ZeroHash256
-	return s.Nonce == 0 &&
+	return s.PendingNonce() == 1 &&
 		s.Balance.Sign() == 0 &&
 		(len(s.CodeHash) == 0 || bytes.Equal(s.CodeHash, hash.ZeroHash256[:]))
 }

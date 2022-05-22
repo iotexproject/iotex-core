@@ -68,7 +68,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	s, err = accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
 	require.Equal("5", s.Balance.String())
-	require.Equal(uint64(0x0), s.Nonce)
+	require.Equal(uint64(0x1), s.PendingNonce())
 }
 
 func TestProtocol_Initialize(t *testing.T) {

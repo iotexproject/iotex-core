@@ -143,7 +143,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			newSender, err := accountutil.AccountState(sm, v.caller)
 			require.NoError(err)
 			require.Equal(sender.Balance, newSender.Balance)
-			require.Equal(sender.Nonce, newSender.Nonce)
+			require.Equal(sender.PendingNonce(), newSender.PendingNonce())
 			continue
 		}
 		require.Equal(v.status, receipt.Status)
@@ -164,7 +164,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		require.NoError(err)
 		require.NoError(sender.SubBalance(gasFee))
 		require.Equal(sender.Balance, newSender.Balance)
-		require.Equal(v.nonce, newSender.Nonce)
+		require.Equal(v.nonce+1, newSender.PendingNonce())
 
 		// verify transaction log
 		tLog := block.ReceiptTransactionLog(receipt)

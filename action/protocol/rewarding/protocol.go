@@ -416,8 +416,10 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 		return err
 	}
 	// TODO: this check shouldn't be necessary
-	if nonce > acc.Nonce {
-		acc.Nonce = nonce
+	if nonce >= acc.PendingNonce() {
+		if err := acc.SetNonce(nonce); err != nil {
+			return err
+		}
 	}
 	return accountutil.StoreAccount(sm, addr, acc)
 }
