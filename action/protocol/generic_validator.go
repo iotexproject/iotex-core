@@ -58,10 +58,15 @@ func (v *GenericValidator) Validate(_ context.Context, selp action.SealedEnvelop
 	if err != nil {
 		return errors.Wrapf(err, "invalid state of account %s", caller.String())
 	}
-
-	pendingNonce := confirmedState.PendingNonce()
-	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
-		return action.ErrNonceTooLow
+	if action.IsSystemAction(selp) {
+		if selp.Nonce() != 0 {
+			return action.ErrSystemActionNonce
+		}
+	} else {
+		if confirmedState.PendingNonce() > selp.Nonce() {
+			return action.ErrNonceTooLow
+		}
 	}
+
 	return selp.Action().SanityCheck()
 }
