@@ -297,11 +297,13 @@ func (svr *GRPCServer) estimateGasForAction(ctx context.Context, elp action.Enve
 		}
 		return gas, nil
 	}
-	_, receipt, err := svr.coreService.SimulateExecution(ctx, callerAddr, sc)
+	// _, receipt, err := svr.coreService.SimulateExecution(ctx, callerAddr, sc)
+	ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	return receipt.GasConsumed, nil
+	// return receipt.GasConsumed, nil
+	return ret, nil
 }
 
 // EstimateActionGasConsumption estimate gas consume for action without signature
