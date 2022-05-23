@@ -104,6 +104,7 @@ type (
 		TolerateLegacyAddress       bool
 		EnableWeb3Staking           bool
 		ValidateRewardProtocol      bool
+		SkipUpdateForSystemAction   bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -234,6 +235,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			TolerateLegacyAddress:       !g.IsNewfoundland(height),
 			EnableWeb3Staking:           g.IsNewfoundland(height),
 			ValidateRewardProtocol:      g.IsNewfoundland(height),
+			SkipUpdateForSystemAction:   g.IsToBeEnabled(height),
 		},
 	)
 }

@@ -75,11 +75,12 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	t.Run("normal", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", 3, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
+			SetNonce(3).
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
@@ -116,6 +117,22 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.Contains(err.Error(), "invalid state of account")
+	})
+	t.Run("invalid system action nonce", func(t *testing.T) {
+		gr := action.GrantReward{}
+		gr.SetNonce(1)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetGasPrice(big.NewInt(10)).
+			SetNonce(1).
+			SetGasLimit(uint64(100000)).
+			SetAction(&gr).Build()
+		selp, err := action.Sign(elp, identityset.PrivateKey(28))
+		require.NoError(err)
+		nselp := action.SealedEnvelope{}
+		require.NoError(nselp.LoadProto(selp.Proto()))
+		err = valid.Validate(ctx, nselp)
+		require.Error(err)
+		require.Equal(action.ErrSystemActionNonce, errors.Cause(err))
 	})
 	t.Run("nonce too low", func(t *testing.T) {
 		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
