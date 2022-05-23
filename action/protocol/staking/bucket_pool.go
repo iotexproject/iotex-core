@@ -91,11 +91,6 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 	return nil
 }
 
-// NewBucketPool creates an instance of BucketPool
-func NewBucketPool(csr CandidateStateReader, enableSMStorage bool) (*BucketPool, error) {
-	return csr.NewBucketPool(enableSMStorage)
-}
-
 // Total returns the total amount staked in bucket pool
 func (bp *BucketPool) Total() *big.Int {
 	return new(big.Int).Set(bp.total.amount)

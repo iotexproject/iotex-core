@@ -32,11 +32,6 @@ type (
 		getAllBuckets() ([]*VoteBucket, uint64, error)
 		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
 		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
-		addrKeyWithPrefix(addr address.Address, prefix byte) []byte
-	}
-	// BktPool related to create bucket pool
-	BktPool interface {
-		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
 	}
 	// CandidateGet related to obtaining Candidate
 	CandidateGet interface {
@@ -58,12 +53,12 @@ type (
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
 		BucketGet
-		BktPool
 		CandidateGet
 		ReadState
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
+		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
 		GetCandidateByName(string) *Candidate
 		GetCandidateByOwner(address.Address) *Candidate
 		AllCandidates() CandidateList
@@ -212,8 +207,10 @@ func (c *candSR) getTotalBucketCount() (uint64, error) {
 }
 
 func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
-	var vb VoteBucket
-	var err error
+	var (
+		vb  VoteBucket
+		err error
+	)
 	if _, err = c.State(
 		&vb,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -280,8 +277,10 @@ func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, er
 }
 
 func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
-	var bis BucketIndices
-	key := c.addrKeyWithPrefix(addr, prefix)
+	var (
+		bis BucketIndices
+		key = AddrKeyWithPrefix(addr, prefix)
+	)
 	height, err := c.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -316,14 +315,6 @@ func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
 		cands = append(cands, c)
 	}
 	return cands, height, nil
-}
-
-func (c *candSR) addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
-	k := addr.Bytes()
-	key := make([]byte, len(k)+1)
-	key[0] = prefix
-	copy(key[1:], k)
-	return key
 }
 
 func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
