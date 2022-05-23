@@ -34,9 +34,3 @@ jobs:
         tool_name: errcheck
         level: info
 
-    - name: Run Gosec Security Scanner
-      uses: securego/gosec@master
-      with:
-        args: '-no-fail -fmt sarif -out results.sarif ./...'
-
-
