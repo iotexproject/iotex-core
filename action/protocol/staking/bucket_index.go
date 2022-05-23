@@ -66,6 +66,15 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
+// AddrKeyWithPrefix returns address key with prefix
+func AddrKeyWithPrefix(addr address.Address, prefix byte) []byte {
+	k := addr.Bytes()
+	key := make([]byte, len(k)+1)
+	key[0] = prefix
+	copy(key[1:], k)
+	return key
+}
+
 func (csr *candSR) VoterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
 	return csr.getBucketIndices(addr, _voterIndex)
 }
