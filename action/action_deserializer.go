@@ -34,17 +34,3 @@ func (ad *Deserializer) WithChainID(with bool) *Deserializer {
 	ad.withChainID = with
 	return ad
 }
-
-// ActionToEnvelope converts protobuf to Envelope
-func (ad *Deserializer) ActionToEnvelope(pbActCore *iotextypes.ActionCore) (Envelope, error) {
-	var (
-		elp = &envelope{}
-		err error
-	)
-	if ad.withChainID {
-		err = elp.LoadProtoWithChainID(pbActCore)
-	} else {
-		err = elp.LoadProto(pbActCore)
-	}
-	return elp, err
-}

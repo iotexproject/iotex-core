@@ -277,74 +277,114 @@ func (svr *GRPCServer) EstimateGasForAction(ctx context.Context, in *iotexapi.Es
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	callerAddr := selp.SrcPubkey().Address()
-	gas, err := svr.estimateGasForAction(ctx, selp.Envelope, callerAddr)
+	gas, err := svr.estimateGasForAction(ctx, selp.Envelope.Action(), selp.SrcPubkey().Address())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.EstimateGasForActionResponse{Gas: gas}, nil
 }
 
-func (svr *GRPCServer) estimateGasForAction(ctx context.Context, elp action.Envelope, callerAddr address.Address) (uint64, error) {
-	if callerAddr == nil {
-		return 0, status.Error(codes.Internal, "failed to get address")
-	}
-	sc, ok := elp.Action().(*action.Execution)
-	if !ok {
-		gas, err := elp.IntrinsicGas()
-		if err != nil {
-			return 0, status.Error(codes.Internal, err.Error())
+func (svr *GRPCServer) estimateGasForAction(ctx context.Context, act action.Action, callerAddr address.Address) (uint64, error) {
+	var (
+		estimatedGas uint64
+		err          error
+	)
+	if sc, ok := act.(*action.Execution); ok {
+		if callerAddr == nil {
+			return 0, status.Error(codes.Internal, "failed to get address")
 		}
-		return gas, nil
+		estimatedGas, err = svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
+	} else {
+		estimatedGas, err = svr.coreService.EstimateGasForNonExecution(act)
 	}
-	// _, receipt, err := svr.coreService.SimulateExecution(ctx, callerAddr, sc)
-	ret, err := svr.coreService.EstimateExecutionGasConsumption(ctx, sc, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	// return receipt.GasConsumed, nil
-	return ret, nil
+	return estimatedGas, nil
 }
 
 // EstimateActionGasConsumption estimate gas consume for action without signature
 func (svr *GRPCServer) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
-	callerAddr, err := address.FromString(in.GetCallerAddress())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	actCore := &iotextypes.ActionCore{}
+	var (
+		act        action.Action
+		callerAddr address.Address
+		err        error
+	)
 	switch {
 	case in.GetExecution() != nil:
-		actCore.Action = &iotextypes.ActionCore_Execution{Execution: in.GetExecution()}
+		tmpAct := &action.Execution{}
+		if err := tmpAct.LoadProto(in.GetExecution()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		callerAddr, err = address.FromString(in.GetCallerAddress())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetTransfer() != nil:
-		actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: in.GetTransfer()}
+		tmpAct := &action.Transfer{}
+		if err = tmpAct.LoadProto(in.GetTransfer()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeCreate() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: in.GetStakeCreate()}
+		tmpAct := &action.CreateStake{}
+		if err = tmpAct.LoadProto(in.GetStakeCreate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeUnstake() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: in.GetStakeUnstake()}
+		tmpAct := &action.Unstake{}
+		if err = tmpAct.LoadProto(in.GetStakeUnstake()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeWithdraw() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: in.GetStakeWithdraw()}
+		tmpAct := &action.WithdrawStake{}
+		if err = tmpAct.LoadProto(in.GetStakeWithdraw()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeAddDeposit() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: in.GetStakeAddDeposit()}
+		tmpAct := &action.DepositToStake{}
+		if err = tmpAct.LoadProto(in.GetStakeAddDeposit()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeRestake() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: in.GetStakeRestake()}
+		tmpAct := &action.Restake{}
+		if err = tmpAct.LoadProto(in.GetStakeRestake()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeChangeCandidate() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: in.GetStakeChangeCandidate()}
+		tmpAct := &action.ChangeCandidate{}
+		if err = tmpAct.LoadProto(in.GetStakeChangeCandidate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetStakeTransferOwnership() != nil:
-		actCore.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: in.GetStakeTransferOwnership()}
+		tmpAct := &action.TransferStake{}
+		if err = tmpAct.LoadProto(in.GetStakeTransferOwnership()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetCandidateRegister() != nil:
-		actCore.Action = &iotextypes.ActionCore_CandidateRegister{CandidateRegister: in.GetCandidateRegister()}
+		tmpAct := &action.CandidateRegister{}
+		if err = tmpAct.LoadProto(in.GetCandidateRegister()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	case in.GetCandidateUpdate() != nil:
-		actCore.Action = &iotextypes.ActionCore_CandidateUpdate{CandidateUpdate: in.GetCandidateUpdate()}
+		tmpAct := &action.CandidateUpdate{}
+		if err = tmpAct.LoadProto(in.GetCandidateUpdate()); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		act = tmpAct
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}
-
-	elp, err := (&action.Deserializer{}).ActionToEnvelope(actCore)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	gas, err := svr.estimateGasForAction(ctx, elp, callerAddr)
+	gas, err := svr.estimateGasForAction(ctx, act, callerAddr)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
