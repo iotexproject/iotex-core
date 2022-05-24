@@ -35,10 +35,7 @@ jobs:
         
     - name: run-test
       id: unittest
-      if: github.event_name == 'push'
       run: |
-        go mod download
-        go mod vendor
         go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
         ./go.test.sh
         bash <(curl -s https://codecov.io/bash)
@@ -46,6 +43,5 @@ jobs:
         
     - name: make-minicluster
       id: minicluster
-      if: github.event_name == 'push'
       run: |
         make minicluster
