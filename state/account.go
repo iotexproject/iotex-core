@@ -95,7 +95,7 @@ func (st *Account) Deserialize(buf []byte) error {
 	return nil
 }
 
-// HasSufficientBalance returns true if balance is larger than amount
+// HasSufficientBalance returns true if balance is not less than amount
 func (st *Account) HasSufficientBalance(amount *big.Int) bool {
 	if amount == nil {
 		return true
