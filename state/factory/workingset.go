@@ -469,9 +469,9 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			default:
-				nextActionHash, err := nextAction.Hash()
-				if err != nil {
-					return nil, errors.Wrapf(err, "Failed to get hash for %x", nextActionHash)
+				nextActionHash, hashErr := nextAction.Hash()
+				if hashErr != nil {
+					return nil, errors.Wrapf(hashErr, "Failed to get hash for %x", nextActionHash)
 				}
 				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextActionHash)
 			}
