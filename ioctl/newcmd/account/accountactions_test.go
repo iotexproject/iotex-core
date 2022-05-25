@@ -63,10 +63,8 @@ func TestNewAccountAction(t *testing.T) {
 		client.EXPECT().QueryAnalyser(reqData).DoAndReturn(func(reqData interface{}) (*http.Response, error) {
 			jsonData, err := json.Marshal(reqData)
 			require.NoError(err)
-			resp, err := http.Post("https://iotex-analyser-api-mainnet.chainanalytics.org/api.ActionsService.GetActionsByAddress", "application/json",
-				bytes.NewBuffer(jsonData))
+			resp, err := http.Post("https://url.com", "application/json", bytes.NewBuffer(jsonData))
 			require.NoError(err)
-
 			timestamp := strconv.Itoa(int(timestamp.Timestamp{Seconds: 10, Nanos: 10}.Seconds))
 			sender := reqData.(map[string]string)["address"]
 			testData := `
@@ -88,7 +86,6 @@ func TestNewAccountAction(t *testing.T) {
 			stringReader := strings.NewReader(testData)
 			stringReadCloser := io.NopCloser(stringReader)
 			resp.Body = stringReadCloser
-
 			return resp, nil
 		}).Times(2)
 		cmd := NewAccountActions(client)
@@ -104,10 +101,8 @@ func TestNewAccountAction(t *testing.T) {
 		client.EXPECT().QueryAnalyser(gomock.Any()).DoAndReturn(func(reqData interface{}) (*http.Response, error) {
 			jsonData, err := json.Marshal(reqData)
 			require.NoError(err)
-			resp, err := http.Post("https://iotex-analyser-api-mainnet.chainanalytics.org/api.ActionsService.GetActionsByAddress", "application/json",
-				bytes.NewBuffer(jsonData))
+			resp, err := http.Post("https://url.com", "application/json", bytes.NewBuffer(jsonData))
 			require.NoError(err)
-
 			return resp, nil
 		}).Times(1)
 		client.EXPECT().Address(gomock.Any()).Return("", nil)
