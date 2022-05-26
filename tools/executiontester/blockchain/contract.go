@@ -238,9 +238,9 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	}
 
 	_, err = cli.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
-	h, err := selp.Hash()
-	if err != nil {
-		return "", err
+	h, hashErr := selp.Hash()
+	if hashErr != nil {
+		return "", hashErr
 	}
 	hex := hex.EncodeToString(h[:])
 	if err != nil {

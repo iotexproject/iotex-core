@@ -1,3 +1,9 @@
+// Copyright (c) 2022 IoTeX Foundation
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package api
 
 import (
@@ -54,14 +60,6 @@ func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
 func WithNativeElection(committee committee.Committee) Option {
 	return func(cfg *Config) error {
 		cfg.electionCommittee = committee
-		return nil
-	}
-}
-
-// WithActionIndex is the option which enables action index related features
-func WithActionIndex() Option {
-	return func(cfg *Config) error {
-		cfg.hasActionIndex = true
 		return nil
 	}
 }
@@ -157,4 +155,9 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 // ReceiveBlock receives the new block
 func (svr *ServerV2) ReceiveBlock(blk *block.Block) error {
 	return svr.core.ReceiveBlock(blk)
+}
+
+// CoreService returns the coreservice of the api
+func (svr *ServerV2) CoreService() CoreService {
+	return svr.core
 }

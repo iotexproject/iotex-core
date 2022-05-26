@@ -434,6 +434,22 @@ func (core *coreService) validateChainID(chainID uint32) error {
 	return nil
 }
 
+// ReceiptByAction gets receipt with corresponding action hash
+func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
+	if core.indexer == nil {
+		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+	receipt, err := core.ReceiptByActionHash(actHash)
+	if err != nil {
+		return nil, "", status.Error(codes.NotFound, err.Error())
+	}
+	blkHash, err := core.getBlockHashByActionHash(actHash)
+	if err != nil {
+		return nil, "", status.Error(codes.NotFound, err.Error())
+	}
+	return receipt, hex.EncodeToString(blkHash[:]), nil
+}
+
 // ReadContract reads the state in a contract address specified by the slot
 func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
 	log.Logger("api").Debug("receive read smart contract request")
@@ -698,7 +714,7 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 
 // ReceiptByActionHash returns receipt by action hash
 func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
@@ -715,7 +731,7 @@ func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 
 // TransactionLogByActionHash returns transaction log by action hash
 func (core *coreService) TransactionLogByActionHash(actHash string) (*iotextypes.TransactionLog, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
 	if !core.dao.ContainsTransactionLog() {
@@ -902,7 +918,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	if start+count > totalActions {
 		count = totalActions - start
 	}
-	if core.hasActionIndex {
+	if core.indexer != nil {
 		return core.getActionsFromIndex(totalActions, start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
@@ -1579,7 +1595,7 @@ func (core *coreService) getProductivityByEpoch(
 }
 
 func (core *coreService) checkActionIndex() error {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return errors.New("no action index")
 	}
 	return nil

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -36,7 +35,9 @@ import (
 )
 
 const (
-	_testPath = "ksTest"
+	_testPath        = "testNewAccount"
+	veryLightScryptN = 2
+	veryLightScryptP = 1
 )
 
 func TestNewAccountCmd(t *testing.T) {
@@ -54,7 +55,7 @@ func TestNewAccountCmd(t *testing.T) {
 
 func TestSign(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(keystore.StandardScryptN, keystore.StandardScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -120,9 +121,9 @@ func TestSign(t *testing.T) {
 
 func TestAccount(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, nonce, err := newTestAccount()
-	defer testutil.CleanupPath(testWallet)
+	testWallet, ks, passwd, nonce, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -238,7 +239,8 @@ func TestMeta(t *testing.T) {
 
 func TestAccountError(t *testing.T) {
 	require := require.New(t)
-	testFilePath := filepath.Join(os.TempDir(), _testPath)
+	testFilePath, err := os.MkdirTemp(os.TempDir(), _testPath)
+	require.NoError(err)
 	defer testutil.CleanupPath(testFilePath)
 	alias := "aaa"
 	passwordOfKeyStore := "123456"
@@ -247,7 +249,8 @@ func TestAccountError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	testWallet, _, _, _, _ := newTestAccount()
+	testWallet, err := os.MkdirTemp(os.TempDir(), _testPath)
+	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
 	client.EXPECT().DecryptPrivateKey(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -258,7 +261,7 @@ func TestAccountError(t *testing.T) {
 		})
 	cmd := &cobra.Command{}
 	cmd.SetOut(new(bytes.Buffer))
-	_, err := newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
+	_, err = newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
 	require.Error(err)
 	require.Contains(err.Error(), fmt.Sprintf("keystore file \"%s\" read error", keyStorePath))
 
@@ -285,7 +288,7 @@ func TestAccountError(t *testing.T) {
 
 func TestStoreKey(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -353,7 +356,7 @@ func TestStoreKey(t *testing.T) {
 
 func TestNewAccount(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -370,7 +373,7 @@ func TestNewAccount(t *testing.T) {
 
 func TestNewAccountSm2(t *testing.T) {
 	require := require.New(t)
-	testWallet, _, passwd, _, err := newTestAccount()
+	testWallet, passwd, _, err := newTestAccount()
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -387,7 +390,7 @@ func TestNewAccountSm2(t *testing.T) {
 
 func TestNewAccountByKey(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -406,15 +409,21 @@ func TestNewAccountByKey(t *testing.T) {
 	require.Equal(prvKey.PublicKey().Address().String(), result)
 }
 
-func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
-	testWallet := filepath.Join(os.TempDir(), _testPath)
-	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
-		return testWallet, nil, "", "", err
+func newTestAccount() (string, string, string, error) {
+	testWallet, err := os.MkdirTemp(os.TempDir(), _testPath)
+	if err != nil {
+		return testWallet, "", "", err
 	}
-
-	// create accounts
-	ks := keystore.NewKeyStore(testWallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+	return testWallet, passwd, nonce, nil
+}
+
+func newTestAccountWithKeyStore(scryptN, scryptP int) (string, *keystore.KeyStore, string, string, error) {
+	testWallet, passwd, nonce, err := newTestAccount()
+	if err != nil {
+		return testWallet, nil, "", "", err
+	}
+	ks := keystore.NewKeyStore(testWallet, scryptN, scryptP)
 	return testWallet, ks, passwd, nonce, nil
 }
