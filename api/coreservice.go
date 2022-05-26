@@ -997,6 +997,15 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 	return res, nil
 }
 
+// getBlockHashByActionHash returns block hash by action hash
+func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	actIndex, err := core.indexer.GetActionIndex(h[:])
+	if err != nil {
+		return hash.ZeroHash256, err
+	}
+	return core.dao.GetBlockHash(actIndex.BlockHeight())
+}
+
 // BlockHashByActionHash returns block hash by action hash
 func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	actIndex, err := core.indexer.GetActionIndex(h[:])
