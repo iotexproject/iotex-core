@@ -124,3 +124,27 @@ func TestAbstractActionSetter(t *testing.T) {
 		require.Equal(big.NewInt(0), ex.gasPrice)
 	})
 }
+
+func TestIsSystemAction(t *testing.T) {
+	require := require.New(t)
+	builder := EnvelopeBuilder{}
+	cf := ClaimFromRewardingFundBuilder{}
+	actClaimFromRewarding := cf.Build()
+	act := builder.SetAction(&actClaimFromRewarding).Build()
+	sel, err := Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.False(IsSystemAction(sel))
+
+	gb := GrantRewardBuilder{}
+	actGrantReward := gb.Build()
+	act = builder.SetAction(&actGrantReward).Build()
+	sel, err = Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.True(IsSystemAction(sel))
+
+	actPollResult := NewPutPollResult(1, 1, nil)
+	act = builder.SetAction(actPollResult).Build()
+	sel, err = Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.True(IsSystemAction(sel))
+}
