@@ -46,18 +46,6 @@ func NewGasStation(bc blockchain.Blockchain, dao BlockDAO, cfg config.API) *GasS
 	}
 }
 
-//IsSystemAction determine whether input action belongs to system action
-func (gs *GasStation) IsSystemAction(act action.SealedEnvelope) bool {
-	switch act.Action().(type) {
-	case *action.GrantReward:
-		return true
-	case *action.PutPollResult:
-		return true
-	default:
-		return false
-	}
-}
-
 // SuggestGasPrice suggest gas price
 func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	var smallestPrices []*big.Int
@@ -76,12 +64,12 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		if len(blk.Actions) == 0 {
 			continue
 		}
-		if len(blk.Actions) == 1 && gs.IsSystemAction(blk.Actions[0]) {
+		if len(blk.Actions) == 1 && action.IsSystemAction(blk.Actions[0]) {
 			continue
 		}
 		smallestPrice := blk.Actions[0].GasPrice()
 		for _, act := range blk.Actions {
-			if gs.IsSystemAction(act) {
+			if action.IsSystemAction(act) {
 				continue
 			}
 			if smallestPrice.Cmp(act.GasPrice()) == 1 {

@@ -104,3 +104,13 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 	}
 	return payloadSize*payloadGas + baseIntrinsicGas, nil
 }
+
+// IsSystemAction determine whether input action belongs to system action
+func IsSystemAction(act SealedEnvelope) bool {
+	switch act.Action().(type) {
+	case *GrantReward, *PutPollResult:
+		return true
+	default:
+		return false
+	}
+}
