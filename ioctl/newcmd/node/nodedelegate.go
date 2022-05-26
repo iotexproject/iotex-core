@@ -281,8 +281,8 @@ func (m *delegatesMessage) String() string {
 	return output.FormatString(output.Result, m)
 }
 
-func getProbationList(_epochNum uint64, client ioctl.Client) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(_epochNum, client)
+func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
+	probationListRes, err := bc.GetProbationList(epochNum, client)
 	if err != nil {
 		return nil, err
 	}
