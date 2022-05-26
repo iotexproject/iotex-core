@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -76,7 +77,7 @@ type delegatesMessage struct {
 }
 
 // NewNodeDelegateCmd represents the node delegate command
-func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
+func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 	var (
 		epochNum  uint64
 		nextEpoch bool
@@ -84,10 +85,10 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 		insecure  bool
 	)
 
-	use, _ := c.SelectTranslation(_delegateUses)
-	short, _ := c.SelectTranslation(_delegateShorts)
-	flagEpochNumUsage, _ := c.SelectTranslation(_flagEpochNumUsages)
-	flagNextEpochUsage, _ := c.SelectTranslation(_flagNextEpochUsages)
+	use, _ := client.SelectTranslation(_delegateUses)
+	short, _ := client.SelectTranslation(_delegateShorts)
+	flagEpochNumUsage, _ := client.SelectTranslation(_flagEpochNumUsages)
+	flagNextEpochUsage, _ := client.SelectTranslation(_flagNextEpochUsages)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -100,21 +101,25 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 			if nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+				apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 					Endpoint: endpoint,
 					Insecure: insecure,
 				})
 				if err != nil {
 					return err
 				}
-				chainMeta, err := bc.GetChainMeta(c)
+				chainMeta, err := bc.GetChainMeta(client)
 				if err != nil {
 					return errors.Wrap(err, "failed to get chain meta")
 				}
-				epochNum = chainMeta.Epoch.Num + 1
+				epochNum = chainMeta.GetEpoch().GetNum() + 1
 				message := nextDelegatesMessage{Epoch: int(epochNum)}
 
 				ctx := context.Background()
+				jwtMD, err := util.JwtAuth()
+				if err == nil {
+					ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+				}
 				abpResponse, err := apiServiceClient.ReadState(
 					ctx,
 					&iotexapi.ReadStateRequest{
@@ -123,7 +128,6 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 					},
 				)
-
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok && sta.Code() == codes.NotFound {
@@ -136,9 +140,9 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to invoke ReadState api")
 				}
 				message.Determined = true
-				var ABPs state.CandidateList
-				if err := ABPs.Deserialize(abpResponse.Data); err != nil {
-					return errors.Wrap(err, "failed to deserialize active BPs")
+				var abps state.CandidateList
+				if err := abps.Deserialize(abpResponse.Data); err != nil {
+					return errors.Wrap(err, "failed to deserialize active bps")
 				}
 
 				bpResponse, err := apiServiceClient.ReadState(
@@ -157,16 +161,16 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					}
 					return errors.Wrap(err, "failed to invoke ReadState api")
 				}
-				var BPs state.CandidateList
-				if err := BPs.Deserialize(bpResponse.Data); err != nil {
-					return errors.Wrap(err, "failed to deserialize BPs")
+				var bps state.CandidateList
+				if err := bps.Deserialize(bpResponse.Data); err != nil {
+					return errors.Wrap(err, "failed to deserialize bps")
 				}
 				isActive := make(map[string]bool)
-				for _, abp := range ABPs {
+				for _, abp := range abps {
 					isActive[abp.Address] = true
 				}
-				aliases := c.AliasMap()
-				for rank, bp := range BPs {
+				aliases := client.AliasMap()
+				for rank, bp := range bps {
 					votes := big.NewInt(0).SetBytes(bp.Votes.Bytes())
 					message.Delegates = append(message.Delegates, delegate{
 						Address: bp.Address,
@@ -179,26 +183,25 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				cmd.Println(message.String(epochNum))
 			} else {
 				if epochNum == 0 {
-					chainMeta, err := bc.GetChainMeta(c)
+					chainMeta, err := bc.GetChainMeta(client)
 					if err != nil {
 						return errors.Wrap(err, "failed to get chain meta")
 					}
-					epochNum = chainMeta.Epoch.Num
+					epochNum = chainMeta.GetEpoch().GetNum()
 				}
 
-				response, err := bc.GetEpochMeta(epochNum, c)
-
+				response, err := bc.GetEpochMeta(client, epochNum)
 				if err != nil {
 					return errors.Wrap(err, "failed to get epoch meta")
 				}
 				epochData := response.EpochData
-				aliases := c.AliasMap()
+				aliases := client.AliasMap()
 				message := delegatesMessage{
 					Epoch:       int(epochData.Num),
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-				probationListRes, err := bc.GetProbationList(epochNum, c)
+				probationListRes, err := bc.GetProbationList(client, epochNum)
 				if err != nil {
 					return errors.Wrap(err, "failed to get probation list")
 				}
@@ -234,7 +237,6 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 			if err != nil {
 				cmd.Println(err)
 			}
-
 			return nil
 		},
 	}
