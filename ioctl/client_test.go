@@ -23,12 +23,12 @@ import (
 func TestStop(t *testing.T) {
 	r := require.New(t)
 	c := NewClient(config.Config{}, "", EnableCryptoSm2())
-	c.SetEndpointWithFlag(func(p *string, name string, value string, usage string) {
+	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
 		*p = "127.0.0.1:14014"
-	}, "endpoint usage")
-	c.SetInsecureWithFlag(func(p *bool, name string, value bool, usage string) {
+	})
+	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
 		*p = true
-	}, "insecure usage")
+	})
 	_, err := c.APIServiceClient()
 	r.NoError(err)
 	err = c.Stop(context.Background())
@@ -53,22 +53,22 @@ func TestAPIServiceClient(t *testing.T) {
 	r.Contains(err.Error(), `use "ioctl config set endpoint" to config endpoint first`)
 	r.Nil(apiServiceClient)
 
-	c.SetEndpointWithFlag(func(p *string, name string, value string, usage string) {
+	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
 		*p = "127.0.0.1:14011"
-	}, "endpoint usage")
-	c.SetInsecureWithFlag(func(p *bool, name string, value bool, usage string) {
+	})
+	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
 		*p = true
-	}, "insecure usage")
+	})
 	apiServiceClient, err = c.APIServiceClient()
 	r.NoError(err)
 	r.NotNil(apiServiceClient)
 
-	c.SetEndpointWithFlag(func(p *string, name string, value string, usage string) {
+	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
 		*p = "127.0.0.1:14014"
-	}, "endpoint usage")
-	c.SetInsecureWithFlag(func(p *bool, name string, value bool, usage string) {
+	})
+	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
 		*p = false
-	}, "insecure usage")
+	})
 	apiServiceClient, err = c.APIServiceClient()
 	r.NoError(err)
 	r.NotNil(apiServiceClient)

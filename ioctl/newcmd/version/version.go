@@ -32,14 +32,6 @@ var (
 		config.English: "Print the version of ioctl and node",
 		config.Chinese: "打印ioctl和节点的版本号",
 	}
-	_flagEndpointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
-	}
-	_flagInsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全的连接",
-	}
 )
 
 // NewVersionCmd represents the version command
@@ -84,9 +76,7 @@ func NewVersionCmd(cli ioctl.Client) *cobra.Command {
 		},
 	}
 
-	_flagEndpointUsage, _ := cli.SelectTranslation(_flagEndpointUsages)
-	_flagInsecureUsage, _ := cli.SelectTranslation(_flagInsecureUsages)
-	cli.SetEndpointWithFlag(vc.PersistentFlags().StringVar, _flagEndpointUsage)
-	cli.SetInsecureWithFlag(vc.PersistentFlags().BoolVar, _flagInsecureUsage)
+	cli.SetEndpointWithFlag(vc.PersistentFlags().StringVar)
+	cli.SetInsecureWithFlag(vc.PersistentFlags().BoolVar)
 	return vc
 }

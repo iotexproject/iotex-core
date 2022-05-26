@@ -44,14 +44,6 @@ var (
 		config.English: "account",
 		config.Chinese: "账户",
 	}
-	_flagEndpoint = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
-	}
-	_flagInsecure = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全连接",
-	}
 )
 
 // Errors
@@ -82,10 +74,8 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountExport(client))
 	ac.AddCommand(NewAccountImportCmd(client))
 
-	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpoint)
-	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecure)
-	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar, _flagEndpointUsage)
-	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar, _flagInsecureUsage)
+	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
 	return ac
 }
 

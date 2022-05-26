@@ -33,14 +33,6 @@ var (
 		config.English: "bc",
 		config.Chinese: "bc",
 	}
-	_flagEndpointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
-	}
-	_flagInsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全的连接",
-	}
 )
 
 // NewBCCmd represents the bc(block chain) command
@@ -52,13 +44,11 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 		Use:   bcUses,
 		Short: bcShorts,
 	}
-
 	bc.AddCommand(NewBCInfoCmd(client))
+	bc.AddCommand(NewBCBlockCmd(client))
 
-	_flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-	_flagInsecureUsage, _ := client.SelectTranslation(_flagInsecureUsages)
-	client.SetEndpointWithFlag(bc.PersistentFlags().StringVar, _flagEndpointUsage)
-	client.SetInsecureWithFlag(bc.PersistentFlags().BoolVar, _flagInsecureUsage)
+	client.SetEndpointWithFlag(bc.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(bc.PersistentFlags().BoolVar)
 	return bc
 }
 

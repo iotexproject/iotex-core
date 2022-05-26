@@ -34,14 +34,14 @@ func TestVersionCommand(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(12)
 	endpoint := "111:222:333:444:5678"
 	insecure := true
-	callbackEndpoint := func(cb func(*string, string, string, string), usage string) {
-		cb(&endpoint, "endpoint", endpoint, usage)
+	callbackEndpoint := func(cb func(*string, string, string, string)) {
+		cb(&endpoint, "endpoint", endpoint, "endpoint usage")
 	}
-	callbackInsecure := func(cb func(*bool, string, bool, string), usage string) {
-		cb(&insecure, "insecure", !insecure, usage)
+	callbackInsecure := func(cb func(*bool, string, bool, string)) {
+		cb(&insecure, "insecure", !insecure, "insecure usage")
 	}
-	client.EXPECT().SetEndpointWithFlag(gomock.Any(), gomock.Any()).Do(callbackEndpoint).Times(3)
-	client.EXPECT().SetInsecureWithFlag(gomock.Any(), gomock.Any()).Do(callbackInsecure).Times(3)
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(callbackEndpoint).Times(3)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure).Times(3)
 	client.EXPECT().Config().Return(cfg).Times(1)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 

@@ -40,9 +40,9 @@ type (
 		// Config returns the config of the client
 		Config() config.Config
 		// SetEndpointWithFlag receives input flag value
-		SetEndpointWithFlag(func(*string, string, string, string), string)
+		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
-		SetInsecureWithFlag(func(*bool, string, bool, string), string)
+		SetInsecureWithFlag(func(*bool, string, bool, string))
 		// APIServiceClient returns an API service client
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
@@ -133,11 +133,19 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
-func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string), usage string) {
+func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	})
 	cb(&c.endpoint, "endpoint", c.cfg.Endpoint, usage)
 }
 
-func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string), usage string) {
+func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全连接",
+	})
 	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
 }
 
