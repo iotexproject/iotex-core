@@ -36,7 +36,6 @@ jobs:
     - name: run-test
       id: unittest
       run: |
-        go test -run=XXX -bench=. $(go list ./crypto)
         bash <(curl -s https://codecov.io/bash)
         
     - name: make-minicluster
