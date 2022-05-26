@@ -207,32 +207,6 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.Equal(ret, uint64(0))
 }
 
-func TestIsSystemAction(t *testing.T) {
-	require := require.New(t)
-	gs := NewGasStation(nil, nil, nil, config.Default.API)
-	require.NotNil(gs)
-	builder := action.EnvelopeBuilder{}
-	cf := action.ClaimFromRewardingFundBuilder{}
-	actClaimFromRewarding := cf.Build()
-	act := builder.SetAction(&actClaimFromRewarding).Build()
-	sel, err := action.Sign(act, identityset.PrivateKey(1))
-	require.NoError(err)
-	require.False(gs.IsSystemAction(sel))
-
-	gb := action.GrantRewardBuilder{}
-	actGrantReward := gb.Build()
-	act = builder.SetAction(&actGrantReward).Build()
-	sel, err = action.Sign(act, identityset.PrivateKey(1))
-	require.NoError(err)
-	require.True(gs.IsSystemAction(sel))
-
-	actPollResult := action.NewPutPollResult(1, 1, nil)
-	act = builder.SetAction(actPollResult).Build()
-	sel, err = action.Sign(act, identityset.PrivateKey(1))
-	require.NoError(err)
-	require.True(gs.IsSystemAction(sel))
-}
-
 func getAction() (act *iotextypes.Action) {
 	pubKey1 := identityset.PrivateKey(28).PublicKey()
 	addr2 := identityset.Address(29).String()
