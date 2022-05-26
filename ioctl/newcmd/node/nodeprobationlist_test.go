@@ -43,7 +43,6 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 
 		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), "failed to get chain meta")
-		require.Error(err)
 	})
 
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
@@ -54,8 +53,8 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 		cmd := NewNodeProbationlistCmd(client)
 
 		result, err := util.ExecuteCmd(cmd)
-		require.Contains(result, "ProbationList : []")
 		require.NoError(err)
+		require.Contains(result, "ProbationList : []")
 	})
 
 	t.Run("epochNum > 0", func(t *testing.T) {
@@ -67,8 +66,8 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 		cmd := NewNodeProbationlistCmd(client)
 
 		result, err := util.ExecuteCmd(cmd, "-e", "1")
-		require.Contains(result, "ProbationList : []")
 		require.NoError(err)
+		require.Contains(result, "ProbationList : []")
 	})
 
 	t.Run("failed to get probation list", func(t *testing.T) {
@@ -84,6 +83,5 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 
 		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), "failed to get probation list")
-		require.Error(err)
 	})
 }

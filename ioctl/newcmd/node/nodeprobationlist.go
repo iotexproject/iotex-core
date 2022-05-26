@@ -27,7 +27,7 @@ var (
 	}
 	_probationlistCmdShorts = map[config.Language]string{
 		config.English: "Print probation list at given epoch",
-		config.Chinese: "",
+		config.Chinese: "打印给定epoch内的试用名单",
 	}
 )
 
@@ -49,7 +49,7 @@ func NewNodeProbationlistCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return errors.New("failed to get chain meta")
 				}
-				epochNum = chainMeta.Epoch.Num
+				epochNum = chainMeta.GetEpoch().GetNum()
 			}
 			probationlist, err := getProbationList(epochNum, c)
 			if err != nil {
@@ -83,10 +83,9 @@ func (m *probationListMessage) String() string {
 	if err != nil {
 		log.Panic(err)
 	}
-	message := fmt.Sprintf("EpochNumber : %d, IntensityRate : %d%%\nProbationList : %s",
+	return fmt.Sprintf("EpochNumber : %d, IntensityRate : %d%%\nProbationList : %s",
 		m.EpochNumber,
 		m.IntensityRate,
 		fmt.Sprint(string(byteAsJSON)),
 	)
-	return message
 }
