@@ -32,11 +32,11 @@ var (
 )
 
 // NewNodeProbationlistCmd represents querying probation list command
-func NewNodeProbationlistCmd(c ioctl.Client) *cobra.Command {
+func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 	var epochNum uint64
-	use, _ := c.SelectTranslation(_probationlistCmdUses)
-	short, _ := c.SelectTranslation(_probationlistCmdShorts)
-	flagEpochNumUsages, _ := c.SelectTranslation(_flagEpochNumUsages)
+	use, _ := client.SelectTranslation(_probationlistCmdUses)
+	short, _ := client.SelectTranslation(_probationlistCmdShorts)
+	flagEpochNumUsages, _ := client.SelectTranslation(_flagEpochNumUsages)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -45,13 +45,13 @@ func NewNodeProbationlistCmd(c ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			if epochNum == 0 {
-				chainMeta, err := bc.GetChainMeta(c)
+				chainMeta, err := bc.GetChainMeta(client)
 				if err != nil {
 					return errors.New("failed to get chain meta")
 				}
 				epochNum = chainMeta.GetEpoch().GetNum()
 			}
-			probationlist, err := getProbationList(epochNum, c)
+			probationlist, err := getProbationList(client, epochNum)
 			if err != nil {
 				return errors.New("failed to get probation list")
 			}
