@@ -32,6 +32,8 @@ type (
 		getAllBuckets() ([]*VoteBucket, uint64, error)
 		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
 		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
+		voterBucketIndices(addr address.Address) (*BucketIndices, uint64, error)
+		candBucketIndices(addr address.Address) (*BucketIndices, uint64, error)
 	}
 	// CandidateGet related to obtaining Candidate
 	CandidateGet interface {
@@ -291,6 +293,14 @@ func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketInd
 	return &bis, height, nil
 }
 
+func (c *candSR) voterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+	return c.getBucketIndices(addr, _voterIndex)
+}
+
+func (c *candSR) candBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+	return c.getBucketIndices(addr, _candIndex)
+}
+
 func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) {
 	if name == nil {
 		return nil, 0, ErrNilParameters
@@ -371,7 +381,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 		return nil, 0, err
 	}
 
-	indices, height, err := c.VoterBucketIndices(voter)
+	indices, height, err := c.voterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
@@ -396,7 +406,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := c.CandBucketIndices(cand.Owner)
+	indices, height, err := c.candBucketIndices(cand.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
