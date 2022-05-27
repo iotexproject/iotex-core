@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -18,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -39,13 +39,13 @@ var (
 )
 
 // NewNodeRewardCmd represents the node reward command
-func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
+func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
 
-	use, _ := c.SelectTranslation(_rewardUses)
-	short, _ := c.SelectTranslation(_rewardShorts)
-	rewardPoolMessageTranslation, _ := c.SelectTranslation(_rewardPoolMessageTranslations)
+	use, _ := client.SelectTranslation(_rewardUses)
+	short, _ := client.SelectTranslation(_rewardShorts)
+	rewardPoolMessageTranslation, _ := client.SelectTranslation(_rewardPoolMessageTranslations)
 	nc := &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -54,8 +54,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			var err error
 			if len(args) == 0 {
-
-				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
+				apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
 				if err != nil {
 					return err
 				}
@@ -71,14 +70,14 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+					return errors.New("failed to invoke ReadState api")
 				}
 
 				availableRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 				if !ok {
-					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+					return errors.New("failed to convert string into big int")
 				}
 
 				response, err = apiClient.ReadState(
@@ -91,28 +90,28 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+					return errors.New("failed to invoke ReadState api")
 				}
 				totalRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 				if !ok {
-					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+					return errors.New("failed to convert string into big int")
 				}
 
 				message := rewardPoolMessage{
 					AvailableReward: util.RauToString(availableRewardRau, util.IotxDecimalNum),
 					TotalReward:     util.RauToString(totalRewardRau, util.IotxDecimalNum),
 				}
-				fmt.Println(message.String(rewardPoolMessageTranslation))
+				cmd.Println(message.String(rewardPoolMessageTranslation))
 
 			} else {
 				arg := args[0]
-				address, err := c.Address(arg)
+				address, err := client.Address(arg)
 				if err != nil {
-					return output.NewError(output.AddressError, "failed to get address", err)
+					return errors.New("failed to get address")
 				}
-				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+				apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 					Endpoint: endpoint,
 					Insecure: insecure,
 				})
@@ -131,19 +130,18 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to get version from server", err)
+					return errors.New("failed to get version from server")
 				}
 				rewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 				if !ok {
-					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+					return errors.New("failed to convert string into big int")
 				}
-				message := rewardMessage{Address: address, Reward: util.RauToString(rewardRau, util.IotxDecimalNum)}
-				fmt.Println(message.String())
-
+				cmd.Println(fmt.Sprintf("%s: %s IOTX", address, util.RauToString(rewardRau, util.IotxDecimalNum)))
 			}
-			return output.PrintError(err)
+			cmd.Println(err)
+			return nil
 		},
 	}
 	return nc
@@ -155,24 +153,5 @@ type rewardPoolMessage struct {
 }
 
 func (m *rewardPoolMessage) String(trans ...string) string {
-
-	if output.Format == "" {
-		message := fmt.Sprintf(trans[0],
-			m.AvailableReward, m.TotalReward)
-		return message
-	}
-	return output.FormatStringWithTrans(output.Result, m)
-}
-
-type rewardMessage struct {
-	Address string `json:"address"`
-	Reward  string `json:"reward"`
-}
-
-func (m *rewardMessage) String(trans ...string) string {
-	if output.Format == "" {
-		message := fmt.Sprintf("%s: %s IOTX", m.Address, m.Reward)
-		return message
-	}
-	return output.FormatStringWithTrans(output.Result, m)
+	return fmt.Sprintf(trans[0], m.AvailableReward, m.TotalReward)
 }
