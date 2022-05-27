@@ -848,7 +848,7 @@ func GetActionByActionHash(api api.CoreService, actHash hash.Hash256) (*iotexapi
 
 // GetReceiptByAction acquires receipt by calling coreService
 func GetReceiptByAction(api api.CoreService, actHash hash.Hash256) (*iotextypes.Receipt, error) {
-	receipt, _, err := api.ReceiptByAction(actHash)
+	receipt, err := api.ReceiptByActionHash(actHash)
 	if err != nil {
 		return nil, err
 	}
