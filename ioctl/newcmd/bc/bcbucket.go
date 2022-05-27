@@ -160,13 +160,16 @@ func (b *bucket) String() string {
 }
 
 func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
-	config.ReadConfig.Endpoint = c.Config().Endpoint
-	conn, err := util.ConnectToEndpoint(c.Config().SecureConnect && !config.Insecure)
+	var endpoint string
+	var insecure bool
+
+	apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+		Endpoint: endpoint,
+		Insecure: insecure,
+	})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to endpoint")
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
 	}
@@ -198,7 +201,7 @@ func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, err
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	response, err := cli.ReadState(ctx, request)
+	response, err := apiClient.ReadState(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -217,12 +220,16 @@ func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, err
 }
 
 func getBucketsCount(c ioctl.Client) (count *iotextypes.BucketsCount, err error) {
-	conn, err := util.ConnectToEndpoint(c.Config().SecureConnect && !config.Insecure)
+	var endpoint string
+	var insecure bool
+
+	apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+		Endpoint: endpoint,
+		Insecure: insecure,
+	})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to endpoint")
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,
 	}
@@ -252,7 +259,7 @@ func getBucketsCount(c ioctl.Client) (count *iotextypes.BucketsCount, err error)
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	response, err := cli.ReadState(ctx, request)
+	response, err := apiClient.ReadState(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
