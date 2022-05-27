@@ -33,8 +33,8 @@ var (
 		config.Chinese: "查询奖励",
 	}
 	_rewardPoolMessageTranslations = map[config.Language]string{
-		config.English: "Available Reward: %s IOTX   Total Reward: %s IOTX",
-		config.Chinese: "可用奖金: %s IOTX   总奖金: %s IOTX",
+		config.English: "Available Reward: %s IOTX, Total Reward: %s IOTX",
+		config.Chinese: "可用奖金: %s IOTX，总奖金: %s IOTX",
 	}
 )
 
@@ -46,7 +46,7 @@ func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_rewardUses)
 	short, _ := client.SelectTranslation(_rewardShorts)
 	rewardPoolMessageTranslation, _ := client.SelectTranslation(_rewardPoolMessageTranslations)
-	nc := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.MaximumNArgs(1),
@@ -104,7 +104,6 @@ func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 					TotalReward:     util.RauToString(totalRewardRau, util.IotxDecimalNum),
 				}
 				cmd.Println(message.String(rewardPoolMessageTranslation))
-
 			} else {
 				arg := args[0]
 				address, err := client.Address(arg)
@@ -144,7 +143,7 @@ func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	return nc
+	return cmd
 }
 
 type rewardPoolMessage struct {
