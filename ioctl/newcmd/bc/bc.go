@@ -104,8 +104,7 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 }
 
 // GetEpochMeta gets blockchain epoch meta
-func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaResponse, error) {
-
+func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	var endpoint string
 	var insecure bool
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
@@ -116,7 +115,12 @@ func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaR
 		return nil, err
 	}
 
-	epochMetaresponse, err := apiServiceClient.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{})
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+	epochMetaresponse, err := apiServiceClient.GetEpochMeta(ctx, &iotexapi.GetEpochMetaRequest{})
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -128,7 +132,7 @@ func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaR
 }
 
 // GetProbationList gets probation list
-func GetProbationList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadStateResponse, error) {
+func GetProbationList(client ioctl.Client, epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 	var endpoint string
 	var insecure bool
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
@@ -139,13 +143,18 @@ func GetProbationList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadState
 		return nil, err
 	}
 
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 	}
 
-	response, err := apiServiceClient.ReadState(context.Background(), request)
+	response, err := apiServiceClient.ReadState(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok && sta.Code() == codes.NotFound {
