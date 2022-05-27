@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -13,7 +14,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 148641,
+        "rawExpectedGasConsumed": 150041,
         "expectedStatus": 1,
         "expectedBalances": [],
         "comment": "deploy call dynamic contract"
@@ -24,7 +25,8 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 32879,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 33679,
         "expectedStatus": 1,
         "readOnly": true,
         "rawReturnValue": "000000000000000000000000000000000000000000000000000000000000000b",

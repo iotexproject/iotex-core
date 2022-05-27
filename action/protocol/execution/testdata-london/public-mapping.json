@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -37,7 +38,8 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 34724,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 36024,
         "expectedStatus": 1,
         "comment": "call setContract"
     }, {
@@ -47,7 +49,8 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 30534,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 32634,
         "expectedStatus": 1,
         "comment": "call a.Set()"
     }, {
@@ -57,7 +60,8 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 13478,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 17978,
         "expectedStatus": 1,
         "hasReturnValue": true,
         "rawReturnValue": "000000000000000000000000000000000000000000000000000000000000002a",

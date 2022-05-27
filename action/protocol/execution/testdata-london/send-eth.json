@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -13,7 +14,7 @@
         "rawAmount": "10000000000000000000",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 152741,
+        "rawExpectedGasConsumed": 154041,
         "expectedStatus": 1,
         "expectedBalances": [],
         "comment": "deploy send-eth contract"
@@ -25,7 +26,8 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 60513,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 61113,
         "expectedStatus": 1,
         "expectedBalances": [{
             "account": "io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph",

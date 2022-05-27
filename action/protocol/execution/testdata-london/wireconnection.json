@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -24,6 +25,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawAccessList": [],
         "rawExpectedGasConsumed": 10553,
         "expectedStatus": 1,
         "hasReturnValue": true,
@@ -35,6 +37,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawAccessList": [],
         "rawExpectedGasConsumed": 10608,
         "expectedStatus": 1,
         "hasReturnValue": true,

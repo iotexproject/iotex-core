@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -24,13 +25,14 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 33020,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 33720,
         "expectedStatus": 1,
         "comment": "the data of return is [0x11, 0x22, 0x33]",
         "expectedBlockInfos" : {
             "txRootHash" : "3672945ca662bea4dd977e799374c5ce36c0c3e9ecbe98f1655f33439bbfe40c",
             "stateRootHash" : "31d9f2c50c45877029ed9afa24e2052bfc36232e9b0d220adfb0f90ec941d86c",
-            "receiptRootHash" : "866a6a6ed352d53ebc681491a07b99d9e720e32fdae09d241914582ede46f0eb"
+            "receiptRootHash" : "596f5fd6f5931b252cff495050859df5faffd86ca960d0222b907a31bc1f75ae"
         }
     }]
 }

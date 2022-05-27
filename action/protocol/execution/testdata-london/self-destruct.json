@@ -1,4 +1,9 @@
 {
+    "initGenesis": {
+        "isLondon" : true,
+        "isBering" : true,
+        "isIceland" : true
+    },
     "initBalances": [{
         "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
         "rawBalance": "1000000000000000000000000000"
@@ -9,7 +14,8 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 95828,
+        "rawExpectedGasConsumed": 97728,
+        "expectedStatus": 1,
         "expectedBalances": [],
         "comment": "deploy self-destruct contract"
     }],
@@ -19,7 +25,9 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 33834,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 35934,
+        "expectedStatus": 1,
         "comment": "store 20"
     },{
         "readOnly": true,
@@ -28,7 +36,9 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 10746,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 12646,
+        "expectedStatus": 1,
         "hasReturnValue": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000014",
         "comment": "retrieve"
@@ -38,7 +48,9 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 5378,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 17656,
+        "expectedStatus": 1,
         "comment": "self destruct"
     },{
         "readOnly": true,
@@ -47,7 +59,9 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawAccessList": [],
         "rawExpectedGasConsumed": 10400,
+        "expectedStatus": 1,
         "hasReturnValue": true,
         "rawReturnValue": "",
         "comment": "return nil because contract is destoried"

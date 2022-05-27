@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -25,7 +26,20 @@
         "rawAmount": "5000000000000000000",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 220273,
+        "rawAccessList": [{
+            "address": "67ec2fd251e5563c112b2534590ae74d23e6df19",
+            "storageKeys": [
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                "0000000000000000000000000000000000000000000000000000000000000001",
+                "0000000000000000000000000000000000000000000000000000000000000002"
+            ]
+        },{
+            "address": "06abb2ca03834bd4f62c610ca7627e3dd12d9a97",
+            "storageKeys": [
+                "809fddd0e44ad4227f52c39fc29ccd10b3c1d7ca546bc63db1a7bdde63de0cee"
+            ]
+        }],
+        "rawExpectedGasConsumed": 228673,
         "expectedStatus": 1,
         "expectedBalances": [],
         "comment": "deploy Attacker contract"
@@ -37,7 +51,18 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 96695,
+        "rawAccessList": [{
+            "address": "67ec2fd251e5563c112b2534590ae74d23e6df19",
+            "storageKeys": [
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ]
+        },{
+            "address": "06abb2ca03834bd4f62c610ca7627e3dd12d9a97",
+            "storageKeys": [
+                "809fddd0e44ad4227f52c39fc29ccd10b3c1d7ca546bc63db1a7bdde63de0cee"
+            ]
+        }],
+        "rawExpectedGasConsumed": 81795,
         "expectedStatus": 1,
         "expectedBalances": [{
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",

@@ -17,6 +17,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -63,6 +65,7 @@ type (
 
 	// GenesisBlockHeight defines an genesis blockHeight
 	GenesisBlockHeight struct {
+		IsLondon  bool `json:"isLondon"`
 		IsBering  bool `json:"isBering"`
 		IsIceland bool `json:"isIceland"`
 	}
@@ -70,6 +73,11 @@ type (
 	Log struct {
 		Topics []string `json:"topics"`
 		Data   string   `json:"data"`
+	}
+
+	AccessTuple struct {
+		Address     string   `json:"address"`
+		StorageKeys []string `json:"storageKeys"`
 	}
 
 	ExecutionConfig struct {
@@ -84,6 +92,7 @@ type (
 		RawAmount               string            `json:"rawAmount"`
 		RawGasLimit             uint              `json:"rawGasLimit"`
 		RawGasPrice             string            `json:"rawGasPrice"`
+		RawAccessList           []AccessTuple     `json:"rawAccessList"`
 		Failed                  bool              `json:"failed"`
 		RawReturnValue          string            `json:"rawReturnValue"`
 		RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
@@ -189,6 +198,23 @@ func (cfg *ExecutionConfig) GasLimit() uint64 {
 	return uint64(cfg.RawGasLimit)
 }
 
+func (cfg *ExecutionConfig) AccessList() types.AccessList {
+	if len(cfg.RawAccessList) == 0 {
+		return nil
+	}
+	accessList := make(types.AccessList, len(cfg.RawAccessList))
+	for i, rawAccessList := range cfg.RawAccessList {
+		accessList[i].Address = common.HexToAddress(rawAccessList.Address)
+		if numKey := len(rawAccessList.StorageKeys); numKey > 0 {
+			accessList[i].StorageKeys = make([]common.Hash, numKey)
+			for j, rawStorageKey := range rawAccessList.StorageKeys {
+				accessList[i].StorageKeys[j] = common.HexToHash(rawStorageKey)
+			}
+		}
+	}
+	return accessList
+}
+
 func (cfg *ExecutionConfig) ExpectedGasConsumed() uint64 {
 	return uint64(cfg.RawExpectedGasConsumed)
 }
@@ -249,6 +275,7 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
+	exec.SetAccessList(ecfg.AccessList())
 	addr := ecfg.PrivateKey().PublicKey().Address()
 	if addr == nil {
 		return nil, nil, errors.New("failed to get address")
@@ -296,6 +323,7 @@ func runExecutions(
 		if err != nil {
 			return nil, nil, err
 		}
+		exec.SetAccessList(ecfg.AccessList())
 		builder := &action.EnvelopeBuilder{}
 		elp := builder.SetAction(exec).
 			SetNonce(exec.Nonce()).
@@ -358,6 +386,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
+	if sct.InitGenesis.IsLondon {
+		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
+	}
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.AleutianBlockHeight = 0
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
@@ -1023,9 +1054,6 @@ func TestIstanbulEVM(t *testing.T) {
 func TestLondonEVM(t *testing.T) {
 	cfg := config.Default
 	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	t.Run("AccessList", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata-london/accesslist.json")
-	})
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
 	})

@@ -1,5 +1,6 @@
 {
      "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -19,7 +20,7 @@
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
             "rawBalance": "9999999999999803029"
         }],
-        "comment": "deploy the contract"
+        "comment": "deploy infiniteloop contract"
     }] ,
     "executions": [{
         "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
@@ -27,11 +28,12 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "1",
-        "rawExpectedGasConsumed": 34889,
-         "expectedStatus": 1,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 36989,
+        "expectedStatus": 1,
         "expectedBalances": [{
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-            "rawBalance": "9999999999999806264"
+            "rawBalance": "9999999999999804164"
         }],
         "expectedLogs": [{}],
         "comment": "set storedData = 0x1f40"
@@ -41,7 +43,8 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "1",
-        "rawExpectedGasConsumed": 16934,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 17534,
         "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000001f40",
         "expectedStatus": 1,
@@ -53,12 +56,13 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "1",
+        "rawAccessList": [],
         "rawExpectedGasConsumed": 5000000,
         "failed": true,
         "expectedStatus": 101,
         "expectedBalances": [{
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-            "rawBalance": "9999999999994806264"
+            "rawBalance": "9999999999994804164"
         }],
         "comment": "calling infinite(), this will consume all provided gas, and exit with failure"
     }]

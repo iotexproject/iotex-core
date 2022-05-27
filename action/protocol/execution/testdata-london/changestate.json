@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -13,7 +14,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 103917,
+        "rawExpectedGasConsumed": 105317,
         "expectedStatus": 1,
         "expectedBalances": [],
         "comment": "deploy a changestate contract"
@@ -24,7 +25,8 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 11361,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 12661,
         "expectedStatus": 1,
         "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
@@ -35,7 +37,8 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 36573,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 37173,
         "expectedStatus": 106,
         "failed":true,
         "comment": "try changing state"
@@ -45,7 +48,8 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 11361,
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 12661,
         "expectedStatus": 1,
         "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",

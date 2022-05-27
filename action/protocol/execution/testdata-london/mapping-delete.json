@@ -1,5 +1,6 @@
 {
     "initGenesis": {
+        "isLondon" : true,
         "isBering" : true,
         "isIceland" : true
     },
@@ -13,7 +14,18 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
-        "rawExpectedGasConsumed": 179351,
+        "rawAccessList": [{
+            "address": "06abb2ca03834bd4f62c610ca7627e3dd12d9a97",
+            "storageKeys": [
+                "ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5",
+                "ad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb6",
+                "abbb5caa7dda850e60932de0934eb1f9d0f59695050f761dc64e443e5030a569",
+                "abbb5caa7dda850e60932de0934eb1f9d0f59695050f761dc64e443e5030a56a",
+                "ada5013122d395ba3c54772283fb069b10426056ef8ca54750cb9bb552a59e7d",
+                "ada5013122d395ba3c54772283fb069b10426056ef8ca54750cb9bb552a59e7e"
+            ]
+        }],
+        "rawExpectedGasConsumed": 191751,
         "expectedStatus": 1,
         "comment": "deploy mapping-delete contract"
     }] ,

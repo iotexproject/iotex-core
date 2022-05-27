@@ -1,5 +1,6 @@
 {
   "initGenesis": {
+    "isLondon" : true,
     "isBering" : true,
     "isIceland" : true
   },
@@ -13,7 +14,7 @@
     "rawAmount": "0",
     "rawGasLimit": 5000000,
     "rawGasPrice": "1",
-    "rawExpectedGasConsumed": 77399,
+    "rawExpectedGasConsumed": 78799,
     "expectedStatus": 1,
     "expectedBalances": [{
       "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
@@ -28,6 +29,8 @@
     "rawAmount": "0",
     "rawGasLimit": 1000000,
     "rawGasPrice": "0",
+    "rawAccessList": [],
+    "rawExpectedGasConsumed": 10579,
     "expectedStatus": 1,
     "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000001251",
     "comment": "call getChainID"
@@ -38,11 +41,12 @@
     "rawAmount": "0",
     "rawGasLimit": 1000000,
     "rawGasPrice": "1",
-    "rawExpectedGasConsumed": 31452,
+    "rawAccessList": [],
+    "rawExpectedGasConsumed": 32752,
     "expectedStatus": 1,
     "expectedBalances": [{
       "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-      "rawBalance": "999999999999999999999891149"
+      "rawBalance": "999999999999999999999888449"
     }],
     "comment": "call increment"
   },
@@ -53,6 +57,8 @@
     "rawAmount": "0",
     "rawGasLimit": 1000000,
     "rawGasPrice": "0",
+    "rawAccessList": [],
+    "rawExpectedGasConsumed": 10549,
     "expectedStatus": 1,
     "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
     "comment": "call getSelfBalance"
