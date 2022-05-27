@@ -72,8 +72,6 @@ type (
 		ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string)
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
-		// ReceiptByAction gets receipt with corresponding action hash
-		ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error)
 		// ReadContract reads the state in a contract address specified by the slot
 		ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error)
 		// ReadState reads state on blockchain
@@ -145,6 +143,10 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
+		// BlockHashByActionHash returns block hash by action hash
+		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
+		// BlockHashByBlockHeight returns block hash by block height
+		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -991,6 +993,20 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 		return hash.ZeroHash256, err
 	}
 	return core.dao.GetBlockHash(actIndex.BlockHeight())
+}
+
+// BlockHashByActionHash returns block hash by action hash
+func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	actIndex, err := core.indexer.GetActionIndex(h[:])
+	if err != nil {
+		return hash.ZeroHash256, err
+	}
+	return core.dao.GetBlockHash(actIndex.BlockHeight())
+}
+
+// BlockHashByBlockHeight returns block hash by block height
+func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error) {
+	return core.dao.GetBlockHash(blkHeight)
 }
 
 // ActionByActionHash returns action by action hash
