@@ -114,13 +114,6 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
-	core.EXPECT().EstimateGasForNonExecution(gomock.Any()).DoAndReturn(func(actType action.Action) (uint64, error) {
-		act, ok := actType.(intrinsicGasCalculator)
-		if !ok {
-			return 0, errors.Errorf("invalid action type not supported")
-		}
-		return act.IntrinsicGas()
-	}).Times(2)
 
 	resp, err := grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getAction()})
 	require.NoError(err)
