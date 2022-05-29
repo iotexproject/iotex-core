@@ -9,7 +9,6 @@ package hdwallet
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
@@ -75,14 +73,7 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 				return ErrPasswdNotMatch
 			}
 
-			enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
-			enckey := util.HashSHA256([]byte(password))
-			out, err := util.Encrypt(enctxt, enckey)
-			if err != nil {
-				return errors.New("failed to encrypting mnemonic")
-			}
-
-			if err := os.WriteFile(_hdWalletConfigFile, out, 0600); err != nil {
+			if err := client.WriteConfig(); err != nil {
 				return fmt.Errorf(fmt.Sprintf("failed to write to config file %s", _hdWalletConfigFile))
 			}
 
