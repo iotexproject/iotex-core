@@ -62,7 +62,7 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 			}
 
 			cmd.Println("Set password")
-			password, err := util.ReadSecretFromStdin()
+			password, err := client.ReadSecret()
 			if err != nil {
 				return errors.New("failed to get password")
 			}
