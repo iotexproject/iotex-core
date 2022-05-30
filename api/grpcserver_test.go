@@ -115,14 +115,12 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
 
+	core.EXPECT().EstimateGasForAction(gomock.Any(), gomock.Any()).Return(uint64(10000), nil)
 	resp, err := grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getAction()})
 	require.NoError(err)
 	require.Equal(uint64(10000), resp.Gas)
 
-	resp, err = grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getActionWithPayload()})
-	require.NoError(err)
-	require.Equal(uint64(10000)+10*action.ExecutionDataGas, resp.Gas)
-
+	core.EXPECT().EstimateGasForAction(gomock.Any(), gomock.Any()).Return(uint64(0), action.ErrNilProto)
 	_, err = grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: nil})
 	require.Contains(err.Error(), action.ErrNilProto.Error())
 }
