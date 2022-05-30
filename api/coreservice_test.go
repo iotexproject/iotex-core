@@ -201,3 +201,88 @@ func TestEstimateGasForAction(t *testing.T) {
 	_, err = svr.EstimateGasForAction(context.Background(), nil)
 	require.Contains(err.Error(), action.ErrNilProto.Error())
 }
+
+func TestProofAndCompareReverseActions(t *testing.T) {
+	sliceN := func(n uint64) (value []uint64) {
+		value = make([]uint64, 0, n)
+		for i := uint64(0); i < n; i++ {
+			value = append(value, i)
+		}
+		return
+	}
+
+	// previous algorithm: commit(06d202)
+	prev := func(slice []uint64, start, count uint64) (reserved []uint64) {
+		size := uint64(len(slice))
+		for i := start; i < size && i < start+count; i++ {
+			ri := size - 1 - i
+			// do other validations
+			reserved = append([]uint64{slice[ri]}, reserved...)
+		}
+		return
+	}
+	// enhanced algorithm
+	curr := func(slice []uint64, start, count uint64) (reserved []uint64) {
+		size := uint64(len(slice))
+		if start > size || count == 0 {
+			return nil
+		}
+		end := start + count
+		if end > size {
+			end = size
+		}
+		for i := end; i > start; i-- {
+			reserved = append(reserved, slice[size-i])
+		}
+		return
+	}
+	slice10 := sliceN(10)
+	cases := []struct {
+		name   string
+		slice  []uint64
+		start  uint64
+		count  uint64
+		expect []uint64
+	}{
+		{
+			name:   "NoReverseDone_StartOutOfRange_EqualSliceLen",
+			slice:  slice10,
+			start:  10,
+			count:  10,
+			expect: nil,
+		}, {
+			name:   "NoReversedDone_StartOutOfRange_GreaterSliceLen",
+			slice:  slice10,
+			start:  11,
+			count:  1,
+			expect: nil,
+		}, {
+			name:   "NoReversedDone_CountIsZero",
+			slice:  slice10,
+			start:  9,
+			count:  0,
+			expect: nil,
+		}, {
+			name:   "StartInRangeAndEndOutOfRange",
+			slice:  slice10,
+			start:  5,
+			count:  100,
+			expect: []uint64{0, 1, 2, 3, 4},
+		}, {
+			name:   "StartAndEndInRangeBoth",
+			slice:  slice10,
+			start:  5,
+			count:  3,
+			expect: []uint64{2, 3, 4},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := require.New(t)
+			prevExpect := prev(c.slice, c.start, c.count)
+			currExpect := curr(c.slice, c.start, c.count)
+			r.Equal(prevExpect, currExpect)
+			r.Equal(c.expect, prevExpect)
+		})
+	}
+}

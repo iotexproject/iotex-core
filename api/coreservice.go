@@ -889,7 +889,8 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 
 	var res []*iotexapi.ActionInfo
 	var hit bool
-	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
+
+	for height := core.bc.TipHeight(); height >= 1; height-- {
 		blk, err := core.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -1227,10 +1228,18 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 
-	var res []*iotexapi.ActionInfo
-	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
-		ri := uint64(len(blk.Actions)) - 1 - i
-		selp := blk.Actions[ri]
+	size := uint64(len(blk.Actions))
+	if reverseStart > size || count == 0 {
+		return nil
+	}
+	reserveEnd := reverseStart + count
+	if reserveEnd > size {
+		reserveEnd = size
+	}
+	res := make([]*iotexapi.ActionInfo, 0, reserveEnd-reverseStart)
+
+	for i := reserveEnd; i > reverseStart; i-- {
+		selp := blk.Actions[size-i]
 		actHash, err := selp.Hash()
 		if err != nil {
 			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
@@ -1243,7 +1252,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 		sender := selp.SrcPubkey().Address()
-		res = append([]*iotexapi.ActionInfo{{
+		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
@@ -1251,8 +1260,8 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
 			GasFee:    gas.String(),
-			Index:     uint32(ri),
-		}}, res...)
+			Index:     uint32(size - i),
+		})
 	}
 	return res
 }
