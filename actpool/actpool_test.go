@@ -902,7 +902,12 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.Equal([]action.SealedEnvelope(nil), acts)
 
 	acts = ap.GetUnconfirmedActs(_addr1)
-	require.Equal([]action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}, acts)
+	validated := []action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}
+	for i := range validated {
+		_, err = validated[i].Hash()
+		require.NoError(err)
+	}
+	require.Equal(validated, acts)
 }
 
 func TestActPool_GetActionByHash(t *testing.T) {
@@ -1089,7 +1094,12 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	// tsf1 is replaced by tsf3 with higher gas price
-	require.Equal(appliedActionList, []action.SealedEnvelope{tsf3, tsf2})
+	validated := []action.SealedEnvelope{tsf3, tsf2}
+	for i := range validated {
+		_, err = validated[i].Hash()
+		require.NoError(err)
+	}
+	require.Equal(appliedActionList, validated)
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue

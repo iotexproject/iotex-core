@@ -203,9 +203,17 @@ func TestBlockDAO(t *testing.T) {
 			require.Equal(tipBlk.Height(), height)
 			blk, err := dao.GetBlock(hash)
 			require.NoError(err)
+			for idx := range blk.Actions {
+				_, err = blk.Actions[idx].Hash()
+				require.NoError(err)
+			}
 			require.Equal(tipBlk, blk)
 			blk, err = dao.GetBlockByHeight(height)
 			require.NoError(err)
+			for idx := range blk.Actions {
+				_, err = blk.Actions[idx].Hash()
+				require.NoError(err)
+			}
 			require.Equal(tipBlk, blk)
 			r, err := dao.GetReceipts(height)
 			require.NoError(err)
@@ -329,9 +337,17 @@ func TestBlockDAO(t *testing.T) {
 			require.Equal(tipHeight, height)
 			blk, err := dao.GetBlock(h)
 			require.NoError(err)
+			for idx := range blk.Actions {
+				_, err = blk.Actions[idx].Hash()
+				require.NoError(err)
+			}
 			require.Equal(tipBlk, blk)
 			blk, err = dao.GetBlockByHeight(height)
 			require.NoError(err)
+			for idx := range blk.Actions {
+				_, err = blk.Actions[idx].Hash()
+				require.NoError(err)
+			}
 			require.Equal(tipBlk, blk)
 
 			// test BlockDAO's API, 2nd loop to test LRU cache

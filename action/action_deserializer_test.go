@@ -26,18 +26,30 @@ func TestActionDeserializer(t *testing.T) {
 	} {
 		se, err := createSealedEnvelope(v.id)
 		r.NoError(err)
-		rHash, err := se.Hash()
-		r.NoError(err)
-		r.Equal(v.hash, hex.EncodeToString(rHash[:]))
+
 		r.Equal(v.id, se.ChainID())
 		r.Equal(_publicKey, se.SrcPubkey().HexString())
 		r.Equal(_signByte, se.Signature())
 		r.Zero(se.Encoding())
 
-		se.signature = _validSig
-		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
+		hashVal, hashErr := se.Hash()
+		_ = se.SenderAddress()
+		r.Equal(hex.EncodeToString(hashVal[:]), v.hash)
+		r.NoError(hashErr)
+
+		se, err = createSealedEnvelope(v.id)
 		r.NoError(err)
-		r.Equal(se, se1)
+
+		se.signature = _validSig
+		validated, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
+
+		_, err = se.Hash()
+		r.NoError(err)
+		_ = se.SenderAddress()
+		_, err = validated.Hash()
+		r.NoError(err)
+		_ = validated.SenderAddress()
+		r.Equal(validated, se)
 	}
 }
 
