@@ -291,7 +291,7 @@ func (m *delegatesMessage) String() string {
 }
 
 func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(epochNum, client)
+	probationListRes, err := bc.GetProbationList(client, epochNum)
 	if err != nil {
 		return nil, err
 	}
