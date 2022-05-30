@@ -7,6 +7,7 @@
 package hdwallet
 
 import (
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,6 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
+const (
+	_testPath = "testNewAccount"
+)
+
 func TestNewNodeDelegateCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -25,15 +30,28 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
-	client.EXPECT().ReadSecret().Return(mnemonic, nil)
-	client.EXPECT().ReadSecret().Return(password, nil)
-	client.EXPECT().ReadSecret().Return(password, nil)
-	client.EXPECT().WriteConfig()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
 
 	t.Run("import hdwallet", func(t *testing.T) {
+		client.EXPECT().ReadSecret().Return(mnemonic, nil)
+		client.EXPECT().ReadSecret().Return(password, nil)
+		client.EXPECT().ReadSecret().Return(password, nil)
+		client.EXPECT().WriteConfig()
+
 		cmd := NewHdwalletImportCmd(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+	})
+
+	t.Run("hdwalletConfigFile exist", func(t *testing.T) {
+		expectedValue := "Please run 'ioctl hdwallet delete' before import"
+		err := os.WriteFile(_hdWalletConfigFile, []byte("123"), 0600)
+		require.NoError(err)
+		defer os.RemoveAll(_hdWalletConfigFile)
+
+		cmd := NewHdwalletImportCmd(client)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.Contains(result, expectedValue)
 	})
 }

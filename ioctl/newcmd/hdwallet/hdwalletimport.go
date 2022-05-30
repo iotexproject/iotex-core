@@ -9,14 +9,16 @@ package hdwallet
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-
 	"github.com/tyler-smith/go-bip39"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
@@ -73,8 +75,16 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 				return ErrPasswdNotMatch
 			}
 
-			if err := client.WriteConfig(); err != nil {
-				return fmt.Errorf(fmt.Sprintf("failed to write to config file %s", _hdWalletConfigFile))
+			enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
+			enckey := util.HashSHA256([]byte(password))
+			out, err := util.Encrypt(enctxt, enckey)
+			if err != nil {
+				return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
+			}
+
+			if err := os.WriteFile(_hdWalletConfigFile, out, 0600); err != nil {
+				return output.NewError(output.WriteFileError,
+					fmt.Sprintf("failed to write to config file %s", _hdWalletConfigFile), err)
 			}
 
 			cmd.Println(fmt.Sprintf("Mnemonic phrase: %s\n"+
