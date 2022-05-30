@@ -32,7 +32,7 @@ var (
 	}
 )
 
-// NewHdwalletExportCmd represents the node delegate command
+// NewHdwalletExportCmd represents the hdwallet export command
 func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_hdwalletExportCmdUses)
 	short, _ := client.SelectTranslation(_hdwalletExportCmdShorts)
