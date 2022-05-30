@@ -409,12 +409,18 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	return &blk, nil
 }
 
-//  CommitBlock validates and appends a block to the chain
+// CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
+
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
+
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+
 	return bc.commitBlock(blk)
 }
 
