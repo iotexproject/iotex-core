@@ -318,18 +318,18 @@ func (mr *MockCoreServiceMockRecorder) EstimateExecutionGasConsumption(ctx, sc, 
 }
 
 // EstimateGasForAction mocks base method.
-func (m *MockCoreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
+func (m *MockCoreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EstimateGasForAction", in)
+	ret := m.ctrl.Call(m, "EstimateGasForAction", ctx, in)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EstimateGasForAction indicates an expected call of EstimateGasForAction.
-func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(in interface{}) *gomock.Call {
+func (mr *MockCoreServiceMockRecorder) EstimateGasForAction(ctx, in interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForAction", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForAction), in)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForAction", reflect.TypeOf((*MockCoreService)(nil).EstimateGasForAction), ctx, in)
 }
 
 // EstimateGasForNonExecution mocks base method.

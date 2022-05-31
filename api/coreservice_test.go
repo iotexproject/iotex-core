@@ -12,10 +12,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -23,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockindex"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 func TestLogsInRange(t *testing.T) {
@@ -180,4 +181,23 @@ func setupTestCoreSerivce() (CoreService, blockchain.Blockchain, blockdao.BlockD
 	return svr, bc, dao, ap, func() {
 		testutil.CleanupPath(bfIndexFile)
 	}
+}
+
+func TestEstimateGasForAction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	svr, _, _, _, cleanCallback := setupTestCoreSerivce()
+	defer cleanCallback()
+
+	estimatedGas, err := svr.EstimateGasForAction(context.Background(), getAction())
+	require.NoError(err)
+	require.Equal(uint64(10000), estimatedGas)
+
+	estimatedGas, err = svr.EstimateGasForAction(context.Background(), getActionWithPayload())
+	require.NoError(err)
+	require.Equal(uint64(10000)+10*action.ExecutionDataGas, estimatedGas)
+
+	_, err = svr.EstimateGasForAction(context.Background(), nil)
+	require.Contains(err.Error(), action.ErrNilProto.Error())
 }

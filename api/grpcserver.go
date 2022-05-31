@@ -285,7 +285,7 @@ func (svr *GRPCServer) ReadState(ctx context.Context, in *iotexapi.ReadStateRequ
 
 // EstimateGasForAction estimates gas for action
 func (svr *GRPCServer) EstimateGasForAction(ctx context.Context, in *iotexapi.EstimateGasForActionRequest) (*iotexapi.EstimateGasForActionResponse, error) {
-	estimateGas, err := svr.coreService.EstimateGasForAction(in.Action)
+	estimateGas, err := svr.coreService.EstimateGasForAction(ctx, in.Action)
 	if err != nil {
 		return nil, err
 	}
