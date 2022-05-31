@@ -61,9 +61,12 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 		insecure bool
 	)
 
+	use, _ := client.SelectTranslation(_hashCmdUses)
+	short, _ := client.SelectTranslation(_hashCmdShorts)
+
 	cmd := &cobra.Command{
-		Use:   config.TranslateInLang(_hashCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(_hashCmdShorts, config.UILanguage),
+		Use:   use,
+		Short: short,
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
