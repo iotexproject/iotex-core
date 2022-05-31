@@ -289,17 +289,3 @@ func (m *delegatesMessage) String() string {
 	}
 	return strings.Join(lines, "\n")
 }
-
-func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(client, epochNum)
-	if err != nil {
-		return nil, err
-	}
-	probationList := &vote.ProbationList{}
-	if probationListRes != nil {
-		if err := probationList.Deserialize(probationListRes.Data); err != nil {
-			return nil, err
-		}
-	}
-	return probationList, nil
-}

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
@@ -88,4 +89,18 @@ func (m *probationListMessage) String() string {
 		m.IntensityRate,
 		fmt.Sprint(string(byteAsJSON)),
 	)
+}
+
+func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
+	probationListRes, err := bc.GetProbationList(client, epochNum)
+	if err != nil {
+		return nil, err
+	}
+	probationList := &vote.ProbationList{}
+	if probationListRes != nil {
+		if err := probationList.Deserialize(probationListRes.Data); err != nil {
+			return nil, err
+		}
+	}
+	return probationList, nil
 }
