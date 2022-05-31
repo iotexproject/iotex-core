@@ -79,7 +79,7 @@ type (
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
 		// EstimateGasForAction estimates gas for action
-		EstimateGasForAction(in *iotextypes.Action) (uint64, error)
+		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
 		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
 		// RawBlocks gets raw block data
@@ -226,7 +226,7 @@ func newCoreService(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg),
+		gs:                gasstation.NewGasStation(chain, dao, cfg),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
@@ -523,12 +523,28 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 }
 
 // EstimateGasForAction estimates gas for action
-func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
-	estimateGas, err := core.gs.EstimateGasForAction(in)
+func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	return estimateGas, nil
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		gas, err := selp.IntrinsicGas()
+		if err != nil {
+			return 0, status.Error(codes.Internal, err.Error())
+		}
+		return gas, nil
+	}
+	callerAddr := selp.SrcPubkey().Address()
+	if callerAddr == nil {
+		return 0, status.Error(codes.Internal, "failed to get address")
+	}
+	_, receipt, err := core.SimulateExecution(ctx, callerAddr, sc)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	return receipt.GasConsumed, nil
 }
 
 // EpochMeta gets epoch metadata
