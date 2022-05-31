@@ -528,10 +528,6 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	callerAddr := selp.SrcPubkey().Address()
-	if callerAddr == nil {
-		return 0, status.Error(codes.Internal, "failed to get address")
-	}
 	sc, ok := selp.Action().(*action.Execution)
 	if !ok {
 		gas, err := selp.IntrinsicGas()
@@ -539,6 +535,10 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 			return 0, status.Error(codes.Internal, err.Error())
 		}
 		return gas, nil
+	}
+	callerAddr := selp.SrcPubkey().Address()
+	if callerAddr == nil {
+		return 0, status.Error(codes.Internal, "failed to get address")
 	}
 	_, receipt, err := core.SimulateExecution(ctx, callerAddr, sc)
 	if err != nil {
