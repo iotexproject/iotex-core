@@ -56,6 +56,11 @@ var (
 
 // NewActionHashCmd represents the action hash command
 func NewActionHashCmd(client ioctl.Client) *cobra.Command {
+	var (
+		endpoint string
+		insecure bool
+	)
+
 	cmd := &cobra.Command{
 		Use:   config.TranslateInLang(_hashCmdUses, config.UILanguage),
 		Short: config.TranslateInLang(_hashCmdShorts, config.UILanguage),
@@ -63,12 +68,13 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			hash := args[0]
-			conn, err := util.ConnectToEndpoint(client.Config().SecureConnect && !config.Insecure)
+			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
+				Endpoint: endpoint,
+				Insecure: insecure,
+			})
 			if err != nil {
-				return errors.New("failed to connect to endpoint")
+				return err
 			}
-			defer conn.Close()
-			cli := iotexapi.NewAPIServiceClient(conn)
 			ctx := context.Background()
 
 			jwtMD, err := util.JwtAuth()
@@ -85,7 +91,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 					},
 				},
 			}
-			response, err := cli.GetActions(ctx, &requestGetAction)
+			response, err := apiServiceClient.GetActions(ctx, &requestGetAction)
 			if err != nil {
 				sta, ok := status.FromError(err)
 				if ok {
@@ -99,7 +105,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			message := actionMessage{Proto: response.ActionInfo[0]}
 
 			requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
-			responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
+			responseReceipt, err := apiServiceClient.GetReceiptByAction(ctx, requestGetReceipt)
 			if err != nil {
 				sta, ok := status.FromError(err)
 				if ok && sta.Code() == codes.NotFound {
