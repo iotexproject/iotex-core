@@ -68,7 +68,7 @@ func defaultConfig() Genesis {
 			KamchatkaBlockHeight:    13816441,
 			LordHoweBlockHeight:     13979161,
 			MidwayBlockHeight:       16509241,
-			NewfoundlandBlockHeight: 36509241,
+			NewfoundlandBlockHeight: 17662681,
 			ToBeEnabledBlockHeight:  math.MaxUint64,
 		},
 		Account: Account{
@@ -212,7 +212,7 @@ type (
 		// 1. use correct chainID
 		// 2. check legacy address
 		// 3. enable web3 staking transaction
-		NewfoundlandBlockHeight uint64 `yaml:"newfoundlandBlockHeight"`
+		NewfoundlandBlockHeight uint64 `yaml:"newfoundlandHeight"`
 		// ToBeEnabledBlockHeight is a fake height that acts as a gating factor for WIP features
 		// upon next release, change IsToBeEnabled() to IsNextHeight() for features to be released
 		ToBeEnabledBlockHeight uint64 `yaml:"toBeEnabledHeight"`

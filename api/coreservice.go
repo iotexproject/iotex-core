@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -72,8 +72,6 @@ type (
 		ServerMeta() (packageVersion string, packageCommitID string, gitStatus string, goVersion string, buildTime string)
 		// SendAction is the API to send an action to blockchain.
 		SendAction(ctx context.Context, in *iotextypes.Action) (string, error)
-		// ReceiptByAction gets receipt with corresponding action hash
-		ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error)
 		// ReadContract reads the state in a contract address specified by the slot
 		ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error)
 		// ReadState reads state on blockchain
@@ -81,7 +79,7 @@ type (
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
 		// EstimateGasForAction estimates gas for action
-		EstimateGasForAction(in *iotextypes.Action) (uint64, error)
+		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
 		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
 		// RawBlocks gets raw block data
@@ -147,6 +145,10 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
+		// BlockHashByActionHash returns block hash by action hash
+		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
+		// BlockHashByBlockHeight returns block hash by block height
+		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 	}
 
 	// coreService implements the CoreService interface
@@ -224,7 +226,7 @@ func newCoreService(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg),
+		gs:                gasstation.NewGasStation(chain, dao, cfg),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
@@ -434,7 +436,7 @@ func (core *coreService) validateChainID(chainID uint32) error {
 
 // ReceiptByAction gets receipt with corresponding action hash
 func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 	receipt, err := core.ReceiptByActionHash(actHash)
@@ -521,12 +523,28 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 }
 
 // EstimateGasForAction estimates gas for action
-func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
-	estimateGas, err := core.gs.EstimateGasForAction(in)
+func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	return estimateGas, nil
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		gas, err := selp.IntrinsicGas()
+		if err != nil {
+			return 0, status.Error(codes.Internal, err.Error())
+		}
+		return gas, nil
+	}
+	callerAddr := selp.SrcPubkey().Address()
+	if callerAddr == nil {
+		return 0, status.Error(codes.Internal, "failed to get address")
+	}
+	_, receipt, err := core.SimulateExecution(ctx, callerAddr, sc)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	return receipt.GasConsumed, nil
 }
 
 // EpochMeta gets epoch metadata
@@ -712,7 +730,7 @@ func (core *coreService) ElectionBuckets(epochNum uint64) ([]*iotextypes.Electio
 
 // ReceiptByActionHash returns receipt by action hash
 func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
@@ -729,7 +747,7 @@ func (core *coreService) ReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 
 // TransactionLogByActionHash returns transaction log by action hash
 func (core *coreService) TransactionLogByActionHash(actHash string) (*iotextypes.TransactionLog, error) {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
 	if !core.dao.ContainsTransactionLog() {
@@ -916,7 +934,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	if start+count > totalActions {
 		count = totalActions - start
 	}
-	if core.hasActionIndex {
+	if core.indexer != nil {
 		return core.getActionsFromIndex(totalActions, start, count)
 	}
 	// Finding actions in reverse order saves time for querying most recent actions
@@ -1002,6 +1020,20 @@ func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 		return hash.ZeroHash256, err
 	}
 	return core.dao.GetBlockHash(actIndex.BlockHeight())
+}
+
+// BlockHashByActionHash returns block hash by action hash
+func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	actIndex, err := core.indexer.GetActionIndex(h[:])
+	if err != nil {
+		return hash.ZeroHash256, err
+	}
+	return core.dao.GetBlockHash(actIndex.BlockHeight())
+}
+
+// BlockHashByBlockHeight returns block hash by block height
+func (core *coreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error) {
+	return core.dao.GetBlockHash(blkHeight)
 }
 
 // ActionByActionHash returns action by action hash
@@ -1588,7 +1620,7 @@ func (core *coreService) getProductivityByEpoch(
 }
 
 func (core *coreService) checkActionIndex() error {
-	if !core.hasActionIndex || core.indexer == nil {
+	if core.indexer == nil {
 		return errors.New("no action index")
 	}
 	return nil

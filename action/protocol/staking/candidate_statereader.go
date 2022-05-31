@@ -32,11 +32,8 @@ type (
 		getAllBuckets() ([]*VoteBucket, uint64, error)
 		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
 		getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error)
-		addrKeyWithPrefix(addr address.Address, prefix byte) []byte
-	}
-	// BktPool related to create bucket pool
-	BktPool interface {
-		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
+		voterBucketIndices(addr address.Address) (*BucketIndices, uint64, error)
+		candBucketIndices(addr address.Address) (*BucketIndices, uint64, error)
 	}
 	// CandidateGet related to obtaining Candidate
 	CandidateGet interface {
@@ -58,12 +55,12 @@ type (
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
 		BucketGet
-		BktPool
 		CandidateGet
 		ReadState
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
+		NewBucketPool(enableSMStorage bool) (*BucketPool, error)
 		GetCandidateByName(string) *Candidate
 		GetCandidateByOwner(address.Address) *Candidate
 		AllCandidates() CandidateList
@@ -212,8 +209,10 @@ func (c *candSR) getTotalBucketCount() (uint64, error) {
 }
 
 func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
-	var vb VoteBucket
-	var err error
+	var (
+		vb  VoteBucket
+		err error
+	)
 	if _, err = c.State(
 		&vb,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -280,8 +279,10 @@ func (c *candSR) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, er
 }
 
 func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketIndices, uint64, error) {
-	var bis BucketIndices
-	key := c.addrKeyWithPrefix(addr, prefix)
+	var (
+		bis BucketIndices
+		key = AddrKeyWithPrefix(addr, prefix)
+	)
 	height, err := c.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
@@ -290,6 +291,14 @@ func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketInd
 		return nil, height, err
 	}
 	return &bis, height, nil
+}
+
+func (c *candSR) voterBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+	return c.getBucketIndices(addr, _voterIndex)
+}
+
+func (c *candSR) candBucketIndices(addr address.Address) (*BucketIndices, uint64, error) {
+	return c.getBucketIndices(addr, _candIndex)
 }
 
 func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) {
@@ -316,14 +325,6 @@ func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
 		cands = append(cands, c)
 	}
 	return cands, height, nil
-}
-
-func (c *candSR) addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
-	k := addr.Bytes()
-	key := make([]byte, len(k)+1)
-	key[0] = prefix
-	copy(key[1:], k)
-	return key
 }
 
 func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
@@ -380,7 +381,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 		return nil, 0, err
 	}
 
-	indices, height, err := c.VoterBucketIndices(voter)
+	indices, height, err := c.voterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
@@ -405,7 +406,7 @@ func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := c.CandBucketIndices(cand.Owner)
+	indices, height, err := c.candBucketIndices(cand.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
