@@ -102,7 +102,6 @@ type (
 		CorrectTxLogIndex           bool
 		RevertLog                   bool
 		TolerateLegacyAddress       bool
-		EnableWeb3Staking           bool
 		ValidateRewardProtocol      bool
 	}
 
@@ -232,7 +231,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CorrectTxLogIndex:           g.IsMidway(height),
 			RevertLog:                   g.IsMidway(height),
 			TolerateLegacyAddress:       !g.IsNewfoundland(height),
-			EnableWeb3Staking:           g.IsNewfoundland(height),
 			ValidateRewardProtocol:      g.IsNewfoundland(height),
 		},
 	)
