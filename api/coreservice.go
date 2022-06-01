@@ -79,7 +79,7 @@ type (
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
 		// EstimateGasForAction estimates gas for action
-		EstimateGasForAction(in *iotextypes.Action) (uint64, error)
+		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
 		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
 		// RawBlocks gets raw block data
@@ -145,8 +145,6 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
-		// BlockHashByActionHash returns block hash by action hash
-		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 	}
@@ -226,7 +224,7 @@ func newCoreService(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg),
+		gs:                gasstation.NewGasStation(chain, dao, cfg),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
@@ -434,22 +432,6 @@ func (core *coreService) validateChainID(chainID uint32) error {
 	return nil
 }
 
-// ReceiptByAction gets receipt with corresponding action hash
-func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
-	if core.indexer == nil {
-		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	receipt, err := core.ReceiptByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	blkHash, err := core.getBlockHashByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	return receipt, hex.EncodeToString(blkHash[:]), nil
-}
-
 // ReadContract reads the state in a contract address specified by the slot
 func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Address, sc *action.Execution) (string, *iotextypes.Receipt, error) {
 	log.Logger("api").Debug("receive read smart contract request")
@@ -523,12 +505,28 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 }
 
 // EstimateGasForAction estimates gas for action
-func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
-	estimateGas, err := core.gs.EstimateGasForAction(in)
+func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	return estimateGas, nil
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		gas, err := selp.IntrinsicGas()
+		if err != nil {
+			return 0, status.Error(codes.Internal, err.Error())
+		}
+		return gas, nil
+	}
+	callerAddr := selp.SrcPubkey().Address()
+	if callerAddr == nil {
+		return 0, status.Error(codes.Internal, "failed to get address")
+	}
+	_, receipt, err := core.SimulateExecution(ctx, callerAddr, sc)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	return receipt.GasConsumed, nil
 }
 
 // EpochMeta gets epoch metadata
@@ -995,24 +993,6 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 		res = append(res, act)
 	}
 	return res, nil
-}
-
-// getBlockHashByActionHash returns block hash by action hash
-func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := core.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return core.dao.GetBlockHash(actIndex.BlockHeight())
-}
-
-// BlockHashByActionHash returns block hash by action hash
-func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := core.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return core.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
 // BlockHashByBlockHeight returns block hash by block height
