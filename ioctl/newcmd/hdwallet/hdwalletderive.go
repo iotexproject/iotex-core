@@ -7,9 +7,7 @@
 package hdwallet
 
 import (
-	"bytes"
 	"fmt"
-	"os"
 
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -20,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 // Multi-language support
@@ -58,7 +55,7 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 				return errors.New("failed to get password")
 			}
 
-			addr, _, err := DeriveKey(account, change, index, password)
+			addr, _, err := DeriveKey(client, account, change, index, password)
 			if err != nil {
 				return err
 			}
@@ -70,34 +67,11 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 }
 
 // DeriveKey derives the key according to path
-func DeriveKey(account, change, index uint32, password string) (string, crypto.PrivateKey, error) {
-	// derive key as "m/44'/304'/account'/change/index"
-	hdWalletConfigFile := config.ReadConfig.Wallet + "/hdwallet"
-	if !fileutil.FileExists(hdWalletConfigFile) {
-		return "", nil, errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
-	}
-
-	enctxt, err := os.ReadFile(hdWalletConfigFile)
+func DeriveKey(client ioctl.Client, account, change, index uint32, password string) (string, crypto.PrivateKey, error) {
+	mnemonic, err := client.ExportHdwallet(password)
 	if err != nil {
-		return "", nil, errors.New("failed to read config")
+		return "", nil, err
 	}
-
-	enckey := util.HashSHA256([]byte(password))
-	dectxt, err := util.Decrypt(enctxt, enckey)
-	if err != nil {
-		return "", nil, errors.New("failed to decrypt")
-	}
-
-	dectxtLen := len(dectxt)
-	if dectxtLen <= 32 {
-		return "", nil, errors.New("incorrect data")
-	}
-
-	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
-	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
-		return "", nil, errors.New("password error")
-	}
-
 	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
 	if err != nil {
 		return "", nil, err

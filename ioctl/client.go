@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 type (
@@ -71,6 +72,8 @@ type (
 		IsCryptoSm2() bool
 		// QueryAnalyser sends request to Analyser endpoint
 		QueryAnalyser(interface{}) (*http.Response, error)
+		// ExportHdwallet export the mnemonic of hdwallet
+		ExportHdwallet(string) ([]byte, error)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -291,6 +294,36 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 		return nil, errors.Wrap(err, "failed to send request")
 	}
 	return resp, nil
+}
+
+func (c *client) ExportHdwallet(password string) ([]byte, error) {
+	// derive key as "m/44'/304'/account'/change/index"
+	hdWalletConfigFile := c.Config().Wallet + "/hdwallet"
+	if !fileutil.FileExists(hdWalletConfigFile) {
+		return nil, errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
+	}
+
+	enctxt, err := os.ReadFile(hdWalletConfigFile)
+	if err != nil {
+		return nil, errors.New("failed to read config")
+	}
+
+	enckey := util.HashSHA256([]byte(password))
+	dectxt, err := util.Decrypt(enctxt, enckey)
+	if err != nil {
+		return nil, errors.New("failed to decrypt")
+	}
+
+	dectxtLen := len(dectxt)
+	if dectxtLen <= 32 {
+		return nil, errors.New("incorrect data")
+	}
+
+	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
+	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
+		return nil, errors.New("password error")
+	}
+	return mnemonic, nil
 }
 
 func (m *ConfirmationMessage) String() string {

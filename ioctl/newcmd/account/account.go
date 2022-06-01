@@ -174,7 +174,7 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid HDWallet key format")
 		}
-		_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+		_, prvKey, err = hdwallet.DeriveKey(client, account, change, index, password)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to derive key from HDWallet")
 		}

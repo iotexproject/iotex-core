@@ -170,6 +170,21 @@ func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
 }
 
+// ExportHdwallet mocks base method.
+func (m *MockClient) ExportHdwallet(arg0 string) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportHdwallet", arg0)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportHdwallet indicates an expected call of ExportHdwallet.
+func (mr *MockClientMockRecorder) ExportHdwallet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportHdwallet", reflect.TypeOf((*MockClient)(nil).ExportHdwallet), arg0)
+}
+
 // IsCryptoSm2 mocks base method.
 func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
