@@ -8,10 +8,9 @@ package hdwallet
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -37,12 +36,13 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_hdwalletExportCmdUses)
 	short, _ := client.SelectTranslation(_hdwalletExportCmdShorts)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			_hdWalletConfigFile = client.Config().Wallet + "/hdwallet"
 			if !fileutil.FileExists(_hdWalletConfigFile) {
 				cmd.Println("Run 'ioctl hdwallet create' to create your HDWallet first.")
 				return nil
@@ -51,7 +51,7 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 			cmd.Println("Enter password")
 			password, err := client.ReadSecret()
 			if err != nil {
-				return errors.New("failed to get password")
+				return errors.Wrap(err, "failed to get password")
 			}
 
 			enctxt, err := os.ReadFile(_hdWalletConfigFile)
@@ -75,10 +75,9 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 				return errors.New("password error")
 			}
 
-			cmd.Println(fmt.Sprintf("Mnemonic phrase: %s"+
-				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic))
+			cmd.Printf("Mnemonic phrase: %s"+
+				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
 			return nil
 		},
 	}
-	return cmd
 }

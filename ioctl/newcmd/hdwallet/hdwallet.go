@@ -6,10 +6,8 @@
 
 package hdwallet
 
-import "github.com/iotexproject/iotex-core/ioctl/config"
-
 // DefaultRootDerivationPath for iotex
 // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
 const DefaultRootDerivationPath = "m/44'/304'"
 
-var _hdWalletConfigFile = config.ReadConfig.Wallet + "/hdwallet"
+var _hdWalletConfigFile string
