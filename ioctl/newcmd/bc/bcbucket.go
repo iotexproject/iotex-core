@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -23,8 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -34,13 +34,21 @@ const (
 
 // Multi-language support
 var (
+	_bcBucketUses = map[config.Language]string{
+		config.English: "bucket [OPTION|BUCKET_INDEX]",
+		config.Chinese: "bucket [选项|票索引]",
+	}
 	_bcBucketCmdShorts = map[config.Language]string{
 		config.English: "Get bucket for given index on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上根据索引读取投票",
 	}
-	_bcBucketUses = map[config.Language]string{
-		config.English: "bucket [OPTION|BUCKET_INDEX]",
-		config.Chinese: "bucket [选项|票索引]",
+	_bcBucketCmdExample = map[config.Language]string{
+		config.English: "ioctl bc bucket [BUCKET_INDEX], to read bucket information by bucket index\n" +
+			"ioctl bc bucket max, to query the max bucket index\n" +
+			"ioctl bc bucket count, to query total number of active buckets",
+		config.Chinese: "ioctl bc bucket [BUCKET_INDEX], 依票索引取得投票资讯\n" +
+			"ioctl bc bucket max, 查询最大票索引\n" +
+			"ioctl bc bucket count, 查询活跃总票数",
 	}
 )
 
@@ -62,29 +70,27 @@ type bucketMessage struct {
 }
 
 // NewBCBucketCmd represents the bc Bucket command
-func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
-	bcBucketUses, _ := c.SelectTranslation(_bcBlockCmdUses)
-	bcBucketCmdShorts, _ := c.SelectTranslation(_bcBlockCmdShorts)
+func NewBCBucketCmd(client ioctl.Client) *cobra.Command {
+	bcBucketUses, _ := client.SelectTranslation(_bcBlockCmdUses)
+	bcBucketCmdShorts, _ := client.SelectTranslation(_bcBlockCmdShorts)
+	bcBucketCmdExample, _ := client.SelectTranslation(_bcBucketCmdExample)
 
-	cmd := &cobra.Command{
-		Use:   bcBucketUses,
-		Short: bcBucketCmdShorts,
-		Args:  cobra.ExactArgs(1),
-		Example: `ioctl bc bucket [BUCKET_INDEX], to read bucket information by bucket index
-	ioctl bc bucket max, to query the max bucket index
-	ioctl bc bucket count, to query total number of active buckets
-	`,
+	return &cobra.Command{
+		Use:     bcBucketUses,
+		Short:   bcBucketCmdShorts,
+		Args:    cobra.ExactArgs(1),
+		Example: bcBucketCmdExample,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			cmd.SilenceUsage = true
 			switch args[0] {
 			case _bcBucketOptMax:
-				count, err := getBucketsCount(c)
+				count, err := getBucketsCount(client)
 				if err != nil {
 					return err
 				}
 				cmd.Println(count.GetTotal())
 			case _bcBucketOptCount:
-				count, err := getBucketsCount(c)
+				count, err := getBucketsCount(client)
 				if err != nil {
 					return err
 				}
@@ -94,7 +100,7 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				bucketpb, err := getBucketByIndex(c, bucketindex)
+				bucketpb, err := getBucketByIndex(client, bucketindex)
 				if err != nil {
 					return err
 				}
@@ -105,16 +111,11 @@ func NewBCBucketCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				message := bucketMessage{
-					Node:   c.Config().Endpoint,
-					Bucket: bucket,
-				}
-				cmd.Println(message.Bucket.String())
+				cmd.Println(bucket.String())
 			}
 			return nil
 		},
 	}
-	return cmd
 }
 
 func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
@@ -159,11 +160,11 @@ func (b *bucket) String() string {
 	return strings.Join(lines, "\n")
 }
 
-func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
+func getBucketByIndex(client ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
 	var endpoint string
 	var insecure bool
 
-	apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 		Endpoint: endpoint,
 		Insecure: insecure,
 	})
@@ -219,11 +220,11 @@ func getBucketByIndex(c ioctl.Client, index uint64) (*iotextypes.VoteBucket, err
 	return buckets.GetBuckets()[0], nil
 }
 
-func getBucketsCount(c ioctl.Client) (count *iotextypes.BucketsCount, err error) {
+func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err error) {
 	var endpoint string
 	var insecure bool
 
-	apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 		Endpoint: endpoint,
 		Insecure: insecure,
 	})

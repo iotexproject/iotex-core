@@ -10,16 +10,17 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestBCBucketCmd(t *testing.T) {
@@ -28,7 +29,7 @@ func TestBCBucketCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(8)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
 
 	t.Run("get total blockchain bucket count", func(t *testing.T) {
 		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
@@ -36,8 +37,8 @@ func TestBCBucketCmd(t *testing.T) {
 
 		cmd := NewBCBucketCmd(client)
 		result, err := util.ExecuteCmd(cmd, "max")
-		require.Equal("0\n", result)
 		require.NoError(err)
+		require.Equal("0\n", result)
 	})
 
 	t.Run("get active blockchain bucket count", func(t *testing.T) {
@@ -46,8 +47,8 @@ func TestBCBucketCmd(t *testing.T) {
 
 		cmd := NewBCBucketCmd(client)
 		result, err := util.ExecuteCmd(cmd, "count")
-		require.Equal("0\n", result)
 		require.NoError(err)
+		require.Equal("0\n", result)
 	})
 
 	t.Run("get default blockchain bucket count", func(t *testing.T) {
