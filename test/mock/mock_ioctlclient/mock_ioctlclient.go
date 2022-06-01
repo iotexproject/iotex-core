@@ -184,6 +184,20 @@ func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
 }
 
+// Match mocks base method.
+func (m *MockClient) Match(in, matchType string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Match", in, matchType)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Match indicates an expected call of Match.
+func (mr *MockClientMockRecorder) Match(in, matchType interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Match", reflect.TypeOf((*MockClient)(nil).Match), in, matchType)
+}
+
 // NewKeyStore mocks base method.
 func (m *MockClient) NewKeyStore() *keystore.KeyStore {
 	m.ctrl.T.Helper()
