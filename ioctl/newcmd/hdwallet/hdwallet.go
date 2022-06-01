@@ -9,3 +9,5 @@ package hdwallet
 // DefaultRootDerivationPath for iotex
 // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
 const DefaultRootDerivationPath = "m/44'/304'"
+
+var _hdWalletConfigFile string
