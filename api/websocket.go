@@ -66,8 +66,8 @@ func (wsSvr *WebsocketServer) Start(_ context.Context) error {
 }
 
 // Stop stops the websocket server
-func (wsSvr *WebsocketServer) Stop(_ context.Context) error {
-	return wsSvr.svr.Shutdown(context.Background())
+func (wsSvr *WebsocketServer) Stop(ctx context.Context) error {
+	return wsSvr.svr.Shutdown(ctx)
 }
 
 func (wsSvr *WebsocketServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
