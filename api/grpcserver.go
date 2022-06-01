@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -30,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
@@ -47,11 +49,24 @@ type GRPCServer struct {
 	coreService CoreService
 }
 
+// TODO: move this into config
+var (
+	kaep = keepalive.EnforcementPolicy{
+		MinTime:             1 * time.Second, // If a client pings more than once every 1 seconds, terminate the connection
+		PermitWithoutStream: true,            // Allow pings even when there are no active streams
+	}
+	kasp = keepalive.ServerParameters{
+		Time:    60 * time.Second, // Ping the client if it is idle for 60 seconds to ensure the connection is still active
+		Timeout: 10 * time.Second, // Wait 10 seconds for the ping ack before assuming the connection is dead
+	}
+)
+
 // NewGRPCServer creates a new grpc server
 func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	if grpcPort == 0 {
 		return nil
 	}
+
 	gSvr := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
@@ -61,6 +76,8 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
 		)),
+		grpc.KeepaliveEnforcementPolicy(kaep),
+		grpc.KeepaliveParams(kasp),
 	)
 	svr := &GRPCServer{
 		port:        ":" + strconv.Itoa(grpcPort),
@@ -404,6 +421,7 @@ func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 }
 
 // GetLogs get logs filtered by contract address and topics
+// TODO: simplify loop logic
 func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
 	if in.GetFilter() == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
@@ -443,13 +461,47 @@ func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest)
 }
 
 // StreamBlocks streams blocks
-func (svr *GRPCServer) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
-	return svr.coreService.StreamBlocks(stream)
+func (svr *GRPCServer) StreamBlocks(_ *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
+	errChan := make(chan error)
+	defer close(errChan)
+	chainListener := svr.coreService.ChainListener()
+	if _, err := chainListener.AddResponder(NewGRPCBlockListener(
+		func(resp interface{}) error {
+			return stream.Send(resp.(*iotexapi.StreamBlocksResponse))
+		},
+		errChan,
+	)); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	err := <-errChan
+	if err != nil {
+		return status.Error(codes.Aborted, err.Error())
+	}
+	return nil
 }
 
 // StreamLogs streams logs that match the filter condition
 func (svr *GRPCServer) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
-	return svr.coreService.StreamLogs(in.GetFilter(), stream)
+	if in.GetFilter() == nil {
+		return status.Error(codes.InvalidArgument, "empty filter")
+	}
+	errChan := make(chan error)
+	defer close(errChan)
+	chainListener := svr.coreService.ChainListener()
+	if _, err := chainListener.AddResponder(NewGRPCLogListener(
+		logfilter.NewLogFilter(in.GetFilter()),
+		func(in interface{}) error {
+			return stream.Send(in.(*iotexapi.StreamLogsResponse))
+		},
+		errChan,
+	)); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	err := <-errChan
+	if err != nil {
+		return status.Error(codes.Aborted, err.Error())
+	}
+	return nil
 }
 
 // GetElectionBuckets returns the native election buckets.

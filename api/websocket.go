@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -91,37 +92,55 @@ func (wsSvr *WebsocketServer) handleConnection(ws *websocket.Conn) {
 		return nil
 	})
 
-	go ping(ws)
+	ctx, cancel := context.WithCancel(context.Background())
+	go ping(ctx, ws, cancel)
 
 	for {
-		_, reader, err := ws.NextReader()
-		if err != nil {
-			log.Logger("api").Debug("Client Disconnected", zap.Error(err))
+		select {
+		case <-ctx.Done():
 			return
-		}
+		default:
+			_, reader, err := ws.NextReader()
+			if err != nil {
+				log.Logger("api").Debug("Client Disconnected", zap.Error(err))
+				cancel()
+				return
+			}
 
-		resp := wsSvr.msgHandler.HandlePOSTReq(reader)
-
-		ws.SetWriteDeadline(time.Now().Add(writeWait))
-		if err := ws.WriteJSON(resp); err != nil {
-			log.Logger("api").Warn("fail to respond request.", zap.Error(err))
-			return
+			err = wsSvr.msgHandler.HandlePOSTReq(reader,
+				apitypes.NewResponseWriter(
+					func(resp interface{}) error {
+						ws.SetWriteDeadline(time.Now().Add(writeWait))
+						return ws.WriteJSON(resp)
+					}),
+			)
+			if err != nil {
+				log.Logger("api").Warn("fail to respond request.", zap.Error(err))
+				cancel()
+				return
+			}
 		}
 	}
 }
 
-func ping(ws *websocket.Conn) {
+func ping(ctx context.Context, ws *websocket.Conn, cancel context.CancelFunc) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
 		pingTicker.Stop()
 		ws.Close()
 	}()
 
-	for range pingTicker.C {
-		ws.SetWriteDeadline(time.Now().Add(writeWait))
-		if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-			log.Logger("api").Warn("fail to respond request.", zap.Error(err))
+	for {
+		select {
+		case <-ctx.Done():
 			return
+		case <-pingTicker.C:
+			ws.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				log.Logger("api").Warn("fail to respond request.", zap.Error(err))
+				cancel()
+				return
+			}
 		}
 	}
 }

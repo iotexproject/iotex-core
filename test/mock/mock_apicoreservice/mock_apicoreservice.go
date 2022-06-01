@@ -13,6 +13,7 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -223,6 +224,20 @@ func (m *MockCoreService) ChainID() uint32 {
 func (mr *MockCoreServiceMockRecorder) ChainID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockCoreService)(nil).ChainID))
+}
+
+// ChainListener mocks base method.
+func (m *MockCoreService) ChainListener() apitypes.Listener {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChainListener")
+	ret0, _ := ret[0].(apitypes.Listener)
+	return ret0
+}
+
+// ChainListener indicates an expected call of ChainListener.
+func (mr *MockCoreServiceMockRecorder) ChainListener() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainListener", reflect.TypeOf((*MockCoreService)(nil).ChainListener))
 }
 
 // ChainMeta mocks base method.
@@ -543,34 +558,6 @@ func (m *MockCoreService) Stop(ctx context.Context) error {
 func (mr *MockCoreServiceMockRecorder) Stop(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCoreService)(nil).Stop), ctx)
-}
-
-// StreamBlocks mocks base method.
-func (m *MockCoreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StreamBlocks", stream)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StreamBlocks indicates an expected call of StreamBlocks.
-func (mr *MockCoreServiceMockRecorder) StreamBlocks(stream interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamBlocks", reflect.TypeOf((*MockCoreService)(nil).StreamBlocks), stream)
-}
-
-// StreamLogs mocks base method.
-func (m *MockCoreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StreamLogs", in, stream)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StreamLogs indicates an expected call of StreamLogs.
-func (mr *MockCoreServiceMockRecorder) StreamLogs(in, stream interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamLogs", reflect.TypeOf((*MockCoreService)(nil).StreamLogs), in, stream)
 }
 
 // SuggestGasPrice mocks base method.

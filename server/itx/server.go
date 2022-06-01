@@ -210,7 +210,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		return
 	}
 	defer func() {
-		if err := svr.Stop(ctx); err != nil {
+		if err := svr.Stop(context.Background()); err != nil {
 			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()

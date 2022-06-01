@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -18,13 +20,15 @@ type HTTPServer struct {
 }
 
 // NewHTTPServer creates a new http server
+// TODO: move timeout into config
 func NewHTTPServer(route string, port int, handler Web3Handler) *HTTPServer {
 	if port == 0 {
 		return nil
 	}
 	svr := &HTTPServer{
 		svr: &http.Server{
-			Addr: ":" + strconv.Itoa(port),
+			Addr:         ":" + strconv.Itoa(port),
+			WriteTimeout: 30 * time.Second,
 		},
 		msgHandler: handler,
 	}
@@ -56,12 +60,14 @@ func (hSvr *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	httpResp := hSvr.msgHandler.HandlePOSTReq(req.Body)
-
-	// write results into http reponse
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	if err := json.NewEncoder(w).Encode(httpResp); err != nil {
+	if err := hSvr.msgHandler.HandlePOSTReq(req.Body,
+		apitypes.NewResponseWriter(
+			func(resp interface{}) error {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+				return json.NewEncoder(w).Encode(resp)
+			}),
+	); err != nil {
 		log.Logger("api").Warn("fail to respond request.", zap.Error(err))
 	}
 }
