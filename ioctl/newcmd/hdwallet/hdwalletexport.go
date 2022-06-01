@@ -7,16 +7,11 @@
 package hdwallet
 
 import (
-	"bytes"
-	"os"
-
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 // Multi-language support
@@ -42,11 +37,6 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			_hdWalletConfigFile = client.Config().Wallet + "/hdwallet"
-			if !fileutil.FileExists(_hdWalletConfigFile) {
-				cmd.Println("Run 'ioctl hdwallet create' to create your HDWallet first.")
-				return nil
-			}
 
 			cmd.Println("Enter password")
 			password, err := client.ReadSecret()
@@ -54,27 +44,10 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "failed to get password")
 			}
 
-			enctxt, err := os.ReadFile(_hdWalletConfigFile)
+			mnemonic, err := client.ExportHdwallet(password)
 			if err != nil {
-				return errors.New("failed to read config")
+				return errors.Wrap(err, "failed to export mnemonic")
 			}
-
-			enckey := util.HashSHA256([]byte(password))
-			dectxt, err := util.Decrypt(enctxt, enckey)
-			if err != nil {
-				return errors.New("failed to decrypt")
-			}
-
-			dectxtLen := len(dectxt)
-			if dectxtLen <= 32 {
-				return errors.New("incorrect data")
-			}
-
-			mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
-			if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
-				return errors.New("password error")
-			}
-
 			cmd.Printf("Mnemonic phrase: %s"+
 				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
 			return nil
