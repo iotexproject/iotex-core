@@ -370,7 +370,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -502,7 +502,7 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 
 // EstimateGasForAction estimates gas for action
 func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -1558,7 +1558,7 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 
 // EVMNetworkID returns the network id of evm
 func (core *coreService) EVMNetworkID() uint32 {
-	return config.EVMNetworkID()
+	return core.bc.EvmNetworkID()
 }
 
 // ChainID returns the chain id of evm

@@ -12,6 +12,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/config"
 )
 
 type (
@@ -41,7 +42,8 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 
 // FromProto converts from proto message
 func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	blk, err := (&Deserializer{}).FromBlockProto(pb.Block)
+	// TODO: pass the correct EVM network ID at the time of newFileDAOv2()
+	blk, err := (&Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(pb.Block)
 	if err != nil {
 		return err
 	}

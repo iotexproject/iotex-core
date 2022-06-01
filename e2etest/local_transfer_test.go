@@ -680,7 +680,7 @@ func TestEnforceChainID(t *testing.T) {
 		require.NoError(err)
 
 		// simulate API receives tx
-		selp1, err := (&action.Deserializer{}).ActionToSealedEnvelope(selp.Proto())
+		selp1, err := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
 
 		// mint block using received tx

@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -114,7 +113,7 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 }
 
 // LoadProto loads from proto scheme.
-func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
+func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action, id uint32) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
@@ -147,10 +146,10 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
+		if _, err = rlpSignedHash(tx, id, pbAct.GetSignature()); err != nil {
 			return err
 		}
-		sealed.evmNetworkID = config.EVMNetworkID()
+		sealed.evmNetworkID = id
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
