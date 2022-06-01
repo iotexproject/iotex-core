@@ -54,15 +54,14 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "invalid hdwallet key format")
 			}
 
+			if !fileutil.FileExists(_hdWalletConfigFile) {
+				return errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
+			}
 			cmd.Println("Enter password\n")
 			password, err := client.ReadSecret()
 			if err != nil {
 				return errors.Wrap(err, "failed to get password")
 			}
-			if !fileutil.FileExists(_hdWalletConfigFile) {
-				return errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
-			}
-
 			enctxt, err := os.ReadFile(_hdWalletConfigFile)
 			if err != nil {
 				return errors.Wrap(err, "failed to read config")
