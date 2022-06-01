@@ -6,6 +6,7 @@
 package node
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -94,7 +95,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 		require.Contains(result, "io13q2am9nedrd3n746lsj6qan4pymcpgm94vvx2c")
-		require.Contains(result, "false")
 		require.Contains(result, "81497052.527306018062463878")
+		require.Equal(12, len(strings.Split(result, "false"))-1)
 	})
 }
