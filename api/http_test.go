@@ -20,7 +20,7 @@ func TestServeHTTP(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	handler := mock_web3server.NewMockWeb3Handler(ctrl)
-	handler.EXPECT().HandlePOSTReq(gomock.Any()).Return("test")
+	handler.EXPECT().HandlePOSTReq(gomock.Any(), gomock.Any()).Return(nil)
 	svr := NewHTTPServer("", testutil.RandomPort(), handler)
 
 	t.Run("WrongHTTPMethod", func(t *testing.T) {
