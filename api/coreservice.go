@@ -144,8 +144,6 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
-		// BlockHashByActionHash returns block hash by action hash
-		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 	}
@@ -431,22 +429,6 @@ func (core *coreService) validateChainID(chainID uint32) error {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
-}
-
-// ReceiptByAction gets receipt with corresponding action hash
-func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
-	if core.indexer == nil {
-		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	receipt, err := core.ReceiptByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	blkHash, err := core.getBlockHashByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	return receipt, hex.EncodeToString(blkHash[:]), nil
 }
 
 // ReadContract reads the state in a contract address specified by the slot
@@ -975,24 +957,6 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 		res = append(res, act)
 	}
 	return res, nil
-}
-
-// getBlockHashByActionHash returns block hash by action hash
-func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := core.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return core.dao.GetBlockHash(actIndex.BlockHeight())
-}
-
-// BlockHashByActionHash returns block hash by action hash
-func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := core.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return core.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
 // BlockHashByBlockHeight returns block hash by block height

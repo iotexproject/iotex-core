@@ -167,21 +167,6 @@ func (mr *MockCoreServiceMockRecorder) ActionsInBlockByHash(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInBlockByHash", reflect.TypeOf((*MockCoreService)(nil).ActionsInBlockByHash), arg0)
 }
 
-// BlockHashByActionHash mocks base method.
-func (m *MockCoreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockHashByActionHash", h)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockHashByActionHash indicates an expected call of BlockHashByActionHash.
-func (mr *MockCoreServiceMockRecorder) BlockHashByActionHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHashByActionHash", reflect.TypeOf((*MockCoreService)(nil).BlockHashByActionHash), h)
-}
-
 // BlockHashByBlockHeight mocks base method.
 func (m *MockCoreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error) {
 	m.ctrl.T.Helper()
