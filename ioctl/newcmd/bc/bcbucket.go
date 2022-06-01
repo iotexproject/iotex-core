@@ -161,54 +161,19 @@ func (b *bucket) String() string {
 }
 
 func getBucketByIndex(client ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
-	var endpoint string
-	var insecure bool
-
-	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
-	if err != nil {
-		return nil, err
-	}
-	method := &iotexapi.ReadStakingDataMethod{
+	method := iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
 	}
-	methodData, err := proto.Marshal(method)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal read staking data method")
-	}
-	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
+	readStakingdataRequest := iotexapi.ReadStakingDataRequest{
 		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
 			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
 				Index: []uint64{index},
 			},
 		},
 	}
-	requestData, err := proto.Marshal(readStakingdataRequest)
+	response, err := getBuckets(client, method, readStakingdataRequest)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal read staking data request")
-	}
-
-	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte("staking"),
-		MethodName: methodData,
-		Arguments:  [][]byte{requestData},
-	}
-
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
-
-	response, err := apiClient.ReadState(ctx, request)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return nil, errors.New(sta.Message())
-		}
-		return nil, errors.Wrap(err, "failed to invoke ReadState api")
+		return nil, err
 	}
 	buckets := iotextypes.VoteBucketList{}
 	if err := proto.Unmarshal(response.Data, &buckets); err != nil {
@@ -221,6 +186,26 @@ func getBucketByIndex(client ioctl.Client, index uint64) (*iotextypes.VoteBucket
 }
 
 func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err error) {
+	method := iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,
+	}
+	readStakingdataRequest := iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsCount_{
+			BucketsCount: &iotexapi.ReadStakingDataRequest_BucketsCount{},
+		},
+	}
+	response, err := getBuckets(client, method, readStakingdataRequest)
+	if err != nil {
+		return nil, err
+	}
+	count = &iotextypes.BucketsCount{}
+	if err := proto.Unmarshal(response.Data, count); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal response")
+	}
+	return count, nil
+}
+
+func getBuckets(client ioctl.Client, method iotexapi.ReadStakingDataMethod, readStakingdataRequest iotexapi.ReadStakingDataRequest) (response *iotexapi.ReadStateResponse, err error) {
 	var endpoint string
 	var insecure bool
 
@@ -231,19 +216,11 @@ func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err e
 	if err != nil {
 		return nil, err
 	}
-	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,
-	}
-	methodData, err := proto.Marshal(method)
+	methodData, err := proto.Marshal(&method)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal read staking data method")
 	}
-	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketsCount_{
-			BucketsCount: &iotexapi.ReadStakingDataRequest_BucketsCount{},
-		},
-	}
-	requestData, err := proto.Marshal(readStakingdataRequest)
+	requestData, err := proto.Marshal(&readStakingdataRequest)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal read staking data request")
 	}
@@ -260,7 +237,7 @@ func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err e
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	response, err := apiClient.ReadState(ctx, request)
+	response, err = apiClient.ReadState(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -268,9 +245,5 @@ func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err e
 		}
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
-	count = &iotextypes.BucketsCount{}
-	if err := proto.Unmarshal(response.Data, count); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal response")
-	}
-	return count, nil
+	return response, nil
 }
