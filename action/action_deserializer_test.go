@@ -35,7 +35,7 @@ func TestActionDeserializer(t *testing.T) {
 		r.Zero(se.Encoding())
 
 		se.signature = _validSig
-		se1, err := (&Deserializer{}).WithChainID(true).ActionToSealedEnvelope(se.Proto())
+		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
 		r.NoError(err)
 		r.Equal(se, se1)
 	}
@@ -48,18 +48,15 @@ func TestProtoWithChainID(t *testing.T) {
 	var ad Deserializer
 	for _, v := range []struct {
 		data    []byte
-		honor   bool
 		chainID uint32
 		err     error
 	}{
-		{txID0, false, 0, nil}, // b/c chainID = 0, no error regardless of honorChainID or not
-		{txID0, true, 0, nil},
-		{txID1, false, 0, ErrInvalidSender}, // chainID = 1, fail to verify tx in case honorChainID = false
-		{txID1, true, 1, nil},
+		{txID0, 0, nil},
+		{txID1, 1, nil},
 	} {
 		tx := iotextypes.Action{}
 		r.NoError(proto.Unmarshal(v.data, &tx))
-		selp, err := ad.WithChainID(v.honor).ActionToSealedEnvelope(&tx)
+		selp, err := ad.ActionToSealedEnvelope(&tx)
 		r.NoError(err)
 		r.Equal(v.chainID, selp.Envelope.ChainID())
 		_, err = selp.Hash()

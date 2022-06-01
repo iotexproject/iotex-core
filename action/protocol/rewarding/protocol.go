@@ -183,7 +183,7 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 		Build()
 }
 
-// Validate validates a reward action 
+// Validate validates a reward action
 func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
 	if !protocol.MustGetFeatureCtx(ctx).ValidateRewardProtocol {
 		return nil

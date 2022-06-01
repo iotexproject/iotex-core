@@ -95,7 +95,7 @@ func TestBlockEndorsementCollection(t *testing.T) {
 
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil, dummyChainIDChecker)
+	em, err := newEndorsementManager(nil)
 	require.NoError(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
@@ -178,7 +178,7 @@ func TestEndorsementManager(t *testing.T) {
 
 func TestEndorsementManagerProto(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil, dummyChainIDChecker)
+	em, err := newEndorsementManager(nil)
 	require.NoError(err)
 	require.NotNil(em)
 
@@ -203,9 +203,9 @@ func TestEndorsementManagerProto(t *testing.T) {
 	//test converting emanager pb
 	emProto, err := em.toProto()
 	require.NoError(err)
-	em2, err := newEndorsementManager(nil, dummyChainIDChecker)
+	em2, err := newEndorsementManager(nil)
 	require.NoError(err)
-	require.NoError(em2.fromProto(emProto, dummyChainIDChecker))
+	require.NoError(em2.fromProto(emProto))
 
 	require.Equal(len(em.collections), len(em2.collections))
 	encoded := encodeToString(cv.BlockHash())
