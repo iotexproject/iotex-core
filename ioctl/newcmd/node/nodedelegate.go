@@ -85,6 +85,9 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		insecure  bool
 	)
 
+	_nodeStatus = map[bool]string{true: "active", false: "false"}
+	_probatedStatus = map[bool]string{true: "probated", false: ""}
+
 	use, _ := client.SelectTranslation(_delegateUses)
 	short, _ := client.SelectTranslation(_delegateShorts)
 	flagEpochNumUsage, _ := client.SelectTranslation(_flagEpochNumUsages)
@@ -244,8 +247,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		flagEpochNumUsage)
 	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		flagNextEpochUsage)
-	_nodeStatus = map[bool]string{true: "active", false: ""}
-	_probatedStatus = map[bool]string{true: "probated", false: ""}
 	return cmd
 }
 

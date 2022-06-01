@@ -9,11 +9,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -94,7 +93,8 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		cmd := NewNodeDelegateCmd(client)
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
-		require.Contains(result, "io1kr8c6krd7dhxaaqwdkr6erqgu4z0scug3drgja")
-		require.Contains(result, "109510794.521770016955545668")
+		require.Contains(result, "io13q2am9nedrd3n746lsj6qan4pymcpgm94vvx2c")
+		require.Contains(result, "false")
+		require.Contains(result, "81497052.527306018062463878")
 	})
 }
