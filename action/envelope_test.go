@@ -56,7 +56,7 @@ func TestEnvelope_Proto(t *testing.T) {
 	req.Equal(actCore, proto)
 
 	evlp2 := &envelope{}
-	req.NoError(evlp2.LoadProtoWithChainID(proto))
+	req.NoError(evlp2.LoadProto(proto))
 	req.Equal(evlp.version, evlp2.version)
 	req.Equal(evlp.chainID, evlp2.chainID)
 	req.Equal(evlp.nonce, evlp2.nonce)
