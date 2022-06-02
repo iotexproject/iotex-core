@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -53,11 +52,7 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 				}
 				epochNum = chainMeta.GetEpoch().GetNum()
 			}
-			response, err := bc.GetEpochMeta(client, epochNum)
-			if err != nil {
-				return output.NewError(0, "failed to get epoch meta", err)
-			}
-			probationlist, err := getProbationList(client, epochNum, response.EpochData.Height)
+			probationlist, err := getProbationList(client, epochNum)
 			if err != nil {
 				return errors.Wrap(err, "failed to get probation list")
 			}
@@ -81,8 +76,8 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 	return cmd
 }
 
-func getProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uint64) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(client, epochNum, epochStartHeight)
+func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
+	probationListRes, err := bc.GetProbationList(client, epochNum)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,6 @@
 package node
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -47,11 +46,6 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 	})
 
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
-	apiServiceClient.EXPECT().GetEpochMeta(gomock.Any(), gomock.Any()).Return(&iotexapi.GetEpochMetaResponse{
-		EpochData: &iotextypes.EpochData{
-			Height: 0,
-		},
-	}, nil).Times(3)
 
 	t.Run("query probation list", func(t *testing.T) {
 		probationList := &iotexapi.ReadStateResponse{}
@@ -83,7 +77,6 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 			ProtocolID: []byte("poll"),
 			MethodName: []byte("ProbationListByEpoch"),
 			Arguments:  [][]byte{[]byte("0")},
-			Height:     strconv.FormatUint(0, 10),
 		}).Return(&iotexapi.ReadStateResponse{
 			Data: []byte("0")},
 			nil)
