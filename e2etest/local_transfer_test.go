@@ -601,8 +601,6 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.GRPCPort = apiPort
-	cfg.API.HTTPPort = testutil.RandomPort()
-	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
@@ -682,8 +680,7 @@ func TestEnforceChainID(t *testing.T) {
 		require.NoError(err)
 
 		// simulate API receives tx
-		withChainID := uint64(i) >= cfg.Genesis.MidwayBlockHeight
-		selp1, err := (&action.Deserializer{}).WithChainID(withChainID).ActionToSealedEnvelope(selp.Proto())
+		selp1, err := (&action.Deserializer{}).ActionToSealedEnvelope(selp.Proto())
 		require.NoError(err)
 
 		// mint block using received tx
@@ -699,13 +696,8 @@ func TestEnforceChainID(t *testing.T) {
 			act := blk.Actions[0]
 			tsf, ok := act.Action().(*action.Transfer)
 			require.True(ok)
-			if withChainID {
-				require.Equal(c.chainID, act.ChainID())
-				require.Equal(c.chainID, tsf.ChainID())
-			} else {
-				require.Zero(act.ChainID())
-				require.Zero(tsf.ChainID())
-			}
+			require.Equal(c.chainID, act.ChainID())
+			require.Equal(c.chainID, tsf.ChainID())
 		}
 	}
 }

@@ -24,7 +24,6 @@ type roundCalculator struct {
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc DelegatesByEpochFunc
 	beringHeight         uint64
-	checker              chainIDChecker
 }
 
 // UpdateRound updates previous roundCtx
@@ -225,7 +224,7 @@ func (c *roundCalculator) newRound(
 		}
 	}
 	if eManager == nil {
-		if eManager, err = newEndorsementManager(nil, c.checker); err != nil {
+		if eManager, err = newEndorsementManager(nil); err != nil {
 			return nil, err
 		}
 	}
