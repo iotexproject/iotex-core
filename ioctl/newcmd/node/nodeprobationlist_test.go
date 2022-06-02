@@ -10,12 +10,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -82,7 +81,6 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 			nil)
 
 		cmd := NewNodeProbationlistCmd(client)
-
 		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), "failed to get probation list")
 	})

@@ -48,47 +48,32 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 			if epochNum == 0 {
 				chainMeta, err := bc.GetChainMeta(client)
 				if err != nil {
-					return errors.New("failed to get chain meta")
+					return errors.Wrap(err, "failed to get chain meta")
 				}
 				epochNum = chainMeta.GetEpoch().GetNum()
 			}
 			probationlist, err := getProbationList(client, epochNum)
 			if err != nil {
-				return errors.New("failed to get probation list")
+				return errors.Wrap(err, "failed to get probation list")
 			}
-			message := &probationListMessage{
-				EpochNumber:   epochNum,
-				IntensityRate: probationlist.IntensityRate,
-				DelegateList:  make([]string, 0),
-			}
+			delegateList := make([]string, 0)
 			for addr := range probationlist.ProbationInfo {
-				message.DelegateList = append(message.DelegateList, addr)
+				delegateList = append(delegateList, addr)
 			}
-
-			cmd.Println(message.String())
+			byteAsJSON, err := json.MarshalIndent(delegateList, "", "  ")
+			if err != nil {
+				log.Panic(err)
+			}
+			cmd.Printf("EpochNumber : %d, IntensityRate : %d%%\nProbationList : %s",
+				epochNum,
+				probationlist.IntensityRate,
+				fmt.Sprint(string(byteAsJSON)),
+			)
 			return nil
 		},
 	}
 	cmd.PersistentFlags().Uint64VarP(&epochNum, "epoch-num", "e", 0, flagEpochNumUsages)
 	return cmd
-}
-
-type probationListMessage struct {
-	EpochNumber   uint64   `json:"epochnumber"`
-	IntensityRate uint32   `json:"intensityrate"`
-	DelegateList  []string `json:"delegatelist"`
-}
-
-func (m *probationListMessage) String() string {
-	byteAsJSON, err := json.MarshalIndent(m.DelegateList, "", "  ")
-	if err != nil {
-		log.Panic(err)
-	}
-	return fmt.Sprintf("EpochNumber : %d, IntensityRate : %d%%\nProbationList : %s",
-		m.EpochNumber,
-		m.IntensityRate,
-		fmt.Sprint(string(byteAsJSON)),
-	)
 }
 
 func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
