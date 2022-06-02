@@ -74,6 +74,8 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
+		// WriteFile write
+		WriteFile(path string, in []byte) error
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -306,6 +308,13 @@ func (c *client) ReadInput() (string, error) {
 		return "", err
 	}
 	return line, nil
+}
+
+func (c *client) WriteFile(path string, in []byte) error {
+	if err := os.WriteFile(path, in, 0600); err != nil {
+		return errors.Wrap(err, "failed to write to config file")
+	}
+	return nil
 }
 
 func (m *ConfirmationMessage) String() string {

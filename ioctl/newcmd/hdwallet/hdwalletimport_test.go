@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -26,21 +27,35 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
 	client.EXPECT().Config().Return(config.Config{
 		Wallet: config.ReadConfig.Wallet,
-	}).Times(2)
+	}).Times(3)
 
 	t.Run("import hdwallet", func(t *testing.T) {
 		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
+		client.EXPECT().WriteFile(gomock.Any(), gomock.Any()).Return(nil)
 		defer os.RemoveAll(_hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 		require.Contains(result, mnemonic)
+	})
+
+	t.Run("failed to write to config file", func(t *testing.T) {
+		expectErr := errors.New("failed to write to config file")
+		client.EXPECT().ReadInput().Return(mnemonic, nil)
+		client.EXPECT().ReadSecret().Return(password, nil)
+		client.EXPECT().ReadSecret().Return(password, nil)
+		client.EXPECT().WriteFile(gomock.Any(), gomock.Any()).Return(expectErr)
+		defer os.RemoveAll(_hdWalletConfigFile)
+
+		cmd := NewHdwalletImportCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.Contains(err.Error(), expectErr.Error())
 	})
 
 	t.Run("hdwalletConfigFile exist", func(t *testing.T) {

@@ -325,3 +325,17 @@ func (mr *MockClientMockRecorder) WriteConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig))
 }
+
+// WriteFile mocks base method.
+func (m *MockClient) WriteFile(path string, in []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteFile", path, in)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteFile indicates an expected call of WriteFile.
+func (mr *MockClientMockRecorder) WriteFile(path, in interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockClient)(nil).WriteFile), path, in)
+}

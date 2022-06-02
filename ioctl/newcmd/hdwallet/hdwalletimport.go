@@ -7,7 +7,6 @@
 package hdwallet
 
 import (
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -81,8 +80,8 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "failed to encrypting mnemonic")
 			}
 
-			if err := os.WriteFile(_hdWalletConfigFile, out, 0600); err != nil {
-				return errors.Wrapf(err, "failed to write to config file %s", _hdWalletConfigFile)
+			if err := client.WriteFile(_hdWalletConfigFile, out); err != nil {
+				return errors.Wrap(err, "failed to write to config file")
 			}
 
 			cmd.Printf("Mnemonic phrase: %s\n"+
