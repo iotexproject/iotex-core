@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -102,7 +102,6 @@ func newRollDPoSCtx(
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
-	checker chainIDChecker,
 ) (*rollDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
@@ -136,7 +135,6 @@ func newRollDPoSCtx(
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
-		checker:              checker,
 	}
 	return &rollDPoSCtx{
 		ConsensusConfig:   cfg,
@@ -158,7 +156,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.roundCalc.checker)
+		eManager, err = newEndorsementManager(ctx.eManagerDB)
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 

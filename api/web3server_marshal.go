@@ -11,8 +11,14 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+)
+
+const (
+	_zeroLogsBloom = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 )
 
 type (
@@ -27,9 +33,24 @@ type (
 		Message string `json:"message"`
 	}
 
+	streamResponse struct {
+		id     string
+		result interface{}
+	}
+
+	streamParams struct {
+		Subscription string      `json:"subscription"`
+		Result       interface{} `json:"result"`
+	}
+
 	getBlockResult struct {
 		blkMeta      *iotextypes.BlockMeta
-		logsBloom    string
+		transactions []interface{}
+	}
+
+	// TODO: repalce getBlockResult with getBlockResultV2 after BlockMeta is removed in coreservice
+	getBlockResultV2 struct {
+		blk          *block.Block
 		transactions []interface{}
 	}
 
@@ -113,6 +134,10 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	txs := make([]interface{}, 0)
+	if len(obj.transactions) > 0 {
+		txs = obj.transactions
+	}
 	return json.Marshal(&struct {
 		Author           string        `json:"author"`
 		Number           string        `json:"number"`
@@ -140,7 +165,7 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		Hash:             "0x" + obj.blkMeta.Hash,
 		ParentHash:       "0x" + obj.blkMeta.PreviousBlockHash,
 		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-		LogsBloom:        obj.logsBloom,
+		LogsBloom:        getLogsBloomHex(obj.blkMeta.LogsBloom),
 		TransactionsRoot: "0x" + obj.blkMeta.TxRoot,
 		StateRoot:        "0x" + obj.blkMeta.DeltaStateDigest,
 		ReceiptsRoot:     "0x" + obj.blkMeta.ReceiptRoot,
@@ -152,7 +177,98 @@ func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 		GasLimit:         uint64ToHex(obj.blkMeta.GasLimit),
 		GasUsed:          uint64ToHex(obj.blkMeta.GasUsed),
 		Timestamp:        uint64ToHex(uint64(obj.blkMeta.Timestamp.Seconds)),
-		Transactions:     obj.transactions,
+		Transactions:     txs,
+		Step:             "373422302",
+		Uncles:           []string{},
+	})
+}
+
+func getLogsBloomHex(logsbloom string) string {
+	if len(logsbloom) == 0 {
+		return _zeroLogsBloom
+	}
+	return "0x" + logsbloom
+}
+
+func (obj *getBlockResultV2) MarshalJSON() ([]byte, error) {
+	if obj.blk == nil {
+		return nil, errInvalidObject
+	}
+
+	var (
+		blkHash           hash.Hash256
+		producerAddress   string
+		logsBloomStr      string
+		gasLimit, gasUsed uint64
+
+		txs              = make([]interface{}, 0)
+		preHash          = obj.blk.Header.PrevHash()
+		txRoot           = obj.blk.Header.TxRoot()
+		deltaStateDigest = obj.blk.Header.DeltaStateDigest()
+		receiptRoot      = obj.blk.Header.ReceiptRoot()
+	)
+	if obj.blk.Height() > 0 {
+		producerAddress = obj.blk.Header.ProducerAddress()
+		blkHash = obj.blk.Header.HashBlock()
+	} else {
+		blkHash = block.GenesisHash()
+	}
+	producerAddr, err := ioAddrToEthAddr(producerAddress)
+	if err != nil {
+		return nil, err
+	}
+	for _, tx := range obj.blk.Actions {
+		gasLimit += tx.GasLimit()
+	}
+	for _, r := range obj.blk.Receipts {
+		gasUsed += r.GasConsumed
+	}
+	if logsBloom := obj.blk.Header.LogsBloomfilter(); logsBloom != nil {
+		logsBloomStr = hex.EncodeToString(logsBloom.Bytes())
+	}
+	if len(obj.transactions) > 0 {
+		txs = obj.transactions
+	}
+	return json.Marshal(&struct {
+		Author           string        `json:"author"`
+		Number           string        `json:"number"`
+		Hash             string        `json:"hash"`
+		ParentHash       string        `json:"parentHash"`
+		Sha3Uncles       string        `json:"sha3Uncles"`
+		LogsBloom        string        `json:"logsBloom"`
+		TransactionsRoot string        `json:"transactionsRoot"`
+		StateRoot        string        `json:"stateRoot"`
+		ReceiptsRoot     string        `json:"receiptsRoot"`
+		Miner            string        `json:"miner"`
+		Difficulty       string        `json:"difficulty"`
+		TotalDifficulty  string        `json:"totalDifficulty"`
+		ExtraData        string        `json:"extraData"`
+		Size             string        `json:"size"`
+		GasLimit         string        `json:"gasLimit"`
+		GasUsed          string        `json:"gasUsed"`
+		Timestamp        string        `json:"timestamp"`
+		Transactions     []interface{} `json:"transactions"`
+		Step             string        `json:"step"`
+		Uncles           []string      `json:"uncles"`
+	}{
+		Author:           producerAddr,
+		Number:           uint64ToHex(obj.blk.Height()),
+		Hash:             "0x" + hex.EncodeToString(blkHash[:]),
+		ParentHash:       "0x" + hex.EncodeToString(preHash[:]),
+		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+		LogsBloom:        getLogsBloomHex(logsBloomStr),
+		TransactionsRoot: "0x" + hex.EncodeToString(txRoot[:]),
+		StateRoot:        "0x" + hex.EncodeToString(deltaStateDigest[:]),
+		ReceiptsRoot:     "0x" + hex.EncodeToString(receiptRoot[:]),
+		Miner:            producerAddr,
+		Difficulty:       "0xfffffffffffffffffffffffffffffffe",
+		TotalDifficulty:  "0xff14700000000000000000000000486001d72",
+		ExtraData:        "0x",
+		Size:             uint64ToHex(uint64(len(obj.blk.Actions))),
+		GasLimit:         uint64ToHex(gasLimit),
+		GasUsed:          uint64ToHex(gasUsed),
+		Timestamp:        uint64ToHex(uint64(timestamppb.New(obj.blk.Header.Timestamp()).Seconds)),
+		Transactions:     txs,
 		Step:             "373422302",
 		Uncles:           []string{},
 	})
@@ -235,7 +351,7 @@ func (obj *getReceiptResult) MarshalJSON() ([]byte, error) {
 		CumulativeGasUsed: uint64ToHex(obj.receipt.GasConsumed),
 		GasUsed:           uint64ToHex(obj.receipt.GasConsumed),
 		ContractAddress:   obj.contractAddress,
-		LogsBloom:         obj.logsBloom,
+		LogsBloom:         getLogsBloomHex(obj.logsBloom),
 		Logs:              logs,
 		Status:            uint64ToHex(obj.receipt.Status),
 	})
@@ -273,5 +389,20 @@ func (obj *getLogsResult) MarshalJSON() ([]byte, error) {
 		Address:          addr,
 		Data:             "0x" + hex.EncodeToString(obj.log.Data),
 		Topics:           topics,
+	})
+}
+
+func (obj *streamResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Jsonrpc string       `json:"jsonrpc"`
+		Method  string       `json:"method"`
+		Params  streamParams `json:"params"`
+	}{
+		Jsonrpc: "2.0",
+		Method:  "eth_subscription",
+		Params: streamParams{
+			Subscription: obj.id,
+			Result:       obj.result,
+		},
 	})
 }

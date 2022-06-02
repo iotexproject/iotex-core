@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apiserver"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 var (
@@ -30,7 +31,11 @@ func TestBlockListener(t *testing.T) {
 	errChan := make(chan error, 10)
 
 	server := mock_apiserver.NewMockStreamBlocksServer(ctrl)
-	responder := NewBlockListener(server, errChan)
+	responder := NewGRPCBlockListener(
+		func(in interface{}) error {
+			return server.Send(in.(*iotexapi.StreamBlocksResponse))
+		},
+		errChan)
 
 	receipts := []*action.Receipt{
 		{
@@ -49,10 +54,10 @@ func TestBlockListener(t *testing.T) {
 	require.NoError(t, err)
 
 	server.EXPECT().Send(gomock.Any()).Return(nil).Times(1)
-	require.NoError(t, responder.Respond(&testBlock))
+	require.NoError(t, responder.Respond("", &testBlock))
 
 	server.EXPECT().Send(gomock.Any()).Return(errorSend).Times(1)
-	require.Equal(t, errorSend, responder.Respond(&testBlock))
+	require.Equal(t, errorSend, responder.Respond("", &testBlock))
 
 	responder.Exit()
 

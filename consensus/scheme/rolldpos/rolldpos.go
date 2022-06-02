@@ -116,7 +116,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(msg, r.ctx.roundCalc.checker); err != nil {
+	if err := endorsedMessage.LoadProto(msg); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
@@ -297,8 +297,6 @@ func (b *Builder) RegisterProtocol(rp *rolldpos.Protocol) *Builder {
 	return b
 }
 
-type chainIDChecker func(h uint64) bool
-
 // Build builds a RollDPoS consensus module
 func (b *Builder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -325,9 +323,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.priKey,
 		b.clock,
 		b.cfg.Genesis.BeringBlockHeight,
-		func(h uint64) bool {
-			return b.cfg.Genesis.IsNewfoundland(h)
-		},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
