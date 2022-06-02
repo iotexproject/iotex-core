@@ -132,7 +132,7 @@ func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaR
 }
 
 // GetProbationList gets probation list
-func GetProbationList(client ioctl.Client, epochNum uint64) (*iotexapi.ReadStateResponse, error) {
+func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
 	var endpoint string
 	var insecure bool
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
@@ -143,15 +143,17 @@ func GetProbationList(client ioctl.Client, epochNum uint64) (*iotexapi.ReadState
 		return nil, err
 	}
 
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+		Height:     strconv.FormatUint(epochStartHeight, 10),
+	}
+	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := apiServiceClient.ReadState(ctx, request)

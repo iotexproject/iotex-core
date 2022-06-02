@@ -7,6 +7,7 @@
 package node
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -34,25 +35,30 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 	}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(12)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(7)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(10)
 
 	t.Run("failed to get chain meta", func(t *testing.T) {
 		expectedErr := errors.New("failed to get chain meta")
 		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr).Times(1)
 
 		cmd := NewNodeProbationlistCmd(client)
-
 		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), "failed to get chain meta")
 	})
 
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
+	apiServiceClient.EXPECT().GetEpochMeta(gomock.Any(), gomock.Any()).Return(&iotexapi.GetEpochMetaResponse{
+		EpochData: &iotextypes.EpochData{
+			Height: 0,
+		},
+	}, nil).Times(3)
 
 	t.Run("query probation list", func(t *testing.T) {
 		probationList := &iotexapi.ReadStateResponse{}
-		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).Times(1)
-		cmd := NewNodeProbationlistCmd(client)
 
+		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).Times(1)
+
+		cmd := NewNodeProbationlistCmd(client)
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 		require.Contains(result, "ProbationList : []")
@@ -63,9 +69,10 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 		probationList := &iotexapi.ReadStateResponse{
 			Data: d,
 		}
-		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).Times(1)
-		cmd := NewNodeProbationlistCmd(client)
 
+		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).Times(1)
+
+		cmd := NewNodeProbationlistCmd(client)
 		result, err := util.ExecuteCmd(cmd, "-e", "1")
 		require.NoError(err)
 		require.Contains(result, "ProbationList : []")
@@ -76,6 +83,7 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 			ProtocolID: []byte("poll"),
 			MethodName: []byte("ProbationListByEpoch"),
 			Arguments:  [][]byte{[]byte("0")},
+			Height:     strconv.FormatUint(0, 10),
 		}).Return(&iotexapi.ReadStateResponse{
 			Data: []byte("0")},
 			nil)
