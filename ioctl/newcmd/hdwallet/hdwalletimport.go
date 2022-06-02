@@ -43,7 +43,7 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			_hdWalletConfigFile = config.ReadConfig.Wallet + "/hdwallet"
+			_hdWalletConfigFile = client.Config().Wallet + "/hdwallet"
 			if fileutil.FileExists(_hdWalletConfigFile) {
 				cmd.Println("Please run 'ioctl hdwallet delete' before import")
 				return nil

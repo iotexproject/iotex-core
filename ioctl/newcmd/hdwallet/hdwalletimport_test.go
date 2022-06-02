@@ -18,10 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-const (
-	_testPath = "testNewAccount"
-)
-
 func TestNewNodeDelegateCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -31,6 +27,9 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	password := "123"
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
+	client.EXPECT().Config().Return(config.Config{
+		Wallet: config.ReadConfig.Wallet,
+	}).Times(2)
 
 	t.Run("import hdwallet", func(t *testing.T) {
 		client.EXPECT().ReadSecret().Return(mnemonic, nil)
