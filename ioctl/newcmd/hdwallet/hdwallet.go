@@ -7,9 +7,7 @@
 package hdwallet
 
 import (
-	"errors"
-
-	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/pkg/errors"
 )
 
 // Errors
@@ -21,4 +19,4 @@ var (
 // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
 const DefaultRootDerivationPath = "m/44'/304'"
 
-var _hdWalletConfigFile = config.ReadConfig.Wallet + "/hdwallet"
+var _hdWalletConfigFile string

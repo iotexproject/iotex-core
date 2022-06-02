@@ -36,11 +36,12 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		client.EXPECT().ReadSecret().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().WriteConfig()
+		defer os.RemoveAll(_hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
-		_, err := util.ExecuteCmd(cmd)
+		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
+		require.Contains(result, mnemonic)
 	})
 
 	t.Run("hdwalletConfigFile exist", func(t *testing.T) {

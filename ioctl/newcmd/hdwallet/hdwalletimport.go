@@ -7,17 +7,15 @@
 package hdwallet
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
@@ -39,12 +37,13 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_importCmdUses)
 	short, _ := client.SelectTranslation(_importCmdShorts)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			_hdWalletConfigFile = config.ReadConfig.Wallet + "/hdwallet"
 			if fileutil.FileExists(_hdWalletConfigFile) {
 				cmd.Println("Please run 'ioctl hdwallet delete' before import")
 				return nil
@@ -79,18 +78,16 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 			enckey := util.HashSHA256([]byte(password))
 			out, err := util.Encrypt(enctxt, enckey)
 			if err != nil {
-				return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
+				return errors.Wrap(err, "failed to encrypting mnemonic")
 			}
 
 			if err := os.WriteFile(_hdWalletConfigFile, out, 0600); err != nil {
-				return output.NewError(output.WriteFileError,
-					fmt.Sprintf("failed to write to config file %s", _hdWalletConfigFile), err)
+				return errors.Wrapf(err, "failed to write to config file %s", _hdWalletConfigFile)
 			}
 
-			cmd.Println(fmt.Sprintf("Mnemonic phrase: %s\n"+
-				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic))
+			cmd.Printf("Mnemonic phrase: %s\n"+
+				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
 			return nil
 		},
 	}
-	return cmd
 }
