@@ -40,6 +40,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -79,15 +80,11 @@ type (
 		// SuggestGasPrice suggests gas price
 		SuggestGasPrice() (uint64, error)
 		// EstimateGasForAction estimates gas for action
-		EstimateGasForAction(in *iotextypes.Action) (uint64, error)
+		EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error)
 		// EpochMeta gets epoch metadata
 		EpochMeta(epochNum uint64) (*iotextypes.EpochData, uint64, []*iotexapi.BlockProducerInfo, error)
 		// RawBlocks gets raw block data
 		RawBlocks(startHeight uint64, count uint64, withReceipts bool, withTransactionLogs bool) ([]*iotexapi.BlockInfo, error)
-		// StreamBlocks streams blocks
-		StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error
-		// StreamLogs streams logs that match the filter condition
-		StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error
 		// ElectionBuckets returns the native election buckets.
 		ElectionBuckets(epochNum uint64) ([]*iotextypes.ElectionBucket, error)
 		// ReceiptByActionHash returns receipt by action hash
@@ -135,6 +132,8 @@ type (
 		ChainID() uint32
 		// ReadContractStorage reads contract's storage
 		ReadContractStorage(ctx context.Context, addr address.Address, key []byte) ([]byte, error)
+		// ChainListener returns the instance of Listener
+		ChainListener() apitypes.Listener
 		// SimulateExecution simulates execution
 		SimulateExecution(context.Context, address.Address, *action.Execution) ([]byte, *action.Receipt, error)
 		// SyncingProgress returns the syncing status of node
@@ -145,8 +144,6 @@ type (
 		PendingNonce(address.Address) (uint64, error)
 		// ReceiveBlock broadcasts the block to api subscribers
 		ReceiveBlock(blk *block.Block) error
-		// BlockHashByActionHash returns block hash by action hash
-		BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 		// BlockHashByBlockHeight returns block hash by block height
 		BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256, error)
 	}
@@ -164,7 +161,7 @@ type (
 		broadcastHandler  BroadcastOutbound
 		cfg               config.API
 		registry          *protocol.Registry
-		chainListener     Listener
+		chainListener     apitypes.Listener
 		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
@@ -226,7 +223,7 @@ func newCoreService(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg),
+		gs:                gasstation.NewGasStation(chain, dao, cfg),
 		electionCommittee: apiCfg.electionCommittee,
 		readCache:         NewReadCache(),
 		hasActionIndex:    apiCfg.hasActionIndex,
@@ -375,8 +372,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	g := core.bc.Genesis()
-	selp, err := (&action.Deserializer{}).WithChainID(g.IsNewfoundland(core.bc.TipHeight())).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -432,22 +428,6 @@ func (core *coreService) validateChainID(chainID uint32) error {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
-}
-
-// ReceiptByAction gets receipt with corresponding action hash
-func (core *coreService) ReceiptByAction(actHash hash.Hash256) (*action.Receipt, string, error) {
-	if core.indexer == nil {
-		return nil, "", status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
-	}
-	receipt, err := core.ReceiptByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	blkHash, err := core.getBlockHashByActionHash(actHash)
-	if err != nil {
-		return nil, "", status.Error(codes.NotFound, err.Error())
-	}
-	return receipt, hex.EncodeToString(blkHash[:]), nil
 }
 
 // ReadContract reads the state in a contract address specified by the slot
@@ -523,12 +503,28 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 }
 
 // EstimateGasForAction estimates gas for action
-func (core *coreService) EstimateGasForAction(in *iotextypes.Action) (uint64, error) {
-	estimateGas, err := core.gs.EstimateGasForAction(in)
+func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
+	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
-	return estimateGas, nil
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		gas, err := selp.IntrinsicGas()
+		if err != nil {
+			return 0, status.Error(codes.Internal, err.Error())
+		}
+		return gas, nil
+	}
+	callerAddr := selp.SrcPubkey().Address()
+	if callerAddr == nil {
+		return 0, status.Error(codes.Internal, "failed to get address")
+	}
+	_, receipt, err := core.SimulateExecution(ctx, callerAddr, sc)
+	if err != nil {
+		return 0, status.Error(codes.Internal, err.Error())
+	}
+	return receipt.GasConsumed, nil
 }
 
 // EpochMeta gets epoch metadata
@@ -648,44 +644,9 @@ func (core *coreService) RawBlocks(startHeight uint64, count uint64, withReceipt
 	return res, nil
 }
 
-// StreamBlocks streams blocks
-func (core *coreService) StreamBlocks(stream iotexapi.APIService_StreamBlocksServer) error {
-	errChan := make(chan error)
-	if err := core.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
-		return status.Error(codes.Internal, err.Error())
-	}
-
-	for {
-		select {
-		case err := <-errChan:
-			if err != nil {
-				err = status.Error(codes.Aborted, err.Error())
-			}
-			return err
-		}
-	}
-}
-
-// StreamLogs streams logs that match the filter condition
-func (core *coreService) StreamLogs(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer) error {
-	if in == nil {
-		return status.Error(codes.InvalidArgument, "empty filter")
-	}
-	errChan := make(chan error)
-	// register the log filter so it will match logs in new blocks
-	if err := core.chainListener.AddResponder(NewLogListener(logfilter.NewLogFilter(in), stream, errChan)); err != nil {
-		return status.Error(codes.Internal, err.Error())
-	}
-
-	for {
-		select {
-		case err := <-errChan:
-			if err != nil {
-				err = status.Error(codes.Aborted, err.Error())
-			}
-			return err
-		}
-	}
+// ChainListener returns the instance of Listener
+func (core *coreService) ChainListener() apitypes.Listener {
+	return core.chainListener
 }
 
 // ElectionBuckets returns the native election buckets.
@@ -995,24 +956,6 @@ func (core *coreService) ActionsByAddress(addr address.Address, start uint64, co
 		res = append(res, act)
 	}
 	return res, nil
-}
-
-// getBlockHashByActionHash returns block hash by action hash
-func (core *coreService) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := core.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return core.dao.GetBlockHash(actIndex.BlockHeight())
-}
-
-// BlockHashByActionHash returns block hash by action hash
-func (core *coreService) BlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	actIndex, err := core.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return core.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
 // BlockHashByBlockHeight returns block hash by block height
