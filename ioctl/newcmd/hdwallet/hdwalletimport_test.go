@@ -32,7 +32,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	}).Times(2)
 
 	t.Run("import hdwallet", func(t *testing.T) {
-		client.EXPECT().ReadSecret().Return(mnemonic, nil)
+		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		defer os.RemoveAll(_hdWalletConfigFile)

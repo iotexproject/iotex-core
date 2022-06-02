@@ -7,6 +7,7 @@
 package ioctl
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/ecdsa"
@@ -71,6 +72,8 @@ type (
 		IsCryptoSm2() bool
 		// QueryAnalyser sends request to Analyser endpoint
 		QueryAnalyser(interface{}) (*http.Response, error)
+		// ReadInput reads the input from stdin
+		ReadInput() (string, error)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -94,6 +97,9 @@ type (
 		Info    string   `json:"info"`
 		Options []string `json:"options"`
 	}
+
+	// StringMessage is the Message for string
+	StringMessage string
 )
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
@@ -291,6 +297,15 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 		return nil, errors.Wrap(err, "failed to send request")
 	}
 	return resp, nil
+}
+
+func (c *client) ReadInput() (string, error) {
+	in := bufio.NewReader(os.Stdin)
+	line, err := in.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return line, nil
 }
 
 func (m *ConfirmationMessage) String() string {

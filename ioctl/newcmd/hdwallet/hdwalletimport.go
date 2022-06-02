@@ -51,7 +51,7 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 
 			cmd.Println("Enter 12 mnemonic words you saved, separated by space")
 
-			line, err := client.ReadSecret()
+			line, err := client.ReadInput()
 			if err != nil {
 				return err
 			}

@@ -213,6 +213,21 @@ func (mr *MockClientMockRecorder) QueryAnalyser(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAnalyser", reflect.TypeOf((*MockClient)(nil).QueryAnalyser), arg0)
 }
 
+// ReadInput mocks base method.
+func (m *MockClient) ReadInput() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadInput")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadInput indicates an expected call of ReadInput.
+func (mr *MockClientMockRecorder) ReadInput() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadInput", reflect.TypeOf((*MockClient)(nil).ReadInput))
+}
+
 // ReadSecret mocks base method.
 func (m *MockClient) ReadSecret() (string, error) {
 	m.ctrl.T.Helper()
