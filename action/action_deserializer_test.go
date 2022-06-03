@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -26,30 +27,23 @@ func TestActionDeserializer(t *testing.T) {
 	} {
 		se, err := createSealedEnvelope(v.id)
 		r.NoError(err)
-
+		rHash, err := se.Hash()
+		r.NoError(err)
+		r.Equal(v.hash, hex.EncodeToString(rHash[:]))
 		r.Equal(v.id, se.ChainID())
 		r.Equal(_publicKey, se.SrcPubkey().HexString())
 		r.Equal(_signByte, se.Signature())
 		r.Zero(se.Encoding())
 
-		hashVal, hashErr := se.Hash()
-		_ = se.SenderAddress()
-		r.Equal(hex.EncodeToString(hashVal[:]), v.hash)
-		r.NoError(hashErr)
-
-		se, err = createSealedEnvelope(v.id)
-		r.NoError(err)
-
+		// use valid signature and reset se.Hash
 		se.signature = _validSig
-		validated, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
-
-		_, err = se.Hash()
+		se.hash = hash.ZeroHash256
+		se.hashErr = nil
+		se.Hash()
+		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
+		se1.Hash()
 		r.NoError(err)
-		_ = se.SenderAddress()
-		_, err = validated.Hash()
-		r.NoError(err)
-		_ = validated.SenderAddress()
-		r.Equal(validated, se)
+		r.Equal(se, se1)
 	}
 }
 

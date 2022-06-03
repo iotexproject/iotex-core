@@ -160,6 +160,9 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.signature = make([]byte, sigSize)
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
+	sealed.hash = hash.ZeroHash256
+	sealed.hashErr = nil
+	sealed.srcAddress = nil
 	return nil
 }
 

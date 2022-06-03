@@ -166,7 +166,6 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		se, err = createSealedEnvelope(0)
 		se.signature = _validSig
 		se.encoding = v.enc
-		se2, err = createSealedEnvelope(0)
 		req.NoError(se2.LoadProto(se.Proto()))
 		if v.enc > 0 {
 			se.evmNetworkID = config.EVMNetworkID()
