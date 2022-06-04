@@ -590,14 +590,14 @@ func (svr *web3Handler) getTransactionByBlockHashAndIndex(in *gjson.Result) (int
 		return nil, err
 	}
 	blkHash := util.Remove0xPrefix(blkHashStr.String())
-	selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkHash)
+	blk, receipts, err := svr.coreService.BlockByHash(blkHash)
 	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkHash, selps[idx], receipts[idx])
+	return svr.getTransactionFromActionInfo(blkHash, blk.Actions[idx], receipts[idx])
 }
 
 func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (interface{}, error) {
@@ -624,14 +624,14 @@ func (svr *web3Handler) getTransactionByBlockNumberAndIndex(in *gjson.Result) (i
 	if len(blkMetas) == 0 {
 		return nil, nil
 	}
-	selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkMetas[0].Hash)
+	blk, receipts, err := svr.coreService.BlockByHash(blkMetas[0].Hash)
 	if errors.Cause(err) == ErrNotFound || idx >= uint64(len(receipts)) || len(receipts) == 0 {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return svr.getTransactionFromActionInfo(blkMetas[0].Hash, selps[idx], receipts[idx])
+	return svr.getTransactionFromActionInfo(blkMetas[0].Hash, blk.Actions[idx], receipts[idx])
 }
 
 func (svr *web3Handler) getStorageAt(in *gjson.Result) (interface{}, error) {

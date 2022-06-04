@@ -136,35 +136,20 @@ func (mr *MockCoreServiceMockRecorder) ActionsByAddress(addr, start, count inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsByAddress", reflect.TypeOf((*MockCoreService)(nil).ActionsByAddress), addr, start, count)
 }
 
-// ActionsByBlock mocks base method.
-func (m *MockCoreService) ActionsByBlock(blkHash string, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+// BlockByHash mocks base method.
+func (m *MockCoreService) BlockByHash(arg0 string) (*block.Block, []*action.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionsByBlock", blkHash, start, count)
-	ret0, _ := ret[0].([]*iotexapi.ActionInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ActionsByBlock indicates an expected call of ActionsByBlock.
-func (mr *MockCoreServiceMockRecorder) ActionsByBlock(blkHash, start, count interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsByBlock", reflect.TypeOf((*MockCoreService)(nil).ActionsByBlock), blkHash, start, count)
-}
-
-// ActionsInBlockByHash mocks base method.
-func (m *MockCoreService) ActionsInBlockByHash(arg0 string) ([]action.SealedEnvelope, []*action.Receipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionsInBlockByHash", arg0)
-	ret0, _ := ret[0].([]action.SealedEnvelope)
+	ret := m.ctrl.Call(m, "BlockByHash", arg0)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].([]*action.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ActionsInBlockByHash indicates an expected call of ActionsInBlockByHash.
-func (mr *MockCoreServiceMockRecorder) ActionsInBlockByHash(arg0 interface{}) *gomock.Call {
+// BlockByHash indicates an expected call of BlockByHash.
+func (mr *MockCoreServiceMockRecorder) BlockByHash(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionsInBlockByHash", reflect.TypeOf((*MockCoreService)(nil).ActionsInBlockByHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHash", reflect.TypeOf((*MockCoreService)(nil).BlockByHash), arg0)
 }
 
 // BlockHashByBlockHeight mocks base method.

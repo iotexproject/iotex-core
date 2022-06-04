@@ -58,8 +58,8 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-var (
-	_workerNumbers int = 5
+const (
+	_workerNumbers = 5
 )
 
 type (
@@ -106,10 +106,8 @@ type (
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
-		// ActionsByBlock returns all actions in a block
-		ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
-		// ActionsInBlockByHash returns all actions in a block
-		ActionsInBlockByHash(string) ([]action.SealedEnvelope, []*action.Receipt, error)
+		// BlockByHash returns the block and its receipt
+		BlockByHash(string) (*block.Block, []*action.Receipt, error)
 		// ActPoolActions returns the all Transaction Identifiers in the mempool
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -1010,35 +1008,11 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 	return res, nil
 }
 
-// ActionsByBlock returns all actions in a block
-func (core *coreService) ActionsByBlock(blkHash string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+// BlockByHash returns the block and its receipt
+func (core *coreService) BlockByHash(blkHash string) (*block.Block, []*action.Receipt, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if count == 0 {
-		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
-	}
-	if count > core.cfg.RangeQueryLimit && count != math.MaxUint64 {
-		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
-	}
-	hash, err := hash.HexStringToHash256(blkHash)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	blk, err := core.dao.GetBlock(hash)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
-	if start >= uint64(len(blk.Actions)) {
-		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
-	}
-
-	return core.actionsInBlock(blk, start, count), nil
-}
-
-// TODO: replace ActionsByBlock with ActionsInBlockByHash
-// ActionsInBlockByHash returns all sealedEnvelopes and receipts in the block
-func (core *coreService) ActionsInBlockByHash(blkHash string) ([]action.SealedEnvelope, []*action.Receipt, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, nil, err
@@ -1051,7 +1025,7 @@ func (core *coreService) ActionsInBlockByHash(blkHash string) ([]action.SealedEn
 	if err != nil {
 		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return blk.Actions, receipts, nil
+	return blk, receipts, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
@@ -1246,53 +1220,6 @@ func (core *coreService) getAction(actHash hash.Hash256, checkPending bool) (*io
 		return nil, err
 	}
 	return core.pendingAction(selp)
-}
-
-func (core *coreService) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
-	var res []*iotexapi.ActionInfo
-	if len(blk.Actions) == 0 || start >= uint64(len(blk.Actions)) {
-		return res
-	}
-
-	h := blk.HashBlock()
-	blkHash := hex.EncodeToString(h[:])
-	blkHeight := blk.Height()
-
-	lastAction := start + count
-	if count == math.MaxUint64 {
-		// count = -1 means to get all actions
-		lastAction = uint64(len(blk.Actions))
-	} else {
-		if lastAction >= uint64(len(blk.Actions)) {
-			lastAction = uint64(len(blk.Actions))
-		}
-	}
-	for i := start; i < lastAction; i++ {
-		selp := blk.Actions[i]
-		actHash, err := selp.Hash()
-		if err != nil {
-			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
-		if err != nil {
-			log.Logger("api").Debug("Skipping action due to failing to get receipt", zap.Error(err))
-			continue
-		}
-		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
-		res = append(res, &iotexapi.ActionInfo{
-			Action:    selp.Proto(),
-			ActHash:   hex.EncodeToString(actHash[:]),
-			BlkHash:   blkHash,
-			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
-			BlkHeight: blkHeight,
-			Sender:    sender.String(),
-			GasFee:    gas.String(),
-			Index:     uint32(i),
-		})
-	}
-	return res
 }
 
 func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, count uint64) []*iotexapi.ActionInfo {
