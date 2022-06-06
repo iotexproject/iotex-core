@@ -20,11 +20,11 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/infra/action"
+	accountutil "github.com/iotexproject/iotex-core/infra/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
