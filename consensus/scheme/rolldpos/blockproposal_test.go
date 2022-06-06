@@ -39,7 +39,7 @@ func TestNewBlockProposal(t *testing.T) {
 	require.NoError(err)
 
 	bp3 := newBlockProposal(nil, nil)
-	require.NoError(bp3.LoadProto(pro, true))
+	require.NoError(bp3.LoadProto(pro))
 	pro3, err := bp3.Proto()
 	require.NoError(err)
 	require.EqualValues(pro, pro3)

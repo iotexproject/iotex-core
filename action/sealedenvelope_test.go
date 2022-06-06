@@ -47,7 +47,7 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 
 		var se1 SealedEnvelope
 		se.signature = _validSig
-		req.NoError(se1.LoadProtoWithChainID(se.Proto()))
+		req.NoError(se1.LoadProto(se.Proto()))
 		req.Equal(se.Envelope, se1.Envelope)
 	}
 }

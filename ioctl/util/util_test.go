@@ -94,22 +94,3 @@ func TestParseHdwPath(t *testing.T) {
 		}
 	}
 }
-
-func TestNewfoundland(t *testing.T) {
-	r := require.New(t)
-
-	for _, v := range []struct {
-		id uint32
-		h  uint64
-		is bool
-	}{
-		{1, 20027640, false},
-		{1, 20027641, true},
-		{2, 17057280, false},
-		{2, 17057281, true},
-		{3, 1, false},
-		{3, 1000000000000000000, false},
-	} {
-		r.Equal(v.is, IsNewfoundland(v.id, v.h))
-	}
-}
