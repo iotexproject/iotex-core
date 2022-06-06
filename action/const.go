@@ -6,9 +6,7 @@
 
 package action
 
-import (
-	"github.com/pkg/errors"
-)
+import "github.com/pkg/errors"
 
 // vars
 var (
