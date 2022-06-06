@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"net"
 	"strconv"
 	"time"
@@ -37,7 +36,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -575,13 +574,13 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if err != nil {
 		return nil, err
 	}
-	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
-	}
-	callerAddr, err := address.FromString(actInfo.Sender)
+	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actInfo.Action)
 	if err != nil {
 		return nil, err
+	}
+	sc, ok := act.Action().(*action.Execution)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
 	tracer := vm.NewStructLogger(nil)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
@@ -589,23 +588,8 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	amount, ok := new(big.Int).SetString(exec.Execution.GetAmount(), 10)
-	if !ok {
-		return nil, errors.New("failed to set execution amount")
-	}
-	sc, err := action.NewExecution(
-		exec.Execution.GetContract(),
-		actInfo.Action.Core.Nonce,
-		amount,
-		actInfo.Action.Core.GasLimit,
-		big.NewInt(0),
-		exec.Execution.GetData(),
-	)
-	if err != nil {
-		return nil, err
-	}
 
-	_, _, err = svr.coreService.SimulateExecution(ctx, callerAddr, sc)
+	_, _, err = svr.coreService.SimulateExecution(ctx, act.SrcPubkey().Address(), sc)
 	if err != nil {
 		return nil, err
 	}
