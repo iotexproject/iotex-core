@@ -420,43 +420,42 @@ func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 }
 
 // GetLogs get logs filtered by contract address and topics
-// TODO: simplify loop logic
 func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
 	if in.GetFilter() == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
 	var (
-		logs   []*action.Log
-		hashes []hash.Hash256
-		err    error
+		ret = make([]*iotextypes.Log, 0)
 	)
 	switch {
 	case in.GetByBlock() != nil:
 		blkHash := hash.BytesToHash256(in.GetByBlock().BlockHash)
-		logs, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter()), blkHash)
+		logs, err := svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter()), blkHash)
 		if err != nil {
-			break
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		hashes = make([]hash.Hash256, 0, len(logs))
-		for range logs {
-			hashes = append(hashes, blkHash)
+		for i := range logs {
+			ret = append(ret, toLogPb(logs[i], blkHash))
 		}
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
-		logs, hashes, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter()), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		logs, hashes, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter()), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		for i := range logs {
+			ret = append(ret, toLogPb(logs[i], hashes[i]))
+		}
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	ret := make([]*iotextypes.Log, 0, len(logs))
-	for i := range logs {
-		logPb := logs[i].ConvertToLogPb()
-		logPb.BlkHash = hashes[i][:]
-		ret = append(ret, logPb)
-	}
-	return &iotexapi.GetLogsResponse{Logs: ret}, err
+	return &iotexapi.GetLogsResponse{Logs: ret}, nil
+}
+
+func toLogPb(lg *action.Log, blkHash hash.Hash256) *iotextypes.Log {
+	logPb := lg.ConvertToLogPb()
+	logPb.BlkHash = blkHash[:]
+	return logPb
 }
 
 // StreamBlocks streams blocks
