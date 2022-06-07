@@ -175,14 +175,13 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 	case in.GetByBlk() != nil:
 		var (
 			request  = in.GetByBlk()
-			blk      *block.Block
-			receipts []*action.Receipt
+			blkStore *block.Store
 		)
-		blk, receipts, err = svr.coreService.BlockByHash(request.BlkHash)
+		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
 		if err != nil {
 			break
 		}
-		ret, err = actionsInBlock(blk, receipts, request.Start, request.Count)
+		ret, err = actionsInBlock(blkStore.Block, blkStore.Receipts, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}

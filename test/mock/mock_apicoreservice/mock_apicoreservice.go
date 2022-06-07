@@ -137,13 +137,12 @@ func (mr *MockCoreServiceMockRecorder) ActionsByAddress(addr, start, count inter
 }
 
 // BlockByHash mocks base method.
-func (m *MockCoreService) BlockByHash(arg0 string) (*block.Block, []*action.Receipt, error) {
+func (m *MockCoreService) BlockByHash(arg0 string) (*block.Store, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHash", arg0)
-	ret0, _ := ret[0].(*block.Block)
-	ret1, _ := ret[1].([]*action.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(*block.Store)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // BlockByHash indicates an expected call of BlockByHash.

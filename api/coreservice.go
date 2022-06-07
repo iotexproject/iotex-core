@@ -107,7 +107,7 @@ type (
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
 		// BlockByHash returns the block and its receipt
-		BlockByHash(string) (*block.Block, []*action.Receipt, error)
+		BlockByHash(string) (*block.Store, error)
 		// ActPoolActions returns the all Transaction Identifiers in the mempool
 		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -1009,23 +1009,23 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 }
 
 // BlockByHash returns the block and its receipt
-func (core *coreService) BlockByHash(blkHash string) (*block.Block, []*action.Receipt, error) {
+func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err := core.checkActionIndex(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	blk, err := core.dao.GetBlock(hash)
 	if err != nil {
-		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
 	receipts, err := core.dao.GetReceipts(blk.Height())
 	if err != nil {
-		return nil, nil, errors.Wrap(ErrNotFound, err.Error())
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return blk, receipts, nil
+	return &block.Store{blk, receipts}, nil
 }
 
 // BlockMetas returns blockmetas response within the height range

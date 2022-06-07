@@ -65,13 +65,13 @@ func intStrToHex(str string) (string, error) {
 func (svr *web3Handler) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		blk, receipts, err := svr.coreService.BlockByHash(blkMeta.Hash)
+		blkStore, err := svr.coreService.BlockByHash(blkMeta.Hash)
 		if err != nil {
 			return nil, err
 		}
-		for i, selp := range blk.Actions {
+		for i, selp := range blkStore.Block.Actions {
 			if isDetailed {
-				tx, err := svr.getTransactionFromActionInfo(blkMeta.Hash, selp, receipts[i])
+				tx, err := svr.getTransactionFromActionInfo(blkMeta.Hash, selp, blkStore.Receipts[i])
 				if err != nil {
 					if errors.Cause(err) != errUnsupportedAction {
 						h, _ := selp.Hash()
