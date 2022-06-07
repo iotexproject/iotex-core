@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"container/list"
 	"context"
 	"sync"
 
@@ -22,68 +23,71 @@ type (
 	PubSubManager interface {
 		Start(ctx context.Context) error
 		Stop(ctx context.Context) error
-		AddBlockListener(BlockCreationSubscriber) error
-		RemoveBlockListener(BlockCreationSubscriber) error
-		SendBlockToSubscribers(*block.Block)
-	}
-
-	pubSubElem struct {
-		listener          BlockCreationSubscriber
-		pendingBlksBuffer chan *block.Block // buffered channel for storing the pending blocks
-		cancel            chan interface{}  // cancel channel to end the handler thread
+		AddSubscriber(BlockCreationSubscriber) error
+		RemoveSubscriber(BlockCreationSubscriber) error
+		Subscribers() []BlockCreationSubscriber
+		PubBlock(blk *block.Block) *pubTask
 	}
 
 	pubSub struct {
-		lock                 sync.RWMutex
-		blocklisteners       []*pubSubElem
-		pendingBlkBufferSize uint64
+		lock        sync.RWMutex
+		subscribers *list.List
+		tasks       chan *pubTask
+		ctx         context.Context
+		cancel      context.CancelFunc
+	}
+
+	pubTask struct {
+		block       *block.Block
+		subscribers []BlockCreationSubscriber
+		result      chan error
 	}
 )
 
 // NewPubSub creates new pubSub struct with buffersize for pendingBlock buffer channel
 func NewPubSub(bufferSize uint64) PubSubManager {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &pubSub{
-		blocklisteners:       make([]*pubSubElem, 0),
-		pendingBlkBufferSize: bufferSize,
+		subscribers: list.New(),
+		tasks:       make(chan *pubTask, bufferSize),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
-func (ps *pubSub) newSubscriber(s BlockCreationSubscriber) *pubSubElem {
-	pendingBlksChan := make(chan *block.Block, ps.pendingBlkBufferSize)
-	cancelChan := make(chan interface{})
-	return &pubSubElem{
-		listener:          s,
-		pendingBlksBuffer: pendingBlksChan,
-		cancel:            cancelChan,
-	}
-}
-
-// Start starts the pubsub manager
+// Start run task handler
 func (ps *pubSub) Start(_ context.Context) error {
+	go func(ps *pubSub) {
+		for {
+			select {
+			case <-ps.ctx.Done():
+				return
+			case task := <-ps.tasks:
+				task.handle()
+			}
+		}
+	}(ps)
 	return nil
 }
 
-// AddBlockListener creates new pubSubElem subscriber and append it to blocklisteners
-func (ps *pubSub) AddBlockListener(s BlockCreationSubscriber) error {
-	sub := ps.newSubscriber(s)
-	// create subscriber handler thread to handle pending blocks
-	go ps.handler(sub)
-
-	ps.lock.Lock()
-	ps.blocklisteners = append(ps.blocklisteners, sub)
-	ps.lock.Unlock()
-	return nil
-}
-
-// RemoveBlockListener looks up blocklisteners and if exists, close the cancel channel and pop out the element
-func (ps *pubSub) RemoveBlockListener(s BlockCreationSubscriber) error {
+// AddSubscriber creates new pubSubElem subscriber and append it to blocklisteners
+func (ps *pubSub) AddSubscriber(s BlockCreationSubscriber) error {
+	if s == nil {
+		return errors.New("invalid subscriber")
+	}
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
-	for i, elem := range ps.blocklisteners {
-		if elem.listener == s {
-			close(elem.cancel)
-			ps.blocklisteners[i] = nil
-			ps.blocklisteners = append(ps.blocklisteners[:i], ps.blocklisteners[i+1:]...)
+	ps.subscribers.PushBack(s)
+	return nil
+}
+
+// RemoveSubscriber looks up blocklisteners and if exists, close the cancel channel and pop out the element
+func (ps *pubSub) RemoveSubscriber(s BlockCreationSubscriber) error {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+	for elem := ps.subscribers.Front(); elem != nil; elem = elem.Next() {
+		if elem.Value.(BlockCreationSubscriber) == s {
+			ps.subscribers.Remove(elem)
 			log.L().Info("Successfully unsubscribe block creation.")
 			return nil
 		}
@@ -91,36 +95,47 @@ func (ps *pubSub) RemoveBlockListener(s BlockCreationSubscriber) error {
 	return errors.New("cannot find subscription")
 }
 
-// SendBlockToSubscribers sends block to every subscriber by using buffer channel
-func (ps *pubSub) SendBlockToSubscribers(blk *block.Block) {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
-	for _, elem := range ps.blocklisteners {
-		elem.pendingBlksBuffer <- blk
+func (ps *pubSub) Subscribers() []BlockCreationSubscriber {
+	var subscribers []BlockCreationSubscriber
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	for elem := ps.subscribers.Front(); elem != nil; elem = elem.Next() {
+		subscribers = append(subscribers, elem.Value.(BlockCreationSubscriber))
 	}
+	return subscribers
 }
 
-// Stop stops the pubsub manager
+// PubBlock sends block to every subscriber by using buffer channel
+func (ps *pubSub) PubBlock(blk *block.Block) *pubTask {
+	task := &pubTask{
+		block:       blk,
+		subscribers: ps.Subscribers(),
+		result:      make(chan error),
+	}
+	ps.tasks <- task
+	return task
+}
+
+// Stop remove all subscribers and stop task handler
 func (ps *pubSub) Stop(_ context.Context) error {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
-	for i, elem := range ps.blocklisteners {
-		close(elem.cancel)
-		log.L().Info("Successfully unsubscribe block creation.", zap.Int("listener", i))
+	for i, elem := 0, ps.subscribers.Front(); elem != nil; elem = elem.Next() {
+		log.L().Info("Successfully unsubscribe all block creation.", zap.Int("listener", i))
 	}
-	ps.blocklisteners = nil
+	ps.cancel()
 	return nil
 }
 
-func (ps *pubSub) handler(sub *pubSubElem) {
-	for {
-		select {
-		case <-sub.cancel:
+// handle task handler
+func (task *pubTask) handle() {
+	for i := range task.subscribers {
+		err := task.subscribers[i].ReceiveBlock(task.block)
+		if err != nil {
+			log.L().Error("Failed to handle new block.", zap.Error(err))
+			task.result <- errors.Errorf("subscriber: #%v, err: %v", task.subscribers[i], err)
 			return
-		case blk := <-sub.pendingBlksBuffer:
-			if err := sub.listener.ReceiveBlock(blk); err != nil {
-				log.L().Error("Failed to handle new block.", zap.Error(err))
-			}
 		}
 	}
+	task.result <- nil
 }

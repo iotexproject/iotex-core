@@ -411,16 +411,10 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 
 // CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
-	timer := bc.timerFactory.NewTimer("CommitBlock")
-	defer timer.End()
-
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
-
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
+	timer := bc.timerFactory.NewTimer("CommitBlock")
+	defer timer.End()
 	return bc.commitBlock(blk)
 }
 
@@ -430,11 +424,11 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 		return errors.New("subscriber could not be nil")
 	}
 
-	return bc.pubSubManager.AddBlockListener(s)
+	return bc.pubSubManager.AddSubscriber(s)
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
-	return bc.pubSubManager.RemoveBlockListener(s)
+	return bc.pubSubManager.RemoveSubscriber(s)
 }
 
 //======================================
@@ -475,6 +469,14 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
+	// emit block to all block subscribers
+	pubTimer := bc.timerFactory.NewTimer("pubBlock")
+	if err := bc.emitToSubscribers(blk); err != nil {
+		pubTimer.End()
+		return err
+	}
+	pubTimer.End()
+
 	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
@@ -495,14 +497,13 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	}
 	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
-	// emit block to all block subscribers
-	bc.emitToSubscribers(blk)
 	return nil
 }
 
-func (bc *blockchain) emitToSubscribers(blk *block.Block) {
+func (bc *blockchain) emitToSubscribers(blk *block.Block) error {
 	if bc.pubSubManager == nil {
-		return
+		return nil
 	}
-	bc.pubSubManager.SendBlockToSubscribers(blk)
+	task := bc.pubSubManager.PubBlock(blk)
+	return <-task.result
 }
