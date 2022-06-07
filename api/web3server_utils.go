@@ -28,10 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
-const (
-	_zeroLogsBloom = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-)
-
 func hexStringToNumber(hexStr string) (uint64, error) {
 	return strconv.ParseUint(util.Remove0xPrefix(hexStr), 16, 64)
 }
@@ -95,7 +91,6 @@ func (svr *web3Handler) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, 
 	}
 	return &getBlockResult{
 		blkMeta:      blkMeta,
-		logsBloom:    getLogsBloomFromBlkMeta(blkMeta),
 		transactions: transactions,
 	}, nil
 }
@@ -208,8 +203,24 @@ func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 }
 
 func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
-	// construct filter topics and addresses
-	var filter iotexapi.LogsFilter
+	filter, err := newLogFilterFrom(addrs, topics)
+	if err != nil {
+		return nil, err
+	}
+	logs, hashes, err := svr.coreService.LogsInRange(filter, from, to, 0)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*getLogsResult, 0, len(logs))
+	for i := range logs {
+		ret = append(ret, &getLogsResult{hashes[i], logs[i]})
+	}
+	return ret, nil
+}
+
+// construct filter topics and addresses
+func newLogFilterFrom(addrs []string, topics [][]string) (*logfilter.LogFilter, error) {
+	filter := iotexapi.LogsFilter{}
 	for _, ethAddr := range addrs {
 		ioAddr, err := ethAddrToIoAddr(ethAddr)
 		if err != nil {
@@ -228,15 +239,7 @@ func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string
 		}
 		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
-	logs, hashes, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter), from, to, 0)
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]*getLogsResult, 0, len(logs))
-	for i := range logs {
-		ret = append(ret, &getLogsResult{hashes[i], logs[i]})
-	}
-	return ret, nil
+	return logfilter.NewLogFilter(&filter), nil
 }
 
 func byteToHex(b []byte) string {
@@ -251,14 +254,10 @@ func hexToBytes(str string) ([]byte, error) {
 	return hex.DecodeString(str)
 }
 
-func getLogsBloomFromBlkMeta(blkMeta *iotextypes.BlockMeta) string {
-	if len(blkMeta.LogsBloom) == 0 {
-		return _zeroLogsBloom
-	}
-	return "0x" + blkMeta.LogsBloom
-}
-
 func parseLogRequest(in gjson.Result) (*filterObject, error) {
+	if !in.Exists() {
+		return nil, errInvalidFormat
+	}
 	var logReq filterObject
 	if len(in.Array()) > 0 {
 		req := in.Array()[0]
