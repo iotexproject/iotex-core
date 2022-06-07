@@ -25,7 +25,6 @@ type SealedEnvelope struct {
 	signature    []byte
 	srcAddress   address.Address
 	hash         hash.Hash256
-	hashErr      error
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -52,10 +51,14 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
-	if sealed.hash == hash.ZeroHash256 && sealed.hashErr == nil {
-		sealed.hash, sealed.hashErr = sealed.calcHash()
+	if sealed.hash == hash.ZeroHash256 {
+		hashVal, hashErr := sealed.calcHash()
+		if hashErr == nil {
+			sealed.hash = hashVal
+		}
+		return sealed.hash, hashErr
 	}
-	return sealed.hash, sealed.hashErr
+	return sealed.hash, nil
 }
 
 func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
@@ -161,7 +164,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
 	sealed.hash = hash.ZeroHash256
-	sealed.hashErr = nil
 	sealed.srcAddress = nil
 	return nil
 }

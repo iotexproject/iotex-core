@@ -38,7 +38,6 @@ func TestActionDeserializer(t *testing.T) {
 		// use valid signature and reset se.Hash
 		se.signature = _validSig
 		se.hash = hash.ZeroHash256
-		se.hashErr = nil
 		se.Hash()
 		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
 		se1.Hash()
