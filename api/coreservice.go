@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -59,8 +60,19 @@ import (
 )
 
 var (
-	_workerNumbers int = 5
+	_workerNumbers    int = 5
+	_apiCallSourceMtc     = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicallsource_metrics",
+			Help: "API call Source Statistics",
+		},
+		[]string{"source", "chain_id"},
+	)
 )
+
+func init() {
+	prometheus.MustRegister(_apiCallSourceMtc)
+}
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
@@ -202,7 +214,6 @@ func newCoreService(
 			return nil, err
 		}
 	}
-
 	if cfg == (config.API{}) {
 		log.L().Warn("API server is not configured.")
 		cfg = config.Default.API
@@ -372,6 +383,12 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
+	callSource := "unknown"
+	if ca, ok := protocol.GetAPICallSourceCtx(ctx); ok {
+		callSource = ca
+	}
+	chainID := strconv.FormatUint(uint64(in.GetCore().GetChainID()), 10)
+	_apiCallSourceMtc.WithLabelValues(callSource, chainID).Inc()
 	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
