@@ -10,6 +10,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"math/big"
 	"net"
 	"strconv"
 	"time"
@@ -37,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -170,8 +173,15 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		request := in.GetUnconfirmedByAddr()
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
-		request := in.GetByBlk()
-		ret, err = svr.coreService.ActionsByBlock(request.BlkHash, request.Start, request.Count)
+		var (
+			request  = in.GetByBlk()
+			blkStore *block.Store
+		)
+		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		if err != nil {
+			break
+		}
+		ret, err = actionsInBlock(blkStore.Block, blkStore.Receipts, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
@@ -182,6 +192,54 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		Total:      uint64(len(ret)),
 		ActionInfo: ret,
 	}, nil
+}
+
+func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+	var res []*iotexapi.ActionInfo
+	if len(blk.Actions) == 0 {
+		return res, nil
+	}
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
+	if start >= uint64(len(blk.Actions)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
+
+	h := blk.HashBlock()
+	blkHash := hex.EncodeToString(h[:])
+	blkHeight := blk.Height()
+
+	lastAction := start + count
+	if count == math.MaxUint64 {
+		// count = -1 means to get all actions
+		lastAction = uint64(len(blk.Actions))
+	} else {
+		if lastAction >= uint64(len(blk.Actions)) {
+			lastAction = uint64(len(blk.Actions))
+		}
+	}
+	for i := start; i < lastAction; i++ {
+		selp, receipt := blk.Actions[i], receipts[i]
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
+		sender := selp.SrcPubkey().Address()
+		res = append(res, &iotexapi.ActionInfo{
+			Action:    selp.Proto(),
+			ActHash:   hex.EncodeToString(actHash[:]),
+			BlkHash:   blkHash,
+			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
+			BlkHeight: blkHeight,
+			Sender:    sender.String(),
+			GasFee:    gas.String(),
+			Index:     uint32(i),
+		})
+	}
+	return res, nil
 }
 
 // GetBlockMetas returns block metadata
