@@ -12,6 +12,11 @@ import (
 	"github.com/facebookgo/clock"
 )
 
+// ActQueueOption is the option for actQueue.
+type ActQueueOption interface {
+	SetActQueueOption(*actQueue)
+}
+
 type clockOption struct{ c clock.Clock }
 
 // WithClock returns an option to overwrite clock.
