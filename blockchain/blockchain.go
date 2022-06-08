@@ -69,6 +69,8 @@ type (
 		BlockFooterByHeight(height uint64) (*block.Footer, error)
 		// ChainID returns the chain ID
 		ChainID() uint32
+		// EvmNetworkID returns the evm network ID
+		EvmNetworkID() uint32
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
 		// TipHash returns tip block's hash
@@ -212,6 +214,10 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 
 func (bc *blockchain) ChainID() uint32 {
 	return atomic.LoadUint32(&bc.config.Chain.ID)
+}
+
+func (bc *blockchain) EvmNetworkID() uint32 {
+	return atomic.LoadUint32(&bc.config.Chain.EVMNetworkID)
 }
 
 func (bc *blockchain) ChainAddress() string {
@@ -365,8 +371,9 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
-				Tip:     tip,
-				ChainID: bc.ChainID(),
+				Tip:          tip,
+				ChainID:      bc.ChainID(),
+				EvmNetworkID: bc.EvmNetworkID(),
 			},
 		),
 		bc.config.Genesis,
