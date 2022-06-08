@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"net"
 	"strconv"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -66,7 +68,7 @@ var (
 			Name: "iotex_apicallsource_metrics",
 			Help: "API call Source Statistics",
 		},
-		[]string{"source", "chain_id"},
+		[]string{"source", "chain_id", "client_ip", "sender", "recipient"},
 	)
 )
 
@@ -381,16 +383,25 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	callSource := "unknown"
-	if ca, ok := protocol.GetAPICallSourceCtx(ctx); ok {
-		callSource = ca
-	}
-	chainID := strconv.FormatUint(uint64(in.GetCore().GetChainID()), 10)
-	_apiCallSourceMtc.WithLabelValues(callSource, chainID).Inc()
+	var clientIP, sender, recipient string
 	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
+	callSource := "unknown"
+	if ca, ok := protocol.GetAPICallSourceCtx(ctx); ok {
+		callSource = ca
+	}
+	if p, ok := peer.FromContext(ctx); ok {
+		clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+	}
+	if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
+		sender = senderAddr.String()
+	}
+	recipient, _ = selp.Destination()
+
+	chainID := strconv.FormatUint(uint64(in.GetCore().GetChainID()), 10)
+	_apiCallSourceMtc.WithLabelValues(callSource, chainID, clientIP, sender, recipient).Inc()
 
 	// reject action if chainID is not matched at KamchatkaHeight
 	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {
