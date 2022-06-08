@@ -59,7 +59,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-const (
+var (
 	_workerNumbers    int = 5
 	_apiCallSourceMtc     = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -68,6 +68,7 @@ const (
 		},
 		[]string{"source", "chain_id"},
 	)
+)
 
 func init() {
 	prometheus.MustRegister(_apiCallSourceMtc)
