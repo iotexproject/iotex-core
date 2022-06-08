@@ -889,8 +889,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 
 	var res []*iotexapi.ActionInfo
 	var hit bool
-
-	for height := core.bc.TipHeight(); height >= 1; height-- {
+	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
 		blk, err := core.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
