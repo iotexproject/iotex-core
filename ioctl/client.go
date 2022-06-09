@@ -71,8 +71,6 @@ type (
 		IsCryptoSm2() bool
 		// QueryAnalyser sends request to Analyser endpoint
 		QueryAnalyser(interface{}) (*http.Response, error)
-		// Match returns human readable expression
-		Match(in string, matchType string) string
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -293,39 +291,6 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 		return nil, errors.Wrap(err, "failed to send request")
 	}
 	return resp, nil
-}
-
-func (c *client) Match(in string, matchType string) string {
-	switch matchType {
-	case "address":
-		return "(" + c.AliasMap()[in] + ")"
-	case "status":
-		switch in {
-		case "0":
-			return "(Failure)"
-		case "1":
-			return "(Success)"
-		case "100":
-			return "(Failure : Unknown)"
-		case "101":
-			return "(Failure : Execution out of gas)"
-		case "102":
-			return "(Failure : Deployment out of gas - not enough gas to store code)"
-		case "103":
-			return "(Failure : Max call depth exceeded)"
-		case "104":
-			return "(Failure : Contract address collision)"
-		case "105":
-			return "(Failure : No compatible interpreter)"
-		case "106":
-			return "(Failure : Execution reverted)"
-		case "107":
-			return "(Failure : Max code size exceeded)"
-		case "108":
-			return "(Failure : Write protection)"
-		}
-	}
-	return ""
 }
 
 func (m *ConfirmationMessage) String() string {

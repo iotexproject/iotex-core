@@ -26,6 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -83,7 +84,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 			}
 
 			// search action on blockchain
-			requestGetAction := iotexapi.GetActionsRequest{
+			requestGetAction := &iotexapi.GetActionsRequest{
 				Lookup: &iotexapi.GetActionsRequest_ByHash{
 					ByHash: &iotexapi.GetActionByHashRequest{
 						ActionHash:   hash,
@@ -91,7 +92,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 					},
 				},
 			}
-			response, err := apiServiceClient.GetActions(ctx, &requestGetAction)
+			response, err := apiServiceClient.GetActions(ctx, requestGetAction)
 			if err != nil {
 				sta, ok := status.FromError(err)
 				if ok {
@@ -181,7 +182,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		fmt.Sprintf("chainID: %d  ", core.GetChainID()) +
 		fmt.Sprintf("encoding: %d\n", action.GetEncoding()) +
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			client.Match(senderAddress.String(), "address"))
+			Match(senderAddress.String(), "address"))
 	switch {
 	case core.GetTransfer() != nil:
 		transfer := core.GetTransfer()
@@ -191,7 +192,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		}
 		result += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
-				client.Match(transfer.Recipient, "address")) +
+				Match(transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s IOTX\n", amount)
 		if len(transfer.Payload) != 0 {
 			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
@@ -201,7 +202,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		execution := core.GetExecution()
 		result += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				client.Match(execution.Contract, "address"))
+				Match(execution.Contract, "address"))
 		if execution.Amount != "0" {
 			amount, err := util.StringToIOTX(execution.Amount)
 			if err != nil {
@@ -236,14 +237,14 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 
 func printReceiptProto(client ioctl.Client, receipt *iotextypes.Receipt) string {
 	result := fmt.Sprintf("status: %d %s\n", receipt.Status,
-		client.Match(strconv.Itoa(int(receipt.Status)), "status")) +
+		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		printLogs(receipt.Logs)
 	if len(receipt.ContractAddress) != 0 {
 		result += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
-			client.Match(receipt.ContractAddress, "address"))
+			Match(receipt.ContractAddress, "address"))
 	}
 	if len(receipt.Logs) > 0 {
 		if index, ok := staking.BucketIndexFromReceiptLog(receipt.Logs[0]); ok {
@@ -274,4 +275,42 @@ func printLogs(logs []*iotextypes.Log) string {
 	}
 	result += ">\n"
 	return result
+}
+
+// Match returns human readable expression
+func Match(in string, matchType string) string {
+	switch matchType {
+	case "address":
+		alias, err := alias.Alias(in)
+		if err != nil {
+			return ""
+		}
+		return "(" + alias + ")"
+	case "status":
+		switch in {
+		case "0":
+			return "(Failure)"
+		case "1":
+			return "(Success)"
+		case "100":
+			return "(Failure : Unknown)"
+		case "101":
+			return "(Failure : Execution out of gas)"
+		case "102":
+			return "(Failure : Deployment out of gas - not enough gas to store code)"
+		case "103":
+			return "(Failure : Max call depth exceeded)"
+		case "104":
+			return "(Failure : Contract address collision)"
+		case "105":
+			return "(Failure : No compatible interpreter)"
+		case "106":
+			return "(Failure : Execution reverted)"
+		case "107":
+			return "(Failure : Max code size exceeded)"
+		case "108":
+			return "(Failure : Write protection)"
+		}
+	}
+	return ""
 }
