@@ -61,19 +61,28 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+const _workerNumbers int = 5
+
 var (
-	_workerNumbers    int = 5
-	_apiCallSourceMtc     = prometheus.NewCounterVec(
+	_apiCallSourceWithChainIDMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "iotex_apicallsource_metrics",
-			Help: "API call Source Statistics",
+			Name: "iotex_apicallsource_chainid_metrics",
+			Help: "API call Source ChainID Statistics",
 		},
-		[]string{"source", "chain_id", "client_ip", "sender", "recipient"},
+		[]string{"chain_id"},
+	)
+	_apiCallSourceWithOutChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicallsource_nochainid_metrics",
+			Help: "API call Source Without ChainID Statistics",
+		},
+		[]string{"caller_client", "client_ip", "sender", "recipient"},
 	)
 )
 
 func init() {
-	prometheus.MustRegister(_apiCallSourceMtc)
+	prometheus.MustRegister(_apiCallSourceWithChainIDMtc)
+	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
 }
 
 type (
@@ -394,6 +403,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	if p, ok := peer.FromContext(ctx); ok {
 		clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+	} else if req, ok := protocol.GetHttpRequestCtx(ctx); ok {
+		clientIP = req.RemoteAddr
 	}
 	if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
 		sender = senderAddr.String()
@@ -401,7 +412,11 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	recipient, _ = selp.Destination()
 
 	chainID := strconv.FormatUint(uint64(in.GetCore().GetChainID()), 10)
-	_apiCallSourceMtc.WithLabelValues(callSource, chainID, clientIP, sender, recipient).Inc()
+	if in.GetCore().GetChainID() > 0 {
+		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
+	} else {
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(callSource, clientIP, sender, recipient).Inc()
+	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
 	if err := core.validateChainID(in.GetCore().GetChainID()); err != nil {

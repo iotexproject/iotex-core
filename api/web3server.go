@@ -36,7 +36,7 @@ const (
 type (
 	// Web3Handler handle JRPC request
 	Web3Handler interface {
-		HandlePOSTReq(io.Reader, apitypes.Web3ResponseWriter) error
+		HandlePOSTReq(context.Context, io.Reader, apitypes.Web3ResponseWriter) error
 	}
 
 	web3Handler struct {
@@ -88,25 +88,25 @@ func NewWeb3Handler(core CoreService, cacheURL string) Web3Handler {
 }
 
 // HandlePOSTReq handles web3 request
-func (svr *web3Handler) HandlePOSTReq(reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) error {
 	web3Reqs, err := parseWeb3Reqs(reader)
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
 		return writer.Write(&web3Response{err: err})
 	}
 	if !web3Reqs.IsArray() {
-		return svr.handleWeb3Req(&web3Reqs, writer)
+		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
 	for _, web3Req := range web3Reqs.Array() {
-		if err := svr.handleWeb3Req(&web3Req, batchWriter); err != nil {
+		if err := svr.handleWeb3Req(ctx, &web3Req, batchWriter); err != nil {
 			return err
 		}
 	}
 	return batchWriter.Flush()
 }
 
-func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
 	var (
 		res    interface{}
 		err    error
@@ -163,7 +163,7 @@ func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web
 	case "eth_estimateGas":
 		res, err = svr.estimateGas(web3Req)
 	case "eth_sendRawTransaction":
-		res, err = svr.sendRawTransaction(web3Req)
+		res, err = svr.sendRawTransaction(ctx, web3Req)
 	case "eth_getTransactionByHash":
 		res, err = svr.getTransactionByHash(web3Req)
 	case "eth_getTransactionByBlockNumberAndIndex":
@@ -366,7 +366,7 @@ func (svr *web3Handler) estimateGas(in *gjson.Result) (interface{}, error) {
 	return uint64ToHex(estimatedGas), nil
 }
 
-func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error) {
+func (svr *web3Handler) sendRawTransaction(ctx context.Context, in *gjson.Result) (interface{}, error) {
 	dataStr := in.Get("params.0")
 	if !dataStr.Exists() {
 		return nil, errInvalidFormat
@@ -386,7 +386,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		Signature:    sig,
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
-	ctx := protocol.WithAPICallSourceCtx(context.Background(), "web3")
+	ctx = protocol.WithAPICallSourceCtx(ctx, "web3")
 	actionHash, err := svr.coreService.SendAction(ctx, req)
 	if err != nil {
 		return nil, err

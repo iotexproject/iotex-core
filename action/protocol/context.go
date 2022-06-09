@@ -9,6 +9,7 @@ package protocol
 import (
 	"context"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -34,6 +35,8 @@ type (
 	vmConfigContextKey struct{}
 
 	apiCallSourceContextKey struct{}
+
+	httpRequestContextKey struct{}
 
 	// TipInfo contains the tip block information
 	TipInfo struct {
@@ -323,5 +326,16 @@ func WithAPICallSourceCtx(ctx context.Context, from string) context.Context {
 // GetAPICallSourceCtx returns the api call source from context
 func GetAPICallSourceCtx(ctx context.Context) (string, bool) {
 	cfg, ok := ctx.Value(apiCallSourceContextKey{}).(string)
+	return cfg, ok
+}
+
+// WithHttpRequestCtx  adds http request to context
+func WithHttpRequestCtx(ctx context.Context, req *http.Request) context.Context {
+	return context.WithValue(ctx, httpRequestContextKey{}, req)
+}
+
+// GetHttpRequestCtx  returns http request from context
+func GetHttpRequestCtx(ctx context.Context) (*http.Request, bool) {
+	cfg, ok := ctx.Value(httpRequestContextKey{}).(*http.Request)
 	return cfg, ok
 }

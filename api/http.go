@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -60,7 +61,8 @@ func (hSvr *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := hSvr.msgHandler.HandlePOSTReq(req.Body,
+	ctx := protocol.WithHttpRequestCtx(context.Background(), req)
+	if err := hSvr.msgHandler.HandlePOSTReq(ctx, req.Body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) error {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
