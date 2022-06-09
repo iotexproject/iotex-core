@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -34,8 +35,12 @@ func TestActionDeserializer(t *testing.T) {
 		r.Equal(_signByte, se.Signature())
 		r.Zero(se.Encoding())
 
+		// use valid signature and reset se.Hash
 		se.signature = _validSig
+		se.hash = hash.ZeroHash256
+		se.Hash()
 		se1, err := (&Deserializer{}).ActionToSealedEnvelope(se.Proto())
+		se1.Hash()
 		r.NoError(err)
 		r.Equal(se, se1)
 	}
