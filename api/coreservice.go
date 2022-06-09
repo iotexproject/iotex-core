@@ -392,27 +392,28 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	var clientIP, sender, recipient string
 	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
-	callSource := "unknown"
-	if ca, ok := protocol.GetAPICallSourceCtx(ctx); ok {
-		callSource = ca
-	}
-	if p, ok := peer.FromContext(ctx); ok {
-		clientIP, _, _ = net.SplitHostPort(p.Addr.String())
-	}
-	if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
-		sender = senderAddr.String()
-	}
-	recipient, _ = selp.Destination()
 
 	chainID := strconv.FormatUint(uint64(in.GetCore().GetChainID()), 10)
 	if in.GetCore().GetChainID() > 0 {
 		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
 	} else {
+		var clientIP, sender, recipient string
+
+		callSource := "unknown"
+		if ca, ok := protocol.GetAPICallSourceCtx(ctx); ok {
+			callSource = ca
+		}
+		if p, ok := peer.FromContext(ctx); ok {
+			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+		}
+		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
+			sender = senderAddr.String()
+		}
+		recipient, _ = selp.Destination()
 		_apiCallSourceWithOutChainIDMtc.WithLabelValues(callSource, clientIP, sender, recipient).Inc()
 	}
 
