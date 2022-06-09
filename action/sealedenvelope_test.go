@@ -156,7 +156,6 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		req.Contains(se2.LoadProto(se.Proto()).Error(), v.err)
 	}
 
-	se.signature = _validSig
 	for _, v := range []struct {
 		enc  iotextypes.Encoding
 		hash string
@@ -164,17 +163,22 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		{0, "0562e100b057804ee3cb4fa906a897852aa8075013a02ef1e229360f1e5ee339"},
 		{1, "d5dc789026c12cc69f1ea7997fbe0aa1bcc02e85176848c7b2ecf4da6b4560d0"},
 	} {
+		se, err = createSealedEnvelope(0)
+		se.signature = _validSig
 		se.encoding = v.enc
 		req.NoError(se2.LoadProto(se.Proto()))
 		if v.enc > 0 {
 			se.evmNetworkID = config.EVMNetworkID()
 		}
+		h, _ := se.Hash()
+		req.Equal(v.hash, hex.EncodeToString(h[:]))
+		se.SenderAddress()
+		_, _ = se2.Hash()
+		se2.SenderAddress()
 		req.Equal(se, se2)
 		tsf2, ok := se2.Envelope.Action().(*Transfer)
 		req.True(ok)
 		req.Equal(tsf, tsf2)
-		h, _ := se.Hash()
-		req.Equal(v.hash, hex.EncodeToString(h[:]))
 	}
 }
 
