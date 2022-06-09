@@ -35,8 +35,6 @@ type (
 
 	apiCallSourceContextKey struct{}
 
-	httpRequestContextKey struct{}
-
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height    uint64
