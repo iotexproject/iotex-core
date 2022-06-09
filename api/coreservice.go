@@ -403,8 +403,6 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 	if p, ok := peer.FromContext(ctx); ok {
 		clientIP, _, _ = net.SplitHostPort(p.Addr.String())
-	} else if req, ok := protocol.GetHttpRequestCtx(ctx); ok {
-		clientIP = req.RemoteAddr
 	}
 	if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
 		sender = senderAddr.String()

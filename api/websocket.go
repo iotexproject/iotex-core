@@ -107,7 +107,7 @@ func (wsSvr *WebsocketServer) handleConnection(ws *websocket.Conn) {
 				return
 			}
 
-			err = wsSvr.msgHandler.HandlePOSTReq(context.Background(), reader,
+			err = wsSvr.msgHandler.HandlePOSTReq(reader,
 				apitypes.NewResponseWriter(
 					func(resp interface{}) error {
 						ws.SetWriteDeadline(time.Now().Add(writeWait))

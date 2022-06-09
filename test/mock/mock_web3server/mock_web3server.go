@@ -5,7 +5,6 @@
 package mock_web3server
 
 import (
-	context "context"
 	io "io"
 	reflect "reflect"
 
@@ -37,15 +36,15 @@ func (m *MockWeb3Handler) EXPECT() *MockWeb3HandlerMockRecorder {
 }
 
 // HandlePOSTReq mocks base method.
-func (m *MockWeb3Handler) HandlePOSTReq(arg0 context.Context, arg1 io.Reader, arg2 apitypes.Web3ResponseWriter) error {
+func (m *MockWeb3Handler) HandlePOSTReq(arg0 io.Reader, arg1 apitypes.Web3ResponseWriter) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandlePOSTReq", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "HandlePOSTReq", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandlePOSTReq indicates an expected call of HandlePOSTReq.
-func (mr *MockWeb3HandlerMockRecorder) HandlePOSTReq(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockWeb3HandlerMockRecorder) HandlePOSTReq(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePOSTReq", reflect.TypeOf((*MockWeb3Handler)(nil).HandlePOSTReq), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePOSTReq", reflect.TypeOf((*MockWeb3Handler)(nil).HandlePOSTReq), arg0, arg1)
 }
