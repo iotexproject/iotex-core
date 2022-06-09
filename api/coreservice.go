@@ -888,7 +888,7 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 	}
 
 	var res []*iotexapi.ActionInfo
-	var acts [][]*iotexapi.ActionInfo
+	var actsList [][]*iotexapi.ActionInfo
 	var hit bool
 	for height := core.bc.TipHeight(); height >= 1 && count > 0; height-- {
 		blk, err := core.dao.GetBlockByHeight(height)
@@ -901,13 +901,13 @@ func (core *coreService) Actions(start uint64, count uint64) ([]*iotexapi.Action
 		}
 		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
-		act := core.reverseActionsInBlock(blk, reverseStart, count)
-		acts = append(acts, act)
-		count -= uint64(len(act))
+		acts := core.reverseActionsInBlock(blk, reverseStart, count)
+		actsList = append(actsList, acts)
+		count -= uint64(len(acts))
 		reverseStart = 0
 	}
-	for i := len(acts); i >= 0; i-- {
-		res = append(res, acts[i]...)
+	for i := len(actsList) - 1; i >= 0; i-- {
+		res = append(res, actsList[i]...)
 	}
 	return res, nil
 }
