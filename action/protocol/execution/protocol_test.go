@@ -264,18 +264,18 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	exec, err := action.NewExecution(
+	exec, err := action.NewExecutionWithAccessList(
 		contractAddr,
 		state.Nonce+1,
 		ecfg.Amount(),
 		ecfg.GasLimit(),
 		ecfg.GasPrice(),
 		ecfg.ByteCode(),
+		ecfg.AccessList(),
 	)
 	if err != nil {
 		return nil, nil, err
 	}
-	exec.SetAccessList(ecfg.AccessList())
 	addr := ecfg.PrivateKey().PublicKey().Address()
 	if addr == nil {
 		return nil, nil, errors.New("failed to get address")
@@ -312,18 +312,18 @@ func runExecutions(
 		}
 		nonce = nonce + 1
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecution(
+		exec, err := action.NewExecutionWithAccessList(
 			contractAddrs[i],
 			nonce,
 			ecfg.Amount(),
 			ecfg.GasLimit(),
 			ecfg.GasPrice(),
 			ecfg.ByteCode(),
+			ecfg.AccessList(),
 		)
 		if err != nil {
 			return nil, nil, err
 		}
-		exec.SetAccessList(ecfg.AccessList())
 		builder := &action.EnvelopeBuilder{}
 		elp := builder.SetAction(exec).
 			SetNonce(exec.Nonce()).

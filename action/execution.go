@@ -109,11 +109,6 @@ func (ex *Execution) Payload() []byte { return ex.data }
 // AccessList returns the access list
 func (ex *Execution) AccessList() types.AccessList { return ex.accessList }
 
-// SetAccessList set the access list
-func (ex *Execution) SetAccessList(list types.AccessList) {
-	ex.accessList = list
-}
-
 func toAccessListProto(list types.AccessList) []*iotextypes.AccessTuple {
 	if len(list) == 0 {
 		return nil
