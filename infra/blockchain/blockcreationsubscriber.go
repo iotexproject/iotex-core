@@ -4,12 +4,13 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package consensusfsm
+package blockchain
 
-import "github.com/iotexproject/iotex-core/infra/endorsement"
+import (
+	"github.com/iotexproject/iotex-core/infra/blockchain/block"
+)
 
-// EndorsedMessage defines a message with endorsement
-type EndorsedMessage interface {
-	Endorsement() *endorsement.Endorsement
-	Message() interface{}
+// BlockCreationSubscriber is an interface which will get notified when a block is created
+type BlockCreationSubscriber interface {
+	ReceiveBlock(*block.Block) error
 }

@@ -24,8 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/infra/state"
+	"github.com/iotexproject/iotex-core/infra/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 

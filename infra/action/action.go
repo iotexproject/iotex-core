@@ -78,22 +78,6 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 	return sealed
 }
 
-// ClassifyActions classfies actions
-func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
-	tsfs := make([]*Transfer, 0)
-	exes := make([]*Execution, 0)
-	for _, elp := range actions {
-		act := elp.Action()
-		switch act := act.(type) {
-		case *Transfer:
-			tsfs = append(tsfs, act)
-		case *Execution:
-			exes = append(exes, act)
-		}
-	}
-	return tsfs, exes
-}
-
 // CalculateIntrinsicGas returns the intrinsic gas of an action
 func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
 	if payloadGas == 0 && payloadSize == 0 {
@@ -108,8 +92,8 @@ func CalculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSi
 // IsSystemAction determine whether input action belongs to system action
 func IsSystemAction(act SealedEnvelope) bool {
 	switch act.Action().(type) {
-	case *GrantReward, *PutPollResult:
-		return true
+	// case *GrantReward, *PutPollResult:
+	// 	return true
 	default:
 		return false
 	}

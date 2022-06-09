@@ -7,10 +7,10 @@
 package rolldpos
 
 import (
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/iotexproject/iotex-core/infra/endorsement"
 )
 
 // EndorsedConsensusMessage is an endorsement on document

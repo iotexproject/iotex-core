@@ -14,10 +14,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos/endorsementpb"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/infra/blockchain/block"
+	"github.com/iotexproject/iotex-core/infra/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
