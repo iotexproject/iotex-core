@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
@@ -386,7 +385,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		Signature:    sig,
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
-	ctx := protocol.WithAPICallSourceCtx(context.Background(), "web3")
+	ctx := apitypes.WithAPICallSourceCtx(context.Background(), "web3")
 	actionHash, err := svr.coreService.SendAction(ctx, req)
 	if err != nil {
 		return nil, err

@@ -404,7 +404,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 		var clientIP, sender, recipient string
 
 		callSource := "unknown"
-		if ca, ok := protocol.GetAPICallSourceCtx(ctx); ok {
+		if ca, ok := apitypes.GetAPICallSourceCtx(ctx); ok {
 			callSource = ca
 		}
 		if p, ok := peer.FromContext(ctx); ok {

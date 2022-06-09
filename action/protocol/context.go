@@ -33,8 +33,6 @@ type (
 
 	vmConfigContextKey struct{}
 
-	apiCallSourceContextKey struct{}
-
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height    uint64
@@ -312,16 +310,5 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 // GetVMConfigCtx returns the vm config from context
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
-	return cfg, ok
-}
-
-// WithAPICallSourceCtx adds api call source to context
-func WithAPICallSourceCtx(ctx context.Context, from string) context.Context {
-	return context.WithValue(ctx, apiCallSourceContextKey{}, from)
-}
-
-// GetAPICallSourceCtx returns the api call source from context
-func GetAPICallSourceCtx(ctx context.Context) (string, bool) {
-	cfg, ok := ctx.Value(apiCallSourceContextKey{}).(string)
 	return cfg, ok
 }
