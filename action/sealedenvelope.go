@@ -112,8 +112,8 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 	}
 }
 
-// LoadProto loads from proto scheme.
-func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action, id uint32) error {
+// loadProto loads from proto scheme.
+func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
@@ -146,10 +146,10 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action, id uint32) err
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, id, pbAct.GetSignature()); err != nil {
+		if _, err = rlpSignedHash(tx, evmID, pbAct.GetSignature()); err != nil {
 			return err
 		}
-		sealed.evmNetworkID = id
+		sealed.evmNetworkID = evmID
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:

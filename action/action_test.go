@@ -36,7 +36,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		require.NoError(selp.VerifySignature())
 
 		nselp := &SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto(), _evmNetworkID))
+		require.NoError(nselp.loadProto(selp.Proto(), _evmNetworkID))
 
 		selpHash, err := selp.Hash()
 		require.NoError(err)

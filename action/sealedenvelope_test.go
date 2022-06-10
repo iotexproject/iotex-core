@@ -47,7 +47,7 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 
 		var se1 SealedEnvelope
 		se.signature = _validSig
-		req.NoError(se1.LoadProto(se.Proto(), _evmNetworkID))
+		req.NoError(se1.loadProto(se.Proto(), _evmNetworkID))
 		req.Equal(se.Envelope, se1.Envelope)
 	}
 }
@@ -152,7 +152,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	} {
 		se.encoding = v.encoding
 		se.signature = v.sig
-		req.Contains(se2.LoadProto(se.Proto(), _evmNetworkID).Error(), v.err)
+		req.Contains(se2.loadProto(se.Proto(), _evmNetworkID).Error(), v.err)
 	}
 
 	for _, v := range []struct {
@@ -165,7 +165,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		se, err = createSealedEnvelope(0)
 		se.signature = _validSig
 		se.encoding = v.enc
-		req.NoError(se2.LoadProto(se.Proto(), _evmNetworkID))
+		req.NoError(se2.loadProto(se.Proto(), _evmNetworkID))
 		if v.enc > 0 {
 			se.evmNetworkID = _evmNetworkID
 		}

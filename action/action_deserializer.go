@@ -28,6 +28,6 @@ func (ad *Deserializer) SetEvmNetworkID(id uint32) *Deserializer {
 // ActionToSealedEnvelope converts protobuf to SealedEnvelope
 func (ad *Deserializer) ActionToSealedEnvelope(pbAct *iotextypes.Action) (SealedEnvelope, error) {
 	var selp SealedEnvelope
-	err := selp.LoadProto(pbAct, ad.evmNetworkID)
+	err := selp.loadProto(pbAct, ad.evmNetworkID)
 	return selp, err
 }
