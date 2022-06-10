@@ -166,7 +166,7 @@ func getBucketByIndex(client ioctl.Client, index uint64) (*iotextypes.VoteBucket
 			},
 		},
 	}
-	response, err := getBuckets(client, &method, &readStakingdataRequest)
+	response, err := getBuckets(client, method, readStakingdataRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err e
 			BucketsCount: &iotexapi.ReadStakingDataRequest_BucketsCount{},
 		},
 	}
-	response, err := getBuckets(client, &method, &readStakingdataRequest)
+	response, err := getBuckets(client, method, readStakingdataRequest)
 	if err != nil {
 		return nil, err
 	}
