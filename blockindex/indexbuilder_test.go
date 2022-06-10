@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -136,7 +136,7 @@ func TestIndexBuilder(t *testing.T) {
 
 		for i := 0; i < 3; i++ {
 			amount := big.NewInt(0)
-			tsfs, _ := action.ClassifyActions(blks[i].Actions)
+			tsfs, _ := classifyActions(blks[i].Actions)
 			for _, tsf := range tsfs {
 				amount.Add(amount, tsf.Amount())
 			}
@@ -188,4 +188,20 @@ func TestIndexBuilder(t *testing.T) {
 			testIndexer(v.dao, indexer, t)
 		})
 	}
+}
+
+// classifyActions classfies actions
+func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+	tsfs := make([]*action.Transfer, 0)
+	exes := make([]*action.Execution, 0)
+	for _, elp := range actions {
+		act := elp.Action()
+		switch act := act.(type) {
+		case *action.Transfer:
+			tsfs = append(tsfs, act)
+		case *action.Execution:
+			exes = append(exes, act)
+		}
+	}
+	return tsfs, exes
 }
