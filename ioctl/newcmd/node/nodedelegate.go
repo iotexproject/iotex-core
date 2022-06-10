@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
@@ -201,15 +200,9 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-				probationListRes, err := bc.GetProbationList(client, epochNum)
+				probationList, err := getProbationList(client, epochNum, epochData.Height)
 				if err != nil {
 					return errors.Wrap(err, "failed to get probation list")
-				}
-				probationList := &vote.ProbationList{}
-				if probationListRes != nil {
-					if err := probationList.Deserialize(probationListRes.Data); err != nil {
-						return errors.Wrap(err, "failed to deserialize probation list")
-					}
 				}
 				for rank, bp := range response.BlockProducersInfo {
 					votes, ok := new(big.Int).SetString(bp.Votes, 10)

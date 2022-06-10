@@ -7,6 +7,7 @@
 package node
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -27,11 +28,6 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{
-		Epoch: &iotextypes.EpochData{
-			Num: 0,
-		},
-	}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(12)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(10)
@@ -45,7 +41,15 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 		require.Contains(err.Error(), "failed to get chain meta")
 	})
 
+	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{Epoch: &iotextypes.EpochData{Num: 7000}}}
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
+
+	var testBlockProducersInfo = []*iotexapi.BlockProducerInfo{
+		{Address: "io1kr8c6krd7dhxaaqwdkr6erqgu4z0scug3drgja", Votes: "109510794521770016955545668", Active: true, Production: 30},
+		{Address: "io13q2am9nedrd3n746lsj6qan4pymcpgm94vvx2c", Votes: "81497052527306018062463878", Active: false, Production: 0},
+	}
+	epochMetaResponse := &iotexapi.GetEpochMetaResponse{EpochData: &iotextypes.EpochData{Num: 7000, Height: 3223081}, TotalBlocks: 720, BlockProducersInfo: testBlockProducersInfo}
+	apiServiceClient.EXPECT().GetEpochMeta(gomock.Any(), gomock.Any()).Return(epochMetaResponse, nil).Times(3)
 
 	t.Run("query probation list", func(t *testing.T) {
 		probationList := &iotexapi.ReadStateResponse{}
@@ -76,7 +80,8 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte("poll"),
 			MethodName: []byte("ProbationListByEpoch"),
-			Arguments:  [][]byte{[]byte("0")},
+			Arguments:  [][]byte{[]byte("7000")},
+			Height:     strconv.FormatUint(3223081, 10),
 		}).Return(&iotexapi.ReadStateResponse{
 			Data: []byte("0")},
 			nil)
