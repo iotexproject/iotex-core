@@ -64,11 +64,6 @@ type bucket struct {
 	UnstakeStartTime string `json:"unstakeStartTime"`
 }
 
-type bucketMessage struct {
-	Node   string  `json:"node"`
-	Bucket *bucket `json:"bucket"`
-}
-
 // NewBCBucketCmd represents the bc Bucket command
 func NewBCBucketCmd(client ioctl.Client) *cobra.Command {
 	bcBucketUses, _ := client.SelectTranslation(_bcBlockCmdUses)
@@ -161,10 +156,10 @@ func (b *bucket) String() string {
 }
 
 func getBucketByIndex(client ioctl.Client, index uint64) (*iotextypes.VoteBucket, error) {
-	method := iotexapi.ReadStakingDataMethod{
+	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
 	}
-	readStakingdataRequest := iotexapi.ReadStakingDataRequest{
+	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
 		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
 			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
 				Index: []uint64{index},
@@ -186,10 +181,10 @@ func getBucketByIndex(client ioctl.Client, index uint64) (*iotextypes.VoteBucket
 }
 
 func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err error) {
-	method := iotexapi.ReadStakingDataMethod{
+	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,
 	}
-	readStakingdataRequest := iotexapi.ReadStakingDataRequest{
+	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
 		Request: &iotexapi.ReadStakingDataRequest_BucketsCount_{
 			BucketsCount: &iotexapi.ReadStakingDataRequest_BucketsCount{},
 		},
@@ -205,7 +200,7 @@ func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err e
 	return count, nil
 }
 
-func getBuckets(client ioctl.Client, method iotexapi.ReadStakingDataMethod, readStakingdataRequest iotexapi.ReadStakingDataRequest) (response *iotexapi.ReadStateResponse, err error) {
+func getBuckets(client ioctl.Client, method *iotexapi.ReadStakingDataMethod, readStakingdataRequest *iotexapi.ReadStakingDataRequest) (response *iotexapi.ReadStateResponse, err error) {
 	var endpoint string
 	var insecure bool
 
@@ -214,13 +209,13 @@ func getBuckets(client ioctl.Client, method iotexapi.ReadStakingDataMethod, read
 		Insecure: insecure,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to connect to endpoint")
 	}
-	methodData, err := proto.Marshal(&method)
+	methodData, err := proto.Marshal(method)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal read staking data method")
 	}
-	requestData, err := proto.Marshal(&readStakingdataRequest)
+	requestData, err := proto.Marshal(readStakingdataRequest)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal read staking data request")
 	}
