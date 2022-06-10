@@ -141,6 +141,20 @@ func (mr *MockBlockchainMockRecorder) Context(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockBlockchain)(nil).Context), arg0)
 }
 
+// EvmNetworkID mocks base method.
+func (m *MockBlockchain) EvmNetworkID() uint32 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EvmNetworkID")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// EvmNetworkID indicates an expected call of EvmNetworkID.
+func (mr *MockBlockchainMockRecorder) EvmNetworkID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvmNetworkID", reflect.TypeOf((*MockBlockchain)(nil).EvmNetworkID))
+}
+
 // Genesis mocks base method.
 func (m *MockBlockchain) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()
