@@ -39,7 +39,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().WriteFile(gomock.Any(), gomock.Any()).Return(nil)
+		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		defer os.RemoveAll(_hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
@@ -53,7 +53,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().WriteFile(gomock.Any(), gomock.Any()).Return(expectErr)
+		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(expectErr)
 		defer os.RemoveAll(_hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)

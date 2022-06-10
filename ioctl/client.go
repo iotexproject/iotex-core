@@ -74,8 +74,8 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
-		// WriteFile write
-		WriteFile(path string, in []byte) error
+		// WriteHdWalletConfigFile write
+		WriteHdWalletConfigFile(path string, mnemonic string, password string) error
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -310,8 +310,14 @@ func (c *client) ReadInput() (string, error) {
 	return line, nil
 }
 
-func (c *client) WriteFile(path string, in []byte) error {
-	if err := os.WriteFile(path, in, 0600); err != nil {
+func (c *client) WriteHdWalletConfigFile(path string, mnemonic string, password string) error {
+	enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
+	enckey := util.HashSHA256([]byte(password))
+	out, err := util.Encrypt(enctxt, enckey)
+	if err != nil {
+		return errors.Wrap(err, "failed to encrypting mnemonic")
+	}
+	if err := os.WriteFile(path, out, 0600); err != nil {
 		return errors.Wrap(err, "failed to write to config file")
 	}
 	return nil
