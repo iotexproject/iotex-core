@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"strconv"
@@ -38,7 +39,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -173,8 +174,15 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		request := in.GetUnconfirmedByAddr()
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
-		request := in.GetByBlk()
-		ret, err = svr.coreService.ActionsByBlock(request.BlkHash, request.Start, request.Count)
+		var (
+			request  = in.GetByBlk()
+			blkStore *block.Store
+		)
+		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		if err != nil {
+			break
+		}
+		ret, err = actionsInBlock(blkStore.Block, blkStore.Receipts, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
@@ -185,6 +193,54 @@ func (svr *GRPCServer) GetActions(ctx context.Context, in *iotexapi.GetActionsRe
 		Total:      uint64(len(ret)),
 		ActionInfo: ret,
 	}, nil
+}
+
+func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count uint64) ([]*iotexapi.ActionInfo, error) {
+	var res []*iotexapi.ActionInfo
+	if len(blk.Actions) == 0 {
+		return res, nil
+	}
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
+	if start >= uint64(len(blk.Actions)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
+
+	h := blk.HashBlock()
+	blkHash := hex.EncodeToString(h[:])
+	blkHeight := blk.Height()
+
+	lastAction := start + count
+	if count == math.MaxUint64 {
+		// count = -1 means to get all actions
+		lastAction = uint64(len(blk.Actions))
+	} else {
+		if lastAction >= uint64(len(blk.Actions)) {
+			lastAction = uint64(len(blk.Actions))
+		}
+	}
+	for i := start; i < lastAction; i++ {
+		selp, receipt := blk.Actions[i], receipts[i]
+		actHash, err := selp.Hash()
+		if err != nil {
+			log.Logger("api").Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
+		sender := selp.SrcPubkey().Address()
+		res = append(res, &iotexapi.ActionInfo{
+			Action:    selp.Proto(),
+			ActHash:   hex.EncodeToString(actHash[:]),
+			BlkHash:   blkHash,
+			Timestamp: blk.Header.BlockHeaderCoreProto().Timestamp,
+			BlkHeight: blkHeight,
+			Sender:    sender.String(),
+			GasFee:    gas.String(),
+			Index:     uint32(i),
+		})
+	}
+	return res, nil
 }
 
 // GetBlockMetas returns block metadata
@@ -423,43 +479,42 @@ func (svr *GRPCServer) GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBloc
 }
 
 // GetLogs get logs filtered by contract address and topics
-// TODO: simplify loop logic
 func (svr *GRPCServer) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest) (*iotexapi.GetLogsResponse, error) {
 	if in.GetFilter() == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
 	var (
-		logs   []*action.Log
-		hashes []hash.Hash256
-		err    error
+		ret = make([]*iotextypes.Log, 0)
 	)
 	switch {
 	case in.GetByBlock() != nil:
 		blkHash := hash.BytesToHash256(in.GetByBlock().BlockHash)
-		logs, err = svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter()), blkHash)
+		logs, err := svr.coreService.LogsInBlockByHash(logfilter.NewLogFilter(in.GetFilter()), blkHash)
 		if err != nil {
-			break
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		hashes = make([]hash.Hash256, 0, len(logs))
-		for range logs {
-			hashes = append(hashes, blkHash)
+		for i := range logs {
+			ret = append(ret, toLogPb(logs[i], blkHash))
 		}
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
-		logs, hashes, err = svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter()), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		logs, hashes, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(in.GetFilter()), req.GetFromBlock(), req.GetToBlock(), req.GetPaginationSize())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		for i := range logs {
+			ret = append(ret, toLogPb(logs[i], hashes[i]))
+		}
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	ret := make([]*iotextypes.Log, 0, len(logs))
-	for i := range logs {
-		logPb := logs[i].ConvertToLogPb()
-		logPb.BlkHash = hashes[i][:]
-		ret = append(ret, logPb)
-	}
-	return &iotexapi.GetLogsResponse{Logs: ret}, err
+	return &iotexapi.GetLogsResponse{Logs: ret}, nil
+}
+
+func toLogPb(lg *action.Log, blkHash hash.Hash256) *iotextypes.Log {
+	logPb := lg.ConvertToLogPb()
+	logPb.BlkHash = blkHash[:]
+	return logPb
 }
 
 // StreamBlocks streams blocks
@@ -578,13 +633,13 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if err != nil {
 		return nil, err
 	}
-	exec, ok := actInfo.Action.Core.Action.(*iotextypes.ActionCore_Execution)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
-	}
-	callerAddr, err := address.FromString(actInfo.Sender)
+	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actInfo.Action)
 	if err != nil {
 		return nil, err
+	}
+	sc, ok := act.Action().(*action.Execution)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
 	tracer := vm.NewStructLogger(nil)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
@@ -592,23 +647,8 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		Tracer:    tracer,
 		NoBaseFee: true,
 	})
-	amount, ok := new(big.Int).SetString(exec.Execution.GetAmount(), 10)
-	if !ok {
-		return nil, errors.New("failed to set execution amount")
-	}
-	sc, err := action.NewExecution(
-		exec.Execution.GetContract(),
-		actInfo.Action.Core.Nonce,
-		amount,
-		actInfo.Action.Core.GasLimit,
-		big.NewInt(0),
-		exec.Execution.GetData(),
-	)
-	if err != nil {
-		return nil, err
-	}
 
-	_, _, err = svr.coreService.SimulateExecution(ctx, callerAddr, sc)
+	_, _, err = svr.coreService.SimulateExecution(ctx, act.SrcPubkey().Address(), sc)
 	if err != nil {
 		return nil, err
 	}
