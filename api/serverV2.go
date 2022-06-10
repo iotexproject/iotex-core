@@ -9,10 +9,8 @@ package api
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -33,35 +31,6 @@ type ServerV2 struct {
 	httpSvr      *HTTPServer
 	websocketSvr *WebsocketServer
 	tracer       *tracesdk.TracerProvider
-}
-
-// Config represents the config to setup api
-type Config struct {
-	broadcastHandler  BroadcastOutbound
-	electionCommittee committee.Committee
-	hasActionIndex    bool
-}
-
-// Option is the option to override the api config
-type Option func(cfg *Config) error
-
-// BroadcastOutbound sends a broadcast message to the whole network
-type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-
-// WithBroadcastOutbound is the option to broadcast msg outbound
-func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
-	return func(cfg *Config) error {
-		cfg.broadcastHandler = broadcastHandler
-		return nil
-	}
-}
-
-// WithNativeElection is the option to return native election data through API.
-func WithNativeElection(committee committee.Committee) Option {
-	return func(cfg *Config) error {
-		cfg.electionCommittee = committee
-		return nil
-	}
 }
 
 // NewServerV2 creates a new server with coreService and GRPC Server

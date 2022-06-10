@@ -160,7 +160,6 @@ type (
 		cfg               config.API
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
-		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 	}
@@ -171,6 +170,26 @@ type (
 		blkNum uint64
 	}
 )
+
+// Option is the option to override the api config
+type Option func(cfg *coreService)
+
+// BroadcastOutbound sends a broadcast message to the whole network
+type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
+
+// WithBroadcastOutbound is the option to broadcast msg outbound
+func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
+	return func(svr *coreService) {
+		svr.broadcastHandler = broadcastHandler
+	}
+}
+
+// WithNativeElection is the option to return native election data through API.
+func WithNativeElection(committee committee.Committee) Option {
+	return func(svr *coreService) {
+		svr.electionCommittee = committee
+	}
+}
 
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
@@ -194,13 +213,6 @@ func newCoreService(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (CoreService, error) {
-	apiCfg := Config{}
-	for _, opt := range opts {
-		if err := opt(&apiCfg); err != nil {
-			return nil, err
-		}
-	}
-
 	if cfg == (config.API{}) {
 		log.L().Warn("API server is not configured.")
 		cfg = config.Default.API
@@ -209,23 +221,27 @@ func newCoreService(
 	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
-	return &coreService{
-		bc:                chain,
-		bs:                bs,
-		sf:                sf,
-		dao:               dao,
-		indexer:           indexer,
-		bfIndexer:         bfIndexer,
-		ap:                actPool,
-		broadcastHandler:  apiCfg.broadcastHandler,
-		cfg:               cfg,
-		registry:          registry,
-		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, dao, cfg),
-		electionCommittee: apiCfg.electionCommittee,
-		readCache:         NewReadCache(),
-		hasActionIndex:    apiCfg.hasActionIndex,
-	}, nil
+
+	core := &coreService{
+		bc:            chain,
+		bs:            bs,
+		sf:            sf,
+		dao:           dao,
+		indexer:       indexer,
+		bfIndexer:     bfIndexer,
+		ap:            actPool,
+		cfg:           cfg,
+		registry:      registry,
+		chainListener: NewChainListener(500),
+		gs:            gasstation.NewGasStation(chain, dao, cfg),
+		readCache:     NewReadCache(),
+	}
+
+	for _, opt := range opts {
+		opt(core)
+	}
+
+	return core, nil
 }
 
 // Account returns the metadata of an account
