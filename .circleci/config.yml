@@ -201,6 +201,7 @@ workflows:
               only:
                 - master
     jobs:
-      - nightly_build_docker
-      - nightly_bin_build_docker
-      - nightly_bin_build_darwin
+      - build_test_docker
+#       - nightly_build_docker
+#       - nightly_bin_build_docker
+#       - nightly_bin_build_darwin

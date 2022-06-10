@@ -201,7 +201,7 @@ func TestIndexer(t *testing.T) {
 
 			// test amount
 			amount := big.NewInt(0)
-			tsfs, _ := action.ClassifyActions(blks[i].Actions)
+			tsfs, _ := classifyActions(blks[i].Actions)
 			for _, tsf := range tsfs {
 				amount.Add(amount, tsf.Amount())
 			}
