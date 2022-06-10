@@ -10,11 +10,11 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -55,21 +55,21 @@ func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 				if len(args) != 1 {
 					return errors.New("wrong number of arg(s) for ioctl node reward pool command. \nRun 'ioctl node reward --help' for usage")
 				}
-				message, err := rewardPool(client)
+				totalUnclaimed, totalAvailable, totalBalance, err := rewardPool(client)
 				if err != nil {
 					return err
 				}
-				cmd.Printf("Total Unclaimed:\t %s IOTX\nTotal Available:\t %s IOTX\nTotal Balance:\t\t %s IOTX",
-					message.TotalUnclaimed, message.TotalAvailable, message.TotalBalance)
+				cmd.Printf("Total Unclaimed:\t %s IOTX\nTotal Available:\t %s IOTX\nTotal Balance:\t\t %s IOTX\n",
+					totalUnclaimed, totalAvailable, totalBalance)
 			case "unclaimed":
 				if len(args) != 2 {
 					return errors.New("wrong number of arg(s) for ioctl node reward unclaimed [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage")
 				}
-				message, err := reward(client, args[1])
+				address, reward, err := reward(client, args[1])
 				if err != nil {
 					return err
 				}
-				cmd.Printf("%s: %s IOTX", message.Address, message.Reward)
+				cmd.Printf("%s: %s IOTX\n", address, reward)
 			default:
 				return errors.New("unknown command. \nRun 'ioctl node reward --help' for usage")
 			}
@@ -78,45 +78,37 @@ func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 	}
 }
 
-type rewardPoolMessage struct {
-	TotalBalance   string `json:"TotalBalance"`
-	TotalUnclaimed string `json:"TotalUnclaimed"`
-	TotalAvailable string `json:"TotalAvailable"`
-}
-
-type rewardMessage struct {
-	Address string `json:"address"`
-	Reward  string `json:"reward"`
-}
-
-func rewardPool(client ioctl.Client) (rewardPoolMessage, error) {
+func rewardPool(client ioctl.Client) (string, string, string, error) {
 	var endpoint string
 	var insecure bool
 
 	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
 	if err != nil {
-		return rewardPoolMessage{}, err
+		return "", "", "", err
 	}
-
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 	response, err := apiClient.ReadState(
-		context.Background(),
+		ctx,
 		&iotexapi.ReadStateRequest{
 			ProtocolID: []byte("rewarding"),
 			MethodName: []byte("AvailableBalance"),
 		},
 	)
-
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return rewardPoolMessage{}, errors.New(sta.Message())
+			return "", "", "", errors.New(sta.Message())
 		}
-		return rewardPoolMessage{}, errors.New("failed to invoke ReadState api")
+		return "", "", "", errors.Wrap(err, "failed to invoke ReadState api")
 	}
 
 	availableRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 	if !ok {
-		return rewardPoolMessage{}, errors.New("failed to convert string into big int")
+		return "", "", "", errors.New("failed to convert string into big int")
 	}
 
 	response, err = apiClient.ReadState(
@@ -129,44 +121,46 @@ func rewardPool(client ioctl.Client) (rewardPoolMessage, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return rewardPoolMessage{}, errors.New(sta.Message())
+			return "", "", "", errors.New(sta.Message())
 		}
-		return rewardPoolMessage{}, errors.New("failed to invoke ReadState api")
+		return "", "", "", errors.Wrap(err, "failed to invoke ReadState api")
 	}
 	totalRewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 	if !ok {
-		return rewardPoolMessage{}, errors.New("failed to convert string into big int")
+		return "", "", "", errors.New("failed to convert string into big int")
 	}
 
 	totalUnclaimedRewardRau := big.NewInt(0)
 	totalUnclaimedRewardRau.Sub(totalRewardRau, availableRewardRau)
-	message := rewardPoolMessage{
-		TotalBalance:   util.RauToString(totalRewardRau, util.IotxDecimalNum),
-		TotalUnclaimed: util.RauToString(totalUnclaimedRewardRau, util.IotxDecimalNum),
-		TotalAvailable: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-	}
 
-	return message, err
+	return util.RauToString(totalUnclaimedRewardRau, util.IotxDecimalNum),
+		util.RauToString(availableRewardRau, util.IotxDecimalNum),
+		util.RauToString(totalRewardRau, util.IotxDecimalNum),
+		err
 }
 
-func reward(client ioctl.Client, arg string) (rewardMessage, error) {
+func reward(client ioctl.Client, arg string) (string, string, error) {
 	var endpoint string
 	var insecure bool
 
 	address, err := client.Address(arg)
 	if err != nil {
-		return rewardMessage{}, errors.New("failed to get address")
+		return "", "", errors.Wrap(err, "failed to get address")
 	}
 	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
 		Endpoint: endpoint,
 		Insecure: insecure,
 	})
 	if err != nil {
-		return rewardMessage{}, err
+		return "", "", errors.Wrap(err, "failed to connect to endpoint")
 	}
-
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 	response, err := apiClient.ReadState(
-		context.Background(),
+		ctx,
 		&iotexapi.ReadStateRequest{
 			ProtocolID: []byte("rewarding"),
 			MethodName: []byte("UnclaimedBalance"),
@@ -176,14 +170,13 @@ func reward(client ioctl.Client, arg string) (rewardMessage, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return rewardMessage{}, errors.New(sta.Message())
+			return "", "", errors.New(sta.Message())
 		}
-		return rewardMessage{}, errors.New("failed to get version from server")
+		return "", "", errors.Wrap(err, "failed to get version from server")
 	}
 	rewardRau, ok := new(big.Int).SetString(string(response.Data), 10)
 	if !ok {
-		return rewardMessage{}, errors.New("failed to convert string into big int")
+		return "", "", errors.New("failed to convert string into big int")
 	}
-	message := rewardMessage{Address: address, Reward: util.RauToString(rewardRau, util.IotxDecimalNum)}
-	return message, err
+	return address, util.RauToString(rewardRau, util.IotxDecimalNum), err
 }
