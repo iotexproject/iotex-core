@@ -39,11 +39,19 @@ func TestWithBlockchainCtx(t *testing.T) {
 
 func TestGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
-	bcCtx := BlockchainCtx{}
+	bcCtx := BlockchainCtx{
+		Tip: TipInfo{
+			Height:    1024,
+			Timestamp: time.Now(),
+		},
+		ChainID:      1,
+		EvmNetworkID: 100,
+	}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
-	_, ok := GetBlockchainCtx(ctx)
+	bcCtx1, ok := GetBlockchainCtx(ctx)
 	require.True(ok)
+	require.Equal(bcCtx, bcCtx1)
 }
 
 func TestMustGetBlockchainCtx(t *testing.T) {
