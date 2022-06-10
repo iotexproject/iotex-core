@@ -203,10 +203,24 @@ func TestBlockDAO(t *testing.T) {
 			require.Equal(tipBlk.Height(), height)
 			blk, err := dao.GetBlock(hash)
 			require.NoError(err)
-			require.Equal(tipBlk, blk)
+			require.Equal(len(blk.Actions), len(tipBlk.Actions))
+			for i := 0; i < len(blk.Actions); i++ {
+				hashVal1, hashErr1 := blk.Actions[i].Hash()
+				require.NoError(hashErr1)
+				hashVal2, hashErr2 := tipBlk.Actions[i].Hash()
+				require.NoError(hashErr2)
+				require.Equal(hashVal1, hashVal2)
+			}
 			blk, err = dao.GetBlockByHeight(height)
 			require.NoError(err)
-			require.Equal(tipBlk, blk)
+			require.Equal(len(blk.Actions), len(tipBlk.Actions))
+			for i := 0; i < len(blk.Actions); i++ {
+				hashVal1, hashErr1 := blk.Actions[i].Hash()
+				require.NoError(hashErr1)
+				hashVal2, hashErr2 := tipBlk.Actions[i].Hash()
+				require.NoError(hashErr2)
+				require.Equal(hashVal1, hashVal2)
+			}
 			r, err := dao.GetReceipts(height)
 			require.NoError(err)
 			require.Equal(len(receipts[i]), len(r))
@@ -329,10 +343,24 @@ func TestBlockDAO(t *testing.T) {
 			require.Equal(tipHeight, height)
 			blk, err := dao.GetBlock(h)
 			require.NoError(err)
-			require.Equal(tipBlk, blk)
+			require.Equal(len(blk.Actions), len(tipBlk.Actions))
+			for i := 0; i < len(blk.Actions); i++ {
+				hashVal1, hashErr1 := blk.Actions[i].Hash()
+				require.NoError(hashErr1)
+				hashVal2, hashErr2 := tipBlk.Actions[i].Hash()
+				require.NoError(hashErr2)
+				require.Equal(hashVal1, hashVal2)
+			}
 			blk, err = dao.GetBlockByHeight(height)
 			require.NoError(err)
-			require.Equal(tipBlk, blk)
+			require.Equal(len(blk.Actions), len(tipBlk.Actions))
+			for i := 0; i < len(blk.Actions); i++ {
+				hashVal1, hashErr1 := blk.Actions[i].Hash()
+				require.NoError(hashErr1)
+				hashVal2, hashErr2 := tipBlk.Actions[i].Hash()
+				require.NoError(hashErr2)
+				require.Equal(hashVal1, hashVal2)
+			}
 
 			// test BlockDAO's API, 2nd loop to test LRU cache
 			for i := 0; i < 2; i++ {

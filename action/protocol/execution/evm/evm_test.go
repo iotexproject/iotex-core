@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -57,7 +56,10 @@ func TestExecuteContractFailure(t *testing.T) {
 	})
 	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 
-	ctx = protocol.WithFeatureCtx(ctx)
+	ctx = protocol.WithBlockchainCtx(protocol.WithFeatureCtx(ctx), protocol.BlockchainCtx{
+		ChainID:      1,
+		EvmNetworkID: 100,
+	})
 	retval, receipt, err := ExecuteContract(ctx, sm, e,
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
@@ -80,8 +82,12 @@ func TestConstantinople(t *testing.T) {
 		Caller: identityset.Address(27),
 	})
 
+	evmNetworkID := uint32(100)
 	g := genesis.Default
-	ctx = genesis.WithGenesisContext(ctx, g)
+	ctx = protocol.WithBlockchainCtx(genesis.WithGenesisContext(ctx, g), protocol.BlockchainCtx{
+		ChainID:      1,
+		EvmNetworkID: evmNetworkID,
+	})
 
 	execHeights := []struct {
 		contract string
@@ -210,19 +216,19 @@ func TestConstantinople(t *testing.T) {
 		}
 		stateDB := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
 
-		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		fCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		})
-		ctx = protocol.WithFeatureCtx(ctx)
-		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
+		fCtx = protocol.WithFeatureCtx(fCtx)
+		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(g.Blockchain, e.height)
+		chainConfig := getChainConfig(g.Blockchain, e.height, ps.evmNetworkID)
 		evm := vm.NewEVM(ps.context, ps.txCtx, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
@@ -253,7 +259,7 @@ func TestConstantinople(t *testing.T) {
 		// iceland = support chainID + enable Istanbul and Muir Glacier
 		isIceland := g.IsIceland(e.height)
 		if isIceland {
-			require.EqualValues(config.EVMNetworkID(), evmChainConfig.ChainID.Uint64())
+			require.EqualValues(evmNetworkID, evmChainConfig.ChainID.Uint64())
 		} else {
 			require.Nil(evmChainConfig.ChainID)
 		}
@@ -342,7 +348,7 @@ func TestGasEstimate(t *testing.T) {
 	for _, v := range []struct {
 		gas, consume, refund, size uint64
 	}{
-		{config.Default.Genesis.BlockGasLimit, 8200300, 1000000, 20000},
+		{genesis.Default.BlockGasLimit, 8200300, 1000000, 20000},
 		{1000000, 245600, 100000, 5600},
 		{500000, 21000, 10000, 36},
 	} {
