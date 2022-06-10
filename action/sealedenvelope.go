@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -22,6 +23,8 @@ type SealedEnvelope struct {
 	evmNetworkID uint32
 	srcPubkey    crypto.PublicKey
 	signature    []byte
+	srcAddress   address.Address
+	hash         hash.Hash256
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -48,6 +51,17 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
+	if sealed.hash == hash.ZeroHash256 {
+		hashVal, hashErr := sealed.calcHash()
+		if hashErr == nil {
+			sealed.hash = hashVal
+		}
+		return sealed.hash, hashErr
+	}
+	return sealed.hash, nil
+}
+
+func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		act, ok := sealed.Action().(EthCompatibleAction)
@@ -68,6 +82,14 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 
 // SrcPubkey returns the source public key
 func (sealed *SealedEnvelope) SrcPubkey() crypto.PublicKey { return sealed.srcPubkey }
+
+// SenderAddress returns address of the source public key
+func (sealed *SealedEnvelope) SenderAddress() address.Address {
+	if sealed.srcAddress == nil {
+		sealed.srcAddress = sealed.srcPubkey.Address()
+	}
+	return sealed.srcAddress
+}
 
 // Signature returns signature bytes
 func (sealed *SealedEnvelope) Signature() []byte {
@@ -141,6 +163,8 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.signature = make([]byte, sigSize)
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
+	sealed.hash = hash.ZeroHash256
+	sealed.srcAddress = nil
 	return nil
 }
 
