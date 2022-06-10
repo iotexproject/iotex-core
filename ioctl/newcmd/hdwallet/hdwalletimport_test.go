@@ -7,9 +7,7 @@
 package hdwallet
 
 import (
-	"log"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -19,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewNodeDelegateCmd(t *testing.T) {
@@ -29,18 +26,19 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
+	hdWalletConfigFile := config.ReadConfig.Wallet + "/hdwallet"
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
 	client.EXPECT().Config().Return(config.Config{
-		Wallet: config.ReadConfig.Wallet,
+		HdwalletConfigFile: hdWalletConfigFile,
 	}).Times(2)
 
 	t.Run("import hdwallet", func(t *testing.T) {
 		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-		defer os.RemoveAll(_hdWalletConfigFile)
+		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any()).Return(nil)
+		defer os.RemoveAll(hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
 		result, err := util.ExecuteCmd(cmd)
@@ -53,31 +51,11 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(expectErr)
-		defer os.RemoveAll(_hdWalletConfigFile)
+		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any()).Return(expectErr)
+		defer os.RemoveAll(hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), expectErr.Error())
-	})
-
-	t.Run("hdwalletConfigFile exist", func(t *testing.T) {
-		expectedValue := "Please run 'ioctl hdwallet delete' before import"
-		testAccountFolder, err := os.MkdirTemp(os.TempDir(), "default")
-		require.NoError(err)
-		defer testutil.CleanupPath(testAccountFolder)
-		file := filepath.Join(testAccountFolder, "hdwallet")
-		if err := os.WriteFile(file, []byte("content"), 0666); err != nil {
-			log.Fatal(err)
-		}
-
-		client.EXPECT().Config().Return(config.Config{
-			Wallet: testAccountFolder,
-		})
-
-		cmd := NewHdwalletImportCmd(client)
-		result, err := util.ExecuteCmd(cmd)
-		require.NoError(err)
-		require.Contains(result, expectedValue)
 	})
 }

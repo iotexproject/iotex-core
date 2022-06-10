@@ -327,15 +327,15 @@ func (mr *MockClientMockRecorder) WriteConfig() *gomock.Call {
 }
 
 // WriteHdWalletConfigFile mocks base method.
-func (m *MockClient) WriteHdWalletConfigFile(path, mnemonic, password string) error {
+func (m *MockClient) WriteHdWalletConfigFile(mnemonic, password string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteHdWalletConfigFile", path, mnemonic, password)
+	ret := m.ctrl.Call(m, "WriteHdWalletConfigFile", mnemonic, password)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // WriteHdWalletConfigFile indicates an expected call of WriteHdWalletConfigFile.
-func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(path, mnemonic, password interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(mnemonic, password interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), path, mnemonic, password)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), mnemonic, password)
 }
