@@ -514,7 +514,7 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 		}
 		return gas, nil
 	}
-	callerAddr := selp.SrcPubkey().Address()
+	callerAddr := selp.SenderAddress()
 	if callerAddr == nil {
 		return 0, status.Error(codes.Internal, "failed to get address")
 	}
@@ -1166,7 +1166,7 @@ func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash has
 	if err != nil {
 		return nil, err
 	}
-	sender := selp.SrcPubkey().Address()
+	sender := selp.SenderAddress()
 	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
 	if err != nil {
 		return nil, err
@@ -1190,7 +1190,7 @@ func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Ac
 	if err != nil {
 		return nil, err
 	}
-	sender := selp.SrcPubkey().Address()
+	sender := selp.SenderAddress()
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
@@ -1242,7 +1242,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
+		sender := selp.SenderAddress()
 		res = append([]*iotexapi.ActionInfo{{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),

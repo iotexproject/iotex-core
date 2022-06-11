@@ -124,7 +124,7 @@ func (ws *workingSet) runActions(
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
 	var err error
-	caller := selp.SrcPubkey().Address()
+	caller := selp.SenderAddress()
 	if caller == nil {
 		return nil, errors.New("failed to get address")
 	}
@@ -326,7 +326,7 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 func (ws *workingSet) validateNonce(blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
-		caller := selp.SrcPubkey().Address()
+		caller := selp.SenderAddress()
 		if caller == nil {
 			return errors.New("failed to get address")
 		}
@@ -445,7 +445,7 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if err != nil {
-				caller := nextAction.SrcPubkey().Address()
+				caller := nextAction.SenderAddress()
 				if caller == nil {
 					return nil, errors.New("failed to get address")
 				}
