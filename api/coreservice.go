@@ -106,10 +106,10 @@ type (
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		// ActPoolActions returns the all Transaction Identifiers in the actpool
+		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
 		// BlockByHash returns the block and its receipt
 		BlockByHash(string) (*block.Store, error)
-		// ActPoolActions returns the all Transaction Identifiers in the mempool
-		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
@@ -1530,14 +1530,12 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 	}, out.GetBlockIdentifier(), nil
 }
 
-// ActPoolActions returns the all Transaction Identifiers in the mempool
-func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Action, error) {
-	var ret []*iotextypes.Action
+// ActionsInActPool returns the all Transaction Identifiers in the actpool
+func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error) {
+	var ret []action.SealedEnvelope
 	if len(actHashes) == 0 {
 		for _, sealeds := range core.ap.PendingActionMap() {
-			for _, sealed := range sealeds {
-				ret = append(ret, sealed.Proto())
-			}
+			ret = append(ret, sealeds...)
 		}
 		return ret, nil
 	}
@@ -1545,13 +1543,13 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 	for _, hashStr := range actHashes {
 		hs, err := hash.HexStringToHash256(hashStr)
 		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, errors.Wrap(err, "failed to hex string to hash256").Error())
+			return nil, err
 		}
 		sealed, err := core.ap.GetActionByHash(hs)
 		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
+			return nil, err
 		}
-		ret = append(ret, sealed.Proto())
+		ret = append(ret, sealed)
 	}
 	return ret, nil
 }
