@@ -243,6 +243,20 @@ func (mr *MockClientMockRecorder) SelectTranslation(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslation", reflect.TypeOf((*MockClient)(nil).SelectTranslation), arg0)
 }
 
+// SelectTranslationText mocks base method.
+func (m *MockClient) SelectTranslationText(arg0 map[config.Language]string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectTranslationText", arg0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// SelectTranslationText indicates an expected call of SelectTranslationText.
+func (mr *MockClientMockRecorder) SelectTranslationText(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectTranslationText", reflect.TypeOf((*MockClient)(nil).SelectTranslationText), arg0)
+}
+
 // SetAlias mocks base method.
 func (m *MockClient) SetAlias(arg0, arg1 string) {
 	m.ctrl.T.Helper()

@@ -43,6 +43,8 @@ type (
 		APIServiceClient(APIServiceConfig) (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
+		// SelectTranslationText like SelectTranslation but without language identifier
+		SelectTranslationText(map[config.Language]string) string
 		// AskToConfirm asks user to confirm from terminal, true to continue
 		AskToConfirm(string) bool
 		// ReadSecret reads password from terminal
@@ -152,6 +154,11 @@ func (c *client) SelectTranslation(trls map[config.Language]string) (string, con
 		panic("failed to pick a translation")
 	}
 	return trl, config.English
+}
+
+func (c *client) SelectTranslationText(trls map[config.Language]string) string {
+	txt, _ := c.SelectTranslation(trls)
+	return txt
 }
 
 func (c *client) ReadSecret() (string, error) {
