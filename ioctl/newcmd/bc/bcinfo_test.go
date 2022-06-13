@@ -30,7 +30,7 @@ func TestNewBCInfoCmd(t *testing.T) {
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
 	client.EXPECT().Config().Return(config.Config{}).Times(7)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
 	t.Run("get blockchain info", func(t *testing.T) {
 		chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
@@ -53,12 +53,11 @@ func TestNewBCInfoCmd(t *testing.T) {
 
 	t.Run("failed to dial grpc connection", func(t *testing.T) {
 		expectedErr := errors.New("failed to dial grpc connection")
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
+		client.EXPECT().APIServiceClient().Return(nil, expectedErr).Times(1)
 
 		cmd := NewBCInfoCmd(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.Error(err)
 		require.Equal(expectedErr, err)
 	})
-
 }
