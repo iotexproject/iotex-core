@@ -604,9 +604,13 @@ func (svr *GRPCServer) GetTransactionLogByBlockHeight(ctx context.Context, in *i
 
 // GetActPoolActions returns the all Transaction Identifiers in the mempool
 func (svr *GRPCServer) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
-	ret, err := svr.coreService.ActPoolActions(in.ActionHashes)
+	acts, err := svr.coreService.ActionsInActPool(in.ActionHashes)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	ret := make([]*iotextypes.Action, 0)
+	for _, act := range acts {
+		ret = append(ret, act.Proto())
 	}
 	return &iotexapi.GetActPoolActionsResponse{
 		Actions: ret,
