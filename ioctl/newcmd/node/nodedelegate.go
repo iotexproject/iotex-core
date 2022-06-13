@@ -99,7 +99,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var err error
 
 			if nextEpoch {
 				//nextDelegates
@@ -236,9 +235,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					message.Delegates = append(message.Delegates, delegate)
 				}
 				cmd.Println(message.String())
-			}
-			if err != nil {
-				cmd.Println(err)
 			}
 			return nil
 		},
