@@ -227,7 +227,7 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
+		sender := selp.SenderAddress()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -651,7 +651,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		NoBaseFee: true,
 	})
 
-	_, _, err = svr.coreService.SimulateExecution(ctx, act.SrcPubkey().Address(), sc)
+	_, _, err = svr.coreService.SimulateExecution(ctx, act.SenderAddress(), sc)
 	if err != nil {
 		return nil, err
 	}

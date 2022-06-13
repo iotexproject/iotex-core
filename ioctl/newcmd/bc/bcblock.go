@@ -47,12 +47,7 @@ func NewBCBlockCmd(c ioctl.Client) *cobra.Command {
 	bcBlockCmdUse, _ := c.SelectTranslation(_bcBlockCmdUses)
 	bcBlockCmdShort, _ := c.SelectTranslation(_bcBlockCmdShorts)
 	flagVerboseUsage, _ := c.SelectTranslation(_flagVerboseUsages)
-
-	var (
-		verbose  bool
-		endpoint string
-		insecure bool
-	)
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   bcBlockCmdUse,
@@ -67,10 +62,7 @@ func NewBCBlockCmd(c ioctl.Client) *cobra.Command {
 				blocksInfo []*iotexapi.BlockInfo
 			)
 
-			apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
+			apiServiceClient, err := c.APIServiceClient()
 			if err != nil {
 				return err
 			}
