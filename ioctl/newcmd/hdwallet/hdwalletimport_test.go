@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewNodeDelegateCmd(t *testing.T) {
+func TestNewHdwalletImportCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
