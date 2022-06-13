@@ -9,6 +9,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -30,47 +31,72 @@ func TestNewActionHashCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
 
 	_pubKeyByte, _ := hex.DecodeString(_pubKeyString)
-	getActionResponse := &iotexapi.GetActionsResponse{
-		ActionInfo: []*iotexapi.ActionInfo{
-			{
-				Index:   0,
-				ActHash: "test",
-				Action: &iotextypes.Action{
-					SenderPubKey: _pubKeyByte,
-					Signature:    _signByte,
-					Core:         createEnvelope(0).Proto(),
+
+	t.Run("get action receipt", func(t *testing.T) {
+		getActionResponse := &iotexapi.GetActionsResponse{
+			ActionInfo: []*iotexapi.ActionInfo{
+				{
+					Index:   0,
+					ActHash: "test",
+					Action: &iotextypes.Action{
+						SenderPubKey: _pubKeyByte,
+						Signature:    _signByte,
+						Core:         createEnvelope(0).Proto(),
+					},
 				},
 			},
-		},
-	}
-	getReceiptResponse := &iotexapi.GetReceiptByActionResponse{
-		ReceiptInfo: &iotexapi.ReceiptInfo{
-			Receipt: &iotextypes.Receipt{
-				Status:             1,
-				BlkHeight:          12,
-				ActHash:            []byte("9b1d77d8b8902e8d4e662e7cd07d8a74179e032f030d92441ca7fba1ca68e0f4"),
-				GasConsumed:        123,
-				ContractAddress:    "test",
-				TxIndex:            1,
-				ExecutionRevertMsg: "balance not enough",
+		}
+		getReceiptResponse := &iotexapi.GetReceiptByActionResponse{
+			ReceiptInfo: &iotexapi.ReceiptInfo{
+				Receipt: &iotextypes.Receipt{
+					Status:             1,
+					BlkHeight:          12,
+					ActHash:            []byte("9b1d77d8b8902e8d4e662e7cd07d8a74179e032f030d92441ca7fba1ca68e0f4"),
+					GasConsumed:        123,
+					ContractAddress:    "test",
+					TxIndex:            1,
+					ExecutionRevertMsg: "balance not enough",
+				},
 			},
-		},
-	}
-	apiServiceClient.EXPECT().GetActions(context.Background(), gomock.Any()).Return(getActionResponse, nil)
-	apiServiceClient.EXPECT().GetReceiptByAction(context.Background(), gomock.Any()).Return(getReceiptResponse, nil)
+		}
+		apiServiceClient.EXPECT().GetActions(context.Background(), gomock.Any()).Return(getActionResponse, nil)
+		apiServiceClient.EXPECT().GetReceiptByAction(context.Background(), gomock.Any()).Return(getReceiptResponse, nil)
 
-	cmd := NewActionHashCmd(client)
-	result, err := util.ExecuteCmd(cmd, "test")
-	require.NoError(err)
-	require.Contains(result, "status: 1 (Success)\n")
-	require.Contains(result, "blkHeight: 12\n")
-	require.Contains(result, "gasConsumed: 123\n")
-	require.Contains(result, "senderPubKey: "+_pubKeyString+"\n")
-	require.Contains(result, "signature: 010203040506070809\n")
+		cmd := NewActionHashCmd(client)
+		result, err := util.ExecuteCmd(cmd, "test")
+		require.NoError(err)
+		require.Contains(result, "status: 1 (Success)\n")
+		require.Contains(result, "blkHeight: 12\n")
+		require.Contains(result, "gasConsumed: 123\n")
+		require.Contains(result, "senderPubKey: "+_pubKeyString+"\n")
+		require.Contains(result, "signature: 010203040506070809\n")
+	})
+
+	t.Run("no action info returned", func(t *testing.T) {
+		getActionResponse := &iotexapi.GetActionsResponse{
+			ActionInfo: []*iotexapi.ActionInfo{},
+		}
+		expectedErr := errors.New("no action info returned")
+		apiServiceClient.EXPECT().GetActions(context.Background(), gomock.Any()).Return(getActionResponse, nil)
+
+		cmd := NewActionHashCmd(client)
+		_, err := util.ExecuteCmd(cmd, "test")
+		require.Equal(expectedErr.Error(), err.Error())
+	})
+
+	t.Run("failed to dial grpc connection", func(t *testing.T) {
+		expectedErr := errors.New("failed to dial grpc connection")
+		client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
+
+		cmd := NewActionHashCmd(client)
+		_, err := util.ExecuteCmd(cmd, "test")
+		require.Error(err)
+		require.Equal(expectedErr, err)
+	})
 }
 
 func createEnvelope(chainID uint32) action.Envelope {
