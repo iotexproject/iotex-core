@@ -222,7 +222,7 @@ func newCoreService(
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
 
-	core := &coreService{
+	core := coreService{
 		bc:            chain,
 		bs:            bs,
 		sf:            sf,
@@ -238,10 +238,10 @@ func newCoreService(
 	}
 
 	for _, opt := range opts {
-		opt(core)
+		opt(&core)
 	}
 
-	return core, nil
+	return &core, nil
 }
 
 // Account returns the metadata of an account
