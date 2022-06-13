@@ -184,6 +184,20 @@ func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
 }
 
+// IsHdWalletConfigFileExist mocks base method.
+func (m *MockClient) IsHdWalletConfigFileExist() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsHdWalletConfigFileExist")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsHdWalletConfigFileExist indicates an expected call of IsHdWalletConfigFileExist.
+func (mr *MockClientMockRecorder) IsHdWalletConfigFileExist() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsHdWalletConfigFileExist", reflect.TypeOf((*MockClient)(nil).IsHdWalletConfigFileExist))
+}
+
 // NewKeyStore mocks base method.
 func (m *MockClient) NewKeyStore() *keystore.KeyStore {
 	m.ctrl.T.Helper()
@@ -327,15 +341,15 @@ func (mr *MockClientMockRecorder) WriteConfig() *gomock.Call {
 }
 
 // WriteHdWalletConfigFile mocks base method.
-func (m *MockClient) WriteHdWalletConfigFile(mnemonic, password string) error {
+func (m *MockClient) WriteHdWalletConfigFile(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteHdWalletConfigFile", mnemonic, password)
+	ret := m.ctrl.Call(m, "WriteHdWalletConfigFile", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // WriteHdWalletConfigFile indicates an expected call of WriteHdWalletConfigFile.
-func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(mnemonic, password interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), mnemonic, password)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), arg0, arg1)
 }

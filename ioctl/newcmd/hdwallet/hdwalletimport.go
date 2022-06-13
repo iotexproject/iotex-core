@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 // Multi-language support
@@ -41,7 +40,7 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			if fileutil.FileExists(client.Config().HdwalletConfigFile) {
+			if client.IsHdWalletConfigFileExist() {
 				cmd.Println("Please run 'ioctl hdwallet delete' before import")
 				return nil
 			}

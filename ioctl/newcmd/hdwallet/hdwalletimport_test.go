@@ -7,7 +7,6 @@
 package hdwallet
 
 import (
-	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,19 +25,15 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
-	hdWalletConfigFile := config.ReadConfig.Wallet + "/hdwallet"
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
-	client.EXPECT().Config().Return(config.Config{
-		HdwalletConfigFile: hdWalletConfigFile,
-	}).Times(2)
+	client.EXPECT().IsHdWalletConfigFileExist().Return(false).Times(2)
 
 	t.Run("import hdwallet", func(t *testing.T) {
 		client.EXPECT().ReadInput().Return(mnemonic, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any()).Return(nil)
-		defer os.RemoveAll(hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
 		result, err := util.ExecuteCmd(cmd)
@@ -52,7 +47,6 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().ReadSecret().Return(password, nil)
 		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any()).Return(expectErr)
-		defer os.RemoveAll(hdWalletConfigFile)
 
 		cmd := NewHdwalletImportCmd(client)
 		_, err := util.ExecuteCmd(cmd)

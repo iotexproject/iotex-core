@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 type (
@@ -74,8 +75,10 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
-		// WriteHdWalletConfigFile write
-		WriteHdWalletConfigFile(mnemonic string, password string) error
+		// WriteHdWalletConfigFile write encrypting mnemonic into config file
+		WriteHdWalletConfigFile(string, string) error
+		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
+		IsHdWalletConfigFileExist() bool
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -85,10 +88,11 @@ type (
 	}
 
 	client struct {
-		cfg            config.Config
-		conn           *grpc.ClientConn
-		cryptoSm2      bool
-		configFilePath string
+		cfg                config.Config
+		conn               *grpc.ClientConn
+		cryptoSm2          bool
+		configFilePath     string
+		hdWalletConfigFile string
 	}
 
 	// Option sets client construction parameter
@@ -99,9 +103,6 @@ type (
 		Info    string   `json:"info"`
 		Options []string `json:"options"`
 	}
-
-	// StringMessage is the Message for string
-	StringMessage string
 )
 
 // EnableCryptoSm2 enables to use sm2 cryptographic algorithm
@@ -114,8 +115,9 @@ func EnableCryptoSm2() Option {
 // NewClient creates a new ioctl client
 func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
 	c := &client{
-		cfg:            cfg,
-		configFilePath: configFilePath,
+		cfg:                cfg,
+		configFilePath:     configFilePath,
+		hdWalletConfigFile: cfg.Wallet + "/hdwallet",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -301,7 +303,7 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *client) ReadInput() (string, error) {
+func (c *client) ReadInput() (string, error) { // notest
 	in := bufio.NewReader(os.Stdin)
 	line, err := in.ReadString('\n')
 	if err != nil {
@@ -317,10 +319,14 @@ func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error
 	if err != nil {
 		return errors.Wrap(err, "failed to encrypting mnemonic")
 	}
-	if err := os.WriteFile(c.cfg.HdwalletConfigFile, out, 0600); err != nil {
-		return errors.Wrap(err, "failed to write to config file")
+	if err := os.WriteFile(c.hdWalletConfigFile, out, 0600); err != nil {
+		return errors.Wrapf(err, "failed to write to config file %s", c.hdWalletConfigFile)
 	}
 	return nil
+}
+
+func (c *client) IsHdWalletConfigFileExist() bool { // notest
+	return fileutil.FileExists(c.hdWalletConfigFile)
 }
 
 func (m *ConfirmationMessage) String() string {
