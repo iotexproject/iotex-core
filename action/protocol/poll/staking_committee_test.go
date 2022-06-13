@@ -261,7 +261,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller := selp2.SrcPubkey().Address()
+		caller := selp2.SenderAddress()
 		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
@@ -298,7 +298,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
-		caller := selp3.SrcPubkey().Address()
+		caller := selp3.SenderAddress()
 		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
 			ctx3,
@@ -334,7 +334,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
-		caller := selp4.SrcPubkey().Address()
+		caller := selp4.SenderAddress()
 		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
 			ctx4,
@@ -370,7 +370,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)
-		caller := selp5.SrcPubkey().Address()
+		caller := selp5.SenderAddress()
 		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(
 			ctx5,

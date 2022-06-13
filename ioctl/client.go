@@ -39,8 +39,12 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// SetEndpointWithFlag receives input flag value
+		SetEndpointWithFlag(func(*string, string, string, string))
+		// SetInsecureWithFlag receives input flag value
+		SetInsecureWithFlag(func(*bool, string, bool, string))
 		// APIServiceClient returns an API service client
-		APIServiceClient(APIServiceConfig) (iotexapi.APIServiceClient, error)
+		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
@@ -73,17 +77,13 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 	}
 
-	// APIServiceConfig defines a config of APIServiceClient
-	APIServiceConfig struct {
-		Endpoint string
-		Insecure bool
-	}
-
 	client struct {
 		cfg            config.Config
 		conn           *grpc.ClientConn
 		cryptoSm2      bool
 		configFilePath string
+		endpoint       string
+		insecure       bool
 	}
 
 	// Option sets client construction parameter
@@ -133,6 +133,22 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
+func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	})
+	cb(&c.endpoint, "endpoint", c.cfg.Endpoint, usage)
+}
+
+func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全连接",
+	})
+	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
+}
+
 func (c *client) AskToConfirm(info string) bool {
 	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
@@ -159,21 +175,22 @@ func (c *client) ReadSecret() (string, error) {
 	return util.ReadSecretFromStdin()
 }
 
-func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClient, error) {
+func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
 			return nil, err
 		}
 	}
-	if cfg.Endpoint == "" {
+
+	if c.endpoint == "" {
 		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 
 	var err error
-	if cfg.Insecure {
-		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithInsecure())
+	if c.insecure {
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		return nil, err
