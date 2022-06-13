@@ -227,7 +227,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 
-	caller := act.SrcPubkey().Address()
+	caller := act.SenderAddress()
 	if caller == nil {
 		return action.ErrAddress
 	}
@@ -331,7 +331,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	span.AddEvent("actPool.validate")
 	defer span.End()
 
-	caller := selp.SrcPubkey().Address()
+	caller := selp.SenderAddress()
 	if caller == nil {
 		return errors.New("failed to get address")
 	}

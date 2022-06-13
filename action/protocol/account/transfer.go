@@ -75,12 +75,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
 	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
-	if !fCtx.TolerateLegacyAddress {
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
-		}
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 	}
-	if err == nil && recipientAcct.IsContract() {
+	if recipientAcct.IsContract() {
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
 		// put updated sender's state to trie
