@@ -98,7 +98,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 				if ok {
 					return errors.New(sta.Message())
 				}
-				return errors.New("failed to invoke GetActions api")
+				return errors.Wrap(err, "failed to invoke GetActions api")
 			}
 			if len(response.ActionInfo) == 0 {
 				return errors.New("no action info returned")
@@ -114,7 +114,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 				} else if ok {
 					return errors.New(sta.Message())
 				}
-				return errors.New("failed to invoke GetReceiptByAction api")
+				return errors.Wrap(err, "failed to invoke GetReceiptByAction api")
 			}
 			message.State = Executed
 			message.Receipt = responseReceipt.ReceiptInfo.Receipt
