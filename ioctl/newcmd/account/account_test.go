@@ -46,11 +46,41 @@ func TestNewAccountCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
-	cmd := NewAccountCmd(client)
-	result, err := util.ExecuteCmd(cmd)
-	require.NotNil(result)
-	require.NoError(err)
+
+	testData := []struct {
+		endpoint string
+		insecure bool
+	}{
+		{
+			endpoint: "111:222:333:444:5678",
+			insecure: false,
+		},
+		{
+			endpoint: "",
+			insecure: true,
+		},
+	}
+	for _, test := range testData {
+		callbackEndpoint := func(cb func(*string, string, string, string)) {
+			cb(&test.endpoint, "endpoint", test.endpoint, "endpoint usage")
+		}
+		callbackInsecure := func(cb func(*bool, string, bool, string)) {
+			cb(&test.insecure, "insecure", !test.insecure, "insecure usage")
+		}
+		client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(callbackEndpoint)
+		client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure)
+
+		cmd := NewAccountCmd(client)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.Contains(result, "Available Commands")
+
+		result, err = util.ExecuteCmd(cmd, "--endpoint", "0.0.0.0:1", "--insecure")
+		require.NoError(err)
+		require.Contains(result, "Available Commands")
+		require.Equal("0.0.0.0:1", test.endpoint)
+		require.True(test.insecure)
+	}
 }
 
 func TestSign(t *testing.T) {
@@ -153,7 +183,7 @@ func TestAccount(t *testing.T) {
 		sk, err := crypto.GenerateKey()
 		require.NoError(err)
 		p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-		require.Equal(true, ok)
+		require.True(ok)
 		account, err = ks.ImportECDSA(p256k1, passwd)
 		require.NoError(err)
 		require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
@@ -208,7 +238,7 @@ func TestMeta(t *testing.T) {
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 
 	accAddr := identityset.Address(28).String()
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
@@ -222,14 +252,14 @@ func TestMeta(t *testing.T) {
 	require.Equal(accountResponse.AccountMeta, result)
 
 	expectedErr := errors.New("failed to dial grpc connection")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
+	client.EXPECT().APIServiceClient().Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)
 	require.Equal(expectedErr, err)
 	require.Nil(result)
 
 	expectedErr = errors.New("failed to invoke GetAccount api")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)

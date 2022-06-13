@@ -29,7 +29,7 @@ import (
 // ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
 	core         CoreService
-	GrpcServer   *GRPCServer
+	grpcServer   *GRPCServer
 	httpSvr      *HTTPServer
 	websocketSvr *WebsocketServer
 	tracer       *tracesdk.TracerProvider
@@ -94,7 +94,7 @@ func NewServerV2(
 	}
 	return &ServerV2{
 		core:         coreAPI,
-		GrpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
+		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
 		httpSvr:      NewHTTPServer("", cfg.HTTPPort, web3Handler),
 		websocketSvr: NewWebSocketServer("", cfg.WebSocketPort, web3Handler),
 		tracer:       tp,
@@ -106,8 +106,8 @@ func (svr *ServerV2) Start(ctx context.Context) error {
 	if err := svr.core.Start(ctx); err != nil {
 		return err
 	}
-	if svr.GrpcServer != nil {
-		if err := svr.GrpcServer.Start(ctx); err != nil {
+	if svr.grpcServer != nil {
+		if err := svr.grpcServer.Start(ctx); err != nil {
 			return err
 		}
 	}
@@ -141,8 +141,8 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 			return err
 		}
 	}
-	if svr.GrpcServer != nil {
-		if err := svr.GrpcServer.Stop(ctx); err != nil {
+	if svr.grpcServer != nil {
+		if err := svr.grpcServer.Stop(ctx); err != nil {
 			return err
 		}
 	}

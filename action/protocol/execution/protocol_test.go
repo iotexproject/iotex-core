@@ -925,8 +925,6 @@ func TestMaxTime(t *testing.T) {
 }
 
 func TestIstanbulEVM(t *testing.T) {
-	cfg := config.Default
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/array-return.json")
 	})

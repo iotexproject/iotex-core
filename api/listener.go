@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/hex"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -32,6 +33,7 @@ type (
 		maxCapacity int
 		streamMap   *ttl.Cache // all registered <Responder, chan error>
 		idGenerator *randID
+		mu          sync.Mutex
 	}
 )
 
@@ -84,9 +86,10 @@ func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	return nil
 }
 
-// TODO: add lock to enable thread safety
 // AddResponder adds a new responder
 func (cl *chainListener) AddResponder(responder apitypes.Responder) (string, error) {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 	if cl.streamMap.Count() >= cl.maxCapacity {
 		return "", errorCapacityReached
 	}
@@ -109,6 +112,8 @@ func (cl *chainListener) AddResponder(responder apitypes.Responder) (string, err
 
 // RemoveResponder delete the responder
 func (cl *chainListener) RemoveResponder(listenerID string) (bool, error) {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 	value, exist := cl.streamMap.Get(listenerID)
 	if !exist {
 		return false, errListenerNotFound
