@@ -83,8 +83,8 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		nextEpoch bool
 	)
 
-	_nodeStatus = map[bool]string{true: "active", false: "false"}
-	_probatedStatus = map[bool]string{true: "probated", false: ""}
+	_nodeStatus = ConfigMap("active", "false")
+	_probatedStatus = ConfigMap("probated", "")
 
 	use, _ := client.SelectTranslation(_delegateUses)
 	short, _ := client.SelectTranslation(_delegateShorts)
@@ -280,4 +280,9 @@ func (m *delegatesMessage) String() string {
 			bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// ConfigMap return the map of status configuration
+func ConfigMap(t string, f string) map[bool]string {
+	return map[bool]string{true: t, false: f}
 }
