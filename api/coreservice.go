@@ -129,10 +129,10 @@ type (
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		// ActPoolActions returns the all Transaction Identifiers in the actpool
+		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
 		// BlockByHash returns the block and its receipt
 		BlockByHash(string) (*block.Store, error)
-		// ActPoolActions returns the all Transaction Identifiers in the mempool
-		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
@@ -183,7 +183,6 @@ type (
 		cfg               config.API
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
-		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 	}
@@ -194,6 +193,26 @@ type (
 		blkNum uint64
 	}
 )
+
+// Option is the option to override the api config
+type Option func(cfg *coreService)
+
+// BroadcastOutbound sends a broadcast message to the whole network
+type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
+
+// WithBroadcastOutbound is the option to broadcast msg outbound
+func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
+	return func(svr *coreService) {
+		svr.broadcastHandler = broadcastHandler
+	}
+}
+
+// WithNativeElection is the option to return native election data through API.
+func WithNativeElection(committee committee.Committee) Option {
+	return func(svr *coreService) {
+		svr.electionCommittee = committee
+	}
+}
 
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
@@ -217,12 +236,6 @@ func newCoreService(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (CoreService, error) {
-	apiCfg := Config{}
-	for _, opt := range opts {
-		if err := opt(&apiCfg); err != nil {
-			return nil, err
-		}
-	}
 	if cfg == (config.API{}) {
 		log.L().Warn("API server is not configured.")
 		cfg = config.Default.API
@@ -231,23 +244,27 @@ func newCoreService(
 	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
-	return &coreService{
-		bc:                chain,
-		bs:                bs,
-		sf:                sf,
-		dao:               dao,
-		indexer:           indexer,
-		bfIndexer:         bfIndexer,
-		ap:                actPool,
-		broadcastHandler:  apiCfg.broadcastHandler,
-		cfg:               cfg,
-		registry:          registry,
-		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, dao, cfg),
-		electionCommittee: apiCfg.electionCommittee,
-		readCache:         NewReadCache(),
-		hasActionIndex:    apiCfg.hasActionIndex,
-	}, nil
+
+	core := coreService{
+		bc:            chain,
+		bs:            bs,
+		sf:            sf,
+		dao:           dao,
+		indexer:       indexer,
+		bfIndexer:     bfIndexer,
+		ap:            actPool,
+		cfg:           cfg,
+		registry:      registry,
+		chainListener: NewChainListener(500),
+		gs:            gasstation.NewGasStation(chain, dao, cfg),
+		readCache:     NewReadCache(),
+	}
+
+	for _, opt := range opts {
+		opt(&core)
+	}
+
+	return &core, nil
 }
 
 // Account returns the metadata of an account
@@ -392,7 +409,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -540,7 +557,7 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 
 // EstimateGasForAction estimates gas for action
 func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -552,7 +569,7 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 		}
 		return gas, nil
 	}
-	callerAddr := selp.SrcPubkey().Address()
+	callerAddr := selp.SenderAddress()
 	if callerAddr == nil {
 		return 0, status.Error(codes.Internal, "failed to get address")
 	}
@@ -1204,7 +1221,7 @@ func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash has
 	if err != nil {
 		return nil, err
 	}
-	sender := selp.SrcPubkey().Address()
+	sender := selp.SenderAddress()
 	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
 	if err != nil {
 		return nil, err
@@ -1228,7 +1245,7 @@ func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Ac
 	if err != nil {
 		return nil, err
 	}
-	sender := selp.SrcPubkey().Address()
+	sender := selp.SenderAddress()
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
@@ -1280,7 +1297,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
+		sender := selp.SenderAddress()
 		res = append([]*iotexapi.ActionInfo{{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -1568,14 +1585,12 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 	}, out.GetBlockIdentifier(), nil
 }
 
-// ActPoolActions returns the all Transaction Identifiers in the mempool
-func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Action, error) {
-	var ret []*iotextypes.Action
+// ActionsInActPool returns the all Transaction Identifiers in the actpool
+func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error) {
+	var ret []action.SealedEnvelope
 	if len(actHashes) == 0 {
 		for _, sealeds := range core.ap.PendingActionMap() {
-			for _, sealed := range sealeds {
-				ret = append(ret, sealed.Proto())
-			}
+			ret = append(ret, sealeds...)
 		}
 		return ret, nil
 	}
@@ -1583,20 +1598,20 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 	for _, hashStr := range actHashes {
 		hs, err := hash.HexStringToHash256(hashStr)
 		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, errors.Wrap(err, "failed to hex string to hash256").Error())
+			return nil, err
 		}
 		sealed, err := core.ap.GetActionByHash(hs)
 		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
+			return nil, err
 		}
-		ret = append(ret, sealed.Proto())
+		ret = append(ret, sealed)
 	}
 	return ret, nil
 }
 
 // EVMNetworkID returns the network id of evm
 func (core *coreService) EVMNetworkID() uint32 {
-	return config.EVMNetworkID()
+	return core.bc.EvmNetworkID()
 }
 
 // ChainID returns the chain id of evm

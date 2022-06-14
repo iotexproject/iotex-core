@@ -40,9 +40,6 @@ var (
 
 // NewNodeRewardCmd represents the node reward command
 func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
-	var endpoint string
-	var insecure bool
-
 	use, _ := c.SelectTranslation(_rewardUses)
 	short, _ := c.SelectTranslation(_rewardShorts)
 	rewardPoolMessageTranslation, _ := c.SelectTranslation(_rewardPoolMessageTranslations)
@@ -55,7 +52,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 			var err error
 			if len(args) == 0 {
 
-				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
+				apiClient, err := c.APIServiceClient()
 				if err != nil {
 					return err
 				}
@@ -112,10 +109,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return output.NewError(output.AddressError, "failed to get address", err)
 				}
-				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-					Endpoint: endpoint,
-					Insecure: insecure,
-				})
+				apiClient, err := c.APIServiceClient()
 				if err != nil {
 					return err
 				}
