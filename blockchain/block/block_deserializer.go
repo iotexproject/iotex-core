@@ -44,7 +44,7 @@ func (bd *Deserializer) FromBlockProto(pbBlock *iotextypes.Block) (*Block, error
 	if b.Body, err = bd.fromBodyProto(pbBlock.GetBody()); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block body")
 	}
-	if err := b.ConvertFromBlockFooterPb(pbBlock.GetFooter()); err != nil {
+	if err = b.ConvertFromBlockFooterPb(pbBlock.GetFooter()); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block footer")
 	}
 	return &b, nil
@@ -87,5 +87,8 @@ func (bd *Deserializer) DeserializeBody(buf []byte) (*Body, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal block body")
 	}
 	b, err := bd.fromBodyProto(&pb)
-	return &b, err
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
