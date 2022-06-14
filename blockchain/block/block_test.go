@@ -127,7 +127,7 @@ var (
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	require.NoError(t, blk.ConvertFromBlockPb(&_pbBlock))
+	require.NoError(t, blk.ConvertFromBlockPb(&_pbBlock, 0))
 
 	txHash, err := blk.CalculateTxRoot()
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.NoError(t, err)
 
 	var newblk Block
-	err = newblk.Deserialize(raw)
+	err = newblk.Deserialize(raw, 0)
 	require.NoError(t, err)
 	require.Equal(t, blk, newblk)
 }
