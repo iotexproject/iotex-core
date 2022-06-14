@@ -45,30 +45,30 @@ var (
 // info contains the information of config file
 type info struct {
 	readConfig        config.Config
-	defaultConfigFile string
+	defaultConfigFile string // Path to config file
 }
 
 // InitConfig load config data from default config file
-func InitConfig() (config.Config, string) {
+func InitConfig() (config.Config, string, error) {
 	info := &info{}
 	configDir := os.Getenv("HOME") + "/.config/ioctl/default"
 	// Create path to config directory
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		log.L().Panic(err.Error())
+		return info.readConfig, info.defaultConfigFile, err
 	}
-	// Path to config file
 	info.defaultConfigFile = filepath.Join(configDir, _defaultConfigFileName)
-	var err error
+
 	// Load or reset config file
-	info.readConfig, err = config.LoadConfig()
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = info.reset() // Config file doesn't exist
-		}
-		if err != nil {
-			log.L().Panic(err.Error())
-		}
+	cfg, err := config.LoadConfig()
+	if err != nil && os.IsNotExist(err) {
+		err = info.reset() // Config file doesn't exist
+	} else if err != nil {
+		log.L().Panic(err.Error())
+		return info.readConfig, info.defaultConfigFile, err
 	}
+	info.readConfig = cfg
+
 	// Check completeness of config file
 	completeness := true
 	if info.readConfig.Wallet == "" {
@@ -87,19 +87,24 @@ func InitConfig() (config.Config, string) {
 		completeness = false
 	}
 	if !completeness {
-		err := info.writeConfig()
-		if err != nil {
+		if err := info.writeConfig(); err != nil {
 			log.L().Panic(err.Error())
+			return info.readConfig, info.defaultConfigFile, err
 		}
 	}
 	// Set language for ioctl
-	uiLanguage := info.isSupportedLanguage(info.readConfig.Language)
-	if uiLanguage == -1 {
-		uiLanguage = 0
-		fmt.Printf("Warn: Language %s is not supported, English instead.\n",
-			info.readConfig.Language)
+	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
+		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
-	return info.readConfig, info.defaultConfigFile
+	return info.readConfig, info.defaultConfigFile, nil
+}
+
+// newInfo create config info
+func newInfo(readConfig config.Config, defaultConfigFile string) *info {
+	return &info{
+		readConfig:        readConfig,
+		defaultConfigFile: defaultConfigFile,
+	}
 }
 
 // reset resets all values of config

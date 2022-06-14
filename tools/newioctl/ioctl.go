@@ -15,7 +15,10 @@ import (
 )
 
 func main() {
-	readConfig, defaultConfigFile := config.InitConfig()
+	readConfig, defaultConfigFile, err := config.InitConfig()
+	if err != nil {
+		os.Exit(1)
+	}
 	client := ioctl.NewClient(readConfig, defaultConfigFile)
 	if err := newcmd.NewIoctl(client).Execute(); err != nil {
 		os.Exit(1)
