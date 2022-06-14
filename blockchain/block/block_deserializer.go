@@ -13,7 +13,21 @@ import (
 )
 
 // Deserializer de-serializes a block
+//
+// It's a wrapper to set certain parameters in order to correctly de-serialize a block
+// Currently the parameter is EVM network ID for tx in web3 format, it is called like
+//
+// blk, err := (&Deserializer{}).SetEvmNetworkID(id).FromBlockProto(pbBlock)
+// blk, err := (&Deserializer{}).SetEvmNetworkID(id).DeserializeBlock(buf)
+//
 type Deserializer struct {
+	evmNetworkID uint32
+}
+
+// SetEvmNetworkID sets the evm network ID for web3 actions
+func (bd *Deserializer) SetEvmNetworkID(id uint32) *Deserializer {
+	bd.evmNetworkID = id
+	return bd
 }
 
 // FromBlockProto converts protobuf to block
@@ -22,7 +36,7 @@ func (bd *Deserializer) FromBlockProto(pbBlock *iotextypes.Block) (*Block, error
 	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block header")
 	}
-	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
+	if err := b.Body.LoadProto(pbBlock.GetBody(), bd.evmNetworkID); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block body")
 	}
 	if err := b.ConvertFromBlockFooterPb(pbBlock.GetFooter()); err != nil {
@@ -51,7 +65,7 @@ func (bd *Deserializer) DeserializeBlock(buf []byte) (*Block, error) {
 // FromBodyProto converts protobuf to body
 func (bd *Deserializer) FromBodyProto(pbBody *iotextypes.BlockBody) (*Body, error) {
 	b := Body{}
-	if err := b.LoadProto(pbBody); err != nil {
+	if err := b.LoadProto(pbBody, bd.evmNetworkID); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block body")
 	}
 	return &b, nil
