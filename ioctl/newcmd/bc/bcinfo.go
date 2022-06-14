@@ -11,10 +11,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
@@ -33,11 +34,7 @@ type infoMessage struct {
 // NewBCInfoCmd represents the bc info command
 func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 	bcInfoCmdShort, _ := client.SelectTranslation(_bcInfoCmdShorts)
-	flagEndpointUsage, _ := client.SelectTranslation(_flagEndpointUsages)
-
-	var endpoint string
-
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "info",
 		Short: bcInfoCmdShort,
 		Args:  cobra.ExactArgs(0),
@@ -52,10 +49,6 @@ func NewBCInfoCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-
-	return cmd
 }
 
 // JSONString returns json string for message

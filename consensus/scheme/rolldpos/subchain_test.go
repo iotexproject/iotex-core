@@ -64,10 +64,10 @@ func TestPutBlockToParentChain(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
+	require.NoError(t, blk.ConvertFromBlockPb(blkpb, 0))
 	txRoot, err := blk.CalculateTxRoot()
 	require.NoError(t, err)
 	blkpb.Header.Core.TxRoot = txRoot[:]
 	blk = block.Block{}
-	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
+	require.NoError(t, blk.ConvertFromBlockPb(blkpb, 0))
 }

@@ -227,7 +227,7 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
+		sender := selp.SenderAddress()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -604,9 +604,13 @@ func (svr *GRPCServer) GetTransactionLogByBlockHeight(ctx context.Context, in *i
 
 // GetActPoolActions returns the all Transaction Identifiers in the mempool
 func (svr *GRPCServer) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
-	ret, err := svr.coreService.ActPoolActions(in.ActionHashes)
+	acts, err := svr.coreService.ActionsInActPool(in.ActionHashes)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	ret := make([]*iotextypes.Action, 0)
+	for _, act := range acts {
+		ret = append(ret, act.Proto())
 	}
 	return &iotexapi.GetActPoolActionsResponse{
 		Actions: ret,
@@ -647,7 +651,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		NoBaseFee: true,
 	})
 
-	_, _, err = svr.coreService.SimulateExecution(ctx, act.SrcPubkey().Address(), sc)
+	_, _, err = svr.coreService.SimulateExecution(ctx, act.SenderAddress(), sc)
 	if err != nil {
 		return nil, err
 	}

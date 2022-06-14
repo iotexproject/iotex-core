@@ -53,13 +53,13 @@ func (b *Block) Serialize() ([]byte, error) {
 }
 
 // ConvertFromBlockPb converts Block to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
+func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block, id uint32) error {
 	b.Header = Header{}
 	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
 		return err
 	}
 	b.Body = Body{}
-	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
+	if err := b.Body.LoadProto(pbBlock.GetBody(), id); err != nil {
 		return err
 	}
 
@@ -67,12 +67,12 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
 }
 
 // Deserialize parses the byte stream into a Block
-func (b *Block) Deserialize(buf []byte) error {
+func (b *Block) Deserialize(buf []byte, id uint32) error {
 	pbBlock := iotextypes.Block{}
 	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
 		return err
 	}
-	if err := b.ConvertFromBlockPb(&pbBlock); err != nil {
+	if err := b.ConvertFromBlockPb(&pbBlock, id); err != nil {
 		return err
 	}
 	b.Receipts = nil
