@@ -42,15 +42,15 @@ var (
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 )
 
-// Info contains the information of config file
-type Info struct {
+// info contains the information of config file
+type info struct {
 	readConfig        config.Config
 	defaultConfigFile string
 }
 
 // InitConfig load config data from default config file
 func InitConfig() (config.Config, string) {
-	info := &Info{}
+	info := &info{}
 	configDir := os.Getenv("HOME") + "/.config/ioctl/default"
 	// Create path to config directory
 	if err := os.MkdirAll(configDir, 0700); err != nil {
@@ -102,16 +102,8 @@ func InitConfig() (config.Config, string) {
 	return info.readConfig, info.defaultConfigFile
 }
 
-// newInfo create config info
-func newInfo(readConfig config.Config, defaultConfigFile string) *Info {
-	return &Info{
-		readConfig:        readConfig,
-		defaultConfigFile: defaultConfigFile,
-	}
-}
-
 // reset resets all values of config
-func (c *Info) reset() error {
+func (c *info) reset() error {
 	c.readConfig.Wallet = path.Dir(c.defaultConfigFile)
 	c.readConfig.Endpoint = ""
 	c.readConfig.SecureConnect = true
@@ -130,7 +122,7 @@ func (c *Info) reset() error {
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
-func (c *Info) isSupportedLanguage(arg string) config.Language {
+func (c *info) isSupportedLanguage(arg string) config.Language {
 	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
 		return config.Language(index)
 	}
@@ -143,7 +135,7 @@ func (c *Info) isSupportedLanguage(arg string) config.Language {
 }
 
 // writeConfig writes to config file
-func (c *Info) writeConfig() error {
+func (c *info) writeConfig() error {
 	out, err := yaml.Marshal(&c.readConfig)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal config")

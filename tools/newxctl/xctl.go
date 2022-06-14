@@ -17,8 +17,7 @@ import (
 func main() {
 	readConfig, defaultConfigFile := config.InitConfig()
 	client := ioctl.NewClient(readConfig, defaultConfigFile, ioctl.EnableCryptoSm2())
-	rootCmd := newcmd.NewXctl(client)
-	if err := rootCmd.Execute(); err != nil {
+	if err := newcmd.NewXctl(client).Execute(); err != nil {
 		os.Exit(1)
 	}
 }
