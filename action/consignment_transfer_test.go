@@ -84,7 +84,7 @@ func TestConsignmentTransfer(t *testing.T) {
 	r.NoError(err)
 
 	// process the payload as a consignment transfer
-	con, err := NewConsignment(b, false)
+	con, err := NewConsignment(b)
 	r.NoError(err)
 	r.Equal(v.signer, hex.EncodeToString(con.Transferor().Bytes()))
 	r.Equal(v.recipient, con.Transferee().String())
@@ -99,7 +99,7 @@ func TestConsignmentTransfer(t *testing.T) {
 	}
 	b, err = json.Marshal(c)
 	r.NoError(err)
-	con, err = NewConsignment(b, false)
+	con, err = NewConsignment(b)
 	r.Equal(ErrNotSupported, err)
 	r.Nil(con)
 }

@@ -38,11 +38,11 @@ func (b *Body) Serialize() ([]byte, error) {
 }
 
 // LoadProto loads body from proto
-func (b *Body) LoadProto(pbBlock *iotextypes.BlockBody) error {
+func (b *Body) LoadProto(pbBlock *iotextypes.BlockBody, id uint32) error {
 	b.Actions = []action.SealedEnvelope{}
 	for _, actPb := range pbBlock.Actions {
-		act := action.SealedEnvelope{}
-		if err := act.LoadProto(actPb); err != nil {
+		act, err := (&action.Deserializer{}).SetEvmNetworkID(id).ActionToSealedEnvelope(actPb)
+		if err != nil {
 			return err
 		}
 		b.Actions = append(b.Actions, act)
@@ -52,13 +52,13 @@ func (b *Body) LoadProto(pbBlock *iotextypes.BlockBody) error {
 }
 
 // Deserialize parses the byte stream into a Block
-func (b *Body) Deserialize(buf []byte) error {
+func (b *Body) Deserialize(buf []byte, id uint32) error {
 	pb := iotextypes.BlockBody{}
 	if err := proto.Unmarshal(buf, &pb); err != nil {
 		return err
 	}
 
-	return b.LoadProto(&pb)
+	return b.LoadProto(&pb, id)
 }
 
 // CalculateTxRoot returns the Merkle root of all txs and actions in this block.
