@@ -552,7 +552,7 @@ func (svr *web3Handler) getTransactionReceipt(in *gjson.Result) (interface{}, er
 
 	return &getReceiptResult{
 		blockHash:       blockHash,
-		from:            selp.SrcPubkey().Address(),
+		from:            selp.SenderAddress(),
 		to:              to,
 		contractAddress: contractAddr,
 		logsBloom:       blkMeta.LogsBloom,

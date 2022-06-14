@@ -79,7 +79,7 @@ type (
 )
 
 // NewConsignment creates a consignment from data
-func NewConsignment(data []byte, tolerateLegacyAddress bool) (Consignment, error) {
+func NewConsignment(data []byte) (Consignment, error) {
 	c := ConsignJSON{}
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, err
@@ -87,13 +87,13 @@ func NewConsignment(data []byte, tolerateLegacyAddress bool) (Consignment, error
 
 	switch c.Type {
 	case "Ethereum":
-		return processConsignmentEther(c, tolerateLegacyAddress)
+		return processConsignmentEther(c)
 	default:
 		return nil, ErrNotSupported
 	}
 }
 
-func processConsignmentEther(c ConsignJSON, tolerateLegacyAddress bool) (Consignment, error) {
+func processConsignmentEther(c ConsignJSON) (Consignment, error) {
 	// parse embedded msg
 	msg := ConsignMsgEther{}
 	if err := json.Unmarshal([]byte(c.Msg), &msg); err != nil {
@@ -118,11 +118,7 @@ func processConsignmentEther(c ConsignJSON, tolerateLegacyAddress bool) (Consign
 	if con.signer == nil {
 		return nil, errors.New("failed to get address")
 	}
-	if tolerateLegacyAddress {
-		con.recipient, err = address.FromStringLegacy(msg.Recipient)
-	} else {
-		con.recipient, err = address.FromString(msg.Recipient)
-	}
+	con.recipient, err = address.FromString(msg.Recipient)
 	if err != nil {
 		return nil, err
 	}
