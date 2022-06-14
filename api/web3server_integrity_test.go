@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -53,7 +52,7 @@ func TestGetChainIDIntegrity(t *testing.T) {
 	defer cleanCallback()
 
 	ret, _ := svr.getChainID()
-	require.Equal(uint64ToHex(1), ret)
+	require.Equal(uint64ToHex(uint64(_evmNetworkID)), ret)
 }
 
 func TestGetBlockNumberIntegrity(t *testing.T) {
@@ -549,7 +548,6 @@ func TestGetNetworkIDIntegrity(t *testing.T) {
 
 func setupTestWeb3Server() (*web3Handler, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig()
-	config.SetEVMNetworkID(_evmNetworkID)
 
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
@@ -691,7 +689,7 @@ func TestWeb3StakingIntegrity(t *testing.T) {
 				big.NewInt(0),
 				test.stakeEncodedData,
 			)
-			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))), ecdsaPvk)
+			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))), ecdsaPvk)
 			require.NoError(err)
 			BinaryData, err := tx.MarshalBinary()
 			require.NoError(err)
