@@ -9,7 +9,6 @@ package block
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 )
@@ -19,16 +18,15 @@ func TestBlockDeserializer(t *testing.T) {
 	bd := Deserializer{}
 	blk, err := bd.FromBlockProto(&_pbBlock)
 	r.NoError(err)
-	body, err := bd.FromBodyProto(_pbBlock.Body)
+	body, err := bd.fromBodyProto(_pbBlock.Body)
 	r.NoError(err)
-	r.Equal(body, &blk.Body)
+	r.Equal(body, blk.Body)
 
 	txHash, err := blk.CalculateTxRoot()
 	r.NoError(err)
 	blk.Header.txRoot = txHash
 	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
-	pb := blk.ConvertToBlockPb()
-	raw, err := proto.Marshal(pb)
+	raw, err := blk.Serialize()
 	r.NoError(err)
 
 	newblk, err := (&Deserializer{}).DeserializeBlock(raw)
