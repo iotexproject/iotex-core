@@ -1,8 +1,6 @@
 package apitypes
 
 import (
-	"context"
-
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
@@ -26,8 +24,6 @@ type (
 		AddResponder(Responder) (string, error)
 		RemoveResponder(string) (bool, error)
 	}
-
-	apiCallSourceContextKey struct{}
 )
 
 // responseWriter for server
@@ -67,15 +63,4 @@ func (w *BatchWriter) Write(in interface{}) error {
 // Flush writes data in batch buffer
 func (w *BatchWriter) Flush() error {
 	return w.writer.Write(w.buf)
-}
-
-// WithAPICallSourceCtx adds api call source to context
-func WithAPICallSourceCtx(ctx context.Context, from string) context.Context {
-	return context.WithValue(ctx, apiCallSourceContextKey{}, from)
-}
-
-// GetAPICallSourceCtx returns the api call source from context
-func GetAPICallSourceCtx(ctx context.Context) (string, bool) {
-	cfg, ok := ctx.Value(apiCallSourceContextKey{}).(string)
-	return cfg, ok
 }

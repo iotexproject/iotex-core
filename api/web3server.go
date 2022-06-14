@@ -385,8 +385,7 @@ func (svr *web3Handler) sendRawTransaction(in *gjson.Result) (interface{}, error
 		Signature:    sig,
 		Encoding:     iotextypes.Encoding_ETHEREUM_RLP,
 	}
-	ctx := apitypes.WithAPICallSourceCtx(context.Background(), "web3")
-	actionHash, err := svr.coreService.SendAction(ctx, req)
+	actionHash, err := svr.coreService.SendAction(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}

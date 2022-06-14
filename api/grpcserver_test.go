@@ -67,7 +67,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
 
 	for _, test := range _sendActionTests {
-		core.EXPECT().SendAction(gomock.Any(), test.actionPb).Return(test.actionHash, nil)
+		core.EXPECT().SendAction(context.Background(), test.actionPb).Return(test.actionHash, nil)
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := grpcSvr.SendAction(context.Background(), request)
 		require.NoError(err)

@@ -76,7 +76,7 @@ var (
 			Name: "iotex_apicallsource_nochainid_metrics",
 			Help: "API call Source Without ChainID Statistics",
 		},
-		[]string{"caller_client", "client_ip", "sender", "recipient"},
+		[]string{"client_ip", "sender", "recipient"},
 	)
 )
 
@@ -403,10 +403,6 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	} else {
 		var clientIP, sender, recipient string
 
-		callSource := "unknown"
-		if ca, ok := apitypes.GetAPICallSourceCtx(ctx); ok {
-			callSource = ca
-		}
 		if p, ok := peer.FromContext(ctx); ok {
 			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
 		}
@@ -414,7 +410,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 			sender = senderAddr.String()
 		}
 		recipient, _ = selp.Destination()
-		_apiCallSourceWithOutChainIDMtc.WithLabelValues(callSource, clientIP, sender, recipient).Inc()
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
 	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
