@@ -36,14 +36,14 @@ func TestSerDer(t *testing.T) {
 	body := Body{}
 	ser, err := body.Serialize()
 	require.NoError(err)
-	require.NoError(body.Deserialize(ser))
+	require.NoError(body.Deserialize(ser, 0))
 	require.Equal(0, len(body.Actions))
 
 	body, err = makeBody()
 	require.NoError(err)
 	ser, err = body.Serialize()
 	require.NoError(err)
-	require.NoError(body.Deserialize(ser))
+	require.NoError(body.Deserialize(ser, 0))
 	require.Equal(1, len(body.Actions))
 }
 
@@ -52,14 +52,14 @@ func TestLoadProto(t *testing.T) {
 	body := Body{}
 	blockBody := body.Proto()
 	require.NotNil(blockBody)
-	require.NoError(body.LoadProto(blockBody))
+	require.NoError(body.LoadProto(blockBody, 0))
 	require.Equal(0, len(body.Actions))
 
 	body, err := makeBody()
 	require.NoError(err)
 	blockBody = body.Proto()
 	require.NotNil(blockBody)
-	require.NoError(body.LoadProto(blockBody))
+	require.NoError(body.LoadProto(blockBody, 0))
 	require.Equal(1, len(body.Actions))
 }
 
