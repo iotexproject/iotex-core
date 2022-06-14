@@ -13,17 +13,14 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"net"
 	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -62,28 +59,6 @@ import (
 )
 
 const _workerNumbers int = 5
-
-var (
-	_apiCallSourceWithChainIDMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_apicallsource_chainid_metrics",
-			Help: "API call Source ChainID Statistics",
-		},
-		[]string{"chain_id"},
-	)
-	_apiCallSourceWithOutChainIDMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_apicallsource_nochainid_metrics",
-			Help: "API call Source Without ChainID Statistics",
-		},
-		[]string{"client_ip", "sender", "recipient"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(_apiCallSourceWithChainIDMtc)
-	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
-}
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
@@ -412,22 +387,6 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	chainID := strconv.FormatUint(uint64(in.GetCore().GetChainID()), 10)
-	if in.GetCore().GetChainID() > 0 {
-		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
-	} else {
-		var clientIP, sender, recipient string
-
-		if p, ok := peer.FromContext(ctx); ok {
-			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
-		}
-		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
-			sender = senderAddr.String()
-		}
-		recipient, _ = selp.Destination()
-		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
 	}
 
 	// reject action if chainID is not matched at KamchatkaHeight
