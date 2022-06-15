@@ -251,7 +251,8 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
-	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -395,7 +396,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 
 	// Add to local actpool
-	ctx = protocol.WithRegistry(ctx, core.registry)
+	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, core.registry), core.bc.Genesis())
 	hash, err := selp.Hash()
 	if err != nil {
 		return "", err
@@ -453,7 +454,8 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 			return res.Data, res.Receipt, nil
 		}
 	}
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1366,7 +1368,7 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	state, err := accountutil.AccountState(genesis.WithGenesisContext(ctx, core.bc.Genesis()), core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1557,7 +1559,8 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 }
 
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
-	state, err := accountutil.AccountState(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, err
 	}

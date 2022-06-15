@@ -39,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -259,7 +260,7 @@ func readExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	state, err := accountutil.AccountState(sf, ecfg.Executor())
+	state, err := accountutil.AccountState(genesis.WithGenesisContext(context.Background(), bc.Genesis()), sf, ecfg.Executor())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -303,7 +304,7 @@ func runExecutions(
 		var ok bool
 		executor := ecfg.Executor()
 		if nonce, ok = nonces[executor.String()]; !ok {
-			state, err := accountutil.AccountState(sf, executor)
+			state, err := accountutil.AccountState(genesis.WithGenesisContext(context.Background(), bc.Genesis()), sf, executor)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -422,7 +423,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	}
 	r.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
@@ -508,7 +509,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
-
+	ctx = genesis.WithGenesisContext(context.Background(), bc.Genesis())
 	// deploy smart contract
 	contractAddresses := sct.deployContracts(bc, sf, dao, ap, r)
 	if len(contractAddresses) == 0 {
@@ -568,7 +569,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 			addr, err := address.FromString(account)
 			r.NoError(err)
-			state, err := accountutil.AccountState(sf, addr)
+			state, err := accountutil.AccountState(ctx, sf, addr)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -605,7 +606,6 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Info("Test EVM")
 		require := require.New(t)
 
-		ctx := context.Background()
 		cfg := config.Default
 		defer func() {
 			delete(cfg.Plugins, config.GatewayPlugin)
@@ -631,6 +631,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
+		ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+
 		registry := protocol.NewRegistry()
 		acc := account.NewProtocol(rewarding.DepositGas)
 		require.NoError(acc.Register(registry))
@@ -639,7 +641,7 @@ func TestProtocol_Handle(t *testing.T) {
 		// create state factory
 		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
-		ap, err := actpool.NewActPool(sf, cfg.ActPool)
+		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -692,7 +694,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		// test IsContract
-		state, err := accountutil.AccountState(sf, contract)
+		state, err := accountutil.AccountState(ctx, sf, contract)
 		require.NoError(err)
 		require.True(state.IsContract())
 

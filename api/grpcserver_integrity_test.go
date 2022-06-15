@@ -2372,7 +2372,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)

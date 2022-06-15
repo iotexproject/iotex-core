@@ -7,6 +7,8 @@
 package accountutil
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -19,7 +21,7 @@ import (
 // LoadOrCreateAccount either loads an account state or creates an account state
 func LoadOrCreateAccount(sm protocol.StateManager, addr address.Address, opts ...state.AccountCreationOption) (*state.Account, error) {
 	var (
-		account  = state.NewEmptyAccount()
+		account  = &state.Account{}
 		addrHash = hash.BytesToHash160(addr.Bytes())
 	)
 	_, err := sm.State(account, protocol.LegacyKeyOption(addrHash))
@@ -47,7 +49,7 @@ func LoadAccount(sr protocol.StateReader, addr address.Address, opts ...state.Ac
 
 // LoadAccountByHash160 loads an account state by 20-byte address
 func LoadAccountByHash160(sr protocol.StateReader, addrHash hash.Hash160, opts ...state.AccountCreationOption) (*state.Account, error) {
-	account := state.NewEmptyAccount()
+	account := &state.Account{}
 	switch _, err := sr.State(account, protocol.LegacyKeyOption(addrHash)); errors.Cause(err) {
 	case state.ErrStateNotExist:
 		return state.NewAccount(opts...)
@@ -67,7 +69,7 @@ func StoreAccount(sm protocol.StateManager, addr address.Address, account *state
 
 // Recorded tests if an account has been actually stored
 func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
-	account := state.NewEmptyAccount()
+	account := &state.Account{}
 	_, err := sr.State(account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
 	switch errors.Cause(err) {
 	case nil:
@@ -79,21 +81,34 @@ func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
 }
 
 // AccountState returns the confirmed account state on the chain
-func AccountState(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
-	a, _, err := AccountStateWithHeight(sr, addr)
+func AccountState(ctx context.Context, sr protocol.StateReader, addr address.Address) (*state.Account, error) {
+	a, _, err := AccountStateWithHeight(ctx, sr, addr)
 	return a, err
 }
 
 // AccountStateWithHeight returns the confirmed account state on the chain with what height the state is read from.
-func AccountStateWithHeight(sr protocol.StateReader, addr address.Address) (*state.Account, uint64, error) {
+func AccountStateWithHeight(ctx context.Context, sr protocol.StateReader, addr address.Address) (*state.Account, uint64, error) {
 	pkHash := hash.BytesToHash160(addr.Bytes())
-	account := state.NewEmptyAccount()
+	account := &state.Account{}
 	h, err := sr.State(account, protocol.LegacyKeyOption(pkHash))
 	switch errors.Cause(err) {
 	case nil:
-		fallthrough
-	case state.ErrStateNotExist:
 		return account, h, nil
+	case state.ErrStateNotExist:
+		tip, err := sr.Height()
+		if err != nil {
+			return nil, 0, err
+		}
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: tip + 1,
+		})
+		ctx = protocol.WithFeatureCtx(ctx)
+		var opts []state.AccountCreationOption
+		if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+			opts = append(opts, state.LegacyNonceAccountTypeOption())
+		}
+		account, err = state.NewAccount(opts...)
+		return account, h, err
 	default:
 		return nil, h, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}

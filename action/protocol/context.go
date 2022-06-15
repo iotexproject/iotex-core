@@ -81,32 +81,32 @@ type (
 
 	// FeatureCtx provides features information.
 	FeatureCtx struct {
-		FixDoubleChargeGas          bool
-		SystemWideActionGasLimit    bool
-		NotFixTopicCopyBug          bool
-		SetRevertMessageToReceipt   bool
-		FixGetHashFnHeight          bool
-		UsePendingNonceOption       bool
-		AsyncContractTrie           bool
-		AddOutOfGasToTransactionLog bool
-		AddChainIDToConfig          bool
-		UseV2Storage                bool
-		CannotUnstakeAgain          bool
-		SkipStakingIndexer          bool
-		ReturnFetchError            bool
-		CannotTranferToSelf         bool
-		NewStakingReceiptFormat     bool
-		UpdateBlockMeta             bool
-		CurrentEpochProductivity    bool
-		FixSnapshotOrder            bool
-		AllowCorrectDefaultChainID  bool
-		CorrectGetHashFn            bool
-		CorrectTxLogIndex           bool
-		RevertLog                   bool
-		TolerateLegacyAddress       bool
-		ValidateRewardProtocol      bool
-		CreateZeroNonceAccount      bool
-		SkipUpdateForSystemAction   bool
+		FixDoubleChargeGas                      bool
+		SystemWideActionGasLimit                bool
+		NotFixTopicCopyBug                      bool
+		SetRevertMessageToReceipt               bool
+		FixGetHashFnHeight                      bool
+		FixSortCacheContractsAndUsePendingNonce bool
+		AsyncContractTrie                       bool
+		AddOutOfGasToTransactionLog             bool
+		AddChainIDToConfig                      bool
+		UseV2Storage                            bool
+		CannotUnstakeAgain                      bool
+		SkipStakingIndexer                      bool
+		ReturnFetchError                        bool
+		CannotTranferToSelf                     bool
+		NewStakingReceiptFormat                 bool
+		UpdateBlockMeta                         bool
+		CurrentEpochProductivity                bool
+		FixSnapshotOrder                        bool
+		AllowCorrectDefaultChainID              bool
+		CorrectGetHashFn                        bool
+		CorrectTxLogIndex                       bool
+		RevertLog                               bool
+		TolerateLegacyAddress                   bool
+		ValidateRewardProtocol                  bool
+		CreateLegacyNonceAccount                bool
+		FixGasAndNonceUpdate                    bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -212,32 +212,32 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 		ctx,
 		featureContextKey{},
 		FeatureCtx{
-			FixDoubleChargeGas:          g.IsPacific(height),
-			SystemWideActionGasLimit:    !g.IsAleutian(height),
-			NotFixTopicCopyBug:          !g.IsAleutian(height),
-			SetRevertMessageToReceipt:   g.IsHawaii(height),
-			FixGetHashFnHeight:          g.IsHawaii(height),
-			UsePendingNonceOption:       g.IsHawaii(height),
-			AsyncContractTrie:           g.IsGreenland(height),
-			AddOutOfGasToTransactionLog: !g.IsGreenland(height),
-			AddChainIDToConfig:          g.IsIceland(height),
-			UseV2Storage:                g.IsGreenland(height),
-			CannotUnstakeAgain:          g.IsGreenland(height),
-			SkipStakingIndexer:          !g.IsFairbank(height),
-			ReturnFetchError:            !g.IsGreenland(height),
-			CannotTranferToSelf:         g.IsHawaii(height),
-			NewStakingReceiptFormat:     g.IsFbkMigration(height),
-			UpdateBlockMeta:             g.IsGreenland(height),
-			CurrentEpochProductivity:    g.IsGreenland(height),
-			FixSnapshotOrder:            g.IsKamchatka(height),
-			AllowCorrectDefaultChainID:  g.IsMidway(height),
-			CorrectGetHashFn:            g.IsMidway(height),
-			CorrectTxLogIndex:           g.IsMidway(height),
-			RevertLog:                   g.IsMidway(height),
-			TolerateLegacyAddress:       !g.IsNewfoundland(height),
-			ValidateRewardProtocol:      g.IsNewfoundland(height),
-			CreateZeroNonceAccount:      g.IsToBeEnabled(height),
-			SkipUpdateForSystemAction:   g.IsToBeEnabled(height),
+			FixDoubleChargeGas:                      g.IsPacific(height),
+			SystemWideActionGasLimit:                !g.IsAleutian(height),
+			NotFixTopicCopyBug:                      !g.IsAleutian(height),
+			SetRevertMessageToReceipt:               g.IsHawaii(height),
+			FixGetHashFnHeight:                      g.IsHawaii(height),
+			FixSortCacheContractsAndUsePendingNonce: g.IsHawaii(height),
+			AsyncContractTrie:                       g.IsGreenland(height),
+			AddOutOfGasToTransactionLog:             !g.IsGreenland(height),
+			AddChainIDToConfig:                      g.IsIceland(height),
+			UseV2Storage:                            g.IsGreenland(height),
+			CannotUnstakeAgain:                      g.IsGreenland(height),
+			SkipStakingIndexer:                      !g.IsFairbank(height),
+			ReturnFetchError:                        !g.IsGreenland(height),
+			CannotTranferToSelf:                     g.IsHawaii(height),
+			NewStakingReceiptFormat:                 g.IsFbkMigration(height),
+			UpdateBlockMeta:                         g.IsGreenland(height),
+			CurrentEpochProductivity:                g.IsGreenland(height),
+			FixSnapshotOrder:                        g.IsKamchatka(height),
+			AllowCorrectDefaultChainID:              g.IsMidway(height),
+			CorrectGetHashFn:                        g.IsMidway(height),
+			CorrectTxLogIndex:                       g.IsMidway(height),
+			RevertLog:                               g.IsMidway(height),
+			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
+			ValidateRewardProtocol:                  g.IsNewfoundland(height),
+			CreateLegacyNonceAccount:                !g.IsToBeEnabled(height),
+			FixGasAndNonceUpdate:                    g.IsToBeEnabled(height),
 		},
 	)
 }

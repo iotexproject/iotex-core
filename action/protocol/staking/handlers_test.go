@@ -27,6 +27,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
@@ -2687,7 +2688,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	if balance < 0 {
 		return errors.New("balance cannot be negative")
 	}
-	account, err := accountutil.LoadOrCreateAccount(sm, addr)
+	account, err := accountutil.LoadOrCreateAccount(sm, addr, state.LegacyNonceAccountTypeOption())
 	if err != nil {
 		return err
 	}

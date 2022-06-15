@@ -17,24 +17,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNonce(t *testing.T) {
+	require := require.New(t)
+	t.Run("legacy account type", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		require.Equal(uint64(1), acct.PendingNonce())
+		require.Error(acct.SetPendingNonce(0))
+		require.Error(acct.SetPendingNonce(1))
+		require.Error(acct.SetPendingNonce(3))
+		require.NoError(acct.SetPendingNonce(2))
+		require.Equal(uint64(2), acct.PendingNonce())
+	})
+	t.Run("zero nonce account type", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		require.Equal(uint64(0), acct.PendingNonce())
+		require.Error(acct.SetPendingNonce(2))
+		require.NoError(acct.SetPendingNonce(1))
+		require.Equal(uint64(1), acct.PendingNonce())
+	})
+}
+
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
 	s1 := Account{
-		nonce:    0x10,
-		Balance:  big.NewInt(20000000),
-		CodeHash: []byte("testing codehash"),
+		accountType: 1,
+		nonce:       0x10,
+		Balance:     big.NewInt(20000000),
+		CodeHash:    []byte("testing codehash"),
 	}
 	ss, err := s1.Serialize()
 	require.NoError(err)
 	require.NotEmpty(ss)
-	require.Equal(64, len(ss))
+	require.Equal(66, len(ss))
 
 	s2 := Account{}
 	require.NoError(s2.Deserialize(ss))
-	require.Equal(big.NewInt(20000000), s2.Balance)
-	require.Equal(uint64(0x11), s2.PendingNonce())
+	require.Equal(s1.accountType, s2.accountType)
+	require.Equal(s1.Balance, s2.Balance)
+	require.Equal(s1.nonce, s2.nonce)
 	require.Equal(hash.ZeroHash256, s2.Root)
-	require.Equal([]byte("testing codehash"), s2.CodeHash)
+	require.Equal(s1.CodeHash, s2.CodeHash)
 }
 
 func TestProto(t *testing.T) {

@@ -49,40 +49,40 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                  protocol.StateManager
-		logs                []*action.Log
-		transactionLogs     []*action.TransactionLog
-		err                 error
-		blockHeight         uint64
-		executionHash       hash.Hash256
-		refund              uint64
-		cachedContract      contractMap
-		contractSnapshot    map[int]contractMap   // snapshots of contracts
-		suicided            deleteAccount         // account/contract calling Suicide
-		suicideSnapshot     map[int]deleteAccount // snapshots of suicide accounts
-		preimages           preimageMap
-		preimageSnapshot    map[int]preimageMap
-		accessList          *accessList // per-transaction access list
-		accessListSnapshot  map[int]*accessList
-		logsSnapshot        map[int]int // logs is an array, save len(logs) at time of snapshot suffices
-		txLogsSnapshot      map[int]int
-		notFixTopicCopyBug  bool
-		asyncContractTrie   bool
-		sortCachedContracts bool
-		usePendingNonce     bool
-		zeroNonceAccount    bool
-		fixSnapshotOrder    bool
-		revertLog           bool
+		sm                         protocol.StateManager
+		logs                       []*action.Log
+		transactionLogs            []*action.TransactionLog
+		err                        error
+		blockHeight                uint64
+		executionHash              hash.Hash256
+		refund                     uint64
+		cachedContract             contractMap
+		contractSnapshot           map[int]contractMap   // snapshots of contracts
+		suicided                   deleteAccount         // account/contract calling Suicide
+		suicideSnapshot            map[int]deleteAccount // snapshots of suicide accounts
+		preimages                  preimageMap
+		preimageSnapshot           map[int]preimageMap
+		accessList                 *accessList // per-transaction access list
+		accessListSnapshot         map[int]*accessList
+		logsSnapshot               map[int]int // logs is an array, save len(logs) at time of snapshot suffices
+		txLogsSnapshot             map[int]int
+		notFixTopicCopyBug         bool
+		asyncContractTrie          bool
+		disableSortCachedContracts bool
+		useConfirmedNonce          bool
+		legacyNonceAccount         bool
+		fixSnapshotOrder           bool
+		revertLog                  bool
 	}
 )
 
 // StateDBAdapterOption set StateDBAdapter construction param
 type StateDBAdapterOption func(*StateDBAdapter) error
 
-// SortCachedContractsOption set sort cached contracts as true
-func SortCachedContractsOption() StateDBAdapterOption {
+// DisableSortCachedContractsOption set disable sort cached contracts as true
+func DisableSortCachedContractsOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.sortCachedContracts = true
+		adapter.disableSortCachedContracts = true
 		return nil
 	}
 }
@@ -103,18 +103,18 @@ func AsyncContractTrieOption() StateDBAdapterOption {
 	}
 }
 
-// UsePendingNonceOption set usePendingNonce as true
-func UsePendingNonceOption() StateDBAdapterOption {
+// UseConfirmedNonceOption set usePendingNonce as true
+func UseConfirmedNonceOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.usePendingNonce = true
+		adapter.useConfirmedNonce = true
 		return nil
 	}
 }
 
-// ZeroNonceAccountOption set fixPendingNonce as true
-func ZeroNonceAccountOption() StateDBAdapterOption {
+// LegacyNonceAccountOption set legacyNonceAccount as true
+func LegacyNonceAccountOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.zeroNonceAccount = true
+		adapter.legacyNonceAccount = true
 		return nil
 	}
 }
@@ -141,7 +141,7 @@ func NewStateDBAdapter(
 	blockHeight uint64,
 	executionHash hash.Hash256,
 	opts ...StateDBAdapterOption,
-) *StateDBAdapter {
+) (*StateDBAdapter, error) {
 	s := &StateDBAdapter{
 		sm:                 sm,
 		logs:               []*action.Log{},
@@ -161,10 +161,13 @@ func NewStateDBAdapter(
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
-			log.L().Panic("failed to execute stateDB creation option")
+			return nil, errors.Wrap(err, "failed to execute stateDB creation option")
 		}
 	}
-	return s
+	if !s.legacyNonceAccount && s.useConfirmedNonce {
+		return nil, errors.New("invalid parameter combination")
+	}
+	return s, nil
 }
 
 func (stateDB *StateDBAdapter) logError(err error) {
@@ -179,8 +182,8 @@ func (stateDB *StateDBAdapter) Error() error {
 }
 
 func (stateDB *StateDBAdapter) accountCreationOpts() []state.AccountCreationOption {
-	if stateDB.zeroNonceAccount {
-		return []state.AccountCreationOption{state.ZeroNonceAccountTypeOption()}
+	if stateDB.legacyNonceAccount {
+		return []state.AccountCreationOption{state.LegacyNonceAccountTypeOption()}
 	}
 	return nil
 }
@@ -307,10 +310,10 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		return 0
 	}
 	var pendingNonce uint64
-	if stateDB.zeroNonceAccount {
-		pendingNonce = uint64(0)
-	} else {
+	if stateDB.legacyNonceAccount {
 		pendingNonce = uint64(1)
+	} else {
+		pendingNonce = uint64(0)
 	}
 	state, err := stateDB.AccountState(addr.String())
 	if err != nil {
@@ -319,7 +322,7 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	} else {
 		pendingNonce = state.PendingNonce()
 	}
-	if !stateDB.usePendingNonce {
+	if stateDB.useConfirmedNonce {
 		if pendingNonce == 0 {
 			panic("invalid pending nonce")
 		}
@@ -345,7 +348,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 		// stateDB.logError(err)
 		return
 	}
-	if stateDB.usePendingNonce {
+	if !stateDB.useConfirmedNonce {
 		if nonce == 0 {
 			panic("invalid nonce zero")
 		}
@@ -354,9 +357,11 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	log.L().Debug("Called SetNonce.",
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
-	if err := s.SetNonce(nonce); err != nil {
-		log.L().Error("Failed to set nonce.", zap.Error(err))
-		stateDB.logError(err)
+	if !s.IsNewbieAccount() || s.AccountType() != 0 || nonce != 0 {
+		if err := s.SetPendingNonce(nonce + 1); err != nil {
+			log.L().Panic("Failed to set nonce.", zap.Error(err), zap.String("addr", addr.Hex()), zap.Uint64("pendingNonce", s.PendingNonce()), zap.Uint64("nonce", nonce), zap.String("execution", hex.EncodeToString(stateDB.executionHash[:])))
+			stateDB.logError(err)
+		}
 	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr, s); err != nil {
 		log.L().Error("Failed to store account.", zap.Error(err))
@@ -613,7 +618,7 @@ func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
 	for addr := range stateDB.cachedContract {
 		addrs = append(addrs, addr)
 	}
-	if stateDB.sortCachedContracts {
+	if !stateDB.disableSortCachedContracts {
 		sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
 	}
 	return addrs

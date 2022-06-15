@@ -419,7 +419,8 @@ func (p *Protocol) settleAction(
 			return nil, err
 		}
 	}
-	if !isSystemAction || !protocol.MustGetFeatureCtx(ctx).SkipUpdateForSystemAction {
+	skipUpdateForSystemAction := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
+	if !isSystemAction || !skipUpdateForSystemAction {
 		gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 		depositLog, err := DepositGas(ctx, sm, gasFee)
 		if err != nil {
@@ -428,24 +429,31 @@ func (p *Protocol) settleAction(
 		if depositLog != nil {
 			tLogs = append(tLogs, depositLog)
 		}
-		if err := p.increaseNonce(ctx, sm, actionCtx.Caller, actionCtx.Nonce, isSystemAction); err != nil {
+		if err := p.increaseNonce(
+			ctx,
+			sm,
+			actionCtx.Caller,
+			actionCtx.Nonce,
+			!skipUpdateForSystemAction && actionCtx.Nonce == 0,
+		); err != nil {
 			return nil, err
 		}
 	}
+
 	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs, tLogs...), nil
 }
 
-func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, addr address.Address, nonce uint64, isSystemAction bool) error {
+func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, addr address.Address, nonce uint64, skipSetNonce bool) error {
 	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	acc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}
-	if !isSystemAction || nonce != 0 {
-		if err := acc.SetNonce(nonce); err != nil {
+	if !skipSetNonce {
+		if err := acc.SetPendingNonce(nonce + 1); err != nil {
 			return errors.Wrapf(err, "invalid nonce %d", nonce)
 		}
 	}

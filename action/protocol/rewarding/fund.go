@@ -67,8 +67,8 @@ func (p *Protocol) Deposit(
 ) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)

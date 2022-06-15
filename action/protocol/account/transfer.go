@@ -30,8 +30,8 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, nil
 	}
 	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// check sender
@@ -83,11 +83,14 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 		}
 	}
+	fixNonce := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if err == nil && recipientAcct.IsContract() {
-		// update sender Nonce
-		if err := sender.SetNonce(tsf.Nonce()); err != nil {
-			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+		if fixNonce || tsf.Nonce() != 0 {
+			// update sender Nonce
+			if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+				return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+			}
 		}
 		// put updated sender's state to trie
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
@@ -116,9 +119,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err := sender.SubBalance(tsf.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", actionCtx.Caller.String())
 	}
-	// update sender Nonce
-	if err := sender.SetNonce(tsf.Nonce()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+	if fixNonce || tsf.Nonce() != 0 {
+		// update sender Nonce
+		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+		}
 	}
 	// put updated sender's state to trie
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {

@@ -64,7 +64,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	require.Equal(s.Balance, big.NewInt(0))
 
 	// create account
-	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
+	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
 	s, err = accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
 	require.Equal("5", s.Balance.String())

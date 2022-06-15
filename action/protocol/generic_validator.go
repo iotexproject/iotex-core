@@ -19,7 +19,7 @@ import (
 
 type (
 	// AccountState defines a function to return the account state of a given address
-	AccountState func(StateReader, address.Address) (*state.Account, error)
+	AccountState func(context.Context, StateReader, address.Address) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
 		accountState AccountState
@@ -36,7 +36,7 @@ func NewGenericValidator(sr StateReader, accountState AccountState) *GenericVali
 }
 
 // Validate validates a generic action
-func (v *GenericValidator) Validate(_ context.Context, selp action.SealedEnvelope) error {
+func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
 	intrinsicGas, err := selp.IntrinsicGas()
 	if err != nil {
 		return err
@@ -54,17 +54,20 @@ func (v *GenericValidator) Validate(_ context.Context, selp action.SealedEnvelop
 		return errors.New("failed to get address")
 	}
 	// Reject action if nonce is too low
-	confirmedState, err := v.accountState(v.sr, caller)
-	if err != nil {
-		return errors.Wrapf(err, "invalid state of account %s", caller.String())
-	}
 	if action.IsSystemAction(selp) {
 		if selp.Nonce() != 0 {
 			return action.ErrSystemActionNonce
 		}
 	} else {
-		if confirmedState.PendingNonce() > selp.Nonce() {
-			return action.ErrNonceTooLow
+		featureCtx, ok := GetFeatureCtx(ctx)
+		if ok && featureCtx.FixGasAndNonceUpdate || selp.Nonce() != 0 {
+			confirmedState, err := v.accountState(ctx, v.sr, caller)
+			if err != nil {
+				return errors.Wrapf(err, "invalid state of account %s", caller.String())
+			}
+			if confirmedState.PendingNonce() > selp.Nonce() {
+				return action.ErrNonceTooLow
+			}
 		}
 	}
 

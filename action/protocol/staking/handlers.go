@@ -808,8 +808,8 @@ func (p *Protocol) fetchBucket(
 func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	caller, err := accountutil.LoadAccount(csm.SM(), actionCtx.Caller, accountCreationOpts...)
 	if err != nil {

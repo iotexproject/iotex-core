@@ -518,14 +518,14 @@ func (p *Protocol) settleAction(
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
 	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
-		accountCreationOpts = append(accountCreationOpts, state.ZeroNonceAccountTypeOption())
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
 	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, err
 	}
-	if err := acc.SetNonce(actionCtx.Nonce); err != nil {
+	if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
 		return nil, errors.Wrap(err, "failed to set nonce")
 	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {

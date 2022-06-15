@@ -59,19 +59,25 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		},
 	)
 
-	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
+	ctx = WithFeatureCtx(genesis.WithGenesisContext(ctx, config.Default.Genesis))
 
-	valid := NewGenericValidator(nil, func(sr StateReader, addr address.Address) (*state.Account, error) {
+	valid := NewGenericValidator(nil, func(_ context.Context, sr StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
 		eAddr := pk.Address()
 		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
-		acct := state.NewEmptyAccount()
-		if err := acct.SetNonce(1); err != nil {
+		acct, err := state.NewAccount()
+		if err != nil {
 			return nil, err
 		}
-		if err := acct.SetNonce(2); err != nil {
+		if err := acct.SetPendingNonce(1); err != nil {
+			return nil, err
+		}
+		if err := acct.SetPendingNonce(2); err != nil {
+			return nil, err
+		}
+		if err := acct.SetPendingNonce(3); err != nil {
 			return nil, err
 		}
 
@@ -109,11 +115,12 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Contains(err.Error(), action.ErrIntrinsicGas.Error())
 	})
 	t.Run("state error", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
+			SetNonce(1).
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -133,10 +140,9 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetAction(&gr).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
-		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
 		err = valid.Validate(ctx, nselp)
-		require.Error(err)
 		require.Equal(action.ErrSystemActionNonce, errors.Cause(err))
 	})
 	t.Run("nonce too low", func(t *testing.T) {

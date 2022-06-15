@@ -29,10 +29,10 @@ var (
 	ErrUnknownAccountType = errors.New("unknown account type")
 )
 
-// ZeroNonceAccountTypeOption is an option to create account with new account type
-func ZeroNonceAccountTypeOption() AccountCreationOption {
+// LegacyNonceAccountTypeOption is an option to create account with new account type
+func LegacyNonceAccountTypeOption() AccountCreationOption {
 	return func(account *Account) error {
-		account.accountType = 1
+		account.accountType = 0
 		return nil
 	}
 }
@@ -93,6 +93,9 @@ func (st Account) Serialize() ([]byte, error) {
 // FromProto converts from protobuf's Account
 func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.nonce = acPb.Nonce
+	if _, ok := accountpb.AccountType_name[int32(acPb.Type.Number())]; !ok {
+		panic("unknown account type")
+	}
 	st.accountType = int32(acPb.Type.Number())
 	if acPb.Balance == "" {
 		st.Balance = big.NewInt(0)
@@ -131,19 +134,24 @@ func (st *Account) IsNewbieAccount() bool {
 	return st.nonce == 0
 }
 
-// SetNonce sets the nonce according to type
-func (st *Account) SetNonce(nonce uint64) error {
+// AccountType returns the account type
+func (st *Account) AccountType() int32 {
+	return st.accountType
+}
+
+// SetPendingNonce sets the pending nonce
+func (st *Account) SetPendingNonce(nonce uint64) error {
 	switch st.accountType {
 	case 1:
-		if nonce != st.nonce {
-			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce)
-		}
-		st.nonce = nonce + 1
-	case 0:
 		if nonce != st.nonce+1 {
 			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+1)
 		}
-		st.nonce = nonce
+		st.nonce++
+	case 0:
+		if nonce != st.nonce+2 {
+			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+2)
+		}
+		st.nonce++
 	default:
 		return errors.Wrapf(ErrUnknownAccountType, "account type %d", st.accountType)
 	}
@@ -159,6 +167,11 @@ func (st *Account) PendingNonce() uint64 {
 	default: // 0
 		return st.nonce + 1
 	}
+}
+
+// MarkAsCandidate marks the account as a candidate
+func (st *Account) MarkAsCandidate() {
+	st.isCandidate = true
 }
 
 // HasSufficientBalance returns true if balance is larger than amount
@@ -219,19 +232,12 @@ func (st *Account) Clone() *Account {
 	return &s
 }
 
-// NewEmptyAccount returns an empty account
-func NewEmptyAccount() *Account {
-	return &Account{
-		Balance:      big.NewInt(0),
-		votingWeight: big.NewInt(0),
-	}
-}
-
 // NewAccount creates a new account with options
 func NewAccount(opts ...AccountCreationOption) (*Account, error) {
 	account := &Account{
 		Balance:      big.NewInt(0),
 		votingWeight: big.NewInt(0),
+		accountType:  1,
 	}
 	for _, opt := range opts {
 		if err := opt(account); err != nil {

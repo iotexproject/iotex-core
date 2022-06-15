@@ -8,6 +8,7 @@ package actpool
 
 import (
 	"container/heap"
+	"context"
 	"math/big"
 	"sort"
 	"time"
@@ -68,7 +69,7 @@ type ActQueue interface {
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	PendingActs() []action.SealedEnvelope
+	PendingActs(context.Context) []action.SealedEnvelope
 	AllActs() []action.SealedEnvelope
 }
 
@@ -250,7 +251,7 @@ func (q *actQueue) Empty() bool {
 }
 
 // PendingActs creates a consecutive nonce-sorted slice of actions
-func (q *actQueue) PendingActs() []action.SealedEnvelope {
+func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 	if q.Len() == 0 {
 		return nil
 	}
@@ -260,7 +261,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		log.L().Error("Error when getting the address", zap.String("address", q.address), zap.Error(err))
 		return nil
 	}
-	confirmedState, err := accountutil.AccountState(q.ap.sf, addr)
+	confirmedState, err := accountutil.AccountState(ctx, q.ap.sf, addr)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil

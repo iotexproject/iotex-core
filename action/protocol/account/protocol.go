@@ -108,7 +108,7 @@ func (p *Protocol) Name() string {
 }
 
 func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int, opts ...state.AccountCreationOption) error {
-	account := state.NewEmptyAccount()
+	account := &state.Account{}
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
@@ -149,8 +149,8 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 		return err
 	}
 	opts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateZeroNonceAccount {
-		opts = append(opts, state.ZeroNonceAccountTypeOption())
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		opts = append(opts, state.LegacyNonceAccountTypeOption())
 	}
 	for i, addr := range addrs {
 		if err := createAccount(sm, addr.String(), amounts[i], opts...); err != nil {

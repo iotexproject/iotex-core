@@ -323,7 +323,7 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 	return ws.finalize()
 }
 
-func (ws *workingSet) validateNonce(blk *block.Block) error {
+func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
 		caller := selp.SenderAddress()
@@ -340,7 +340,7 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
-		confirmedState, err := accountutil.AccountState(ws, addr)
+		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
@@ -516,7 +516,7 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if err := ws.validateNonce(blk); err != nil {
+	if err := ws.validateNonce(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
 	}
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
