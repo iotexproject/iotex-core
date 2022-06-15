@@ -8,6 +8,7 @@ package mptrie
 
 import (
 	"bytes"
+	"fmt"
 
 	"google.golang.org/protobuf/proto"
 
@@ -64,6 +65,7 @@ func (l *leafNode) Value() []byte {
 }
 
 func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
+	fmt.Printf("%+v, %+v, %v,%+v,%+v\n", l.key, key, offset, l.key[offset:], key[offset:])
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
