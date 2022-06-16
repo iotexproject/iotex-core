@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 type (
@@ -45,12 +46,17 @@ type (
 )
 
 // CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
-func CrashLog(r interface{}, cfgLog log.GlobalConfig) {
+func CrashLog(r interface{}, dir string) {
 	log.S().Errorf("crashlog: %v", r)
-	if cfgLog.StderrRedirectFile != nil {
-		writeHeapProfile(filepath.Join(filepath.Dir(*cfgLog.StderrRedirectFile),
-			"heapdump_"+time.Now().Format("20060102150405")+".out"))
+	if !fileutil.FileExists(dir) {
+		if err := os.MkdirAll(dir, 0666); err != nil {
+			log.L().Panic(err.Error())
+		}
+		return
 	}
+	writeHeapProfile(filepath.Join(dir,
+		"heapdump_"+time.Now().Format("20060102150405")+".out"))
+
 	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)

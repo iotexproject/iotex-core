@@ -11,6 +11,7 @@ import (
 
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 )
 
 const (
@@ -58,6 +59,11 @@ func NewWebSocketServer(route string, port int, handler Web3Handler) *WebsocketS
 // Start starts the websocket server
 func (wsSvr *WebsocketServer) Start(_ context.Context) error {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				recovery.CrashLog(r, "/var/log")
+			}
+		}()
 		if err := wsSvr.svr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}

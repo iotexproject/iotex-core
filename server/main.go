@@ -18,6 +18,7 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -104,8 +105,8 @@ func main() {
 	}
 
 	defer func() {
-		if r := recover(); r != nil {
-			recovery.CrashLog(r, cfg.Log)
+		if r := recover(); r != nil && cfg.Log.StderrRedirectFile != nil {
+			recovery.CrashLog(r, filepath.Dir(*cfg.Log.StderrRedirectFile))
 		}
 	}()
 

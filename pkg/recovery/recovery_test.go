@@ -22,7 +22,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("index out of range", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				CrashLog(r, logCfg)
+				CrashLog(r, *logCfg.StderrRedirectFile)
 			}
 		}()
 		strs := make([]string, 2)
@@ -33,7 +33,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("invaled memory address or nil pointer", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				CrashLog(r, logCfg)
+				CrashLog(r, *logCfg.StderrRedirectFile)
 			}
 		}()
 		var i *int
@@ -42,7 +42,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("divide by zero", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				CrashLog(r, logCfg)
+				CrashLog(r, *logCfg.StderrRedirectFile)
 			}
 		}()
 		a, b := 10, 0
