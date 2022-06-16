@@ -28,6 +28,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	ex, err := NewExecution(contractAddr.String(), 2, big.NewInt(10), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
 	require.EqualValues(21, ex.BasicActionSize())
+	require.EqualValues(66, ex.Size())
 	require.EqualValues(87, ex.TotalSize())
 
 	bd := &EnvelopeBuilder{}
@@ -49,6 +50,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(selp)
 	require.EqualValues(21, ex.BasicActionSize())
+	require.EqualValues(66, ex.Size())
 	require.EqualValues(87, ex.TotalSize())
 
 	// verify signature
