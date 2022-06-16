@@ -9,13 +9,11 @@ package action
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"math/big"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -23,16 +21,16 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -44,6 +42,18 @@ var (
 	_actionCmdUses = map[config.Language]string{
 		config.English: "action",
 		config.Chinese: "action 行为", // this translation
+	}
+	_infoWarn = map[config.Language]string{
+		config.English: "** This is an irreversible action!\n" +
+			"Once an account is deleted, all the assets under this account may be lost!\n" +
+			"Type 'YES' to continue, quit for anything else.",
+		config.Chinese: "** 这是一个不可逆转的操作!\n" +
+			"一旦一个账户被删除, 该账户下的所有资源都可能会丢失!\n" +
+			"输入 'YES' 以继续, 否则退出",
+	}
+	_infoQuit = map[config.Language]string{
+		config.English: "quit",
+		config.Chinese: "退出",
 	}
 	_flagActionEndPointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
@@ -193,11 +203,16 @@ func getPasswordFlagValue(cmd *cobra.Command) (v string) {
 	return mustString(cmd.Flags().GetString(passwordFlagLabel))
 }
 
+func selectTranslation(client ioctl.Client, trls map[config.Language]string) string {
+	txt, _ := client.SelectTranslation(trls)
+	return txt
+}
+
 // NewAction represents the action command
 func NewAction(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   client.SelectTranslationText(_actionCmdUses),
-		Short: client.SelectTranslationText(_actionCmdShorts),
+		Use:   selectTranslation(client, _actionCmdUses),
+		Short: selectTranslation(client, _actionCmdShorts),
 	}
 
 	// TODO add sub commands
@@ -214,8 +229,8 @@ func NewAction(client ioctl.Client) *cobra.Command {
 		insecure bool
 		endpoint string
 	)
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, client.SelectTranslationText(_flagActionEndPointUsages))
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, client.SelectTranslationText(_flagActionInsecureUsages))
+	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, selectTranslation(client, _flagActionEndPointUsages))
+	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, selectTranslation(client, _flagActionInsecureUsages))
 
 	return cmd
 }
@@ -239,19 +254,12 @@ func handleClientRequestError(err error, apiName string) error {
 }
 
 // Signer returns signer's address
-func Signer(cmd *cobra.Command) (address string, err error) {
+func Signer(client ioctl.Client, cmd *cobra.Command) (address string, err error) {
 	addressOrAlias := getSignerFlagValue(cmd)
 	if util.AliasIsHdwalletKey(addressOrAlias) {
 		return addressOrAlias, nil
 	}
-
-	if addressOrAlias == "" {
-		addressOrAlias, err = config.GetContextAddressOrAlias()
-		if err != nil {
-			return
-		}
-	}
-	return util.GetAddress(addressOrAlias)
+	return client.AddressWithDefaultIfNotExist(addressOrAlias)
 }
 
 func nonce(client ioctl.Client, cmd *cobra.Command, executor string) (uint64, error) {
@@ -279,10 +287,7 @@ func gasPriceInRau(client ioctl.Client, cmd *cobra.Command) (*big.Int, error) {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
 
-	cli, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: client.Config().Endpoint,
-		Insecure: client.Config().SecureConnect && !config.Insecure,
-	})
+	cli, err := client.APIServiceClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to endpoint")
 	}
@@ -300,10 +305,7 @@ func gasPriceInRau(client ioctl.Client, cmd *cobra.Command) (*big.Int, error) {
 }
 
 func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution) (*action.Execution, error) {
-	cli, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: client.Config().Endpoint,
-		Insecure: client.Config().SecureConnect && !config.Insecure,
-	})
+	cli, err := client.APIServiceClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to endpoint")
 	}
@@ -327,11 +329,8 @@ func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution
 }
 
 // SendRaw sends raw action to blockchain
-func SendRaw(client ioctl.Client, selp *iotextypes.Action) error {
-	cli, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: client.Config().Endpoint,
-		Insecure: client.Config().SecureConnect && !config.Insecure,
-	})
+func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) error {
+	cli, err := client.APIServiceClient()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to endpoint")
 	}
@@ -349,18 +348,20 @@ func SendRaw(client ioctl.Client, selp *iotextypes.Action) error {
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
 	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
-	switch config.ReadConfig.Explorer {
+	endpoint := client.Config().Endpoint
+	explorer := client.Config().Explorer
+	switch explorer {
 	case "iotexscan":
-		if strings.Contains(config.ReadConfig.Endpoint, "testnet") {
+		if strings.Contains(endpoint, "testnet") {
 			message.URL += "testnet."
 		}
 		message.URL += "iotexscan.io/action/" + txhash
 	case "iotxplorer":
 		message.URL = "iotxplorer.io/actions/" + txhash
 	default:
-		message.URL = config.ReadConfig.Explorer + txhash
+		message.URL = explorer + txhash
 	}
-	fmt.Println(message.String())
+	cmd.Println(message.String())
 	return nil
 }
 
@@ -398,37 +399,34 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 	selp := sealed.Proto()
 	sk.Zero()
 	// TODO wait newcmd/action/actionhash impl pr #3425
-	actionInfo, err := "", error(nil) // printActionProto(selp)
-	if err != nil {
-		return errors.Wrap(err, "failed to print action proto message")
-	}
+	// actionInfo, err := printActionProto(selp)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to print action proto message")
+	// }
+	// cmd.Println(actionInfo)
 
 	if getAssumeYesFlagValue(cmd) == false {
-		var confirm string
-		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
-		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-		fmt.Println(message.String())
-
-		fmt.Scanf("%s", &confirm)
-		if !strings.EqualFold(confirm, "yes") {
-			output.PrintResult("quit")
-			return nil
+		infoWarn := selectTranslation(client, _infoWarn)
+		infoQuit := selectTranslation(client, _infoQuit)
+		if !client.AskToConfirm(infoWarn) {
+			cmd.Println(infoQuit)
 		}
+		return nil
 	}
 
-	return SendRaw(client, selp)
+	return SendRaw(client, cmd, selp)
 }
 
 // Execute sends signed execution transaction to blockchain
 func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *big.Int, bytecode []byte) error {
 	if len(contract) == 0 && len(bytecode) == 0 {
-		return output.NewError(output.InputError, "failed to deploy contract with empty bytecode", nil)
+		return errors.New("failed to deploy contract with empty bytecode")
 	}
 	gasPriceRau, err := gasPriceInRau(client, cmd)
 	if err != nil {
 		return errors.Wrap(err, "failed to get gas price")
 	}
-	signer, err := Signer(cmd)
+	signer, err := Signer(client, cmd)
 	if err != nil {
 		return errors.Wrap(err, "failed to get signer address")
 	}
@@ -462,10 +460,7 @@ func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *b
 
 // Read reads smart contract on IoTeX blockchain
 func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amount string, bytecode []byte) (string, error) {
-	cli, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: client.Config().Endpoint,
-		Insecure: client.Config().SecureConnect && !config.Insecure,
-	})
+	cli, err := client.APIServiceClient()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to connect to endpoint")
 	}
@@ -475,7 +470,7 @@ func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amo
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	callerAddr, _ := Signer(cmd)
+	callerAddr, _ := Signer(client, cmd)
 	if callerAddr == "" {
 		callerAddr = address.ZeroAddress
 	}
@@ -523,8 +518,5 @@ type sendMessage struct {
 }
 
 func (m *sendMessage) String() string {
-	if output.Format == "" {
-		return fmt.Sprintf("%s\nWait for several seconds and query this action by hash: %s", m.Info, m.URL)
-	}
-	return output.FormatString(output.Result, m)
+	return string(byteutil.Must(json.MarshalIndent(m, "", "  ")))
 }

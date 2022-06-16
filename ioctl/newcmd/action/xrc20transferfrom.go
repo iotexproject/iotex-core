@@ -9,12 +9,12 @@ package action
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/alias"
 )
 
 // Multi-language support
@@ -35,8 +35,8 @@ var (
 // NewXrc20TransferFrom represent xrc20TransferFrom command
 func NewXrc20TransferFrom(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   config.TranslateInLang(_xrc20TransferFromCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(_xrc20TransferFromCmdShorts, config.UILanguage),
+		Use:   selectTranslation(client, _xrc20TransferFromCmdUses),
+		Short: selectTranslation(client, _xrc20TransferFromCmdShorts),
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -56,12 +56,15 @@ func NewXrc20TransferFrom(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to parse amount")
 			}
-			bytecode, err := _xrc20ABI.Pack("transferFrom", owner, recipient, amount)
+			bytecode, err := ioctl.PackABI(ioctl.XRC20ABI, "transferFrom", owner, recipient, amount)
 			if err != nil {
 				return errors.Wrap(err, "cannot generate bytecode from given command")
 			}
 			err = Execute(client, cmd, contract.String(), big.NewInt(0), bytecode)
-			return output.PrintError(err)
+			if err != nil {
+				cmd.PrintErr(err)
+			}
+			return err
 		},
 	}
 	RegisterWriteCommand(client, cmd)

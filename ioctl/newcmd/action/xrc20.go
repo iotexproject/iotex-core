@@ -8,19 +8,18 @@ package action
 
 import (
 	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"math/big"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
-
-	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -75,9 +74,9 @@ func NewXrc20(client ioctl.Client) *cobra.Command {
 	)
 
 	// set persistent flags
-	cmd.PersistentFlags().StringVarP(&contractAddr, contractAddrFlagLabel, contractAddrFlagShortLabel, "", client.SelectTranslationText(_flagContractAddressUsages))
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, client.SelectTranslationText(_flagXrc20EndPointUsages))
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, client.SelectTranslationText(_flagXrc20InsecureUsages))
+	cmd.PersistentFlags().StringVarP(&contractAddr, contractAddrFlagLabel, contractAddrFlagShortLabel, "", selectTranslation(client, _flagContractAddressUsages))
+	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, selectTranslation(client, _flagXrc20EndPointUsages))
+	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, selectTranslation(client, _flagXrc20InsecureUsages))
 	_ = cmd.MarkFlagRequired("contract-address")
 
 	return cmd
@@ -101,10 +100,7 @@ type amountMessage struct {
 }
 
 func (m *amountMessage) String() string {
-	if output.Format == "" {
-		return fmt.Sprintf("Raw output: %s\nOutput in decimal: %s", m.RawData, m.Decimal)
-	}
-	return output.FormatString(output.Result, m)
+	return string(byteutil.Must(json.MarshalIndent(m, "", "  ")))
 }
 
 func parseAmount(client ioctl.Client, cmd *cobra.Command, contract address.Address, amount string) (*big.Int, error) {
