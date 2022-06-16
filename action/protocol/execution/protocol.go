@@ -96,7 +96,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, _ protocol.S
 	fCtx := protocol.MustGetFeatureCtx(ctx)
 	if fCtx.ExecutionSizeLimit32KB {
 		sizeLimit = _executionSizeLimit32KB
-		dataSize = exec.TotalSize()
+		dataSize = exec.Size()
 	}
 
 	// Reject oversize execution

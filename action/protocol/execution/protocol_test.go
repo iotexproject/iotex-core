@@ -649,8 +649,8 @@ func TestProtocol_Validate(t *testing.T) {
 		size      uint64
 		expectErr error
 	}{
-		{"limit 32KB", 0, 32683, nil},
-		{"exceed 32KB", 0, 32684, action.ErrOversizedData},
+		{"limit 32KB", 0, 32703, nil},
+		{"exceed 32KB", 0, 32704, action.ErrOversizedData},
 		{"limit 48KB", genesis.Default.SumatraBlockHeight, uint64(48 * 1024), nil},
 		{"exceed 48KB", genesis.Default.SumatraBlockHeight, uint64(48*1024) + 1, action.ErrOversizedData},
 	}
