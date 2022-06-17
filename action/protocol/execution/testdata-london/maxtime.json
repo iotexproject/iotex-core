@@ -1,8 +1,8 @@
 {
   "initGenesis": {
-    "isLondon" : true,
     "isBering" : true,
-    "isIceland" : true
+    "isIceland" : true,
+    "isLondon" : true
   },
   "initBalances": [{
     "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",

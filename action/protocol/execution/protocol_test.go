@@ -64,9 +64,9 @@ type (
 
 	// GenesisBlockHeight defines an genesis blockHeight
 	GenesisBlockHeight struct {
-		IsLondon  bool `json:"isLondon"`
 		IsBering  bool `json:"isBering"`
 		IsIceland bool `json:"isIceland"`
+		IsLondon  bool `json:"isLondon"`
 	}
 
 	Log struct {
@@ -385,9 +385,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
-	if sct.InitGenesis.IsLondon {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
-	}
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.AleutianBlockHeight = 0
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
@@ -402,6 +399,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.FairbankBlockHeight = 0
 		cfg.Genesis.GreenlandBlockHeight = 0
 		cfg.Genesis.IcelandBlockHeight = 0
+	}
+	if sct.InitGenesis.IsLondon {
+		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -1034,8 +1034,6 @@ func TestIstanbulEVM(t *testing.T) {
 }
 
 func TestLondonEVM(t *testing.T) {
-	cfg := config.Default
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
 	})
