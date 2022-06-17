@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos/endorsementpb"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -125,7 +126,8 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
-		blk, err := (&block.Deserializer{}).FromBlockProto(blockPro.Blk)
+		// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
+		blk, err := (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(blockPro.Blk)
 		if err != nil {
 			return err
 		}
@@ -289,7 +291,8 @@ func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementMana
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	if managerPro.CachedMintedBlk != nil {
-		blk, err := (&block.Deserializer{}).FromBlockProto(managerPro.CachedMintedBlk)
+		// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
+		blk, err := (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(managerPro.CachedMintedBlk)
 		if err != nil {
 			return err
 		}

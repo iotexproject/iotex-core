@@ -9,6 +9,7 @@ package rolldpos
 import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -62,7 +63,8 @@ func (bp *blockProposal) ProposerAddress() string {
 }
 
 func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
-	blk, err := (&block.Deserializer{}).FromBlockProto(msg.Block)
+	// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
+	blk, err := (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(msg.Block)
 	if err != nil {
 		return err
 	}

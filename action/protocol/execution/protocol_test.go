@@ -39,7 +39,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -599,22 +598,7 @@ func TestProtocol_Validate(t *testing.T) {
 
 	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
 	require.NoError(err)
-	ex1, err := action.NewExecution(identityset.Address(29).String()+"bbb", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), nil)
-	require.NoError(err)
-
-	g := genesis.Default
-	ctx := protocol.WithFeatureCtx(genesis.WithGenesisContext(protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
-		BlockHeight: g.NewfoundlandBlockHeight,
-	}), g))
-	for _, v := range []struct {
-		ex  *action.Execution
-		err error
-	}{
-		{ex, action.ErrOversizedData},
-		{ex1, address.ErrInvalidAddr},
-	} {
-		require.Equal(v.err, errors.Cause(p.Validate(ctx, v.ex, nil)))
-	}
+	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
 
 func TestProtocol_Handle(t *testing.T) {

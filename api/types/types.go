@@ -1,6 +1,8 @@
 package apitypes
 
-import "github.com/iotexproject/iotex-core/blockchain/block"
+import (
+	"github.com/iotexproject/iotex-core/blockchain/block"
+)
 
 type (
 	// Web3ResponseWriter is writer for web3 request
