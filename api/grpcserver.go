@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
@@ -61,7 +63,27 @@ var (
 		Time:    60 * time.Second, // Ping the client if it is idle for 60 seconds to ensure the connection is still active
 		Timeout: 10 * time.Second, // Wait 10 seconds for the ping ack before assuming the connection is dead
 	}
+
+	_apiCallSourceWithChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicallsource_chainid_metrics",
+			Help: "API call Source ChainID Statistics",
+		},
+		[]string{"chain_id"},
+	)
+	_apiCallSourceWithOutChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicallsource_nochainid_metrics",
+			Help: "API call Source Without ChainID Statistics",
+		},
+		[]string{"client_ip", "sender", "recipient"},
+	)
 )
+
+func init() {
+	prometheus.MustRegister(_apiCallSourceWithChainIDMtc)
+	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
+}
 
 // NewGRPCServer creates a new grpc server
 func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
@@ -296,6 +318,24 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
+	chainID := strconv.FormatUint(uint64(in.GetAction().GetCore().GetChainID()), 10)
+	if in.GetAction().GetCore().GetChainID() > 0 {
+		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
+	} else {
+		var clientIP, sender, recipient string
+		selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in.GetAction())
+		if err != nil {
+			return nil, err
+		}
+		if p, ok := peer.FromContext(ctx); ok {
+			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+		}
+		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
+			sender = senderAddr.String()
+		}
+		recipient, _ = selp.Destination()
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
+	}
 	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
 		return nil, err
