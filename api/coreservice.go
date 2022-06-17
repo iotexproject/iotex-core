@@ -58,9 +58,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-const (
-	_workerNumbers = 5
-)
+const _workerNumbers int = 5
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
