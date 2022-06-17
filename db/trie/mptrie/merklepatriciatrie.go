@@ -9,8 +9,6 @@ package mptrie
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
-	"fmt"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -274,23 +272,18 @@ func (mpt *merklePatriciaTrie) deleteNode(key []byte) error {
 }
 
 func (mpt *merklePatriciaTrie) putNode(key []byte, value []byte) error {
-	// fmt.Printf("put--mpt.kvstore=%+v,key=%+v,value=%+v\n", mpt.kvStore, key, value)
 	return mpt.kvStore.Put(key, value)
 }
 
 func (mpt *merklePatriciaTrie) loadNode(key []byte) (node, error) {
-	fmt.Printf("mpt.kvstore=%+v, key=%+v,  ss=%s\n", mpt.kvStore, key, hex.EncodeToString(key))
-
 	s, err := mpt.kvStore.Get(key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key)
 	}
-	fmt.Printf("s=%+v\n", s)
 	pb := triepb.NodePb{}
 	if err := proto.Unmarshal(s, &pb); err != nil {
 		return nil, err
 	}
-	fmt.Printf("pb=%+v\n", pb)
 	if pbBranch := pb.GetBranch(); pbBranch != nil {
 		return newBranchNodeFromProtoPb(pbBranch, mpt, key), nil
 	}

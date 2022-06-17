@@ -7,7 +7,6 @@
 package mptrie
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,6 +22,7 @@ func createBranchNode(require *require.Assertions, mpt *merklePatriciaTrie, chil
 	require.True(ok)
 	return bnode
 }
+
 func createLeafNode(require *require.Assertions, mpt *merklePatriciaTrie, key keyType, value []byte) *leafNode {
 	node, err := newLeafNode(mpt, key, value)
 	require.NoError(err)
@@ -31,58 +31,12 @@ func createLeafNode(require *require.Assertions, mpt *merklePatriciaTrie, key ke
 	return lnode
 }
 
-func creatrBranchNode(require *require.Assertions) *branchNode {
-	mpt := &merklePatriciaTrie{
-		keyLength: 20,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
-	}
-	children := make(map[byte]node)
-	children[1] = &branchNode{
-		cacheNode: cacheNode{mpt: mpt, hashVal: []byte("test1")},
-	}
-	children[2] = &branchNode{
-		cacheNode: cacheNode{mpt: mpt, hashVal: []byte("test2")},
-	}
-	node, err := newBranchNode(mpt, children)
-	require.NoError(err)
-	bnode, ok := node.(*branchNode)
-	require.True(ok)
-	return bnode
-}
-
-func TestNewBranchNode(t *testing.T) {
-	require := require.New(t)
-	mpt := &merklePatriciaTrie{
-		keyLength: 20,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
-	}
-	children := make(map[byte]node)
-	children[byte(1)] = &branchNode{
-		cacheNode: cacheNode{mpt: mpt, hashVal: []byte("test1")},
-	}
-	children[byte(2)] = &branchNode{
-		cacheNode: cacheNode{mpt: mpt, hashVal: []byte("test2")},
-	}
-	node, err := newBranchNode(mpt, children)
-	require.NoError(err)
-	bnode, ok := node.(*branchNode)
-	require.True(ok)
-	// bnode := createBranchNode(require, mpt, children)
-	require.Equal(mpt, bnode.mpt)
-	require.Equal(children, bnode.children)
-}
-
 func TestNewEmptyRootBranchNode(t *testing.T) {
 	require := require.New(t)
 	mpt := &merklePatriciaTrie{
-		keyLength: 20,
+		keyLength: 5,
 		hashFunc:  DefaultHashFunc,
 		kvStore:   trie.NewMemKVStore(),
-		async:     true,
 	}
 	bnode := newEmptyRootBranchNode(mpt)
 	require.Equal(mpt, bnode.mpt)
@@ -91,12 +45,10 @@ func TestNewEmptyRootBranchNode(t *testing.T) {
 func TestNewBranchNodeFromProtoPb(t *testing.T) {
 	require := require.New(t)
 	mpt := &merklePatriciaTrie{
-		keyLength: 20,
+		keyLength: 5,
 		hashFunc:  DefaultHashFunc,
 		kvStore:   trie.NewMemKVStore(),
-		async:     true,
 	}
-
 	nodes := []*triepb.BranchNodePb{
 		{Index: 12, Path: []byte("testchildren1")},
 		{Index: 23, Path: []byte("testchildren2")},
@@ -108,36 +60,42 @@ func TestNewBranchNodeFromProtoPb(t *testing.T) {
 }
 
 func TestBranchNodeChildren(t *testing.T) {
-	require := require.New(t)
-	mpt := &merklePatriciaTrie{
-		keyLength: 20,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
+	var (
+		require = require.New(t)
+		items   = []struct{ k, v string }{
+			{"iotex", "coin"},
+			{"block", "chain"},
+			{"chain", "link"},
+		}
+		expected = []struct{ k, v string }{
+			{"block", "chain"},
+			{"chain", "link"},
+			{"iotex", "coin"},
+		}
+		mpt = &merklePatriciaTrie{
+			keyLength: 5,
+			hashFunc:  DefaultHashFunc,
+			kvStore:   trie.NewMemKVStore(),
+			async:     true,
+		}
+		children       = make(map[byte]node)
+		offset   uint8 = 0
+	)
+
+	for _, item := range items {
+		children[[]byte(item.k)[offset]] = createLeafNode(require, mpt, []byte(item.k), []byte(item.v))
 	}
-	expected := []*branchNode{
-		{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("test1")},
-		},
-		{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("test2")},
-		},
-	}
-	children := make(map[byte]node)
-	children[1] = expected[0]
-	children[2] = expected[1]
-	node, err := newBranchNode(mpt, children)
-	require.NoError(err)
-	bnode, ok := node.(*branchNode)
-	require.True(ok)
-	// bnode := createBranchNode(require, mpt, children)
+
+	bnode := createBranchNode(require, mpt, children)
 	nodes := bnode.Children()
-	for _, node := range nodes {
-		ret, ok := node.(*branchNode)
+	for i, node := range nodes {
+		ln, ok := node.(*leafNode)
 		require.True(ok)
-		require.Contains(expected, ret)
+		require.Equal(keyType(expected[i].k), ln.key)
+		require.Equal([]byte(expected[i].v), ln.value)
 	}
 }
+
 func TestBranchNodeDelete(t *testing.T) {
 	var (
 		require = require.New(t)
@@ -148,63 +106,39 @@ func TestBranchNodeDelete(t *testing.T) {
 			{"puppy", "dog"},
 			{"night", "knight"},
 		}
+		expected = []struct{ k, v string }{
+			items[len(items)-1],
+			items[len(items)-2],
+		}
+		mpt = &merklePatriciaTrie{
+			keyLength: 5,
+			hashFunc:  DefaultHashFunc,
+			kvStore:   trie.NewMemKVStore(),
+			async:     true,
+		}
+		children       = make(map[byte]node)
+		offset   uint8 = 0
 	)
 
-	mpt := &merklePatriciaTrie{
-		keyLength: 5,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
-	}
-	err := mpt.Start(context.Background())
-	require.NoError(err)
 	for _, item := range items {
-		err = mpt.putNode([]byte(item.k), []byte(item.v))
+		children[[]byte(item.k)[offset]] = createLeafNode(require, mpt, []byte(item.k), []byte(item.v))
+	}
+	bnode := createBranchNode(require, mpt, children)
+	for i, item := range items {
+		node, err := bnode.Delete([]byte(item.k), offset)
 		require.NoError(err)
+		last := len(items) - 2
+		if i < last {
+			require.Equal(bnode, node)
+			_, err = bnode.Search(keyType(item.k), offset)
+			require.Equal(trie.ErrNotExist, err)
+		} else {
+			ln, ok := node.(*leafNode)
+			require.True(ok)
+			require.Equal(keyType(expected[i-last].k), ln.key)
+			require.Equal([]byte(expected[i-last].v), ln.value)
+		}
 	}
-
-	expected := []node{
-		createLeafNode(require, mpt, []byte("iotex"), []byte("coin")),
-		createLeafNode(require, mpt, []byte("block"), []byte("chain")),
-		createLeafNode(require, mpt, []byte("chain"), []byte("dog")),
-		createLeafNode(require, mpt, []byte("puppy"), []byte("knight")),
-
-		// newHashNode(mpt, []byte("iotex")),
-		// newHashNode(mpt, []byte("block")),
-
-		&branchNode{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("chain")},
-		},
-		&branchNode{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("puppy")},
-		},
-	}
-	children := make(map[byte]node)
-	children[11] = expected[0]
-	children[22] = expected[1]
-	xxx := createBranchNode(require, mpt, children)
-	t.Logf("xxx=%+v", xxx.indices)
-
-	children2 := make(map[byte]node)
-	children2[33] = expected[2]
-	children2[44] = expected[3]
-	xxx1 := createBranchNode(require, mpt, children2)
-	t.Logf("xxx1=%+v", xxx1.indices)
-
-	children3 := make(map[byte]node)
-	children3[55] = xxx
-	children3[66] = xxx1
-	bnode := createBranchNode(require, mpt, children3)
-	t.Logf("bnode=%+v", bnode.indices)
-
-	node, err := bnode.Delete(keyType{55, 11, 22, 66, 33, 44}, 0)
-	require.NoError(err)
-	t.Logf("%+v", node)
-	// ret, ok := node.(*branchNode)
-	// require.True(ok)
-	// childNodes := bnode.Children()
-
-	// require.NotContains(childNodes, node)
 }
 
 func TestBranchNodeUpsert(t *testing.T) {
@@ -214,125 +148,30 @@ func TestBranchNodeUpsert(t *testing.T) {
 			{"iotex", "coin"},
 			{"block", "chain"},
 			{"chain", "link"},
-			{"puppy", "dog"},
-			{"night", "knight"},
+			{"cuppy", "dog"},
+			{"cught", "knight"},
 		}
+		mpt = &merklePatriciaTrie{
+			keyLength: 5,
+			hashFunc:  DefaultHashFunc,
+			kvStore:   trie.NewMemKVStore(),
+		}
+		offset uint8 = 0
 	)
 
-	mpt := &merklePatriciaTrie{
-		keyLength: 5,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
-	}
-	err := mpt.Start(context.Background())
-	require.NoError(err)
+	bnode := newEmptyRootBranchNode(mpt)
 	for _, item := range items {
-		err = mpt.putNode([]byte(item.k), []byte(item.v))
+		node, err := bnode.Upsert(keyType(item.k), offset, []byte(item.v))
 		require.NoError(err)
-	}
+		require.Equal(bnode, node)
 
-	expected := []node{
-		createLeafNode(require, mpt, []byte("iotex"), []byte("coin")),
-		createLeafNode(require, mpt, []byte("block"), []byte("chain")),
-		createLeafNode(require, mpt, []byte("chain"), []byte("dog")),
-		createLeafNode(require, mpt, []byte("puppy"), []byte("knight")),
-	}
-	children := make(map[byte]node)
-	children[11] = expected[0]
-	children[22] = expected[1]
-	xxx := createBranchNode(require, mpt, children)
-	t.Logf("xxx=%+v", xxx.indices)
-
-	children2 := make(map[byte]node)
-	children2[33] = expected[2]
-	children2[44] = expected[3]
-	xxx1 := createBranchNode(require, mpt, children2)
-	t.Logf("xxx1=%+v", xxx1.indices)
-
-	children3 := make(map[byte]node)
-	children3[55] = xxx
-	children3[66] = xxx1
-	bnode := createBranchNode(require, mpt, children3)
-	t.Logf("bnode=%+v", bnode.indices)
-
-	node, err := bnode.Delete(keyType{55, 11, 22, 66, 33, 44}, 0)
-	require.NoError(err)
-	t.Logf("%+v", node)
-	// ret, ok := node.(*branchNode)
-	// require.True(ok)
-	// childNodes := bnode.Children()
-
-	// require.NotContains(childNodes, node)
-}
-
-func TestBranchNodeSearch(t *testing.T) {
-	var (
-		require = require.New(t)
-		items   = []struct{ k, v string }{
-			{"iotex", "coin"},
-			{"block", "chain"},
-			{"chain", "link"},
-			{"puppy", "dog"},
-			{"night", "knight"},
-		}
-	)
-
-	mpt := &merklePatriciaTrie{
-		keyLength: 5,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
-	}
-	err := mpt.Start(context.Background())
-	require.NoError(err)
-	for _, item := range items {
-		err = mpt.putNode([]byte(item.k), []byte(item.v))
+		node, err = bnode.Search(keyType(item.k), offset)
 		require.NoError(err)
+		ln, ok := node.(*leafNode)
+		require.True(ok)
+		require.Equal(keyType(item.k), ln.key)
+		require.Equal([]byte(item.v), ln.value)
 	}
-
-	expected := []node{
-		createLeafNode(require, mpt, []byte("iotex"), []byte("coin")),
-		createLeafNode(require, mpt, []byte("block"), []byte("chain")),
-		createLeafNode(require, mpt, []byte("chain"), []byte("dog")),
-		createLeafNode(require, mpt, []byte("puppy"), []byte("knight")),
-
-		// newHashNode(mpt, []byte("iotex")),
-		// newHashNode(mpt, []byte("block")),
-
-		&branchNode{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("chain")},
-		},
-		&branchNode{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("puppy")},
-		},
-	}
-	children := make(map[byte]node)
-	children[11] = expected[0]
-	children[22] = expected[1]
-	xxx := createBranchNode(require, mpt, children)
-	t.Logf("xxx=%+v", xxx.indices)
-
-	children2 := make(map[byte]node)
-	children2[33] = expected[2]
-	children2[44] = expected[3]
-	xxx1 := createBranchNode(require, mpt, children2)
-	t.Logf("xxx1=%+v", xxx1.indices)
-
-	children3 := make(map[byte]node)
-	children3[55] = xxx
-	children3[66] = xxx1
-	bnode := createBranchNode(require, mpt, children3)
-	t.Logf("bnode=%+v", bnode.indices)
-
-	node, err := bnode.Delete(keyType{55, 11, 22, 66, 33, 44}, 0)
-	require.NoError(err)
-	t.Logf("%+v", node)
-	// ret, ok := node.(*branchNode)
-	// require.True(ok)
-	// childNodes := bnode.Children()
-
-	// require.NotContains(childNodes, node)
 }
 
 func TestBranchNodeFlush(t *testing.T) {
@@ -342,64 +181,104 @@ func TestBranchNodeFlush(t *testing.T) {
 			{"iotex", "coin"},
 			{"block", "chain"},
 			{"chain", "link"},
-			{"puppy", "dog"},
-			{"night", "knight"},
 		}
+		mpt = &merklePatriciaTrie{
+			keyLength: 5,
+			hashFunc:  DefaultHashFunc,
+			kvStore:   trie.NewMemKVStore(),
+		}
+		offset uint8 = 0
 	)
 
-	mpt := &merklePatriciaTrie{
-		keyLength: 5,
-		hashFunc:  DefaultHashFunc,
-		kvStore:   trie.NewMemKVStore(),
-		async:     true,
-	}
-	err := mpt.Start(context.Background())
+	bnode := newEmptyRootBranchNode(mpt)
+	hashVal, err := bnode.Hash()
 	require.NoError(err)
 	for _, item := range items {
-		err = mpt.putNode([]byte(item.k), []byte(item.v))
+		bnode.children[[]byte(item.k)[offset]] = &leafNode{
+			cacheNode: cacheNode{
+				mpt:     mpt,
+				dirty:   true,
+				hashVal: hashVal,
+			},
+			key:   []byte(item.k),
+			value: []byte(item.v),
+		}
+	}
+	bnode.indices = NewSortedList(bnode.children)
+	require.NoError(bnode.Flush())
+}
+
+func TestBranchNodeUpdateChild(t *testing.T) {
+	var (
+		require = require.New(t)
+		items   = []struct{ k, v string }{
+			{"iotex", "coin"},
+			{"block", "chain"},
+			{"bhain", "link"},
+			{"cuppy", "dog"},
+		}
+		mpt = &merklePatriciaTrie{
+			keyLength: 5,
+			hashFunc:  DefaultHashFunc,
+			kvStore:   trie.NewMemKVStore(),
+			async:     true,
+		}
+		children       = make(map[byte]node)
+		offset   uint8 = 0
+		child    node  = nil
+	)
+
+	for i, item := range items {
+		ln := createLeafNode(require, mpt, keyType(item.k), []byte(item.v))
+		if i < len(items)-1 {
+			children[[]byte(item.k)[offset]] = ln
+		} else {
+			node, err := ln.store()
+			require.NoError(err)
+			child = node
+		}
+	}
+
+	bnode := createBranchNode(require, mpt, children)
+	for i := 1; i < len(items); i++ {
+		item := items[i]
+
+		node, err := bnode.updateChild([]byte(item.k)[offset], nil, false)
 		require.NoError(err)
+		require.Equal(bnode, node)
+		_, err = bnode.Search(keyType(item.k), offset)
+		require.Equal(trie.ErrNotExist, err)
+
+		node, err = bnode.updateChild([]byte(item.k)[offset], nil, true)
+		require.NoError(err)
+		require.Equal(bnode, node)
+		_, err = bnode.Search(keyType(item.k), offset)
+		require.Equal(trie.ErrNotExist, err)
+
+		node, err = bnode.updateChild([]byte(item.k)[offset], child, false)
+		require.NoError(err)
+		require.Equal(bnode, node)
+		node, err = bnode.child(keyType(item.k)[offset])
+		require.NoError(err)
+		hn, ok := node.(*hashNode)
+		require.True(ok)
+		require.Equal(child, hn)
 	}
 
-	expected := []node{
-		createLeafNode(require, mpt, []byte("iotex"), []byte("coin")),
-		createLeafNode(require, mpt, []byte("block"), []byte("chain")),
-		createLeafNode(require, mpt, []byte("chain"), []byte("dog")),
-		createLeafNode(require, mpt, []byte("puppy"), []byte("knight")),
-
-		// newHashNode(mpt, []byte("iotex")),
-		// newHashNode(mpt, []byte("block")),
-
-		&branchNode{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("chain")},
-		},
-		&branchNode{
-			cacheNode: cacheNode{mpt: mpt, hashVal: []byte("puppy")},
-		},
+	for i := 1; i < len(items); i++ {
+		item := items[i]
+		mpt := &merklePatriciaTrie{
+			keyLength: 5,
+			hashFunc:  DefaultHashFunc,
+			kvStore:   trie.NewMemKVStore(),
+			async:     true,
+		}
+		bnode = createBranchNode(require, mpt, children)
+		bnode.mpt.async = false
+		node, err := bnode.updateChild([]byte(item.k)[offset], child, true)
+		require.NoError(err)
+		hn, ok := node.(*hashNode)
+		require.True(ok)
+		require.Equal(bnode.hashVal, hn.hashVal)
 	}
-	children := make(map[byte]node)
-	children[11] = expected[0]
-	children[22] = expected[1]
-	xxx := createBranchNode(require, mpt, children)
-	t.Logf("xxx=%+v", xxx.indices)
-
-	children2 := make(map[byte]node)
-	children2[33] = expected[2]
-	children2[44] = expected[3]
-	xxx1 := createBranchNode(require, mpt, children2)
-	t.Logf("xxx1=%+v", xxx1.indices)
-
-	children3 := make(map[byte]node)
-	children3[55] = xxx
-	children3[66] = xxx1
-	bnode := createBranchNode(require, mpt, children3)
-	t.Logf("bnode=%+v", bnode.indices)
-
-	node, err := bnode.Delete(keyType{55, 11, 22, 66, 33, 44}, 0)
-	require.NoError(err)
-	t.Logf("%+v", node)
-	// ret, ok := node.(*branchNode)
-	// require.True(ok)
-	// childNodes := bnode.Children()
-
-	// require.NotContains(childNodes, node)
 }

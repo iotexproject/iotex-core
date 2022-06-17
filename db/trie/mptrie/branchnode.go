@@ -7,8 +7,6 @@
 package mptrie
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -90,7 +88,6 @@ func (b *branchNode) Children() []node {
 }
 
 func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
-	fmt.Printf("%+v, %v\n", key, offset)
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	if err != nil {
@@ -100,13 +97,9 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("newChild--==%+v\n", newChild)
 	if newChild != nil || b.isRoot {
 		return b.updateChild(offsetKey, newChild, false)
 	}
-
-	fmt.Printf("switch--==%+v\n", b.children)
-
 	switch len(b.children) {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
@@ -148,7 +141,6 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 }
 
 func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
-	// fmt.Printf("Upsert--key=%+v, offset=%v, value=%+v\n", key, offset, value)
 	var newChild node
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
@@ -200,7 +192,6 @@ func (b *branchNode) proto(flush bool) (proto.Message, error) {
 }
 
 func (b *branchNode) child(key byte) (node, error) {
-	fmt.Printf("b=%p, child==%+v, key=%v\n", b, b.children, key)
 	c, ok := b.children[key]
 	if !ok {
 		return nil, trie.ErrNotExist
@@ -222,7 +213,6 @@ func (b *branchNode) Flush() error {
 }
 
 func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, error) {
-	fmt.Printf("updateChild==%+v, key=%v\n", child, key)
 	if err := b.delete(); err != nil {
 		return nil, err
 	}
