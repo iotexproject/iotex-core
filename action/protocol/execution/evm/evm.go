@@ -96,15 +96,7 @@ func newParams(
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if dest := execution.Contract(); dest != action.EmptyAddress {
-		var (
-			contract address.Address
-			err      error
-		)
-		if featureCtx.TolerateLegacyAddress {
-			contract, err = address.FromStringLegacy(dest)
-		} else {
-			contract, err = address.FromString(dest)
-		}
+		contract, err := address.FromString(execution.Contract())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to decode contract address %s", dest)
 		}
