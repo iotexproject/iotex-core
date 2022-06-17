@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -16,13 +16,12 @@ func TestCrashLog(t *testing.T) {
 	heapdumpDir, err := os.MkdirTemp(os.TempDir(), "heapdump")
 	require.NoError(err)
 	defer testutil.CleanupPath(heapdumpDir)
-	var logCfg log.GlobalConfig
-	logCfg.StderrRedirectFile = &heapdumpDir
+	config.Default.System.SystemLogDBPath = heapdumpDir
 
 	t.Run("index out of range", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				CrashLog(r, *logCfg.StderrRedirectFile)
+				CrashLog(r)
 			}
 		}()
 		strs := make([]string, 2)
@@ -33,7 +32,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("invaled memory address or nil pointer", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				CrashLog(r, *logCfg.StderrRedirectFile)
+				CrashLog(r)
 			}
 		}()
 		var i *int
@@ -42,7 +41,7 @@ func TestCrashLog(t *testing.T) {
 	t.Run("divide by zero", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
-				CrashLog(r, *logCfg.StderrRedirectFile)
+				CrashLog(r)
 			}
 		}()
 		a, b := 10, 0

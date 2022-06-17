@@ -253,7 +253,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					recovery.CrashLog(r, "/var/log")
+					recovery.CrashLog(r)
 				}
 			}()
 			runtime.SetMutexProfileFraction(1)

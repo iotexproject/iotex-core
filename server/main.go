@@ -104,9 +104,12 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
+	if cfg.Log.StderrRedirectFile != nil {
+		config.Default.System.SystemLogDBPath = filepath.Dir(*cfg.Log.StderrRedirectFile)
+	}
 	defer func() {
-		if r := recover(); r != nil && cfg.Log.StderrRedirectFile != nil {
-			recovery.CrashLog(r, filepath.Dir(*cfg.Log.StderrRedirectFile))
+		if r := recover(); r != nil {
+			recovery.CrashLog(r)
 		}
 	}()
 

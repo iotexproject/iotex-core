@@ -18,6 +18,7 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
@@ -46,8 +47,9 @@ type (
 )
 
 // CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
-func CrashLog(r interface{}, dir string) {
+func CrashLog(r interface{}) {
 	log.S().Errorf("crashlog: %v", r)
+	dir := config.Default.System.SystemLogDBPath
 	if !fileutil.FileExists(dir) {
 		if err := os.MkdirAll(dir, 0666); err != nil {
 			log.L().Panic(err.Error())

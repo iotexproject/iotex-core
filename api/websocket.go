@@ -61,7 +61,7 @@ func (wsSvr *WebsocketServer) Start(_ context.Context) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				recovery.CrashLog(r, "/var/log")
+				recovery.CrashLog(r)
 			}
 		}()
 		if err := wsSvr.svr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
