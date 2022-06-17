@@ -32,7 +32,7 @@ func TestNewActionHashCmd(t *testing.T) {
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
 	_pubKeyByte, _ := hex.DecodeString(_pubKeyString)
 
@@ -90,7 +90,7 @@ func TestNewActionHashCmd(t *testing.T) {
 
 	t.Run("failed to dial grpc connection", func(t *testing.T) {
 		expectedErr := errors.New("failed to dial grpc connection")
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr).Times(1)
+		client.EXPECT().APIServiceClient().Return(nil, expectedErr).Times(1)
 
 		cmd := NewActionHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, "test")

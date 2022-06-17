@@ -54,11 +54,6 @@ var (
 
 // NewActionHashCmd represents the action hash command
 func NewActionHashCmd(client ioctl.Client) *cobra.Command {
-	var (
-		endpoint string
-		insecure bool
-	)
-
 	use, _ := client.SelectTranslation(_hashCmdUses)
 	short, _ := client.SelectTranslation(_hashCmdShorts)
 
@@ -69,10 +64,7 @@ func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			hash := args[0]
-			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-				Endpoint: endpoint,
-				Insecure: insecure,
-			})
+			apiServiceClient, err := client.APIServiceClient()
 			if err != nil {
 				return err
 			}
