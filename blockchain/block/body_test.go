@@ -36,15 +36,18 @@ func TestSerDer(t *testing.T) {
 	body := Body{}
 	ser, err := body.Serialize()
 	require.NoError(err)
-	require.NoError(body.Deserialize(ser, 0))
-	require.Equal(0, len(body.Actions))
+	body2, err := (&Deserializer{}).DeserializeBody(ser)
+	require.NoError(err)
+	require.Equal(0, len(body2.Actions))
 
 	body, err = makeBody()
 	require.NoError(err)
 	ser, err = body.Serialize()
 	require.NoError(err)
-	require.NoError(body.Deserialize(ser, 0))
-	require.Equal(1, len(body.Actions))
+	body2, err = (&Deserializer{}).DeserializeBody(ser)
+	require.NoError(err)
+	require.Equal(1, len(body2.Actions))
+	require.Equal(&body, body2)
 }
 
 func TestLoadProto(t *testing.T) {
@@ -52,15 +55,18 @@ func TestLoadProto(t *testing.T) {
 	body := Body{}
 	blockBody := body.Proto()
 	require.NotNil(blockBody)
-	require.NoError(body.LoadProto(blockBody, 0))
-	require.Equal(0, len(body.Actions))
+	body2, err := (&Deserializer{}).fromBodyProto(blockBody)
+	require.NoError(err)
+	require.Equal(0, len(body2.Actions))
 
-	body, err := makeBody()
+	body, err = makeBody()
 	require.NoError(err)
 	blockBody = body.Proto()
 	require.NotNil(blockBody)
-	require.NoError(body.LoadProto(blockBody, 0))
-	require.Equal(1, len(body.Actions))
+	body2, err = (&Deserializer{}).fromBodyProto(blockBody)
+	require.NoError(err)
+	require.Equal(1, len(body2.Actions))
+	require.Equal(body, body2)
 }
 
 func TestCalculateTxRoot(t *testing.T) {
