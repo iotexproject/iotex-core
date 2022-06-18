@@ -201,13 +201,7 @@ func getBucketsCount(client ioctl.Client) (count *iotextypes.BucketsCount, err e
 }
 
 func getBuckets(client ioctl.Client, method *iotexapi.ReadStakingDataMethod, readStakingdataRequest *iotexapi.ReadStakingDataRequest) (response *iotexapi.ReadStateResponse, err error) {
-	var endpoint string
-	var insecure bool
-
-	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to endpoint")
 	}

@@ -32,7 +32,7 @@ func TestBCBucketCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
 
 	t.Run("get total blockchain bucket count", func(t *testing.T) {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{}, nil)
 
 		cmd := NewBCBucketCmd(client)
@@ -42,7 +42,7 @@ func TestBCBucketCmd(t *testing.T) {
 	})
 
 	t.Run("get active blockchain bucket count", func(t *testing.T) {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(2)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{}, nil)
 
 		cmd := NewBCBucketCmd(client)
