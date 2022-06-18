@@ -86,12 +86,15 @@ type (
 	}
 
 	client struct {
-		cfg            config.Config
-		conn           *grpc.ClientConn
-		cryptoSm2      bool
-		configFilePath string
-		endpoint       string
-		insecure       bool
+		cfg                config.Config
+		conn               *grpc.ClientConn
+		cryptoSm2          bool
+		configFilePath     string
+		endpoint           string
+		insecure           bool
+		hdWalletConfigFile string
+	}
+
 	// Option sets client construction parameter
 	Option func(*client)
 
