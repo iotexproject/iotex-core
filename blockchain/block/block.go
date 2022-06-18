@@ -52,35 +52,6 @@ func (b *Block) Serialize() ([]byte, error) {
 	return proto.Marshal(b.ConvertToBlockPb())
 }
 
-// ConvertFromBlockPb converts Block to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
-	b.Header = Header{}
-	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
-		return err
-	}
-	b.Body = Body{}
-	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
-		return err
-	}
-
-	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())
-}
-
-// Deserialize parses the byte stream into a Block
-func (b *Block) Deserialize(buf []byte) error {
-	pbBlock := iotextypes.Block{}
-	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
-		return err
-	}
-	if err := b.ConvertFromBlockPb(&pbBlock); err != nil {
-		return err
-	}
-	b.Receipts = nil
-
-	// verify merkle root can match after deserialize
-	return b.VerifyTxRoot()
-}
-
 // VerifyTxRoot verifies the transaction root hash
 func (b *Block) VerifyTxRoot() error {
 	root, err := b.CalculateTxRoot()
