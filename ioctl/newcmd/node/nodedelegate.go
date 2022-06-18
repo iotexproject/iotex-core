@@ -48,11 +48,6 @@ var (
 	}
 )
 
-var (
-	_nodeStatus     map[bool]string
-	_probatedStatus map[bool]string
-)
-
 type nextDelegatesMessage struct {
 	Epoch      int        `json:"epoch"`
 	Determined bool       `json:"determined"`
@@ -82,9 +77,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		epochNum  uint64
 		nextEpoch bool
 	)
-
-	_nodeStatus = ConfigMap("active", "false")
-	_probatedStatus = ConfigMap("probated", "")
 
 	use, _ := client.SelectTranslation(_delegateUses)
 	short, _ := client.SelectTranslation(_delegateShorts)
@@ -257,7 +249,7 @@ func (m *nextDelegatesMessage) String(epochNum uint64) string {
 	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
 	for _, bp := range m.Delegates {
 		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-			bp.Alias, _nodeStatus[bp.Active], bp.Votes))
+			bp.Alias, ConfigMap("node", bp.Active), bp.Votes))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -277,12 +269,24 @@ func (m *delegatesMessage) String() string {
 		"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
 	for _, bp := range m.Delegates {
 		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-			bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
+			bp.Alias, ConfigMap("node", bp.Active), bp.Production, ConfigMap("probated", bp.ProbatedStatus), bp.Votes))
 	}
 	return strings.Join(lines, "\n")
 }
 
 // ConfigMap return the map of status configuration
-func ConfigMap(t string, f string) map[bool]string {
-	return map[bool]string{true: t, false: f}
+func ConfigMap(t string, b bool) string {
+	switch t {
+	case "node":
+		if b {
+			return "active"
+		}
+		return "false"
+	case "probated":
+		if b {
+			return "probated"
+		}
+		return ""
+	}
+	return ""
 }
