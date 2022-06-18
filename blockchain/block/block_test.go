@@ -125,25 +125,6 @@ var (
 	}
 )
 
-func TestConvertFromBlockPb(t *testing.T) {
-	blk := Block{}
-	require.NoError(t, blk.ConvertFromBlockPb(&_pbBlock))
-
-	txHash, err := blk.CalculateTxRoot()
-	require.NoError(t, err)
-
-	blk.Header.txRoot = txHash
-	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
-
-	raw, err := blk.Serialize()
-	require.NoError(t, err)
-
-	var newblk Block
-	err = newblk.Deserialize(raw)
-	require.NoError(t, err)
-	require.Equal(t, blk, newblk)
-}
-
 func TestBlockCompressionSize(t *testing.T) {
 	for _, n := range []int{1, 10, 100, 1000, 10000} {
 		blk := makeBlock(t, n)
