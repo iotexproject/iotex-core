@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
@@ -61,7 +63,27 @@ var (
 		Time:    60 * time.Second, // Ping the client if it is idle for 60 seconds to ensure the connection is still active
 		Timeout: 10 * time.Second, // Wait 10 seconds for the ping ack before assuming the connection is dead
 	}
+
+	_apiCallSourceWithChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicallsource_chainid_metrics",
+			Help: "API call Source ChainID Statistics",
+		},
+		[]string{"chain_id"},
+	)
+	_apiCallSourceWithOutChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicallsource_nochainid_metrics",
+			Help: "API call Source Without ChainID Statistics",
+		},
+		[]string{"client_ip", "sender", "recipient"},
+	)
 )
+
+func init() {
+	prometheus.MustRegister(_apiCallSourceWithChainIDMtc)
+	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
+}
 
 // NewGRPCServer creates a new grpc server
 func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
@@ -227,7 +249,7 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
+		sender := selp.SenderAddress()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -296,6 +318,24 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
+	chainID := strconv.FormatUint(uint64(in.GetAction().GetCore().GetChainID()), 10)
+	if in.GetAction().GetCore().GetChainID() > 0 {
+		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
+	} else {
+		var clientIP, sender, recipient string
+		selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in.GetAction())
+		if err != nil {
+			return nil, err
+		}
+		if p, ok := peer.FromContext(ctx); ok {
+			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+		}
+		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
+			sender = senderAddr.String()
+		}
+		recipient, _ = selp.Destination()
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
+	}
 	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
 		return nil, err
@@ -604,9 +644,13 @@ func (svr *GRPCServer) GetTransactionLogByBlockHeight(ctx context.Context, in *i
 
 // GetActPoolActions returns the all Transaction Identifiers in the mempool
 func (svr *GRPCServer) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
-	ret, err := svr.coreService.ActPoolActions(in.ActionHashes)
+	acts, err := svr.coreService.ActionsInActPool(in.ActionHashes)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	ret := make([]*iotextypes.Action, 0)
+	for _, act := range acts {
+		ret = append(ret, act.Proto())
 	}
 	return &iotexapi.GetActPoolActionsResponse{
 		Actions: ret,
@@ -647,7 +691,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 		NoBaseFee: true,
 	})
 
-	_, _, err = svr.coreService.SimulateExecution(ctx, act.SrcPubkey().Address(), sc)
+	_, _, err = svr.coreService.SimulateExecution(ctx, act.SenderAddress(), sc)
 	if err != nil {
 		return nil, err
 	}

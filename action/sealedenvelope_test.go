@@ -10,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -19,6 +18,7 @@ import (
 const (
 	_publicKey = "04403d3c0dbd3270ddfc248c3df1f9aafd60f1d8e7456961c9ef262" +
 		"92262cc68f0ea9690263bef9e197a38f06026814fc70912c2b98d2e90a68f8ddc5328180a01"
+	_evmNetworkID uint32 = 4689
 )
 
 var (
@@ -47,7 +47,7 @@ func TestSealedEnvelope_Basic(t *testing.T) {
 
 		var se1 SealedEnvelope
 		se.signature = _validSig
-		req.NoError(se1.LoadProto(se.Proto()))
+		req.NoError(se1.loadProto(se.Proto(), _evmNetworkID))
 		req.Equal(se.Envelope, se1.Envelope)
 	}
 }
@@ -128,7 +128,6 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 }
 
 func TestSealedEnvelope_Proto(t *testing.T) {
-	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
 	req := require.New(t)
 	se, err := createSealedEnvelope(0)
 	req.NoError(err)
@@ -153,7 +152,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	} {
 		se.encoding = v.encoding
 		se.signature = v.sig
-		req.Contains(se2.LoadProto(se.Proto()).Error(), v.err)
+		req.Contains(se2.loadProto(se.Proto(), _evmNetworkID).Error(), v.err)
 	}
 
 	for _, v := range []struct {
@@ -166,9 +165,9 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		se, err = createSealedEnvelope(0)
 		se.signature = _validSig
 		se.encoding = v.enc
-		req.NoError(se2.LoadProto(se.Proto()))
+		req.NoError(se2.loadProto(se.Proto(), _evmNetworkID))
 		if v.enc > 0 {
-			se.evmNetworkID = config.EVMNetworkID()
+			se.evmNetworkID = _evmNetworkID
 		}
 		h, _ := se.Hash()
 		req.Equal(v.hash, hex.EncodeToString(h[:]))
