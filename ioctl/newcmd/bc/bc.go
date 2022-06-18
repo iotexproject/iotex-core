@@ -110,7 +110,6 @@ func GetProbationList(client ioctl.Client, epochNum uint64) (*iotexapi.ReadState
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
-		Height:     strconv.FormatUint(epochStartHeight, 10),
 	}
 	ctx := context.Background()
 
