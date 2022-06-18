@@ -79,10 +79,7 @@ func NewNodeRewardCmd(client ioctl.Client) *cobra.Command {
 }
 
 func rewardPool(client ioctl.Client) (string, string, string, error) {
-	var endpoint string
-	var insecure bool
-
-	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
+	apiClient, err := client.APIServiceClient()
 	if err != nil {
 		return "", "", "", err
 	}
@@ -140,17 +137,11 @@ func rewardPool(client ioctl.Client) (string, string, string, error) {
 }
 
 func reward(client ioctl.Client, arg string) (string, string, error) {
-	var endpoint string
-	var insecure bool
-
 	address, err := client.Address(arg)
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to get address")
 	}
-	apiClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiClient, err := client.APIServiceClient()
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to connect to endpoint")
 	}

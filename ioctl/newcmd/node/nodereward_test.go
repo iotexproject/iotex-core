@@ -24,18 +24,10 @@ func TestNewNodeRewardCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(24)
-
 	apiClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
-	var endpoint string
-	var insecure bool
-
-	client.EXPECT().APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	}).Return(apiClient, nil).Times(7)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(24)
+	client.EXPECT().APIServiceClient().Return(apiClient, nil).Times(7)
 
 	t.Run("get node reward pool", func(t *testing.T) {
 		t.Run("get available reward & total reward", func(t *testing.T) {
