@@ -34,7 +34,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		if err != nil {
 			return nil, err
 		}
-		info := &block.Store{}
+		info := &block.Store{EVMNetworkID: fd.evmNetworkID}
 		if err := info.Deserialize(v); err != nil {
 			return nil, err
 		}

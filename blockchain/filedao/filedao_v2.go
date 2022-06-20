@@ -38,16 +38,17 @@ var (
 type (
 	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
-		filename  string
-		header    *FileHeader
-		tip       *FileTip
-		blkBuffer *stagingBuffer
-		blkCache  *cache.ThreadSafeLruCache
-		kvStore   db.KVStore
-		batch     batch.KVStoreBatch
-		hashStore db.CountingIndex // store block hash
-		blkStore  db.CountingIndex // store raw blocks
-		sysStore  db.CountingIndex // store transaction log
+		filename     string
+		header       *FileHeader
+		tip          *FileTip
+		blkBuffer    *stagingBuffer
+		blkCache     *cache.ThreadSafeLruCache
+		kvStore      db.KVStore
+		batch        batch.KVStoreBatch
+		hashStore    db.CountingIndex // store block hash
+		blkStore     db.CountingIndex // store raw blocks
+		sysStore     db.CountingIndex // store transaction log
+		evmNetworkID uint32
 	}
 )
 
@@ -68,9 +69,10 @@ func newFileDAOv2(bottom uint64, cfg db.Config) (*fileDAOv2, error) {
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  db.NewBoltDB(cfg),
-		batch:    batch.NewBatch(),
+		blkCache:     cache.NewThreadSafeLruCache(16),
+		kvStore:      db.NewBoltDB(cfg),
+		batch:        batch.NewBatch(),
+		evmNetworkID: cfg.EVMNetworkID,
 	}
 	return &fd, nil
 }

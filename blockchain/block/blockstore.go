@@ -12,14 +12,14 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/config"
 )
 
 type (
 	// Store defines block storage schema
 	Store struct {
-		Block    *Block
-		Receipts []*action.Receipt
+		EVMNetworkID uint32
+		Block        *Block
+		Receipts     []*action.Receipt
 	}
 )
 
@@ -43,7 +43,7 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 // FromProto converts from proto message
 func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
 	// TODO: pass the correct EVM network ID at the time of newFileDAOv2()
-	blk, err := (&Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(pb.Block)
+	blk, err := (&Deserializer{}).SetEvmNetworkID(in.EVMNetworkID).FromBlockProto(pb.Block)
 	if err != nil {
 		return err
 	}

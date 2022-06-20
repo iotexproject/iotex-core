@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -264,7 +263,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		return &block.Body{}, nil
 	}
 	// TODO: pass the correct EVM network ID at the time of newFileDAOLegacy()
-	return (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).DeserializeBody(value)
+	return (&block.Deserializer{}).SetEvmNetworkID(fd.cfg.EVMNetworkID).DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
