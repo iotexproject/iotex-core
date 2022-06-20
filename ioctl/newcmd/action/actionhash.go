@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 type actionState int
@@ -50,6 +51,11 @@ var (
 		config.English: "hash ACTION_HASH",
 		config.Chinese: "hash 交易哈希",
 	}
+)
+
+// Errors
+var (
+	ErrNoAliasFound = errors.New("no alias is found")
 )
 
 // NewActionHashCmd represents the action hash command
@@ -155,7 +161,7 @@ func printAction(client ioctl.Client, actionInfo *iotexapi.ActionInfo) (string, 
 func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, error) {
 	pubKey, err := crypto.BytesToPublicKey(action.SenderPubKey)
 	if err != nil {
-		return "", errors.New("failed to convert public key from bytes")
+		return "", errors.Wrap(err, "failed to convert public key from bytes")
 	}
 	senderAddress := pubKey.Address()
 	if senderAddress == nil {
@@ -165,7 +171,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 	core := action.Core
 	gasPriceUnitIOTX, err := util.StringToIOTX(core.GasPrice)
 	if err != nil {
-		return "", errors.New("failed to convert string to IOTX")
+		return "", errors.Wrap(err, "failed to convert string to IOTX")
 	}
 	result := fmt.Sprintf("\nversion: %d  ", core.GetVersion()) +
 		fmt.Sprintf("nonce: %d  ", core.GetNonce()) +
@@ -180,7 +186,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		transfer := core.GetTransfer()
 		amount, err := util.StringToIOTX(transfer.Amount)
 		if err != nil {
-			return "", errors.New("failed to convert string into IOTX amount")
+			return "", errors.Wrap(err, "failed to convert string into IOTX amount")
 		}
 		result += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
@@ -198,7 +204,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		if execution.Amount != "0" {
 			amount, err := util.StringToIOTX(execution.Amount)
 			if err != nil {
-				return "", errors.New("failed to convert string into IOTX amount")
+				return "", errors.Wrap(err, "failed to convert string into IOTX amount")
 			}
 			result += fmt.Sprintf("  amount: %s IOTX\n", amount)
 		}
@@ -305,4 +311,17 @@ func Match(in string, matchType string) string {
 		}
 	}
 	return ""
+}
+
+// Alias returns the alias corresponding to address
+func Alias(address string) (string, error) {
+	if err := validator.ValidateAddress(address); err != nil {
+		return "", errors.Wrap(err, "")
+	}
+	for alias, addr := range config.ReadConfig.Aliases {
+		if addr == address {
+			return alias, nil
+		}
+	}
+	return "", ErrNoAliasFound
 }

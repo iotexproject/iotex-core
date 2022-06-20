@@ -34,7 +34,8 @@ func TestNewActionHashCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
-	_pubKeyByte, _ := hex.DecodeString(_pubKeyString)
+	_pubKeyByte, err := hex.DecodeString(_pubKeyString)
+	require.NoError(err)
 
 	t.Run("get action receipt", func(t *testing.T) {
 		getActionResponse := &iotexapi.GetActionsResponse{
@@ -94,7 +95,6 @@ func TestNewActionHashCmd(t *testing.T) {
 
 		cmd := NewActionHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, "test")
-		require.Error(err)
 		require.Equal(expectedErr, err)
 	})
 }
