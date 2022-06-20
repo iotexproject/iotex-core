@@ -59,12 +59,12 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 			cmd.Println("Set password")
 			password, err := client.ReadSecret()
 			if err != nil {
-				return errors.New("failed to get password")
+				return errors.Wrap(err, "failed to get password")
 			}
 			cmd.Println("Enter password again")
 			passwordAgain, err := client.ReadSecret()
 			if err != nil {
-				return errors.New("failed to get password")
+				return errors.Wrap(err, "failed to get password")
 			}
 			if password != passwordAgain {
 				return ErrPasswdNotMatch
@@ -73,9 +73,8 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 			if err := client.WriteHdWalletConfigFile(mnemonic, password); err != nil {
 				return errors.Wrap(err, "failed to write to config file")
 			}
-
 			cmd.Printf("Mnemonic phrase: %s\n"+
-				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
+				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.\n", mnemonic)
 			return nil
 		},
 	}
