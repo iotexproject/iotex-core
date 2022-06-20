@@ -28,7 +28,6 @@ func TestBCBucketCmd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(9)
 
 	t.Run("get total blockchain bucket count", func(t *testing.T) {
@@ -58,9 +57,10 @@ func TestBCBucketCmd(t *testing.T) {
 			StakedAmount:     "10",
 			UnstakeStartTime: timestamppb.New(testutil.TimestampNow()),
 		}
-		vblist, _ := proto.Marshal(&iotextypes.VoteBucketList{
+		vblist, err := proto.Marshal(&iotextypes.VoteBucketList{
 			Buckets: []*iotextypes.VoteBucket{vb},
 		})
+		require.NoError(err)
 		client.EXPECT().Config().Return(cfg).Times(1)
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{
 			Data: vblist,
