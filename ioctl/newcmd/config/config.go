@@ -49,25 +49,23 @@ type info struct {
 }
 
 // InitConfig load config data from default config file
-func InitConfig() (config.Config, string, error) {
+func InitConfig() (config.Config, string) {
 	info := &info{}
 	configDir := os.Getenv("HOME") + "/.config/ioctl/default"
 	// Create path to config directory
-	if err := os.MkdirAll(configDir, 0700); err != nil {
+	err := os.MkdirAll(configDir, 0700)
+	if err != nil {
 		log.L().Panic(err.Error())
-		return info.readConfig, info.defaultConfigFile, err
 	}
 	info.defaultConfigFile = filepath.Join(configDir, _defaultConfigFileName)
 
 	// Load or reset config file
-	cfg, err := config.LoadConfig()
+	info.readConfig, err = config.LoadConfig()
 	if err != nil && os.IsNotExist(err) {
 		err = info.reset() // Config file doesn't exist
 	} else if err != nil {
 		log.L().Panic(err.Error())
-		return info.readConfig, info.defaultConfigFile, err
 	}
-	info.readConfig = cfg
 
 	// Check completeness of config file
 	completeness := true
@@ -87,16 +85,15 @@ func InitConfig() (config.Config, string, error) {
 		completeness = false
 	}
 	if !completeness {
-		if err := info.writeConfig(); err != nil {
+		if err = info.writeConfig(); err != nil {
 			log.L().Panic(err.Error())
-			return info.readConfig, info.defaultConfigFile, err
 		}
 	}
 	// Set language for ioctl
 	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
 		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
-	return info.readConfig, info.defaultConfigFile, nil
+	return info.readConfig, info.defaultConfigFile
 }
 
 // newInfo create config info
