@@ -9,12 +9,13 @@
 // To compile the proto, run:
 //      protoc -I=proto --go_out=plugins=grpc:.  ./proto/abci.proto
 syntax = "proto3";
-package api;
-option go_package = "./api";
+package types;
+option go_package = "./abci/types";
 
-service ABCIApplication {
-  rpc CheckTx(RequestCheckTx) returns (ResponseCheckTx);
-}
+// import "google/protobuf/timestamp.proto";
+
+//----------------------------------------
+// Request types
 
 enum CheckTxType {
   NEW = 0;
@@ -26,6 +27,19 @@ message RequestCheckTx {
   CheckTxType type = 2;
 }
 
+message RequestDeliverTx {
+  bytes tx = 1;
+}
+
+message RequestBeginBlock {
+  bytes hash = 1;
+  Header header = 2;
+  LastCommitInfo last_commit_info = 3;
+}
+
+//----------------------------------------
+// Response types
+
 message ResponseCheckTx {
   uint32 code = 1;
   bytes data = 2;
@@ -33,4 +47,93 @@ message ResponseCheckTx {
   string info = 4;
   int64 gas_wanted = 5;
   int64 gas_used = 6;
+}
+
+message ResponseDeliverTx {
+  uint32 code = 1;
+  bytes data = 2;
+  string log = 3;   // nondeterministic
+  string info = 4;  // nondeterministic
+  int64 gas_wanted = 5 [json_name = "gas_wanted"];
+  int64 gas_used = 6 [json_name = "gas_used"];
+}
+
+message ResponseBeginBlock {
+  repeated Event events = 1;
+}
+
+//----------------------------------------
+// Misc.
+
+message LastCommitInfo {
+  int32 round = 1;
+  // repeated VoteInfo votes = 2;
+}
+
+// Event allows application developers to attach additional information to
+// ResponseBeginBlock, ResponseEndBlock, ResponseCheckTx and ResponseDeliverTx.
+// Later, transactions may be queried using these events.
+message Event {
+  string type = 1;
+  repeated EventAttribute attributes = 2;
+}
+
+// EventAttribute is a single key-value pair, associated with an event.
+message EventAttribute {
+  string key = 1;
+  string value = 2;
+  bool index = 3;  // nondeterministic
+}
+
+//----------------------------------------
+// Block Types
+
+message BlockID {
+  bytes hash = 1;
+}
+
+message Header {
+  int64 height = 1;
+  // google.protobuf.Timestamp time = 2;
+
+  // prev block info
+  BlockID last_block_id = 3;
+
+  // hashes of block data
+  bytes last_commit_hash = 4;  // commit from validators from the last block
+  bytes data_hash = 5;         // transactions
+}
+
+// GasInfo defines tx execution gas context.
+message GasInfo {
+  // GasWanted is the maximum units of work we allow this tx to perform.
+  uint64 gas_wanted = 1;
+
+  // GasUsed is the amount of gas actually consumed.
+  uint64 gas_used = 2;
+}
+
+// Result is the union of ResponseFormat and ResponseCheckTx.
+message Result {
+  // Data is any data returned from message or handler execution. It MUST be
+  // length prefixed in order to separate data from multiple message executions.
+  // Deprecated. This field is still populated, but prefer msg_response instead
+  // because it also contains the Msg response typeURL.
+  bytes data = 1 [deprecated = true];
+
+  // Log contains the log information from message or handler execution.
+  string log = 2;
+
+  // Events contains a slice of Event objects that were emitted during message
+  // or handler execution.
+  repeated Event events = 3;
+}
+
+//----------------------------------------
+// Service Definition
+
+service ABCIApplication {
+  rpc CheckTx(RequestCheckTx) returns (ResponseCheckTx);
+  rpc DeliverTx(RequestDeliverTx) returns (ResponseDeliverTx);
+  rpc BeginBlock(RequestBeginBlock) returns (ResponseBeginBlock);
 }

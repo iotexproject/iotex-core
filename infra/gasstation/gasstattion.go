@@ -7,14 +7,11 @@
 package gasstation
 
 import (
-	"context"
 	"math/big"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/infra/action"
 	"github.com/iotexproject/iotex-core/infra/blockchain"
@@ -26,9 +23,6 @@ type BlockDAO interface {
 	GetBlockHash(uint64) (hash.Hash256, error)
 	GetBlockByHeight(uint64) (*block.Block, error)
 }
-
-// SimulateFunc is function that simulate execution
-type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 
 // GasStation provide gas related api
 type GasStation struct {
