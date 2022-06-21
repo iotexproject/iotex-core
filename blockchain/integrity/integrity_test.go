@@ -867,7 +867,8 @@ func TestConstantinople(t *testing.T) {
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
+		daoCfg := blockdao.CreateBlockDAOConfig(cfg)
+		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, daoCfg)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -1113,7 +1114,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+		daoCfg := blockdao.CreateBlockDAOConfig(cfg)
+		dao := blockdao.NewBlockDAO(indexers, daoCfg)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -1849,7 +1851,8 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+	daoCfg := blockdao.CreateBlockDAOConfig(cfg)
+	dao := blockdao.NewBlockDAO(indexers, daoCfg)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,

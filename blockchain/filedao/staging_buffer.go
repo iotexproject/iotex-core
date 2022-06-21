@@ -40,7 +40,7 @@ func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 		return false, ErrNotSupported
 	}
 	blk := &block.Store{}
-	if err := blk.Deserialize(blkBytes); err != nil {
+	if err := blk.Deserialize(0, blkBytes); err != nil {
 		return false, err
 	}
 	s.buffer[pos] = blk

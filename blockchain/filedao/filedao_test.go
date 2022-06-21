@@ -68,8 +68,9 @@ func TestReadFileHeader(t *testing.T) {
 	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
+	newCfg, _ := CreateFileDAOConfig(cfg)
 	// empty legacy file is invalid
-	legacy, err := newFileDAOLegacy(cfg)
+	legacy, err := newFileDAOLegacy(newCfg)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
@@ -109,9 +110,9 @@ func TestReadFileHeader(t *testing.T) {
 		}
 	}
 	os.RemoveAll(cfg.DbPath)
-
+	newCfg, _ = CreateFileDAOConfig(cfg)
 	// test valid v2 master file
-	r.NoError(createNewV2File(1, cfg))
+	r.NoError(createNewV2File(1, newCfg))
 	defer os.RemoveAll(cfg.DbPath)
 
 	test2 := []testCheckFile{
@@ -143,8 +144,9 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	_, err := checkMasterChainDBFile(cfg.DbPath)
 	r.Equal(ErrFileNotExist, err)
 
+	newCfg, _ := CreateFileDAOConfig(cfg)
 	// test empty db file, this will create new v2 file
-	fd, err := NewFileDAO(cfg)
+	fd, err := NewFileDAO(newCfg)
 	r.NoError(err)
 	r.NotNil(fd)
 	h, err := readFileHeader(cfg.DbPath, FileAll)
@@ -195,7 +197,9 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 
 	cfg.SplitDBHeight = 5
 	cfg.SplitDBSizeMB = 20
-	fd, err := newFileDAOLegacy(cfg)
+
+	newCfg, _ := CreateFileDAOConfig(cfg)
+	fd, err := newFileDAOLegacy(newCfg)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(fd.Start(ctx))
@@ -208,7 +212,9 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 
 	// set FileDAO to split at height 15, 30 and 40
 	cfg.V2BlocksToSplitDB = 15
-	fd, err = NewFileDAO(cfg)
+
+	newCfg, _ = CreateFileDAOConfig(cfg)
+	fd, err = NewFileDAO(newCfg)
 	r.NoError(err)
 	r.NoError(fd.Start(ctx))
 	fm := fd.(*fileDAO)
@@ -263,8 +269,9 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	r.Equal(files[1], file3)
 	r.Equal(files[2], file4)
 
+	newCfg, _ = CreateFileDAOConfig(cfg)
 	// open 4 db files and verify again
-	fd, err = NewFileDAO(cfg)
+	fd, err = NewFileDAO(newCfg)
 	fm = fd.(*fileDAO)
 	r.EqualValues(4, fm.topIndex)
 	r.EqualValues(1, fm.splitHeight)
@@ -316,7 +323,8 @@ func TestCheckFiles(t *testing.T) {
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
 		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))
-		r.NoError(createNewV2File(1, cfg))
+		newCfg, _ := CreateFileDAOConfig(cfg)
+		r.NoError(createNewV2File(1, newCfg))
 	}
 	defer func() {
 		for i := 1; i <= 3; i++ {
@@ -329,4 +337,18 @@ func TestCheckFiles(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		r.Equal(files[i-1], kthAuxFileName("./filedao_v2.db", uint64(i)))
 	}
+}
+
+func TestCreateFileDAOConfig(t *testing.T) {
+	r := require.New(t)
+	cfg := db.DefaultConfig
+	newCfg, err := CreateFileDAOConfig(cfg)
+	r.NoError(err)
+	r.Equal("", newCfg.DbPath)
+	r.Equal(uint32(0), newCfg.Option.evmNetworkID)
+	cfg.DbPath = "./filedao_v2.db"
+	newCfg, err = CreateFileDAOConfig(cfg, EVMNetworkIDOption(1))
+	r.NoError(err)
+	r.Equal(cfg.DbPath, newCfg.DbPath)
+	r.Equal(uint32(1), newCfg.Option.evmNetworkID)
 }

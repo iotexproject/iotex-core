@@ -475,7 +475,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(nil, cfg.DB)
+	daoCfg := blockdao.CreateBlockDAOConfig(cfg)
+	dao := blockdao.NewBlockDAO(nil, daoCfg)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
@@ -498,7 +499,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao = blockdao.NewBlockDAO(nil, cfg.DB)
+	daoCfg = blockdao.CreateBlockDAOConfig(cfg)
+	dao = blockdao.NewBlockDAO(nil, daoCfg)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{

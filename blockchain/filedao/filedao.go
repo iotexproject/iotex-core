@@ -75,15 +75,50 @@ type (
 		lock        sync.Mutex
 		topIndex    uint64
 		splitHeight uint64
-		cfg         db.Config
+		cfg         FileDAOConfig
 		currFd      BaseFileDAO
 		legacyFd    FileDAO
 		v2Fd        *FileV2Manager // a collection of v2 db files
 	}
+
+	// FileDAOConfig represents the configuration of File DAO
+	FileDAOConfig struct {
+		db.Config
+		Option *configOption
+	}
+
+	// FileDAOConfigOption applies the configuration of File DAO
+	FileDAOConfigOption func(*configOption) error
+
+	configOption struct {
+		evmNetworkID uint32
+	}
 )
 
+func EVMNetworkIDOption(evmNetworkID uint32) FileDAOConfigOption {
+	return func(db *configOption) error {
+		db.evmNetworkID = evmNetworkID
+		return nil
+	}
+}
+
+// CreateFileDAOConfig creates a FileDAOConfig
+func CreateFileDAOConfig(cfg db.Config, options ...FileDAOConfigOption) (FileDAOConfig, error) {
+	opts := &configOption{}
+	cf := FileDAOConfig{
+		Config: cfg,
+		Option: opts,
+	}
+	for _, opt := range options {
+		if err := opt(opts); err != nil {
+			return cf, err
+		}
+	}
+	return cf, nil
+}
+
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(cfg db.Config) (FileDAO, error) {
+func NewFileDAO(cfg FileDAOConfig) (FileDAO, error) {
 	header, err := checkMasterChainDBFile(cfg.DbPath)
 	if err == ErrFileInvalid || err == ErrFileCantAccess {
 		return nil, err
@@ -365,7 +400,7 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO according to master file
-func CreateFileDAO(legacy bool, cfg db.Config) (FileDAO, error) {
+func CreateFileDAO(legacy bool, cfg FileDAOConfig) (FileDAO, error) {
 	fd := fileDAO{splitHeight: 1, cfg: cfg}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
@@ -405,7 +440,7 @@ func CreateFileDAO(legacy bool, cfg db.Config) (FileDAO, error) {
 }
 
 // createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg db.Config) error {
+func createNewV2File(start uint64, cfg FileDAOConfig) error {
 	v2, err := newFileDAOv2(start, cfg)
 	if err != nil {
 		return err

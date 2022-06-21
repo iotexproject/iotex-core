@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -57,11 +58,29 @@ type (
 		footerCache  *cache.ThreadSafeLruCache
 		tipHeight    uint64
 	}
+	// BlockDAOConfig represents the configuration of block DAO
+	BlockDAOConfig struct {
+		db.Config
+		EVMNetworkID uint32
+	}
 )
 
+// CreateBlockDAOConfig creates a BlockDAOConfig
+func CreateBlockDAOConfig(cfg config.Config) BlockDAOConfig {
+	return BlockDAOConfig{
+		Config:       cfg.DB,
+		EVMNetworkID: cfg.Chain.EVMNetworkID,
+	}
+}
+
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg db.Config) BlockDAO {
-	blkStore, err := filedao.NewFileDAO(cfg)
+func NewBlockDAO(indexers []BlockIndexer, cfg BlockDAOConfig) BlockDAO {
+	filedaoConfig, err := filedao.CreateFileDAOConfig(cfg.Config)
+	if err != nil {
+		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
+		return nil
+	}
+	blkStore, err := filedao.NewFileDAO(filedaoConfig)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil
@@ -75,7 +94,7 @@ func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, db.Config{MaxCacheSize: 16})
+	return createBlockDAO(blkStore, indexers, BlockDAOConfig{Config: db.Config{MaxCacheSize: 16}})
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -304,7 +323,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg BlockDAOConfig) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}

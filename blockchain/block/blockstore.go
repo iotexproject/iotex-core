@@ -17,9 +17,8 @@ import (
 type (
 	// Store defines block storage schema
 	Store struct {
-		EVMNetworkID uint32
-		Block        *Block
-		Receipts     []*action.Receipt
+		Block    *Block
+		Receipts []*action.Receipt
 	}
 )
 
@@ -41,9 +40,8 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 }
 
 // FromProto converts from proto message
-func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	// TODO: pass the correct EVM network ID at the time of newFileDAOv2()
-	blk, err := (&Deserializer{}).SetEvmNetworkID(in.EVMNetworkID).FromBlockProto(pb.Block)
+func (in *Store) FromProto(evmNetworkID uint32, pb *iotextypes.BlockStore) error {
+	blk, err := (&Deserializer{}).SetEvmNetworkID(evmNetworkID).FromBlockProto(pb.Block)
 	if err != nil {
 		return err
 	}
@@ -63,12 +61,12 @@ func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
 }
 
 // Deserialize parses the byte stream into Store
-func (in *Store) Deserialize(buf []byte) error {
+func (in *Store) Deserialize(evmNetworkID uint32, buf []byte) error {
 	pbStore := &iotextypes.BlockStore{}
 	if err := proto.Unmarshal(buf, pbStore); err != nil {
 		return err
 	}
-	return in.FromProto(pbStore)
+	return in.FromProto(evmNetworkID, pbStore)
 }
 
 // DeserializeBlockStoresPb decode byte stream into BlockStores pb message

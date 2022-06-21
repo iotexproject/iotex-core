@@ -27,7 +27,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	var (
 		normalHeaderSize, compressHeaderSize int
 	)
-	testFdInterface := func(cfg db.Config, t *testing.T) {
+	testFdInterface := func(cfg FileDAOConfig, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
@@ -79,8 +79,9 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
+		newCfg, _ := CreateFileDAOConfig(cfg)
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
-			testFdInterface(cfg, t)
+			testFdInterface(newCfg, t)
 		})
 	}
 
@@ -95,7 +96,8 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
-	fd, err := newFileDAOLegacy(cfg)
+	newCfg, _ := CreateFileDAOConfig(cfg)
+	fd, err := newFileDAOLegacy(newCfg)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
@@ -131,7 +133,8 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
-	fd, err := newFileDAOLegacy(cfg)
+	newCfg, _ := CreateFileDAOConfig(cfg)
+	fd, err := newFileDAOLegacy(newCfg)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
