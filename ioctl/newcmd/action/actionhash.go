@@ -51,11 +51,6 @@ var (
 	}
 )
 
-// Errors
-var (
-	ErrNoAliasFound = errors.New("no alias is found")
-)
-
 // NewActionHashCmd represents the action hash command
 func NewActionHashCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_hashCmdUses)
