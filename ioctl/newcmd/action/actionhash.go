@@ -26,10 +26,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 type actionState int
@@ -180,7 +178,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		fmt.Sprintf("chainID: %d  ", core.GetChainID()) +
 		fmt.Sprintf("encoding: %d\n", action.GetEncoding()) +
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			Match(senderAddress.String(), "address"))
+			Match(client, senderAddress.String(), "address"))
 	switch {
 	case core.GetTransfer() != nil:
 		transfer := core.GetTransfer()
@@ -190,7 +188,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		}
 		result += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
-				Match(transfer.Recipient, "address")) +
+				Match(client, transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s IOTX\n", amount)
 		if len(transfer.Payload) != 0 {
 			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
@@ -200,7 +198,7 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 		execution := core.GetExecution()
 		result += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				Match(execution.Contract, "address"))
+				Match(client, execution.Contract, "address"))
 		if execution.Amount != "0" {
 			amount, err := util.StringToIOTX(execution.Amount)
 			if err != nil {
@@ -235,14 +233,14 @@ func printActionProto(client ioctl.Client, action *iotextypes.Action) (string, e
 
 func printReceiptProto(client ioctl.Client, receipt *iotextypes.Receipt) string {
 	result := fmt.Sprintf("status: %d %s\n", receipt.Status,
-		Match(strconv.Itoa(int(receipt.Status)), "status")) +
+		Match(client, strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		printLogs(receipt.Logs)
 	if len(receipt.ContractAddress) != 0 {
 		result += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
-			Match(receipt.ContractAddress, "address"))
+			Match(client, receipt.ContractAddress, "address"))
 	}
 	if len(receipt.Logs) > 0 {
 		if index, ok := staking.BucketIndexFromReceiptLog(receipt.Logs[0]); ok {
@@ -276,10 +274,10 @@ func printLogs(logs []*iotextypes.Log) string {
 }
 
 // Match returns human readable expression
-func Match(in string, matchType string) string {
+func Match(client ioctl.Client, in string, matchType string) string {
 	switch matchType {
 	case "address":
-		alias, err := alias.Alias(in)
+		alias, err := client.Alias(in)
 		if err != nil {
 			return ""
 		}
@@ -311,17 +309,4 @@ func Match(in string, matchType string) string {
 		}
 	}
 	return ""
-}
-
-// Alias returns the alias corresponding to address
-func Alias(address string) (string, error) {
-	if err := validator.ValidateAddress(address); err != nil {
-		return "", errors.Wrap(err, "")
-	}
-	for alias, addr := range config.ReadConfig.Aliases {
-		if addr == address {
-			return alias, nil
-		}
-	}
-	return "", ErrNoAliasFound
 }

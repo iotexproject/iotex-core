@@ -65,6 +65,8 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
+		// Alias returns the alias corresponding to address
+		Alias(string) (string, error)
 		// SetAlias updates aliasname and account address and not write them into the default config file
 		SetAlias(string, string)
 		// SetAliasAndSave updates aliasname and account address and write them into the default config file
@@ -271,6 +273,18 @@ func (c *client) AliasMap() map[string]string {
 		aliases[addr] = name
 	}
 	return aliases
+}
+
+func (c *client) Alias(address string) (string, error) {
+	if err := validator.ValidateAddress(address); err != nil {
+		return "", err
+	}
+	for aliasName, addr := range c.cfg.Aliases {
+		if addr == address {
+			return aliasName, nil
+		}
+	}
+	return "", errors.New("no alias is found")
 }
 
 func (c *client) SetAlias(aliasName string, addr string) {

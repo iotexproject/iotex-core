@@ -33,6 +33,7 @@ func TestNewActionHashCmd(t *testing.T) {
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
+	client.EXPECT().Alias(gomock.Any()).Return("producer", nil).Times(3)
 
 	_pubKeyByte, err := hex.DecodeString(_pubKeyString)
 	require.NoError(err)
