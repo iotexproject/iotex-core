@@ -55,6 +55,7 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		return nil, ErrNotSupported
 	}
 
+	cfg, _ := CreateModuleConfig(config.Default.DB)
 	fd := fileDAOv2{
 		header: &FileHeader{
 			Version:        FileV2,
@@ -68,6 +69,7 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		blkCache: cache.NewThreadSafeLruCache(16),
 		kvStore:  db.NewMemKVStore(),
 		batch:    batch.NewBatch(),
+		cfg:      cfg,
 	}
 	return &fd, nil
 }
