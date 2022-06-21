@@ -442,18 +442,18 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 		return NewBlockDAOInMemForTest(nil), nil
 	}
 
-	newCfg, _ := filedao.CreateFileDAOConfig(cfg)
+	newCfg, _ := filedao.CreateModuleConfig(cfg)
 	if legacy {
 		fileDAO, err := filedao.CreateFileDAO(true, newCfg)
 		if err != nil {
 			return nil, err
 		}
-		daoCfg := CreateBlockDAOConfig(config.Config{DB: cfg})
+		daoCfg := CreateModuleConfig(config.Config{DB: cfg})
 		return createBlockDAO(fileDAO, nil, daoCfg), nil
 	}
 
 	cfg.Compressor = compressBlock
-	daoCfg := CreateBlockDAOConfig(config.Config{DB: cfg})
+	daoCfg := CreateModuleConfig(config.Config{DB: cfg})
 	return NewBlockDAO(nil, daoCfg), nil
 }
 
@@ -475,7 +475,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
 		cfg.MaxCacheSize = cacheSize
-		daoCfg := CreateBlockDAOConfig(config.Config{DB: cfg})
+		daoCfg := CreateModuleConfig(config.Config{DB: cfg})
 		blkDao := NewBlockDAO([]BlockIndexer{}, daoCfg)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {

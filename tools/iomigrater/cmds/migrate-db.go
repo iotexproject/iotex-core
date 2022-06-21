@@ -114,11 +114,11 @@ func migrateDbFile() error {
 
 	cfg.DB.DbPath = oldFile
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	daoCfg := blockdao.CreateBlockDAOConfig(cfg)
+	daoCfg := blockdao.CreateModuleConfig(cfg)
 	oldDAO := blockdao.NewBlockDAO(nil, daoCfg)
 
 	cfg.DB.DbPath = newFile
-	daoCfg = blockdao.CreateBlockDAOConfig(cfg)
+	daoCfg = blockdao.CreateModuleConfig(cfg)
 	newDAO := blockdao.NewBlockDAO(nil, daoCfg)
 
 	ctx := context.Background()

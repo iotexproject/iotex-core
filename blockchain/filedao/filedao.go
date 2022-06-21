@@ -75,37 +75,38 @@ type (
 		lock        sync.Mutex
 		topIndex    uint64
 		splitHeight uint64
-		cfg         FileDAOConfig
+		cfg         ModuleConfig
 		currFd      BaseFileDAO
 		legacyFd    FileDAO
 		v2Fd        *FileV2Manager // a collection of v2 db files
 	}
 
-	// FileDAOConfig represents the configuration of File DAO
-	FileDAOConfig struct {
+	// ModuleConfig represents the configuration of File DAO
+	ModuleConfig struct {
 		db.Config
 		Option *configOption
 	}
 
-	// FileDAOConfigOption applies the configuration of File DAO
-	FileDAOConfigOption func(*configOption) error
+	// ModuleConfigOption applies the configuration of File DAO
+	ModuleConfigOption func(*configOption) error
 
 	configOption struct {
 		evmNetworkID uint32
 	}
 )
 
-func EVMNetworkIDOption(evmNetworkID uint32) FileDAOConfigOption {
+// EVMNetworkIDOption sets the EVM network ID
+func EVMNetworkIDOption(evmNetworkID uint32) ModuleConfigOption {
 	return func(db *configOption) error {
 		db.evmNetworkID = evmNetworkID
 		return nil
 	}
 }
 
-// CreateFileDAOConfig creates a FileDAOConfig
-func CreateFileDAOConfig(cfg db.Config, options ...FileDAOConfigOption) (FileDAOConfig, error) {
+// CreateModuleConfig creates a ModuleConfig
+func CreateModuleConfig(cfg db.Config, options ...ModuleConfigOption) (ModuleConfig, error) {
 	opts := &configOption{}
-	cf := FileDAOConfig{
+	cf := ModuleConfig{
 		Config: cfg,
 		Option: opts,
 	}
@@ -118,7 +119,7 @@ func CreateFileDAOConfig(cfg db.Config, options ...FileDAOConfigOption) (FileDAO
 }
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(cfg FileDAOConfig) (FileDAO, error) {
+func NewFileDAO(cfg ModuleConfig) (FileDAO, error) {
 	header, err := checkMasterChainDBFile(cfg.DbPath)
 	if err == ErrFileInvalid || err == ErrFileCantAccess {
 		return nil, err
@@ -400,7 +401,7 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO according to master file
-func CreateFileDAO(legacy bool, cfg FileDAOConfig) (FileDAO, error) {
+func CreateFileDAO(legacy bool, cfg ModuleConfig) (FileDAO, error) {
 	fd := fileDAO{splitHeight: 1, cfg: cfg}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
@@ -440,7 +441,7 @@ func CreateFileDAO(legacy bool, cfg FileDAOConfig) (FileDAO, error) {
 }
 
 // createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg FileDAOConfig) error {
+func createNewV2File(start uint64, cfg ModuleConfig) error {
 	v2, err := newFileDAOv2(start, cfg)
 	if err != nil {
 		return err

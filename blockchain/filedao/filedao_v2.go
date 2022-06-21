@@ -48,12 +48,12 @@ type (
 		hashStore db.CountingIndex // store block hash
 		blkStore  db.CountingIndex // store raw blocks
 		sysStore  db.CountingIndex // store transaction log
-		cfg       FileDAOConfig
+		cfg       ModuleConfig
 	}
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg FileDAOConfig) (*fileDAOv2, error) {
+func newFileDAOv2(bottom uint64, cfg ModuleConfig) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -78,7 +78,7 @@ func newFileDAOv2(bottom uint64, cfg FileDAOConfig) (*fileDAOv2, error) {
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg FileDAOConfig) *fileDAOv2 {
+func openFileDAOv2(cfg ModuleConfig) *fileDAOv2 {
 	return &fileDAOv2{
 		filename: cfg.DbPath,
 		blkCache: cache.NewThreadSafeLruCache(16),
