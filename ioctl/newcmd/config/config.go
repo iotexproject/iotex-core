@@ -39,6 +39,7 @@ var (
 	_validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "analyserEndpoint", "all"}
 	_validExpl         = []string{"iotexscan", "iotxplorer"}
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
+	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
 )
 
 // info contains the information of config file
@@ -49,17 +50,21 @@ type info struct {
 
 // InitConfig load config data from default config file
 func InitConfig() (config.Config, string, error) {
-	info := &info{}
-	configDir := os.Getenv("HOME") + "/.config/ioctl/default"
+	info := &info{
+		readConfig: config.Config{
+			Aliases: make(map[string]string),
+		},
+	}
+
 	// Create path to config directory
-	err := os.MkdirAll(configDir, 0700)
+	err := os.MkdirAll(_configDir, 0700)
 	if err != nil {
 		return info.readConfig, info.defaultConfigFile, err
 	}
-	info.defaultConfigFile = filepath.Join(configDir, _defaultConfigFileName)
+	info.defaultConfigFile = filepath.Join(_configDir, _defaultConfigFileName)
 
 	// Load or reset config file
-	info.readConfig, err = config.LoadConfig()
+	err = info.loadConfig()
 	if os.IsNotExist(err) {
 		err = info.reset() // Config file doesn't exist
 	} else if err != nil {
@@ -69,7 +74,7 @@ func InitConfig() (config.Config, string, error) {
 	// Check completeness of config file
 	completeness := true
 	if info.readConfig.Wallet == "" {
-		info.readConfig.Wallet = configDir
+		info.readConfig.Wallet = _configDir
 		completeness = false
 	}
 	if info.readConfig.Language == "" {
@@ -109,8 +114,8 @@ func (c *info) reset() error {
 	c.readConfig.Endpoint = ""
 	c.readConfig.SecureConnect = true
 	c.readConfig.DefaultAccount = *new(config.Context)
-	c.readConfig.Explorer = "iotexscan"
-	c.readConfig.Language = "English"
+	c.readConfig.Explorer = _validExpl[0]
+	c.readConfig.Language = _supportedLanguage[0]
 	c.readConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
 
 	err := c.writeConfig()
@@ -143,6 +148,18 @@ func (c *info) writeConfig() error {
 	}
 	if err := os.WriteFile(c.defaultConfigFile, out, 0600); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to write to config file %s", c.defaultConfigFile))
+	}
+	return nil
+}
+
+// loadConfig loads config file in yaml format
+func (c *info) loadConfig() error {
+	in, err := os.ReadFile(c.defaultConfigFile)
+	if err != nil {
+		return err
+	}
+	if err = yaml.Unmarshal(in, &c.readConfig); err != nil {
+		return errors.Wrap(err, "failed to unmarshal config")
 	}
 	return nil
 }
