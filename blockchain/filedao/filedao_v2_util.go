@@ -19,7 +19,7 @@ import (
 )
 
 func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
-	buffer := newStagingBuffer(fd.header.BlockStoreSize)
+	buffer := newStagingBuffer(fd.header.BlockStoreSize, fd.cfg.Option.evmNetworkID)
 	blockStoreTip := fd.highestBlockOfStoreTip()
 	for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
 		v, err := fd.kvStore.Get(_headerDataNs, byteutil.Uint64ToBytesBigEndian(i))
@@ -34,8 +34,8 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		if err != nil {
 			return nil, err
 		}
-		info := &block.Store{}
-		if err := info.Deserialize(fd.cfg.Option.evmNetworkID, v); err != nil {
+		info := block.NewStore(fd.cfg.Option.evmNetworkID)
+		if err := info.Deserialize(v); err != nil {
 			return nil, err
 		}
 
@@ -210,8 +210,8 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 }
 
 func extractBlockStore(evmNetworkID uint32, pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
-	info := &block.Store{}
-	if err := info.FromProto(evmNetworkID, pbStores.BlockStores[height]); err != nil {
+	info := block.NewStore(evmNetworkID)
+	if err := info.FromProto(pbStores.BlockStores[height]); err != nil {
 		return nil, err
 	}
 	return info, nil

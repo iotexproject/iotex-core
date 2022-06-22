@@ -17,10 +17,18 @@ import (
 type (
 	// Store defines block storage schema
 	Store struct {
-		Block    *Block
-		Receipts []*action.Receipt
+		EVMNetworkID uint32
+		Block        *Block
+		Receipts     []*action.Receipt
 	}
 )
+
+// NewStore creates a new Store
+func NewStore(evmNetworkID uint32) *Store {
+	return &Store{
+		EVMNetworkID: evmNetworkID,
+	}
+}
 
 // Serialize returns the serialized byte stream of Store
 func (in *Store) Serialize() ([]byte, error) {
@@ -40,8 +48,8 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 }
 
 // FromProto converts from proto message
-func (in *Store) FromProto(evmNetworkID uint32, pb *iotextypes.BlockStore) error {
-	blk, err := (&Deserializer{}).SetEvmNetworkID(evmNetworkID).FromBlockProto(pb.Block)
+func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
+	blk, err := (&Deserializer{}).SetEvmNetworkID(in.EVMNetworkID).FromBlockProto(pb.Block)
 	if err != nil {
 		return err
 	}
@@ -61,12 +69,12 @@ func (in *Store) FromProto(evmNetworkID uint32, pb *iotextypes.BlockStore) error
 }
 
 // Deserialize parses the byte stream into Store
-func (in *Store) Deserialize(evmNetworkID uint32, buf []byte) error {
+func (in *Store) Deserialize(buf []byte) error {
 	pbStore := &iotextypes.BlockStore{}
 	if err := proto.Unmarshal(buf, pbStore); err != nil {
 		return err
 	}
-	return in.FromProto(evmNetworkID, pbStore)
+	return in.FromProto(pbStore)
 }
 
 // DeserializeBlockStoresPb decode byte stream into BlockStores pb message
