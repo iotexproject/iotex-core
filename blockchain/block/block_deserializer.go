@@ -92,3 +92,35 @@ func (bd *Deserializer) DeserializeBody(buf []byte) (*Body, error) {
 	}
 	return &b, nil
 }
+
+// FromBlockStoreProto converts protobuf to block store
+func (bd *Deserializer) FromBlockStoreProto(pb *iotextypes.BlockStore) (*Store, error) {
+	in := &Store{}
+	blk, err := bd.FromBlockProto(pb.Block)
+	if err != nil {
+		return nil, err
+	}
+	// verify merkle root can match after deserialize
+	if err := blk.VerifyTxRoot(); err != nil {
+		return nil, err
+	}
+
+	in.Block = blk
+	in.Receipts = []*action.Receipt{}
+	for _, receiptPb := range pb.Receipts {
+		receipt := &action.Receipt{}
+		receipt.ConvertFromReceiptPb(receiptPb)
+		in.Receipts = append(in.Receipts, receipt)
+	}
+
+	return in, nil
+}
+
+// DeserializeStore de-serializes a block store
+func (bd *Deserializer) DeserializeBlockStore(buf []byte) (*Store, error) {
+	pb := iotextypes.BlockStore{}
+	if err := proto.Unmarshal(buf, &pb); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal block store")
+	}
+	return bd.FromBlockStoreProto(&pb)
+}

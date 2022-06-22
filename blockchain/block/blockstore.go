@@ -12,25 +12,16 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/config"
 )
 
 type (
 	// Store defines block storage schema
 	Store struct {
-		EVMNetworkID uint32
-		Block        *Block
-		Receipts     []*action.Receipt
+		Block    *Block
+		Receipts []*action.Receipt
 	}
 )
-
-// NewStore creates a new Store
-func NewStore(evmNetworkID uint32) *Store {
-	return &Store{
-		EVMNetworkID: evmNetworkID,
-		Block:        &Block{},
-		Receipts:     []*action.Receipt{},
-	}
-}
 
 // Serialize returns the serialized byte stream of Store
 func (in *Store) Serialize() ([]byte, error) {
@@ -51,7 +42,7 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 
 // FromProto converts from proto message
 func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	blk, err := (&Deserializer{}).SetEvmNetworkID(in.EVMNetworkID).FromBlockProto(pb.Block)
+	blk, err := (&Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(pb.Block)
 	if err != nil {
 		return err
 	}

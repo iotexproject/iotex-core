@@ -41,8 +41,9 @@ func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
 	}
-	blk := block.NewStore(s.evmNetworkID)
-	if err := blk.Deserialize(blkBytes); err != nil {
+	deser := (&block.Deserializer{}).SetEvmNetworkID(s.evmNetworkID)
+	blk, err := deser.DeserializeBlockStore(blkBytes)
+	if err != nil {
 		return false, err
 	}
 	s.buffer[pos] = blk

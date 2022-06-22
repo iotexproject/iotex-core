@@ -7,6 +7,7 @@
 package filedao
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -19,7 +20,7 @@ import (
 )
 
 func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
-	buffer := newStagingBuffer(fd.header.BlockStoreSize, fd.cfg.Option.evmNetworkID)
+	buffer := newStagingBuffer(fd.header.BlockStoreSize, fd.cfg.evmNetworkID)
 	blockStoreTip := fd.highestBlockOfStoreTip()
 	for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
 		v, err := fd.kvStore.Get(_headerDataNs, byteutil.Uint64ToBytesBigEndian(i))
@@ -34,8 +35,8 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		if err != nil {
 			return nil, err
 		}
-		info := block.NewStore(fd.cfg.Option.evmNetworkID)
-		if err := info.Deserialize(v); err != nil {
+		info, err := fd.deser.DeserializeBlockStore(v)
+		if err != nil {
 			return nil, err
 		}
 
@@ -185,7 +186,7 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 	// check whether block in read cache or not
 	if value, ok := fd.blkCache.Get(storeKey); ok {
 		pbInfos := value.(*iotextypes.BlockStores)
-		return extractBlockStore(fd.cfg.Option.evmNetworkID, pbInfos, stagingKey(height, fd.header))
+		return extractBlockStore(fd.deser, pbInfos, stagingKey(height, fd.header))
 	}
 
 	value, err := fd.blkStore.Get(storeKey)
@@ -206,13 +207,13 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 
 	// add to read cache
 	fd.blkCache.Add(storeKey, pbStores)
-	return extractBlockStore(fd.cfg.Option.evmNetworkID, pbStores, stagingKey(height, fd.header))
+	return extractBlockStore(fd.deser, pbStores, stagingKey(height, fd.header))
 }
 
-func extractBlockStore(evmNetworkID uint32, pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
-	info := block.NewStore(evmNetworkID)
-	if err := info.FromProto(pbStores.BlockStores[height]); err != nil {
+func extractBlockStore(deser *block.Deserializer, pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
+	pb, err := proto.Marshal(pbStores.BlockStores[height])
+	if err != nil {
 		return nil, err
 	}
-	return info, nil
+	return deser.DeserializeBlockStore(pb)
 }

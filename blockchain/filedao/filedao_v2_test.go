@@ -95,7 +95,7 @@ func TestNewFileDAOv2(t *testing.T) {
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
-	newCfg, _ := CreateModuleConfig(cfg)
+	newCfg, _ := CreateFiledaoConfig(cfg)
 	_, err = newFileDAOv2(0, newCfg)
 	r.Equal(ErrNotSupported, err)
 
@@ -112,7 +112,7 @@ func TestNewFileDAOv2(t *testing.T) {
 }
 
 func TestNewFdInterface(t *testing.T) {
-	testFdInterface := func(cfg ModuleConfig, start uint64, t *testing.T) {
+	testFdInterface := func(cfg FiledaoConfig, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
@@ -257,7 +257,7 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	newCfg, _ := CreateModuleConfig(cfg)
+	newCfg, _ := CreateFiledaoConfig(cfg)
 	_, err = newFileDAOv2(0, newCfg)
 	r.Equal(ErrNotSupported, err)
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
@@ -266,7 +266,7 @@ func TestNewFdInterface(t *testing.T) {
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
-			newCfg, _ := CreateModuleConfig(cfg)
+			newCfg, _ := CreateFiledaoConfig(cfg)
 			t.Run("test fileDAOv2 interface", func(t *testing.T) {
 				testFdInterface(newCfg, start, t)
 			})
@@ -275,7 +275,7 @@ func TestNewFdInterface(t *testing.T) {
 }
 
 func TestNewFdStart(t *testing.T) {
-	testFdStart := func(cfg ModuleConfig, start uint64, t *testing.T) {
+	testFdStart := func(cfg FiledaoConfig, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		for _, num := range []uint64{3, _blockStoreBatchSize - 1, _blockStoreBatchSize, 2*_blockStoreBatchSize - 1} {
@@ -345,7 +345,7 @@ func TestNewFdStart(t *testing.T) {
 	for _, compress := range []string{"", compress.Gzip} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
-			newCfg, _ := CreateModuleConfig(cfg)
+			newCfg, _ := CreateFiledaoConfig(cfg)
 			t.Run("test fileDAOv2 start", func(t *testing.T) {
 				testFdStart(newCfg, start, t)
 			})

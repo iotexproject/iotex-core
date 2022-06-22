@@ -50,7 +50,7 @@ type (
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
-		cfg           ModuleConfig
+		cfg           FiledaoConfig
 		mutex         sync.RWMutex // for create new db file
 		topIndex      atomic.Value
 		htf           db.RangeIndex
@@ -60,7 +60,7 @@ type (
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg ModuleConfig) (FileDAO, error) {
+func newFileDAOLegacy(cfg FiledaoConfig) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
@@ -262,7 +262,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		// block body could be empty
 		return &block.Body{}, nil
 	}
-	return (&block.Deserializer{}).SetEvmNetworkID(fd.cfg.Option.evmNetworkID).DeserializeBody(value)
+	return (&block.Deserializer{}).SetEvmNetworkID(fd.cfg.evmNetworkID).DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {

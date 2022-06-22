@@ -161,7 +161,7 @@ func TestIndexBuilder(t *testing.T) {
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	daoCfg, _ := blockdao.CreateModuleConfig(cfg)
+	daoCfg, _ := blockdao.CreateBlockdaoConfig(cfg)
 
 	for _, v := range []struct {
 		dao   blockdao.BlockDAO

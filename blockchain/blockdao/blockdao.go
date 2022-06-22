@@ -57,37 +57,31 @@ type (
 		footerCache  *cache.ThreadSafeLruCache
 		tipHeight    uint64
 	}
-	// ModuleConfig represents the configuration of File DAO
-	ModuleConfig struct {
+	// BlockdaoConfig represents the configuration of blockdao
+	BlockdaoConfig struct {
 		db.Config
-		Option *configOption
+		evmNetworkID uint32
 	}
 
-	// ModuleConfigOption applies the configuration of File DAO
-	ModuleConfigOption func(*configOption) error
-
-	configOption struct {
-		EvmNetworkID uint32
-	}
+	// BlockdaoConfigOption applies the configuration of blockdao
+	BlockdaoConfigOption func(BlockdaoConfig) error
 )
 
 // EVMNetworkIDOption sets the EVM network ID
-func EVMNetworkIDOption(evmNetworkID uint32) ModuleConfigOption {
-	return func(opt *configOption) error {
-		opt.EvmNetworkID = evmNetworkID
+func EVMNetworkIDOption(evmNetworkID uint32) BlockdaoConfigOption {
+	return func(opt BlockdaoConfig) error {
+		opt.evmNetworkID = evmNetworkID
 		return nil
 	}
 }
 
-// CreateModuleConfig creates a ModuleConfig
-func CreateModuleConfig(cfg db.Config, options ...ModuleConfigOption) (ModuleConfig, error) {
-	opts := &configOption{}
-	cf := ModuleConfig{
+// CreateBlockdaoConfig creates a ModuleConfig
+func CreateBlockdaoConfig(cfg db.Config, options ...BlockdaoConfigOption) (BlockdaoConfig, error) {
+	cf := BlockdaoConfig{
 		Config: cfg,
-		Option: opts,
 	}
 	for _, opt := range options {
-		if err := opt(opts); err != nil {
+		if err := opt(cf); err != nil {
 			return cf, err
 		}
 	}
@@ -95,8 +89,8 @@ func CreateModuleConfig(cfg db.Config, options ...ModuleConfigOption) (ModuleCon
 }
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg ModuleConfig) BlockDAO {
-	filedaoConfig, err := filedao.CreateModuleConfig(cfg.Config, filedao.EVMNetworkIDOption(cfg.Option.EvmNetworkID))
+func NewBlockDAO(indexers []BlockIndexer, cfg BlockdaoConfig) BlockDAO {
+	filedaoConfig, err := filedao.CreateFiledaoConfig(cfg.Config, filedao.EVMNetworkIDOption(cfg.evmNetworkID))
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil
@@ -115,7 +109,7 @@ func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, ModuleConfig{Config: db.Config{MaxCacheSize: 16}})
+	return createBlockDAO(blkStore, indexers, BlockdaoConfig{Config: db.Config{MaxCacheSize: 16}})
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -344,7 +338,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg ModuleConfig) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg BlockdaoConfig) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}

@@ -55,7 +55,7 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		return nil, ErrNotSupported
 	}
 
-	cfg, _ := CreateModuleConfig(config.Default.DB)
+	cfg, _ := CreateFiledaoConfig(config.Default.DB)
 	fd := fileDAOv2{
 		header: &FileHeader{
 			Version:        FileV2,
