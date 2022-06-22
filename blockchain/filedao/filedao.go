@@ -97,8 +97,8 @@ type (
 
 // EVMNetworkIDOption sets the EVM network ID
 func EVMNetworkIDOption(evmNetworkID uint32) ModuleConfigOption {
-	return func(db *configOption) error {
-		db.evmNetworkID = evmNetworkID
+	return func(opt *configOption) error {
+		opt.evmNetworkID = evmNetworkID
 		return nil
 	}
 }
