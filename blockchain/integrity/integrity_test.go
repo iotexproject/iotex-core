@@ -866,7 +866,6 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
@@ -1112,7 +1111,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 		dao := blockdao.NewBlockDAO(indexers, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
@@ -1850,7 +1848,6 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(

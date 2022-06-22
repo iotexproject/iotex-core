@@ -152,7 +152,6 @@ func BoltDBDaoOption(indexers ...blockdao.BlockIndexer) Option {
 			return nil
 		}
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 		bc.dao = blockdao.NewBlockDAO(indexers, cfg.DB)
 		return nil
 	}

@@ -412,7 +412,6 @@ func newConfig(
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
-	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
@@ -438,5 +437,7 @@ func newConfig(
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
+
+	cfg.DB.CompressLegacy = true
 	return cfg
 }
