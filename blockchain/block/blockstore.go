@@ -27,6 +27,8 @@ type (
 func NewStore(evmNetworkID uint32) *Store {
 	return &Store{
 		EVMNetworkID: evmNetworkID,
+		Block:        &Block{},
+		Receipts:     []*action.Receipt{},
 	}
 }
 
