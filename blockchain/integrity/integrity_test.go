@@ -1407,11 +1407,13 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(err)
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(accountProtocol.Register(registry))
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(sf),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -1494,9 +1496,12 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
 
 	// Create a blockchain from scratch
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.BoltDBDaoOption(sf))
+	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1563,12 +1568,14 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),

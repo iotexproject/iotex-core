@@ -159,11 +159,13 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg)
 	chain := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf2, ap2),
-		blockchain.BoltDBDaoOption(sf2),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
