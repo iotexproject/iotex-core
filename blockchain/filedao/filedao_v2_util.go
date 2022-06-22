@@ -7,7 +7,6 @@
 package filedao
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -211,9 +210,5 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 }
 
 func extractBlockStore(deser *block.Deserializer, pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
-	pb, err := proto.Marshal(pbStores.BlockStores[height])
-	if err != nil {
-		return nil, err
-	}
-	return deser.DeserializeBlockStore(pb)
+	return deser.FromBlockStoreProto(pbStores.BlockStores[height])
 }
