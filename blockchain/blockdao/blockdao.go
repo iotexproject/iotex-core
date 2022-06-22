@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -58,24 +57,46 @@ type (
 		footerCache  *cache.ThreadSafeLruCache
 		tipHeight    uint64
 	}
-	// ModuleConfig represents the configuration of block DAO
+	// ModuleConfig represents the configuration of File DAO
 	ModuleConfig struct {
 		db.Config
-		EVMNetworkID uint32
+		Option *configOption
+	}
+
+	// ModuleConfigOption applies the configuration of File DAO
+	ModuleConfigOption func(*configOption) error
+
+	configOption struct {
+		EvmNetworkID uint32
 	}
 )
 
-// CreateModuleConfig creates a ModuleConfig
-func CreateModuleConfig(cfg config.Config) ModuleConfig {
-	return ModuleConfig{
-		Config:       cfg.DB,
-		EVMNetworkID: cfg.Chain.EVMNetworkID,
+// EVMNetworkIDOption sets the EVM network ID
+func EVMNetworkIDOption(evmNetworkID uint32) ModuleConfigOption {
+	return func(db *configOption) error {
+		db.EvmNetworkID = evmNetworkID
+		return nil
 	}
+}
+
+// CreateModuleConfig creates a ModuleConfig
+func CreateModuleConfig(cfg db.Config, options ...ModuleConfigOption) (ModuleConfig, error) {
+	opts := &configOption{}
+	cf := ModuleConfig{
+		Config: cfg,
+		Option: opts,
+	}
+	for _, opt := range options {
+		if err := opt(opts); err != nil {
+			return cf, err
+		}
+	}
+	return cf, nil
 }
 
 // NewBlockDAO instantiates a block DAO
 func NewBlockDAO(indexers []BlockIndexer, cfg ModuleConfig) BlockDAO {
-	filedaoConfig, err := filedao.CreateModuleConfig(cfg.Config, filedao.EVMNetworkIDOption(cfg.EVMNetworkID))
+	filedaoConfig, err := filedao.CreateModuleConfig(cfg.Config, filedao.EVMNetworkIDOption(cfg.Option.EvmNetworkID))
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil
