@@ -18,7 +18,6 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
@@ -46,16 +45,27 @@ type (
 	}
 )
 
-// CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
-func CrashLog(r interface{}) {
-	log.S().Errorf("crashlog: %v", r)
-	dir := config.Default.System.SystemLogDBPath
-	if !fileutil.FileExists(dir) {
-		if err := os.MkdirAll(dir, 0666); err != nil {
-			log.L().Panic(err.Error())
-		}
-		return
+// Recover catchs the crashing goroutine
+func Recover() {
+	if r := recover(); r != nil {
+		LogCrash(r)
 	}
+}
+
+// LogCrash write down the current memory and stack info and the cpu/mem/disk infos into log dir
+func LogCrash(r interface{}) {
+	log.S().Errorf("crashlog: %v", r)
+	dir := "/var/log"
+	if !fileutil.FileExists(dir) {
+		if err := os.MkdirAll(dir, 0744); err != nil {
+			log.S().Error(err.Error())
+			return
+		}
+	}
+	writeLogCrash(dir)
+}
+
+func writeLogCrash(dir string) {
 	writeHeapProfile(filepath.Join(dir,
 		"heapdump_"+time.Now().Format("20060102150405")+".out"))
 
@@ -68,11 +78,11 @@ func CrashLog(r interface{}) {
 func writeHeapProfile(path string) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		log.S().Fatalf("crashlog: open heap profile error: %v", err)
+		log.S().Errorf("crashlog: open heap profile error: %v", err)
 	}
 	defer f.Close()
 	if err := pprof.WriteHeapProfile(f); err != nil {
-		log.S().Fatalf("crashlog: write heap profile error: %v", err)
+		log.S().Errorf("crashlog: write heap profile error: %v", err)
 	}
 }
 

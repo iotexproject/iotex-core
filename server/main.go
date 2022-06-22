@@ -18,7 +18,6 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -104,14 +103,7 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
-	if cfg.Log.StderrRedirectFile != nil {
-		config.Default.System.SystemLogDBPath = filepath.Dir(*cfg.Log.StderrRedirectFile)
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			recovery.CrashLog(r)
-		}
-	}()
+	defer recovery.Recover()
 
 	// populdate chain ID
 	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)

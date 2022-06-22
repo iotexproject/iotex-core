@@ -90,8 +90,8 @@ func init() {
 // RecoveryInterceptor handles panic to a custom error
 func RecoveryInterceptor() grpc_recovery.Option {
 	return grpc_recovery.WithRecoveryHandler(func(p interface{}) (err error) {
-		recovery.CrashLog(p)
-		return grpc.Errorf(codes.Unknown, "panic triggered: %v", p)
+		recovery.LogCrash(p)
+		return grpc.Errorf(codes.Unknown, "grpc triggered crash: %v", p)
 	})
 }
 
@@ -138,11 +138,7 @@ func (svr *GRPCServer) Start(_ context.Context) error {
 	}
 	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				recovery.CrashLog(r)
-			}
-		}()
+		defer recovery.Recover()
 		if err := svr.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("grpc failed to serve.", zap.Error(err))
 		}

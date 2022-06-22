@@ -251,11 +251,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			}
 		}()
 		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					recovery.CrashLog(r)
-				}
-			}()
+			defer recovery.Recover()
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
 			ln, err := httputil.LimitListener(adminserv.Addr)
