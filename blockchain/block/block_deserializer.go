@@ -116,7 +116,7 @@ func (bd *Deserializer) FromBlockStoreProto(pb *iotextypes.BlockStore) (*Store, 
 	return in, nil
 }
 
-// DeserializeStore de-serializes a block store
+// DeserializeBlockStore de-serializes a block store
 func (bd *Deserializer) DeserializeBlockStore(buf []byte) (*Store, error) {
 	pb := iotextypes.BlockStore{}
 	if err := proto.Unmarshal(buf, &pb); err != nil {
