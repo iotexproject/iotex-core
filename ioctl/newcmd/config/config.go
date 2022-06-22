@@ -20,7 +20,6 @@ import (
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Regexp patterns
@@ -49,22 +48,22 @@ type info struct {
 }
 
 // InitConfig load config data from default config file
-func InitConfig() (config.Config, string) {
+func InitConfig() (config.Config, string, error) {
 	info := &info{}
 	configDir := os.Getenv("HOME") + "/.config/ioctl/default"
 	// Create path to config directory
 	err := os.MkdirAll(configDir, 0700)
 	if err != nil {
-		log.L().Panic(err.Error())
+		return info.readConfig, info.defaultConfigFile, err
 	}
 	info.defaultConfigFile = filepath.Join(configDir, _defaultConfigFileName)
 
 	// Load or reset config file
 	info.readConfig, err = config.LoadConfig()
-	if err != nil && os.IsNotExist(err) {
+	if os.IsNotExist(err) {
 		err = info.reset() // Config file doesn't exist
 	} else if err != nil {
-		log.L().Panic(err.Error())
+		return info.readConfig, info.defaultConfigFile, err
 	}
 
 	// Check completeness of config file
@@ -86,14 +85,14 @@ func InitConfig() (config.Config, string) {
 	}
 	if !completeness {
 		if err = info.writeConfig(); err != nil {
-			log.L().Panic(err.Error())
+			return info.readConfig, info.defaultConfigFile, err
 		}
 	}
 	// Set language for ioctl
 	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
 		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
-	return info.readConfig, info.defaultConfigFile
+	return info.readConfig, info.defaultConfigFile, nil
 }
 
 // newInfo create config info

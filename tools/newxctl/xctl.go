@@ -12,10 +12,14 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func main() {
-	readConfig, defaultConfigFile := config.InitConfig()
+	readConfig, defaultConfigFile, err := config.InitConfig()
+	if err != nil {
+		log.L().Panic(err.Error())
+	}
 	client := ioctl.NewClient(readConfig, defaultConfigFile, ioctl.EnableCryptoSm2())
 	if err := newcmd.NewXctl(client).Execute(); err != nil {
 		os.Exit(1)
