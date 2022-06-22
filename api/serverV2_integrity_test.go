@@ -395,6 +395,7 @@ func newConfig() config.Config {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.EVMNetworkID = _evmNetworkID
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = true
@@ -442,7 +443,6 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
