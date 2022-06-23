@@ -350,6 +350,7 @@ func (c *client) ExportHdwallet(password string) ([]byte, error) {
 		return nil, errors.New("password error")
 	}
 	return mnemonic, nil
+}
 
 func (c *client) ReadInput() (string, error) { // notest
 	in := bufio.NewReader(os.Stdin)
