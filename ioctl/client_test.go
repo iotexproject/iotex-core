@@ -354,9 +354,9 @@ func TestHdwalletMnemonic(t *testing.T) {
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
-	bytes, err := c.HdwalletMnemonic(password)
+	result, err := c.HdwalletMnemonic(password)
 	r.NoError(err)
-	r.Equal([]byte(mnemonic), bytes)
+	r.Equal(mnemonic, result)
 }
 
 func TestWriteHdWalletConfigFile(t *testing.T) {
