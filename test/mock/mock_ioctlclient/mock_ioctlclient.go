@@ -170,10 +170,10 @@ func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 }
 
 // ExportHdwallet mocks base method.
-func (m *MockClient) ExportHdwallet(password string) ([]byte, error) {
+func (m *MockClient) ExportHdwallet(password string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExportHdwallet", password)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

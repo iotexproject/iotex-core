@@ -78,7 +78,7 @@ type (
 		// QueryAnalyser sends request to Analyser endpoint
 		QueryAnalyser(interface{}) (*http.Response, error)
 		// ExportHdwallet export the mnemonic of hdwallet
-		ExportHdwallet(password string) ([]byte, error)
+		ExportHdwallet(password string) (string, error)
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
 		// WriteHdWalletConfigFile write encrypting mnemonic into config file
@@ -322,34 +322,34 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *client) ExportHdwallet(password string) ([]byte, error) {
+func (c *client) ExportHdwallet(password string) (string, error) {
 	// derive key as "m/44'/304'/account'/change/index"
 	hdWalletConfigFile := c.cfg.Wallet + "/hdwallet"
 	if !fileutil.FileExists(hdWalletConfigFile) {
-		return nil, errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
+		return "", errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
 	}
 
 	enctxt, err := os.ReadFile(hdWalletConfigFile)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read config")
+		return "", errors.Wrap(err, "failed to read config")
 	}
 
 	enckey := util.HashSHA256([]byte(password))
 	dectxt, err := util.Decrypt(enctxt, enckey)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to decrypt")
+		return "", errors.Wrap(err, "failed to decrypt")
 	}
 
 	dectxtLen := len(dectxt)
 	if dectxtLen <= 32 {
-		return nil, errors.New("incorrect data")
+		return "", errors.New("incorrect data")
 	}
 
 	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
 	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
-		return nil, errors.New("password error")
+		return "", errors.New("password error")
 	}
-	return mnemonic, nil
+	return string(mnemonic), nil
 }
 
 func (c *client) ReadInput() (string, error) { // notest
