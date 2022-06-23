@@ -106,13 +106,11 @@ func (bd *Deserializer) FromBlockStoreProto(pb *iotextypes.BlockStore) (*Store, 
 	}
 
 	in.Block = blk
-	in.Receipts = []*action.Receipt{}
 	for _, receiptPb := range pb.Receipts {
 		receipt := &action.Receipt{}
 		receipt.ConvertFromReceiptPb(receiptPb)
 		in.Receipts = append(in.Receipts, receipt)
 	}
-
 	return in, nil
 }
 

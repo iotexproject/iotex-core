@@ -38,23 +38,23 @@ var (
 type (
 	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
-		filename  string
-		header    *FileHeader
-		tip       *FileTip
-		blkBuffer *stagingBuffer
-		blkCache  *cache.ThreadSafeLruCache
-		kvStore   db.KVStore
-		batch     batch.KVStoreBatch
-		hashStore db.CountingIndex // store block hash
-		blkStore  db.CountingIndex // store raw blocks
-		sysStore  db.CountingIndex // store transaction log
-		cfg       Config
-		deser     *block.Deserializer
+		filename     string
+		header       *FileHeader
+		tip          *FileTip
+		blkBuffer    *stagingBuffer
+		blkCache     *cache.ThreadSafeLruCache
+		kvStore      db.KVStore
+		batch        batch.KVStoreBatch
+		hashStore    db.CountingIndex // store block hash
+		blkStore     db.CountingIndex // store raw blocks
+		sysStore     db.CountingIndex // store transaction log
+		deser        *block.Deserializer
+		evmNetworkID uint32
 	}
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg Config) (*fileDAOv2, error) {
+func newFileDAOv2(bottom uint64, cfg db.Config, evmNetworkID uint32) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -70,24 +70,24 @@ func newFileDAOv2(bottom uint64, cfg Config) (*fileDAOv2, error) {
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  db.NewBoltDB(cfg.Config),
-		batch:    batch.NewBatch(),
-		cfg:      cfg,
-		deser:    (&block.Deserializer{}).SetEvmNetworkID(cfg.evmNetworkID),
+		blkCache:     cache.NewThreadSafeLruCache(16),
+		kvStore:      db.NewBoltDB(cfg),
+		batch:        batch.NewBatch(),
+		deser:        (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
+		evmNetworkID: evmNetworkID,
 	}
 	return &fd, nil
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg Config) *fileDAOv2 {
+func openFileDAOv2(cfg db.Config, evmNetworkID uint32) *fileDAOv2 {
 	return &fileDAOv2{
-		filename: cfg.DbPath,
-		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  db.NewBoltDB(cfg.Config),
-		batch:    batch.NewBatch(),
-		cfg:      cfg,
-		deser:    (&block.Deserializer{}).SetEvmNetworkID(cfg.evmNetworkID),
+		filename:     cfg.DbPath,
+		blkCache:     cache.NewThreadSafeLruCache(16),
+		kvStore:      db.NewBoltDB(cfg),
+		batch:        batch.NewBatch(),
+		deser:        (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
+		evmNetworkID: evmNetworkID,
 	}
 }
 

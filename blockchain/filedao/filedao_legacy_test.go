@@ -27,11 +27,11 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	var (
 		normalHeaderSize, compressHeaderSize int
 	)
-	testFdInterface := func(cfg Config, t *testing.T) {
+	testFdInterface := func(cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
-		fdLegacy, err := newFileDAOLegacy(cfg)
+		fdLegacy, err := newFileDAOLegacy(cfg, config.Default.Chain.EVMNetworkID)
 		r.NoError(err)
 		fd, ok := fdLegacy.(*fileDAOLegacy)
 		r.True(ok)
@@ -79,9 +79,8 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
-		newCfg, _ := CreateConfig(cfg)
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
-			testFdInterface(newCfg, t)
+			testFdInterface(cfg, t)
 		})
 	}
 
@@ -96,8 +95,7 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
-	newCfg, _ := CreateConfig(cfg)
-	fd, err := newFileDAOLegacy(newCfg)
+	fd, err := newFileDAOLegacy(cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
@@ -133,8 +131,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
-	newCfg, _ := CreateConfig(cfg)
-	fd, err := newFileDAOLegacy(newCfg)
+	fd, err := newFileDAOLegacy(cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 

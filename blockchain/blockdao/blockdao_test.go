@@ -442,9 +442,8 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 		return NewBlockDAOInMemForTest(nil), nil
 	}
 
-	newCfg, _ := filedao.CreateConfig(cfg)
 	if legacy {
-		fileDAO, err := filedao.CreateFileDAO(true, newCfg)
+		fileDAO, err := filedao.CreateFileDAO(true, cfg, config.Default.Chain.EVMNetworkID)
 		if err != nil {
 			return nil, err
 		}

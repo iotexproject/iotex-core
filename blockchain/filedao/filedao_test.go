@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 )
@@ -68,9 +69,8 @@ func TestReadFileHeader(t *testing.T) {
 	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
-	newCfg, _ := CreateConfig(cfg)
 	// empty legacy file is invalid
-	legacy, err := newFileDAOLegacy(newCfg)
+	legacy, err := newFileDAOLegacy(cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
@@ -110,9 +110,8 @@ func TestReadFileHeader(t *testing.T) {
 		}
 	}
 	os.RemoveAll(cfg.DbPath)
-	newCfg, _ = CreateConfig(cfg)
 	// test valid v2 master file
-	r.NoError(createNewV2File(1, newCfg))
+	r.NoError(createNewV2File(1, cfg, config.Default.Chain.EVMNetworkID))
 	defer os.RemoveAll(cfg.DbPath)
 
 	test2 := []testCheckFile{
@@ -144,9 +143,8 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	_, err := checkMasterChainDBFile(cfg.DbPath)
 	r.Equal(ErrFileNotExist, err)
 
-	newCfg, _ := CreateConfig(cfg)
 	// test empty db file, this will create new v2 file
-	fd, err := NewFileDAO(newCfg)
+	fd, err := NewFileDAO(cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 	r.NotNil(fd)
 	h, err := readFileHeader(cfg.DbPath, FileAll)
@@ -198,8 +196,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	cfg.SplitDBHeight = 5
 	cfg.SplitDBSizeMB = 20
 
-	newCfg, _ := CreateConfig(cfg)
-	fd, err := newFileDAOLegacy(newCfg)
+	fd, err := newFileDAOLegacy(cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(fd.Start(ctx))
@@ -213,8 +210,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	// set FileDAO to split at height 15, 30 and 40
 	cfg.V2BlocksToSplitDB = 15
 
-	newCfg, _ = CreateConfig(cfg)
-	fd, err = NewFileDAO(newCfg)
+	fd, err = NewFileDAO(cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 	r.NoError(fd.Start(ctx))
 	fm := fd.(*fileDAO)
@@ -269,9 +265,8 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	r.Equal(files[1], file3)
 	r.Equal(files[2], file4)
 
-	newCfg, _ = CreateConfig(cfg)
 	// open 4 db files and verify again
-	fd, err = NewFileDAO(newCfg)
+	fd, err = NewFileDAO(cfg, config.Default.Chain.EVMNetworkID)
 	fm = fd.(*fileDAO)
 	r.EqualValues(4, fm.topIndex)
 	r.EqualValues(1, fm.splitHeight)
@@ -323,8 +318,7 @@ func TestCheckFiles(t *testing.T) {
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
 		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))
-		newCfg, _ := CreateConfig(cfg)
-		r.NoError(createNewV2File(1, newCfg))
+		r.NoError(createNewV2File(1, cfg, 0))
 	}
 	defer func() {
 		for i := 1; i <= 3; i++ {
@@ -337,18 +331,4 @@ func TestCheckFiles(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		r.Equal(files[i-1], kthAuxFileName("./filedao_v2.db", uint64(i)))
 	}
-}
-
-func TestCreateConfig(t *testing.T) {
-	r := require.New(t)
-	cfg := db.DefaultConfig
-	newCfg, err := CreateConfig(cfg)
-	r.NoError(err)
-	r.Equal("", newCfg.DbPath)
-	r.Equal(uint32(0), newCfg.evmNetworkID)
-	cfg.DbPath = "./filedao_v2.db"
-	newCfg, err = CreateConfig(cfg, EVMNetworkIDOption(1))
-	r.NoError(err)
-	r.Equal(cfg.DbPath, newCfg.DbPath)
-	r.Equal(uint32(1), newCfg.evmNetworkID)
 }

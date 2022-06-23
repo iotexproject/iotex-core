@@ -42,6 +42,7 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 
 // FromProto converts from proto message
 func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
+	// TODO: pass the correct EVM network ID at the time of newFileDAOv2()
 	blk, err := (&Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(pb.Block)
 	if err != nil {
 		return err

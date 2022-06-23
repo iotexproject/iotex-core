@@ -16,17 +16,17 @@ import (
 
 type (
 	stagingBuffer struct {
-		evmNetworkID uint32
-		size         uint64
-		buffer       []*block.Store
+		size   uint64
+		buffer []*block.Store
+		deser  *block.Deserializer
 	}
 )
 
 func newStagingBuffer(size uint64, evmNetworkID uint32) *stagingBuffer {
 	return &stagingBuffer{
-		evmNetworkID: evmNetworkID,
-		size:         size,
-		buffer:       make([]*block.Store, size),
+		size:   size,
+		buffer: make([]*block.Store, size),
+		deser:  (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
 	}
 }
 
@@ -41,8 +41,7 @@ func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
 	}
-	deser := (&block.Deserializer{}).SetEvmNetworkID(s.evmNetworkID)
-	blk, err := deser.DeserializeBlockStore(blkBytes)
+	blk, err := s.deser.DeserializeBlockStore(blkBytes)
 	if err != nil {
 		return false, err
 	}

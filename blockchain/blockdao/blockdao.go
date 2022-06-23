@@ -61,12 +61,7 @@ type (
 
 // NewBlockDAO instantiates a block DAO
 func NewBlockDAO(indexers []BlockIndexer, evmNetworkID uint32, cfg db.Config) BlockDAO {
-	filedaoConfig, err := filedao.CreateConfig(cfg, filedao.EVMNetworkIDOption(evmNetworkID))
-	if err != nil {
-		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
-		return nil
-	}
-	blkStore, err := filedao.NewFileDAO(filedaoConfig)
+	blkStore, err := filedao.NewFileDAO(cfg, evmNetworkID)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil

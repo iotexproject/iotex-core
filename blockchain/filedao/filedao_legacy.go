@@ -50,22 +50,24 @@ type (
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
-		cfg           Config
+		cfg           db.Config
 		mutex         sync.RWMutex // for create new db file
 		topIndex      atomic.Value
 		htf           db.RangeIndex
 		kvStore       db.KVStore
 		kvStores      *cache.ThreadSafeLruCache //store like map[index]db.KVStore,index from 1...N
+		deser         *block.Deserializer
 	}
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg Config) (FileDAO, error) {
+func newFileDAOLegacy(cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
-		kvStore:       db.NewBoltDB(cfg.Config),
+		kvStore:       db.NewBoltDB(cfg),
 		kvStores:      cache.NewThreadSafeLruCache(0),
+		deser:         (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
 	}, nil
 }
 
@@ -262,7 +264,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		// block body could be empty
 		return &block.Body{}, nil
 	}
-	return (&block.Deserializer{}).SetEvmNetworkID(fd.cfg.evmNetworkID).DeserializeBody(value)
+	return fd.deser.DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
@@ -601,7 +603,7 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 		newFile = true
 	}
 
-	kvStore = db.NewBoltDB(cfg.Config)
+	kvStore = db.NewBoltDB(cfg)
 	fd.kvStores.Add(idx, kvStore)
 	err = kvStore.Start(context.Background())
 	if err != nil {

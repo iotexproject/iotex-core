@@ -55,7 +55,6 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		return nil, ErrNotSupported
 	}
 
-	cfg, _ := CreateConfig(config.Default.DB)
 	fd := fileDAOv2{
 		header: &FileHeader{
 			Version:        FileV2,
@@ -66,11 +65,11 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  db.NewMemKVStore(),
-		batch:    batch.NewBatch(),
-		cfg:      cfg,
-		deser:    (&block.Deserializer{}).SetEvmNetworkID(cfg.evmNetworkID),
+		blkCache:     cache.NewThreadSafeLruCache(16),
+		kvStore:      db.NewMemKVStore(),
+		batch:        batch.NewBatch(),
+		deser:        (&block.Deserializer{}).SetEvmNetworkID(config.Default.Chain.EVMNetworkID),
+		evmNetworkID: config.Default.Chain.EVMNetworkID,
 	}
 	return &fd, nil
 }

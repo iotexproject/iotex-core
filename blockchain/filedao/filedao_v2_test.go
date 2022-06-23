@@ -95,13 +95,12 @@ func TestNewFileDAOv2(t *testing.T) {
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
-	newCfg, _ := CreateConfig(cfg)
-	_, err = newFileDAOv2(0, newCfg)
+	_, err = newFileDAOv2(0, cfg, config.Default.Chain.EVMNetworkID)
 	r.Equal(ErrNotSupported, err)
 
 	inMemFd, err := newFileDAOv2InMem(1)
 	r.NoError(err)
-	fd, err := newFileDAOv2(2, newCfg)
+	fd, err := newFileDAOv2(2, cfg, config.Default.Chain.EVMNetworkID)
 	r.NoError(err)
 
 	for _, v2Fd := range []*fileDAOv2{inMemFd, fd} {
@@ -112,11 +111,11 @@ func TestNewFileDAOv2(t *testing.T) {
 }
 
 func TestNewFdInterface(t *testing.T) {
-	testFdInterface := func(cfg Config, start uint64, t *testing.T) {
+	testFdInterface := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
-		fd, err := newFileDAOv2(start, cfg)
+		fd, err := newFileDAOv2(start, cfg, config.Default.Chain.EVMNetworkID)
 		r.NoError(err)
 
 		ctx := context.Background()
@@ -257,8 +256,7 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	newCfg, _ := CreateConfig(cfg)
-	_, err = newFileDAOv2(0, newCfg)
+	_, err = newFileDAOv2(0, cfg, config.Default.Chain.EVMNetworkID)
 	r.Equal(ErrNotSupported, err)
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	block.LoadGenesisHash(&config.Default.Genesis)
@@ -266,21 +264,20 @@ func TestNewFdInterface(t *testing.T) {
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
-			newCfg, _ := CreateConfig(cfg)
 			t.Run("test fileDAOv2 interface", func(t *testing.T) {
-				testFdInterface(newCfg, start, t)
+				testFdInterface(cfg, start, t)
 			})
 		}
 	}
 }
 
 func TestNewFdStart(t *testing.T) {
-	testFdStart := func(cfg Config, start uint64, t *testing.T) {
+	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		for _, num := range []uint64{3, _blockStoreBatchSize - 1, _blockStoreBatchSize, 2*_blockStoreBatchSize - 1} {
 			testutil.CleanupPath(cfg.DbPath)
-			fd, err := newFileDAOv2(start, cfg)
+			fd, err := newFileDAOv2(start, cfg, config.Default.Chain.EVMNetworkID)
 			r.NoError(err)
 			ctx := context.Background()
 			r.NoError(fd.Start(ctx))
@@ -293,7 +290,7 @@ func TestNewFdStart(t *testing.T) {
 			r.NoError(fd.Stop(ctx))
 
 			// start from existing file
-			fd = openFileDAOv2(cfg)
+			fd = openFileDAOv2(cfg, config.Default.Chain.EVMNetworkID)
 			r.NoError(fd.Start(ctx))
 			height, err = fd.Bottom()
 			r.NoError(err)
@@ -345,9 +342,8 @@ func TestNewFdStart(t *testing.T) {
 	for _, compress := range []string{"", compress.Gzip} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
 			cfg.Compressor = compress
-			newCfg, _ := CreateConfig(cfg)
 			t.Run("test fileDAOv2 start", func(t *testing.T) {
-				testFdStart(newCfg, start, t)
+				testFdStart(cfg, start, t)
 			})
 		}
 	}
