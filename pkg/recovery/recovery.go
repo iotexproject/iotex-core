@@ -49,6 +49,7 @@ type (
 	}
 )
 
+// _crashlog implements crashlog
 var _crashlog *crashlog
 
 // Recover catchs the crashing goroutine
