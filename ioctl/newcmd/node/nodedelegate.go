@@ -195,7 +195,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-				probationList, err := getProbationList(client, epochNum)
+				probationList, err := getProbationList(client, epochNum, epochData.Height)
 				if err != nil {
 					return errors.Wrap(err, "failed to get probation list")
 				}

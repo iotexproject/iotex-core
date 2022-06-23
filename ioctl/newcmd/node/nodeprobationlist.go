@@ -52,7 +52,11 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 				}
 				epochNum = chainMeta.GetEpoch().GetNum()
 			}
-			probationlist, err := getProbationList(client, epochNum)
+			response, err := bc.GetEpochMeta(client, epochNum)
+			if err != nil {
+				return errors.Wrap(err, "failed to get epoch meta")
+			}
+			probationlist, err := getProbationList(client, epochNum, response.EpochData.Height)
 			if err != nil {
 				return errors.Wrap(err, "failed to get probation list")
 			}
@@ -76,8 +80,8 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 	return cmd
 }
 
-func getProbationList(client ioctl.Client, epochNum uint64) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(client, epochNum)
+func getProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uint64) (*vote.ProbationList, error) {
+	probationListRes, err := bc.GetProbationList(client, epochNum, epochStartHeight)
 	if err != nil {
 		return nil, err
 	}
