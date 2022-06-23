@@ -28,7 +28,7 @@ func TestNewHdwalletExportCmd(t *testing.T) {
 
 	t.Run("export hdwallet", func(t *testing.T) {
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return([]byte(mnemonic), nil)
+		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
 
 		cmd := NewHdwalletExportCmd(client)
 		result, err := util.ExecuteCmd(cmd)
@@ -37,12 +37,12 @@ func TestNewHdwalletExportCmd(t *testing.T) {
 	})
 
 	t.Run("failed to export mnemonic", func(t *testing.T) {
-		expectErr := errors.New("failed to export mnemonic")
+		expectedErr := errors.New("failed to export mnemonic")
 		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(nil, expectErr)
+		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return("", expectedErr)
 
 		cmd := NewHdwalletExportCmd(client)
 		_, err := util.ExecuteCmd(cmd)
-		require.Contains(err.Error(), expectErr.Error())
+		require.Contains(err.Error(), expectedErr.Error())
 	})
 }

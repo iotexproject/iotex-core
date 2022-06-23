@@ -170,10 +170,10 @@ func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 }
 
 // HdwalletMnemonic mocks base method.
-func (m *MockClient) HdwalletMnemonic(password string) ([]byte, error) {
+func (m *MockClient) HdwalletMnemonic(password string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HdwalletMnemonic", password)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
