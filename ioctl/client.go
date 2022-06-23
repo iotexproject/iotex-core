@@ -324,20 +324,20 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 
 func (c *client) ExportHdwallet(password string) ([]byte, error) {
 	// derive key as "m/44'/304'/account'/change/index"
-	hdWalletConfigFile := c.Config().Wallet + "/hdwallet"
+	hdWalletConfigFile := c.cfg.Wallet + "/hdwallet"
 	if !fileutil.FileExists(hdWalletConfigFile) {
 		return nil, errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
 	}
 
 	enctxt, err := os.ReadFile(hdWalletConfigFile)
 	if err != nil {
-		return nil, errors.New("failed to read config")
+		return nil, errors.Wrap(err, "failed to read config")
 	}
 
 	enckey := util.HashSHA256([]byte(password))
 	dectxt, err := util.Decrypt(enctxt, enckey)
 	if err != nil {
-		return nil, errors.New("failed to decrypt")
+		return nil, errors.Wrap(err, "failed to decrypt")
 	}
 
 	dectxtLen := len(dectxt)
