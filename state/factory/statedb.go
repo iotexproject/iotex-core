@@ -230,7 +230,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
 		}
 	}
-	store := newStateDBWorkingSetStore(sdb.protocolView, flusher)
+	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
 	if err := store.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -398,7 +398,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
+func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 

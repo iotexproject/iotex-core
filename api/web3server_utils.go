@@ -28,10 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
-const (
-	_zeroLogsBloom = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-)
-
 func hexStringToNumber(hexStr string) (uint64, error) {
 	return strconv.ParseUint(util.Remove0xPrefix(hexStr), 16, 64)
 }
@@ -66,16 +62,16 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
+func (svr *web3Handler) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
 	transactions := make([]interface{}, 0)
 	if blkMeta.Height > 0 {
-		selps, receipts, err := svr.coreService.ActionsInBlockByHash(blkMeta.Hash)
+		blkStore, err := svr.coreService.BlockByHash(blkMeta.Hash)
 		if err != nil {
 			return nil, err
 		}
-		for i, selp := range selps {
+		for i, selp := range blkStore.Block.Actions {
 			if isDetailed {
-				tx, err := svr.getTransactionFromActionInfo(blkMeta.Hash, selp, receipts[i])
+				tx, err := svr.getTransactionFromActionInfo(blkMeta.Hash, selp, blkStore.Receipts[i])
 				if err != nil {
 					if errors.Cause(err) != errUnsupportedAction {
 						h, _ := selp.Hash()
@@ -95,12 +91,11 @@ func (svr *Web3Server) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, i
 	}
 	return &getBlockResult{
 		blkMeta:      blkMeta,
-		logsBloom:    getLogsBloomFromBlkMeta(blkMeta),
 		transactions: transactions,
 	}, nil
 }
 
-func (svr *Web3Server) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+func (svr *web3Handler) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -155,7 +150,7 @@ func getRecipientAndContractAddrFromAction(selp action.SealedEnvelope, receipt *
 	return &toTmp, nil, nil
 }
 
-func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
+func (svr *web3Handler) parseBlockNumber(str string) (uint64, error) {
 	switch str {
 	case _earliestBlockNumber:
 		return 1, nil
@@ -166,7 +161,7 @@ func (svr *Web3Server) parseBlockNumber(str string) (uint64, error) {
 	}
 }
 
-func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
+func (svr *web3Handler) parseBlockRange(fromStr string, toStr string) (from uint64, to uint64, err error) {
 	from, err = svr.parseBlockNumber(fromStr)
 	if err != nil {
 		return
@@ -175,7 +170,7 @@ func (svr *Web3Server) parseBlockRange(fromStr string, toStr string) (from uint6
 	return
 }
 
-func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
+func (svr *web3Handler) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, error) {
 	to := ""
 	if tx.To() != nil {
 		ioAddr, _ := address.FromBytes(tx.To().Bytes())
@@ -195,7 +190,7 @@ func (svr *Web3Server) ethTxToEnvelope(tx *types.Transaction) (action.Envelope, 
 	return elpBuilder.BuildTransfer(tx)
 }
 
-func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
+func (svr *web3Handler) checkContractAddr(to string) (bool, error) {
 	if to == "" {
 		return true, nil
 	}
@@ -207,9 +202,25 @@ func (svr *Web3Server) checkContractAddr(to string) (bool, error) {
 	return accountMeta.IsContract, err
 }
 
-func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]logsObjectRaw, error) {
-	// construct filter topics and addresses
-	var filter iotexapi.LogsFilter
+func (svr *web3Handler) getLogsWithFilter(from uint64, to uint64, addrs []string, topics [][]string) ([]*getLogsResult, error) {
+	filter, err := newLogFilterFrom(addrs, topics)
+	if err != nil {
+		return nil, err
+	}
+	logs, hashes, err := svr.coreService.LogsInRange(filter, from, to, 0)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*getLogsResult, 0, len(logs))
+	for i := range logs {
+		ret = append(ret, &getLogsResult{hashes[i], logs[i]})
+	}
+	return ret, nil
+}
+
+// construct filter topics and addresses
+func newLogFilterFrom(addrs []string, topics [][]string) (*logfilter.LogFilter, error) {
+	filter := iotexapi.LogsFilter{}
 	for _, ethAddr := range addrs {
 		ioAddr, err := ethAddrToIoAddr(ethAddr)
 		if err != nil {
@@ -228,35 +239,7 @@ func (svr *Web3Server) getLogsWithFilter(from uint64, to uint64, addrs []string,
 		}
 		filter.Topics = append(filter.Topics, &iotexapi.Topics{Topic: topic})
 	}
-	// TODO: replace iotextypes.Log with action.Log in the return from LogsInRange()
-	logs, err := svr.coreService.LogsInRange(logfilter.NewLogFilter(&filter, nil, nil), from, to, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	// parse log results
-	ret := make([]logsObjectRaw, 0)
-	for _, l := range logs {
-		topics := make([]string, 0)
-		for _, val := range l.Topics {
-			topics = append(topics, byteToHex(val))
-		}
-		contractAddr, err := ioAddrToEthAddr(l.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, logsObjectRaw{
-			BlockHash:        byteToHex(l.BlkHash),
-			TransactionHash:  byteToHex(l.ActHash),
-			LogIndex:         uint64ToHex(uint64(l.Index)),
-			BlockNumber:      uint64ToHex(l.BlkHeight),
-			TransactionIndex: uint64ToHex(uint64(l.TxIndex)),
-			Address:          contractAddr,
-			Data:             byteToHex(l.Data),
-			Topics:           topics,
-		})
-	}
-	return ret, nil
+	return logfilter.NewLogFilter(&filter), nil
 }
 
 func byteToHex(b []byte) string {
@@ -271,14 +254,10 @@ func hexToBytes(str string) ([]byte, error) {
 	return hex.DecodeString(str)
 }
 
-func getLogsBloomFromBlkMeta(blkMeta *iotextypes.BlockMeta) string {
-	if len(blkMeta.LogsBloom) == 0 {
-		return _zeroLogsBloom
-	}
-	return "0x" + blkMeta.LogsBloom
-}
-
 func parseLogRequest(in gjson.Result) (*filterObject, error) {
+	if !in.Exists() {
+		return nil, errInvalidFormat
+	}
 	var logReq filterObject
 	if len(in.Array()) > 0 {
 		req := in.Array()[0]
@@ -347,7 +326,7 @@ func parseCallObject(in *gjson.Result) (address.Address, string, uint64, *big.In
 	return from, to, gasLimit, value, data, nil
 }
 
-func (svr *Web3Server) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
+func (svr *web3Handler) getLogQueryRange(fromStr, toStr string, logHeight uint64) (from uint64, to uint64, hasNewLogs bool, err error) {
 	if from, to, err = svr.parseBlockRange(fromStr, toStr); err != nil {
 		return
 	}

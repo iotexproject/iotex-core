@@ -65,7 +65,7 @@ func TestCreateContract(t *testing.T) {
 		}).AnyTimes()
 
 	addr := identityset.Address(28)
-	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
+	_, err = accountutil.LoadOrCreateAccount(sm, addr)
 	require.NoError(err)
 	stateDB := NewStateDBAdapter(sm, 0, hash.ZeroHash256, NotFixTopicCopyBugOption())
 
@@ -89,7 +89,7 @@ func TestCreateContract(t *testing.T) {
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	// reload same contract
-	contract1, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	contract1, err := accountutil.LoadOrCreateAccount(sm, addr)
 	require.NoError(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 }
@@ -264,7 +264,7 @@ func TestSnapshot(t *testing.T) {
 		require.NoError(err)
 		require.NoError(_c1.SetState(_k2b, _v2[:]))
 		_c2 := _c1.Snapshot()
-		require.NoError(_c1.SelfState().AddBalance(big.NewInt(7)))
+		_c1.SelfState().AddBalance(big.NewInt(7))
 		require.NoError(_c1.SetState(_k1b, _v1[:]))
 		require.Equal(big.NewInt(12), _c1.SelfState().Balance)
 		require.Equal(big.NewInt(5), _c2.SelfState().Balance)

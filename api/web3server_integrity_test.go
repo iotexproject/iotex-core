@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -24,15 +24,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -43,7 +44,7 @@ const (
 
 func TestWeb3ServerIntegrity(t *testing.T) {
 	// web3svr, bc, dao, actPool, cleanCallback := setupTestServer()
-	svr, _, _, _, cleanCallback := setupTestServer()
+	svr, _, _, _, cleanCallback := setupTestWeb3Server()
 	web3svr := svr.web3Server
 	defer cleanCallback()
 	ctx := context.Background()
@@ -157,7 +158,6 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	t.Run("TestGetStorageAtIntegrity", func(t *testing.T) {
 		storageAtIntegrity(t, web3svr, bc, dao, actPool)
 	})
-
 }
 
 func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
@@ -183,7 +183,6 @@ func serveTestHttp(web3svr *Web3Server, method string, paramData string) (string
 
 func TestLocalAPICacheIntegrity(t *testing.T) {
 	require := require.New(t)
-
 	testKey, testData := strconv.Itoa(rand.Int()), []byte(strconv.Itoa(rand.Int()))
 	cacheLocal := newAPICache(1*time.Second, "")
 	_, exist := cacheLocal.Get(testKey)
@@ -272,6 +271,9 @@ func balanceIntegrity(t *testing.T, web3svr *Web3Server) {
 
 func blockByNumberIntegrity(t *testing.T, web3svr *Web3Server) {
 	require := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestWeb3Server()
+	defer cleanCallback()
+
 	testData := []struct {
 		data     string
 		expected int
@@ -299,6 +301,9 @@ func blockByNumberIntegrity(t *testing.T, web3svr *Web3Server) {
 
 func transactionCountIntegrity(t *testing.T, web3svr *Web3Server) {
 	require := require.New(t)
+	svr, _, _, _, cleanCallback := setupTestWeb3Server()
+	defer cleanCallback()
+
 	testData := []struct {
 		data     string
 		expected int
@@ -310,6 +315,7 @@ func transactionCountIntegrity(t *testing.T, web3svr *Web3Server) {
 	for i, v := range testData {
 		t.Run(fmt.Sprintf("%d-%d", i, len(testData)-1), func(t *testing.T) {
 			resp, err := serveTestHttp(web3svr, `"method":"eth_getTransactionCount"`, v.data)
+
 			require.NoError(err)
 			ret, ok := resp[0].result.(string)
 			require.True(ok)
@@ -830,7 +836,7 @@ func web3StakingIntegrity(t *testing.T, web3svr *Web3Server) {
 				big.NewInt(0),
 				test.stakeEncodedData,
 			)
-			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))), ecdsaPvk)
+			tx, err := types.SignTx(rawTx, types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))), ecdsaPvk)
 			require.NoError(err)
 			BinaryData, err := tx.MarshalBinary()
 			require.NoError(err)

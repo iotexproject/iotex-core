@@ -502,8 +502,9 @@ func (p *agent) connect(ctx context.Context) error {
 	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
 
 	// try to connect to all bootstrap node beside itself.
-	for _, bootAddr := range p.bootNodeAddr {
+	for i := range p.bootNodeAddr {
 		tryNum++
+		bootAddr := p.bootNodeAddr[i]
 		go func() {
 			if err := exponentialRetry(
 				func() error { return p.host.ConnectWithMultiaddr(ctx, bootAddr) },

@@ -10,14 +10,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-
-	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -29,7 +27,7 @@ func TestNewNodeRewardCmd(t *testing.T) {
 
 	client.EXPECT().Address(gomock.Any()).Return("test_address", nil).Times(1)
 
-	apiClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
 	apiClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
@@ -53,14 +51,7 @@ func TestNewNodeRewardCmd(t *testing.T) {
 		Data: []byte("52331682309272536203174665")},
 		nil)
 
-	var endpoint string
-	var insecure bool
-
-	client.EXPECT().APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	}).Return(apiClient, nil).AnyTimes()
-
+	client.EXPECT().APIServiceClient().Return(apiClient, nil).AnyTimes()
 	cmd := NewNodeRewardCmd(client)
 
 	result, err := util.ExecuteCmd(cmd, "test")

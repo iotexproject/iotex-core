@@ -36,7 +36,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		require.NoError(selp.VerifySignature())
 
 		nselp := &SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		require.NoError(nselp.loadProto(selp.Proto(), _evmNetworkID))
 
 		selpHash, err := selp.Hash()
 		require.NoError(err)
@@ -68,24 +68,6 @@ func TestActionProtoAndVerify(t *testing.T) {
 		selp.signature = []byte("invalid signature")
 		require.Equal(ErrInvalidSender, errors.Cause(selp.VerifySignature()))
 	})
-}
-
-func TestActionClassifyActions(t *testing.T) {
-	require := require.New(t)
-	var (
-		producerAddr   = identityset.Address(27).String()
-		producerPriKey = identityset.PrivateKey(27)
-		amount         = big.NewInt(0)
-		selp0, _       = SignedTransfer(producerAddr, producerPriKey, 1, amount, nil, 100, big.NewInt(0))
-		selp1, _       = SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
-		selp2, _       = SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, amount, nil, 100, big.NewInt(0))
-		selp3, _       = SignedExecution(producerAddr, producerPriKey, uint64(1), amount, uint64(100000), big.NewInt(10), []byte{})
-		selp4, _       = SignedExecution(producerAddr, producerPriKey, uint64(2), amount, uint64(100000), big.NewInt(10), []byte{})
-	)
-	actions := []SealedEnvelope{selp0, selp1, selp2, selp3, selp4}
-	tsfs, exes := ClassifyActions(actions)
-	require.Equal(len(tsfs), 3)
-	require.Equal(len(exes), 2)
 }
 
 func TestActionFakeSeal(t *testing.T) {
@@ -123,4 +105,28 @@ func TestAbstractActionSetter(t *testing.T) {
 		ex.SetGasPrice(big.NewInt(0))
 		require.Equal(big.NewInt(0), ex.gasPrice)
 	})
+}
+
+func TestIsSystemAction(t *testing.T) {
+	require := require.New(t)
+	builder := EnvelopeBuilder{}
+	cf := ClaimFromRewardingFundBuilder{}
+	actClaimFromRewarding := cf.Build()
+	act := builder.SetAction(&actClaimFromRewarding).Build()
+	sel, err := Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.False(IsSystemAction(sel))
+
+	gb := GrantRewardBuilder{}
+	actGrantReward := gb.Build()
+	act = builder.SetAction(&actGrantReward).Build()
+	sel, err = Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.True(IsSystemAction(sel))
+
+	actPollResult := NewPutPollResult(1, 1, nil)
+	act = builder.SetAction(actPollResult).Build()
+	sel, err = Sign(act, identityset.PrivateKey(1))
+	require.NoError(err)
+	require.True(IsSystemAction(sel))
 }

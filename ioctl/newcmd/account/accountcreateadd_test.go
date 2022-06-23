@@ -26,7 +26,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testWallet, ks, pwd, _, err := newTestAccount()
+	testWallet, ks, pwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -40,7 +40,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 		},
 	}).Times(4)
 	client.EXPECT().NewKeyStore().Return(ks).Times(2)
-	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	client.EXPECT().SetAliasAndSave(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true)

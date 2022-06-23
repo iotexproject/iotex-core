@@ -49,7 +49,7 @@ func (v *GenericValidator) Validate(_ context.Context, selp action.SealedEnvelop
 	if err := selp.VerifySignature(); err != nil {
 		return err
 	}
-	caller := selp.SrcPubkey().Address()
+	caller := selp.SenderAddress()
 	if caller == nil {
 		return errors.New("failed to get address")
 	}

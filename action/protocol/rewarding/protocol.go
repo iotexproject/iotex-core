@@ -183,6 +183,24 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 		Build()
 }
 
+// Validate validates a reward action
+func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	if !protocol.MustGetFeatureCtx(ctx).ValidateRewardProtocol {
+		return nil
+	}
+	switch act.(type) {
+	case *action.GrantReward:
+		actionCtx := protocol.MustGetActionCtx(ctx)
+		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
+			return errors.New("Only producer could create reward")
+		}
+		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
+			return errors.New("invalid gas price or intrinsic gas for reward action")
+		}
+	}
+	return nil
+}
+
 // Handle handles the actions on the rewarding protocol
 func (p *Protocol) Handle(
 	ctx context.Context,
@@ -393,7 +411,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr)
 	if err != nil {
 		return err
 	}

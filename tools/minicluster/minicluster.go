@@ -98,10 +98,11 @@ func main() {
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := config.Default.Network.Port + i
-		apiPort := config.Default.API.Port + i
-		web3APIPort := config.Default.API.Web3Port + i
+		apiPort := config.Default.API.GRPCPort + i
+		web3APIPort := config.Default.API.HTTPPort + i
+		web3SocketPort := config.Default.API.WebSocketPort + i
 		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, HTTPAdminPort)
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, web3SocketPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
@@ -202,9 +203,12 @@ func main() {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
 		// Wait until the smart contract is successfully deployed
-		var receipt *iotextypes.Receipt
+		var (
+			receipt *iotextypes.Receipt
+			as      = svrs[0].APIServer(1)
+		)
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = util.GetReceiptByAction(svrs[0].ChainService(uint32(1)).APIServer(), eHash)
+			receipt, err = util.GetReceiptByAction(as.CoreService(), eHash)
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
@@ -270,12 +274,12 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
+			expectedBalancesMap, as.CoreService(), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			empty, err := util.CheckPendingActionList(
-				svrs[0].ChainService(1),
+				as.CoreService(),
 				pendingActionMap,
 				expectedBalancesMap,
 			)
@@ -395,6 +399,7 @@ func newConfig(
 	networkPort,
 	apiPort int,
 	web3APIPort int,
+	webSocketPort int,
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
@@ -422,8 +427,9 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
-	cfg.API.Port = apiPort
-	cfg.API.Web3Port = web3APIPort
+	cfg.API.GRPCPort = apiPort
+	cfg.API.HTTPPort = web3APIPort
+	cfg.API.WebSocketPort = webSocketPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2

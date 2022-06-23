@@ -1,3 +1,9 @@
+// Copyright (c) 2022 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package node
 
 import (
@@ -7,7 +13,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -42,8 +49,6 @@ var (
 )
 
 var (
-	_epochNum       uint64
-	_nextEpoch      bool
 	_nodeStatus     map[bool]string
 	_probatedStatus map[bool]string
 )
@@ -72,14 +77,16 @@ type delegatesMessage struct {
 }
 
 // NewNodeDelegateCmd represents the node delegate command
-func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
-	var endpoint string
-	var insecure bool
+func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
+	var (
+		epochNum  uint64
+		nextEpoch bool
+	)
 
-	use, _ := c.SelectTranslation(_delegateUses)
-	short, _ := c.SelectTranslation(_delegateShorts)
-	flagEpochNumUsage, _ := c.SelectTranslation(_flagEpochNumUsages)
-	flagNextEpochUsage, _ := c.SelectTranslation(_flagNextEpochUsages)
+	use, _ := client.SelectTranslation(_delegateUses)
+	short, _ := client.SelectTranslation(_delegateShorts)
+	flagEpochNumUsage, _ := client.SelectTranslation(_flagEpochNumUsages)
+	flagNextEpochUsage, _ := client.SelectTranslation(_flagNextEpochUsages)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -88,48 +95,49 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			var err error
-			if _nextEpoch {
+
+			if nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-					Endpoint: endpoint,
-					Insecure: insecure,
-				})
+				apiServiceClient, err := client.APIServiceClient()
 				if err != nil {
 					return err
 				}
-				chainMeta, err := bc.GetChainMeta(c)
+				chainMeta, err := bc.GetChainMeta(client)
 				if err != nil {
-					return output.NewError(0, "failed to get chain meta", err)
+					return errors.Wrap(err, "failed to get chain meta")
 				}
-				_epochNum = chainMeta.Epoch.Num + 1
-				message := nextDelegatesMessage{Epoch: int(_epochNum)}
+				epochNum = chainMeta.GetEpoch().GetNum() + 1
+				message := nextDelegatesMessage{Epoch: int(epochNum)}
 
 				ctx := context.Background()
+				jwtMD, err := util.JwtAuth()
+				if err == nil {
+					ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+				}
 				abpResponse, err := apiServiceClient.ReadState(
 					ctx,
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("poll"),
 						MethodName: []byte("ActiveBlockProducersByEpoch"),
-						Arguments:  [][]byte{[]byte(strconv.FormatUint(_epochNum, 10))},
+						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 					},
 				)
-
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok && sta.Code() == codes.NotFound {
 						message.Determined = false
-						fmt.Println(message.String())
+						cmd.Println(message.String(epochNum))
 						return nil
 					} else if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+					return errors.Wrap(err, "failed to invoke ReadState api")
 				}
 				message.Determined = true
-				var ABPs state.CandidateList
-				if err := ABPs.Deserialize(abpResponse.Data); err != nil {
-					return output.NewError(output.SerializationError, "failed to deserialize active BPs", err)
+				var abps state.CandidateList
+				if err := abps.Deserialize(abpResponse.Data); err != nil {
+					return errors.Wrap(err, "failed to deserialize active bps")
 				}
 
 				bpResponse, err := apiServiceClient.ReadState(
@@ -137,27 +145,27 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("poll"),
 						MethodName: []byte("BlockProducersByEpoch"),
-						Arguments:  [][]byte{[]byte(strconv.FormatUint(_epochNum, 10))},
+						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 					},
 				)
 
 				if err != nil {
 					sta, ok := status.FromError(err)
 					if ok {
-						return output.NewError(output.APIError, sta.Message(), nil)
+						return errors.New(sta.Message())
 					}
-					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+					return errors.Wrap(err, "failed to invoke ReadState api")
 				}
-				var BPs state.CandidateList
-				if err := BPs.Deserialize(bpResponse.Data); err != nil {
-					return output.NewError(output.SerializationError, "failed to deserialize BPs", err)
+				var bps state.CandidateList
+				if err := bps.Deserialize(bpResponse.Data); err != nil {
+					return errors.Wrap(err, "failed to deserialize bps")
 				}
 				isActive := make(map[string]bool)
-				for _, abp := range ABPs {
+				for _, abp := range abps {
 					isActive[abp.Address] = true
 				}
-				aliases := c.AliasMap()
-				for rank, bp := range BPs {
+				aliases := client.AliasMap()
+				for rank, bp := range bps {
 					votes := big.NewInt(0).SetBytes(bp.Votes.Bytes())
 					message.Delegates = append(message.Delegates, delegate{
 						Address: bp.Address,
@@ -167,42 +175,41 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 						Votes:   util.RauToString(votes, util.IotxDecimalNum),
 					})
 				}
-				fmt.Println(message.String())
+				cmd.Println(message.String(epochNum))
 			} else {
-				if _epochNum == 0 {
-					chainMeta, err := bc.GetChainMeta(c)
+				if epochNum == 0 {
+					chainMeta, err := bc.GetChainMeta(client)
 					if err != nil {
-						return output.NewError(0, "failed to get chain meta", err)
+						return errors.Wrap(err, "failed to get chain meta")
 					}
-					_epochNum = chainMeta.Epoch.Num
+					epochNum = chainMeta.GetEpoch().GetNum()
 				}
 
-				response, err := bc.GetEpochMeta(_epochNum, c)
-
+				response, err := bc.GetEpochMeta(client, epochNum)
 				if err != nil {
-					return output.NewError(0, "failed to get epoch meta", err)
+					return errors.Wrap(err, "failed to get epoch meta")
 				}
 				epochData := response.EpochData
-				aliases := c.AliasMap()
+				aliases := client.AliasMap()
 				message := delegatesMessage{
 					Epoch:       int(epochData.Num),
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-				probationListRes, err := bc.GetProbationList(_epochNum, c)
+				probationListRes, err := bc.GetProbationList(client, epochNum)
 				if err != nil {
-					return output.NewError(0, "failed to get probation list", err)
+					return errors.Wrap(err, "failed to get probation list")
 				}
 				probationList := &vote.ProbationList{}
 				if probationListRes != nil {
 					if err := probationList.Deserialize(probationListRes.Data); err != nil {
-						return output.NewError(output.SerializationError, "failed to deserialize probation list", err)
+						return errors.Wrap(err, "failed to deserialize probation list")
 					}
 				}
 				for rank, bp := range response.BlockProducersInfo {
 					votes, ok := new(big.Int).SetString(bp.Votes, 10)
 					if !ok {
-						return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
+						return errors.New("failed to convert votes into big int")
 					}
 					isProbated := false
 					if _, ok := probationList.ProbationInfo[bp.Address]; ok {
@@ -220,63 +227,60 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					}
 					message.Delegates = append(message.Delegates, delegate)
 				}
-				fmt.Println(message.String())
+				cmd.Println(message.String())
 			}
-
-			return output.PrintError(err)
+			if err != nil {
+				cmd.Println(err)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().Uint64VarP(&_epochNum, "epoch-num", "e", 0,
+	cmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
 		flagEpochNumUsage)
-	cmd.Flags().BoolVarP(&_nextEpoch, "next-epoch", "n", false,
+	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		flagNextEpochUsage)
 	_nodeStatus = map[bool]string{true: "active", false: ""}
 	_probatedStatus = map[bool]string{true: "probated", false: ""}
 	return cmd
 }
 
-func (m *nextDelegatesMessage) String() string {
-	if output.Format == "" {
-		if !m.Determined {
-			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", _epochNum)
-		}
-		aliasLen := 5
-		for _, bp := range m.Delegates {
-			if len(bp.Alias) > aliasLen {
-				aliasLen = len(bp.Alias)
-			}
-		}
-		lines := []string{fmt.Sprintf("Epoch: %d\n", _epochNum)}
-		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
-		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
-		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
-		for _, bp := range m.Delegates {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, _nodeStatus[bp.Active], bp.Votes))
-		}
-		return strings.Join(lines, "\n")
+func (m *nextDelegatesMessage) String(epochNum uint64) string {
+	if !m.Determined {
+		return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", epochNum)
 	}
-	return output.FormatString(output.Result, m)
+	aliasLen := 5
+	for _, bp := range m.Delegates {
+		if len(bp.Alias) > aliasLen {
+			aliasLen = len(bp.Alias)
+		}
+	}
+	lines := []string{fmt.Sprintf("Epoch: %d\n", epochNum)}
+	formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
+	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
+	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
+	for _, bp := range m.Delegates {
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+			bp.Alias, _nodeStatus[bp.Active], bp.Votes))
+	}
+	return strings.Join(lines, "\n")
 }
+
 func (m *delegatesMessage) String() string {
-	if output.Format == "" {
-		aliasLen := 5
-		for _, bp := range m.Delegates {
-			if len(bp.Alias) > aliasLen {
-				aliasLen = len(bp.Alias)
-			}
+	aliasLen := 5
+	for _, bp := range m.Delegates {
+		if len(bp.Alias) > aliasLen {
+			aliasLen = len(bp.Alias)
 		}
-		lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks in epoch: %d\n",
-			m.Epoch, m.StartBlock, m.TotalBlocks)}
-		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
-		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
-		lines = append(lines, fmt.Sprintf(formatTitleString,
-			"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
-		for _, bp := range m.Delegates {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
-		}
-		return strings.Join(lines, "\n")
 	}
-	return output.FormatString(output.Result, m)
+	lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks in epoch: %d\n",
+		m.Epoch, m.StartBlock, m.TotalBlocks)}
+	formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
+	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
+	lines = append(lines, fmt.Sprintf(formatTitleString,
+		"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
+	for _, bp := range m.Delegates {
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+			bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
+	}
+	return strings.Join(lines, "\n")
 }

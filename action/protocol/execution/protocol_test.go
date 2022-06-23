@@ -564,9 +564,8 @@ func TestProtocol_Validate(t *testing.T) {
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
-	data := make([]byte, 32769)
 
-	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
 	require.NoError(err)
 	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
@@ -926,8 +925,6 @@ func TestMaxTime(t *testing.T) {
 }
 
 func TestIstanbulEVM(t *testing.T) {
-	cfg := config.Default
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/array-return.json")
 	})

@@ -8,7 +8,6 @@ package account
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountSign(t *testing.T) {
@@ -27,12 +27,10 @@ func TestNewAccountSign(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountSign")
-	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
-	defer func() {
-		require.NoError(os.RemoveAll(testAccountFolder))
-	}()
-	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountSign")
+	require.NoError(err)
+	defer testutil.CleanupPath(testAccountFolder)
+	ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
 	t.Run("invalid_account", func(t *testing.T) {

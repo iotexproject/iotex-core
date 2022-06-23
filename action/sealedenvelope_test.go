@@ -10,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -19,6 +18,7 @@ import (
 const (
 	_publicKey = "04403d3c0dbd3270ddfc248c3df1f9aafd60f1d8e7456961c9ef262" +
 		"92262cc68f0ea9690263bef9e197a38f06026814fc70912c2b98d2e90a68f8ddc5328180a01"
+	_evmNetworkID uint32 = 4689
 )
 
 var (
@@ -28,19 +28,28 @@ var (
 
 func TestSealedEnvelope_Basic(t *testing.T) {
 	req := require.New(t)
-	se, err := createSealedEnvelope()
-	req.NoError(err)
-	rHash, err := se.Hash()
-	req.NoError(err)
-	req.Equal("322884fb04663019be6fb461d9453827487eafdd57b4de3bd89a7d77c9bf8395", hex.EncodeToString(rHash[:]))
-	req.Equal(_publicKey, se.SrcPubkey().HexString())
-	req.Equal(_signByte, se.Signature())
-	req.Zero(se.Encoding())
+	for _, v := range []struct {
+		id   uint32
+		hash string
+	}{
+		{0, "322884fb04663019be6fb461d9453827487eafdd57b4de3bd89a7d77c9bf8395"},
+		{1, "80af7840d73772d3022d8bdc46278fb755352e5e9d5f2a1f12ee7ec4f1ea98e9"},
+	} {
+		se, err := createSealedEnvelope(v.id)
+		req.NoError(err)
+		rHash, err := se.Hash()
+		req.NoError(err)
+		req.Equal(v.id, se.ChainID())
+		req.Equal(v.hash, hex.EncodeToString(rHash[:]))
+		req.Equal(_publicKey, se.SrcPubkey().HexString())
+		req.Equal(_signByte, se.Signature())
+		req.Zero(se.Encoding())
 
-	var se1 SealedEnvelope
-	se.signature = _validSig
-	req.NoError(se1.LoadProto(se.Proto()))
-	req.Equal(se, se1)
+		var se1 SealedEnvelope
+		se.signature = _validSig
+		req.NoError(se1.loadProto(se.Proto(), _evmNetworkID))
+		req.Equal(se.Envelope, se1.Envelope)
+	}
 }
 
 func TestSealedEnvelope_InvalidType(t *testing.T) {
@@ -119,9 +128,8 @@ func TestSealedEnvelope_Actions(t *testing.T) {
 }
 
 func TestSealedEnvelope_Proto(t *testing.T) {
-	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
 	req := require.New(t)
-	se, err := createSealedEnvelope()
+	se, err := createSealedEnvelope(0)
 	req.NoError(err)
 	tsf, ok := se.Envelope.Action().(*Transfer)
 	req.True(ok)
@@ -144,10 +152,9 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	} {
 		se.encoding = v.encoding
 		se.signature = v.sig
-		req.Contains(se2.LoadProto(se.Proto()).Error(), v.err)
+		req.Contains(se2.loadProto(se.Proto(), _evmNetworkID).Error(), v.err)
 	}
 
-	se.signature = _validSig
 	for _, v := range []struct {
 		enc  iotextypes.Encoding
 		hash string
@@ -155,21 +162,26 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		{0, "0562e100b057804ee3cb4fa906a897852aa8075013a02ef1e229360f1e5ee339"},
 		{1, "d5dc789026c12cc69f1ea7997fbe0aa1bcc02e85176848c7b2ecf4da6b4560d0"},
 	} {
+		se, err = createSealedEnvelope(0)
+		se.signature = _validSig
 		se.encoding = v.enc
-		req.NoError(se2.LoadProto(se.Proto()))
+		req.NoError(se2.loadProto(se.Proto(), _evmNetworkID))
 		if v.enc > 0 {
-			se.evmNetworkID = config.EVMNetworkID()
+			se.evmNetworkID = _evmNetworkID
 		}
+		h, _ := se.Hash()
+		req.Equal(v.hash, hex.EncodeToString(h[:]))
+		se.SenderAddress()
+		_, _ = se2.Hash()
+		se2.SenderAddress()
 		req.Equal(se, se2)
 		tsf2, ok := se2.Envelope.Action().(*Transfer)
 		req.True(ok)
 		req.Equal(tsf, tsf2)
-		h, _ := se.Hash()
-		req.Equal(v.hash, hex.EncodeToString(h[:]))
 	}
 }
 
-func createSealedEnvelope() (SealedEnvelope, error) {
+func createSealedEnvelope(chainID uint32) (SealedEnvelope, error) {
 	tsf, _ := NewTransfer(
 		uint64(10),
 		unit.ConvertIotxToRau(1000+int64(10)),
@@ -185,7 +197,7 @@ func createSealedEnvelope() (SealedEnvelope, error) {
 		SetGasPrice(tsf.GasPrice()).
 		SetNonce(tsf.Nonce()).
 		SetVersion(1).
-		Build()
+		SetChainID(chainID).Build()
 
 	cPubKey, err := crypto.HexStringToPublicKey(_publicKey)
 	se := SealedEnvelope{}

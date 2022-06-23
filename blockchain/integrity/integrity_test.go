@@ -833,7 +833,7 @@ type MockSubscriber struct {
 
 func (ms *MockSubscriber) ReceiveBlock(blk *block.Block) error {
 	ms.mu.Lock()
-	tsfs, _ := action.ClassifyActions(blk.Actions)
+	tsfs, _ := classifyActions(blk.Actions)
 	ms.counter += len(tsfs)
 	ms.mu.Unlock()
 	return nil
@@ -1221,7 +1221,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		// invalid address returns error
 		_, err = address.FromString("")
-		require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
+		require.Contains(err.Error(), "address length = 0, expecting 41")
 
 		// valid but unused address should return empty account
 		addr, err := address.FromString("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
@@ -1292,7 +1292,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				require.EqualValues(blkIndex.NumAction(), len(blk.Actions))
 
 				// verify getting transfer amount
-				tsfs, _ := action.ClassifyActions(blk.Actions)
+				tsfs, _ := classifyActions(blk.Actions)
 				tsfa := big.NewInt(0)
 				for _, tsf := range tsfs {
 					tsfa.Add(tsfa, tsf.Amount())
@@ -1901,6 +1901,22 @@ func makeTransfer(contract string, bc blockchain.Blockchain, ap actpool.ActPool,
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	return blk
+}
+
+// classifyActions classfies actions
+func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+	tsfs := make([]*action.Transfer, 0)
+	exes := make([]*action.Execution, 0)
+	for _, elp := range actions {
+		act := elp.Action()
+		switch act := act.(type) {
+		case *action.Transfer:
+			tsfs = append(tsfs, act)
+		case *action.Execution:
+			exes = append(exes, act)
+		}
+	}
+	return tsfs, exes
 }
 
 // TODO: add func TestValidateBlock()

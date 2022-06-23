@@ -273,6 +273,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	if err != nil {
 		return err
 	}
+	ctx := context.Background()
 	for tipHeight > targetHeight {
 		blk, err := dao.blockStore.GetBlockByHeight(tipHeight)
 		if err != nil {
@@ -280,7 +281,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 		}
 		// delete block index if there's indexer
 		for _, indexer := range dao.indexers {
-			if err := indexer.DeleteTipBlock(blk); err != nil {
+			if err := indexer.DeleteTipBlock(ctx, blk); err != nil {
 				return err
 			}
 		}

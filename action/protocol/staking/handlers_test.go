@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -60,6 +60,8 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
+	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -73,7 +75,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	// set up candidate
 	candidate := testCandidates[0].d.Clone()
-	require.NoError(putCandidate(sm, candidate))
+	require.NoError(csm.putCandidate(candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
@@ -201,21 +203,21 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.Equal(test.amount, cLog.Amount.String())
 
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, candidateAddr)
+			bucketIndices, _, err := csr.candBucketIndices(candidateAddr)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, stakerAddr)
+			bucketIndices, _, err = csr.voterBucketIndices(stakerAddr)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(candidateAddr, bucket.Candidate)
 			require.Equal(stakerAddr, bucket.Owner)
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err := getCandidate(sm, candidateAddr)
+			candidate, _, err := csr.getCandidate(candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -239,6 +241,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm, p, _, _ := initAll(t, ctrl)
+	csr := newCandidateStateReader(sm)
 	tests := []struct {
 		initBalance     int64
 		caller          address.Address
@@ -514,6 +517,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	for _, test := range tests {
 		if test.newProtocol {
 			sm, p, _, _ = initAll(t, ctrl)
+			csr = newCandidateStateReader(sm)
 		}
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
@@ -559,11 +563,11 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
 
 			// test candidate
-			candidate, _, err := getCandidate(sm, act.OwnerAddress())
+			candidate, _, err := csr.getCandidate(act.OwnerAddress())
 			if act.OwnerAddress() == nil {
 				require.Nil(candidate)
 				require.Equal(ErrNilParameters, errors.Cause(err))
-				candidate, _, err = getCandidate(sm, test.caller)
+				candidate, _, err = csr.getCandidate(test.caller)
 				require.NoError(err)
 				require.Equal(test.caller.String(), candidate.Owner.String())
 			} else {
@@ -817,6 +821,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, _, _ := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -865,11 +870,11 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test candidate
-			candidate, _, err := getCandidate(sm, act.OwnerAddress())
+			candidate, _, err := csr.getCandidate(act.OwnerAddress())
 			if act.OwnerAddress() == nil {
 				require.Nil(candidate)
 				require.Equal(ErrNilParameters, errors.Cause(err))
-				candidate, _, err = getCandidate(sm, test.caller)
+				candidate, _, err = csr.getCandidate(test.caller)
 				require.NoError(err)
 				require.Equal(test.caller.String(), candidate.Owner.String())
 			} else {
@@ -914,6 +919,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sm, p, candidate, candidate2 := initAll(t, ctrl)
+	csr := newCandidateStateReader(sm)
 	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 
 	callerAddr := identityset.Address(1)
@@ -1102,21 +1108,22 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
+			csr = newCandidateStateReader(sm)
+			bucketIndices, _, err := csr.candBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err = csr.voterBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(candidate.Owner.String(), bucket.Candidate.String())
 			require.Equal(test.caller.String(), bucket.Owner.String())
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err = getCandidate(sm, candidate.Owner)
+			candidate, _, err = csr.getCandidate(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -1137,7 +1144,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	}
 
 	// verify bucket unstaked
-	vb, err := getBucket(sm, 0)
+	vb, err := csr.getBucket(0)
 	require.NoError(err)
 	require.True(vb.isUnstaked())
 
@@ -1183,7 +1190,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		if !v.greenland {
 			// pre-Greenland allows restaking an unstaked bucket, and it is considered staked afterwards
-			vb, err := getBucket(sm, 0)
+			vb, err := csr.getBucket(0)
 			require.NoError(err)
 			require.True(vb.StakeStartTime.Unix() != 0)
 			require.True(vb.UnstakeStartTime.Unix() != 0)
@@ -1270,6 +1277,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, _, candidate := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		caller := identityset.Address(2)
 		require.NoError(setupAccount(sm, caller, test.initBalance))
 		gasPrice := big.NewInt(unit.Qev)
@@ -1335,9 +1343,9 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Equal(test.amount, wLog.Amount.String())
 
 			// test bucket index and bucket
-			_, _, err := getCandBucketIndices(sm, candidate.Owner)
+			_, _, err := csr.candBucketIndices(candidate.Owner)
 			require.Error(err)
-			_, _, err = getVoterBucketIndices(sm, candidate.Owner)
+			_, _, err = csr.voterBucketIndices(candidate.Owner)
 			require.Error(err)
 
 			// test staker's account
@@ -1567,6 +1575,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		// candidate2 vote self,index 0
 		ctx, _ := initCreateStake(t, sm, candidate2.Owner, 101, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 		// candidate vote self,index 1
@@ -1615,34 +1624,34 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, identityset.Address(1))
+			bucketIndices, _, err := csr.candBucketIndices(identityset.Address(1))
 			require.NoError(err)
 			require.Equal(2, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, identityset.Address(1))
+			bucketIndices, _, err = csr.voterBucketIndices(identityset.Address(1))
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(identityset.Address(1).String(), bucket.Candidate.String())
 			require.Equal(identityset.Address(1).String(), bucket.Owner.String())
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			cand, _, err := getCandidate(sm, candidate.Owner)
-			require.NotNil(cand)
+			candidate, _, err := csr.getCandidate(candidate.Owner)
+			require.NotNil(candidate)
 			require.NoError(err)
-			require.Equal(test.afterChange, cand.Votes.String())
-			require.Equal(test.candidateName, cand.Name)
-			require.Equal(candidate.Operator.String(), cand.Operator.String())
-			require.Equal(candidate.Reward.String(), cand.Reward.String())
-			require.Equal(candidate.Owner.String(), cand.Owner.String())
-			require.Equal(test.afterChangeSelfStake, cand.SelfStake.String())
+			require.Equal(test.afterChange, candidate.Votes.String())
+			require.Equal(test.candidateName, candidate.Name)
+			require.Equal(candidate.Operator.String(), candidate.Operator.String())
+			require.Equal(candidate.Reward.String(), candidate.Reward.String())
+			require.Equal(candidate.Owner.String(), candidate.Owner.String())
+			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
 			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
-			cand = csm.GetByOwner(candidate.Owner)
-			require.NotNil(cand)
-			require.Equal(test.afterChange, cand.Votes.String())
+			candidate = csm.GetByOwner(candidate.Owner)
+			require.NotNil(candidate)
+			require.Equal(test.afterChange, candidate.Votes.String())
 
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, test.caller)
@@ -1781,6 +1790,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candi, candidate2 := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, false)
 		if test.init {
 			initCreateStake(t, sm, candi.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candi, test.amount, false)
@@ -1815,21 +1825,21 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, candidate2.Owner)
+			bucketIndices, _, err := csr.candBucketIndices(candidate2.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, test.to)
+			bucketIndices, _, err = csr.voterBucketIndices(test.to)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(candidate2.Owner, bucket.Candidate)
 			require.Equal(test.to.String(), bucket.Owner.String())
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err := getCandidate(sm, candi.Owner)
+			candidate, _, err := csr.getCandidate(candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2006,6 +2016,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	}
 	for _, test := range tests {
 		sm, p, cand1, cand2 := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		caller := identityset.Address(1)
 		initBalance := int64(1000)
 		require.NoError(setupAccount(sm, caller, initBalance))
@@ -2047,21 +2058,21 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, cand2.Owner)
+			bucketIndices, _, err := csr.candBucketIndices(cand2.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, test.to)
+			bucketIndices, _, err = csr.voterBucketIndices(test.to)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(cand2.Owner, bucket.Candidate)
 			require.Equal(test.to.String(), bucket.Owner.String())
 			require.Equal(stakeAmount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err := getCandidate(sm, cand1.Owner)
+			candidate, _, err := csr.getCandidate(cand1.Owner)
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2272,6 +2283,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, candidate2 := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		ctx, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
 
 		if test.newAccount {
@@ -2318,21 +2330,21 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err := csr.candBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err = csr.voterBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(candidate.Owner.String(), bucket.Candidate.String())
 			require.Equal(test.caller.String(), bucket.Owner.String())
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err = getCandidate(sm, candidate.Owner)
+			candidate, _, err = csr.getCandidate(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2485,6 +2497,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, _ := initAll(t, ctrl)
+		csr := newCandidateStateReader(sm)
 		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, test.amount, test.autoStake)
 
 		if test.newAccount {
@@ -2537,14 +2550,15 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(test.amount, dLog.Amount.String())
 
 			// test bucket index and bucket
-			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err := csr.candBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, _, err = getVoterBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err = csr.voterBucketIndices(candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
-			bucket, err := getBucket(sm, indices[0])
+
+			bucket, err := csr.getBucket(indices[0])
 			require.NoError(err)
 			require.Equal(candidate.Owner.String(), bucket.Candidate.String())
 			require.Equal(test.caller.String(), bucket.Owner.String())
@@ -2552,7 +2566,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Zero(new(big.Int).Mul(amount, big.NewInt(2)).Cmp(bucket.StakedAmount))
 
 			// test candidate
-			candidate, _, err = getCandidate(sm, candidate.Owner)
+			candidate, _, err = csr.getCandidate(candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2609,6 +2623,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate) {
 	require := require.New(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -2623,10 +2638,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	// set up candidate
 	candidate := testCandidates[0].d.Clone()
 	candidate.Votes = big.NewInt(0)
-	require.NoError(putCandidate(sm, candidate))
+	require.NoError(csm.putCandidate(candidate))
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
-	require.NoError(putCandidate(sm, candidate2))
+	require.NoError(csm.putCandidate(candidate2))
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
 	v, err := p.Start(ctx, sm)
@@ -2641,7 +2656,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	if balance < 0 {
 		return errors.New("balance cannot be negative")
 	}
-	account, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	account, err := accountutil.LoadOrCreateAccount(sm, addr)
 	if err != nil {
 		return err
 	}

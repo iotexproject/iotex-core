@@ -10,11 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -61,8 +60,8 @@ func TestGenerateRlp(t *testing.T) {
 		hash hash.Hash256
 	}{
 		{nil, _validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, _validSig, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, _signByte, "address prefix io don't match", hash.ZeroHash256},
+		{rlpTsf, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
+		{rlpTsf1, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
 		{rlpTsf1, _validSig, "", hash.BytesToHash256(hT1)},
 		{rlpTsf2, _validSig, "", hash.BytesToHash256(hT2)},
 		{rlpExec, _validSig, "", hash.BytesToHash256(hE1)},
@@ -80,7 +79,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 			continue
 		}
-		h, err := rlpSignedHash(tx, 4689, v.sig)
+		h, err := rlpSignedHash(tx, _evmNetworkID, v.sig)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -89,9 +88,6 @@ func TestGenerateRlp(t *testing.T) {
 }
 
 func TestRlpDecodeVerify(t *testing.T) {
-	// register the extern chain ID
-	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
-
 	require := require.New(t)
 
 	rlpTests := []struct {
@@ -276,7 +272,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// extract signature and recover pubkey
 		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
+		recID := uint32(w.Int64()) - 2*_evmNetworkID - 8
 		sig := make([]byte, 64, 65)
 		rSize := len(r.Bytes())
 		copy(sig[32-rSize:32], r.Bytes())
@@ -285,7 +281,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		sig = append(sig, byte(recID))
 
 		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(&tx)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))).Hash(&tx)
 		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -306,7 +302,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		// receive from API
 		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
-		require.NoError(selp.LoadProto(pb))
+		require.NoError(selp.loadProto(pb, _evmNetworkID))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
 		rlpTx, err := act.ToEthTx()

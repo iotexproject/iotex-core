@@ -106,12 +106,6 @@ mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -package=mock_blocksync \
         BlockSync
 
-mkdir -p ./test/mock/mock_apiserviceclient
-mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go  \
-        -source=./api/apitestclient.go \
-        -package=mock_apiserviceclient \
-        APIServiceClient
-
 mkdir -p ./test/mock/mock_blockcreationsubscriber
 mockgen -destination=./test/mock/mock_blockcreationsubscriber/mock_blockcreationsubscriber.go \
         -source=./blockchain/blockcreationsubscriber.go \
@@ -124,11 +118,11 @@ mockgen -destination=./test/mock/mock_ioctlclient/mock_ioctlclient.go  \
         -package=mock_ioctlclient \
         Client
 
-mkdir -p ./test/mock/mock_apiresponder
-mockgen -destination=./test/mock/mock_apiresponder/mock_apiresponder.go  \
-        -source=./api/responder.go \
-        -package=mock_apiresponder \
-        Responder
+mkdir -p ./test/mock/mock_apitypes
+mockgen -destination=./test/mock/mock_apiresponder/mock_apitypes.go  \
+        -source=./api/types/types.go \
+        -package=mock_apitypes \
+        APITypes
 
 mkdir -p ./test/mock/mock_apiserver
 mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
@@ -147,3 +141,9 @@ mockgen -destination=./test/mock/mock_blockindex/mock_blockindex.go  \
         -source=./blockindex/bloomfilterindexer.go \
         -package=mock_blockindex \
         BlockIndex
+        
+mkdir -p ./test/mock/mock_web3server
+mockgen -destination=./test/mock/mock_web3server/mock_web3server.go  \
+        -source=./api/web3server.go \
+        -package=mock_web3server \
+        Web3Handler

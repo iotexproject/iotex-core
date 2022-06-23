@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -210,7 +210,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	return bc.CommitBlock(blk)
 }
 
-func deployContractV2(svr *ServerV2, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
+func deployContractV2(bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
 	data, _ := hex.DecodeString(code)
 	ex1, err := action.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
@@ -395,6 +395,7 @@ func newConfig() config.Config {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.EVMNetworkID = _evmNetworkID
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = true
@@ -434,9 +435,6 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
-		opts = append(opts, WithActionIndex())
-	}
 	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
@@ -447,7 +445,6 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	config.SetEVMNetworkID(1)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {

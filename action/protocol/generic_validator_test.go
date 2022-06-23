@@ -26,6 +26,8 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
+const _evmNetworkID uint32 = 4689
+
 func TestActionProtoAndGenericValidator(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -78,8 +80,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
-		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
 		require.NoError(valid.Validate(ctx, nselp))
 	})
 	t.Run("Gas limit low", func(t *testing.T) {
@@ -91,8 +93,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
-		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.Contains(err.Error(), action.ErrIntrinsicGas.Error())
@@ -106,8 +108,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
-		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.Contains(err.Error(), "invalid state of account")
@@ -122,8 +124,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
-		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.Equal(action.ErrNonceTooLow, errors.Cause(err))

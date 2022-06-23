@@ -383,6 +383,9 @@ func TestValidateForkHeights(t *testing.T) {
 			"LordHowe", ErrInvalidCfg, "LordHowe is heigher than Midway",
 		},
 		{
+			"Newfoundland", ErrInvalidCfg, "Midway is heigher than Newfoundland",
+		},
+		{
 			"", nil, "",
 		},
 	}
@@ -392,7 +395,7 @@ func TestValidateForkHeights(t *testing.T) {
 		err := ValidateForkHeights(cfg)
 		r.Equal(v.err, errors.Cause(err))
 		if err != nil {
-			r.True(strings.Contains(err.Error(), v.errMsg))
+			r.Contains(err.Error(), v.errMsg)
 		}
 	}
 }
@@ -428,6 +431,8 @@ func newTestCfg(fork string) Config {
 		cfg.Genesis.KamchatkaBlockHeight = cfg.Genesis.LordHoweBlockHeight + 1
 	case "LordHowe":
 		cfg.Genesis.LordHoweBlockHeight = cfg.Genesis.MidwayBlockHeight + 1
+	case "Newfoundland":
+		cfg.Genesis.MidwayBlockHeight = cfg.Genesis.NewfoundlandBlockHeight + 1
 	}
 	return cfg
 }

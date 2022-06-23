@@ -23,9 +23,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -375,7 +374,7 @@ func TestLocalTransfer(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
 	ap := svr.ChainService(chainID).ActionPool()
-	as := svr.ChainService(chainID).APIServer()
+	as := svr.APIServer(chainID)
 
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc, sf)
@@ -407,7 +406,7 @@ func TestLocalTransfer(t *testing.T) {
 				if err1 != nil {
 					return err1
 				}
-				actInfo, err = util.GetActionByActionHash(as, tsfHash)
+				actInfo, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 				if err != nil {
 					return err
 				}
@@ -441,38 +440,41 @@ func TestLocalTransfer(t *testing.T) {
 			}
 			require.Equal(expectedRecvrBalance.String(), newRecvState.Balance.String(), tsfTest.message)
 		case TsfFail:
-			require.Error(err, tsfTest.message)
+			// bad address will be in actpool, but won't pass validation in protocol execution
+			if tsfTest.recvAcntState != AcntBadAddr {
+				require.Error(err, tsfTest.message)
 
-			st, ok := status.FromError(err)
-			require.True(ok, tsfTest.message)
-			require.Equal(st.Code(), codes.Internal, tsfTest.message)
+				st, ok := status.FromError(err)
+				require.True(ok, tsfTest.message)
+				require.Equal(st.Code(), codes.Internal, tsfTest.message)
 
-			details := st.Details()
-			require.Equal(len(details), 1, tsfTest.message)
+				details := st.Details()
+				require.Equal(len(details), 1, tsfTest.message)
 
-			detail, ok := details[0].(*errdetails.BadRequest)
-			require.True(ok, tsfTest.message)
-			require.Equal(len(detail.FieldViolations), 1, tsfTest.message)
+				detail, ok := details[0].(*errdetails.BadRequest)
+				require.True(ok, tsfTest.message)
+				require.Equal(len(detail.FieldViolations), 1, tsfTest.message)
 
-			violation := detail.FieldViolations[0]
-			require.Equal(tsfTest.expectedDesc, violation.Description, tsfTest.message)
-			require.Equal(violation.Field, "Action rejected", tsfTest.message)
+				violation := detail.FieldViolations[0]
+				require.Equal(tsfTest.expectedDesc, violation.Description, tsfTest.message)
+				require.Equal(violation.Field, "Action rejected", tsfTest.message)
 
-			//The transfer should be rejected right after we inject it
-			//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
-			err := backoff.Retry(func() error {
-				var err error
-				tsfHash, err1 := tsf.Hash()
-				if err1 != nil {
-					return err1
-				}
-				_, err = ap.GetActionByHash(tsfHash)
-				return err
-			}, bo)
-			require.Error(err, tsfTest.message)
+				//The transfer should be rejected right after we inject it
+				//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
+				err := backoff.Retry(func() error {
+					var err error
+					tsfHash, err1 := tsf.Hash()
+					if err1 != nil {
+						return err1
+					}
+					_, err = ap.GetActionByHash(tsfHash)
+					return err
+				}, bo)
+				require.Error(err, tsfTest.message)
+			}
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = util.GetActionByActionHash(as, tsfHash)
+			_, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -497,7 +499,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.NoError(err, tsfTest.message)
 			tsfHash, err1 := tsf.Hash()
 			require.NoError(err1)
-			_, err = util.GetActionByActionHash(as, tsfHash)
+			_, err = util.GetActionByActionHash(as.CoreService(), tsfHash)
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)
@@ -598,8 +600,7 @@ func newTransferConfig(
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.API.Port = apiPort
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = apiPort
 	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
@@ -614,6 +615,7 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 }
 
 func TestEnforceChainID(t *testing.T) {
+	require := require.New(t)
 
 	testCase := []struct {
 		chainID uint32
@@ -642,21 +644,21 @@ func TestEnforceChainID(t *testing.T) {
 	cfg.Genesis.MidwayBlockHeight = 3
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, acc.Register(registry))
+	require.NoError(acc.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	require.NoError(t, err)
+	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
-	require.NoError(t, err)
+	require.NoError(err)
 	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
 		factory.NewMinter(sf, ap),
 	)
-	require.NoError(t, bc.Start(ctx))
+	require.NoError(bc.Start(ctx))
 
 	defer func() {
-		require.NoError(t, bc.Stop(ctx))
+		require.NoError(bc.Stop(ctx))
 	}()
 	for i, c := range testCase {
 		tsf, err := action.NewTransfer(
@@ -666,7 +668,7 @@ func TestEnforceChainID(t *testing.T) {
 			[]byte{}, uint64(100000),
 			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
 		)
-		require.NoError(t, err)
+		require.NoError(err)
 
 		bd := &action.EnvelopeBuilder{}
 		elp1 := bd.SetAction(tsf).
@@ -674,16 +676,28 @@ func TestEnforceChainID(t *testing.T) {
 			SetNonce(uint64(i) + 1).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
-		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
-		require.NoError(t, err)
+		selp, err := action.Sign(elp1, identityset.PrivateKey(0))
+		require.NoError(err)
 
-		err = ap.Add(context.Background(), selp1)
-		require.NoError(t, err)
+		// simulate API receives tx
+		selp1, err := (&action.Deserializer{}).SetEvmNetworkID(cfg.Chain.EVMNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
+
+		// mint block using received tx
+		require.NoError(ap.Add(context.Background(), selp1))
 		blk, err := bc.MintNewBlock(testutil.TimestampNow())
-		require.NoError(t, err)
-		err = bc.CommitBlock(blk)
-		require.NoError(t, err)
-		require.Equal(t, c.success, len(blk.Actions) == 1)
-		require.Equal(t, c.success, len(blk.Receipts) == 1)
+		require.NoError(err)
+		require.NoError(bc.CommitBlock(blk))
+		require.Equal(c.success, len(blk.Actions) == 1)
+		require.Equal(c.success, len(blk.Receipts) == 1)
+
+		// verify action has valid chainID
+		if c.success {
+			act := blk.Actions[0]
+			tsf, ok := act.Action().(*action.Transfer)
+			require.True(ok)
+			require.Equal(c.chainID, act.ChainID())
+			require.Equal(c.chainID, tsf.ChainID())
+		}
 	}
 }

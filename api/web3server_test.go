@@ -56,9 +56,9 @@ func TestGetWeb3Reqs(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.testName, func(t *testing.T) {
 			if test.hasHeader {
-				test.req.Header.Set("Content-Type", _contentType)
+				test.req.Header.Set("Content-Type", "application/json")
 			}
-			_, err := parseWeb3Reqs(test.req)
+			_, err := parseWeb3Reqs(test.req.Body)
 			if test.hasError {
 				require.Error(err)
 			} else {
@@ -68,17 +68,18 @@ func TestGetWeb3Reqs(t *testing.T) {
 	}
 }
 
-func TestServeHTTP(t *testing.T) {
+func TestHandlePost(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	svr := NewWeb3Server(core, testutil.RandomPort(), "", 10)
-
-	// wrong http method
-	request1, _ := http.NewRequest(http.MethodGet, "http://url.com", nil)
-	response1 := getServerResp(svr, request1)
-	require.Equal(response1.Result().StatusCode, http.StatusMethodNotAllowed)
+	svr := NewHTTPServer("", testutil.RandomPort(), NewWeb3Handler(core, ""))
+	getServerResp := func(svr *HTTPServer, req *http.Request) *httptest.ResponseRecorder {
+		req.Header.Set("Content-Type", "application/json")
+		resp := httptest.NewRecorder()
+		svr.ServeHTTP(resp, req)
+		return resp
+	}
 
 	// web3 req without params
 	request2, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_getBalance","id":67}`))
@@ -93,20 +94,20 @@ func TestServeHTTP(t *testing.T) {
 	require.Contains(string(bodyBytes3), "method not found")
 
 	// single web3 req
-	request4, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":67}`))
+	request4, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":67}`))
 	response4 := getServerResp(svr, request4)
 	bodyBytes4, _ := io.ReadAll(response4.Body)
 	require.Contains(string(bodyBytes4), "result")
 
 	// multiple web3 req
-	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}, {"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":2}]`))
+	request5, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}, {"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":2}]`))
 	response5 := getServerResp(svr, request5)
 	bodyBytes5, _ := io.ReadAll(response5.Body)
 	require.True(gjson.Valid(string(bodyBytes5)))
 	require.Equal(2, len(gjson.Parse(string(bodyBytes5)).Array()))
 
 	// multiple web3 req2
-	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}]`))
+	request6, _ := http.NewRequest(http.MethodPost, "http://url.com", strings.NewReader(`[{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}]`))
 	response6 := getServerResp(svr, request6)
 	bodyBytes6, _ := io.ReadAll(response6.Body)
 	require.True(gjson.Valid(string(bodyBytes6)))
@@ -120,19 +121,12 @@ func TestServeHTTP(t *testing.T) {
 	require.Contains(string(bodyBytes7), "result")
 }
 
-func getServerResp(svr *Web3Server, req *http.Request) *httptest.ResponseRecorder {
-	req.Header.Set("Content-Type", _contentType)
-	resp := httptest.NewRecorder()
-	svr.ServeHTTP(resp, req)
-	return resp
-}
-
 func TestGasPrice(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	web3svr := NewWeb3Server(core, testutil.RandomPort(), "", 10)
+	web3svr := &web3Handler{core, nil}
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	ret, err := web3svr.gasPrice()
 	require.NoError(err)

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -66,7 +66,7 @@ func TestMerkle(t *testing.T) {
 	require.NoError(err)
 	require.Equal("eb5cb75ae199d96de7c1cd726d5e1a3dff15022ed7bdc914a3d8b346f1ef89c9", hex.EncodeToString(hash[:]))
 
-	hashes := block.ActionHashs()
+	hashes := actionHashs(block)
 	for i := range hashes {
 		h, err := actions[i].Hash()
 		require.NoError(err)
@@ -124,25 +124,6 @@ var (
 		},
 	}
 )
-
-func TestConvertFromBlockPb(t *testing.T) {
-	blk := Block{}
-	require.NoError(t, blk.ConvertFromBlockPb(&_pbBlock))
-
-	txHash, err := blk.CalculateTxRoot()
-	require.NoError(t, err)
-
-	blk.Header.txRoot = txHash
-	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
-
-	raw, err := blk.Serialize()
-	require.NoError(t, err)
-
-	var newblk Block
-	err = newblk.Deserialize(raw)
-	require.NoError(t, err)
-	require.Equal(t, blk, newblk)
-}
 
 func TestBlockCompressionSize(t *testing.T) {
 	for _, n := range []int{1, 10, 100, 1000, 10000} {
@@ -263,4 +244,18 @@ func TestVerifyBlock(t *testing.T) {
 		require.True(blk.Header.VerifySignature())
 		require.Error(blk.VerifyTxRoot())
 	})
+}
+
+// actionHashs returns action hashs in the block
+func actionHashs(blk *Block) []string {
+	actHash := make([]string, len(blk.Actions))
+	for i := range blk.Actions {
+		h, err := blk.Actions[i].Hash()
+		if err != nil {
+			log.L().Debug("Skipping action due to hash error", zap.Error(err))
+			continue
+		}
+		actHash[i] = hex.EncodeToString(h[:])
+	}
+	return actHash
 }

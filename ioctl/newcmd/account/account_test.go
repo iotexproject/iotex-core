@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -30,13 +30,14 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
-	_testPath = "ksTest"
+	_testPath        = "testNewAccount"
+	veryLightScryptN = 2
+	veryLightScryptP = 1
 )
 
 func TestNewAccountCmd(t *testing.T) {
@@ -45,16 +46,46 @@ func TestNewAccountCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
-	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
-	cmd := NewAccountCmd(client)
-	result, err := util.ExecuteCmd(cmd)
-	require.NotNil(result)
-	require.NoError(err)
+
+	testData := []struct {
+		endpoint string
+		insecure bool
+	}{
+		{
+			endpoint: "111:222:333:444:5678",
+			insecure: false,
+		},
+		{
+			endpoint: "",
+			insecure: true,
+		},
+	}
+	for _, test := range testData {
+		callbackEndpoint := func(cb func(*string, string, string, string)) {
+			cb(&test.endpoint, "endpoint", test.endpoint, "endpoint usage")
+		}
+		callbackInsecure := func(cb func(*bool, string, bool, string)) {
+			cb(&test.insecure, "insecure", !test.insecure, "insecure usage")
+		}
+		client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(callbackEndpoint)
+		client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure)
+
+		cmd := NewAccountCmd(client)
+		result, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		require.Contains(result, "Available Commands")
+
+		result, err = util.ExecuteCmd(cmd, "--endpoint", "0.0.0.0:1", "--insecure")
+		require.NoError(err)
+		require.Contains(result, "Available Commands")
+		require.Equal("0.0.0.0:1", test.endpoint)
+		require.True(test.insecure)
+	}
 }
 
 func TestSign(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(keystore.StandardScryptN, keystore.StandardScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -120,9 +151,9 @@ func TestSign(t *testing.T) {
 
 func TestAccount(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, nonce, err := newTestAccount()
-	defer testutil.CleanupPath(testWallet)
+	testWallet, ks, passwd, nonce, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
+	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -152,7 +183,7 @@ func TestAccount(t *testing.T) {
 		sk, err := crypto.GenerateKey()
 		require.NoError(err)
 		p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-		require.Equal(true, ok)
+		require.True(ok)
 		account, err = ks.ImportECDSA(p256k1, passwd)
 		require.NoError(err)
 		require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
@@ -206,8 +237,8 @@ func TestMeta(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
-	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 
 	accAddr := identityset.Address(28).String()
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
@@ -221,14 +252,14 @@ func TestMeta(t *testing.T) {
 	require.Equal(accountResponse.AccountMeta, result)
 
 	expectedErr := errors.New("failed to dial grpc connection")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedErr)
+	client.EXPECT().APIServiceClient().Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)
 	require.Equal(expectedErr, err)
 	require.Nil(result)
 
 	expectedErr = errors.New("failed to invoke GetAccount api")
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 	result, err = Meta(client, accAddr)
 	require.Error(err)
@@ -238,7 +269,8 @@ func TestMeta(t *testing.T) {
 
 func TestAccountError(t *testing.T) {
 	require := require.New(t)
-	testFilePath := filepath.Join(os.TempDir(), _testPath)
+	testFilePath, err := os.MkdirTemp(os.TempDir(), _testPath)
+	require.NoError(err)
 	defer testutil.CleanupPath(testFilePath)
 	alias := "aaa"
 	passwordOfKeyStore := "123456"
@@ -247,7 +279,8 @@ func TestAccountError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	testWallet, _, _, _, _ := newTestAccount()
+	testWallet, err := os.MkdirTemp(os.TempDir(), _testPath)
+	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
 	client.EXPECT().DecryptPrivateKey(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -258,7 +291,7 @@ func TestAccountError(t *testing.T) {
 		})
 	cmd := &cobra.Command{}
 	cmd.SetOut(new(bytes.Buffer))
-	_, err := newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
+	_, err = newAccountByKeyStore(client, cmd, alias, passwordOfKeyStore, keyStorePath)
 	require.Error(err)
 	require.Contains(err.Error(), fmt.Sprintf("keystore file \"%s\" read error", keyStorePath))
 
@@ -285,7 +318,7 @@ func TestAccountError(t *testing.T) {
 
 func TestStoreKey(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -353,7 +386,7 @@ func TestStoreKey(t *testing.T) {
 
 func TestNewAccount(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -370,7 +403,7 @@ func TestNewAccount(t *testing.T) {
 
 func TestNewAccountSm2(t *testing.T) {
 	require := require.New(t)
-	testWallet, _, passwd, _, err := newTestAccount()
+	testWallet, passwd, _, err := newTestAccount()
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -387,7 +420,7 @@ func TestNewAccountSm2(t *testing.T) {
 
 func TestNewAccountByKey(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccount()
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
@@ -406,15 +439,21 @@ func TestNewAccountByKey(t *testing.T) {
 	require.Equal(prvKey.PublicKey().Address().String(), result)
 }
 
-func newTestAccount() (string, *keystore.KeyStore, string, string, error) {
-	testWallet := filepath.Join(os.TempDir(), _testPath)
-	if err := os.MkdirAll(testWallet, os.ModePerm); err != nil {
-		return testWallet, nil, "", "", err
+func newTestAccount() (string, string, string, error) {
+	testWallet, err := os.MkdirTemp(os.TempDir(), _testPath)
+	if err != nil {
+		return testWallet, "", "", err
 	}
-
-	// create accounts
-	ks := keystore.NewKeyStore(testWallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+	return testWallet, passwd, nonce, nil
+}
+
+func newTestAccountWithKeyStore(scryptN, scryptP int) (string, *keystore.KeyStore, string, string, error) {
+	testWallet, passwd, nonce, err := newTestAccount()
+	if err != nil {
+		return testWallet, nil, "", "", err
+	}
+	ks := keystore.NewKeyStore(testWallet, scryptN, scryptP)
 	return testWallet, ks, passwd, nonce, nil
 }

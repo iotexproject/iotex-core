@@ -17,10 +17,10 @@ require (
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.3.3
 	github.com/iotexproject/go-pkgs v0.1.12-0.20220209063039-b876814568a0
-	github.com/iotexproject/iotex-address v0.2.6
+	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.5.10-0.20220324063310-405402bc20e8
+	github.com/iotexproject/iotex-proto v0.5.10-0.20220415042310-0d4bcef3febf
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
@@ -52,12 +52,6 @@ require (
 	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
-)
-
-require (
-	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
-	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 )
 
 require (
@@ -137,6 +131,7 @@ require (
 	github.com/libp2p/go-tcp-transport v0.2.3 // indirect
 	github.com/libp2p/go-ws-transport v0.4.0 // indirect
 	github.com/libp2p/go-yamux/v2 v2.2.0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magefile/mage v1.9.0 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
@@ -157,6 +152,7 @@ require (
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
@@ -172,6 +168,7 @@ require (
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
+	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect

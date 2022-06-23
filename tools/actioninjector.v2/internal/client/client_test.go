@@ -36,14 +36,14 @@ func TestClient(t *testing.T) {
 	b := identityset.Address(29).String()
 
 	cfg := config.Default
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	chainID := uint32(1)
 	tx, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
@@ -60,11 +60,12 @@ func TestClient(t *testing.T) {
 	})
 	sf.EXPECT().Height().Return(uint64(10), nil).AnyTimes()
 	bc.EXPECT().Genesis().Return(cfg.Genesis).AnyTimes()
-	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
+	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	bc.EXPECT().EvmNetworkID().Return(uint32(0)).AnyTimes()
 	bc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	bh := &iotextypes.BlockHeader{Core: &iotextypes.BlockHeaderCore{
-		Version:          chainID,
+		Version:          1,
 		Height:           10,
 		Timestamp:        timestamppb.Now(),
 		PrevBlockHash:    []byte(""),
@@ -88,7 +89,7 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 	require.NoError(apiServer.Start(ctx))
 	// test New()
-	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.Port)
+	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.GRPCPort)
 	cli, err := New(serverAddr, true)
 	require.NoError(err)
 
