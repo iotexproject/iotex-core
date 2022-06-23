@@ -22,12 +22,9 @@ func TestNewHdwalletExportCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
-
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
-	client.EXPECT().IsHdWalletConfigFileExist().Return(false).Times(2)
 
 	t.Run("export hdwallet", func(t *testing.T) {
 		client.EXPECT().ReadSecret().Return(password, nil)
