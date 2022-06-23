@@ -42,7 +42,7 @@ type Execution struct {
 	accessList types.AccessList
 }
 
-// NewExecution returns a Execution instance
+// NewExecution returns an Execution instance (w/o access list)
 func NewExecution(
 	contractAddress string,
 	nonce uint64,
@@ -61,6 +61,30 @@ func NewExecution(
 		contract: contractAddress,
 		amount:   amount,
 		data:     data,
+	}, nil
+}
+
+// NewExecutionWithAccessList returns an Execution instance with access list
+func NewExecutionWithAccessList(
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	data []byte,
+	list types.AccessList,
+) (*Execution, error) {
+	return &Execution{
+		AbstractAction: AbstractAction{
+			version:  version.ProtocolVersion,
+			nonce:    nonce,
+			gasLimit: gasLimit,
+			gasPrice: gasPrice,
+		},
+		contract:   contractAddress,
+		amount:     amount,
+		data:       data,
+		accessList: list,
 	}, nil
 }
 
@@ -197,6 +221,12 @@ func (ex *Execution) SanityCheck() error {
 	// Reject execution of negative amount
 	if ex.Amount().Sign() < 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
+	}
+	// check if contract's address is valid
+	if ex.Contract() != EmptyAddress {
+		if _, err := address.FromString(ex.Contract()); err != nil {
+			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
+		}
 	}
 	return ex.AbstractAction.SanityCheck()
 }

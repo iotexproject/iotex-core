@@ -81,8 +81,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 	var (
 		epochNum  uint64
 		nextEpoch bool
-		endpoint  string
-		insecure  bool
 	)
 
 	use, _ := client.SelectTranslation(_delegateUses)
@@ -101,10 +99,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			if nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-					Endpoint: endpoint,
-					Insecure: insecure,
-				})
+				apiServiceClient, err := client.APIServiceClient()
 				if err != nil {
 					return err
 				}

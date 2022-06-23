@@ -28,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -74,6 +73,7 @@ type (
 		context            vm.BlockContext
 		txCtx              vm.TxContext
 		nonce              uint64
+		evmNetworkID       uint32
 		executorRawAddress string
 		amount             *big.Int
 		contract           *common.Address
@@ -96,15 +96,7 @@ func newParams(
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if dest := execution.Contract(); dest != action.EmptyAddress {
-		var (
-			contract address.Address
-			err      error
-		)
-		if featureCtx.TolerateLegacyAddress {
-			contract, err = address.FromStringLegacy(dest)
-		} else {
-			contract, err = address.FromString(dest)
-		}
+		contract, err := address.FromString(execution.Contract())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to decode contract address %s", dest)
 		}
@@ -165,6 +157,7 @@ func newParams(
 			GasPrice: execution.GasPrice(),
 		},
 		execution.Nonce(),
+		protocol.MustGetBlockchainCtx(ctx).EvmNetworkID,
 		actionCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
@@ -321,7 +314,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) *StateDBAdapt
 	)
 }
 
-func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
+func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.ChainConfig {
 	var chainConfig params.ChainConfig
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
@@ -331,7 +324,7 @@ func getChainConfig(g genesis.Blockchain, height uint64) *params.ChainConfig {
 	chainConfig.IstanbulBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
 	chainConfig.MuirGlacierBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
 	if g.IsIceland(height) {
-		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
+		chainConfig.ChainID = new(big.Int).SetUint64(uint64(id))
 	}
 	// enable Berlin and London
 	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
@@ -353,7 +346,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	if vmCfg, ok := protocol.GetVMConfigCtx(ctx); ok {
 		config = vmCfg
 	}
-	chainConfig := getChainConfig(g, blockHeight)
+	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
 	if g.IsToBeEnabled(blockHeight) {
 		accessList = evmParams.accessList

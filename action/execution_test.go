@@ -62,6 +62,20 @@ func TestExecutionSanityCheck(t *testing.T) {
 		require.NoError(err)
 		require.Equal(ErrInvalidAmount, errors.Cause(ex.SanityCheck()))
 	})
+
+	t.Run("Invalid contract address", func(t *testing.T) {
+		ex, err := NewExecution(
+			identityset.Address(29).String()+"bbb",
+			uint64(1),
+			big.NewInt(0),
+			uint64(0),
+			big.NewInt(0),
+			[]byte{},
+		)
+		require.NoError(err)
+		require.Contains(ex.SanityCheck().Error(), "error when validating contract's address")
+	})
+
 	t.Run("Negative gas price", func(t *testing.T) {
 		ex, err := NewExecution(identityset.Address(29).String(), uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
 		require.NoError(err)
@@ -80,15 +94,6 @@ var (
 
 func TestExecutionAccessList(t *testing.T) {
 	require := require.New(t)
-	ex, err := NewExecution(
-		identityset.Address(29).String(),
-		1,
-		big.NewInt(20),
-		uint64(100),
-		big.NewInt(1000000),
-		[]byte("test"),
-	)
-	require.NoError(err)
 
 	ex1 := &Execution{}
 	for _, v := range []struct {
@@ -114,7 +119,16 @@ func TestExecutionAccessList(t *testing.T) {
 			}, 30900,
 		},
 	} {
-		ex.accessList = v.list
+		ex, err := NewExecutionWithAccessList(
+			identityset.Address(29).String(),
+			1,
+			big.NewInt(20),
+			uint64(100),
+			big.NewInt(1000000),
+			[]byte("test"),
+			v.list,
+		)
+		require.NoError(err)
 		require.NoError(ex1.LoadProto(ex.Proto()))
 		ex1.AbstractAction = ex.AbstractAction
 		require.Equal(ex, ex1)
