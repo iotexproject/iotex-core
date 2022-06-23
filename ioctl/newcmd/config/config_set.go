@@ -4,19 +4,4 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package hdwallet
-
-import (
-	"github.com/pkg/errors"
-)
-
-// Errors
-var (
-	ErrPasswdNotMatch = errors.New("password doesn't match")
-)
-
-// DefaultRootDerivationPath for iotex
-// https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-const DefaultRootDerivationPath = "m/44'/304'"
-
-var _hdWalletConfigFile string
+package config
