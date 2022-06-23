@@ -62,6 +62,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 		Short: accountShorts,
 	}
 	ac.AddCommand(NewAccountCreate(client))
+	ac.AddCommand(NewAccountCreateAdd(client))
 	ac.AddCommand(NewAccountDelete(client))
 	ac.AddCommand(NewAccountNonce(client))
 	ac.AddCommand(NewAccountList(client))
@@ -73,6 +74,7 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountExportPublic(client))
 	ac.AddCommand(NewAccountExport(client))
 	ac.AddCommand(NewAccountImportCmd(client))
+	ac.AddCommand(NewAccountBalance(client))
 
 	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
