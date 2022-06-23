@@ -87,6 +87,7 @@ func openFileDAOv2(cfg Config) *fileDAOv2 {
 		kvStore:  db.NewBoltDB(cfg.Config),
 		batch:    batch.NewBatch(),
 		cfg:      cfg,
+		deser:    (&block.Deserializer{}).SetEvmNetworkID(cfg.evmNetworkID),
 	}
 }
 

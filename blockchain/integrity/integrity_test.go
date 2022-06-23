@@ -1113,7 +1113,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		dao := blockdao.NewBlockDAO(indexers, 0, cfg.DB)
+		dao := blockdao.NewBlockDAO(indexers, cfg.Chain.EVMNetworkID, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
