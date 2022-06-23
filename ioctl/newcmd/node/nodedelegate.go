@@ -248,8 +248,13 @@ func (m *nextDelegatesMessage) String(epochNum uint64) string {
 	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
 	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
 	for _, bp := range m.Delegates {
-		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-			bp.Alias, ConfigMap("node", bp.Active), bp.Votes))
+		if bp.Active {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "active", bp.Votes))
+		} else {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "false", bp.Votes))
+		}
 	}
 	return strings.Join(lines, "\n")
 }
@@ -268,25 +273,13 @@ func (m *delegatesMessage) String() string {
 	lines = append(lines, fmt.Sprintf(formatTitleString,
 		"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
 	for _, bp := range m.Delegates {
-		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-			bp.Alias, ConfigMap("node", bp.Active), bp.Production, ConfigMap("probated", bp.ProbatedStatus), bp.Votes))
+		if bp.Active {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "active", bp.Production, "probated", bp.Votes))
+		} else {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "false", bp.Production, "", bp.Votes))
+		}
 	}
 	return strings.Join(lines, "\n")
-}
-
-// ConfigMap return the map of status configuration
-func ConfigMap(t string, b bool) string {
-	switch t {
-	case "node":
-		if b {
-			return "active"
-		}
-		return "false"
-	case "probated":
-		if b {
-			return "probated"
-		}
-		return ""
-	}
-	return ""
 }
