@@ -103,6 +103,9 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
+	if err = recovery.SetCrashlogDir(cfg.System.SystemLogDBPath); err != nil {
+		glog.Fatalln("Failed to set directory of crashlog: ", zap.Error(err))
+	}
 	defer recovery.Recover()
 
 	// populdate chain ID

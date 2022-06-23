@@ -15,9 +15,10 @@ func TestCrashLog(t *testing.T) {
 	heapdumpDir, err := os.MkdirTemp(os.TempDir(), "heapdump")
 	require.NoError(err)
 	defer testutil.CleanupPath(heapdumpDir)
+	require.NoError(SetCrashlogDir(heapdumpDir))
 	testRecovery := func() {
 		if r := recover(); r != nil {
-			writeLogCrash(heapdumpDir)
+			_crashlog.writeCrashlog()
 		}
 	}
 

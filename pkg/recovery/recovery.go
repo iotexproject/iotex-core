@@ -43,7 +43,13 @@ type (
 		IOCounters map[string]disk.IOCountersStat `json:"io_counters"`
 		Partitions []disk.PartitionStat           `json:"partitions"`
 	}
+	// crashlog saves the directory of crashlog
+	crashlog struct {
+		dir string
+	}
 )
+
+var _crashlog *crashlog
 
 // Recover catchs the crashing goroutine
 func Recover() {
@@ -52,23 +58,27 @@ func Recover() {
 	}
 }
 
-// LogCrash write down the current memory and stack info and the cpu/mem/disk infos into log dir
-func LogCrash(r interface{}) {
-	log.S().Errorf("crashlog: %v", r)
-	dir := "/var/log"
+// SetCrashlogDir set the directory of crashlog
+func SetCrashlogDir(dir string) error {
 	if !fileutil.FileExists(dir) {
 		if err := os.MkdirAll(dir, 0744); err != nil {
 			log.S().Error(err.Error())
-			return
+			return err
 		}
 	}
-	writeLogCrash(dir)
+	_crashlog = &crashlog{dir: dir}
+	return nil
 }
 
-func writeLogCrash(dir string) {
-	writeHeapProfile(filepath.Join(dir,
-		"heapdump_"+time.Now().Format("20060102150405")+".out"))
+// LogCrash write down the current memory and stack info and the cpu/mem/disk infos into log dir
+func LogCrash(r interface{}) {
+	log.S().Errorf("crashlog: %v", r)
+	_crashlog.writeCrashlog()
+}
 
+func (c *crashlog) writeCrashlog() {
+	writeHeapProfile(filepath.Join(c.dir,
+		"heapdump_"+time.Now().String()+".out"))
 	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)
