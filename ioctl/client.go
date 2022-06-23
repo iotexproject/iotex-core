@@ -80,7 +80,7 @@ type (
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
 		// HdwalletMnemonic returns the mnemonic of hdwallet
-		HdwalletMnemonic(password string) (string, error)
+		HdwalletMnemonic(string) (string, error)
 		// WriteHdWalletConfigFile write encrypting mnemonic into config file
 		WriteHdWalletConfigFile(string, string) error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
