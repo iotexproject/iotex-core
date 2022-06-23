@@ -68,7 +68,7 @@ func TestReadFileHeader(t *testing.T) {
 	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
-	newCfg, _ := CreateFiledaoConfig(cfg)
+	newCfg, _ := CreateConfig(cfg)
 	// empty legacy file is invalid
 	legacy, err := newFileDAOLegacy(newCfg)
 	r.NoError(err)
@@ -110,7 +110,7 @@ func TestReadFileHeader(t *testing.T) {
 		}
 	}
 	os.RemoveAll(cfg.DbPath)
-	newCfg, _ = CreateFiledaoConfig(cfg)
+	newCfg, _ = CreateConfig(cfg)
 	// test valid v2 master file
 	r.NoError(createNewV2File(1, newCfg))
 	defer os.RemoveAll(cfg.DbPath)
@@ -144,7 +144,7 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	_, err := checkMasterChainDBFile(cfg.DbPath)
 	r.Equal(ErrFileNotExist, err)
 
-	newCfg, _ := CreateFiledaoConfig(cfg)
+	newCfg, _ := CreateConfig(cfg)
 	// test empty db file, this will create new v2 file
 	fd, err := NewFileDAO(newCfg)
 	r.NoError(err)
@@ -198,7 +198,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	cfg.SplitDBHeight = 5
 	cfg.SplitDBSizeMB = 20
 
-	newCfg, _ := CreateFiledaoConfig(cfg)
+	newCfg, _ := CreateConfig(cfg)
 	fd, err := newFileDAOLegacy(newCfg)
 	r.NoError(err)
 	ctx := context.Background()
@@ -213,7 +213,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	// set FileDAO to split at height 15, 30 and 40
 	cfg.V2BlocksToSplitDB = 15
 
-	newCfg, _ = CreateFiledaoConfig(cfg)
+	newCfg, _ = CreateConfig(cfg)
 	fd, err = NewFileDAO(newCfg)
 	r.NoError(err)
 	r.NoError(fd.Start(ctx))
@@ -269,7 +269,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	r.Equal(files[1], file3)
 	r.Equal(files[2], file4)
 
-	newCfg, _ = CreateFiledaoConfig(cfg)
+	newCfg, _ = CreateConfig(cfg)
 	// open 4 db files and verify again
 	fd, err = NewFileDAO(newCfg)
 	fm = fd.(*fileDAO)
@@ -323,7 +323,7 @@ func TestCheckFiles(t *testing.T) {
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
 		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))
-		newCfg, _ := CreateFiledaoConfig(cfg)
+		newCfg, _ := CreateConfig(cfg)
 		r.NoError(createNewV2File(1, newCfg))
 	}
 	defer func() {
@@ -342,12 +342,12 @@ func TestCheckFiles(t *testing.T) {
 func TestCreateModuleConfig(t *testing.T) {
 	r := require.New(t)
 	cfg := db.DefaultConfig
-	newCfg, err := CreateFiledaoConfig(cfg)
+	newCfg, err := CreateConfig(cfg)
 	r.NoError(err)
 	r.Equal("", newCfg.DbPath)
 	r.Equal(uint32(0), newCfg.evmNetworkID)
 	cfg.DbPath = "./filedao_v2.db"
-	newCfg, err = CreateFiledaoConfig(cfg, EVMNetworkIDOption(1))
+	newCfg, err = CreateConfig(cfg, EVMNetworkIDOption(1))
 	r.NoError(err)
 	r.Equal(cfg.DbPath, newCfg.DbPath)
 	r.Equal(uint32(1), newCfg.evmNetworkID)

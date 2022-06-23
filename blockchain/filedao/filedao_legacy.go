@@ -50,7 +50,7 @@ type (
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
-		cfg           FiledaoConfig
+		cfg           Config
 		mutex         sync.RWMutex // for create new db file
 		topIndex      atomic.Value
 		htf           db.RangeIndex
@@ -60,7 +60,7 @@ type (
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg FiledaoConfig) (FileDAO, error) {
+func newFileDAOLegacy(cfg Config) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,

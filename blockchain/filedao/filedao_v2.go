@@ -48,13 +48,13 @@ type (
 		hashStore db.CountingIndex // store block hash
 		blkStore  db.CountingIndex // store raw blocks
 		sysStore  db.CountingIndex // store transaction log
-		cfg       FiledaoConfig
+		cfg       Config
 		deser     *block.Deserializer
 	}
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg FiledaoConfig) (*fileDAOv2, error) {
+func newFileDAOv2(bottom uint64, cfg Config) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -80,7 +80,7 @@ func newFileDAOv2(bottom uint64, cfg FiledaoConfig) (*fileDAOv2, error) {
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg FiledaoConfig) *fileDAOv2 {
+func openFileDAOv2(cfg Config) *fileDAOv2 {
 	return &fileDAOv2{
 		filename: cfg.DbPath,
 		blkCache: cache.NewThreadSafeLruCache(16),
