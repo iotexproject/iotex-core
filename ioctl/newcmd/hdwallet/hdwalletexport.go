@@ -44,12 +44,12 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "failed to get password")
 			}
 
-			mnemonic, err := client.ExportHdwallet(password)
+			mnemonic, err := client.HdwalletMnemonic(password)
 			if err != nil {
 				return errors.Wrap(err, "failed to export mnemonic")
 			}
 			cmd.Printf("Mnemonic phrase: %s"+
-				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
+				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.\n", mnemonic)
 			return nil
 		},
 	}

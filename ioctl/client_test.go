@@ -343,6 +343,22 @@ func TestDeleteAlias(t *testing.T) {
 	}
 }
 
+func TestHdwalletMnemonic(t *testing.T) {
+	r := require.New(t)
+	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
+	r.NoError(err)
+	defer testutil.CleanupPath(testPathWallet)
+	c := NewClient(config.Config{
+		Wallet: testPathWallet,
+	}, testPathWallet+"/config.default")
+	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
+	password := "123"
+	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
+	bytes, err := c.HdwalletMnemonic(password)
+	r.NoError(err)
+	r.Equal([]byte(mnemonic), bytes)
+}
+
 func TestWriteHdWalletConfigFile(t *testing.T) {
 	r := require.New(t)
 	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
@@ -355,22 +371,6 @@ func TestWriteHdWalletConfigFile(t *testing.T) {
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
-}
-
-func TestExportHdwallet(t *testing.T) {
-	r := require.New(t)
-	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathWallet)
-
-	c := NewClient(config.Config{
-		Wallet: testPathWallet,
-	}, testPathWallet+"/config.default")
-	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
-	password := "123"
-	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
-	_, err = c.ExportHdwallet(password)
-	r.NoError(err)
 }
 
 func writeTempConfig(t *testing.T, cfg *config.Config) string {
