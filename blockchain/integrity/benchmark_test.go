@@ -259,8 +259,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	daoCfg, _ := blockdao.CreateConfig(cfg.DB)
-	dao := blockdao.NewBlockDAO(indexers, daoCfg)
+	dao := blockdao.NewBlockDAO(indexers, 0, cfg.DB)
 	if dao == nil {
 		return nil, nil, errors.New("pointer is nil")
 	}

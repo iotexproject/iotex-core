@@ -88,12 +88,12 @@ type (
 	}
 
 	// ConfigOption applies the configuration of File DAO
-	ConfigOption func(Config) error
+	ConfigOption func(*Config) error
 )
 
 // EVMNetworkIDOption sets the EVM network ID
 func EVMNetworkIDOption(evmNetworkID uint32) ConfigOption {
-	return func(opt Config) error {
+	return func(opt *Config) error {
 		opt.evmNetworkID = evmNetworkID
 		return nil
 	}
@@ -105,7 +105,7 @@ func CreateConfig(cfg db.Config, options ...ConfigOption) (Config, error) {
 		Config: cfg,
 	}
 	for _, opt := range options {
-		if err := opt(cf); err != nil {
+		if err := opt(&cf); err != nil {
 			return cf, err
 		}
 	}

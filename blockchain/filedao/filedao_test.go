@@ -339,7 +339,7 @@ func TestCheckFiles(t *testing.T) {
 	}
 }
 
-func TestCreateModuleConfig(t *testing.T) {
+func TestCreateConfig(t *testing.T) {
 	r := require.New(t)
 	cfg := db.DefaultConfig
 	newCfg, err := CreateConfig(cfg)

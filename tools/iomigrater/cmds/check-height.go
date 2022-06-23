@@ -54,8 +54,7 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 
 	cfg.DB.DbPath = filePath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	daoCfg, _ := blockdao.CreateConfig(cfg.DB)
-	blockDao := blockdao.NewBlockDAO(nil, daoCfg)
+	blockDao := blockdao.NewBlockDAO(nil, 0, cfg.DB)
 
 	// Load height value.
 	ctx := context.Background()
