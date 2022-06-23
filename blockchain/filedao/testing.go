@@ -70,6 +70,7 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		kvStore:  db.NewMemKVStore(),
 		batch:    batch.NewBatch(),
 		cfg:      cfg,
+		deser:    (&block.Deserializer{}).SetEvmNetworkID(cfg.evmNetworkID),
 	}
 	return &fd, nil
 }

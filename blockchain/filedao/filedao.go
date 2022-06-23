@@ -79,6 +79,7 @@ type (
 		currFd      BaseFileDAO
 		legacyFd    FileDAO
 		v2Fd        *FileV2Manager // a collection of v2 db files
+		deser       *block.Deserializer
 	}
 
 	// Config represents the configuration of File DAO
