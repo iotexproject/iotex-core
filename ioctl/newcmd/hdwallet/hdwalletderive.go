@@ -49,7 +49,7 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 				return errors.New("invalid hdwallet key format")
 			}
 
-			cmd.Println("Enter password\n")
+			cmd.Println("Enter password:")
 			password, err := client.ReadSecret()
 			if err != nil {
 				return errors.New("failed to get password")
@@ -68,11 +68,11 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 
 // DeriveKey derives the key according to path
 func DeriveKey(client ioctl.Client, account, change, index uint32, password string) (string, crypto.PrivateKey, error) {
-	mnemonic, err := client.ExportHdwallet(password)
+	mnemonic, err := client.HdwalletMnemonic(password)
 	if err != nil {
 		return "", nil, err
 	}
-	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		return "", nil, err
 	}

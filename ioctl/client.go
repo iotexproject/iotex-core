@@ -79,6 +79,8 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
+		// HdwalletMnemonic returns the mnemonic of hdwallet
+		HdwalletMnemonic(password string) (string, error)
 		// WriteHdWalletConfigFile write encrypting mnemonic into config file
 		WriteHdWalletConfigFile(string, string) error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
@@ -327,6 +329,33 @@ func (c *client) ReadInput() (string, error) { // notest
 		return "", err
 	}
 	return line, nil
+}
+
+func (c *client) HdwalletMnemonic(password string) (string, error) {
+	// derive key as "m/44'/304'/account'/change/index"
+	if !c.IsHdWalletConfigFileExist() {
+		return "", errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
+	}
+	enctxt, err := os.ReadFile(c.hdWalletConfigFile)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read config file %s", c.hdWalletConfigFile)
+	}
+
+	enckey := util.HashSHA256([]byte(password))
+	dectxt, err := util.Decrypt(enctxt, enckey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decrypt")
+	}
+
+	dectxtLen := len(dectxt)
+	if dectxtLen <= 32 {
+		return "", errors.Errorf("incorrect data dectxtLen %d", dectxtLen)
+	}
+	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
+	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
+		return "", errors.New("password error")
+	}
+	return string(mnemonic), nil
 }
 
 func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error {

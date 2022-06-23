@@ -169,19 +169,19 @@ func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
 }
 
-// ExportHdwallet mocks base method.
-func (m *MockClient) ExportHdwallet(arg0 string) ([]byte, error) {
+// HdwalletMnemonic mocks base method.
+func (m *MockClient) HdwalletMnemonic(password string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportHdwallet", arg0)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "HdwalletMnemonic", password)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ExportHdwallet indicates an expected call of ExportHdwallet.
-func (mr *MockClientMockRecorder) ExportHdwallet(arg0 interface{}) *gomock.Call {
+// HdwalletMnemonic indicates an expected call of HdwalletMnemonic.
+func (mr *MockClientMockRecorder) HdwalletMnemonic(password interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportHdwallet", reflect.TypeOf((*MockClient)(nil).ExportHdwallet), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), password)
 }
 
 // IsCryptoSm2 mocks base method.
