@@ -17,6 +17,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -64,11 +66,17 @@ type (
 	GenesisBlockHeight struct {
 		IsBering  bool `json:"isBering"`
 		IsIceland bool `json:"isIceland"`
+		IsLondon  bool `json:"isLondon"`
 	}
 
 	Log struct {
 		Topics []string `json:"topics"`
 		Data   string   `json:"data"`
+	}
+
+	AccessTuple struct {
+		Address     string   `json:"address"`
+		StorageKeys []string `json:"storageKeys"`
 	}
 
 	ExecutionConfig struct {
@@ -83,6 +91,7 @@ type (
 		RawAmount               string            `json:"rawAmount"`
 		RawGasLimit             uint              `json:"rawGasLimit"`
 		RawGasPrice             string            `json:"rawGasPrice"`
+		RawAccessList           []AccessTuple     `json:"rawAccessList"`
 		Failed                  bool              `json:"failed"`
 		RawReturnValue          string            `json:"rawReturnValue"`
 		RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
@@ -188,6 +197,23 @@ func (cfg *ExecutionConfig) GasLimit() uint64 {
 	return uint64(cfg.RawGasLimit)
 }
 
+func (cfg *ExecutionConfig) AccessList() types.AccessList {
+	if len(cfg.RawAccessList) == 0 {
+		return nil
+	}
+	accessList := make(types.AccessList, len(cfg.RawAccessList))
+	for i, rawAccessList := range cfg.RawAccessList {
+		accessList[i].Address = common.HexToAddress(rawAccessList.Address)
+		if numKey := len(rawAccessList.StorageKeys); numKey > 0 {
+			accessList[i].StorageKeys = make([]common.Hash, numKey)
+			for j, rawStorageKey := range rawAccessList.StorageKeys {
+				accessList[i].StorageKeys[j] = common.HexToHash(rawStorageKey)
+			}
+		}
+	}
+	return accessList
+}
+
 func (cfg *ExecutionConfig) ExpectedGasConsumed() uint64 {
 	return uint64(cfg.RawExpectedGasConsumed)
 }
@@ -237,13 +263,14 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	exec, err := action.NewExecution(
+	exec, err := action.NewExecutionWithAccessList(
 		contractAddr,
 		state.Nonce+1,
 		ecfg.Amount(),
 		ecfg.GasLimit(),
 		ecfg.GasPrice(),
 		ecfg.ByteCode(),
+		ecfg.AccessList(),
 	)
 	if err != nil {
 		return nil, nil, err
@@ -284,13 +311,14 @@ func runExecutions(
 		}
 		nonce = nonce + 1
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecution(
+		exec, err := action.NewExecutionWithAccessList(
 			contractAddrs[i],
 			nonce,
 			ecfg.Amount(),
 			ecfg.GasLimit(),
 			ecfg.GasPrice(),
 			ecfg.ByteCode(),
+			ecfg.AccessList(),
 		)
 		if err != nil {
 			return nil, nil, err
@@ -371,6 +399,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.FairbankBlockHeight = 0
 		cfg.Genesis.GreenlandBlockHeight = 0
 		cfg.Genesis.IcelandBlockHeight = 0
+	}
+	if sct.InitGenesis.IsLondon {
+		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -996,6 +1027,84 @@ func TestIstanbulEVM(t *testing.T) {
 	})
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
+}
+
+func TestLondonEVM(t *testing.T) {
+	t.Run("ArrayReturn", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/array-return.json")
+	})
+	t.Run("BasicToken", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/basic-token.json")
+	})
+	t.Run("CallDynamic", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/call-dynamic.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/chainid-selfbalance.json")
+	})
+	t.Run("ChangeState", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/changestate.json")
+	})
+	t.Run("F.value", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/f.value.json")
+	})
+	t.Run("Gas-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/gas-test.json")
+	})
+	t.Run("InfiniteLoop", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/infiniteloop.json")
+	})
+	t.Run("MappingDelete", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/mapping-delete.json")
+	})
+	t.Run("max-time", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/maxtime.json")
+	})
+	t.Run("Modifier", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/modifiers.json")
+	})
+	t.Run("Multisend", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/multisend.json")
+	})
+	t.Run("NoVariableLengthReturns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/no-variable-length-returns.json")
+	})
+	t.Run("PublicMapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/public-mapping.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/reentry-attack.json")
+	})
+	t.Run("RemoveFromArray", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/remove-from-array.json")
+	})
+	t.Run("SendEth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/send-eth.json")
+	})
+	t.Run("Sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/storage-test.json")
+	})
+	t.Run("TailRecursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/tail-recursion.json")
+	})
+	t.Run("Tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/wireconnection.json")
+	})
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/self-destruct.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/datacopy.json")
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
