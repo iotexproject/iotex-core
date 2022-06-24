@@ -9,11 +9,12 @@ package hdwallet
 import (
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
+
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Multi-language support
@@ -54,7 +55,7 @@ func NewHdwalletCreateCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "failed to get password")
 			}
 			if password != passwordAgain {
-				return errors.New(ErrPasswdNotMatch.Error())
+				return ErrPasswdNotMatch
 			}
 
 			entropy, _ := bip39.NewEntropy(128)
