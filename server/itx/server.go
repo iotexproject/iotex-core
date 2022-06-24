@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/ha"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
 )
@@ -250,6 +251,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			}
 		}()
 		go func() {
+			defer recovery.Recover()
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
 			ln, err := httputil.LimitListener(adminserv.Addr)
