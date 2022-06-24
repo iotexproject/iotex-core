@@ -56,7 +56,7 @@ func NewXrc20TransferFrom(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to parse amount")
 			}
-			bytecode, err := ioctl.PackABI(ioctl.XRC20ABI, "transferFrom", owner, recipient, amount)
+			bytecode, err := client.PackABI("transferFrom", owner, recipient, amount)
 			if err != nil {
 				return errors.Wrap(err, "cannot generate bytecode from given command")
 			}

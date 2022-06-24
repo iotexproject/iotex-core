@@ -19,7 +19,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -28,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
@@ -83,6 +84,8 @@ type (
 		WriteHdWalletConfigFile(string, string) error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
+		// PackABI pack abi with abi content, pack name and arguments
+		PackABI(string, ...interface{}) ([]byte, error)
 	}
 
 	client struct {
@@ -93,6 +96,7 @@ type (
 		endpoint           string
 		insecure           bool
 		hdWalletConfigFile string
+		xrc20ABI           abi.ABI
 	}
 
 	// Option sets client construction parameter
@@ -113,16 +117,21 @@ func EnableCryptoSm2() Option {
 }
 
 // NewClient creates a new ioctl client
-func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
+func NewClient(cfg config.Config, configFilePath string, opts ...Option) (Client, error) {
+	xrc20ABI, err := abi.JSON(strings.NewReader(_abiConst))
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get abi JSON data")
+	}
 	c := &client{
 		cfg:                cfg,
 		configFilePath:     configFilePath,
 		hdWalletConfigFile: cfg.Wallet + "/hdwallet",
+		xrc20ABI:           xrc20ABI,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
-	return c
+	return c, nil
 }
 
 func (c *client) Start(context.Context) error {

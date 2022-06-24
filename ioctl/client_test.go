@@ -22,14 +22,15 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.Config{}, "", EnableCryptoSm2())
+	c, err := NewClient(config.Config{}, "", EnableCryptoSm2())
+	r.NoError(err)
 	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
 		*p = "127.0.0.1:14014"
 	})
 	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
 		*p = true
 	})
-	_, err := c.APIServiceClient()
+	_, err = c.APIServiceClient()
 	r.NoError(err)
 	err = c.Stop(context.Background())
 	r.NoError(err)
@@ -37,7 +38,8 @@ func TestStop(t *testing.T) {
 
 func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.Config{}, "")
+	c, err := NewClient(config.Config{}, "")
+	r.NoError(err)
 	defer c.Stop(context.Background())
 	blang := c.AskToConfirm("test")
 	// no input
@@ -46,7 +48,8 @@ func TestAskToConfirm(t *testing.T) {
 
 func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
-	c := NewClient(config.Config{}, "")
+	c, err := NewClient(config.Config{}, "")
+	r.NoError(err)
 	defer c.Stop(context.Background())
 
 	apiServiceClient, err := c.APIServiceClient()
@@ -138,7 +141,8 @@ func TestGetAddress(t *testing.T) {
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
-		c := NewClient(cfgload, configFilePath)
+		c, err := NewClient(cfgload, configFilePath)
+		r.NoError(err)
 		out, err := c.AddressWithDefaultIfNotExist(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
@@ -153,9 +157,10 @@ func TestNewKeyStore(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(testWallet)
 
-	c := NewClient(config.Config{
+	c, err := NewClient(config.Config{
 		Wallet: testWallet,
 	}, testWallet+"/config.default")
+	r.NoError(err)
 	defer c.Stop(context.Background())
 
 	ks := c.NewKeyStore()
@@ -187,7 +192,8 @@ func TestAliasMap(t *testing.T) {
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
-	c := NewClient(cfgload, configFilePath)
+	c, err := NewClient(cfgload, configFilePath)
+	r.NoError(err)
 	defer c.Stop(context.Background())
 	result := c.AliasMap()
 	r.Equal(exprAliases, result)
@@ -267,7 +273,8 @@ func TestSetAlias(t *testing.T) {
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
-		c := NewClient(test.cfg, configFilePath)
+		c, err := NewClient(test.cfg, configFilePath)
+		r.NoError(err)
 		r.NoError(c.SetAliasAndSave(test.alias, test.addr))
 		cfgload := loadTempConfig(t, configFilePath)
 		count := 0
@@ -333,7 +340,8 @@ func TestDeleteAlias(t *testing.T) {
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
-		c := NewClient(test.cfg, configFilePath)
+		c, err := NewClient(test.cfg, configFilePath)
+		r.NoError(err)
 		r.NoError(c.DeleteAlias(test.alias))
 		cfgload := loadTempConfig(t, configFilePath)
 		r.NotContains(cfgload.Aliases, test.alias)
@@ -349,9 +357,10 @@ func TestWriteHdWalletConfigFile(t *testing.T) {
 	r.NoError(err)
 	defer testutil.CleanupPath(testPathWallet)
 
-	c := NewClient(config.Config{
+	c, err := NewClient(config.Config{
 		Wallet: testPathWallet,
 	}, testPathWallet+"/config.default")
+	r.NoError(err)
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))

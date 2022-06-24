@@ -211,6 +211,26 @@ func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
 }
 
+// PackABI mocks base method.
+func (m *MockClient) PackABI(arg0 string, arg1 ...interface{}) ([]byte, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PackABI", varargs...)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PackABI indicates an expected call of PackABI.
+func (mr *MockClientMockRecorder) PackABI(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PackABI", reflect.TypeOf((*MockClient)(nil).PackABI), varargs...)
+}
+
 // QueryAnalyser mocks base method.
 func (m *MockClient) QueryAnalyser(arg0 interface{}) (*http.Response, error) {
 	m.ctrl.T.Helper()
