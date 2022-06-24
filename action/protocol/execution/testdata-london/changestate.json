@@ -1,0 +1,58 @@
+{
+    "initGenesis": {
+        "isBering" : true,
+        "isIceland" : true,
+        "isLondon" : true
+    },
+    "initBalances": [{
+        "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+        "rawBalance": "1000000000000000000000000000"
+    }],
+    "deployments": [{
+        "rawByteCode": "60806040526000805534801561001457600080fd5b5061012a806100246000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c80632e52d60614603757806386b5e2fb146051575b600080fd5b603f60005481565b60405190815260200160405180910390f35b6060605c36600460b1565b6062565b005b806000808282546071919060df565b90915550506000546040519081527f909c57d5c6ac08245cf2a6de3900e2b868513fa59099b92b27d8db823d92df9c9060200160405180910390a1600080fd5b60006020828403121560c257600080fd5b5035919050565b634e487b7160e01b600052601160045260246000fd5b6000821982111560ef5760ef60c9565b50019056fea264697066735822122036e1e8e2c54827484751bc06accc0bc58616042b8d342c6adf160d458a3dfa1864736f6c634300080e0033",
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawAmount": "0",
+        "rawGasLimit": 1000000,
+        "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 105317,
+        "expectedStatus": 1,
+        "expectedBalances": [],
+        "comment": "deploy a changestate contract"
+    }],
+    "executions": [{
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "2e52d606",
+        "rawAmount": "0",
+        "rawGasLimit": 120000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 12661,
+        "expectedStatus": 1,
+        "readOnly": true,
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+        "comment": "query state"
+    }, {
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "86b5e2fb000000000000000000000000000000000000000000000000000000000000000d",
+        "rawAmount": "0",
+        "rawGasLimit": 120000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 37173,
+        "expectedStatus": 106,
+        "failed":true,
+        "comment": "try changing state"
+    }, {
+        "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+        "rawByteCode": "2e52d606",
+        "rawAmount": "0",
+        "rawGasLimit": 120000,
+        "rawGasPrice": "0",
+        "rawAccessList": [],
+        "rawExpectedGasConsumed": 12661,
+        "expectedStatus": 1,
+        "readOnly": true,
+        "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+        "comment": "query state"
+    }]
+}
