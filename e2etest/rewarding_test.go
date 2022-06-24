@@ -610,6 +610,5 @@ func newConfig(
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 
-	cfg.DB.CompressLegacy = true
 	return cfg
 }

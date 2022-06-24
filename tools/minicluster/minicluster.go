@@ -438,6 +438,5 @@ func newConfig(
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
 
-	cfg.DB.CompressLegacy = true
 	return cfg
 }
