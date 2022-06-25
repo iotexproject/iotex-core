@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewHdwalletCreateCmd(t *testing.T) {
@@ -27,8 +28,7 @@ func TestNewHdwalletCreateCmd(t *testing.T) {
 	client.EXPECT().IsHdWalletConfigFileExist().Return(false).Times(3)
 
 	t.Run("create hdwallet", func(t *testing.T) {
-		client.EXPECT().ReadSecret().Return(password, nil)
-		client.EXPECT().ReadSecret().Return(password, nil)
+		client.EXPECT().ReadSecret().Return(password, nil).Times(2)
 		client.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any()).Return(nil)
 
 		cmd := NewHdwalletCreateCmd(client)

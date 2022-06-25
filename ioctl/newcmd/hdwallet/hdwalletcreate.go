@@ -7,8 +7,6 @@
 package hdwallet
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
@@ -58,15 +56,21 @@ func NewHdwalletCreateCmd(client ioctl.Client) *cobra.Command {
 				return ErrPasswdNotMatch
 			}
 
-			entropy, _ := bip39.NewEntropy(128)
-			mnemonic, _ := bip39.NewMnemonic(entropy)
+			entropy, err := bip39.NewEntropy(128)
+			if err != nil {
+				return err
+			}
+			mnemonic, err := bip39.NewMnemonic(entropy)
+			if err != nil {
+				return err
+			}
 
 			if err = client.WriteHdWalletConfigFile(password, mnemonic); err != nil {
 				return err
 			}
 
-			cmd.Println(fmt.Sprintf("Mnemonic phrase: %s\n"+
-				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic))
+			cmd.Printf("Mnemonic phrase: %s\n"+
+				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
 			return nil
 		},
 	}
