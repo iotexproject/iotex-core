@@ -18,18 +18,15 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
 var (
 	_validMethods = []string{
 		"voter",
 		"cand",
 	}
-)
 
-// Multi-language support
-var (
 	_bcBucketListCmdShorts = map[config.Language]string{
 		config.English: "Get bucket list with method and arg(s) on IoTeX blockchain",
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表",
@@ -60,13 +57,12 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 		Example: `ioctl bc bucketlist voter [VOTER_ADDRESS] [OFFSET] [LIMIT]
 	ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var err error
-
 			cmd.SilenceUsage = true
 			offset, limit := uint64(0), uint64(1000)
 			method, addr := args[0], args[1]
 			s := args[2:]
 
+			var err error
 			if len(s) > 0 {
 				offset, err = strconv.ParseUint(s[0], 10, 64)
 				if err != nil {
@@ -110,9 +106,9 @@ func (m *bucketlistMessage) String() string {
 
 // getBucketList get bucket list from chain by voter address
 func getBucketListByVoter(client ioctl.Client, addr string, offset, limit uint32) error {
-	address, err := util.GetAddress(addr)
+	address, err := client.AddressWithDefaultIfNotExist(addr)
 	if err != nil {
-		return errors.Wrap(err, "")
+		return err
 	}
 	bl, err := getBucketListByVoterAddress(client, address, offset, limit)
 	if err != nil {

@@ -33,6 +33,7 @@ func TestNewBCBucketListCmd(t *testing.T) {
 	apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{}, nil).Times(2)
 
 	t.Run("get bucket list by voter", func(t *testing.T) {
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx", nil)
 		cmd := NewBCBucketListCmd(client)
 		result, err := util.ExecuteCmd(cmd, "voter", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
 		require.NoError(err)
@@ -48,6 +49,8 @@ func TestNewBCBucketListCmd(t *testing.T) {
 
 	t.Run("invalid voter address", func(t *testing.T) {
 		expectedErr := errors.New("cannot find address for alias test")
+
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("", expectedErr)
 
 		cmd := NewBCBucketListCmd(client)
 		_, err := util.ExecuteCmd(cmd, "voter", "test")
