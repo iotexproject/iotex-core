@@ -169,6 +169,21 @@ func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
 }
 
+// HdwalletMnemonic mocks base method.
+func (m *MockClient) HdwalletMnemonic(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HdwalletMnemonic", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HdwalletMnemonic indicates an expected call of HdwalletMnemonic.
+func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
+}
+
 // IsCryptoSm2 mocks base method.
 func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
