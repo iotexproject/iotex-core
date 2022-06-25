@@ -17,6 +17,7 @@ GOPATH=$(shell go env GOPATH)
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
+BUILD_TARGET_FACTORYBUILDER=factorybuilder
 BUILD_TARGET_IOCTL=ioctl
 BUILD_TARGET_NEWIOCTL=newioctl
 BUILD_TARGET_XCTL=xctl
@@ -84,7 +85,7 @@ build: ioctl
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
-build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip build-factorybuilder
 
 .PHONY: build-actioninjector
 build-actioninjector: 
@@ -105,6 +106,10 @@ build-staterecoverer:
 .PHONY: build-readtip
 build-readtip:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
+
+.PHONY: build-factorybuilder
+build-factorybuilder:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_FACTORYBUILDER) -v ./tools/factorybuilder
 
 .PHONY: fmt
 fmt:
@@ -170,6 +175,7 @@ clean:
 	@echo "Cleaning..."
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_SERVER)
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_ADDRGEN)
+	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_FACTORYBUILDER)
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_IOTC)
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(ECHO_V)rm -rf *chain*.db
