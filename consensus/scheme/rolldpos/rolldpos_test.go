@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
@@ -417,11 +418,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, acc.Register(registry))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 			require.NoError(t, rp.Register(registry))
+			dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 			chain := blockchain.NewBlockchain(
 				cfg,
-				nil,
+				dao,
 				factory.NewMinter(sf, actPool),
-				blockchain.InMemDaoOption(sf),
 				blockchain.BlockValidatorOption(block.NewValidator(
 					sf,
 					protocol.NewGenericValidator(sf, accountutil.AccountState),

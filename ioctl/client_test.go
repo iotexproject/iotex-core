@@ -365,6 +365,22 @@ func TestDeleteAlias(t *testing.T) {
 	}
 }
 
+func TestHdwalletMnemonic(t *testing.T) {
+	r := require.New(t)
+	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
+	r.NoError(err)
+	defer testutil.CleanupPath(testPathWallet)
+	c := NewClient(config.Config{
+		Wallet: testPathWallet,
+	}, testPathWallet+"/config.default")
+	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
+	password := "123"
+	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
+	result, err := c.HdwalletMnemonic(password)
+	r.NoError(err)
+	r.Equal(mnemonic, result)
+}
+
 func TestWriteHdWalletConfigFile(t *testing.T) {
 	r := require.New(t)
 	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
