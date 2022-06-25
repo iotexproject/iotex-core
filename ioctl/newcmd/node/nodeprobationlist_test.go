@@ -41,14 +41,15 @@ func TestNewNodeProbationlistCmd(t *testing.T) {
 		require.Contains(err.Error(), "failed to get chain meta")
 	})
 
-	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{Epoch: &iotextypes.EpochData{Num: 7000}}}
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
-
 	var testBlockProducersInfo = []*iotexapi.BlockProducerInfo{
 		{Address: "io1kr8c6krd7dhxaaqwdkr6erqgu4z0scug3drgja", Votes: "109510794521770016955545668", Active: true, Production: 30},
 		{Address: "io13q2am9nedrd3n746lsj6qan4pymcpgm94vvx2c", Votes: "81497052527306018062463878", Active: false, Production: 0},
 	}
+
+	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{Epoch: &iotextypes.EpochData{Num: 7000}}}
 	epochMetaResponse := &iotexapi.GetEpochMetaResponse{EpochData: &iotextypes.EpochData{Num: 7000, Height: 3223081}, TotalBlocks: 720, BlockProducersInfo: testBlockProducersInfo}
+
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(3)
 	apiServiceClient.EXPECT().GetEpochMeta(gomock.Any(), gomock.Any()).Return(epochMetaResponse, nil).Times(3)
 
 	t.Run("query probation list", func(t *testing.T) {
