@@ -25,7 +25,7 @@ func readFileHeader(filename, fileType string) (*FileHeader, error) {
 		return nil, err
 	}
 
-	file := db.NewBoltDB(db.Config{DbPath: filename, NumRetries: 3})
+	file := db.NewBoltDB(db.Config{DbPath: filename, NumRetries: 3, ReadOnly: true})
 	ctx := context.Background()
 	if err := file.Start(ctx); err != nil {
 		// not a valid db file

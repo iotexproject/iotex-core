@@ -27,6 +27,8 @@ type Config struct {
 	SplitDBHeight uint64 `yaml:"splitDBHeight"`
 	// HistoryStateRetention is the number of blocks account/contract state will be retained
 	HistoryStateRetention uint64 `yaml:"historyStateRetention"`
+	// ReadOnly opens the DB in read only mode
+	ReadOnly bool `yaml:"readOnly"`
 }
 
 // SplitDBSize returns the configured SplitDBSizeMB

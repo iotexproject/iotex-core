@@ -45,7 +45,7 @@ func NewBoltDB(cfg Config) *BoltDB {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *BoltDB) Start(_ context.Context) error {
-	db, err := bolt.Open(b.path, _fileMode, nil)
+	db, err := bolt.Open(b.path, _fileMode, b.opts())
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
 	}
@@ -547,4 +547,16 @@ func (b *BoltDB) batchPutForceFail(namespace string, key [][]byte, value [][]byt
 		}
 		return nil
 	})
+}
+
+func (b *BoltDB) opts() *bolt.Options {
+	if !b.config.ReadOnly {
+		return nil
+	}
+	var readOnlyOpts *bolt.Options
+	defaultOpts := *bolt.DefaultOptions
+	readOnlyOpts = &defaultOpts
+	readOnlyOpts.ReadOnly = true
+
+	return readOnlyOpts
 }
