@@ -1039,7 +1039,10 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{blk, receipts}, nil
+	return &block.Store{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
