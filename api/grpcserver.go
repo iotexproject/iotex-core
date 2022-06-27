@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -720,4 +721,43 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	return &iotexapi.TraceTransactionStructLogsResponse{
 		StructLogs: structLogs,
 	}, nil
+}
+
+// generateBlockMeta generates BlockMeta from block
+func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+	header := blk.Header
+	height := header.Height()
+	ts := timestamppb.New(header.Timestamp())
+	var (
+		producerAddress string
+		h               hash.Hash256
+	)
+	if blk.Height() > 0 {
+		producerAddress = header.ProducerAddress()
+		h = header.HashBlock()
+	} else {
+		h = block.GenesisHash()
+	}
+	txRoot := header.TxRoot()
+	receiptRoot := header.ReceiptRoot()
+	deltaStateDigest := header.DeltaStateDigest()
+	prevHash := header.PrevHash()
+
+	blockMeta := iotextypes.BlockMeta{
+		Hash:              hex.EncodeToString(h[:]),
+		Height:            height,
+		Timestamp:         ts,
+		ProducerAddress:   producerAddress,
+		TxRoot:            hex.EncodeToString(txRoot[:]),
+		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
+		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
+		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
+	}
+	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
+		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
+	}
+	blockMeta.NumActions = int64(len(blk.Actions))
+	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	return &blockMeta
 }
