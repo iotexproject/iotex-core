@@ -84,6 +84,21 @@ func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
 }
 
+// Alias mocks base method.
+func (m *MockClient) Alias(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Alias", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Alias indicates an expected call of Alias.
+func (mr *MockClientMockRecorder) Alias(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Alias", reflect.TypeOf((*MockClient)(nil).Alias), arg0)
+}
+
 // AliasMap mocks base method.
 func (m *MockClient) AliasMap() map[string]string {
 	m.ctrl.T.Helper()
@@ -167,6 +182,21 @@ func (m *MockClient) Execute(arg0 string) error {
 func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
+}
+
+// HdwalletMnemonic mocks base method.
+func (m *MockClient) HdwalletMnemonic(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HdwalletMnemonic", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HdwalletMnemonic indicates an expected call of HdwalletMnemonic.
+func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
 }
 
 // IsCryptoSm2 mocks base method.

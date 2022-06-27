@@ -145,35 +145,10 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 	}
 }
 
-// BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
-func BoltDBDaoOption(indexers ...blockdao.BlockIndexer) Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		if bc.dao != nil {
-			return nil
-		}
-		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-		bc.dao = blockdao.NewBlockDAO(indexers, cfg.DB)
-		return nil
-	}
-}
-
-// InMemDaoOption sets blockchain's dao with MemKVStore
-func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		if bc.dao != nil {
-			return nil
-		}
-		bc.dao = blockdao.NewBlockDAOInMemForTest(indexers)
-		return nil
-	}
-}
-
 // ClockOption overrides the default clock
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.clk = clk
-
 		return nil
 	}
 }
