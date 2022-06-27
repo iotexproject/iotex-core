@@ -81,9 +81,9 @@ func Signer(client ioctl.Client) (address string, err error) {
 	}
 
 	if addressOrAlias == "" {
-		addressOrAlias, err = config.GetContextAddressOrAlias()
-		if err != nil {
-			return
+		defaultAccount := client.Config().DefaultAccount
+		if strings.EqualFold(defaultAccount.AddressOrAlias, "") {
+			return "", errors.New("use 'ioctl config set defaultacc ADDRESS|ALIAS' to config default account first")
 		}
 	}
 	return client.Address(addressOrAlias)
@@ -199,16 +199,16 @@ func SendRaw(client ioctl.Client, selp *iotextypes.Action) error {
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
 	URL := "https://"
-	switch config.ReadConfig.Explorer {
+	switch client.Config().Explorer {
 	case "iotexscan":
-		if strings.Contains(config.ReadConfig.Endpoint, "testnet") {
+		if strings.Contains(client.Config().Endpoint, "testnet") {
 			URL += "testnet."
 		}
 		URL += "iotexscan.io/action/" + txhash
 	case "iotxplorer":
 		URL = "iotxplorer.io/actions/" + txhash
 	default:
-		URL = config.ReadConfig.Explorer + txhash
+		URL = client.Config().Explorer + txhash
 	}
 	fmt.Printf("Action has been sent to blockchain.\nWait for several seconds and query this action by hash: %s", URL)
 	return nil
@@ -329,7 +329,10 @@ func Read(client ioctl.Client, contract address.Address, amount string, bytecode
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	callerAddr, _ := Signer(client)
+	callerAddr, err := Signer(client)
+	if err != nil {
+		return "", err
+	}
 	if callerAddr == "" {
 		callerAddr = address.ZeroAddress
 	}
