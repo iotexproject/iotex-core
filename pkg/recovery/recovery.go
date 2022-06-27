@@ -43,14 +43,10 @@ type (
 		IOCounters map[string]disk.IOCountersStat `json:"io_counters"`
 		Partitions []disk.PartitionStat           `json:"partitions"`
 	}
-	// crashlog saves the directory of crashlog
-	crashlog struct {
-		dir string
-	}
 )
 
-// _crashlog implements crashlog
-var _crashlog *crashlog
+// _crashlogDir saves the directory of crashlog
+var _crashlogDir string = "/"
 
 // Recover catchs the crashing goroutine
 func Recover() {
@@ -67,18 +63,14 @@ func SetCrashlogDir(dir string) error {
 			return err
 		}
 	}
-	_crashlog = &crashlog{dir: dir}
+	_crashlogDir = dir
 	return nil
 }
 
 // LogCrash write down the current memory and stack info and the cpu/mem/disk infos into log dir
 func LogCrash(r interface{}) {
 	log.S().Errorf("crashlog: %v", r)
-	_crashlog.writeCrashlog()
-}
-
-func (c *crashlog) writeCrashlog() {
-	writeHeapProfile(filepath.Join(c.dir,
+	writeHeapProfile(filepath.Join(_crashlogDir,
 		"heapdump_"+time.Now().String()+".out"))
 	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
@@ -90,6 +82,7 @@ func writeHeapProfile(path string) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.S().Errorf("crashlog: open heap profile error: %v", err)
+		return
 	}
 	defer f.Close()
 	if err := pprof.WriteHeapProfile(f); err != nil {
