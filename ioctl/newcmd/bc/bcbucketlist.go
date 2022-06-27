@@ -58,11 +58,17 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 	ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+
+			var (
+				bl      *iotextypes.VoteBucketList
+				address string
+				err     error
+			)
+
 			offset, limit := uint64(0), uint64(1000)
 			method, addr := args[0], args[1]
 			s := args[2:]
 
-			var err error
 			if len(s) > 0 {
 				offset, err = strconv.ParseUint(s[0], 10, 64)
 				if err != nil {
@@ -77,12 +83,33 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 			}
 			switch method {
 			case "voter":
-				return getBucketList(client, "voter", addr, uint32(offset), uint32(limit))
+				address, err = client.AddressWithDefaultIfNotExist(addr)
+				if err != nil {
+					return err
+				}
+				bl, err = getBucketListByVoterAddress(client, address, uint32(offset), uint32(limit))
 			case "cand":
-				return getBucketList(client, "cand", addr, uint32(offset), uint32(limit))
+				bl, err = getBucketListByCandidateName(client, addr, uint32(offset), uint32(limit))
 			default:
 				return errors.New("unknown <method>")
 			}
+			if err != nil {
+				return err
+			}
+			var bucketlist []*bucket
+			for _, b := range bl.Buckets {
+				bucket, err := newBucket(b)
+				if err != nil {
+					return err
+				}
+				bucketlist = append(bucketlist, bucket)
+			}
+			message := bucketlistMessage{
+				Node:       client.Config().Endpoint,
+				Bucketlist: bucketlist,
+			}
+			fmt.Println(message.String())
+			return nil
 		},
 	}
 }
@@ -102,42 +129,6 @@ func (m *bucketlistMessage) String() string {
 		}
 	}
 	return strings.Join(lines, "\n")
-}
-
-// getBucketList get bucket list from chain by voter address
-func getBucketList(client ioctl.Client, method string, addr string, offset, limit uint32) error {
-	var (
-		bl      *iotextypes.VoteBucketList
-		address string
-		err     error
-	)
-
-	if method == "voter" {
-		address, err = client.AddressWithDefaultIfNotExist(addr)
-		if err != nil {
-			return err
-		}
-		bl, err = getBucketListByVoterAddress(client, address, offset, limit)
-	} else {
-		bl, err = getBucketListByCandidateName(client, addr, offset, limit)
-	}
-	if err != nil {
-		return err
-	}
-	var bucketlist []*bucket
-	for _, b := range bl.Buckets {
-		bucket, err := newBucket(b)
-		if err != nil {
-			return err
-		}
-		bucketlist = append(bucketlist, bucket)
-	}
-	message := bucketlistMessage{
-		Node:       client.Config().Endpoint,
-		Bucketlist: bucketlist,
-	}
-	fmt.Println(message.String())
-	return nil
 }
 
 func getBucketListByVoterAddress(client ioctl.Client, addr string, offset, limit uint32) (*iotextypes.VoteBucketList, error) {

@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -145,11 +144,11 @@ func GetBucketList(
 	method := &iotexapi.ReadStakingDataMethod{Method: methodName}
 	methodData, err := proto.Marshal(method)
 	if err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to marshal read staking data method", err)
+		return nil, errors.Wrap(err, "failed to marshal read staking data method")
 	}
 	requestData, err := proto.Marshal(readStakingDataRequest)
 	if err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to marshal read staking data request", err)
+		return nil, errors.Wrap(err, "failed to marshal read staking data request")
 	}
 
 	request := &iotexapi.ReadStateRequest{
@@ -168,13 +167,13 @@ func GetBucketList(
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, errors.New(sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
 	bucketlist := iotextypes.VoteBucketList{}
 	if err := proto.Unmarshal(response.Data, &bucketlist); err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to unmarshal response", err)
+		return nil, errors.Wrap(err, "failed to unmarshal response")
 	}
 	return &bucketlist, nil
 }
