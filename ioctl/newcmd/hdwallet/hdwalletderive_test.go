@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewHdwalletDeriveCmd(t *testing.T) {

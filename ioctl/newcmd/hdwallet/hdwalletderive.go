@@ -37,7 +37,7 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_hdwalletDeriveCmdUses)
 	short, _ := client.SelectTranslation(_hdwalletDeriveCmdShorts)
 
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(1),
@@ -46,24 +46,23 @@ func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
 			signer := "hdw::" + args[0]
 			account, change, index, err := util.ParseHdwPath(signer)
 			if err != nil {
-				return errors.New("invalid hdwallet key format")
+				return errors.Wrap(err, "invalid hdwallet key format")
 			}
 
 			cmd.Println("Enter password:")
 			password, err := client.ReadSecret()
 			if err != nil {
-				return errors.New("failed to get password")
+				return errors.Wrap(err, "failed to get password")
 			}
 
 			addr, _, err := DeriveKey(client, account, change, index, password)
 			if err != nil {
 				return err
 			}
-			cmd.Println(fmt.Sprintf("address: %s\n", addr))
+			cmd.Printf("address: %s\n", addr)
 			return nil
 		},
 	}
-	return cmd
 }
 
 // DeriveKey derives the key according to path
@@ -81,21 +80,21 @@ func DeriveKey(client ioctl.Client, account, change, index uint32, password stri
 	path := hdwallet.MustParseDerivationPath(derivationPath)
 	walletAccount, err := wallet.Derive(path, false)
 	if err != nil {
-		return "", nil, errors.New("failed to get account by derive path")
+		return "", nil, errors.Wrap(err, "failed to get account by derive path")
 	}
 
 	private, err := wallet.PrivateKey(walletAccount)
 	if err != nil {
-		return "", nil, errors.New("failed to get private key")
+		return "", nil, errors.Wrap(err, "failed to get private key")
 	}
 	prvKey, err := crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
 	if err != nil {
-		return "", nil, errors.New("failed to Bytes private key")
+		return "", nil, errors.Wrap(err, "failed to Bytes private key")
 	}
 
 	addr := prvKey.PublicKey().Address()
 	if addr == nil {
-		return "", nil, errors.New("failed to convert public key into address")
+		return "", nil, errors.Wrap(err, "failed to convert public key into address")
 	}
 	return addr.String(), prvKey, nil
 }
