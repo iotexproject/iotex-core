@@ -250,7 +250,6 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	} else {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
-		dbConfig.CompressLegacy = builder.cfg.Chain.CompressBlock
 		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, builder.cfg.Chain.EVMNetworkID, dbConfig)
 	}
 
