@@ -18,6 +18,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -37,12 +38,14 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
@@ -85,6 +88,14 @@ func init() {
 	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
 }
 
+// RecoveryInterceptor handles panic to a custom error
+func RecoveryInterceptor() grpc_recovery.Option {
+	return grpc_recovery.WithRecoveryHandler(func(p interface{}) (err error) {
+		recovery.LogCrash(p)
+		return grpc.Errorf(codes.Unknown, "grpc triggered crash: %v", p)
+	})
+}
+
 // NewGRPCServer creates a new grpc server
 func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	if grpcPort == 0 {
@@ -95,10 +106,12 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
 			otelgrpc.StreamServerInterceptor(),
+			grpc_recovery.StreamServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
+			grpc_recovery.UnaryServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
@@ -126,6 +139,7 @@ func (svr *GRPCServer) Start(_ context.Context) error {
 	}
 	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
+		defer recovery.Recover()
 		if err := svr.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("grpc failed to serve.", zap.Error(err))
 		}
@@ -720,4 +734,43 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	return &iotexapi.TraceTransactionStructLogsResponse{
 		StructLogs: structLogs,
 	}, nil
+}
+
+// generateBlockMeta generates BlockMeta from block
+func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+	header := blk.Header
+	height := header.Height()
+	ts := timestamppb.New(header.Timestamp())
+	var (
+		producerAddress string
+		h               hash.Hash256
+	)
+	if blk.Height() > 0 {
+		producerAddress = header.ProducerAddress()
+		h = header.HashBlock()
+	} else {
+		h = block.GenesisHash()
+	}
+	txRoot := header.TxRoot()
+	receiptRoot := header.ReceiptRoot()
+	deltaStateDigest := header.DeltaStateDigest()
+	prevHash := header.PrevHash()
+
+	blockMeta := iotextypes.BlockMeta{
+		Hash:              hex.EncodeToString(h[:]),
+		Height:            height,
+		Timestamp:         ts,
+		ProducerAddress:   producerAddress,
+		TxRoot:            hex.EncodeToString(txRoot[:]),
+		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
+		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
+		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
+	}
+	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
+		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
+	}
+	blockMeta.NumActions = int64(len(blk.Actions))
+	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	return &blockMeta
 }
