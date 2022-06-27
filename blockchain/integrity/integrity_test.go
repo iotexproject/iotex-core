@@ -866,7 +866,6 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
@@ -1112,7 +1111,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 		dao := blockdao.NewBlockDAO(indexers, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
@@ -1409,11 +1407,13 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(err)
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(accountProtocol.Register(registry))
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(sf),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -1453,7 +1453,8 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	s, err := accountutil.AccountState(sf, identityset.Address(0))
@@ -1495,9 +1496,12 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
 
 	// Create a blockchain from scratch
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.BoltDBDaoOption(sf))
+	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1564,12 +1568,14 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -1624,7 +1630,8 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	req.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	req.NoError(err)
-	bc := blockchain.NewBlockchain(cfg, nil, factory.NewMinter(sf, ap), blockchain.InMemDaoOption(sf))
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
 	// mock
 	ctrl := gomock.NewController(t)
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
@@ -1848,7 +1855,6 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(

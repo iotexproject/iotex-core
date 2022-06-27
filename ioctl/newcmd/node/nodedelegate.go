@@ -48,11 +48,6 @@ var (
 	}
 )
 
-var (
-	_nodeStatus     map[bool]string
-	_probatedStatus map[bool]string
-)
-
 type nextDelegatesMessage struct {
 	Epoch      int        `json:"epoch"`
 	Determined bool       `json:"determined"`
@@ -94,7 +89,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var err error
 
 			if nextEpoch {
 				//nextDelegates
@@ -229,9 +223,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 				}
 				cmd.Println(message.String())
 			}
-			if err != nil {
-				cmd.Println(err)
-			}
 			return nil
 		},
 	}
@@ -239,8 +230,6 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		flagEpochNumUsage)
 	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		flagNextEpochUsage)
-	_nodeStatus = map[bool]string{true: "active", false: ""}
-	_probatedStatus = map[bool]string{true: "probated", false: ""}
 	return cmd
 }
 
@@ -259,8 +248,13 @@ func (m *nextDelegatesMessage) String(epochNum uint64) string {
 	formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %s"
 	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Rank", "Alias", "Status", "Votes"))
 	for _, bp := range m.Delegates {
-		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-			bp.Alias, _nodeStatus[bp.Active], bp.Votes))
+		if bp.Active {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "active", bp.Votes))
+		} else {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "false", bp.Votes))
+		}
 	}
 	return strings.Join(lines, "\n")
 }
@@ -279,8 +273,13 @@ func (m *delegatesMessage) String() string {
 	lines = append(lines, fmt.Sprintf(formatTitleString,
 		"Address", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
 	for _, bp := range m.Delegates {
-		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-			bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
+		if bp.Active {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "active", bp.Production, "probated", bp.Votes))
+		} else {
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
+				bp.Alias, "false", bp.Production, "", bp.Votes))
+		}
 	}
 	return strings.Join(lines, "\n")
 }

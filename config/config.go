@@ -101,7 +101,6 @@ var (
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
 			EnableStakingIndexer:          false,
-			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
@@ -239,8 +238,6 @@ type (
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
-		// deprecated by DB.CompressBlock
-		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
