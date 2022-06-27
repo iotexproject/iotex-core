@@ -140,7 +140,7 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	defer os.RemoveAll(cfg.DbPath)
 
 	// test non-existing file
-	_, err := checkMasterChainDBFile(cfg.DbPath)
+	_, err := readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
 	// test empty db file, this will create new v2 file

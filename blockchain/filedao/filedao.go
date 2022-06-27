@@ -85,12 +85,11 @@ type (
 
 // NewFileDAO creates an instance of FileDAO
 func NewFileDAO(cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
-	header, err := checkMasterChainDBFile(cfg.DbPath)
-	if err == ErrFileInvalid || err == ErrFileCantAccess {
-		return nil, err
-	}
-
-	if err == ErrFileNotExist {
+	header, err := readFileHeader(cfg.DbPath, FileAll)
+	if err != nil {
+		if err != ErrFileNotExist {
+			return nil, err
+		}
 		// start new chain db using v2 format
 		if err := createNewV2File(1, cfg, evmNetworkID); err != nil {
 			return nil, err
@@ -99,6 +98,9 @@ func NewFileDAO(cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
 	}
 
 	switch header.Version {
+	case FileLegacyAuxiliary:
+		// default chain db file is legacy format, but not master, the master file has been corrupted
+		return nil, ErrFileInvalid
 	case FileLegacyMaster:
 		// master file is legacy format
 		return CreateFileDAO(true, cfg, evmNetworkID)
