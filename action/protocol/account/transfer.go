@@ -78,14 +78,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
 	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr, accountCreationOpts...)
-	if !fCtx.TolerateLegacyAddress {
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
-		}
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 	}
 	fixNonce := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	if err == nil && recipientAcct.IsContract() {
+	if recipientAcct.IsContract() {
 		if fixNonce || tsf.Nonce() != 0 {
 			// update sender Nonce
 			if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {

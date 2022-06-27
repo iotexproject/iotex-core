@@ -218,8 +218,6 @@ func (st *Account) Clone() *Account {
 	s := *st
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)
-	s.accountType = st.accountType
-	s.nonce = st.nonce
 	s.votingWeight = nil
 	if st.votingWeight != nil {
 		s.votingWeight = new(big.Int).Set(st.votingWeight)
