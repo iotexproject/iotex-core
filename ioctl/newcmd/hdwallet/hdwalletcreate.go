@@ -65,12 +65,12 @@ func NewHdwalletCreateCmd(client ioctl.Client) *cobra.Command {
 				return err
 			}
 
-			if err = client.WriteHdWalletConfigFile(password, mnemonic); err != nil {
+			if err = client.WriteHdWalletConfigFile(mnemonic, password); err != nil {
 				return err
 			}
 
 			cmd.Printf("Mnemonic phrase: %s\n"+
-				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic)
+				"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.\n", mnemonic)
 			return nil
 		},
 	}
