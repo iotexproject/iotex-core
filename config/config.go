@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -170,7 +170,7 @@ var (
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
-			SystemLogDBPath:       "/var/data/systemlog.db",
+			SystemLogDBPath:       "/var/log",
 		},
 		DB: db.Config{
 			NumRetries:            3,
