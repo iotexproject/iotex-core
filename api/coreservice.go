@@ -1039,7 +1039,10 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{blk, receipts}, nil
+	return &block.Store{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
@@ -1099,45 +1102,6 @@ func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockM
 		}
 	}
 	return generateBlockMeta(blk), nil
-}
-
-// generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
-	header := blk.Header
-	height := header.Height()
-	ts := timestamppb.New(header.Timestamp())
-	var (
-		producerAddress string
-		h               hash.Hash256
-	)
-	if blk.Height() > 0 {
-		producerAddress = header.ProducerAddress()
-		h = header.HashBlock()
-	} else {
-		h = block.GenesisHash()
-	}
-	txRoot := header.TxRoot()
-	receiptRoot := header.ReceiptRoot()
-	deltaStateDigest := header.DeltaStateDigest()
-	prevHash := header.PrevHash()
-
-	blockMeta := iotextypes.BlockMeta{
-		Hash:              hex.EncodeToString(h[:]),
-		Height:            height,
-		Timestamp:         ts,
-		ProducerAddress:   producerAddress,
-		TxRoot:            hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
-		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
-	}
-	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
-		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
-	}
-	blockMeta.NumActions = int64(len(blk.Actions))
-	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
-	return &blockMeta
 }
 
 // GasLimitAndUsed returns the gas limit and used in a block
