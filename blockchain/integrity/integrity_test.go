@@ -1409,7 +1409,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(accountProtocol.Register(registry))
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, cfg.Chain.EVMNetworkID, dbcfg)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -1498,7 +1498,7 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, cfg.Chain.EVMNetworkID, dbcfg)
 
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
@@ -1570,7 +1570,7 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, cfg.Chain.EVMNetworkID, dbcfg)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
 		cfg,
