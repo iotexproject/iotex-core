@@ -18,6 +18,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -44,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
@@ -86,6 +88,14 @@ func init() {
 	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
 }
 
+// RecoveryInterceptor handles panic to a custom error
+func RecoveryInterceptor() grpc_recovery.Option {
+	return grpc_recovery.WithRecoveryHandler(func(p interface{}) (err error) {
+		recovery.LogCrash(p)
+		return grpc.Errorf(codes.Unknown, "grpc triggered crash: %v", p)
+	})
+}
+
 // NewGRPCServer creates a new grpc server
 func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 	if grpcPort == 0 {
@@ -96,10 +106,12 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
 			otelgrpc.StreamServerInterceptor(),
+			grpc_recovery.StreamServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
+			grpc_recovery.UnaryServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
@@ -127,6 +139,7 @@ func (svr *GRPCServer) Start(_ context.Context) error {
 	}
 	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
+		defer recovery.Recover()
 		if err := svr.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("grpc failed to serve.", zap.Error(err))
 		}
