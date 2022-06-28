@@ -76,7 +76,7 @@ var (
 			Name: "iotex_apicallsource_nochainid_metrics",
 			Help: "API call Source Without ChainID Statistics",
 		},
-		[]string{"client_ip", "sender", "recipient"},
+		[]string{"client_ip", "sender"},
 	)
 )
 
@@ -278,19 +278,20 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	if in.GetAction().GetCore().GetChainID() > 0 {
 		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
 	} else {
-		var clientIP, sender, recipient string
 		selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in.GetAction())
 		if err != nil {
 			return nil, err
 		}
+		var clientIP, sender string
 		if p, ok := peer.FromContext(ctx); ok {
 			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+		} else {
+			clientIP = "unknownIP"
 		}
 		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
 			sender = senderAddr.String()
 		}
-		recipient, _ = selp.Destination()
-		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender).Inc()
 	}
 	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
