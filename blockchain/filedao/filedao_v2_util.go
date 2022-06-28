@@ -19,7 +19,7 @@ import (
 )
 
 func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
-	buffer := newStagingBuffer(fd.header.BlockStoreSize)
+	buffer := newStagingBuffer(fd.header.BlockStoreSize, fd.deser)
 	blockStoreTip := fd.highestBlockOfStoreTip()
 	for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
 		v, err := fd.kvStore.Get(_headerDataNs, byteutil.Uint64ToBytesBigEndian(i))
@@ -34,8 +34,8 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		if err != nil {
 			return nil, err
 		}
-		info := &block.Store{}
-		if err := info.Deserialize(v); err != nil {
+		info, err := fd.deser.DeserializeBlockStore(v)
+		if err != nil {
 			return nil, err
 		}
 
@@ -185,7 +185,7 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 	// check whether block in read cache or not
 	if value, ok := fd.blkCache.Get(storeKey); ok {
 		pbInfos := value.(*iotextypes.BlockStores)
-		return extractBlockStore(pbInfos, stagingKey(height, fd.header))
+		return fd.deser.FromBlockStoreProto(pbInfos.BlockStores[stagingKey(height, fd.header)])
 	}
 
 	value, err := fd.blkStore.Get(storeKey)
@@ -206,13 +206,5 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 
 	// add to read cache
 	fd.blkCache.Add(storeKey, pbStores)
-	return extractBlockStore(pbStores, stagingKey(height, fd.header))
-}
-
-func extractBlockStore(pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
-	info := &block.Store{}
-	if err := info.FromProto(pbStores.BlockStores[height]); err != nil {
-		return nil, err
-	}
-	return info, nil
+	return fd.deser.FromBlockStoreProto(pbStores.BlockStores[stagingKey(height, fd.header)])
 }
