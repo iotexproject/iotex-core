@@ -72,14 +72,14 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
-		lock        sync.Mutex
-		topIndex    uint64
-		splitHeight uint64
-		cfg         db.Config
-		currFd      BaseFileDAO
-		legacyFd    FileDAO
-		v2Fd        *FileV2Manager // a collection of v2 db files
-		deser       *block.Deserializer
+		lock              sync.Mutex
+		topIndex          uint64
+		splitHeight       uint64
+		cfg               db.Config
+		currFd            BaseFileDAO
+		legacyFd          FileDAO
+		v2Fd              *FileV2Manager // a collection of v2 db files
+		blockDeserializer *block.Deserializer
 	}
 )
 
@@ -334,7 +334,7 @@ func (fd *fileDAO) addNewV2File(height uint64) error {
 	// create a new v2 file
 	cfg := fd.cfg
 	cfg.DbPath = kthAuxFileName(cfg.DbPath, fd.topIndex+1)
-	v2, err := newFileDAOv2(height, cfg, fd.deser)
+	v2, err := newFileDAOv2(height, cfg, fd.blockDeserializer)
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func (fd *fileDAO) DeleteTipBlock() error {
 
 // CreateFileDAO creates FileDAO according to master file
 func CreateFileDAO(legacy bool, cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
-	fd := fileDAO{splitHeight: 1, cfg: cfg, deser: deser}
+	fd := fileDAO{splitHeight: 1, cfg: cfg, blockDeserializer: deser}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
 	if legacy {
