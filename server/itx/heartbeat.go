@@ -91,19 +91,19 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 
-	ctx := context.Background()
-	peers, err := p2pAgent.Neighbors(ctx)
+	peers, err := p2pAgent.ConnectedPeers(context.Background())
 	if err != nil {
-		h.l.Debug("error when get neighbors.", zap.Error(err))
+		h.l.Debug("error when get connectedPeers.", zap.Error(err))
 		peers = nil
 	}
+
 	numPeers := len(peers)
 	h.l.Debug("Node status.",
-		zap.Int("numPeers", numPeers),
+		zap.Int("numConnectedPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
-	_heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
+	_heartbeatMtc.WithLabelValues("numConnectedPeers", "node").Set(float64(numPeers))
 	_heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
 	// chain service
 	for _, c := range h.s.chainservices {

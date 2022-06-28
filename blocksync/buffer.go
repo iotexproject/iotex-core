@@ -71,7 +71,7 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) (bool, uint64) 
 	defer b.mu.Unlock()
 	blkHeight := blk.block.Height()
 	if blkHeight <= tipHeight {
-		return false, 0
+		return false, blkHeight
 	}
 	if blkHeight > tipHeight+b.bufferSize {
 		return false, tipHeight + b.bufferSize
@@ -90,7 +90,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHei
 	var (
 		start    uint64
 		startSet bool
-		bi       []syncBlocksInterval
+		bi       = make([]syncBlocksInterval, 0)
 	)
 
 	// The sync range shouldn't go beyond tip height + buffer size to avoid being too aggressive
