@@ -105,7 +105,7 @@ var (
 	_testTransferInvalid7Pb = _testTransferInvalid7.Proto()
 
 	// gas is too large
-	_largeData               = make([]byte, 1e7)
+	_largeData               = make([]byte, 1e2)
 	_testTransferInvalid8, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), _largeData, 10000,
 		big.NewInt(testutil.TestGasPriceInt64))
@@ -2540,7 +2540,9 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		{
 			"ExceedsBlockGasLimit",
 			func() config.Config {
-				return newConfig()
+				cfg := newConfig()
+				cfg.ActPool.MaxGasLimitPerPool = 1e5
+				return cfg
 			},
 			[]*iotextypes.Action{_testTransferInvalid8Pb},
 			gethFatal,
