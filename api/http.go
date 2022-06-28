@@ -13,15 +13,21 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// HTTPServer handles requests from http protocol
-type HTTPServer struct {
-	svr        *http.Server
-	msgHandler Web3Handler
-}
+type (
+	// HTTPServer crates a http server
+	HTTPServer struct {
+		svr *http.Server
+	}
+
+	// HTTPHandler handles requests from http protocol
+	HTTPHandler struct {
+		msgHandler Web3Handler
+	}
+)
 
 // NewHTTPServer creates a new http server
 // TODO: move timeout into config
-func NewHTTPServer(route string, port int, handler Web3Handler) *HTTPServer {
+func NewHTTPServer(route string, port int, handler http.Handler) *HTTPServer {
 	if port == 0 {
 		return nil
 	}
@@ -30,11 +36,9 @@ func NewHTTPServer(route string, port int, handler Web3Handler) *HTTPServer {
 			Addr:         ":" + strconv.Itoa(port),
 			WriteTimeout: 30 * time.Second,
 		},
-		msgHandler: handler,
 	}
-
 	mux := http.NewServeMux()
-	mux.Handle("/"+route, svr)
+	mux.Handle("/"+route, handler)
 	svr.svr.Handler = mux
 	return svr
 }
@@ -54,13 +58,20 @@ func (hSvr *HTTPServer) Stop(ctx context.Context) error {
 	return hSvr.svr.Shutdown(ctx)
 }
 
-func (hSvr *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+// NewHTTPHandler creates a new http handler
+func NewHTTPHandler(web3Handler Web3Handler) *HTTPHandler {
+	return &HTTPHandler{
+		msgHandler: web3Handler,
+	}
+}
+
+func (handler *HTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	if err := hSvr.msgHandler.HandlePOSTReq(req.Body,
+	if err := handler.msgHandler.HandlePOSTReq(req.Body,
 		apitypes.NewResponseWriter(
 			func(resp interface{}) error {
 				w.Header().Set("Access-Control-Allow-Origin", "*")

@@ -29,7 +29,7 @@ type ServerV2 struct {
 	core         CoreService
 	grpcServer   *GRPCServer
 	httpSvr      *HTTPServer
-	websocketSvr *WebsocketServer
+	websocketSvr *HTTPServer
 	tracer       *tracesdk.TracerProvider
 }
 
@@ -61,11 +61,12 @@ func NewServerV2(
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot config tracer provider")
 	}
+
 	return &ServerV2{
 		core:         coreAPI,
 		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
-		httpSvr:      NewHTTPServer("", cfg.HTTPPort, web3Handler),
-		websocketSvr: NewWebSocketServer("", cfg.WebSocketPort, web3Handler),
+		httpSvr:      NewHTTPServer("", cfg.HTTPPort, NewHTTPHandler(web3Handler)),
+		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, NewWebsocketHandler(web3Handler)),
 		tracer:       tp,
 	}, nil
 }
