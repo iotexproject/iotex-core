@@ -7,19 +7,27 @@
 package action
 
 import (
+	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+	"github.com/iotexproject/iotex-core/testutil"
+)
+
+const (
+	veryLightScryptN = 2
+	veryLightScryptP = 1
 )
 
 func TestSigner(t *testing.T) {
@@ -105,24 +113,50 @@ func TestSendAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	response := &iotexapi.SendActionResponse{}
-	tx := &action.Execution{}
-	elp := (&action.EnvelopeBuilder{}).
-		SetNonce(0).
-		SetGasPrice(unit.ConvertIotxToRau(1100000)).
-		SetGasLimit(100).
-		SetAction(tx).Build()
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
-	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(response, nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(3)
+	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil)
+
+	client.EXPECT().IsCryptoSm2().Return(false).Times(2)
+	testWallet, err := os.MkdirTemp(os.TempDir(), "testWallet")
+	require.NoError(err)
+	defer testutil.CleanupPath(testWallet)
+	ks := keystore.NewKeyStore(testWallet, veryLightScryptN, veryLightScryptP)
+	client.EXPECT().NewKeyStore().Return(ks).Times(2)
+
+	passwd := "123456"
+	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
+	account, err := ks.NewAccount(passwd)
+	require.NoError(err)
+	addr, err := address.FromBytes(account.Address.Bytes())
+	require.NoError(err)
+	client.EXPECT().Address(gomock.Any()).Return(addr.String(), nil)
+
+	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil)
+
+	elp := createEnvelope(0)
+	cost, err := elp.Cost()
+	require.NoError(err)
+	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
+		Address:      addr.String(),
+		Nonce:        1,
+		PendingNonce: 1,
+		Balance:      cost.String(),
+	}}
+	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
+
+	client.EXPECT().Alias(gomock.Any()).Return("producer", nil).Times(2)
+	client.EXPECT().ReadInput().Return("confirm", nil)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
 
 	t.Run("sends signed action to blockchain", func(t *testing.T) {
 		cmd := NewActionCmd(client)
-		err := SendAction(client, cmd, elp, "test")
-		require.Error(err) // This should be NoError, but couldn't design a correct signer with public key.
+		err := SendAction(client, cmd, elp, addr.String())
+		require.NoError(err)
 	})
 }
 
