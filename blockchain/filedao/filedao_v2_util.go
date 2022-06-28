@@ -19,7 +19,7 @@ import (
 )
 
 func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
-	buffer := newStagingBuffer(fd.header.BlockStoreSize, fd.evmNetworkID)
+	buffer := newStagingBuffer(fd.header.BlockStoreSize, fd.deser)
 	blockStoreTip := fd.highestBlockOfStoreTip()
 	for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
 		v, err := fd.kvStore.Get(_headerDataNs, byteutil.Uint64ToBytesBigEndian(i))

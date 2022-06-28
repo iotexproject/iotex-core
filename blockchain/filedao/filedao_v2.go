@@ -38,18 +38,17 @@ var (
 type (
 	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
-		filename     string
-		header       *FileHeader
-		tip          *FileTip
-		blkBuffer    *stagingBuffer
-		blkCache     *cache.ThreadSafeLruCache
-		kvStore      db.KVStore
-		batch        batch.KVStoreBatch
-		hashStore    db.CountingIndex // store block hash
-		blkStore     db.CountingIndex // store raw blocks
-		sysStore     db.CountingIndex // store transaction log
-		deser        *block.Deserializer
-		evmNetworkID uint32
+		filename  string
+		header    *FileHeader
+		tip       *FileTip
+		blkBuffer *stagingBuffer
+		blkCache  *cache.ThreadSafeLruCache
+		kvStore   db.KVStore
+		batch     batch.KVStoreBatch
+		hashStore db.CountingIndex // store block hash
+		blkStore  db.CountingIndex // store raw blocks
+		sysStore  db.CountingIndex // store transaction log
+		deser     *block.Deserializer
 	}
 )
 

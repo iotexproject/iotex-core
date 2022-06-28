@@ -22,11 +22,11 @@ type (
 	}
 )
 
-func newStagingBuffer(size uint64, evmNetworkID uint32) *stagingBuffer {
+func newStagingBuffer(size uint64, deser *block.Deserializer) *stagingBuffer {
 	return &stagingBuffer{
 		size:   size,
 		buffer: make([]*block.Store, size),
-		deser:  block.NewDeserializer(evmNetworkID),
+		deser:  deser,
 	}
 }
 

@@ -65,11 +65,10 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache:     cache.NewThreadSafeLruCache(16),
-		kvStore:      db.NewMemKVStore(),
-		batch:        batch.NewBatch(),
-		deser:        block.NewDeserializer(config.Default.Chain.EVMNetworkID),
-		evmNetworkID: config.Default.Chain.EVMNetworkID,
+		blkCache: cache.NewThreadSafeLruCache(16),
+		kvStore:  db.NewMemKVStore(),
+		batch:    batch.NewBatch(),
+		deser:    block.NewDeserializer(config.Default.Chain.EVMNetworkID),
 	}
 	return &fd, nil
 }
