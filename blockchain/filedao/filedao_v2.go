@@ -54,7 +54,7 @@ type (
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg db.Config, evmNetworkID uint32) (*fileDAOv2, error) {
+func newFileDAOv2(bottom uint64, cfg db.Config, deser *block.Deserializer) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -70,24 +70,22 @@ func newFileDAOv2(bottom uint64, cfg db.Config, evmNetworkID uint32) (*fileDAOv2
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		blkCache:     cache.NewThreadSafeLruCache(16),
-		kvStore:      db.NewBoltDB(cfg),
-		batch:        batch.NewBatch(),
-		deser:        (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
-		evmNetworkID: evmNetworkID,
+		blkCache: cache.NewThreadSafeLruCache(16),
+		kvStore:  db.NewBoltDB(cfg),
+		batch:    batch.NewBatch(),
+		deser:    deser,
 	}
 	return &fd, nil
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg db.Config, evmNetworkID uint32) *fileDAOv2 {
+func openFileDAOv2(cfg db.Config, deser *block.Deserializer) *fileDAOv2 {
 	return &fileDAOv2{
-		filename:     cfg.DbPath,
-		blkCache:     cache.NewThreadSafeLruCache(16),
-		kvStore:      db.NewBoltDB(cfg),
-		batch:        batch.NewBatch(),
-		deser:        (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
-		evmNetworkID: evmNetworkID,
+		filename: cfg.DbPath,
+		blkCache: cache.NewThreadSafeLruCache(16),
+		kvStore:  db.NewBoltDB(cfg),
+		batch:    batch.NewBatch(),
+		deser:    deser,
 	}
 }
 

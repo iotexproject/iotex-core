@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
@@ -53,7 +54,8 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 	}
 
 	cfg.DB.DbPath = filePath
-	blockDao := blockdao.NewBlockDAO(nil, cfg.Chain.EVMNetworkID, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	blockDao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 
 	// Load height value.
 	ctx := context.Background()

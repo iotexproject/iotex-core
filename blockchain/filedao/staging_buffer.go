@@ -26,7 +26,7 @@ func newStagingBuffer(size uint64, evmNetworkID uint32) *stagingBuffer {
 	return &stagingBuffer{
 		size:   size,
 		buffer: make([]*block.Store, size),
-		deser:  (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
+		deser:  block.NewDeserializer(evmNetworkID),
 	}
 }
 

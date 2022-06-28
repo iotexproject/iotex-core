@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -161,7 +162,7 @@ func TestIndexBuilder(t *testing.T) {
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
 	for _, v := range []struct {
 		dao   blockdao.BlockDAO
 		inMem bool
@@ -170,7 +171,7 @@ func TestIndexBuilder(t *testing.T) {
 			blockdao.NewBlockDAOInMemForTest(nil), true,
 		},
 		{
-			blockdao.NewBlockDAO(nil, config.Default.Chain.ID, cfg), false,
+			blockdao.NewBlockDAO(nil, cfg, deser), false,
 		},
 	} {
 		t.Run("test indexbuilder", func(t *testing.T) {

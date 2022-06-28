@@ -7,6 +7,7 @@ import (
 	"github.com/schollz/progressbar/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
@@ -113,10 +114,11 @@ func migrateDbFile() error {
 	}
 
 	cfg.DB.DbPath = oldFile
-	oldDAO := blockdao.NewBlockDAO(nil, cfg.Chain.EVMNetworkID, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	oldDAO := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 
 	cfg.DB.DbPath = newFile
-	newDAO := blockdao.NewBlockDAO(nil, cfg.Chain.EVMNetworkID, cfg.DB)
+	newDAO := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {

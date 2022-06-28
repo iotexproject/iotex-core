@@ -60,8 +60,8 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, evmNetworkID uint32, cfg db.Config) BlockDAO {
-	blkStore, err := filedao.NewFileDAO(cfg, evmNetworkID)
+func NewBlockDAO(indexers []BlockIndexer, cfg db.Config, deser *block.Deserializer) BlockDAO {
+	blkStore, err := filedao.NewFileDAO(cfg, deser)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil

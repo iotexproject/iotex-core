@@ -61,13 +61,13 @@ type (
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
+func newFileDAOLegacy(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
 		kvStore:       db.NewBoltDB(cfg),
 		kvStores:      cache.NewThreadSafeLruCache(0),
-		deser:         (&block.Deserializer{}).SetEvmNetworkID(evmNetworkID),
+		deser:         deser,
 	}, nil
 }
 

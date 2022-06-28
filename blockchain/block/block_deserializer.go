@@ -26,6 +26,13 @@ type Deserializer struct {
 	evmNetworkID uint32
 }
 
+// NewDeserializer creates a new deserializer
+func NewDeserializer(evmNetworkID uint32) *Deserializer {
+	return &Deserializer{
+		evmNetworkID: evmNetworkID,
+	}
+}
+
 // SetEvmNetworkID sets the evm network ID for web3 actions
 func (bd *Deserializer) SetEvmNetworkID(id uint32) *Deserializer {
 	bd.evmNetworkID = id

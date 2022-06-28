@@ -161,7 +161,8 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, cfg.Chain.EVMNetworkID, dbcfg)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -476,7 +477,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(nil, cfg.Chain.EVMNetworkID, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
@@ -498,7 +500,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao = blockdao.NewBlockDAO(nil, cfg.Chain.EVMNetworkID, cfg.DB)
+	dao = blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{

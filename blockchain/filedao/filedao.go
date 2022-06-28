@@ -72,26 +72,26 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
-		lock         sync.Mutex
-		topIndex     uint64
-		splitHeight  uint64
-		cfg          db.Config
-		currFd       BaseFileDAO
-		legacyFd     FileDAO
-		v2Fd         *FileV2Manager // a collection of v2 db files
-		evmNetworkID uint32
+		lock        sync.Mutex
+		topIndex    uint64
+		splitHeight uint64
+		cfg         db.Config
+		currFd      BaseFileDAO
+		legacyFd    FileDAO
+		v2Fd        *FileV2Manager // a collection of v2 db files
+		deser       *block.Deserializer
 	}
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
+func NewFileDAO(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 	header, err := readFileHeader(cfg.DbPath, FileAll)
 	if err != nil {
 		if err != ErrFileNotExist {
 			return nil, err
 		}
 		// start new chain db using v2 format
-		if err := createNewV2File(1, cfg, evmNetworkID); err != nil {
+		if err := createNewV2File(1, cfg, deser); err != nil {
 			return nil, err
 		}
 		header = &FileHeader{Version: FileV2}
@@ -103,10 +103,10 @@ func NewFileDAO(cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
 		return nil, ErrFileInvalid
 	case FileLegacyMaster:
 		// master file is legacy format
-		return CreateFileDAO(true, cfg, evmNetworkID)
+		return CreateFileDAO(true, cfg, deser)
 	case FileV2:
 		// master file is v2 format
-		return CreateFileDAO(false, cfg, evmNetworkID)
+		return CreateFileDAO(false, cfg, deser)
 	default:
 		panic(fmt.Errorf("corrupted file version: %s", header.Version))
 	}
@@ -334,7 +334,7 @@ func (fd *fileDAO) addNewV2File(height uint64) error {
 	// create a new v2 file
 	cfg := fd.cfg
 	cfg.DbPath = kthAuxFileName(cfg.DbPath, fd.topIndex+1)
-	v2, err := newFileDAOv2(height, cfg, fd.evmNetworkID)
+	v2, err := newFileDAOv2(height, cfg, fd.deser)
 	if err != nil {
 		return err
 	}
@@ -368,12 +368,12 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO according to master file
-func CreateFileDAO(legacy bool, cfg db.Config, evmNetworkID uint32) (FileDAO, error) {
-	fd := fileDAO{splitHeight: 1, cfg: cfg, evmNetworkID: evmNetworkID}
+func CreateFileDAO(legacy bool, cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
+	fd := fileDAO{splitHeight: 1, cfg: cfg, deser: deser}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
 	if legacy {
-		legacyFd, err := newFileDAOLegacy(cfg, evmNetworkID)
+		legacyFd, err := newFileDAOLegacy(cfg, deser)
 		if err != nil {
 			return nil, err
 		}
@@ -386,14 +386,14 @@ func CreateFileDAO(legacy bool, cfg db.Config, evmNetworkID uint32) (FileDAO, er
 		}
 	} else {
 		// v2 master file
-		fds = append(fds, openFileDAOv2(cfg, evmNetworkID))
+		fds = append(fds, openFileDAOv2(cfg, deser))
 	}
 
 	// populate v2 files into v2 manager
 	if len(v2Files) > 0 {
 		for _, name := range v2Files {
 			cfg.DbPath = name
-			fds = append(fds, openFileDAOv2(cfg, evmNetworkID))
+			fds = append(fds, openFileDAOv2(cfg, deser))
 		}
 
 		// v2 file's top index overrides v1's top
@@ -408,8 +408,8 @@ func CreateFileDAO(legacy bool, cfg db.Config, evmNetworkID uint32) (FileDAO, er
 }
 
 // createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg db.Config, evmNetworkID uint32) error {
-	v2, err := newFileDAOv2(start, cfg, evmNetworkID)
+func createNewV2File(start uint64, cfg db.Config, deser *block.Deserializer) error {
+	v2, err := newFileDAOv2(start, cfg, deser)
 	if err != nil {
 		return err
 	}
