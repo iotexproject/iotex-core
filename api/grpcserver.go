@@ -336,19 +336,21 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	if in.GetAction().GetCore().GetChainID() > 0 {
 		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
 	} else {
-		var clientIP, sender, recipient string
-		selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in.GetAction())
+		var (
+			clientIP, recipient string
+			ok                  bool
+		)
+		selp, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(in.GetAction())
 		if err != nil {
 			return nil, err
 		}
 		if p, ok := peer.FromContext(ctx); ok {
 			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
 		}
-		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
-			sender = senderAddr.String()
+		if recipient, ok = selp.Destination(); !ok {
+			recipient = "staking-action"
 		}
-		recipient, _ = selp.Destination()
-		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, selp.SenderAddress().String(), recipient).Inc()
 	}
 	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
@@ -690,7 +692,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if err != nil {
 		return nil, err
 	}
-	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actInfo.Action)
+	act, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
 	if err != nil {
 		return nil, err
 	}
