@@ -396,7 +396,7 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	}
 
 	// Add to local actpool
-	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, core.registry), core.bc.Genesis())
+	ctx = protocol.WithRegistry(ctx, core.registry)
 	hash, err := selp.Hash()
 	if err != nil {
 		return "", err
@@ -1368,7 +1368,8 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
-	state, err := accountutil.AccountState(genesis.WithGenesisContext(ctx, core.bc.Genesis()), core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}

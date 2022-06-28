@@ -351,7 +351,7 @@ func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error
 			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
 					action.ErrNonceTooHigh,
-					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+					"the %d nonce %d of address %s (init pending nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
