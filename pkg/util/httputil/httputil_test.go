@@ -37,6 +37,11 @@ func TestLimitListener(t *testing.T) {
 
 	t.Run("input empty string", func(t *testing.T) {
 		_, err := LimitListener("")
-		require.NoError(t, err)
+		// fix none root permission error
+		if err != nil {
+			require.Equal(t, "listen tcp :80: bind: permission denied", err.Error())
+		} else {
+			require.NoError(t, err)
+		}
 	})
 }

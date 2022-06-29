@@ -18,13 +18,15 @@ type (
 	stagingBuffer struct {
 		size   uint64
 		buffer []*block.Store
+		deser  *block.Deserializer
 	}
 )
 
-func newStagingBuffer(size uint64) *stagingBuffer {
+func newStagingBuffer(size uint64, deser *block.Deserializer) *stagingBuffer {
 	return &stagingBuffer{
 		size:   size,
 		buffer: make([]*block.Store, size),
+		deser:  deser,
 	}
 }
 
@@ -39,8 +41,8 @@ func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
 	}
-	blk := &block.Store{}
-	if err := blk.Deserialize(blkBytes); err != nil {
+	blk, err := s.deser.DeserializeBlockStore(blkBytes)
+	if err != nil {
 		return false, err
 	}
 	s.buffer[pos] = blk

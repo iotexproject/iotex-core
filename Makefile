@@ -99,6 +99,7 @@ build-staterecoverer:
 .PHONY: fmt
 fmt:
 	$(GOCMD) fmt ./...
+	$(GOCMD) mod tidy
 
 .PHONY: lint
 lint:
