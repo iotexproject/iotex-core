@@ -127,7 +127,7 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 		bc.blk = nil
 	} else {
 		// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
-		blk, err := (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(blockPro.Blk)
+		blk, err := block.NewDeserializer(config.EVMNetworkID()).FromBlockProto(blockPro.Blk)
 		if err != nil {
 			return err
 		}
@@ -292,7 +292,7 @@ func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementMana
 	}
 	if managerPro.CachedMintedBlk != nil {
 		// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
-		blk, err := (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(managerPro.CachedMintedBlk)
+		blk, err := block.NewDeserializer(config.EVMNetworkID()).FromBlockProto(managerPro.CachedMintedBlk)
 		if err != nil {
 			return err
 		}

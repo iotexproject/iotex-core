@@ -866,7 +866,8 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
+		deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB, deser)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -1111,7 +1112,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+		deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+		dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -1409,7 +1411,8 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(accountProtocol.Register(registry))
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -1498,7 +1501,8 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
@@ -1570,7 +1574,8 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	dbcfg := cfg.DB
 	dbcfg.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
 		cfg,
@@ -1855,7 +1860,8 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,

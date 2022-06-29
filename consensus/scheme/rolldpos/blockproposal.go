@@ -64,7 +64,7 @@ func (bp *blockProposal) ProposerAddress() string {
 
 func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
 	// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
-	blk, err := (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(msg.Block)
+	blk, err := block.NewDeserializer(config.EVMNetworkID()).FromBlockProto(msg.Block)
 	if err != nil {
 		return err
 	}
