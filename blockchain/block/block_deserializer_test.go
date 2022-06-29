@@ -35,3 +35,21 @@ func TestBlockDeserializer(t *testing.T) {
 	r.Equal(_pbBlock.Body.Actions[0].Core.ChainID, blk.Actions[0].ChainID())
 	r.Equal(_pbBlock.Body.Actions[1].Core.ChainID, blk.Actions[1].ChainID())
 }
+
+func TestBlockStoreDeserializer(t *testing.T) {
+	require := require.New(t)
+	store, err := makeStore()
+	require.NoError(err)
+
+	storeProto := store.ToProto()
+
+	require.NotNil(storeProto)
+
+	bd := Deserializer{}
+	store1, err := bd.FromBlockStoreProto(storeProto)
+	require.NoError(err)
+
+	require.Equal(store1.Block.height, store.Block.height)
+	require.Equal(store1.Block.Header.prevBlockHash, store.Block.Header.prevBlockHash)
+	require.Equal(store1.Block.Header.blockSig, store.Block.Header.blockSig)
+}
