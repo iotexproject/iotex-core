@@ -441,9 +441,9 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil), nil
 	}
-
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
 	if legacy {
-		fileDAO, err := filedao.CreateFileDAO(true, cfg)
+		fileDAO, err := filedao.CreateFileDAO(true, cfg, deser)
 		if err != nil {
 			return nil, err
 		}
@@ -451,7 +451,7 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 	}
 
 	cfg.Compressor = compressBlock
-	return NewBlockDAO(nil, cfg), nil
+	return NewBlockDAO(nil, cfg, deser), nil
 }
 
 func BenchmarkBlockCache(b *testing.B) {
@@ -472,7 +472,8 @@ func BenchmarkBlockCache(b *testing.B) {
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
 		cfg.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO([]BlockIndexer{}, cfg)
+		deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+		blkDao := NewBlockDAO([]BlockIndexer{}, cfg, deser)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))
