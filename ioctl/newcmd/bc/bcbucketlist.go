@@ -22,11 +22,6 @@ import (
 
 // Multi-language support
 var (
-	_validMethods = []string{
-		"voter",
-		"cand",
-	}
-
 	_bcBucketListCmdShorts = map[config.Language]string{
 		config.English: "Get bucket list with method and arg(s) on IoTeX blockchain",
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表",
@@ -37,10 +32,15 @@ var (
 	}
 	_bcBucketListCmdLongs = map[config.Language]string{
 		config.English: "Read bucket list\nValid methods: [" +
-			strings.Join(_validMethods, ", ") + "]",
+			voter + ", " + candidate + "]",
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表\n可用方法有：" +
-			strings.Join(_validMethods, "，"),
+			voter + "，" + candidate,
 	}
+)
+
+const (
+	voter     = "voter"
+	candidate = "cand"
 )
 
 // NewBCBucketListCmd represents the bc bucketlist command
@@ -82,13 +82,13 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 				}
 			}
 			switch method {
-			case "voter":
+			case voter:
 				address, err = client.AddressWithDefaultIfNotExist(addr)
 				if err != nil {
 					return err
 				}
 				bl, err = getBucketListByVoterAddress(client, address, uint32(offset), uint32(limit))
-			case "cand":
+			case candidate:
 				bl, err = getBucketListByCandidateName(client, addr, uint32(offset), uint32(limit))
 			default:
 				return errors.New("unknown <method>")
@@ -96,39 +96,22 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var bucketlist []*bucket
-			for _, b := range bl.Buckets {
-				bucket, err := newBucket(b)
-				if err != nil {
-					return err
+			var lines []string
+			if len(bl.Buckets) == 0 {
+				lines = append(lines, "Empty bucketlist with given address")
+			} else {
+				for _, b := range bl.Buckets {
+					bucket, err := newBucket(b)
+					if err != nil {
+						return err
+					}
+					lines = append(lines, bucket.String())
 				}
-				bucketlist = append(bucketlist, bucket)
 			}
-			message := bucketlistMessage{
-				Node:       client.Config().Endpoint,
-				Bucketlist: bucketlist,
-			}
-			fmt.Println(message.String())
+			fmt.Println(strings.Join(lines, "\n"))
 			return nil
 		},
 	}
-}
-
-type bucketlistMessage struct {
-	Node       string    `json:"node"`
-	Bucketlist []*bucket `json:"bucketlist"`
-}
-
-func (m *bucketlistMessage) String() string {
-	var lines []string
-	if len(m.Bucketlist) == 0 {
-		lines = append(lines, "Empty bucketlist with given address")
-	} else {
-		for _, bucket := range m.Bucketlist {
-			lines = append(lines, bucket.String())
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 func getBucketListByVoterAddress(client ioctl.Client, addr string, offset, limit uint32) (*iotextypes.VoteBucketList, error) {
