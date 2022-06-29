@@ -26,6 +26,13 @@ type Deserializer struct {
 	evmNetworkID uint32
 }
 
+// NewDeserializer creates a new deserializer
+func NewDeserializer(evmNetworkID uint32) *Deserializer {
+	return &Deserializer{
+		evmNetworkID: evmNetworkID,
+	}
+}
+
 // SetEvmNetworkID sets the evm network ID for web3 actions
 func (bd *Deserializer) SetEvmNetworkID(id uint32) *Deserializer {
 	bd.evmNetworkID = id
@@ -91,4 +98,34 @@ func (bd *Deserializer) DeserializeBody(buf []byte) (*Body, error) {
 		return nil, err
 	}
 	return &b, nil
+}
+
+// FromBlockStoreProto converts protobuf to block store
+func (bd *Deserializer) FromBlockStoreProto(pb *iotextypes.BlockStore) (*Store, error) {
+	in := &Store{}
+	blk, err := bd.FromBlockProto(pb.Block)
+	if err != nil {
+		return nil, err
+	}
+	// verify merkle root can match after deserialize
+	if err := blk.VerifyTxRoot(); err != nil {
+		return nil, err
+	}
+
+	in.Block = blk
+	for _, receiptPb := range pb.Receipts {
+		receipt := &action.Receipt{}
+		receipt.ConvertFromReceiptPb(receiptPb)
+		in.Receipts = append(in.Receipts, receipt)
+	}
+	return in, nil
+}
+
+// DeserializeBlockStore de-serializes a block store
+func (bd *Deserializer) DeserializeBlockStore(buf []byte) (*Store, error) {
+	pb := iotextypes.BlockStore{}
+	if err := proto.Unmarshal(buf, &pb); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal block store")
+	}
+	return bd.FromBlockStoreProto(&pb)
 }
