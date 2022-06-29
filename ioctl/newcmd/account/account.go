@@ -148,7 +148,7 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 	}
 
 	if password == "" {
-		cmd.Println(fmt.Sprintf("Enter password for #%s:\n", signer))
+		cmd.Printf("Enter password for #%s:\n", signer)
 		password, err = client.ReadSecret()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get password")
@@ -218,12 +218,12 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 }
 
 func newAccount(client ioctl.Client, cmd *cobra.Command, alias string) (string, error) {
-	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
+	cmd.Printf("#%s: Set password\n", alias)
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -244,12 +244,12 @@ func newAccount(client ioctl.Client, cmd *cobra.Command, alias string) (string, 
 }
 
 func newAccountSm2(client ioctl.Client, cmd *cobra.Command, alias string) (string, error) {
-	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
+	cmd.Printf("#%s: Set password\n", alias)
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -276,12 +276,12 @@ func newAccountSm2(client ioctl.Client, cmd *cobra.Command, alias string) (strin
 }
 
 func newAccountByKey(client ioctl.Client, cmd *cobra.Command, alias string, privateKey string) (string, error) {
-	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
+	cmd.Printf("#%s: Set password\n", alias)
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
