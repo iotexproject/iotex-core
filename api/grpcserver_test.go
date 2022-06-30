@@ -36,7 +36,38 @@ func TestGrpcServer_GetAction(t *testing.T) {
 }
 
 func TestGrpcServer_GetActionsByAddress(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
 
+	for _, test := range _getActionsByAddressTests {
+		actInfo := &iotexapi.ActionInfo{
+			Index:   0,
+			ActHash: "test",
+		}
+		response := []*iotexapi.ActionInfo{}
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByAddr{
+				ByAddr: &iotexapi.GetActionsByAddressRequest{
+					Address: test.address,
+					Start:   test.start,
+					Count:   test.count,
+				},
+			},
+		}
+
+		for i := 1; i <= test.numActions; i++ {
+			response = append(response, actInfo)
+		}
+
+		core.EXPECT().ActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+
+		res, err := grpcSvr.GetActions(context.Background(), request)
+		require.NoError(err)
+		require.Equal(uint64(test.numActions), res.Total)
+	}
 }
 
 func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
