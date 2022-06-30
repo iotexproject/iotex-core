@@ -400,13 +400,16 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	if err != nil {
 		return "", err
 	}
-	l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])))
+	// l := log.Logger("api").With(zap.String("actionHash", hex.EncodeToString(hash[:])))
+	l := log.Logger("api").Log().Str("actionHash", hex.EncodeToString(hash[:]))
 	if err = core.ap.Add(ctx, selp); err != nil {
 		txBytes, serErr := proto.Marshal(in)
 		if serErr != nil {
-			l.Error("Data corruption", zap.Error(serErr))
+			l.Err(serErr).Msg("Data corruption")
+			// l.Error("Data corruption", zap.Error(serErr))
 		} else {
-			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
+			l.Str("txBytes", hex.EncodeToString(txBytes)).Err(err).Msg("Failed to accept action")
+			// l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
 		}
 		st := status.New(codes.Internal, err.Error())
 		br := &errdetails.BadRequest{
@@ -426,7 +429,8 @@ func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) 
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
 	if err = core.broadcastHandler(ctx, core.bc.ChainID(), in); err != nil {
-		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
+		log.Logger("api").Warn().Str("actionHash", hex.EncodeToString(hash[:])).Err(err).Msg("Failed to broadcast SendAction request.")
+		// l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	return hex.EncodeToString(hash[:]), nil
 }

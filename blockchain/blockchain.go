@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"context"
+	"encoding/hex"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -273,8 +274,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	}
 	// verify new block has correctly linked to current tip
 	if blk.PrevHash() != tip.Hash {
-		blk.HeaderLogger(log.L()).Error("Previous block hash doesn't match.",
-			log.Hex("expectedBlockHash", tip.Hash[:]))
+		blk.HeaderLogger(log.L().Error()).Str("expectedBlockHash", hex.EncodeToString(tip.Hash[:])).Msg("Previous block hash doesn't match.")
+		// blk.HeaderLogger(log.L()).Error("Previous block hash doesn't match.",
+		// 	log.Hex("expectedBlockHash", tip.Hash[:]))
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"wrong prev hash %x, expecting %x",
@@ -468,7 +470,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	blkHash := blk.HashBlock()
 	if blk.Height()%100 == 0 {
-		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
+		blk.HeaderLogger(log.L().Info()).Str("tipHash", hex.EncodeToString(blkHash[:])).Msg("Committed a block.")
 	}
 	_blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers

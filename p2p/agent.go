@@ -192,7 +192,7 @@ func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHa
 
 func (p *agent) Start(ctx context.Context) error {
 	ready := make(chan interface{})
-	p2p.SetLogger(log.L())
+	// p2p.SetLogger(log.L())
 	opts := []p2p.Option{
 		p2p.HostName(p.cfg.Host),
 		p2p.Port(p.cfg.Port),

@@ -118,15 +118,15 @@ func main() {
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	cfgToLog.Network.MasterKey = ""
-	log.S().Infof("Config in use: %+v", cfgToLog)
-	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
-	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
-	log.S().Infof("Genesis hash: %x", block.GenesisHash())
+	log.L().Info().Msgf("Config in use: %+v", cfgToLog)
+	log.L().Info().Msgf("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
+	log.L().Info().Msgf("Genesis timestamp: %d", genesisCfg.Timestamp)
+	log.L().Info().Msgf("Genesis hash: %x", block.GenesisHash())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
 	if err := probeSvr.Start(ctx); err != nil {
-		log.L().Fatal("Failed to start probe server.", zap.Error(err))
+		log.L().Fatal().Err(err).Msg("Failed to start probe server.")
 	}
 	go func() {
 		<-stop
@@ -136,7 +136,7 @@ func main() {
 
 		// liveness end
 		if err := probeSvr.Stop(livenessCtx); err != nil {
-			log.L().Error("Error when stopping probe server.", zap.Error(err))
+			log.L().Err(err).Msg("Error when stopping probe server.")
 		}
 		livenessCancel()
 	}()
@@ -144,14 +144,14 @@ func main() {
 	// create and start the node
 	svr, err := itx.NewServer(cfg)
 	if err != nil {
-		log.L().Fatal("Failed to create server.", zap.Error(err))
+		log.L().Fatal().Err(err).Msg("Failed to create server.")
 	}
 
 	var cfgsub config.Config
 	if _subChainPath != "" {
 		cfgsub, err = config.NewSub([]string{_secretPath, _subChainPath})
 		if err != nil {
-			log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+			log.L().Fatal().Err(err).Msg("Failed to new sub chain config.")
 		}
 	} else {
 		cfgsub = config.Config{}
@@ -159,7 +159,7 @@ func main() {
 
 	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewSubChainService(cfgsub); err != nil {
-			log.L().Fatal("Failed to new sub chain.", zap.Error(err))
+			log.L().Fatal().Err(err).Msg("Failed to new sub chain.")
 		}
 	}
 
@@ -170,7 +170,5 @@ func main() {
 
 func initLogger(cfg config.Config) error {
 	addr := cfg.ProducerAddress()
-	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
-		zap.String("ioAddr", addr.String()),
-	))
+	return log.InitLoggers(cfg.Log, cfg.SubLogs, map[string]interface{}{"ioAddr": addr.String()})
 }

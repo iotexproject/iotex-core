@@ -84,7 +84,7 @@ func main() {
 }
 
 func initLogger(cfg config.Config) error {
-	if err := log.InitLoggers(cfg.Log, cfg.SubLogs); err != nil {
+	if err := log.InitLoggers(cfg.Log, cfg.SubLogs, nil); err != nil {
 		fmt.Println("Cannot config global logger, use default one: ", err)
 		return err
 	}

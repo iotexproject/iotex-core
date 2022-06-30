@@ -620,7 +620,8 @@ func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*Endorsed
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
-	return ctx.round.Log(log.Logger("consensus"))
+	return ctx.round.Log(nil)
+	// return ctx.round.Log(log.Logger("consensus"))
 }
 
 func (ctx *rollDPoSCtx) newConsensusEvent(
@@ -661,7 +662,8 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 }
 
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
-	return ctx.round.LogWithStats(log.Logger("consensus"))
+	return ctx.round.LogWithStats(nil)
+	// return ctx.round.LogWithStats(log.Logger("consensus"))
 }
 
 func (ctx *rollDPoSCtx) verifyVote(

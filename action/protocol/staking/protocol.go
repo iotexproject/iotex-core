@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -362,8 +361,9 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
-		log.L().With(
-			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
+		// log.L().With(
+		// 	zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
+		log.L().Debug().Str("actionHash", hex.EncodeToString(actionCtx.ActionHash[:])).Err(err).Msg("Failed to commit staking action")
 		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err

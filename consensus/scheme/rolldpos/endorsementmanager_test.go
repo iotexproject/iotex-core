@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -123,7 +122,8 @@ func TestEndorsementManager(t *testing.T) {
 	require.Panics(func() {
 		em.Log(nil, nil)
 	}, "logger is nil")
-	l := em.Log(log.L(), nil)
+	l := em.Log(nil, nil)
+	// l := em.Log(log.L(), nil)
 	require.NotNil(l)
 	l.Info("test output")
 
