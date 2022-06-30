@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -55,34 +57,33 @@ var (
 		config.English: "quit",
 		config.Chinese: "退出",
 	}
-	_flagActionEndPointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点", // this translation
-	}
-	_flagActionInsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全连接", // this translation
-	}
 	_flagGasLimitUsages = map[config.Language]string{
 		config.English: "set gas limit",
+		config.Chinese: "设置燃气上限",
 	}
 	_flagGasPriceUsages = map[config.Language]string{
 		config.English: `set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is "0"`,
+		config.Chinese: `设置燃气费（单位：10^(-6)IOTX），如果输入为「0」，则使用默认燃气费`,
 	}
 	_flagNonceUsages = map[config.Language]string{
 		config.English: "set nonce (default using pending nonce)",
+		config.Chinese: "设置 nonce (默认使用 pending nonce)",
 	}
 	_flagSignerUsages = map[config.Language]string{
 		config.English: "choose a signing account",
+		config.Chinese: "选择要签名的帐户",
 	}
 	_flagBytecodeUsages = map[config.Language]string{
 		config.English: "set the byte code",
+		config.Chinese: "设置字节码",
 	}
 	_flagAssumeYesUsages = map[config.Language]string{
 		config.English: "answer yes for all confirmations",
+		config.Chinese: "为所有确认设置 yes",
 	}
 	_flagPasswordUsages = map[config.Language]string{
 		config.English: "input password for account",
+		config.Chinese: "设置密码",
 	}
 )
 
@@ -148,30 +149,30 @@ func registerPasswordFlag(client ioctl.Client, cmd *cobra.Command) {
 
 func mustString(v string, err error) string {
 	if err != nil {
-		panic(err)
+		log.L().Panic("input flag must be string", zap.Error(err))
 	}
 	return v
 }
 
 func mustUint64(v uint64, err error) uint64 {
 	if err != nil {
-		panic(err)
+		log.L().Panic("input flag must be uint64", zap.Error(err))
 	}
 	return v
 }
 
 func mustBoolean(v bool, err error) bool {
 	if err != nil {
-		panic(err)
+		log.L().Panic("input flag must be boolean", zap.Error(err))
 	}
 	return v
 }
 
-func getGasLimitFlagValue(cmd *cobra.Command) (v uint64) {
+func gasLimitFlagValue(cmd *cobra.Command) (v uint64) {
 	return mustUint64(cmd.Flags().GetUint64(gasLimitFlagLabel))
 }
 
-func getGasPriceFlagValue(cmd *cobra.Command) (v string) {
+func gasPriceFlagValue(cmd *cobra.Command) (v string) {
 	return mustString(cmd.Flags().GetString(gasPriceFlagLabel))
 }
 
@@ -188,11 +189,7 @@ func getBytecodeFlagValue(cmd *cobra.Command) (v string) {
 }
 
 func getDecodeBytecode(cmd *cobra.Command) ([]byte, error) {
-	bytecode, err := cmd.Flags().GetString(bytecodeFlagLabel)
-	if err != nil {
-		return nil, err
-	}
-	return hex.DecodeString(util.TrimHexPrefix(bytecode))
+	return hex.DecodeString(util.TrimHexPrefix(getBytecodeFlagValue(cmd)))
 }
 
 func getAssumeYesFlagValue(cmd *cobra.Command) (v bool) {
@@ -210,7 +207,7 @@ func selectTranslation(client ioctl.Client, trls map[config.Language]string) str
 
 // NewActionCmd represents the action command
 func NewActionCmd(client ioctl.Client) *cobra.Command {
-	cmd := &cobra.Command{
+	ac := &cobra.Command{
 		Use:   selectTranslation(client, _actionCmdUses),
 		Short: selectTranslation(client, _actionCmdShorts),
 	}
@@ -225,14 +222,10 @@ func NewActionCmd(client ioctl.Client) *cobra.Command {
 	// cmd.AddCommand(NewActionDeposit(client))
 	// cmd.AddCommand(NewActionSendRaw(client))
 
-	var (
-		insecure bool
-		endpoint string
-	)
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, selectTranslation(client, _flagActionEndPointUsages))
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, selectTranslation(client, _flagActionInsecureUsages))
+	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
 
-	return cmd
+	return ac
 }
 
 // RegisterWriteCommand registers action flags for command
@@ -282,7 +275,7 @@ func gasPriceInRau(client ioctl.Client, cmd *cobra.Command) (*big.Int, error) {
 	if client.IsCryptoSm2() {
 		return big.NewInt(0), nil
 	}
-	gasPrice := getGasPriceFlagValue(cmd)
+	gasPrice := gasPriceFlagValue(cmd)
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
@@ -434,7 +427,7 @@ func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *b
 	if err != nil {
 		return errors.Wrap(err, "failed to get nonce")
 	}
-	gasLimit := getGasLimitFlagValue(cmd)
+	gasLimit := gasLimitFlagValue(cmd)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
 		return errors.Wrap(err, "failed to make a Execution instance")
@@ -483,7 +476,7 @@ func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amo
 				Data:     bytecode,
 			},
 			CallerAddress: callerAddr,
-			GasLimit:      getGasLimitFlagValue(cmd),
+			GasLimit:      gasLimitFlagValue(cmd),
 		},
 	)
 	if err != nil {
