@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -43,7 +42,7 @@ func NewHdwalletDeleteCmd(client ioctl.Client) *cobra.Command {
 				"Once an hdwallet is deleted, all the assets under this hdwallet may be lost!\n" +
 				"Type 'YES' to continue, quit for anything else.")
 			if !client.AskToConfirm(info) {
-				output.PrintResult("quit")
+				cmd.Println("quit")
 				return nil
 			}
 
