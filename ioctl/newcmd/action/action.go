@@ -9,7 +9,7 @@ package action
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -340,21 +340,21 @@ func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) e
 
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
+	URL := "https://"
 	endpoint := client.Config().Endpoint
 	explorer := client.Config().Explorer
 	switch explorer {
 	case "iotexscan":
 		if strings.Contains(endpoint, "testnet") {
-			message.URL += "testnet."
+			URL += "testnet."
 		}
-		message.URL += "iotexscan.io/action/" + txhash
+		URL += "iotexscan.io/action/" + txhash
 	case "iotxplorer":
-		message.URL = "iotxplorer.io/actions/" + txhash
+		URL = "iotxplorer.io/actions/" + txhash
 	default:
-		message.URL = explorer + txhash
+		URL = explorer + txhash
 	}
-	cmd.Println(message.String())
+	fmt.Printf("Action has been sent to blockchain.\nWait for several seconds and query this action by hash: %s", URL)
 	return nil
 }
 
@@ -398,7 +398,7 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 	// }
 	// cmd.Println(actionInfo)
 
-	if getAssumeYesFlagValue(cmd) == false {
+	if !getAssumeYesFlagValue(cmd) {
 		infoWarn := selectTranslation(client, _infoWarn)
 		infoQuit := selectTranslation(client, _infoQuit)
 		if !client.AskToConfirm(infoWarn) {
@@ -502,14 +502,4 @@ func isBalanceEnough(client ioctl.Client, address string, act action.SealedEnvel
 		return errors.New("balance is not enough")
 	}
 	return nil
-}
-
-type sendMessage struct {
-	Info   string `json:"info"`
-	TxHash string `json:"txHash"`
-	URL    string `json:"url"`
-}
-
-func (m *sendMessage) String() string {
-	return string(byteutil.Must(json.MarshalIndent(m, "", "  ")))
 }
