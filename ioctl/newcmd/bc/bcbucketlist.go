@@ -7,7 +7,6 @@
 package bc
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -39,8 +38,8 @@ var (
 )
 
 const (
-	voter     = "voter"
-	candidate = "cand"
+	voter     = "Voter"
+	candidate = "Cand"
 )
 
 // NewBCBucketListCmd represents the bc bucketlist command
@@ -108,7 +107,7 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 					lines = append(lines, bucket.String())
 				}
 			}
-			fmt.Println(strings.Join(lines, "\n"))
+			cmd.Println(strings.Join(lines, "\n"))
 			return nil
 		},
 	}
