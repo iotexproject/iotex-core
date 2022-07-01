@@ -164,8 +164,10 @@ func (st *Account) PendingNonce() uint64 {
 	switch st.accountType {
 	case 1:
 		return st.nonce
-	default: // 0
+	case 0:
 		return st.nonce + 1
+	default:
+		panic(errors.Wrapf(ErrUnknownAccountType, "account type %d", st.accountType))
 	}
 }
 
