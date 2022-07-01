@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -84,7 +83,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+	grpcSvr := newGRPCHandler(core)
 
 	for _, test := range _sendActionTests {
 		core.EXPECT().EVMNetworkID().Return(uint32(1))
@@ -117,7 +116,7 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	res, err := grpcSvr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
@@ -134,7 +133,7 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().EstimateGasForAction(gomock.Any(), gomock.Any()).Return(uint64(10000), nil)
 	resp, err := grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getAction()})
