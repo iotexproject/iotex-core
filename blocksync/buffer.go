@@ -90,7 +90,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHei
 	var (
 		start    uint64
 		startSet bool
-		bi       = make([]syncBlocksInterval, 0)
+		bi       []syncBlocksInterval
 	)
 
 	// The sync range shouldn't go beyond tip height + buffer size to avoid being too aggressive

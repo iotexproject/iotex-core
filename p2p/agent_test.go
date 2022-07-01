@@ -37,7 +37,7 @@ func TestDummyAgent(t *testing.T) {
 	addrs, err := a.Self()
 	require.Nil(addrs)
 	require.NoError(err)
-	neighbors, err := a.ConnectedPeers(nil)
+	neighbors, err := a.ConnectedPeers()
 	require.Nil(neighbors)
 	require.NoError(err)
 }
@@ -71,12 +71,13 @@ func TestBroadcast(t *testing.T) {
 	}
 	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
 
-	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(1), p2p.Port(testutil.RandomPort()), p2p.SecureIO(), p2p.MasterKey("bootnode"))
+	bootnodePort := testutil.RandomPort()
+	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(1), p2p.Port(bootnodePort), p2p.SecureIO(), p2p.MasterKey("bootnode"))
 	r.NoError(err)
 	bootnodeAddr := bootnode.Addresses()
 
 	for i := 0; i < n; i++ {
-		port := testutil.RandomPort()
+		port := bootnodePort + i + 1
 		agent := NewAgent(Config{
 			Host:              "127.0.0.1",
 			Port:              port,
@@ -147,7 +148,7 @@ func TestUnicast(t *testing.T) {
 	}
 
 	for i := 0; i < n; i++ {
-		neighbors, err := agents[i].ConnectedPeers(ctx)
+		neighbors, err := agents[i].ConnectedPeers()
 		r.NoError(err)
 		r.True(len(neighbors) >= n/3)
 		for _, neighbor := range neighbors {

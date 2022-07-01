@@ -7,7 +7,6 @@
 package itx
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -91,7 +90,7 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 
-	peers, err := p2pAgent.ConnectedPeers(context.Background())
+	peers, err := p2pAgent.ConnectedPeers()
 	if err != nil {
 		h.l.Debug("error when get connectedPeers.", zap.Error(err))
 		peers = nil

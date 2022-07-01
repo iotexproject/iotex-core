@@ -108,7 +108,7 @@ type (
 		// Self returns the self network address
 		Self() ([]multiaddr.Multiaddr, error)
 		// ConnectedPeers returns the connected peers' info
-		ConnectedPeers(ctx context.Context) ([]peer.AddrInfo, error)
+		ConnectedPeers() ([]peer.AddrInfo, error)
 		// BlockPeer blocks the peer in p2p layer
 		BlockPeer(string)
 	}
@@ -173,7 +173,7 @@ func (*dummyAgent) Self() ([]multiaddr.Multiaddr, error) {
 	return nil, nil
 }
 
-func (*dummyAgent) ConnectedPeers(ctx context.Context) ([]peer.AddrInfo, error) {
+func (*dummyAgent) ConnectedPeers() ([]peer.AddrInfo, error) {
 	return nil, nil
 }
 
@@ -336,7 +336,7 @@ func (p *agent) Start(ctx context.Context) error {
 
 	// connect to bootstrap nodes
 	p.host = host
-	if err := p.joinP2P(context.Background()); err != nil {
+	if err := p.joinP2P(ctx); err != nil {
 		log.L().Error("fail to join p2p network", zap.Error(err))
 		return err
 	}
@@ -469,7 +469,7 @@ func (p *agent) Self() ([]multiaddr.Multiaddr, error) {
 	return p.host.Addresses(), nil
 }
 
-func (p *agent) ConnectedPeers(ctx context.Context) ([]peer.AddrInfo, error) {
+func (p *agent) ConnectedPeers() ([]peer.AddrInfo, error) {
 	if p.host == nil {
 		return nil, ErrAgentNotStarted
 	}
@@ -481,7 +481,7 @@ func (p *agent) BlockPeer(pidStr string) {
 	if err != nil {
 		return
 	}
-	p.host.AddBlocklist(pid)
+	p.host.BlockPeer(pid)
 }
 
 func (p *agent) joinP2P(ctx context.Context) error {
@@ -499,7 +499,6 @@ func (p *agent) joinP2P(ctx context.Context) error {
 	return nil
 }
 
-// connect connects to bootstrap nodes
 func (p *agent) connectBootNode(ctx context.Context) error {
 	var errNum, connNum, desiredConnNum int
 	conn := make(chan struct{}, len(p.cfg.BootstrapNodes))

@@ -28,12 +28,12 @@ import (
 )
 
 type (
-	// P2pNeighbor acquires p2p neighbors in the network
-	P2pNeighbor func(context.Context) ([]peer.AddrInfo, error)
+	// Neighbors acquires p2p neighbors in the network
+	Neighbors func() ([]peer.AddrInfo, error)
 	// UniCastOutbound sends a unicase message to the peer
 	UniCastOutbound func(context.Context, peer.AddrInfo, proto.Message) error
-	// BlockP2pPeer adds the peer into blacklist in p2p layer
-	BlockP2pPeer func(string)
+	// BlockPeer adds the peer into blacklist in p2p layer
+	BlockPeer func(string)
 	// TipHeight returns the tip height of blockchain
 	TipHeight func() uint64
 	// BlockByHeight returns the block of a given height
@@ -65,9 +65,9 @@ type (
 		tipHeightHandler     TipHeight
 		blockByHeightHandler BlockByHeight
 		commitBlockHandler   CommitBlock
-		p2pNeighbor          P2pNeighbor
+		p2pNeighbor          Neighbors
 		unicastOutbound      UniCastOutbound
-		blockP2pPeer         BlockP2pPeer
+		blockP2pPeer         BlockPeer
 
 		syncTask      *routine.RecurringTask
 		syncStageTask *routine.RecurringTask
@@ -130,9 +130,9 @@ func NewBlockSyncer(
 	tipHeightHandler TipHeight,
 	blockByHeightHandler BlockByHeight,
 	commitBlockHandler CommitBlock,
-	p2pNeighbor P2pNeighbor,
+	p2pNeighbor Neighbors,
 	uniCastHandler UniCastOutbound,
-	blockP2pPeer BlockP2pPeer,
+	blockP2pPeer BlockPeer,
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		cfg:                  cfg,
@@ -197,7 +197,7 @@ func (bs *blockSyncer) sync() {
 }
 
 func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint64, repeat int) {
-	peers, err := bs.p2pNeighbor(ctx)
+	peers, err := bs.p2pNeighbor()
 	if err != nil {
 		log.L().Error("failed to get neighbours", zap.Error(err))
 		return

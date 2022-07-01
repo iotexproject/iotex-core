@@ -57,7 +57,7 @@ func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao block
 			cs.Calibrate(blk.Height())
 			return nil
 		},
-		func(context.Context) ([]peer.AddrInfo, error) {
+		func() ([]peer.AddrInfo, error) {
 			return []peer.AddrInfo{}, nil
 		},
 		func(context.Context, peer.AddrInfo, proto.Message) error {
