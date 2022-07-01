@@ -394,6 +394,10 @@ func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error
 	return nil
 }
 
+func (c *client) PackABI(name string, args ...interface{}) ([]byte, error) {
+	return c.xrc20ABI.Pack(name, args...)
+}
+
 func (c *client) IsHdWalletConfigFileExist() bool { // notest
 	return fileutil.FileExists(c.hdWalletConfigFile)
 }

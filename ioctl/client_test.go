@@ -212,7 +212,7 @@ func TestAlias(t *testing.T) {
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
-	c := NewClient(cfgload, configFilePath)
+	c, _ := NewClient(cfgload, configFilePath)
 	defer c.Stop(context.Background())
 	for alias, addr := range cfg.Aliases {
 		result, err := c.Alias(addr)
@@ -378,7 +378,7 @@ func TestHdwalletMnemonic(t *testing.T) {
 	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
 	r.NoError(err)
 	defer testutil.CleanupPath(testPathWallet)
-	c := NewClient(config.Config{
+	c, _ := NewClient(config.Config{
 		Wallet: testPathWallet,
 	}, testPathWallet+"/config.default")
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"

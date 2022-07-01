@@ -7,6 +7,7 @@
 package newcmd
 
 import (
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -55,6 +56,7 @@ func NewIoctl(client ioctl.Client) *cobra.Command {
 	}
 
 	rootCmd.AddCommand(config.ConfigCmd)
+	rootCmd.AddCommand(action.Xrc20Cmd)
 	rootCmd.AddCommand(account.NewAccountCmd(client))
 
 	return rootCmd
@@ -73,6 +75,7 @@ func NewXctl(client ioctl.Client) *cobra.Command {
 	}
 
 	rootCmd.AddCommand(config.ConfigCmd)
+	rootCmd.AddCommand(action.Xrc20Cmd)
 	rootCmd.AddCommand(account.NewAccountCmd(client))
 
 	return rootCmd

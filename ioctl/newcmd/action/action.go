@@ -398,12 +398,11 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 
 	selp := sealed.Proto()
 	sk.Zero()
-	// TODO wait newcmd/action/actionhash impl pr #3425
-	// actionInfo, err := printActionProto(selp)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to print action proto message")
-	// }
-	// cmd.Println(actionInfo)
+	actionInfo, err := printActionProto(client, selp)
+	if err != nil {
+		return errors.Wrap(err, "failed to print action proto message")
+	}
+	cmd.Println(actionInfo)
 
 	if getAssumeYesFlagValue(cmd) == false {
 		infoWarn := selectTranslation(client, _infoWarn)

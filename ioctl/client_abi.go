@@ -176,7 +176,3 @@ const _abiConst = `[
 		"type": "event"
 	}
 ]`
-
-func (c *client) PackABI(name string, args ...interface{}) ([]byte, error) {
-	return c.xrc20ABI.Pack(name, args...)
-}
