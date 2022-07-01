@@ -79,7 +79,7 @@ type (
 	// HandleUnicastInboundAsync handles unicast message when agent listens it from the network
 	HandleUnicastInboundAsync func(context.Context, uint32, peer.AddrInfo, proto.Message)
 
-	// Network is the config of p2p
+	// Config is the config of p2p
 	Config struct {
 		Host           string   `yaml:"host"`
 		Port           int      `yaml:"port"`
