@@ -23,8 +23,8 @@ func TestServerV2(t *testing.T) {
 	svr := &ServerV2{
 		core:         core,
 		grpcServer:   NewGRPCServer(core, testutil.RandomPort()),
-		httpSvr:      NewHTTPServer("", testutil.RandomPort(), web3Handler),
-		websocketSvr: NewWebSocketServer("", testutil.RandomPort(), web3Handler),
+		httpSvr:      NewHTTPServer("", testutil.RandomPort(), newHTTPHandler(web3Handler)),
+		websocketSvr: NewHTTPServer("", testutil.RandomPort(), NewWebsocketHandler(web3Handler)),
 	}
 	ctx := context.Background()
 
