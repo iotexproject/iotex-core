@@ -24,21 +24,10 @@ func TestNewHdwalletDeleteCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
 
 	t.Run("delete hdwallet", func(t *testing.T) {
-		createClient := mock_ioctlclient.NewMockClient(ctrl)
-		password := "123"
-
-		createClient.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(9)
-		createClient.EXPECT().IsHdWalletConfigFileExist().Return(false).Times(3)
-		createClient.EXPECT().ReadSecret().Return(password, nil).Times(2)
-		createClient.EXPECT().WriteHdWalletConfigFile(gomock.Any(), gomock.Any()).Return(nil)
-
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
 		client.EXPECT().RemoveHdWalletConfigFile().Return(nil)
 
-		cmd := NewHdwalletCreateCmd(createClient)
-		_, err := util.ExecuteCmd(cmd)
-		require.NoError(err)
-		cmd = NewHdwalletDeleteCmd(client)
+		cmd := NewHdwalletDeleteCmd(client)
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 		require.Equal("", result)
