@@ -7,8 +7,6 @@
 package rolldpos
 
 import (
-	"context"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -81,7 +79,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 }
 
 // LoadProto creates an endorsement message from protobuf message
-func (ecm *EndorsedConsensusMessage) LoadProto(ctx context.Context, msg *iotextypes.ConsensusMessage) error {
+func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage, evmNetworkID uint32) error {
 	switch {
 	case msg.GetVote() != nil:
 		vote := &ConsensusVote{}
@@ -91,7 +89,7 @@ func (ecm *EndorsedConsensusMessage) LoadProto(ctx context.Context, msg *iotexty
 		ecm.message = vote
 	case msg.GetBlockProposal() != nil:
 		proposal := &blockProposal{}
-		if err := proposal.LoadProto(ctx, msg.GetBlockProposal()); err != nil {
+		if err := proposal.LoadProto(msg.GetBlockProposal(), evmNetworkID); err != nil {
 			return err
 		}
 		ecm.message = proposal

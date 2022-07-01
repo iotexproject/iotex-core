@@ -7,8 +7,6 @@
 package rolldpos
 
 import (
-	"context"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -63,8 +61,7 @@ func (bp *blockProposal) ProposerAddress() string {
 	return bp.block.ProducerAddress()
 }
 
-func (bp *blockProposal) LoadProto(ctx context.Context, msg *iotextypes.BlockProposal) error {
-	evmNetworkID := mustGetEvmNetworkIDFromCtx(ctx)
+func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal, evmNetworkID uint32) error {
 	blk, err := block.NewDeserializer(evmNetworkID).FromBlockProto(msg.Block)
 	if err != nil {
 		return err

@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"bytes"
-	"context"
 	"testing"
 	"time"
 
@@ -34,8 +33,7 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	pb, err := endorsedMessage.Proto()
 	require.NoError(err)
 	cem := &EndorsedConsensusMessage{}
-	ctx := withEvmNetworkIDCtx(context.Background(), 0)
-	require.NoError(cem.LoadProto(ctx, pb))
+	require.NoError(cem.LoadProto(pb, 0))
 	require.Equal(uint64(10), cem.Height())
 	cvote, ok := cem.Document().(*ConsensusVote)
 	require.True(ok)

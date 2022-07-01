@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -97,8 +96,7 @@ func TestBlockEndorsementCollection(t *testing.T) {
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
 
-	ctx := withEvmNetworkIDCtx(context.Background(), 0)
-	em, err := newEndorsementManager(ctx, nil)
+	em, err := newEndorsementManager(nil, 0)
 	require.NoError(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
@@ -181,7 +179,7 @@ func TestEndorsementManager(t *testing.T) {
 
 func TestEndorsementManagerProto(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil, nil)
+	em, err := newEndorsementManager(nil, 0)
 	require.NoError(err)
 	require.NotNil(em)
 
@@ -205,11 +203,10 @@ func TestEndorsementManagerProto(t *testing.T) {
 
 	//test converting emanager pb
 	emProto, err := em.toProto()
-	ctx := withEvmNetworkIDCtx(context.Background(), 0)
 	require.NoError(err)
-	em2, err := newEndorsementManager(ctx, nil)
+	em2, err := newEndorsementManager(nil, 0)
 	require.NoError(err)
-	require.NoError(em2.fromProto(ctx, emProto))
+	require.NoError(em2.fromProto(emProto, 0))
 
 	require.Equal(len(em.collections), len(em2.collections))
 	encoded := encodeToString(cv.BlockHash())

@@ -157,7 +157,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(withEvmNetworkIDCtx(context.Background(), ctx.evmNetworkID), ctx.eManagerDB)
+		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.evmNetworkID)
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 

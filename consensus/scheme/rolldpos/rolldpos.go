@@ -116,7 +116,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(withEvmNetworkIDCtx(context.Background(), r.ctx.evmNetworkID), msg); err != nil {
+	if err := endorsedMessage.LoadProto(msg, r.ctx.evmNetworkID); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
