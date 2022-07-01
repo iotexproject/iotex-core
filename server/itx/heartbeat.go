@@ -60,7 +60,7 @@ type HeartbeatHandler struct {
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
-func NewHeartbeatHandler(s *Server, cfg p2p.Network) *HeartbeatHandler {
+func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
 		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
