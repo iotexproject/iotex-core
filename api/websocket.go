@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,9 +26,8 @@ const (
 	maxMessageSize = 15 * 1024 * 1024
 )
 
-// WebsocketServer handles requests from websocket protocol
-type WebsocketServer struct {
-	svr        *http.Server
+// WebsocketHandler handles requests from websocket protocol
+type WebsocketHandler struct {
 	msgHandler Web3Handler
 }
 
@@ -38,39 +36,14 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-// NewWebSocketServer creates a new websocket server
-func NewWebSocketServer(route string, port int, handler Web3Handler) *WebsocketServer {
-	if port == 0 {
-		return nil
+// NewWebsocketHandler creates a new websocket handler
+func NewWebsocketHandler(web3Handler Web3Handler) *WebsocketHandler {
+	return &WebsocketHandler{
+		msgHandler: web3Handler,
 	}
-	svr := &WebsocketServer{
-		svr: &http.Server{
-			Addr: ":" + strconv.Itoa(port),
-		},
-		msgHandler: handler,
-	}
-	mux := http.NewServeMux()
-	mux.Handle("/"+route, svr)
-	svr.svr.Handler = mux
-	return svr
 }
 
-// Start starts the websocket server
-func (wsSvr *WebsocketServer) Start(_ context.Context) error {
-	go func() {
-		if err := wsSvr.svr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.L().Fatal("Node failed to serve.", zap.Error(err))
-		}
-	}()
-	return nil
-}
-
-// Stop stops the websocket server
-func (wsSvr *WebsocketServer) Stop(ctx context.Context) error {
-	return wsSvr.svr.Shutdown(ctx)
-}
-
-func (wsSvr *WebsocketServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (wsSvr *WebsocketHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	upgrader.CheckOrigin = func(_ *http.Request) bool { return true }
 
 	// upgrade this connection to a WebSocket connection
@@ -83,7 +56,7 @@ func (wsSvr *WebsocketServer) ServeHTTP(w http.ResponseWriter, req *http.Request
 	wsSvr.handleConnection(ws)
 }
 
-func (wsSvr *WebsocketServer) handleConnection(ws *websocket.Conn) {
+func (wsSvr *WebsocketHandler) handleConnection(ws *websocket.Conn) {
 	defer ws.Close()
 	ws.SetReadDeadline(time.Now().Add(pongWait))
 	ws.SetReadLimit(maxMessageSize)
