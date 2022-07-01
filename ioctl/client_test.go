@@ -199,6 +199,28 @@ func TestAliasMap(t *testing.T) {
 	r.Equal(exprAliases, result)
 }
 
+func TestAlias(t *testing.T) {
+	r := require.New(t)
+	cfg := config.Config{
+		Aliases: map[string]string{
+			"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r",
+			"bbb": "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7",
+		},
+	}
+	configFilePath := writeTempConfig(t, &cfg)
+	defer testutil.CleanupPath(path.Dir(configFilePath))
+	cfgload := loadTempConfig(t, configFilePath)
+	r.Equal(cfg, cfgload)
+
+	c := NewClient(cfgload, configFilePath)
+	defer c.Stop(context.Background())
+	for alias, addr := range cfg.Aliases {
+		result, err := c.Alias(addr)
+		r.NoError(err)
+		r.Equal(alias, result)
+	}
+}
+
 func TestSetAlias(t *testing.T) {
 	type Data struct {
 		cfg   config.Config
@@ -349,6 +371,22 @@ func TestDeleteAlias(t *testing.T) {
 		r.Equal(test.cfg.SecureConnect, cfgload.SecureConnect)
 		r.Equal(test.cfg.DefaultAccount, cfgload.DefaultAccount)
 	}
+}
+
+func TestHdwalletMnemonic(t *testing.T) {
+	r := require.New(t)
+	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
+	r.NoError(err)
+	defer testutil.CleanupPath(testPathWallet)
+	c := NewClient(config.Config{
+		Wallet: testPathWallet,
+	}, testPathWallet+"/config.default")
+	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
+	password := "123"
+	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
+	result, err := c.HdwalletMnemonic(password)
+	r.NoError(err)
+	r.Equal(mnemonic, result)
 }
 
 func TestWriteHdWalletConfigFile(t *testing.T) {

@@ -28,22 +28,6 @@ func TestStoreProto(t *testing.T) {
 	require.NotNil(storeProto)
 	require.Equal(0, len(storeProto.Receipts))
 
-	require.NoError(store.FromProto(storeProto))
-}
-
-func TestSerialize(t *testing.T) {
-	require := require.New(t)
-	store, err := makeStore()
-	require.NoError(err)
-
-	ser, err := store.Serialize()
-	require.NoError(err)
-
-	store1 := &Store{}
-	require.NoError(store1.Deserialize(ser))
-	require.Equal(store1.Block.height, store.Block.height)
-	require.Equal(store1.Block.Header.prevBlockHash, store.Block.Header.prevBlockHash)
-	require.Equal(store1.Block.Header.blockSig, store.Block.Header.blockSig)
 }
 
 func makeStore() (*Store, error) {

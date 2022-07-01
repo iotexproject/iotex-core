@@ -159,11 +159,14 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf2, ap2),
-		blockchain.BoltDBDaoOption(sf2),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
@@ -474,8 +477,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(nil, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
@@ -497,8 +500,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao = blockdao.NewBlockDAO(nil, cfg.DB)
+	dao = blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{

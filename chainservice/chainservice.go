@@ -85,7 +85,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk, err := (&block.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).FromBlockProto(pbBlock)
+	blk, err := block.NewDeserializer(cs.chain.EvmNetworkID()).FromBlockProto(pbBlock)
 	if err != nil {
 		return err
 	}

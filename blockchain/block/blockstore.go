@@ -12,7 +12,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/config"
 )
 
 type (
@@ -38,37 +37,6 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 		Block:    in.Block.ConvertToBlockPb(),
 		Receipts: receipts,
 	}
-}
-
-// FromProto converts from proto message
-func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	// TODO: pass the correct EVM network ID at the time of newFileDAOv2()
-	blk, err := (&Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).FromBlockProto(pb.Block)
-	if err != nil {
-		return err
-	}
-	// verify merkle root can match after deserialize
-	if err := blk.VerifyTxRoot(); err != nil {
-		return err
-	}
-
-	in.Block = blk
-	in.Receipts = []*action.Receipt{}
-	for _, receiptPb := range pb.Receipts {
-		receipt := &action.Receipt{}
-		receipt.ConvertFromReceiptPb(receiptPb)
-		in.Receipts = append(in.Receipts, receipt)
-	}
-	return nil
-}
-
-// Deserialize parses the byte stream into Store
-func (in *Store) Deserialize(buf []byte) error {
-	pbStore := &iotextypes.BlockStore{}
-	if err := proto.Unmarshal(buf, pbStore); err != nil {
-		return err
-	}
-	return in.FromProto(pbStore)
 }
 
 // DeserializeBlockStoresPb decode byte stream into BlockStores pb message

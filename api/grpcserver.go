@@ -18,6 +18,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/vm"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/util"
@@ -37,12 +38,14 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
@@ -76,13 +79,21 @@ var (
 			Name: "iotex_apicallsource_nochainid_metrics",
 			Help: "API call Source Without ChainID Statistics",
 		},
-		[]string{"client_ip", "sender", "recipient"},
+		[]string{"client_ip", "sender"},
 	)
 )
 
 func init() {
 	prometheus.MustRegister(_apiCallSourceWithChainIDMtc)
 	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
+}
+
+// RecoveryInterceptor handles panic to a custom error
+func RecoveryInterceptor() grpc_recovery.Option {
+	return grpc_recovery.WithRecoveryHandler(func(p interface{}) (err error) {
+		recovery.LogCrash(p)
+		return grpc.Errorf(codes.Unknown, "grpc triggered crash: %v", p)
+	})
 }
 
 // NewGRPCServer creates a new grpc server
@@ -95,10 +106,12 @@ func NewGRPCServer(core CoreService, grpcPort int) *GRPCServer {
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_prometheus.StreamServerInterceptor,
 			otelgrpc.StreamServerInterceptor(),
+			grpc_recovery.StreamServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_prometheus.UnaryServerInterceptor,
 			otelgrpc.UnaryServerInterceptor(),
+			grpc_recovery.UnaryServerInterceptor(RecoveryInterceptor()),
 		)),
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
@@ -126,6 +139,7 @@ func (svr *GRPCServer) Start(_ context.Context) error {
 	}
 	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
+		defer recovery.Recover()
 		if err := svr.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("grpc failed to serve.", zap.Error(err))
 		}
@@ -322,19 +336,17 @@ func (svr *GRPCServer) SendAction(ctx context.Context, in *iotexapi.SendActionRe
 	if in.GetAction().GetCore().GetChainID() > 0 {
 		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
 	} else {
-		var clientIP, sender, recipient string
-		selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in.GetAction())
+		selp, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(in.GetAction())
 		if err != nil {
 			return nil, err
 		}
+		var clientIP string
 		if p, ok := peer.FromContext(ctx); ok {
 			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
+		} else {
+			clientIP = "unknownIP"
 		}
-		if senderAddr, err := address.FromBytes(selp.SrcPubkey().Hash()); err == nil {
-			sender = senderAddr.String()
-		}
-		recipient, _ = selp.Destination()
-		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, sender, recipient).Inc()
+		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, selp.SenderAddress().String()).Inc()
 	}
 	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
@@ -676,7 +688,7 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	if err != nil {
 		return nil, err
 	}
-	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actInfo.Action)
+	act, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(actInfo.Action)
 	if err != nil {
 		return nil, err
 	}
@@ -720,4 +732,43 @@ func (svr *GRPCServer) TraceTransactionStructLogs(ctx context.Context, in *iotex
 	return &iotexapi.TraceTransactionStructLogsResponse{
 		StructLogs: structLogs,
 	}, nil
+}
+
+// generateBlockMeta generates BlockMeta from block
+func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+	header := blk.Header
+	height := header.Height()
+	ts := timestamppb.New(header.Timestamp())
+	var (
+		producerAddress string
+		h               hash.Hash256
+	)
+	if blk.Height() > 0 {
+		producerAddress = header.ProducerAddress()
+		h = header.HashBlock()
+	} else {
+		h = block.GenesisHash()
+	}
+	txRoot := header.TxRoot()
+	receiptRoot := header.ReceiptRoot()
+	deltaStateDigest := header.DeltaStateDigest()
+	prevHash := header.PrevHash()
+
+	blockMeta := iotextypes.BlockMeta{
+		Hash:              hex.EncodeToString(h[:]),
+		Height:            height,
+		Timestamp:         ts,
+		ProducerAddress:   producerAddress,
+		TxRoot:            hex.EncodeToString(txRoot[:]),
+		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
+		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
+		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
+	}
+	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
+		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
+	}
+	blockMeta.NumActions = int64(len(blk.Actions))
+	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	return &blockMeta
 }
