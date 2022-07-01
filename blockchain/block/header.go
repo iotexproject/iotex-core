@@ -7,7 +7,6 @@
 package block
 
 import (
-	"encoding/hex"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/bloom"
@@ -15,10 +14,11 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -208,34 +208,13 @@ func (h *Header) ProducerAddress() string {
 }
 
 // HeaderLogger returns a new logger with block header fields' value.
-func (h *Header) HeaderLogger(e *zerolog.Event) *zerolog.Event {
-	return e.Fields(map[string]interface{}{
-		"version":          h.version,
-		"height":           h.height,
-		"timestamp":        h.timestamp.String(),
-		"prevBlockHash":    hex.EncodeToString(h.prevBlockHash[:]),
-		"txRoot":           hex.EncodeToString(h.txRoot[:]),
-		"receiptRoot":      hex.EncodeToString(h.receiptRoot[:]),
-		"deltaStateDigest": hex.EncodeToString(h.deltaStateDigest[:]),
-	})
-
-	// return l.With(zap.Uint32("version", h.version),
-	// 	zap.Uint64("height", h.height),
-	// 	zap.String("timestamp", h.timestamp.String()),
-	// 	log.Hex("prevBlockHash", h.prevBlockHash[:]),
-	// 	log.Hex("txRoot", h.txRoot[:]),
-	// 	log.Hex("receiptRoot", h.receiptRoot[:]),
-	// 	log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
-	// )
+func (h *Header) HeaderLogger(l *zap.Logger) *zap.Logger {
+	return l.With(zap.Uint32("version", h.version),
+		zap.Uint64("height", h.height),
+		zap.String("timestamp", h.timestamp.String()),
+		log.Hex("prevBlockHash", h.prevBlockHash[:]),
+		log.Hex("txRoot", h.txRoot[:]),
+		log.Hex("receiptRoot", h.receiptRoot[:]),
+		log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
+	)
 }
-
-// func (h *Header) HeaderLogger(l *zap.Logger) *zap.Logger {
-// 	return l.With(zap.Uint32("version", h.version),
-// 		zap.Uint64("height", h.height),
-// 		zap.String("timestamp", h.timestamp.String()),
-// 		log.Hex("prevBlockHash", h.prevBlockHash[:]),
-// 		log.Hex("txRoot", h.txRoot[:]),
-// 		log.Hex("receiptRoot", h.receiptRoot[:]),
-// 		log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
-// 	)
-// }

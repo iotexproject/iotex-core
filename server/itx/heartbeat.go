@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	statedb "github.com/iotexproject/iotex-core/state"
 )
@@ -63,7 +63,7 @@ type HeartbeatHandler struct {
 func NewHeartbeatHandler(s *Server, cfg p2p.Network) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
-		l: log.L().With().Str("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)).Logger(),
+		l: zlog.L().With().Str("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)).Logger(),
 	}
 }
 

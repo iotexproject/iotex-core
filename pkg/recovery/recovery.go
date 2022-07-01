@@ -7,14 +7,12 @@
 package recovery
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"runtime/pprof"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/pkgerrors"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
@@ -71,12 +69,10 @@ func SetCrashlogDir(dir string) error {
 
 // LogCrash write down the current memory and stack info and the cpu/mem/disk infos into log dir
 func LogCrash(r interface{}) {
+	log.S().Errorf("crashlog: %v", r)
 	writeHeapProfile(filepath.Join(_crashlogDir,
 		"heapdump_"+time.Now().String()+".out"))
-
-	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-	log.L().Info().Str("crashlog", "stack").Stack().Err(fmt.Errorf("crashlog: %v", r)).Msg("")
-	// Infow("crashlog", "stack", string(debug.Stack()))
+	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)
 	printInfo("disk", diskInfo)
@@ -97,12 +93,10 @@ func writeHeapProfile(path string) {
 func printInfo(name string, info func() (interface{}, error)) {
 	v, err := info()
 	if err != nil {
-		// log.S().Errorw("crashlog: get %s info occur error: %v", name, err)
-		log.L().Err(err).Msgf("crashlog: get %s info occur error", name)
+		log.S().Errorw("crashlog: get %s info occur error: %v", name, err)
 		return
 	}
-	log.L().Info().Interface(name, v).Msg("crashlog")
-	// log.S().Infow("crashlog", name, v)
+	log.S().Infow("crashlog", name, v)
 }
 
 func cpuInfo() (interface{}, error) {
