@@ -141,8 +141,7 @@ func GetBucketList(
 	if err != nil {
 		return nil, err
 	}
-	method := &iotexapi.ReadStakingDataMethod{Method: methodName}
-	methodData, err := proto.Marshal(method)
+	methodData, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{Method: methodName})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal read staking data method")
 	}
@@ -150,16 +149,13 @@ func GetBucketList(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal read staking data request")
 	}
-
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("staking"),
 		MethodName: methodData,
 		Arguments:  [][]byte{requestData},
 	}
-
 	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
+	if jwtMD, err := util.JwtAuth(); err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 

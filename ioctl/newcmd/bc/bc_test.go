@@ -26,14 +26,12 @@ func TestGetBucketList(t *testing.T) {
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	request := &iotexapi.ReadStakingDataRequest{}
 	response := &iotexapi.ReadStateResponse{}
-
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
 	t.Run("get bucket list", func(t *testing.T) {
 		expectedValue := &iotextypes.VoteBucketList{
 			Buckets: []*iotextypes.VoteBucket{},
 		}
-
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(response, nil)
 
 		result, err := GetBucketList(client, iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE, request)
@@ -43,7 +41,6 @@ func TestGetBucketList(t *testing.T) {
 
 	t.Run("failed to invoke ReadState api", func(t *testing.T) {
 		expectedErr := errors.New("failed to invoke ReadState api")
-
 		apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		_, err := GetBucketList(client, iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER, request)
