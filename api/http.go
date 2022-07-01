@@ -19,8 +19,8 @@ type (
 		svr *http.Server
 	}
 
-	// HTTPHandler handles requests from http protocol
-	HTTPHandler struct {
+	// hTTPHandler handles requests from http protocol
+	hTTPHandler struct {
 		msgHandler Web3Handler
 	}
 )
@@ -58,14 +58,14 @@ func (hSvr *HTTPServer) Stop(ctx context.Context) error {
 	return hSvr.svr.Shutdown(ctx)
 }
 
-// NewHTTPHandler creates a new http handler
-func NewHTTPHandler(web3Handler Web3Handler) *HTTPHandler {
-	return &HTTPHandler{
+// newHTTPHandler creates a new http handler
+func newHTTPHandler(web3Handler Web3Handler) *hTTPHandler {
+	return &hTTPHandler{
 		msgHandler: web3Handler,
 	}
 }
 
-func (handler *HTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (handler *hTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return

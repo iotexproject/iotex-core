@@ -63,7 +63,7 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCHandler(core)
+	grpcSvr := newGRPCHandler(core)
 
 	for _, test := range _sendActionTests {
 		core.EXPECT().EVMNetworkID().Return(uint32(1))
@@ -96,7 +96,7 @@ func TestGrpcServer_SuggestGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCHandler(core)
+	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().SuggestGasPrice().Return(uint64(1), nil)
 	res, err := grpcSvr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
@@ -113,7 +113,7 @@ func TestGrpcServer_EstimateGasForAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCHandler(core)
+	grpcSvr := newGRPCHandler(core)
 
 	core.EXPECT().EstimateGasForAction(gomock.Any(), gomock.Any()).Return(uint64(10000), nil)
 	resp, err := grpcSvr.EstimateGasForAction(context.Background(), &iotexapi.EstimateGasForActionRequest{Action: getAction()})

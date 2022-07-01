@@ -823,7 +823,7 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -887,7 +887,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	cfg := newConfig()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -948,7 +948,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 
 	svr, _, dao, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1002,7 +1002,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1054,7 +1054,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1086,7 +1086,7 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1126,7 +1126,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 	block.LoadGenesisHash(&cfg.Genesis)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1188,7 +1188,7 @@ func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 
 	svr, bc, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1256,7 +1256,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 		cfg.API.TpsWindow = test.tpsWindow
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1290,7 +1290,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	cfg.Genesis.MidwayBlockHeight = 10
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1370,7 +1370,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		request := &iotexapi.SendActionRequest{Action: test.action}
 		svr, _, _, _, _, _, file, err := createServerV2(test.cfg(), true)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(file)
 		}()
@@ -1386,7 +1386,7 @@ func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1401,7 +1401,7 @@ func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1431,7 +1431,7 @@ func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1451,7 +1451,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1487,7 +1487,7 @@ func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1503,7 +1503,7 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1528,7 +1528,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 	cfg := newConfig()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1707,7 +1707,7 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1735,7 +1735,7 @@ func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1757,7 +1757,7 @@ func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1827,7 +1827,7 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1900,7 +1900,7 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1971,7 +1971,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1996,7 +1996,7 @@ func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 	for _, test := range _readRollDPoSMetaTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -2018,7 +2018,7 @@ func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 	for _, test := range _readEpochCtxTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := NewGRPCHandler(svr.core)
+		grpcHandler := newGRPCHandler(svr.core)
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -2042,7 +2042,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 
 	svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2174,7 +2174,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2242,7 +2242,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2302,7 +2302,7 @@ func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2337,7 +2337,7 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2373,7 +2373,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2408,7 +2408,7 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2466,7 +2466,7 @@ func TestGrpcServer_GetEstimateGasSpecialIntegrity(t *testing.T) {
 
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2585,7 +2585,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			svr, _, _, _, _, _, file, err := createServerV2(test.cfg(), true)
 			require.NoError(err)
-			grpcHandler := NewGRPCHandler(svr.core)
+			grpcHandler := newGRPCHandler(svr.core)
 			defer func() {
 				testutil.CleanupPath(file)
 			}()
@@ -2609,7 +2609,7 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 
 	svr, bc, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := NewGRPCHandler(svr.core)
+	grpcHandler := newGRPCHandler(svr.core)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()

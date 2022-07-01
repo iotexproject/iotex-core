@@ -65,7 +65,7 @@ func NewServerV2(
 	return &ServerV2{
 		core:         coreAPI,
 		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
-		httpSvr:      NewHTTPServer("", cfg.HTTPPort, NewHTTPHandler(web3Handler)),
+		httpSvr:      NewHTTPServer("", cfg.HTTPPort, newHTTPHandler(web3Handler)),
 		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, NewWebsocketHandler(web3Handler)),
 		tracer:       tp,
 	}, nil
