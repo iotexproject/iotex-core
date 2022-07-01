@@ -116,7 +116,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(msg); err != nil {
+	if err := endorsedMessage.LoadProto(withEvmNetworkIDCtx(context.Background(), r.ctx.evmNetworkID), msg); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
@@ -235,6 +235,7 @@ type Builder struct {
 	encodedAddr      string
 	priKey           crypto.PrivateKey
 	chain            ChainManager
+	evmNetworkID     uint32
 	broadcastHandler scheme.Broadcast
 	clock            clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
@@ -268,6 +269,12 @@ func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
 // SetChainManager sets the blockchain APIs
 func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 	b.chain = chain
+	return b
+}
+
+// SetEvmNetworkID sets the evm network ID context
+func (b *Builder) SetEvmNetworkID(evmNetworkID uint32) *Builder {
+	b.evmNetworkID = evmNetworkID
 	return b
 }
 

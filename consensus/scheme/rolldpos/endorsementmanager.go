@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"encoding/hex"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos/endorsementpb"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -121,13 +121,12 @@ func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection
 	}
 }
 
-func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
+func (bc *blockEndorsementCollection) fromProto(ctx context.Context, blockPro *endorsementpb.BlockEndorsementCollection) error {
 	bc.endorsers = make(map[string]*endorserEndorsementCollection)
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
-		// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
-		blk, err := block.NewDeserializer(config.EVMNetworkID()).FromBlockProto(blockPro.Blk)
+		blk, err := block.NewDeserializer(mustGetEvmNetworkIDFromCtx(ctx)).FromBlockProto(blockPro.Blk)
 		if err != nil {
 			return err
 		}
@@ -226,7 +225,7 @@ type endorsementManager struct {
 	cachedMintedBlk *block.Block
 }
 
-func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
+func newEndorsementManager(ctx context.Context, eManagerDB db.KVStore) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
 			eManagerDB:      nil,
@@ -243,7 +242,7 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 		if err = proto.Unmarshal(bytes, managerProto); err != nil {
 			return nil, err
 		}
-		if err = manager.fromProto(managerProto); err != nil {
+		if err = manager.fromProto(ctx, managerProto); err != nil {
 			return nil, err
 		}
 		manager.eManagerDB = eManagerDB
@@ -281,18 +280,17 @@ func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorit
 	m.isMajorityFunc = isMajorityFunc
 }
 
-func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
+func (m *endorsementManager) fromProto(ctx context.Context, managerPro *endorsementpb.EndorsementManager) error {
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
 		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block); err != nil {
+		if err := bc.fromProto(ctx, block); err != nil {
 			return err
 		}
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	if managerPro.CachedMintedBlk != nil {
-		// TODO: pass the correct EVM network ID at time of newConsensus() or from ctx
-		blk, err := block.NewDeserializer(config.EVMNetworkID()).FromBlockProto(managerPro.CachedMintedBlk)
+		blk, err := block.NewDeserializer(mustGetEvmNetworkIDFromCtx(ctx)).FromBlockProto(managerPro.CachedMintedBlk)
 		if err != nil {
 			return err
 		}

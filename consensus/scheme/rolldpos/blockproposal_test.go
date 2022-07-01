@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -39,7 +40,8 @@ func TestNewBlockProposal(t *testing.T) {
 	require.NoError(err)
 
 	bp3 := newBlockProposal(nil, nil)
-	require.NoError(bp3.LoadProto(pro))
+	ctx := withEvmNetworkIDCtx(context.Background(), 0)
+	require.NoError(bp3.LoadProto(ctx, pro))
 	pro3, err := bp3.Proto()
 	require.NoError(err)
 	require.EqualValues(pro, pro3)
