@@ -63,9 +63,9 @@ func TestGrpcServer_GetActionsByAddress(t *testing.T) {
 
 		core.EXPECT().ActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
 
-		res, err := grpcSvr.GetActions(context.Background(), request)
+		result, err := grpcSvr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(uint64(test.numActions), res.Total)
+		require.Equal(uint64(test.numActions), result.Total)
 	}
 }
 
@@ -98,9 +98,9 @@ func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 
 		core.EXPECT().UnconfirmedActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
 
-		res, err := grpcSvr.GetActions(context.Background(), request)
+		result, err := grpcSvr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(uint64(test.numActions), res.Total)
+		require.Equal(uint64(test.numActions), result.Total)
 	}
 }
 
