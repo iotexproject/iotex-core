@@ -9,7 +9,6 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -66,7 +65,7 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 			}
 			byteAsJSON, err := json.MarshalIndent(delegateList, "", "  ")
 			if err != nil {
-				log.Panic(err)
+				return err
 			}
 			cmd.Printf("EpochNumber : %d, IntensityRate : %d%%\nProbationList : %s",
 				epochNum,
