@@ -31,15 +31,16 @@ var (
 	}
 	_bcBucketListCmdLongs = map[config.Language]string{
 		config.English: "Read bucket list\nValid methods: [" +
-			voter + ", " + candidate + "]",
+			MethodVoter + ", " + MethodCandidate + "]",
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表\n可用方法有：" +
-			voter + "，" + candidate,
+			MethodVoter + "，" + MethodCandidate,
 	}
 )
 
+// constants
 const (
-	voter     = "Voter"
-	candidate = "Cand"
+	MethodVoter     = "voter"
+	MethodCandidate = "cand"
 )
 
 // NewBCBucketListCmd represents the bc bucketlist command
@@ -81,13 +82,13 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 				}
 			}
 			switch method {
-			case voter:
+			case MethodVoter:
 				address, err = client.AddressWithDefaultIfNotExist(addr)
 				if err != nil {
 					return err
 				}
 				bl, err = getBucketListByVoterAddress(client, address, uint32(offset), uint32(limit))
-			case candidate:
+			case MethodCandidate:
 				bl, err = getBucketListByCandidateName(client, addr, uint32(offset), uint32(limit))
 			default:
 				return errors.New("unknown <method>")
