@@ -19,6 +19,12 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
+// constants
+const (
+	MethodVoter     = "voter"
+	MethodCandidate = "cand"
+)
+
 // Multi-language support
 var (
 	_bcBucketListCmdShorts = map[config.Language]string{
@@ -35,12 +41,6 @@ var (
 		config.Chinese: "根据方法和参数在IoTeX区块链上读取投票列表\n可用方法有：" +
 			MethodVoter + "，" + MethodCandidate,
 	}
-)
-
-// constants
-const (
-	MethodVoter     = "voter"
-	MethodCandidate = "cand"
 )
 
 // NewBCBucketListCmd represents the bc bucketlist command

@@ -29,7 +29,6 @@ func TestNewBCBucketListCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(21)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 	client.EXPECT().Config().Return(config.Config{}).Times(2)
-
 	apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.All()).Return(&iotexapi.ReadStateResponse{}, nil).Times(2)
 
 	t.Run("get bucket list by voter", func(t *testing.T) {
