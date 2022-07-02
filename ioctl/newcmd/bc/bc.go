@@ -11,13 +11,12 @@ import (
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -34,14 +33,6 @@ var (
 		config.English: "bc",
 		config.Chinese: "bc",
 	}
-	_flagEndpointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
-	}
-	_flagInsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全的连接",
-	}
 )
 
 // NewBCCmd represents the bc(block chain) command
@@ -49,26 +40,15 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 	bcShorts, _ := client.SelectTranslation(_bcCmdShorts)
 	bcUses, _ := client.SelectTranslation(_bcCmdUses)
 
-	var endpoint string
-	var insecure bool
-
 	bc := &cobra.Command{
 		Use:   bcUses,
 		Short: bcShorts,
 	}
-
 	bc.AddCommand(NewBCInfoCmd(client))
+	bc.AddCommand(NewBCBlockCmd(client))
 
-	bc.PersistentFlags().StringVar(
-		&endpoint,
-		"endpoint",
-		client.Config().Endpoint,
-		"set endpoint for once")
-	bc.PersistentFlags().BoolVar(&insecure,
-		"insecure",
-		!client.Config().SecureConnect,
-		"insecure connection for once")
-
+	client.SetEndpointWithFlag(bc.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(bc.PersistentFlags().BoolVar)
 	return bc
 }
 
@@ -133,9 +113,7 @@ func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uin
 		Height:     strconv.FormatUint(epochStartHeight, 10),
 	}
 	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
+	if jwtMD, err := util.JwtAuth(); err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
@@ -145,7 +123,7 @@ func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uin
 		if ok && sta.Code() == codes.NotFound {
 			return nil, nil
 		} else if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
