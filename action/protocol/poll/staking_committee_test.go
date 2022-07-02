@@ -62,6 +62,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			Caller: producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
