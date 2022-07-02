@@ -141,7 +141,7 @@ var (
 		{identityset.Address(30).String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
-			8,
+			0,
 			9,
 			9,
 		},
@@ -149,7 +149,7 @@ var (
 			identityset.Address(27).String(),
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999898950",
-			5,
+			0,
 			6,
 			6,
 		},
@@ -2404,7 +2404,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
