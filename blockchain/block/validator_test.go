@@ -33,13 +33,16 @@ func TestValidator(t *testing.T) {
 	v := NewValidator(nil)
 	require.NoError(v.Validate(ctx, blk))
 
-	valid := protocol.NewGenericValidator(nil, func(sr protocol.StateReader, addr address.Address) (*state.Account, error) {
+	valid := protocol.NewGenericValidator(nil, func(ctx context.Context, sr protocol.StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
 		eAddr := pk.Address()
 		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
-		return &state.Account{Nonce: 2}, nil
+		account, err := state.NewAccount()
+		require.NoError(err)
+		require.NoError(account.SetPendingNonce(3))
+		return account, nil
 	})
 
 	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
