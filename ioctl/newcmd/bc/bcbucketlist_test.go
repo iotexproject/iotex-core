@@ -36,14 +36,14 @@ func TestNewBCBucketListCmd(t *testing.T) {
 		cmd := NewBCBucketListCmd(client)
 		result, err := util.ExecuteCmd(cmd, "voter", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
 		require.NoError(err)
-		require.Equal("", result)
+		require.Equal("Empty bucketlist with given address\n", result)
 	})
 
 	t.Run("get bucket list by candidate", func(t *testing.T) {
 		cmd := NewBCBucketListCmd(client)
 		result, err := util.ExecuteCmd(cmd, "cand", "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx")
 		require.NoError(err)
-		require.Equal("", result)
+		require.Equal("Empty bucketlist with given address\n", result)
 	})
 
 	t.Run("invalid voter address", func(t *testing.T) {
