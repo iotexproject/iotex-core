@@ -16,7 +16,6 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestGetWeb3Reqs(t *testing.T) {
@@ -73,8 +72,8 @@ func TestHandlePost(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	svr := NewHTTPServer("", testutil.RandomPort(), NewWeb3Handler(core, ""))
-	getServerResp := func(svr *HTTPServer, req *http.Request) *httptest.ResponseRecorder {
+	svr := newHTTPHandler(NewWeb3Handler(core, ""))
+	getServerResp := func(svr *hTTPHandler, req *http.Request) *httptest.ResponseRecorder {
 		req.Header.Set("Content-Type", "application/json")
 		resp := httptest.NewRecorder()
 		svr.ServeHTTP(resp, req)
