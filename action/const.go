@@ -16,6 +16,7 @@ var (
 	ErrChainID            = errors.New("invalid chainID")
 	ErrExistedInPool      = errors.New("known transaction")
 	ErrReplaceUnderpriced = errors.New("replacement transaction underpriced")
+	ErrSystemActionNonce  = errors.New("invalid system action nonce")
 	ErrNonceTooLow        = errors.New("nonce too low")
 	ErrUnderpriced        = errors.New("transaction underpriced")
 	ErrNegativeValue      = errors.New("negative value")
