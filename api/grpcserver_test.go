@@ -27,7 +27,7 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := NewGRPCServer(core, testutil.RandomPort())
+	grpcSvr := newGRPCHandler(core)
 
 	for _, test := range _getAccountTests {
 		accountMeta := &iotextypes.AccountMeta{
