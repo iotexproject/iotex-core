@@ -54,9 +54,9 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 		core.EXPECT().Actions(gomock.Any(), gomock.Any()).Return(response, nil)
 
-		res, err := grpcSvr.GetActions(context.Background(), request)
+		result, err := grpcSvr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(uint64(test.numActions), res.Total)
+		require.Equal(uint64(test.numActions), result.Total)
 	}
 }
 
