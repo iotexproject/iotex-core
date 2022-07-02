@@ -82,6 +82,7 @@ func TestCreateGenesisStates_WithLifeLong(t *testing.T) {
 	require.NoError(err)
 
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 }
 

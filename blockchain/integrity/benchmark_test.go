@@ -232,7 +232,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 		return nil, nil, err
 	}
 
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	if err != nil {
 		return nil, nil, err
 	}
