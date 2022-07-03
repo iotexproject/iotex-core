@@ -232,7 +232,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 		return nil, nil, err
 	}
 
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -258,8 +258,8 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 	if dao == nil {
 		return nil, nil, errors.New("pointer is nil")
 	}

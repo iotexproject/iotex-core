@@ -71,7 +71,7 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// create server
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
@@ -86,7 +86,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(sf)
 	require.NotNil(ap)
 
-	i27State, err := accountutil.AccountState(sf, identityset.Address(27))
+	i27State, err := accountutil.AccountState(ctx, sf, identityset.Address(27))
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc, ap))
 	require.EqualValues(5, bc.TipHeight())
@@ -104,12 +104,12 @@ func TestLocalCommit(t *testing.T) {
 		{32, "100"},
 		{33, "5242883"},
 	} {
-		s, err := accountutil.AccountState(sf, identityset.Address(v.addrIndex))
+		s, err := accountutil.AccountState(ctx, sf, identityset.Address(v.addrIndex))
 		require.NoError(err)
 		require.Equal(v.balance, s.Balance.String())
 		change.Add(change, s.Balance)
 	}
-	s, err := accountutil.AccountState(sf, identityset.Address(27))
+	s, err := accountutil.AccountState(ctx, sf, identityset.Address(27))
 	require.NoError(err)
 	change.Add(change, s.Balance)
 	change.Sub(change, i27State.Balance)
@@ -157,13 +157,16 @@ func TestLocalCommit(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf2, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
-	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
+	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		factory.NewMinter(sf2, ap2),
-		blockchain.BoltDBDaoOption(sf2),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
@@ -187,8 +190,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 1
 	// C --> A
-	s, _ = accountutil.AccountState(sf, identityset.Address(30))
-	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(30))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf1))
@@ -208,8 +211,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = accountutil.AccountState(sf, identityset.Address(33))
-	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(33))
+	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf2))
@@ -229,8 +232,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = accountutil.AccountState(sf, identityset.Address(29))
-	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(29))
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf3))
@@ -250,8 +253,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = accountutil.AccountState(sf, identityset.Address(27))
-	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(27))
+	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf4))
@@ -293,12 +296,12 @@ func TestLocalCommit(t *testing.T) {
 		{32, "101"},
 		{33, "5242882"},
 	} {
-		s, err = accountutil.AccountState(sf, identityset.Address(v.addrIndex))
+		s, err = accountutil.AccountState(ctx, sf, identityset.Address(v.addrIndex))
 		require.NoError(err)
 		require.Equal(v.balance, s.Balance.String())
 		change.Add(change, s.Balance)
 	}
-	s, err = accountutil.AccountState(sf, identityset.Address(27))
+	s, err = accountutil.AccountState(ctx, sf, identityset.Address(27))
 	require.NoError(err)
 	change.Add(change, s.Balance)
 	change.Sub(change, i27State.Balance)
@@ -474,8 +477,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(nil, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
@@ -497,8 +500,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao = blockdao.NewBlockDAO(nil, cfg.DB)
+	dao = blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{

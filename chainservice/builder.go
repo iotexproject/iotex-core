@@ -218,7 +218,7 @@ func (builder *Builder) createElectionCommittee() (committee.Committee, error) {
 
 func (builder *Builder) buildActionPool() error {
 	if builder.cs.actpool == nil {
-		ac, err := actpool.NewActPool(builder.cs.factory, builder.cfg.ActPool)
+		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
 		}
@@ -250,9 +250,8 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 	} else {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
-		dbConfig.CompressLegacy = builder.cfg.Chain.CompressBlock
-
-		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig)
+		deser := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
+		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
 	}
 
 	return nil

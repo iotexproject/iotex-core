@@ -19,7 +19,9 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
+BUILD_TARGET_NEWIOCTL=newioctl
 BUILD_TARGET_XCTL=xctl
+BUILD_TARGET_NEWXCTL=newxctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
 BUILD_TARGET_IOMIGRATER=iomigrater
@@ -97,6 +99,7 @@ build-staterecoverer:
 .PHONY: fmt
 fmt:
 	$(GOCMD) fmt ./...
+	$(GOCMD) mod tidy
 
 .PHONY: lint
 lint:
@@ -218,6 +221,10 @@ recover:
 .PHONY: ioctl
 ioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+
+.PHONY: newioctl
+newioctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWIOCTL) -v ./tools/newioctl
 	
 .PHONY: ioctl-cross
 ioctl-cross:
@@ -229,9 +236,23 @@ ioctl-cross:
 	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
 	mkdir -p ./bin/$(BUILD_TARGET_IOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_IOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
 
+.PHONY: newioctl-cross
+newioctl-cross:
+	$(DOCKERCMD) pull techknowlogick/xgo:latest
+	$(GOCMD) get src.techknowlogick.com/xgo
+	mkdir -p $(GOPATH)/src
+	sudo cp ./tools/newioctl/ioctl.go $(GOPATH)/src
+	cd $(GOPATH)/src && sudo rm -f go.mod && $(GOCMD) mod init main && $(GOCMD) mod tidy
+	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
+	mkdir -p ./bin/$(BUILD_TARGET_NEWIOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_NEWIOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
+
 .PHONY: xctl
 xctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/xctl
+
+.PHONY: newxctl
+newxctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_NEWXCTL) -v ./tools/newxctl
 
 .PHONY: iomigrater
 iomigrater:

@@ -58,9 +58,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-const (
-	_workerNumbers = 5
-)
+const _workerNumbers int = 5
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
@@ -253,7 +251,8 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
-	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -270,10 +269,10 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	// TODO: deprecate nonce field in account meta
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      addrStr,
 		Balance:      state.Balance.String(),
-		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
 		IsContract:   state.IsContract(),
@@ -455,14 +454,15 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 			return res.Data, res.Receipt, nil
 		}
 	}
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-	sc.SetNonce(state.Nonce + 1)
+	sc.SetNonce(state.PendingNonce())
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
 		sc.SetGasLimit(blockGasLimit)
@@ -1041,7 +1041,10 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{blk, receipts}, nil
+	return &block.Store{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
@@ -1101,45 +1104,6 @@ func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockM
 		}
 	}
 	return generateBlockMeta(blk), nil
-}
-
-// generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
-	header := blk.Header
-	height := header.Height()
-	ts := timestamppb.New(header.Timestamp())
-	var (
-		producerAddress string
-		h               hash.Hash256
-	)
-	if blk.Height() > 0 {
-		producerAddress = header.ProducerAddress()
-		h = header.HashBlock()
-	} else {
-		h = block.GenesisHash()
-	}
-	txRoot := header.TxRoot()
-	receiptRoot := header.ReceiptRoot()
-	deltaStateDigest := header.DeltaStateDigest()
-	prevHash := header.PrevHash()
-
-	blockMeta := iotextypes.BlockMeta{
-		Hash:              hex.EncodeToString(h[:]),
-		Height:            height,
-		Timestamp:         ts,
-		ProducerAddress:   producerAddress,
-		TxRoot:            hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
-		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
-	}
-	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
-		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
-	}
-	blockMeta.NumActions = int64(len(blk.Actions))
-	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
-	return &blockMeta
 }
 
 // GasLimitAndUsed returns the gas limit and used in a block
@@ -1404,11 +1368,12 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetNonce(state.Nonce + 1)
+	sc.SetNonce(state.PendingNonce())
 	sc.SetGasPrice(big.NewInt(0))
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	sc.SetGasLimit(blockGasLimit)
@@ -1595,7 +1560,8 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 }
 
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
-	state, err := accountutil.AccountState(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1604,7 +1570,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	// TODO (liuhaai): Use original nonce and gas limit properly
-	exec.SetNonce(state.Nonce + 1)
+	exec.SetNonce(state.PendingNonce())
 	if err != nil {
 		return nil, nil, err
 	}
