@@ -116,7 +116,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(msg, r.ctx.evmNetworkID); err != nil {
+	if err := endorsedMessage.LoadProto(msg, r.ctx.blockDeserializer); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
@@ -235,7 +235,7 @@ type Builder struct {
 	encodedAddr       string
 	priKey            crypto.PrivateKey
 	chain             ChainManager
-	blockDeserializer block.Deserializer
+	blockDeserializer *block.Deserializer
 	broadcastHandler  scheme.Broadcast
 	clock             clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
@@ -273,8 +273,8 @@ func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 }
 
 // SetBlockDeserializer set block deserializer
-func (b *Builder) SetBlockDeserializer(deseralizer *block.Deserializer) *Builder {
-	b.blockDeserializer = *deseralizer
+func (b *Builder) SetBlockDeserializer(deserializer *block.Deserializer) *Builder {
+	b.blockDeserializer = deserializer
 	return b
 }
 
@@ -323,7 +323,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,
-		b.blockDeserializer.EvmNetworkID(),
+		b.blockDeserializer,
 		b.rp,
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,

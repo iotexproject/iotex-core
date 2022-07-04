@@ -61,8 +61,8 @@ func (bp *blockProposal) ProposerAddress() string {
 	return bp.block.ProducerAddress()
 }
 
-func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal, evmNetworkID uint32) error {
-	blk, err := block.NewDeserializer(evmNetworkID).FromBlockProto(msg.Block)
+func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal, deserializer *block.Deserializer) error {
+	blk, err := deserializer.FromBlockProto(msg.Block)
 	if err != nil {
 		return err
 	}

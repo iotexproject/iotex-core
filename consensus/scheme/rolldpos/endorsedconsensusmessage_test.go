@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -33,7 +34,7 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	pb, err := endorsedMessage.Proto()
 	require.NoError(err)
 	cem := &EndorsedConsensusMessage{}
-	require.NoError(cem.LoadProto(pb, 0))
+	require.NoError(cem.LoadProto(pb, block.NewDeserializer(0)))
 	require.Equal(uint64(10), cem.Height())
 	cvote, ok := cem.Document().(*ConsensusVote)
 	require.True(ok)

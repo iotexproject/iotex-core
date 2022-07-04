@@ -14,6 +14,7 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -75,7 +76,7 @@ type rollDPoSCtx struct {
 
 	// TODO: explorer dependency deleted at #1085, need to add api params here
 	chain             ChainManager
-	evmNetworkID      uint32
+	blockDeserializer *block.Deserializer
 	broadcastHandler  scheme.Broadcast
 	roundCalc         *roundCalculator
 	eManagerDB        db.KVStore
@@ -96,7 +97,7 @@ func newRollDPoSCtx(
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
 	chain ChainManager,
-	evmNetworkID uint32,
+	blockDeserializer *block.Deserializer,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc DelegatesByEpochFunc,
@@ -144,7 +145,7 @@ func newRollDPoSCtx(
 		encodedAddr:       encodedAddr,
 		priKey:            priKey,
 		chain:             chain,
-		evmNetworkID:      evmNetworkID,
+		blockDeserializer: blockDeserializer,
 		broadcastHandler:  broadcastHandler,
 		clock:             clock,
 		roundCalc:         roundCalc,
@@ -159,7 +160,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.evmNetworkID)
+		eManager, err = newEndorsementManager(ctx.eManagerDB, ctx.blockDeserializer)
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
