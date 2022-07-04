@@ -104,7 +104,7 @@ func NewConsensus(
 			SetPriKey(cfg.ProducerPrivateKey()).
 			SetConfig(cfg).
 			SetChainManager(bc).
-			SetEvmNetworkID(bc.EvmNetworkID()).
+			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {

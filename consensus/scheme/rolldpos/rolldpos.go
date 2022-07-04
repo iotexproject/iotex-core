@@ -232,12 +232,12 @@ func (r *RollDPoS) Active() bool {
 type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
-	encodedAddr      string
-	priKey           crypto.PrivateKey
-	chain            ChainManager
-	evmNetworkID     uint32
-	broadcastHandler scheme.Broadcast
-	clock            clock.Clock
+	encodedAddr       string
+	priKey            crypto.PrivateKey
+	chain             ChainManager
+	blockDeserializer block.Deserializer
+	broadcastHandler  scheme.Broadcast
+	clock             clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc DelegatesByEpochFunc
@@ -272,9 +272,9 @@ func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 	return b
 }
 
-// SetEvmNetworkID sets the evm network ID context
-func (b *Builder) SetEvmNetworkID(evmNetworkID uint32) *Builder {
-	b.evmNetworkID = evmNetworkID
+// SetBlockDeserializer set block deserializer
+func (b *Builder) SetBlockDeserializer(deseralizer *block.Deserializer) *Builder {
+	b.blockDeserializer = *deseralizer
 	return b
 }
 
@@ -323,6 +323,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,
+		b.blockDeserializer.EvmNetworkID(),
 		b.rp,
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,
