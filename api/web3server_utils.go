@@ -17,13 +17,13 @@ import (
 	"github.com/iotexproject/go-pkgs/util"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
@@ -62,40 +62,37 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func (svr *web3Handler) getBlockWithTransactions(blkMeta *iotextypes.BlockMeta, isDetailed bool) (*getBlockResult, error) {
+func (svr *web3Handler) getBlockWithTransactions(blkStore *block.Store, isDetailed bool) (*getBlockResult, error) {
+	if blkStore == nil || blkStore.Block == nil || blkStore.Receipts == nil {
+		return nil, errInvalidBlock
+	}
 	transactions := make([]interface{}, 0)
-	if blkMeta.Height > 0 {
-		blkStore, err := svr.coreService.BlockByHash(blkMeta.Hash)
-		if err != nil {
-			return nil, err
-		}
-		for i, selp := range blkStore.Block.Actions {
-			if isDetailed {
-				tx, err := svr.getTransactionFromActionInfo(blkMeta.Hash, selp, blkStore.Receipts[i])
-				if err != nil {
-					if errors.Cause(err) != errUnsupportedAction {
-						h, _ := selp.Hash()
-						log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("actHash", hex.EncodeToString(h[:])))
-					}
-					continue
+	for i, selp := range blkStore.Block.Actions {
+		if isDetailed {
+			tx, err := svr.getTransactionFromActionInfo(blkStore.Block.HashBlock(), selp, blkStore.Receipts[i])
+			if err != nil {
+				if errors.Cause(err) != errUnsupportedAction {
+					h, _ := selp.Hash()
+					log.Logger("api").Error("failed to get info from action", zap.Error(err), zap.String("actHash", hex.EncodeToString(h[:])))
 				}
-				transactions = append(transactions, tx)
-			} else {
-				actHash, err := selp.Hash()
-				if err != nil {
-					return nil, err
-				}
-				transactions = append(transactions, "0x"+hex.EncodeToString(actHash[:]))
+				continue
 			}
+			transactions = append(transactions, tx)
+		} else {
+			actHash, err := selp.Hash()
+			if err != nil {
+				return nil, err
+			}
+			transactions = append(transactions, "0x"+hex.EncodeToString(actHash[:]))
 		}
 	}
 	return &getBlockResult{
-		blkMeta:      blkMeta,
+		blk:          blkStore.Block,
 		transactions: transactions,
 	}, nil
 }
 
-func (svr *web3Handler) getTransactionFromActionInfo(blkHash string, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
+func (svr *web3Handler) getTransactionFromActionInfo(blkHash hash.Hash256, selp action.SealedEnvelope, receipt *action.Receipt) (*getTransactionResult, error) {
 	// sanity check
 	if receipt == nil {
 		return nil, errors.New("receipt is empty")
@@ -117,9 +114,8 @@ func (svr *web3Handler) getTransactionFromActionInfo(blkHash string, selp action
 	if err != nil {
 		return nil, err
 	}
-	bkhash, _ := hash.HexStringToHash256(blkHash)
 	return &getTransactionResult{
-		blockHash: bkhash,
+		blockHash: blkHash,
 		to:        to,
 		ethTx:     ethTx,
 		receipt:   receipt,

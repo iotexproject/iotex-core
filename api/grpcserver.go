@@ -210,7 +210,7 @@ func (svr *gRPCHandler) GetActions(ctx context.Context, in *iotexapi.GetActionsR
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(ret)),
@@ -275,18 +275,25 @@ func (svr *gRPCHandler) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlock
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
-		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
+		blkStores, err := svr.coreService.BlockByHeightRange(request.Start, request.Count)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		for _, blkStore := range blkStores {
+			ret = append(ret, generateBlockMeta(blkStore))
+		}
 	case in.GetByHash() != nil:
-		var blkMeta *iotextypes.BlockMeta
+		var blkStore *block.Store
 		request := in.GetByHash()
-		blkMeta, err = svr.coreService.BlockMetaByHash(request.BlkHash)
-		ret = []*iotextypes.BlockMeta{blkMeta}
+		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		ret = []*iotextypes.BlockMeta{generateBlockMeta(blkStore)}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    uint64(len(ret)),
 		BlkMetas: ret,
@@ -707,7 +714,8 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 }
 
 // generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+func generateBlockMeta(blkStore *block.Store) *iotextypes.BlockMeta {
+	blk := blkStore.Block
 	header := blk.Header
 	height := header.Height()
 	ts := timestamppb.New(header.Timestamp())
@@ -741,6 +749,17 @@ func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	}
 	blockMeta.NumActions = int64(len(blk.Actions))
 	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk.Actions, blkStore.Receipts)
 	return &blockMeta
+}
+
+func gasLimitAndUsed(acts []action.SealedEnvelope, receipts []*action.Receipt) (uint64, uint64) {
+	var gasLimit, gasUsed uint64
+	for _, tx := range acts {
+		gasLimit += tx.GasLimit()
+	}
+	for _, r := range receipts {
+		gasUsed += r.GasConsumed
+	}
+	return gasLimit, gasUsed
 }
