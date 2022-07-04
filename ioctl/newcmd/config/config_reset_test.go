@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -25,4 +26,5 @@ func TestConfigReset(t *testing.T) {
 	result, err := util.ExecuteCmd(cmd, "reset")
 	require.NoError(err)
 	require.Contains(result, "successfully reset config")
+	require.NoError(os.Remove("config.default"))
 }

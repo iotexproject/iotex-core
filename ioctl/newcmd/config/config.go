@@ -97,7 +97,6 @@ func InitConfig() (config.Config, string, error) {
 	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
 		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
-
 	return info.readConfig, info.defaultConfigFile, nil
 }
 
