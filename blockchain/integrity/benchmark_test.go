@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -220,7 +221,7 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableArchiveMode = true
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Genesis.BlockGasLimit = config.Default.Genesis.BlockGasLimit * 100
+	cfg.Genesis.BlockGasLimit = genesis.Default.BlockGasLimit * 100
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.ActPool.MaxNumActsPerAcct = 1000000000
 	cfg.Genesis.EnableGravityChainVoting = false

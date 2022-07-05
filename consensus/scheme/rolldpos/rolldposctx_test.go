@@ -49,9 +49,9 @@ func TestRollDPoSCtx(t *testing.T) {
 	})
 
 	rp := rolldpos.NewProtocol(
-		config.Default.Genesis.NumCandidateDelegates,
-		config.Default.Genesis.NumDelegates,
-		config.Default.Genesis.NumSubEpochs,
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
 		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
@@ -75,7 +75,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
-		bh := config.Default.Genesis.BeringBlockHeight
+		bh := genesis.Default.BeringBlockHeight
 		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
 		require.NoError(err)
 		require.Equal(bh, rctx.roundCalc.beringHeight)
@@ -139,7 +139,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		"",
 		nil,
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -212,7 +212,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		"",
 		nil,
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -324,7 +324,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		"",
 		identityset.PrivateKey(10),
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)

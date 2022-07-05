@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -38,7 +37,7 @@ import (
 func TestValidateExtension(t *testing.T) {
 	r := require.New(t)
 
-	g := config.Default.Genesis.Rewarding
+	g := genesis.Default.Rewarding
 	r.NoError(validateFoundationBonusExtension(g))
 
 	last := g.FoundationBonusP2StartEpoch
@@ -58,7 +57,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	registry := protocol.NewRegistry()
 	sm := testdb.NewMockStateManager(ctrl)
 
-	g := config.Default.Genesis
+	g := genesis.Default
 	// Create a test account with 1000 token
 	g.InitBalanceMap[identityset.Address(28).String()] = "1000"
 	g.Rewarding.InitBalanceStr = "0"
@@ -220,7 +219,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 }
 
 func TestProtocol_Validate(t *testing.T) {
-	g := config.Default.Genesis
+	g := genesis.Default
 	g.NewfoundlandBlockHeight = 0
 	p := NewProtocol(g.Rewarding)
 	act := createGrantRewardAction(0, uint64(0)).Action()
@@ -274,7 +273,7 @@ func TestProtocol_Validate(t *testing.T) {
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	g := config.Default.Genesis
+	g := genesis.Default
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()

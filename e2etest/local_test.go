@@ -332,7 +332,7 @@ func TestLocalSync(t *testing.T) {
 	// bootnode
 	ctx := context.Background()
 	bootnodePort := testutil.RandomPort()
-	bootnode := p2p.NewAgent(p2p.Network{
+	bootnode := p2p.NewAgent(p2p.Config{
 		Host:              "127.0.0.1",
 		Port:              bootnodePort,
 		ReconnectInterval: 150 * time.Second},

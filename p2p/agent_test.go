@@ -70,7 +70,7 @@ func TestBroadcast(t *testing.T) {
 	}
 	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
 	bootnodePort := testutil.RandomPort()
-	bootnode := NewAgent(Network{
+	bootnode := NewAgent(Config{
 		Host:              "127.0.0.1",
 		Port:              bootnodePort,
 		ReconnectInterval: 150 * time.Second,
@@ -89,7 +89,7 @@ func TestBroadcast(t *testing.T) {
 	r.NoError(err)
 	for i := 0; i < n; i++ {
 		port := bootnodePort + i + 1
-		agent := NewAgent(Network{
+		agent := NewAgent(Config{
 			Host:              "127.0.0.1",
 			Port:              port,
 			BootstrapNodes:    []string{addrs[0].String()},
@@ -152,7 +152,7 @@ func TestUnicast(t *testing.T) {
 		src = peer.ID.Pretty()
 	}
 
-	bootnode := NewAgent(Network{
+	bootnode := NewAgent(Config{
 		Host:              "127.0.0.1",
 		Port:              testutil.RandomPort(),
 		ReconnectInterval: 150 * time.Second,
@@ -162,7 +162,7 @@ func TestUnicast(t *testing.T) {
 	addrs, err := bootnode.Self()
 	r.NoError(err)
 	for i := 0; i < n; i++ {
-		agent := NewAgent(Network{
+		agent := NewAgent(Config{
 			Host:              "127.0.0.1",
 			Port:              testutil.RandomPort(),
 			BootstrapNodes:    []string{addrs[0].String()},

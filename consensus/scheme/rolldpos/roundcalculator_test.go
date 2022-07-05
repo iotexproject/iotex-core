@@ -244,7 +244,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 						},
 					},
 				),
-				config.Default.Genesis,
+				genesis.Default,
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
