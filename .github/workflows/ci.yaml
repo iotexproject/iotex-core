@@ -16,7 +16,7 @@ env:
 
 jobs:
   ci:
-    name: ci flow
+    name: build_test_docker
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
@@ -38,7 +38,7 @@ jobs:
       #   with:
       #     args: ./...
 
-      - name: run-test
+      - name: Run Test
         id: unittest
         shell: bash
         run: |
@@ -49,7 +49,7 @@ jobs:
           go test -run=XXX -bench=. $(go list ./crypto)
           bash <(curl -s https://codecov.io/bash)
 
-      - name: make-minicluster
+      - name: Make Minicluster
         id: minicluster
         shell: bash
         run: |
