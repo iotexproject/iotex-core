@@ -34,12 +34,12 @@ jobs:
           tool_name: errcheck
           level: info
 
-      - name: Gosec Security Scanner
-        shell: bash
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+      # - name: Gosec Security Scanner
+      #   shell: bash
+      #   run: |
+      #     go install github.com/securego/gosec/v2/cmd/gosec@latest
 
-          gosec -include=G101,G103,G104,G401  ./...
+      #     gosec -include=G101,G103,G104,G401  ./...
 
       - name: Run Test
         id: unittest
