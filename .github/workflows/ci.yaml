@@ -35,9 +35,11 @@ jobs:
           level: info
 
       - name: Gosec Security Scanner
-        uses: securego/gosec@master
-        with:
-          args: -include=G101,G103,G104,G401  ./...
+        shell: bash
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+          gosec -include=G101,G103,G104,G401  ./...
 
       - name: Run Test
         id: unittest
