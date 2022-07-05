@@ -79,8 +79,8 @@ type (
 	// HandleUnicastInboundAsync handles unicast message when agent listens it from the network
 	HandleUnicastInboundAsync func(context.Context, uint32, peer.AddrInfo, proto.Message)
 
-	// Network is the config of p2p
-	Network struct {
+	// Config is the config of p2p
+	Config struct {
 		Host           string   `yaml:"host"`
 		Port           int      `yaml:"port"`
 		ExternalHost   string   `yaml:"externalHost"`
@@ -115,7 +115,7 @@ type (
 
 	agent struct {
 		ctx                        context.Context
-		cfg                        Network
+		cfg                        Config
 		chainID                    uint32
 		topicSuffix                string
 		broadcastInboundHandler    HandleBroadcastInbound
@@ -129,7 +129,7 @@ type (
 )
 
 // DefaultConfig is the default config of p2p
-var DefaultConfig = Network{
+var DefaultConfig = Config{
 	Host:              "0.0.0.0",
 	Port:              4689,
 	ExternalHost:      "",
@@ -176,7 +176,7 @@ func (*dummyAgent) Neighbors(ctx context.Context) ([]peer.AddrInfo, error) {
 }
 
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg Network, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
+func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) Agent {
 	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
 	return &agent{
 		cfg:     cfg,
