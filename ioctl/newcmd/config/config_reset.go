@@ -14,13 +14,13 @@ import (
 )
 
 // NewConfigReset resets the config to the default values
-func NewConfigReset(client ioctl.Client) *cobra.Command {
+func NewConfigReset(client ioctl.Client, defaultConfigFileName string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "reset",
 		Short: "Reset config to default",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			info := newInfo(client.Config(), _defaultConfigFileName)
+			info := newInfo(client.Config(), defaultConfigFileName)
 			err := info.reset()
 			if err != nil {
 				return errors.Wrap(err, "failed to reset config")

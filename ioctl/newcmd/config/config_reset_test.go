@@ -1,7 +1,7 @@
 package config
 
 import (
-	"os"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -10,21 +10,59 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestConfigReset(t *testing.T) {
+func TestConfigResetCommand(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().Config().Return(config.Config{})
-	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
+	client.EXPECT().Config().Return(config.Config{}).Times(2)
 
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(1)
+	t.Run("successful config reset", func(t *testing.T) {
+		cmd := NewConfigReset(client, _defaultConfigFileName)
+		result, err := util.ExecuteCmd(cmd, "reset")
+		require.NoError(err)
+		require.Contains(result, "successfully reset config")
 
-	cmd := NewConfigReset(client)
-	result, err := util.ExecuteCmd(cmd, "reset")
+		defer testutil.CleanupPath("config.default")
+	})
+
+	t.Run("config reset error", func(t *testing.T) {
+		// use invalid file name to force error
+		cmd := NewConfigReset(client, "\x00")
+		_, err := util.ExecuteCmd(cmd, "reset")
+		require.Error(err)
+	})
+}
+
+func TestConfigReset(t *testing.T) {
+	require := require.New(t)
+
+	info := newInfo(config.Config{
+		Wallet:           "wallet",
+		Endpoint:         "testEndpoint",
+		SecureConnect:    false,
+		DefaultAccount:   config.Context{AddressOrAlias: ""},
+		Explorer:         "explorer",
+		Language:         "RandomLanguage",
+		AnalyserEndpoint: "testAnalyser",
+	}, _defaultConfigFileName)
+
+	require.NoError(info.reset())
+
+	config.DefaultConfigFile = _defaultConfigFileName
+	cfg, err := config.LoadConfig()
 	require.NoError(err)
-	require.Contains(result, "successfully reset config")
-	require.NoError(os.Remove("config.default"))
+
+	// ensure config has been reset
+	assert.Equal(t, ".", cfg.Wallet)
+	assert.Equal(t, "", cfg.Endpoint)
+	assert.Equal(t, true, cfg.SecureConnect)
+	assert.Equal(t, "English", cfg.Language)
+	assert.Equal(t, _defaultAnalyserEndpoint, cfg.AnalyserEndpoint)
+	assert.Equal(t, "iotexscan", cfg.Explorer)
+	assert.Equal(t, *new(config.Context), cfg.DefaultAccount)
+
+	defer testutil.CleanupPath("config.default")
 }
