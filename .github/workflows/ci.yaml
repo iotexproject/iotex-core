@@ -3,8 +3,8 @@ name: ci
 on:
   pull_request:
     branches: [master]
-  push:
-    branches: [ops]
+#  push:
+#    branches: [ops]
 
 permissions:
   contents: read
