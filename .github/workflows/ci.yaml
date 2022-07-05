@@ -36,6 +36,8 @@ jobs:
 
       - name: Gosec Security Scanner
         uses: securego/gosec@master
+        with:
+          args: -include=G101,G103,G104,G401  ./...
 
       - name: Run Test
         id: unittest
