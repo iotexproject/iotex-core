@@ -45,7 +45,10 @@ jobs:
           go get -u golang.org/x/lint/golint
           golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
           go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
-          ./go.test.sh
+
+          #./go.test.sh
+          make test
+
           go test -run=XXX -bench=. $(go list ./crypto)
           bash <(curl -s https://codecov.io/bash)
 
