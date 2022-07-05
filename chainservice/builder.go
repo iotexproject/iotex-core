@@ -218,7 +218,7 @@ func (builder *Builder) createElectionCommittee() (committee.Committee, error) {
 
 func (builder *Builder) buildActionPool() error {
 	if builder.cs.actpool == nil {
-		ac, err := actpool.NewActPool(builder.cs.factory, builder.cfg.ActPool)
+		ac, err := actpool.NewActPool(builder.cfg.Genesis, builder.cs.factory, builder.cfg.ActPool)
 		if err != nil {
 			return errors.Wrap(err, "failed to create actpool")
 		}

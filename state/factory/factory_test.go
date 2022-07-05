@@ -130,7 +130,7 @@ func testRevert(ws *workingSet, t *testing.T) {
 	s0 := ws.Snapshot()
 	require.Equal(1, s0)
 
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(10), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
@@ -151,7 +151,7 @@ func testSDBRevert(ws *workingSet, t *testing.T) {
 	s0 := ws.Snapshot()
 	require.Equal(1, s0)
 
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(10), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
@@ -177,13 +177,13 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
 	require.Zero(s0)
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(10), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
 	s1 := ws.Snapshot()
 	require.Equal(1, s1)
-	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.NoError(s.AddBalance(big.NewInt(5)))
 	require.Equal(big.NewInt(15), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
 	require.NoError(err)
@@ -193,7 +193,7 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
 	require.Equal(2, s2)
-	s.AddBalance(big.NewInt(6))
+	require.NoError(s.AddBalance(big.NewInt(6)))
 	require.Equal(big.NewInt(13), s.Balance)
 	_, err = ws.PutState(s, protocol.LegacyKeyOption(tHash))
 	require.NoError(err)
@@ -447,7 +447,7 @@ func testState(sf Factory, t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), identityset.Address(31).String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -468,13 +468,13 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	//test AccountState() & State()
-	var testAccount state.Account
-	accountA, err := accountutil.AccountState(sf, a)
+	testAccount := &state.Account{}
+	accountA, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	_, err = sf.State(&testAccount, protocol.LegacyKeyOption(sHash))
+	_, err = sf.State(testAccount, protocol.LegacyKeyOption(sHash))
 	require.NoError(t, err)
-	require.Equal(t, accountA, &testAccount)
+	require.Equal(t, accountA, testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 }
 
@@ -502,16 +502,16 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	accountA, err := accountutil.AccountState(sf, a)
+	accountA, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	accountB, err := accountutil.AccountState(sf, b)
+	accountB, err := accountutil.AccountState(ctx, sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(100), accountA.Balance)
 	require.Equal(t, big.NewInt(0), accountB.Balance)
 	tsf, err := action.NewTransfer(1, big.NewInt(10), b.String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -535,9 +535,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	// check latest balance
-	accountA, err = accountutil.AccountState(sf, a)
+	accountA, err = accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	accountB, err = accountutil.AccountState(sf, b)
+	accountB, err = accountutil.AccountState(ctx, sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 	require.Equal(t, big.NewInt(10), accountB.Balance)
@@ -545,20 +545,20 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// check archive data
 	if statetx {
 		// statetx not support archive mode
-		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
+		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
+		_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
 		if !archive {
-			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
+			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
-			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
+			_, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
-			accountA, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
+			accountA, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), a)
 			require.NoError(t, err)
-			accountB, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
+			accountB, err = accountutil.AccountState(ctx, NewHistoryStateReader(sf, 0), b)
 			require.NoError(t, err)
 			require.Equal(t, big.NewInt(100), accountA.Balance)
 			require.Equal(t, big.NewInt(0), accountB.Balance)
@@ -595,7 +595,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -780,9 +780,9 @@ func testNonce(sf Factory, t *testing.T) {
 	})
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
-	state, err := accountutil.AccountState(sf, a)
+	state, err := accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), state.Nonce)
+	require.Equal(t, uint64(1), state.PendingNonce())
 
 	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -800,9 +800,9 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, sf.PutBlock(ctx, &blk))
-	state, err = accountutil.AccountState(sf, a)
+	state, err = accountutil.AccountState(ctx, sf, a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), state.Nonce)
+	require.Equal(t, uint64(2), state.PendingNonce())
 }
 
 func TestLoadStoreHeight(t *testing.T) {
@@ -1206,14 +1206,15 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 
 	// test PutState()
 	hashA := hash.BytesToHash160(identityset.Address(28).Bytes())
-	accountA := state.EmptyAccount()
-	accountA.Balance = big.NewInt(70)
-	_, err := ws.PutState(accountA, protocol.LegacyKeyOption(hashA))
+	accountA, err := state.NewAccount()
+	require.NoError(err)
+	require.NoError(accountA.AddBalance(big.NewInt(70)))
+	_, err = ws.PutState(accountA, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 
 	// test State()
-	testAccount := state.EmptyAccount()
-	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	testAccount := &state.Account{}
+	_, err = ws.State(testAccount, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 	require.Equal(accountA, testAccount)
 
@@ -1222,7 +1223,7 @@ func testCachedBatch(ws *workingSet, t *testing.T) {
 	require.NoError(err)
 
 	// can't state account "alfa" anymore
-	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	_, err = ws.State(testAccount, protocol.LegacyKeyOption(hashA))
 	require.Error(err)
 }
 
@@ -1355,16 +1356,17 @@ func TestStateDBPatch(t *testing.T) {
 func TestDeleteAndPutSameKey(t *testing.T) {
 	testDeleteAndPutSameKey := func(t *testing.T, ws *workingSet) {
 		key := hash.Hash160b([]byte("test"))
-		acc := state.Account{
-			Nonce: 1,
-		}
-		_, err := ws.PutState(acc, protocol.LegacyKeyOption(key))
+		acc, err := state.NewAccount()
+		require.NoError(t, err)
+		require.NoError(t, acc.SetPendingNonce(1))
+		require.NoError(t, acc.SetPendingNonce(2))
+		_, err = ws.PutState(acc, protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
 		_, err = ws.DelState(protocol.LegacyKeyOption(key))
 		require.NoError(t, err)
-		_, err = ws.State(&acc, protocol.LegacyKeyOption(key))
+		_, err = ws.State(acc, protocol.LegacyKeyOption(key))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
-		_, err = ws.State(&acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
+		_, err = ws.State(acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
 	}
 	ctx := genesis.WithGenesisContext(
@@ -1380,6 +1382,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	})
 	t.Run("stateTx", func(t *testing.T) {
 		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+		require.NoError(t, err)
 		ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
@@ -1678,7 +1681,7 @@ func benchState(sf Factory, b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = accountutil.AccountState(sf, addr)
+		_, err = accountutil.AccountState(zctx, sf, addr)
 		if err != nil {
 			b.Fatal(err)
 		}

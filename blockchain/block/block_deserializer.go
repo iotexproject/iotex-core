@@ -33,6 +33,9 @@ func NewDeserializer(evmNetworkID uint32) *Deserializer {
 	}
 }
 
+// EvmNetworkID get evm network ID
+func (bd *Deserializer) EvmNetworkID() uint32 { return bd.evmNetworkID }
+
 // SetEvmNetworkID sets the evm network ID for web3 actions
 func (bd *Deserializer) SetEvmNetworkID(id uint32) *Deserializer {
 	bd.evmNetworkID = id
