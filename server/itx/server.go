@@ -234,6 +234,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	if cfg.System.HTTPAdminPort > 0 {
 		mux := http.NewServeMux()
 		log.RegisterLevelConfigMux(mux)
+		// zlog.RegisterLevelConfigMux(mux)
 		haCtl := ha.New(svr.rootChainService.Consensus())
 		mux.Handle("/ha", http.HandlerFunc(haCtl.Handle))
 		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))

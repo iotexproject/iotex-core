@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -170,5 +171,8 @@ func main() {
 
 func initLogger(cfg config.Config) error {
 	addr := cfg.ProducerAddress()
+	log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
+		zap.String("ioAddr", addr.String()),
+	))
 	return zlog.InitLoggers(cfg.Log, cfg.SubLogs, map[string]interface{}{"ioAddr": addr.String()})
 }

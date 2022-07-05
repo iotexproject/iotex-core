@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
 
@@ -401,7 +402,7 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
-	log.L().Info("Add a subscriber.")
+	zlog.L().Info().Msg("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
 	}

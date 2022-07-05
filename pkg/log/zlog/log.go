@@ -36,7 +36,7 @@ var (
 	_logMu            sync.RWMutex
 	_logServeMux      = http.NewServeMux()
 	_subLoggers       map[string]*zerolog.Logger
-	_globalLoggerName = "global"
+	_globalLoggerName = "zlogglobal"
 )
 
 func init() {
@@ -82,7 +82,6 @@ func InitLoggers(globalCfg zaplog.GlobalConfig, subCfgs map[string]zaplog.Global
 		}
 		log.Logger = log.Output(zerolog.MultiLevelWriter(writers...)).
 			With().
-			Timestamp().
 			Caller().
 			Fields(fields).
 			Logger()

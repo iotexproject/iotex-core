@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
@@ -363,7 +364,7 @@ func newAPICache(expireTime time.Duration, remoteURL string) apiCache {
 		DB:       0,  // use default DB
 	})
 	if redisClient.Ping(context.Background()).Err() != nil {
-		log.L().Info("local cache is used as API cache")
+		zlog.L().Info().Msg("local cache is used as API cache")
 		filterCache, _ := ttl.NewCache(ttl.AutoExpireOption(expireTime))
 		return &localCache{
 			ttlCache: filterCache,
