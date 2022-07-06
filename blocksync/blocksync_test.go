@@ -13,9 +13,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -38,22 +40,33 @@ import (
 )
 
 func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
-	bs, err := NewBlockSyncer(cfg, chain.TipHeight, func(h uint64) (*block.Block, error) {
-		return dao.GetBlockByHeight(h)
-	}, func(blk *block.Block) error {
-		if err := cs.ValidateBlockFooter(blk); err != nil {
-			return err
-		}
-		if err := chain.ValidateBlock(blk); err != nil {
-			return err
-		}
-		if err := chain.CommitBlock(blk); err != nil {
-			return err
-		}
-		cs.Calibrate(blk.Height())
-		return nil
-	}, func(context.Context, uint64, uint64, int) {
-	})
+	bs, err := NewBlockSyncer(cfg, chain.TipHeight,
+		func(h uint64) (*block.Block, error) {
+			return dao.GetBlockByHeight(h)
+		},
+		func(blk *block.Block) error {
+			if err := cs.ValidateBlockFooter(blk); err != nil {
+				return err
+			}
+			if err := chain.ValidateBlock(blk); err != nil {
+				return err
+			}
+			if err := chain.CommitBlock(blk); err != nil {
+				return err
+			}
+			cs.Calibrate(blk.Height())
+			return nil
+		},
+		func() ([]peer.AddrInfo, error) {
+			return []peer.AddrInfo{}, nil
+		},
+		func(context.Context, peer.AddrInfo, proto.Message) error {
+			return nil
+		},
+		func(string) {
+			return
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -138,9 +151,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 
 	bs, err := newBlockSyncer(cfg.BlockSync, mBc, dao, cs)
 	assert.NoError(err)
-	assert.NoError(bs.ProcessSyncRequest(context.Background(), 1, 1, func(context.Context, *block.Block) error {
-		return nil
-	}))
+	assert.NoError(bs.ProcessSyncRequest(context.Background(), peer.AddrInfo{}, 1, 1))
 }
 
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
@@ -160,9 +171,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
 
-	require.Error(bs.ProcessSyncRequest(context.Background(), 1, 5, func(context.Context, *block.Block) error {
-		return nil
-	}))
+	require.Error(bs.ProcessSyncRequest(context.Background(), peer.AddrInfo{}, 1, 5))
 }
 
 func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
@@ -494,93 +503,13 @@ func newTestConfig() (config.Config, error) {
 	return cfg, nil
 }
 
-func TestBlockSyncerPeerBlockList(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-
-	ctx := context.Background()
-	cfg, err := newTestConfig()
-	require.NoError(err)
-	registry := protocol.NewRegistry()
-	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(acc.Register(registry))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
-	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap)
-	require.NoError(err)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	chain := blockchain.NewBlockchain(
-		cfg,
-		dao,
-		factory.NewMinter(sf, ap),
-		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
-	)
-	require.NotNil(chain)
-	require.NoError(chain.Start(ctx))
-	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
-
-	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
-	require.NoError(err)
-
-	defer func() {
-		require.NoError(chain.Stop(ctx))
-	}()
-
-	ctx, err = chain.Context(ctx)
-	require.NoError(err)
-
-	h := chain.TipHeight()
-	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
-	require.NotNil(blk1)
-	require.NoError(err)
-
-	blk2 := block.NewBlockDeprecated(
-		uint32(123),
-		blk1.Height(),
-		hash.Hash256{},
-		testutil.TimestampNow(),
-		identityset.PrivateKey(27).PublicKey(),
-		nil,
-	)
-
-	require.NoError(bs.ProcessBlock(ctx, "peer1", blk2))
-	require.NoError(bs.ProcessBlock(ctx, "peer2", blk1))
-
-	h2 := chain.TipHeight()
-	assert.Equal(t, h+1, h2)
-
-	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
-	require.NotNil(blk3)
-	require.NoError(err)
-
-	require.NoError(bs.ProcessBlock(ctx, "peer1", blk3))
-
-	h3 := chain.TipHeight()
-	assert.Equal(t, h2, h3)
-
-	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
-	require.NotNil(blk4)
-	require.NoError(err)
-
-	require.NoError(bs.ProcessBlock(ctx, "peer2", blk4))
-
-	h4 := chain.TipHeight()
-	assert.Equal(t, h2+1, h4)
-}
-
 func TestDummyBlockSync(t *testing.T) {
 	require := require.New(t)
 	bs := NewDummyBlockSyncer()
 	require.NoError(bs.Start(nil))
 	require.NoError(bs.Stop(nil))
 	require.NoError(bs.ProcessBlock(nil, "", nil))
-	require.NoError(bs.ProcessSyncRequest(nil, 0, 0, nil))
+	require.NoError(bs.ProcessSyncRequest(nil, peer.AddrInfo{}, 0, 0))
 	require.Equal(bs.TargetHeight(), uint64(0))
 	startingHeight, currentHeight, targetHeight, desc := bs.SyncStatus()
 	require.Zero(startingHeight)

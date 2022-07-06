@@ -8,7 +8,7 @@ package p2p
 
 import (
 	"context"
-	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
 
@@ -36,7 +37,7 @@ func TestDummyAgent(t *testing.T) {
 	addrs, err := a.Self()
 	require.Nil(addrs)
 	require.NoError(err)
-	neighbors, err := a.Neighbors(nil)
+	neighbors, err := a.ConnectedPeers()
 	require.Nil(neighbors)
 	require.NoError(err)
 }
@@ -69,42 +70,21 @@ func TestBroadcast(t *testing.T) {
 		}
 	}
 	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
+
 	bootnodePort := testutil.RandomPort()
-	bootnode := NewAgent(Config{
-		Host:              "127.0.0.1",
-		Port:              bootnodePort,
-		ReconnectInterval: 150 * time.Second,
-	}, 1, hash.ZeroHash256, b, u)
-	r.NoError(bootnode.Start(ctx))
-	r.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
-		ip := net.ParseIP("127.0.0.1")
-		tcpAddr := net.TCPAddr{
-			IP:   ip,
-			Port: bootnodePort,
-		}
-		_, err := net.DialTCP("tcp", nil, &tcpAddr)
-		return err == nil, nil
-	}))
-	addrs, err := bootnode.Self()
+	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(1), p2p.Port(bootnodePort), p2p.SecureIO(), p2p.MasterKey("bootnode"))
 	r.NoError(err)
+	bootnodeAddr := bootnode.Addresses()
+
 	for i := 0; i < n; i++ {
 		port := bootnodePort + i + 1
 		agent := NewAgent(Config{
 			Host:              "127.0.0.1",
 			Port:              port,
-			BootstrapNodes:    []string{addrs[0].String()},
+			BootstrapNodes:    []string{bootnodeAddr[0].String()},
 			ReconnectInterval: 150 * time.Second,
 		}, 1, hash.ZeroHash256, b, u)
-		r.NoError(agent.Start(ctx))
-		r.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
-			ip := net.ParseIP("127.0.0.1")
-			tcpAddr := net.TCPAddr{
-				IP:   ip,
-				Port: port,
-			}
-			_, err := net.DialTCP("tcp", nil, &tcpAddr)
-			return err == nil, nil
-		}))
+		agent.Start(ctx)
 		agents = append(agents, agent)
 	}
 
@@ -116,7 +96,7 @@ func TestBroadcast(t *testing.T) {
 			mutex.RLock()
 			defer mutex.RUnlock()
 			// Broadcast message will be skipped by the source node
-			return counts[uint8(i)] == n, nil
+			return counts[uint8(i)] == n-1, nil
 		}))
 	}
 }
@@ -152,28 +132,23 @@ func TestUnicast(t *testing.T) {
 		src = peer.ID.Pretty()
 	}
 
-	bootnode := NewAgent(Config{
-		Host:              "127.0.0.1",
-		Port:              testutil.RandomPort(),
-		ReconnectInterval: 150 * time.Second,
-	}, 2, hash.ZeroHash256, b, u)
-	r.NoError(bootnode.Start(ctx))
-
-	addrs, err := bootnode.Self()
+	bootnode, err := p2p.NewHost(context.Background(), p2p.DHTProtocolID(2), p2p.Port(testutil.RandomPort()), p2p.SecureIO(), p2p.MasterKey("bootnode"))
 	r.NoError(err)
+	addrs := bootnode.Addresses()
 	for i := 0; i < n; i++ {
 		agent := NewAgent(Config{
 			Host:              "127.0.0.1",
 			Port:              testutil.RandomPort(),
 			BootstrapNodes:    []string{addrs[0].String()},
 			ReconnectInterval: 150 * time.Second,
+			MasterKey:         strconv.Itoa(i),
 		}, 2, hash.ZeroHash256, b, u)
 		r.NoError(agent.Start(ctx))
 		agents = append(agents, agent)
 	}
 
 	for i := 0; i < n; i++ {
-		neighbors, err := agents[i].Neighbors(ctx)
+		neighbors, err := agents[i].ConnectedPeers()
 		r.NoError(err)
 		r.True(len(neighbors) >= n/3)
 		for _, neighbor := range neighbors {

@@ -404,7 +404,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().Neighbors(ctx)
+		peers, err := svr.P2PAgent().ConnectedPeers()
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)
