@@ -112,8 +112,6 @@ func TestStrs_String(t *testing.T) {
 func TestNewDefaultConfig(t *testing.T) {
 	cfg, err := New([]string{}, []string{})
 	require.NoError(t, err)
-	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	require.Equal(t, cfg.Genesis.Timestamp, genesis.Timestamp())
 }
