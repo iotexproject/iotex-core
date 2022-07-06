@@ -322,7 +322,7 @@ func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution
 }
 
 // SendRaw sends raw action to blockchain
-func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) error {
+func SendRaw(client ioctl.Client, selp *iotextypes.Action) error {
 	cli, err := client.APIServiceClient()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to endpoint")
@@ -407,7 +407,7 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 		return nil
 	}
 
-	return SendRaw(client, cmd, selp)
+	return SendRaw(client, selp)
 }
 
 // Execute sends signed execution transaction to blockchain
