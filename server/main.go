@@ -112,7 +112,7 @@ func main() {
 	if cfg.Chain.EVMNetworkID == 0 || cfg.Chain.ID == 0 {
 		glog.Fatalln("EVM Network ID or Chain ID is not set, call config.New() first")
 	}
-	
+
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
