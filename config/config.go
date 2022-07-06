@@ -12,7 +12,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -35,8 +34,7 @@ import (
 // the default value in Default var.
 
 var (
-	_evmNetworkID uint32
-	_loadChainID  sync.Once
+	_loadChainID sync.Once
 )
 
 const (
@@ -461,18 +459,6 @@ func NewSub(configPaths []string, validates ...Validate) (Config, error) {
 		}
 	}
 	return cfg, nil
-}
-
-// SetEVMNetworkID sets the extern chain ID
-func SetEVMNetworkID(id uint32) {
-	_loadChainID.Do(func() {
-		_evmNetworkID = id
-	})
-}
-
-// EVMNetworkID returns the extern chain ID
-func EVMNetworkID() uint32 {
-	return atomic.LoadUint32(&_evmNetworkID)
 }
 
 // ProducerAddress returns the configured producer address derived from key
