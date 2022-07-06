@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -32,10 +31,6 @@ import (
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
 // the default value in Default var.
-
-var (
-	_loadChainID sync.Once
-)
 
 const (
 	// RollDPoSScheme means randomized delegated proof of stake
