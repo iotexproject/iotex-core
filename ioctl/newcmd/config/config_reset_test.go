@@ -10,7 +10,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestConfigResetCommand(t *testing.T) {
@@ -27,8 +26,6 @@ func TestConfigResetCommand(t *testing.T) {
 		result, err := util.ExecuteCmd(cmd, "reset")
 		require.NoError(err)
 		require.Contains(result, "successfully reset config")
-
-		defer testutil.CleanupPath("config.default")
 	})
 
 	t.Run("config reset error", func(t *testing.T) {

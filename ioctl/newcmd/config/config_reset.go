@@ -14,10 +14,12 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 )
 
-var _configResetCmdShorts = map[config.Language]string{
-	config.English: "Reset config to default",
-	config.Chinese: "将配置重置为默认值",
-}
+var (
+	_configResetCmdShorts = map[config.Language]string{
+		config.English: "Reset config to default",
+		config.Chinese: "将配置重置为默认值",
+	}
+)
 
 // NewConfigReset resets the config to the default values
 func NewConfigReset(client ioctl.Client) *cobra.Command {
