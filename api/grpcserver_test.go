@@ -26,72 +26,107 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 
 }
 
-func TestGrpcServer_GetActions(t *testing.T) {
-
-}
-
 func TestGrpcServer_GetAction(t *testing.T) {
 
 }
 
-func TestGrpcServer_GetActionsByAddress(t *testing.T) {
+func TestGrpcServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
-	for _, test := range _getActionsByAddressTests {
-		actInfo := &iotexapi.ActionInfo{
-			Index:   0,
-			ActHash: "test",
-		}
-		response := []*iotexapi.ActionInfo{}
-		for i := 1; i <= test.numActions; i++ {
-			response = append(response, actInfo)
-		}
+	t.Run("get actions by address tests", func(t *testing.T) {
+		for _, test := range _getActionsByAddressTests {
+			actInfo := &iotexapi.ActionInfo{
+				Index:   0,
+				ActHash: "test",
+			}
+			response := []*iotexapi.ActionInfo{}
+			for i := 1; i <= test.numActions; i++ {
+				response = append(response, actInfo)
+			}
 
-		requests := []struct {
-			req  *iotexapi.GetActionsRequest
-			call func()
-		}{
-			{
-				req: &iotexapi.GetActionsRequest{
-					Lookup: &iotexapi.GetActionsRequest_ByAddr{
-						ByAddr: &iotexapi.GetActionsByAddressRequest{
-							Address: test.address,
-							Start:   test.start,
-							Count:   test.count,
+			requests := []struct {
+				req  *iotexapi.GetActionsRequest
+				call func()
+			}{
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_ByAddr{
+							ByAddr: &iotexapi.GetActionsByAddressRequest{
+								Address: test.address,
+								Start:   test.start,
+								Count:   test.count,
+							},
 						},
 					},
-				},
-				call: func() {
-					core.EXPECT().ActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
-				},
-			},
-			{
-				req: &iotexapi.GetActionsRequest{
-					Lookup: &iotexapi.GetActionsRequest_UnconfirmedByAddr{
-						UnconfirmedByAddr: &iotexapi.GetUnconfirmedActionsByAddressRequest{
-							Address: test.address,
-							Start:   test.start,
-							Count:   test.count,
-						},
+					call: func() {
+						core.EXPECT().ActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
 					},
 				},
-				call: func() {
-					core.EXPECT().UnconfirmedActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_UnconfirmedByAddr{
+							UnconfirmedByAddr: &iotexapi.GetUnconfirmedActionsByAddressRequest{
+								Address: test.address,
+								Start:   test.start,
+								Count:   test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().UnconfirmedActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+					},
 				},
-			},
-		}
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_ByIndex{
+							ByIndex: &iotexapi.GetActionsByIndexRequest{
+								Start: test.start,
+								Count: test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().Actions(gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+			}
 
-		for _, request := range requests {
-			request.call()
-			result, err := grpcSvr.GetActions(context.Background(), request.req)
+			for _, request := range requests {
+				request.call()
+				result, err := grpcSvr.GetActions(context.Background(), request.req)
+				require.NoError(err)
+				require.Equal(uint64(test.numActions), result.Total)
+			}
+		}
+	})
+
+	t.Run("get actions by action test", func(t *testing.T) {
+		for _, test := range _getActionTests {
+			response := &iotexapi.ActionInfo{
+				Index:     0,
+				ActHash:   "test",
+				BlkHeight: test.blkNumber,
+			}
+			request := &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByHash{
+					ByHash: &iotexapi.GetActionByHashRequest{
+						ActionHash:   test.in,
+						CheckPending: test.checkPending,
+					},
+				},
+			}
+
+			core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(response, nil)
+
+			result, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
-			require.Equal(uint64(test.numActions), result.Total)
+			require.Equal(test.blkNumber, result.ActionInfo[0].BlkHeight)
 		}
-	}
+	})
 }
 
 func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
