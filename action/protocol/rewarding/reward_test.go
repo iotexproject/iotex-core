@@ -331,7 +331,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	ge := config.Default.Genesis
+	ge := genesis.Default
 	ge.Rewarding.InitBalanceStr = "0"
 	ge.Rewarding.BlockRewardStr = "10"
 	ge.Rewarding.EpochRewardStr = "100"
