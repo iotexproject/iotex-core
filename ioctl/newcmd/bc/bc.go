@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -128,4 +129,47 @@ func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uin
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
 	return response, nil
+}
+
+// GetBucketList get bucket list
+func GetBucketList(
+	client ioctl.Client,
+	methodName iotexapi.ReadStakingDataMethod_Name,
+	readStakingDataRequest *iotexapi.ReadStakingDataRequest,
+) (*iotextypes.VoteBucketList, error) {
+	apiServiceClient, err := client.APIServiceClient()
+	if err != nil {
+		return nil, err
+	}
+	methodData, err := proto.Marshal(&iotexapi.ReadStakingDataMethod{Method: methodName})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal read staking data method")
+	}
+	requestData, err := proto.Marshal(readStakingDataRequest)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal read staking data request")
+	}
+	request := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodData,
+		Arguments:  [][]byte{requestData},
+	}
+	ctx := context.Background()
+	if jwtMD, err := util.JwtAuth(); err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	response, err := apiServiceClient.ReadState(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, errors.New(sta.Message())
+		}
+		return nil, errors.Wrap(err, "failed to invoke ReadState api")
+	}
+	bucketlist := iotextypes.VoteBucketList{}
+	if err := proto.Unmarshal(response.Data, &bucketlist); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal response")
+	}
+	return &bucketlist, nil
 }
