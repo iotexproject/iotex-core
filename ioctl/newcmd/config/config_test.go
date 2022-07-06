@@ -8,13 +8,12 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-  
-  "github.com/iotexproject/iotex-core/ioctl/config"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 func TestInitConfig(t *testing.T) {
