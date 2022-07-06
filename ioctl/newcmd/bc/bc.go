@@ -100,21 +100,21 @@ func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaR
 }
 
 // GetProbationList gets probation list
-func GetProbationList(client ioctl.Client, epochNum uint64) (*iotexapi.ReadStateResponse, error) {
+func GetProbationList(client ioctl.Client, epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
 	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+		Height:     strconv.FormatUint(epochStartHeight, 10),
+	}
+	ctx := context.Background()
+	if jwtMD, err := util.JwtAuth(); err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := apiServiceClient.ReadState(ctx, request)
@@ -123,7 +123,7 @@ func GetProbationList(client ioctl.Client, epochNum uint64) (*iotexapi.ReadState
 		if ok && sta.Code() == codes.NotFound {
 			return nil, nil
 		} else if ok {
-			return nil, errors.Wrap(nil, sta.Message())
+			return nil, errors.New(sta.Message())
 		}
 		return nil, errors.Wrap(err, "failed to invoke ReadState api")
 	}
