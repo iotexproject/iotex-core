@@ -2,19 +2,14 @@ package recovery
 
 import (
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestCrashLog(t *testing.T) {
 	require := require.New(t)
-	heapdumpDir, err := os.MkdirTemp(os.TempDir(), "heapdump")
-	require.NoError(err)
-	defer testutil.CleanupPath(heapdumpDir)
+	heapdumpDir := t.TempDir()
 	require.NoError(SetCrashlogDir(heapdumpDir))
 
 	t.Run("index out of range", func(t *testing.T) {
