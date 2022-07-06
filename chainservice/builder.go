@@ -358,14 +358,14 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	if builder.cs.chain != nil {
 		return builder.cs.chain
 	}
-	var chainOpts []blockchain.Option
+	var chainOpts = []blockchain.Option{blockchain.PubsubManagerOption(builder.cfg.BlockSync.BufferSize)}
 	if !forSubChain {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(builder.cs.factory, builder.cs.actpool)))
 	} else {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
 
-	return blockchain.NewBlockchain(builder.cfg, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
 func (builder *Builder) buildBlockSyncer() error {
