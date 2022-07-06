@@ -8,7 +8,6 @@ package account
 
 import (
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -19,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountList(t *testing.T) {
@@ -30,9 +28,7 @@ func TestNewAccountList(t *testing.T) {
 
 	t.Run("When NewAccountList returns no error", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false)
-		testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountList")
-		require.NoError(err)
-		defer testutil.CleanupPath(testAccountFolder)
+		testAccountFolder := t.TempDir()
 
 		ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 		genAccount := func(passwd string) string {

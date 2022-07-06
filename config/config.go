@@ -362,7 +362,7 @@ type (
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		Plugins            map[int]interface{}         `ymal:"plugins"`
-		Network            p2p.Network                 `yaml:"network"`
+		Network            p2p.Config                  `yaml:"network"`
 		Chain              Chain                       `yaml:"chain"`
 		ActPool            ActPool                     `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`
