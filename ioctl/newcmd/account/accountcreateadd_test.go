@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountCreateAdd(t *testing.T) {
@@ -26,9 +25,8 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testWallet, ks, pwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
+	testWallet, ks, pwd, _, err := newTestAccountWithKeyStore(t, veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
-	defer testutil.CleanupPath(testWallet)
 
 	client.EXPECT().ReadSecret().Return(pwd, nil).Times(4)
 	client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(2)
