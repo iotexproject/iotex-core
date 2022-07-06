@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -21,7 +22,7 @@ func TestConfigResetCommand(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("config reset", config.English).Times(2)
 
 	t.Run("successful config reset", func(t *testing.T) {
-		client.EXPECT().ConfigFilePath().Return(_defaultConfigFileName)
+		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
 		cmd := NewConfigReset(client)
 		result, err := util.ExecuteCmd(cmd, "reset")
 		require.NoError(err)
@@ -35,6 +36,6 @@ func TestConfigResetCommand(t *testing.T) {
 		// use invalid file name to force error
 		cmd := NewConfigReset(client)
 		_, err := util.ExecuteCmd(cmd, "reset")
-		require.Error(err)
+		require.Contains(err.Error(), "failed to reset config")
 	})
 }
