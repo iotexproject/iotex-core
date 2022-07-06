@@ -7,6 +7,7 @@
 package config
 
 import (
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,4 +31,35 @@ func TestInitConfig(t *testing.T) {
 	require.Equal(_validExpl[0], cfg.Explorer)
 	require.Equal(_supportedLanguage[0], cfg.Language)
 	require.Equal(filepath.Join(testPath, _defaultConfigFileName), cfgFilePath)
+}
+
+func TestConfigReset(t *testing.T) {
+	require := require.New(t)
+
+	info := newInfo(config.Config{
+		Wallet:           "wallet",
+		Endpoint:         "testEndpoint",
+		SecureConnect:    false,
+		DefaultAccount:   config.Context{AddressOrAlias: ""},
+		Explorer:         "explorer",
+		Language:         "RandomLanguage",
+		AnalyserEndpoint: "testAnalyser",
+	}, _defaultConfigFileName)
+
+	require.NoError(info.reset())
+
+	config.DefaultConfigFile = _defaultConfigFileName
+	cfg, err := config.LoadConfig()
+	require.NoError(err)
+
+	// ensure config has been reset
+	require.Equal(".", cfg.Wallet)
+	require.Equal("", cfg.Endpoint)
+	require.Equal(true, cfg.SecureConnect)
+	require.Equal("English", cfg.Language)
+	require.Equal(_defaultAnalyserEndpoint, cfg.AnalyserEndpoint)
+	require.Equal("iotexscan", cfg.Explorer)
+	require.Equal(*new(config.Context), cfg.DefaultAccount)
+
+	defer testutil.CleanupPath("config.default")
 }
