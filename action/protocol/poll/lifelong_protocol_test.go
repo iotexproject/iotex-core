@@ -16,14 +16,13 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, error) {
-	genesisConfig := config.Default.Genesis
+	genesisConfig := genesis.Default
 	delegates := genesisConfig.Delegates
 	p := NewLifeLongDelegatesProtocol(delegates)
 	registry := protocol.NewRegistry()
@@ -33,7 +32,7 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 	}
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		config.Default.Genesis,
+		genesis.Default,
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -82,6 +81,7 @@ func TestCreateGenesisStates_WithLifeLong(t *testing.T) {
 	require.NoError(err)
 
 	ctx = protocol.WithFeatureWithHeightCtx(ctx)
+	ctx = protocol.WithFeatureCtx(ctx)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 }
 

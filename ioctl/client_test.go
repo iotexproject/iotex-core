@@ -9,7 +9,6 @@ package ioctl
 import (
 	"context"
 	"os"
-	"path"
 	"strings"
 	"testing"
 
@@ -17,7 +16,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestStop(t *testing.T) {
@@ -137,7 +135,6 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
-		defer testutil.CleanupPath(path.Dir(configFilePath))
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
@@ -153,9 +150,7 @@ func TestGetAddress(t *testing.T) {
 
 func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
-	testWallet, err := os.MkdirTemp(os.TempDir(), "testKeyStore")
-	r.NoError(err)
-	defer testutil.CleanupPath(testWallet)
+	testWallet := t.TempDir()
 
 	c, err := NewClient(config.Config{
 		Wallet: testWallet,
@@ -183,7 +178,6 @@ func TestAliasMap(t *testing.T) {
 	}
 
 	configFilePath := writeTempConfig(t, &cfg)
-	defer testutil.CleanupPath(path.Dir(configFilePath))
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
@@ -208,11 +202,11 @@ func TestAlias(t *testing.T) {
 		},
 	}
 	configFilePath := writeTempConfig(t, &cfg)
-	defer testutil.CleanupPath(path.Dir(configFilePath))
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
-	c, _ := NewClient(cfgload, configFilePath)
+	c, err := NewClient(cfgload, configFilePath)
+	r.NoError(err)
 	defer c.Stop(context.Background())
 	for alias, addr := range cfg.Aliases {
 		result, err := c.Alias(addr)
@@ -289,9 +283,7 @@ func TestSetAlias(t *testing.T) {
 	}
 
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathd)
+	testPathd := t.TempDir()
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
@@ -356,9 +348,7 @@ func TestDeleteAlias(t *testing.T) {
 	}
 
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathd)
+	testPathd := t.TempDir()
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
@@ -375,12 +365,11 @@ func TestDeleteAlias(t *testing.T) {
 
 func TestHdwalletMnemonic(t *testing.T) {
 	r := require.New(t)
-	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathWallet)
-	c, _ := NewClient(config.Config{
+	testPathWallet := t.TempDir()
+	c, err := NewClient(config.Config{
 		Wallet: testPathWallet,
 	}, testPathWallet+"/config.default")
+	r.NoError(err)
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
@@ -391,9 +380,7 @@ func TestHdwalletMnemonic(t *testing.T) {
 
 func TestWriteHdWalletConfigFile(t *testing.T) {
 	r := require.New(t)
-	testPathWallet, err := os.MkdirTemp(os.TempDir(), "cfgWallet")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathWallet)
+	testPathWallet := t.TempDir()
 
 	c, err := NewClient(config.Config{
 		Wallet: testPathWallet,
@@ -406,9 +393,7 @@ func TestWriteHdWalletConfigFile(t *testing.T) {
 
 func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "testConfig")
-	r.NoError(err)
-	configFilePath := testPathd + "/config.default"
+	configFilePath := t.TempDir() + "/config.default"
 	out, err := yaml.Marshal(cfg)
 	r.NoError(err)
 	r.NoError(os.WriteFile(configFilePath, out, 0600))

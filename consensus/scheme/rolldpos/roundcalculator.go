@@ -224,7 +224,7 @@ func (c *roundCalculator) newRound(
 		}
 	}
 	if eManager == nil {
-		if eManager, err = newEndorsementManager(nil); err != nil {
+		if eManager, err = newEndorsementManager(nil, nil); err != nil {
 			return nil, err
 		}
 	}

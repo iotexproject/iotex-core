@@ -251,7 +251,8 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
-	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -268,10 +269,10 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	// TODO: deprecate nonce field in account meta
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      addrStr,
 		Balance:      state.Balance.String(),
-		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
 		IsContract:   state.IsContract(),
@@ -453,14 +454,15 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 			return res.Data, res.Receipt, nil
 		}
 	}
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-	sc.SetNonce(state.Nonce + 1)
+	sc.SetNonce(state.PendingNonce())
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
 		sc.SetGasLimit(blockGasLimit)
@@ -1366,11 +1368,12 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetNonce(state.Nonce + 1)
+	sc.SetNonce(state.PendingNonce())
 	sc.SetGasPrice(big.NewInt(0))
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	sc.SetGasLimit(blockGasLimit)
@@ -1557,7 +1560,8 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 }
 
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
-	state, err := accountutil.AccountState(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1566,7 +1570,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	// TODO (liuhaai): Use original nonce and gas limit properly
-	exec.SetNonce(state.Nonce + 1)
+	exec.SetNonce(state.PendingNonce())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -106,7 +106,7 @@ func init() {
 		completeness = false
 	}
 	if ReadConfig.Nsv2height == 0 {
-		ReadConfig.Nsv2height = config.Default.Genesis.FairbankBlockHeight
+		ReadConfig.Nsv2height = genesis.Default.FairbankBlockHeight
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
 		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint

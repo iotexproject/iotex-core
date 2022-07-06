@@ -84,8 +84,10 @@ type (
 		ReadInput() (string, error)
 		// HdwalletMnemonic returns the mnemonic of hdwallet
 		HdwalletMnemonic(string) (string, error)
-		// WriteHdWalletConfigFile write encrypting mnemonic into config file
+		// WriteHdWalletConfigFile writes encrypting mnemonic into config file
 		WriteHdWalletConfigFile(string, string) error
+		// RemoveHdWalletConfigFile removes hdwalletConfigFile
+		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
 		// PackABI pack abi with abi content, pack name and arguments
@@ -398,6 +400,9 @@ func (c *client) PackABI(name string, args ...interface{}) ([]byte, error) {
 	return c.xrc20ABI.Pack(name, args...)
 }
 
+func (c *client) RemoveHdWalletConfigFile() error {
+	return os.Remove(c.hdWalletConfigFile)
+}
 func (c *client) IsHdWalletConfigFileExist() bool { // notest
 	return fileutil.FileExists(c.hdWalletConfigFile)
 }

@@ -7,7 +7,6 @@
 package account
 
 import (
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -18,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountSign(t *testing.T) {
@@ -27,9 +25,7 @@ func TestNewAccountSign(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountSign")
-	require.NoError(err)
-	defer testutil.CleanupPath(testAccountFolder)
+	testAccountFolder := t.TempDir()
 	ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 

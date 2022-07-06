@@ -214,7 +214,8 @@ func TestConstantinople(t *testing.T) {
 		if g.IsKamchatka(e.height) {
 			opt = append(opt, FixSnapshotOrderOption())
 		}
-		stateDB := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
+		stateDB, err := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
+		require.NoError(err)
 
 		fCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),

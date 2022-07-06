@@ -19,7 +19,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -61,14 +60,14 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	addrv1 := identityset.Address(27)
 	s, err := accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
-	require.Equal(s.Balance, state.EmptyAccount().Balance)
+	require.Equal(s.Balance, big.NewInt(0))
 
 	// create account
-	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
+	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
 	s, err = accountutil.LoadAccount(sm, addrv1)
 	require.NoError(err)
 	require.Equal("5", s.Balance.String())
-	require.Equal(uint64(0x0), s.Nonce)
+	require.Equal(uint64(0x1), s.PendingNonce())
 }
 
 func TestProtocol_Initialize(t *testing.T) {
@@ -102,14 +101,14 @@ func TestProtocol_Initialize(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	ge := config.Default.Genesis
+	ge := genesis.Default
 	ge.Account.InitBalanceMap = map[string]string{
 		identityset.Address(0).String(): "100",
 	}
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 0,
 	})
-	ctx = genesis.WithGenesisContext(ctx, ge)
+	ctx = protocol.WithFeatureCtx(genesis.WithGenesisContext(ctx, ge))
 	p := NewProtocol(rewarding.DepositGas)
 	require.NoError(
 		p.CreateGenesisStates(
