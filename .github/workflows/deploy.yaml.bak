@@ -1,6 +1,19 @@
 name: deploy to k8s cluster
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'which version to deploy'     
+        required: true
+      cluster:
+        description: 'which cluster to deploy'
+        required: true
+        type: choice
+        options:
+        - testnet
+        - mainnet
+        - nightly
   push:
     tags:
       - 'v*'
@@ -72,6 +85,9 @@ jobs:
     - name: Deploy
       run: |-
         echo "${GITHUB_REF_NAME}"
+        
+        echo "${{ github.event.inputs.version }}"
+        echo "${{ github.event.inputs.cluster }}"
 
         kubectl patch statefulset iotex-delegate -p '{"spec": {"template": {"spec":{"containers":[{"name": "delegate", "image":"${GITHUB_REF_NAME}"}]}}}}'
 
