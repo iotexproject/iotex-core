@@ -85,8 +85,10 @@ type (
 		ReadInput() (string, error)
 		// HdwalletMnemonic returns the mnemonic of hdwallet
 		HdwalletMnemonic(string) (string, error)
-		// WriteHdWalletConfigFile write encrypting mnemonic into config file
+		// WriteHdWalletConfigFile writes encrypting mnemonic into config file
 		WriteHdWalletConfigFile(string, string) error
+		// RemoveHdWalletConfigFile removes hdwalletConfigFile
+		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
 	}
@@ -390,6 +392,10 @@ func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error
 		return errors.Wrapf(err, "failed to write to config file %s", c.hdWalletConfigFile)
 	}
 	return nil
+}
+
+func (c *client) RemoveHdWalletConfigFile() error {
+	return os.Remove(c.hdWalletConfigFile)
 }
 
 func (c *client) IsHdWalletConfigFileExist() bool { // notest

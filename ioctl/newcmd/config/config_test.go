@@ -8,23 +8,18 @@ package config
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl/config"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/testutil"
+  
+  "github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 func TestInitConfig(t *testing.T) {
 	require := require.New(t)
-	testPath, err := os.MkdirTemp(os.TempDir(), "testCfg")
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
+	testPath := t.TempDir()
 	_configDir = testPath
 	cfg, cfgFilePath, err := InitConfig()
 	require.NoError(err)

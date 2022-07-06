@@ -177,7 +177,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(dao BlockDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
 				ChainID: config.Default.Chain.ID,
 			})
@@ -290,7 +290,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testDeleteDao := func(dao BlockDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
 				ChainID: config.Default.Chain.ID,
 			})
@@ -414,8 +414,8 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
+	block.LoadGenesisHash(&genesis.Default)
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
