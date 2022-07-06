@@ -116,7 +116,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(msg); err != nil {
+	if err := endorsedMessage.LoadProto(msg, r.ctx.blockDeserializer); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
@@ -232,11 +232,12 @@ func (r *RollDPoS) Active() bool {
 type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
-	encodedAddr      string
-	priKey           crypto.PrivateKey
-	chain            ChainManager
-	broadcastHandler scheme.Broadcast
-	clock            clock.Clock
+	encodedAddr       string
+	priKey            crypto.PrivateKey
+	chain             ChainManager
+	blockDeserializer *block.Deserializer
+	broadcastHandler  scheme.Broadcast
+	clock             clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc DelegatesByEpochFunc
@@ -268,6 +269,12 @@ func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
 // SetChainManager sets the blockchain APIs
 func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 	b.chain = chain
+	return b
+}
+
+// SetBlockDeserializer set block deserializer
+func (b *Builder) SetBlockDeserializer(deserializer *block.Deserializer) *Builder {
+	b.blockDeserializer = deserializer
 	return b
 }
 
@@ -316,6 +323,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,
+		b.blockDeserializer,
 		b.rp,
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,

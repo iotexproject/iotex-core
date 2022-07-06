@@ -388,13 +388,18 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 			return err
 		}
 	}
-
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+	}
 	// Update primary account
-	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr)
+	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}
-	primAcc.Balance = big.NewInt(0).Add(primAcc.Balance, amount)
+	if err := primAcc.AddBalance(amount); err != nil {
+		return err
+	}
 	return accountutil.StoreAccount(sm, addr, primAcc)
 }
 

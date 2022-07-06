@@ -68,6 +68,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		ctx,
 		protocol.ActionCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
