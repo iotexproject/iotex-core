@@ -22,7 +22,7 @@ func TestConfigResetCommand(t *testing.T) {
 
 	t.Run("successful config reset", func(t *testing.T) {
 		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
-		cmd := NewConfigReset(client)
+		cmd := NewConfigResetCmd(client)
 		result, err := util.ExecuteCmd(cmd, "reset")
 		require.NoError(err)
 		require.Contains(result, "successfully reset config")
@@ -31,7 +31,7 @@ func TestConfigResetCommand(t *testing.T) {
 	t.Run("config reset error", func(t *testing.T) {
 		client.EXPECT().ConfigFilePath().Return("\x00")
 		// use invalid file name to force error
-		cmd := NewConfigReset(client)
+		cmd := NewConfigResetCmd(client)
 		_, err := util.ExecuteCmd(cmd, "reset")
 		require.Contains(err.Error(), "failed to reset config")
 	})

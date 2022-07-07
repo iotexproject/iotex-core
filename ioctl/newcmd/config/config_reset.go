@@ -21,8 +21,8 @@ var (
 	}
 )
 
-// NewConfigReset resets the config to the default values
-func NewConfigReset(client ioctl.Client) *cobra.Command {
+// NewConfigResetCmd resets the config to the default values
+func NewConfigResetCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_configResetCmdShorts)
 
 	return &cobra.Command{
