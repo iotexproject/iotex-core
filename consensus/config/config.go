@@ -28,4 +28,16 @@ type (
 		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
 		CommitTTL                    time.Duration `yaml:"commitTTL"`
 	}
+
+	// DardanellesUpgrade is the config for dardanelles upgrade
+	DardanellesUpgrade struct {
+		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
+		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
+		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
+		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+		CommitTTL                    time.Duration `yaml:"commitTTL"`
+		BlockInterval                time.Duration `yaml:"blockInterval"`
+		Delay                        time.Duration `yaml:"delay"`
+	}
 )

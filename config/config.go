@@ -126,7 +126,7 @@ var (
 				ConsensusDBPath:   "/var/data/consensus.db",
 			},
 		},
-		DardanellesUpgrade: DardanellesUpgrade{
+		DardanellesUpgrade: consensusconfig.DardanellesUpgrade{
 			UnmatchedEventTTL:            2 * time.Second,
 			UnmatchedEventInterval:       100 * time.Millisecond,
 			AcceptBlockTTL:               2 * time.Second,
@@ -256,18 +256,6 @@ type (
 		RepeatDecayStep int `yaml:"repeatDecayStep"`
 	}
 
-	// DardanellesUpgrade is the config for dardanelles upgrade
-	DardanellesUpgrade struct {
-		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
-		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
-		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
-		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
-		CommitTTL                    time.Duration `yaml:"commitTTL"`
-		BlockInterval                time.Duration `yaml:"blockInterval"`
-		Delay                        time.Duration `yaml:"delay"`
-	}
-
 	// API is the api service config
 	API struct {
 		UseRDS          bool          `yaml:"useRDS"`
@@ -329,21 +317,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins            map[int]interface{}         `ymal:"plugins"`
-		Network            p2p.Config                  `yaml:"network"`
-		Chain              Chain                       `yaml:"chain"`
-		ActPool            ActPool                     `yaml:"actPool"`
-		Consensus          consensusconfig.Config      `yaml:"consensus"`
-		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
-		BlockSync          BlockSync                   `yaml:"blockSync"`
-		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`
-		API                API                         `yaml:"api"`
-		System             System                      `yaml:"system"`
-		DB                 db.Config                   `yaml:"db"`
-		Indexer            Indexer                     `yaml:"indexer"`
-		Log                log.GlobalConfig            `yaml:"log"`
-		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
-		Genesis            genesis.Genesis             `yaml:"genesis"`
+		Plugins            map[int]interface{}                `ymal:"plugins"`
+		Network            p2p.Config                         `yaml:"network"`
+		Chain              Chain                              `yaml:"chain"`
+		ActPool            ActPool                            `yaml:"actPool"`
+		Consensus          consensusconfig.Config             `yaml:"consensus"`
+		DardanellesUpgrade consensusconfig.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
+		BlockSync          BlockSync                          `yaml:"blockSync"`
+		Dispatcher         dispatcher.Config                  `yaml:"dispatcher"`
+		API                API                                `yaml:"api"`
+		System             System                             `yaml:"system"`
+		DB                 db.Config                          `yaml:"db"`
+		Indexer            Indexer                            `yaml:"indexer"`
+		Log                log.GlobalConfig                   `yaml:"log"`
+		SubLogs            map[string]log.GlobalConfig        `yaml:"subLogs"`
+		Genesis            genesis.Genesis                    `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config

@@ -31,7 +31,7 @@ type (
 	// config implements ConsensusConfig
 	consensusCfg struct {
 		cfg           consensusconfig.ConsensusTiming
-		dardanelles   config.DardanellesUpgrade
+		dardanelles   consensusconfig.DardanellesUpgrade
 		g             genesis.Genesis
 		blockInterval time.Duration
 		delay         time.Duration
