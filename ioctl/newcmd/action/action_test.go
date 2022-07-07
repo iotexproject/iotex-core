@@ -10,15 +10,15 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -46,37 +46,21 @@ func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(3)
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(6)
+	t.Run("returns signer's address", func(t *testing.T) {
+		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil).AnyTimes()
 
-	for _, test := range testData {
-		callbackEndpoint := func(cb func(*string, string, string, string)) {
-			cb(&test.endpoint, "endpoint", test.endpoint, "endpoint usage")
-		}
-		callbackInsecure := func(cb func(*bool, string, bool, string)) {
-			cb(&test.insecure, "insecure", !test.insecure, "insecure usage")
-		}
-		client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(callbackEndpoint)
-		client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure)
-
-		t.Run("returns signer's address", func(t *testing.T) {
-			client.EXPECT().Config().Return(config.Config{
-				DefaultAccount: config.Context{
-					AddressOrAlias: "test",
-				},
-			})
-			client.EXPECT().Address(gomock.Any()).Return("test", nil)
-			client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil).AnyTimes()
-
-			cmd := NewActionCmd(client)
-			registerSignerFlag(client, cmd)
-			_, err := util.ExecuteCmd(cmd, "--signer", "test")
-			require.NoError(err)
-			result, err := Signer(client, cmd)
-			require.NoError(err)
-			require.Equal(result, "test")
-		})
-	}
+		cmd := NewActionCmd(client)
+		registerSignerFlag(client, cmd)
+		_, err := util.ExecuteCmd(cmd, "--signer", "test")
+		require.NoError(err)
+		result, err := Signer(client, cmd)
+		require.NoError(err)
+		require.Equal(result, "test")
+	})
 }
 
 func TestSendRaw(t *testing.T) {
