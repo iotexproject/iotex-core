@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/ha"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
@@ -247,7 +248,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		adminserv = httputil.Server(port, mux)
 		defer func() {
 			if err := adminserv.Shutdown(ctx); err != nil {
-				log.L().Error("Error when serving metrics data.", zap.Error(err))
+				zlog.L().Error().Stack().Err(err).Msg("Error when serving metrics data.")
 			}
 		}()
 		go func() {
@@ -255,11 +256,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			runtime.SetBlockProfileRate(1)
 			ln, err := httputil.LimitListener(adminserv.Addr)
 			if err != nil {
-				log.L().Error("Error when listen to profiling port.", zap.Error(err))
+				zlog.L().Error().Stack().Err(err).Msg("Error when listen to profiling port.")
 				return
 			}
 			if err := adminserv.Serve(ln); err != nil {
-				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
+				zlog.L().Error().Stack().Err(err).Msg("Error when serving performance profiling data.")
 			}
 		}()
 	}

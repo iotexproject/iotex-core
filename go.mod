@@ -55,6 +55,7 @@ require (
 )
 
 require (
+	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.2
 )

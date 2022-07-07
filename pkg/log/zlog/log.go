@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 	"go.uber.org/zap"
 
 	zaplog "github.com/iotexproject/iotex-core/pkg/log"
@@ -41,6 +42,7 @@ var (
 
 func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	_logMu.Lock()
 	_subLoggers = make(map[string]*zerolog.Logger)
 	_logMu.Unlock()
@@ -78,7 +80,9 @@ func InitLoggers(globalCfg zaplog.GlobalConfig, subCfgs map[string]zaplog.Global
 			if err != nil {
 				return err
 			}
-			writers = append(writers, stderrF)
+			writers = append(writers, &partsSortWriter{
+				f: stderrF,
+			})
 		}
 		log.Logger = log.Output(zerolog.MultiLevelWriter(writers...)).
 			With().
