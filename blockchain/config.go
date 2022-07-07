@@ -123,6 +123,19 @@ func (cfg *Config) ProducerPrivateKey() crypto.PrivateKey {
 	return sk
 }
 
+func generateRandomKey(scheme string) string {
+	// generate a random key
+	switch scheme {
+	case SigP256k1:
+		sk, _ := crypto.GenerateKey()
+		return sk.HexString()
+	case SigP256sm2:
+		sk, _ := crypto.GenerateKeySm2()
+		return sk.HexString()
+	}
+	return ""
+}
+
 func (cfg *Config) whitelistSignatureScheme(sk crypto.PrivateKey) bool {
 	var sigScheme string
 

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -126,19 +125,6 @@ type (
 		bbf BlockBuilderFactory
 	}
 )
-
-func generateRandomKey(scheme string) string {
-	// generate a random key
-	switch scheme {
-	case SigP256k1:
-		sk, _ := crypto.GenerateKey()
-		return sk.HexString()
-	case SigP256sm2:
-		sk, _ := crypto.GenerateKeySm2()
-		return sk.HexString()
-	}
-	return ""
-}
 
 // Productivity returns the map of the number of blocks produced per delegate in given epoch
 func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[string]uint64, error) {
