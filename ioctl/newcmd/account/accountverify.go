@@ -25,7 +25,7 @@ var (
 	}
 	_verifyCmdUses = map[config.Language]string{
 		config.English: "verify",
-		config.Chinese: "verify 验证",
+		config.Chinese: "verify",
 	}
 	_enterPrivateKey = map[config.Language]string{
 		config.English: "Enter private key:",

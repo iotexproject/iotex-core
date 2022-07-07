@@ -21,7 +21,7 @@ var (
 	}
 	_hdwalletCmdUses = map[config.Language]string{
 		config.English: "hdwallet",
-		config.Chinese: "钱包",
+		config.Chinese: "hdwallet",
 	}
 )
 

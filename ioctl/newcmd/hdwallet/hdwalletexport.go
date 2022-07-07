@@ -22,7 +22,7 @@ var (
 	}
 	_hdwalletExportCmdUses = map[config.Language]string{
 		config.English: "export",
-		config.Chinese: "export 导出",
+		config.Chinese: "export",
 	}
 )
 

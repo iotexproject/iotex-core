@@ -25,7 +25,7 @@ var (
 	}
 	_importCmdUses = map[config.Language]string{
 		config.English: "import",
-		config.Chinese: "import 导入",
+		config.Chinese: "import",
 	}
 )
 

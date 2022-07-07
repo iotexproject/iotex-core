@@ -27,7 +27,7 @@ var (
 	}
 	_createUses = map[config.Language]string{
 		config.English: "create",
-		config.Chinese: "create 创建",
+		config.Chinese: "create",
 	}
 	_createFlagUsages = map[config.Language]string{
 		config.English: "number of accounts to create",

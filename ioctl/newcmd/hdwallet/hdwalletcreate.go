@@ -23,7 +23,7 @@ var (
 	}
 	_createByMnemonicCmdUses = map[config.Language]string{
 		config.English: "create",
-		config.Chinese: "create 创建",
+		config.Chinese: "create",
 	}
 )
 

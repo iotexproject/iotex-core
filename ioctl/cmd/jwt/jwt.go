@@ -22,7 +22,7 @@ var (
 	}
 	_jwtCmdUses = map[config.Language]string{
 		config.English: "jwt",
-		config.Chinese: "json网络令牌",
+		config.Chinese: "jwt",
 	}
 )
 

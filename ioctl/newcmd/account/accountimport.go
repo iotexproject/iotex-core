@@ -27,7 +27,7 @@ var (
 	}
 	importCmdUses = map[config.Language]string{
 		config.English: "import",
-		config.Chinese: "导入",
+		config.Chinese: "import",
 	}
 	importKeyCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX private key into wallet",

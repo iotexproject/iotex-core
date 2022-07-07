@@ -23,7 +23,7 @@ var (
 	}
 	_hdwalletDeleteCmdUses = map[config.Language]string{
 		config.English: "delete",
-		config.Chinese: "delete 删除",
+		config.Chinese: "delete",
 	}
 )
 

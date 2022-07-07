@@ -42,7 +42,7 @@ var (
 	}
 	_accountCmdUses = map[config.Language]string{
 		config.English: "account",
-		config.Chinese: "账户",
+		config.Chinese: "account",
 	}
 )
 
