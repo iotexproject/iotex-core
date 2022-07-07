@@ -7,7 +7,6 @@
 package itx
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -60,7 +59,7 @@ type HeartbeatHandler struct {
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
-func NewHeartbeatHandler(s *Server, cfg p2p.Network) *HeartbeatHandler {
+func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
 		l: zlog.L().With().Str("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)).Logger(),
@@ -91,12 +90,12 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 
-	ctx := context.Background()
-	peers, err := p2pAgent.Neighbors(ctx)
+	peers, err := p2pAgent.ConnectedPeers()
 	if err != nil {
 		h.l.Debug().Err(err).Msg("error when get neighbors.")
 		peers = nil
 	}
+
 	numPeers := len(peers)
 	h.l.Debug().Fields(map[string]interface{}{
 		"numPeers":                     numPeers,
@@ -104,7 +103,7 @@ func (h *HeartbeatHandler) Log() {
 		"pendingDispatcherEventsAudit": string(dpEvtsAudit),
 	}).Msg("Node status.")
 
-	_heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
+	_heartbeatMtc.WithLabelValues("numConnectedPeers", "node").Set(float64(numPeers))
 	_heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
 	// chain service
 	for _, c := range h.s.chainservices {

@@ -109,10 +109,9 @@ func main() {
 	}
 	defer recovery.Recover()
 
-	// populdate chain ID
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	if config.EVMNetworkID() == 0 {
-		glog.Fatalln("EVM Network ID is not set, call config.New() first")
+	// check EVM network ID and chain ID
+	if cfg.Chain.EVMNetworkID == 0 || cfg.Chain.ID == 0 {
+		glog.Fatalln("EVM Network ID or Chain ID is not set, call config.New() first")
 	}
 
 	cfg.Genesis = genesisCfg
