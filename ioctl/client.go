@@ -7,6 +7,7 @@
 package ioctl
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/ecdsa"
@@ -28,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 type (
@@ -39,8 +41,12 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// SetEndpointWithFlag receives input flag value
+		SetEndpointWithFlag(func(*string, string, string, string))
+		// SetInsecureWithFlag receives input flag value
+		SetInsecureWithFlag(func(*bool, string, bool, string))
 		// APIServiceClient returns an API service client
-		APIServiceClient(APIServiceConfig) (iotexapi.APIServiceClient, error)
+		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
@@ -59,6 +65,8 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
+		// Alias returns the alias corresponding to address
+		Alias(string) (string, error)
 		// SetAlias updates aliasname and account address and not write them into the default config file
 		SetAlias(string, string)
 		// SetAliasAndSave updates aliasname and account address and write them into the default config file
@@ -71,19 +79,26 @@ type (
 		IsCryptoSm2() bool
 		// QueryAnalyser sends request to Analyser endpoint
 		QueryAnalyser(interface{}) (*http.Response, error)
-	}
-
-	// APIServiceConfig defines a config of APIServiceClient
-	APIServiceConfig struct {
-		Endpoint string
-		Insecure bool
+		// ReadInput reads the input from stdin
+		ReadInput() (string, error)
+		// HdwalletMnemonic returns the mnemonic of hdwallet
+		HdwalletMnemonic(string) (string, error)
+		// WriteHdWalletConfigFile writes encrypting mnemonic into config file
+		WriteHdWalletConfigFile(string, string) error
+		// RemoveHdWalletConfigFile removes hdwalletConfigFile
+		RemoveHdWalletConfigFile() error
+		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
+		IsHdWalletConfigFileExist() bool
 	}
 
 	client struct {
-		cfg            config.Config
-		conn           *grpc.ClientConn
-		cryptoSm2      bool
-		configFilePath string
+		cfg                config.Config
+		conn               *grpc.ClientConn
+		cryptoSm2          bool
+		configFilePath     string
+		endpoint           string
+		insecure           bool
+		hdWalletConfigFile string
 	}
 
 	// Option sets client construction parameter
@@ -106,8 +121,9 @@ func EnableCryptoSm2() Option {
 // NewClient creates a new ioctl client
 func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
 	c := &client{
-		cfg:            cfg,
-		configFilePath: configFilePath,
+		cfg:                cfg,
+		configFilePath:     configFilePath,
+		hdWalletConfigFile: cfg.Wallet + "/hdwallet",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -131,6 +147,22 @@ func (c *client) Stop(context.Context) error {
 
 func (c *client) Config() config.Config {
 	return c.cfg
+}
+
+func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	})
+	cb(&c.endpoint, "endpoint", c.cfg.Endpoint, usage)
+}
+
+func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全连接",
+	})
+	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
 }
 
 func (c *client) AskToConfirm(info string) bool {
@@ -159,21 +191,22 @@ func (c *client) ReadSecret() (string, error) {
 	return util.ReadSecretFromStdin()
 }
 
-func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClient, error) {
+func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
 			return nil, err
 		}
 	}
-	if cfg.Endpoint == "" {
+
+	if c.endpoint == "" {
 		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 
 	var err error
-	if cfg.Insecure {
-		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithInsecure())
+	if c.insecure {
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(cfg.Endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
 		return nil, err
@@ -246,6 +279,18 @@ func (c *client) AliasMap() map[string]string {
 	return aliases
 }
 
+func (c *client) Alias(address string) (string, error) {
+	if err := validator.ValidateAddress(address); err != nil {
+		return "", err
+	}
+	for aliasName, addr := range c.cfg.Aliases {
+		if addr == address {
+			return aliasName, nil
+		}
+	}
+	return "", errors.New("no alias is found")
+}
+
 func (c *client) SetAlias(aliasName string, addr string) {
 	for k, v := range c.cfg.Aliases {
 		if v == addr {
@@ -291,6 +336,63 @@ func (c *client) QueryAnalyser(reqData interface{}) (*http.Response, error) {
 		return nil, errors.Wrap(err, "failed to send request")
 	}
 	return resp, nil
+}
+
+func (c *client) ReadInput() (string, error) { // notest
+	in := bufio.NewReader(os.Stdin)
+	line, err := in.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return line, nil
+}
+
+func (c *client) HdwalletMnemonic(password string) (string, error) {
+	// derive key as "m/44'/304'/account'/change/index"
+	if !c.IsHdWalletConfigFileExist() {
+		return "", errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
+	}
+	enctxt, err := os.ReadFile(c.hdWalletConfigFile)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read config file %s", c.hdWalletConfigFile)
+	}
+
+	enckey := util.HashSHA256([]byte(password))
+	dectxt, err := util.Decrypt(enctxt, enckey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decrypt")
+	}
+
+	dectxtLen := len(dectxt)
+	if dectxtLen <= 32 {
+		return "", errors.Errorf("incorrect data dectxtLen %d", dectxtLen)
+	}
+	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
+	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
+		return "", errors.New("password error")
+	}
+	return string(mnemonic), nil
+}
+
+func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error {
+	enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
+	enckey := util.HashSHA256([]byte(password))
+	out, err := util.Encrypt(enctxt, enckey)
+	if err != nil {
+		return errors.Wrap(err, "failed to encrypting mnemonic")
+	}
+	if err := os.WriteFile(c.hdWalletConfigFile, out, 0600); err != nil {
+		return errors.Wrapf(err, "failed to write to config file %s", c.hdWalletConfigFile)
+	}
+	return nil
+}
+
+func (c *client) RemoveHdWalletConfigFile() error {
+	return os.Remove(c.hdWalletConfigFile)
+}
+
+func (c *client) IsHdWalletConfigFileExist() bool { // notest
+	return fileutil.FileExists(c.hdWalletConfigFile)
 }
 
 func (m *ConfirmationMessage) String() string {

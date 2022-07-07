@@ -12,7 +12,6 @@ import (
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	gomock "github.com/golang/mock/gomock"
-	ioctl "github.com/iotexproject/iotex-core/ioctl"
 	config "github.com/iotexproject/iotex-core/ioctl/config"
 	iotexapi "github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
@@ -41,18 +40,18 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // APIServiceClient mocks base method.
-func (m *MockClient) APIServiceClient(arg0 ioctl.APIServiceConfig) (iotexapi.APIServiceClient, error) {
+func (m *MockClient) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIServiceClient", arg0)
+	ret := m.ctrl.Call(m, "APIServiceClient")
 	ret0, _ := ret[0].(iotexapi.APIServiceClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIServiceClient indicates an expected call of APIServiceClient.
-func (mr *MockClientMockRecorder) APIServiceClient(arg0 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) APIServiceClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServiceClient", reflect.TypeOf((*MockClient)(nil).APIServiceClient), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServiceClient", reflect.TypeOf((*MockClient)(nil).APIServiceClient))
 }
 
 // Address mocks base method.
@@ -83,6 +82,21 @@ func (m *MockClient) AddressWithDefaultIfNotExist(in string) (string, error) {
 func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
+}
+
+// Alias mocks base method.
+func (m *MockClient) Alias(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Alias", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Alias indicates an expected call of Alias.
+func (mr *MockClientMockRecorder) Alias(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Alias", reflect.TypeOf((*MockClient)(nil).Alias), arg0)
 }
 
 // AliasMap mocks base method.
@@ -170,6 +184,21 @@ func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
 }
 
+// HdwalletMnemonic mocks base method.
+func (m *MockClient) HdwalletMnemonic(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HdwalletMnemonic", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HdwalletMnemonic indicates an expected call of HdwalletMnemonic.
+func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
+}
+
 // IsCryptoSm2 mocks base method.
 func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
@@ -182,6 +211,20 @@ func (m *MockClient) IsCryptoSm2() bool {
 func (mr *MockClientMockRecorder) IsCryptoSm2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCryptoSm2", reflect.TypeOf((*MockClient)(nil).IsCryptoSm2))
+}
+
+// IsHdWalletConfigFileExist mocks base method.
+func (m *MockClient) IsHdWalletConfigFileExist() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsHdWalletConfigFileExist")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsHdWalletConfigFileExist indicates an expected call of IsHdWalletConfigFileExist.
+func (mr *MockClientMockRecorder) IsHdWalletConfigFileExist() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsHdWalletConfigFileExist", reflect.TypeOf((*MockClient)(nil).IsHdWalletConfigFileExist))
 }
 
 // NewKeyStore mocks base method.
@@ -213,6 +256,21 @@ func (mr *MockClientMockRecorder) QueryAnalyser(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAnalyser", reflect.TypeOf((*MockClient)(nil).QueryAnalyser), arg0)
 }
 
+// ReadInput mocks base method.
+func (m *MockClient) ReadInput() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadInput")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadInput indicates an expected call of ReadInput.
+func (mr *MockClientMockRecorder) ReadInput() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadInput", reflect.TypeOf((*MockClient)(nil).ReadInput))
+}
+
 // ReadSecret mocks base method.
 func (m *MockClient) ReadSecret() (string, error) {
 	m.ctrl.T.Helper()
@@ -226,6 +284,20 @@ func (m *MockClient) ReadSecret() (string, error) {
 func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
+}
+
+// RemoveHdWalletConfigFile mocks base method.
+func (m *MockClient) RemoveHdWalletConfigFile() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHdWalletConfigFile")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHdWalletConfigFile indicates an expected call of RemoveHdWalletConfigFile.
+func (mr *MockClientMockRecorder) RemoveHdWalletConfigFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).RemoveHdWalletConfigFile))
 }
 
 // SelectTranslation mocks base method.
@@ -269,6 +341,30 @@ func (mr *MockClientMockRecorder) SetAliasAndSave(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAliasAndSave", reflect.TypeOf((*MockClient)(nil).SetAliasAndSave), arg0, arg1)
 }
 
+// SetEndpointWithFlag mocks base method.
+func (m *MockClient) SetEndpointWithFlag(arg0 func(*string, string, string, string)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEndpointWithFlag", arg0)
+}
+
+// SetEndpointWithFlag indicates an expected call of SetEndpointWithFlag.
+func (mr *MockClientMockRecorder) SetEndpointWithFlag(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEndpointWithFlag", reflect.TypeOf((*MockClient)(nil).SetEndpointWithFlag), arg0)
+}
+
+// SetInsecureWithFlag mocks base method.
+func (m *MockClient) SetInsecureWithFlag(arg0 func(*bool, string, bool, string)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetInsecureWithFlag", arg0)
+}
+
+// SetInsecureWithFlag indicates an expected call of SetInsecureWithFlag.
+func (mr *MockClientMockRecorder) SetInsecureWithFlag(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInsecureWithFlag", reflect.TypeOf((*MockClient)(nil).SetInsecureWithFlag), arg0)
+}
+
 // Start mocks base method.
 func (m *MockClient) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -309,4 +405,18 @@ func (m *MockClient) WriteConfig() error {
 func (mr *MockClientMockRecorder) WriteConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig))
+}
+
+// WriteHdWalletConfigFile mocks base method.
+func (m *MockClient) WriteHdWalletConfigFile(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteHdWalletConfigFile", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteHdWalletConfigFile indicates an expected call of WriteHdWalletConfigFile.
+func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), arg0, arg1)
 }

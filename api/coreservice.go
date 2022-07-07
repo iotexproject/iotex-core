@@ -58,9 +58,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-const (
-	_workerNumbers = 5
-)
+const _workerNumbers int = 5
 
 type (
 	// CoreService provides api interface for user to interact with blockchain data
@@ -106,10 +104,10 @@ type (
 		ActionsByAddress(addr address.Address, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// ActionByActionHash returns action by action hash
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
+		// ActPoolActions returns the all Transaction Identifiers in the actpool
+		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
 		// BlockByHash returns the block and its receipt
 		BlockByHash(string) (*block.Store, error)
-		// ActPoolActions returns the all Transaction Identifiers in the mempool
-		ActPoolActions(actHashes []string) ([]*iotextypes.Action, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
@@ -160,7 +158,6 @@ type (
 		cfg               config.API
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
-		hasActionIndex    bool
 		electionCommittee committee.Committee
 		readCache         *ReadCache
 	}
@@ -171,6 +168,26 @@ type (
 		blkNum uint64
 	}
 )
+
+// Option is the option to override the api config
+type Option func(cfg *coreService)
+
+// BroadcastOutbound sends a broadcast message to the whole network
+type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
+
+// WithBroadcastOutbound is the option to broadcast msg outbound
+func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
+	return func(svr *coreService) {
+		svr.broadcastHandler = broadcastHandler
+	}
+}
+
+// WithNativeElection is the option to return native election data through API.
+func WithNativeElection(committee committee.Committee) Option {
+	return func(svr *coreService) {
+		svr.electionCommittee = committee
+	}
+}
 
 type intrinsicGasCalculator interface {
 	IntrinsicGas() (uint64, error)
@@ -194,13 +211,6 @@ func newCoreService(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (CoreService, error) {
-	apiCfg := Config{}
-	for _, opt := range opts {
-		if err := opt(&apiCfg); err != nil {
-			return nil, err
-		}
-	}
-
 	if cfg == (config.API{}) {
 		log.L().Warn("API server is not configured.")
 		cfg = config.Default.API
@@ -209,23 +219,27 @@ func newCoreService(
 	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
-	return &coreService{
-		bc:                chain,
-		bs:                bs,
-		sf:                sf,
-		dao:               dao,
-		indexer:           indexer,
-		bfIndexer:         bfIndexer,
-		ap:                actPool,
-		broadcastHandler:  apiCfg.broadcastHandler,
-		cfg:               cfg,
-		registry:          registry,
-		chainListener:     NewChainListener(500),
-		gs:                gasstation.NewGasStation(chain, dao, cfg),
-		electionCommittee: apiCfg.electionCommittee,
-		readCache:         NewReadCache(),
-		hasActionIndex:    apiCfg.hasActionIndex,
-	}, nil
+
+	core := coreService{
+		bc:            chain,
+		bs:            bs,
+		sf:            sf,
+		dao:           dao,
+		indexer:       indexer,
+		bfIndexer:     bfIndexer,
+		ap:            actPool,
+		cfg:           cfg,
+		registry:      registry,
+		chainListener: NewChainListener(500),
+		gs:            gasstation.NewGasStation(chain, dao, cfg),
+		readCache:     NewReadCache(),
+	}
+
+	for _, opt := range opts {
+		opt(&core)
+	}
+
+	return &core, nil
 }
 
 // Account returns the metadata of an account
@@ -237,7 +251,8 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 		return core.getProtocolAccount(ctx, addrStr)
 	}
 	span.AddEvent("accountutil.AccountStateWithHeight")
-	state, tipHeight, err := accountutil.AccountStateWithHeight(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, tipHeight, err := accountutil.AccountStateWithHeight(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -254,10 +269,10 @@ func (core *coreService) Account(addr address.Address) (*iotextypes.AccountMeta,
 	if err != nil {
 		return nil, nil, status.Error(codes.NotFound, err.Error())
 	}
+	// TODO: deprecate nonce field in account meta
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      addrStr,
 		Balance:      state.Balance.String(),
-		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
 		IsContract:   state.IsContract(),
@@ -370,7 +385,7 @@ func (core *coreService) ServerMeta() (packageVersion string, packageCommitID st
 // SendAction is the API to send an action to blockchain.
 func (core *coreService) SendAction(ctx context.Context, in *iotextypes.Action) (string, error) {
 	log.Logger("api").Debug("receive send action request")
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return "", status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -439,14 +454,15 @@ func (core *coreService) ReadContract(ctx context.Context, callerAddr address.Ad
 			return res.Data, res.Receipt, nil
 		}
 	}
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return "", nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if ctx, err = core.bc.Context(ctx); err != nil {
 		return "", nil, err
 	}
-	sc.SetNonce(state.Nonce + 1)
+	sc.SetNonce(state.PendingNonce())
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	if sc.GasLimit() == 0 || blockGasLimit < sc.GasLimit() {
 		sc.SetGasLimit(blockGasLimit)
@@ -502,7 +518,7 @@ func (core *coreService) SuggestGasPrice() (uint64, error) {
 
 // EstimateGasForAction estimates gas for action
 func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextypes.Action) (uint64, error) {
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(in)
+	selp, err := (&action.Deserializer{}).SetEvmNetworkID(core.EVMNetworkID()).ActionToSealedEnvelope(in)
 	if err != nil {
 		return 0, status.Error(codes.Internal, err.Error())
 	}
@@ -514,7 +530,7 @@ func (core *coreService) EstimateGasForAction(ctx context.Context, in *iotextype
 		}
 		return gas, nil
 	}
-	callerAddr := selp.SrcPubkey().Address()
+	callerAddr := selp.SenderAddress()
 	if callerAddr == nil {
 		return 0, status.Error(codes.Internal, "failed to get address")
 	}
@@ -1029,7 +1045,10 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{blk, receipts}, nil
+	return &block.Store{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }
 
 // BlockMetas returns blockmetas response within the height range
@@ -1091,45 +1110,6 @@ func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockM
 	return generateBlockMeta(blk), nil
 }
 
-// generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
-	header := blk.Header
-	height := header.Height()
-	ts := timestamppb.New(header.Timestamp())
-	var (
-		producerAddress string
-		h               hash.Hash256
-	)
-	if blk.Height() > 0 {
-		producerAddress = header.ProducerAddress()
-		h = header.HashBlock()
-	} else {
-		h = block.GenesisHash()
-	}
-	txRoot := header.TxRoot()
-	receiptRoot := header.ReceiptRoot()
-	deltaStateDigest := header.DeltaStateDigest()
-	prevHash := header.PrevHash()
-
-	blockMeta := iotextypes.BlockMeta{
-		Hash:              hex.EncodeToString(h[:]),
-		Height:            height,
-		Timestamp:         ts,
-		ProducerAddress:   producerAddress,
-		TxRoot:            hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
-		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
-	}
-	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
-		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
-	}
-	blockMeta.NumActions = int64(len(blk.Actions))
-	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
-	return &blockMeta
-}
-
 // GasLimitAndUsed returns the gas limit and used in a block
 func gasLimitAndUsed(b *block.Block) (uint64, uint64) {
 	var gasLimit, gasUsed uint64
@@ -1170,7 +1150,7 @@ func (core *coreService) committedAction(selp action.SealedEnvelope, blkHash has
 	if err != nil {
 		return nil, err
 	}
-	sender := selp.SrcPubkey().Address()
+	sender := selp.SenderAddress()
 	receipt, err := core.dao.GetReceiptByActionHash(actHash, blkHeight)
 	if err != nil {
 		return nil, err
@@ -1194,7 +1174,7 @@ func (core *coreService) pendingAction(selp action.SealedEnvelope) (*iotexapi.Ac
 	if err != nil {
 		return nil, err
 	}
-	sender := selp.SrcPubkey().Address()
+	sender := selp.SenderAddress()
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
@@ -1254,7 +1234,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 			continue
 		}
 		gas := new(big.Int).Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
-		sender := selp.SrcPubkey().Address()
+		sender := selp.SenderAddress()
 		res = append(res, &iotexapi.ActionInfo{
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
@@ -1400,11 +1380,12 @@ func (core *coreService) EstimateGasForNonExecution(actType action.Action) (uint
 
 // EstimateExecutionGasConsumption estimate gas consumption for execution action
 func (core *coreService) EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error) {
-	state, err := accountutil.AccountState(core.sf, callerAddr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, callerAddr)
 	if err != nil {
 		return 0, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc.SetNonce(state.Nonce + 1)
+	sc.SetNonce(state.PendingNonce())
 	sc.SetGasPrice(big.NewInt(0))
 	blockGasLimit := core.bc.Genesis().BlockGasLimit
 	sc.SetGasLimit(blockGasLimit)
@@ -1542,14 +1523,12 @@ func (core *coreService) getProtocolAccount(ctx context.Context, addr string) (*
 	}, out.GetBlockIdentifier(), nil
 }
 
-// ActPoolActions returns the all Transaction Identifiers in the mempool
-func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Action, error) {
-	var ret []*iotextypes.Action
+// ActionsInActPool returns the all Transaction Identifiers in the actpool
+func (core *coreService) ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error) {
+	var ret []action.SealedEnvelope
 	if len(actHashes) == 0 {
 		for _, sealeds := range core.ap.PendingActionMap() {
-			for _, sealed := range sealeds {
-				ret = append(ret, sealed.Proto())
-			}
+			ret = append(ret, sealeds...)
 		}
 		return ret, nil
 	}
@@ -1557,20 +1536,20 @@ func (core *coreService) ActPoolActions(actHashes []string) ([]*iotextypes.Actio
 	for _, hashStr := range actHashes {
 		hs, err := hash.HexStringToHash256(hashStr)
 		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, errors.Wrap(err, "failed to hex string to hash256").Error())
+			return nil, err
 		}
 		sealed, err := core.ap.GetActionByHash(hs)
 		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
+			return nil, err
 		}
-		ret = append(ret, sealed.Proto())
+		ret = append(ret, sealed)
 	}
 	return ret, nil
 }
 
 // EVMNetworkID returns the network id of evm
 func (core *coreService) EVMNetworkID() uint32 {
-	return config.EVMNetworkID()
+	return core.bc.EvmNetworkID()
 }
 
 // ChainID returns the chain id of evm
@@ -1593,7 +1572,8 @@ func (core *coreService) ReceiveBlock(blk *block.Block) error {
 }
 
 func (core *coreService) SimulateExecution(ctx context.Context, addr address.Address, exec *action.Execution) ([]byte, *action.Receipt, error) {
-	state, err := accountutil.AccountState(core.sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, core.bc.Genesis())
+	state, err := accountutil.AccountState(ctx, core.sf, addr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1602,7 +1582,7 @@ func (core *coreService) SimulateExecution(ctx context.Context, addr address.Add
 		return nil, nil, err
 	}
 	// TODO (liuhaai): Use original nonce and gas limit properly
-	exec.SetNonce(state.Nonce + 1)
+	exec.SetNonce(state.PendingNonce())
 	if err != nil {
 		return nil, nil, err
 	}

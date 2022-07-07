@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -94,6 +95,7 @@ func EnableExperimentalActions() Option {
 type actPool struct {
 	mutex                     sync.RWMutex
 	cfg                       config.ActPool
+	g                         genesis.Genesis
 	sf                        protocol.StateReader
 	accountActs               map[string]ActQueue
 	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
@@ -106,7 +108,7 @@ type actPool struct {
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf protocol.StateReader, cfg config.ActPool, opts ...Option) (ActPool, error) {
+func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg config.ActPool, opts ...Option) (ActPool, error) {
 	if sf == nil {
 		return nil, errors.New("Try to attach a nil state reader")
 	}
@@ -118,6 +120,7 @@ func NewActPool(sf protocol.StateReader, cfg config.ActPool, opts ...Option) (Ac
 
 	ap := &actPool{
 		cfg:             cfg,
+		g:               g,
 		sf:              sf,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
@@ -177,9 +180,10 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	// Remove the actions that are already timeout
 	ap.reset()
 
+	ctx := ap.context(context.Background())
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for from, queue := range ap.accountActs {
-		actionMap[from] = append(actionMap[from], queue.PendingActs()...)
+		actionMap[from] = append(actionMap[from], queue.PendingActs(ctx)...)
 	}
 	return actionMap
 }
@@ -188,7 +192,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	ctx, span := tracer.NewSpan(ctx, "actPool.Add")
+	ctx, span := tracer.NewSpan(ap.context(ctx), "actPool.Add")
 	defer span.End()
 
 	// Reject action if pool space is full
@@ -227,7 +231,7 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 		return err
 	}
 
-	caller := act.SrcPubkey().Address()
+	caller := act.SenderAddress()
 	if caller == nil {
 		return action.ErrAddress
 	}
@@ -246,11 +250,12 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	confirmedState, err := accountutil.AccountState(ap.sf, addrStr)
+	ctx := ap.context(context.Background())
+	confirmedState, err := accountutil.AccountState(ctx, ap.sf, addrStr)
 	if err != nil {
 		return 0, err
 	}
-	return confirmedState.Nonce + 1, err
+	return confirmedState.PendingNonce(), err
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -331,7 +336,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	span.AddEvent("actPool.validate")
 	defer span.End()
 
-	caller := selp.SrcPubkey().Address()
+	caller := selp.SenderAddress()
 	if caller == nil {
 		return errors.New("failed to get address")
 	}
@@ -363,13 +368,13 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
 	span := tracer.SpanFromContext(ctx)
 	defer span.End()
-	confirmedState, err := accountutil.AccountState(ap.sf, addr)
+	confirmedState, err := accountutil.AccountState(ctx, ap.sf, addr)
 	if err != nil {
 		_actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
-	confirmedNonce := confirmedState.Nonce
-	if actNonce <= confirmedNonce {
+	pendingNonce := confirmedState.PendingNonce()
+	if actNonce < pendingNonce {
 		return action.ErrNonceTooLow
 	}
 	sender := addr.String()
@@ -379,15 +384,15 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
 		// Initialize pending nonce and balance for new account
-		queue.SetPendingNonce(confirmedNonce + 1)
+		queue.SetPendingNonce(pendingNonce)
 		queue.SetPendingBalance(confirmedState.Balance)
 	}
 
-	if actNonce-confirmedNonce >= ap.cfg.MaxNumActsPerAcct+1 {
+	if actNonce-pendingNonce >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
 		log.L().Debug("Rejecting action because nonce is too large.",
 			log.Hex("hash", actHash[:]),
-			zap.Uint64("startNonce", confirmedNonce+1),
+			zap.Uint64("startNonce", pendingNonce),
 			zap.Uint64("actNonce", actNonce))
 		_actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
 		return action.ErrNonceTooHigh
@@ -444,15 +449,15 @@ func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act 
 }
 
 // removeConfirmedActs removes processed (committed to block) actions from pool
-func (ap *actPool) removeConfirmedActs() {
+func (ap *actPool) removeConfirmedActs(ctx context.Context) {
 	for from, queue := range ap.accountActs {
 		addr, _ := address.FromString(from)
-		confirmedState, err := accountutil.AccountState(ap.sf, addr)
+		confirmedState, err := accountutil.AccountState(ctx, ap.sf, addr)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
 		}
-		pendingNonce := confirmedState.Nonce + 1
+		pendingNonce := confirmedState.PendingNonce()
 		// Remove all actions that are committed to new block
 		acts := queue.FilterNonce(pendingNonce)
 		ap.removeInvalidActs(acts)
@@ -512,16 +517,21 @@ func (ap *actPool) updateAccount(sender string) {
 	}
 }
 
+func (ap *actPool) context(ctx context.Context) context.Context {
+	return genesis.WithGenesisContext(ctx, ap.g)
+}
+
 func (ap *actPool) reset() {
 	timer := ap.timerFactory.NewTimer("reset")
 	defer timer.End()
 
+	ctx := ap.context(context.Background())
 	// Remove confirmed actions in actpool
-	ap.removeConfirmedActs()
+	ap.removeConfirmedActs(ctx)
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
 		addr, _ := address.FromString(from)
-		state, err := accountutil.AccountState(ap.sf, addr)
+		state, err := accountutil.AccountState(ctx, ap.sf, addr)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return
@@ -529,9 +539,7 @@ func (ap *actPool) reset() {
 		queue.SetPendingBalance(state.Balance)
 
 		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce := state.Nonce
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
+		queue.SetPendingNonce(state.PendingNonce())
 		ap.updateAccount(from)
 	}
 }

@@ -71,7 +71,7 @@ func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
-	act, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
+	act, err := (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
-	blk, err := (&block.Deserializer{}).FromBlockProto(pbBlock)
+	blk, err := block.NewDeserializer(cs.chain.EvmNetworkID()).FromBlockProto(pbBlock)
 	if err != nil {
 		return err
 	}
@@ -98,13 +98,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 
 // HandleSyncRequest handles incoming sync request.
 func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peer.AddrInfo, sync *iotexrpc.BlockSync) error {
-	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
-		return cs.p2pAgent.UnicastOutbound(
-			ctx,
-			peer,
-			blk.ConvertToBlockPb(),
-		)
-	})
+	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync.Start, sync.End)
 }
 
 // HandleConsensusMsg handles incoming consensus message.

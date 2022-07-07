@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountImportCmd(t *testing.T) {
@@ -38,9 +37,8 @@ func TestNewAccountImportCmd(t *testing.T) {
 
 func TestNewAccountImportKeyCmd(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, _, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
+	testWallet, ks, _, _, err := newTestAccountWithKeyStore(t, veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
-	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -63,9 +61,8 @@ func TestNewAccountImportKeyCmd(t *testing.T) {
 
 func TestNewAccountImportKeyStoreCmd(t *testing.T) {
 	require := require.New(t)
-	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(veryLightScryptN, veryLightScryptP)
+	testWallet, ks, passwd, _, err := newTestAccountWithKeyStore(t, veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
-	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -93,9 +90,8 @@ func TestNewAccountImportKeyStoreCmd(t *testing.T) {
 
 func TestNewAccountImportPemCmd(t *testing.T) {
 	require := require.New(t)
-	testWallet, passwd, _, err := newTestAccount()
+	testWallet, passwd, _, err := newTestAccount(t)
 	require.NoError(err)
-	defer testutil.CleanupPath(testWallet)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

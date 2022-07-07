@@ -103,16 +103,14 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			recovery.CrashLog(r, cfg.Log)
-		}
-	}()
+	if err = recovery.SetCrashlogDir(cfg.System.SystemLogDBPath); err != nil {
+		glog.Fatalln("Failed to set directory of crashlog: ", zap.Error(err))
+	}
+	defer recovery.Recover()
 
-	// populdate chain ID
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	if config.EVMNetworkID() == 0 {
-		glog.Fatalln("EVM Network ID is not set, call config.New() first")
+	// check EVM network ID and chain ID
+	if cfg.Chain.EVMNetworkID == 0 || cfg.Chain.ID == 0 {
+		glog.Fatalln("EVM Network ID or Chain ID is not set, call config.New() first")
 	}
 
 	cfg.Genesis = genesisCfg
@@ -120,7 +118,7 @@ func main() {
 	cfgToLog.Chain.ProducerPrivKey = ""
 	cfgToLog.Network.MasterKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
-	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
+	log.S().Infof("EVM Network ID: %d, Chain ID: %d", cfg.Chain.EVMNetworkID, cfg.Chain.ID)
 	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
 	log.S().Infof("Genesis hash: %x", block.GenesisHash())
 

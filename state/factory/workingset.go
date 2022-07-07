@@ -124,7 +124,7 @@ func (ws *workingSet) runActions(
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
 	var err error
-	caller := selp.SrcPubkey().Address()
+	caller := selp.SenderAddress()
 	if caller == nil {
 		return nil, errors.New("failed to get address")
 	}
@@ -323,10 +323,10 @@ func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
 	return ws.finalize()
 }
 
-func (ws *workingSet) validateNonce(blk *block.Block) error {
+func (ws *workingSet) validateNonce(ctx context.Context, blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
-		caller := selp.SrcPubkey().Address()
+		caller := selp.SenderAddress()
 		if caller == nil {
 			return errors.New("failed to get address")
 		}
@@ -340,21 +340,22 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		addr, _ := address.FromString(srcAddr)
-		confirmedState, err := accountutil.AccountState(ws, addr)
+		confirmedState, err := accountutil.AccountState(ctx, ws, addr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		pendingNonce := confirmedState.PendingNonce()
 		for i, nonce := range receivedNonces {
-			if nonce != confirmedState.Nonce+uint64(i+1) {
+			if nonce != pendingNonce+uint64(i) {
 				return errors.Wrapf(
 					action.ErrNonceTooHigh,
-					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+					"the %d nonce %d of address %s (init pending nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
-					confirmedState.Nonce,
+					pendingNonce,
 				)
 			}
 		}
@@ -445,7 +446,7 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if err != nil {
-				caller := nextAction.SrcPubkey().Address()
+				caller := nextAction.SenderAddress()
 				if caller == nil {
 					return nil, errors.New("failed to get address")
 				}
@@ -515,7 +516,7 @@ func updateReceiptIndex(receipts []*action.Receipt) {
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
-	if err := ws.validateNonce(blk); err != nil {
+	if err := ws.validateNonce(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
 	}
 	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {

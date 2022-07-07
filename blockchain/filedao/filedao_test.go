@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 )
@@ -69,7 +70,8 @@ func TestReadFileHeader(t *testing.T) {
 	r.Equal(ErrFileNotExist, err)
 
 	// empty legacy file is invalid
-	legacy, err := newFileDAOLegacy(cfg)
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	legacy, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
@@ -109,9 +111,8 @@ func TestReadFileHeader(t *testing.T) {
 		}
 	}
 	os.RemoveAll(cfg.DbPath)
-
 	// test valid v2 master file
-	r.NoError(createNewV2File(1, cfg))
+	r.NoError(createNewV2File(1, cfg, deser))
 	defer os.RemoveAll(cfg.DbPath)
 
 	test2 := []testCheckFile{
@@ -140,11 +141,12 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	defer os.RemoveAll(cfg.DbPath)
 
 	// test non-existing file
-	_, err := checkMasterChainDBFile(cfg.DbPath)
+	_, err := readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
 	// test empty db file, this will create new v2 file
-	fd, err := NewFileDAO(cfg)
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	fd, err := NewFileDAO(cfg, deser)
 	r.NoError(err)
 	r.NotNil(fd)
 	h, err := readFileHeader(cfg.DbPath, FileAll)
@@ -195,7 +197,9 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 
 	cfg.SplitDBHeight = 5
 	cfg.SplitDBSizeMB = 20
-	fd, err := newFileDAOLegacy(cfg)
+
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(fd.Start(ctx))
@@ -208,7 +212,8 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 
 	// set FileDAO to split at height 15, 30 and 40
 	cfg.V2BlocksToSplitDB = 15
-	fd, err = NewFileDAO(cfg)
+
+	fd, err = NewFileDAO(cfg, deser)
 	r.NoError(err)
 	r.NoError(fd.Start(ctx))
 	fm := fd.(*fileDAO)
@@ -264,7 +269,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	r.Equal(files[2], file4)
 
 	// open 4 db files and verify again
-	fd, err = NewFileDAO(cfg)
+	fd, err = NewFileDAO(cfg, deser)
 	fm = fd.(*fileDAO)
 	r.EqualValues(4, fm.topIndex)
 	r.EqualValues(1, fm.splitHeight)
@@ -313,10 +318,11 @@ func TestCheckFiles(t *testing.T) {
 	_, files = checkAuxFiles(cfg.DbPath, FileV2)
 	r.Nil(files)
 
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
 		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))
-		r.NoError(createNewV2File(1, cfg))
+		r.NoError(createNewV2File(1, cfg, deser))
 	}
 	defer func() {
 		for i := 1; i <= 3; i++ {

@@ -9,7 +9,6 @@ package ioctl
 import (
 	"context"
 	"os"
-	"path"
 	"strings"
 	"testing"
 
@@ -17,13 +16,18 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
 	c := NewClient(config.Config{}, "", EnableCryptoSm2())
-	_, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
+	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
+		*p = "127.0.0.1:14014"
+	})
+	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
+		*p = true
+	})
+	_, err := c.APIServiceClient()
 	r.NoError(err)
 	err = c.Stop(context.Background())
 	r.NoError(err)
@@ -42,17 +46,30 @@ func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
 	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
-	apiServiceClient, err := c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.1:14014", Insecure: true})
-	r.NoError(err)
-	r.NotNil(apiServiceClient)
 
-	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "127.0.0.199:14014", Insecure: false})
-	r.NoError(err)
-	r.NotNil(apiServiceClient)
-
-	apiServiceClient, err = c.APIServiceClient(APIServiceConfig{Endpoint: "", Insecure: false})
+	apiServiceClient, err := c.APIServiceClient()
 	r.Contains(err.Error(), `use "ioctl config set endpoint" to config endpoint first`)
 	r.Nil(apiServiceClient)
+
+	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
+		*p = "127.0.0.1:14011"
+	})
+	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
+		*p = true
+	})
+	apiServiceClient, err = c.APIServiceClient()
+	r.NoError(err)
+	r.NotNil(apiServiceClient)
+
+	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
+		*p = "127.0.0.1:14014"
+	})
+	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
+		*p = false
+	})
+	apiServiceClient, err = c.APIServiceClient()
+	r.NoError(err)
+	r.NotNil(apiServiceClient)
 }
 
 func TestGetAddress(t *testing.T) {
@@ -115,7 +132,6 @@ func TestGetAddress(t *testing.T) {
 	for _, test := range tests {
 		r := require.New(t)
 		configFilePath := writeTempConfig(t, &test.cfg)
-		defer testutil.CleanupPath(path.Dir(configFilePath))
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
@@ -130,9 +146,7 @@ func TestGetAddress(t *testing.T) {
 
 func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
-	testWallet, err := os.MkdirTemp(os.TempDir(), "testKeyStore")
-	r.NoError(err)
-	defer testutil.CleanupPath(testWallet)
+	testWallet := t.TempDir()
 
 	c := NewClient(config.Config{
 		Wallet: testWallet,
@@ -159,7 +173,6 @@ func TestAliasMap(t *testing.T) {
 	}
 
 	configFilePath := writeTempConfig(t, &cfg)
-	defer testutil.CleanupPath(path.Dir(configFilePath))
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
@@ -172,6 +185,27 @@ func TestAliasMap(t *testing.T) {
 	defer c.Stop(context.Background())
 	result := c.AliasMap()
 	r.Equal(exprAliases, result)
+}
+
+func TestAlias(t *testing.T) {
+	r := require.New(t)
+	cfg := config.Config{
+		Aliases: map[string]string{
+			"aaa": "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r",
+			"bbb": "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7",
+		},
+	}
+	configFilePath := writeTempConfig(t, &cfg)
+	cfgload := loadTempConfig(t, configFilePath)
+	r.Equal(cfg, cfgload)
+
+	c := NewClient(cfgload, configFilePath)
+	defer c.Stop(context.Background())
+	for alias, addr := range cfg.Aliases {
+		result, err := c.Alias(addr)
+		r.NoError(err)
+		r.Equal(alias, result)
+	}
 }
 
 func TestSetAlias(t *testing.T) {
@@ -242,9 +276,7 @@ func TestSetAlias(t *testing.T) {
 	}
 
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathd)
+	testPathd := t.TempDir()
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
@@ -308,9 +340,7 @@ func TestDeleteAlias(t *testing.T) {
 	}
 
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "cfgtest")
-	r.NoError(err)
-	defer testutil.CleanupPath(testPathd)
+	testPathd := t.TempDir()
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
@@ -324,11 +354,35 @@ func TestDeleteAlias(t *testing.T) {
 	}
 }
 
+func TestHdwalletMnemonic(t *testing.T) {
+	r := require.New(t)
+	testPathWallet := t.TempDir()
+	c := NewClient(config.Config{
+		Wallet: testPathWallet,
+	}, testPathWallet+"/config.default")
+	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
+	password := "123"
+	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
+	result, err := c.HdwalletMnemonic(password)
+	r.NoError(err)
+	r.Equal(mnemonic, result)
+}
+
+func TestWriteHdWalletConfigFile(t *testing.T) {
+	r := require.New(t)
+	testPathWallet := t.TempDir()
+
+	c := NewClient(config.Config{
+		Wallet: testPathWallet,
+	}, testPathWallet+"/config.default")
+	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
+	password := "123"
+	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
+}
+
 func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	r := require.New(t)
-	testPathd, err := os.MkdirTemp(os.TempDir(), "testConfig")
-	r.NoError(err)
-	configFilePath := testPathd + "/config.default"
+	configFilePath := t.TempDir() + "/config.default"
 	out, err := yaml.Marshal(cfg)
 	r.NoError(err)
 	r.NoError(os.WriteFile(configFilePath, out, 0600))

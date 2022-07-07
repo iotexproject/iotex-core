@@ -44,7 +44,6 @@ func TestClient(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	chainID := uint32(1)
 	tx, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
@@ -57,15 +56,15 @@ func TestClient(t *testing.T) {
 	ap := mock_actpool.NewMockActPool(mockCtrl)
 
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
-		*accountState = state.EmptyAccount()
 	})
 	sf.EXPECT().Height().Return(uint64(10), nil).AnyTimes()
 	bc.EXPECT().Genesis().Return(cfg.Genesis).AnyTimes()
-	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
+	bc.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	bc.EXPECT().EvmNetworkID().Return(uint32(0)).AnyTimes()
 	bc.EXPECT().TipHeight().Return(uint64(4)).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	bh := &iotextypes.BlockHeader{Core: &iotextypes.BlockHeaderCore{
-		Version:          chainID,
+		Version:          1,
 		Height:           10,
 		Timestamp:        timestamppb.Now(),
 		PrevBlockHash:    []byte(""),

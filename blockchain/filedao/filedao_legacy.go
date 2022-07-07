@@ -56,16 +56,18 @@ type (
 		htf           db.RangeIndex
 		kvStore       db.KVStore
 		kvStores      *cache.ThreadSafeLruCache //store like map[index]db.KVStore,index from 1...N
+		deser         *block.Deserializer
 	}
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg db.Config) (FileDAO, error) {
+func newFileDAOLegacy(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
 		kvStore:       db.NewBoltDB(cfg),
 		kvStores:      cache.NewThreadSafeLruCache(0),
+		deser:         deser,
 	}, nil
 }
 
@@ -262,7 +264,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		// block body could be empty
 		return &block.Body{}, nil
 	}
-	return (&block.Deserializer{}).DeserializeBody(value)
+	return fd.deser.DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {

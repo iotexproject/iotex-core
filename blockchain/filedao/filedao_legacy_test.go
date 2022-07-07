@@ -31,7 +31,8 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
-		fdLegacy, err := newFileDAOLegacy(cfg)
+		deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+		fdLegacy, err := newFileDAOLegacy(cfg, deser)
 		r.NoError(err)
 		fd, ok := fdLegacy.(*fileDAOLegacy)
 		r.True(ok)
@@ -75,8 +76,8 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
+	block.LoadGenesisHash(&genesis.Default)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
@@ -95,7 +96,8 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
-	fd, err := newFileDAOLegacy(cfg)
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
@@ -131,7 +133,8 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
-	fd, err := newFileDAOLegacy(cfg)
+	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 

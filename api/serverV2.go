@@ -9,10 +9,8 @@ package api
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -29,39 +27,10 @@ import (
 // ServerV2 provides api for user to interact with blockchain data
 type ServerV2 struct {
 	core         CoreService
-	GrpcServer   *GRPCServer
+	grpcServer   *GRPCServer
 	httpSvr      *HTTPServer
-	websocketSvr *WebsocketServer
+	websocketSvr *HTTPServer
 	tracer       *tracesdk.TracerProvider
-}
-
-// Config represents the config to setup api
-type Config struct {
-	broadcastHandler  BroadcastOutbound
-	electionCommittee committee.Committee
-	hasActionIndex    bool
-}
-
-// Option is the option to override the api config
-type Option func(cfg *Config) error
-
-// BroadcastOutbound sends a broadcast message to the whole network
-type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-
-// WithBroadcastOutbound is the option to broadcast msg outbound
-func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
-	return func(cfg *Config) error {
-		cfg.broadcastHandler = broadcastHandler
-		return nil
-	}
-}
-
-// WithNativeElection is the option to return native election data through API.
-func WithNativeElection(committee committee.Committee) Option {
-	return func(cfg *Config) error {
-		cfg.electionCommittee = committee
-		return nil
-	}
 }
 
 // NewServerV2 creates a new server with coreService and GRPC Server
@@ -92,11 +61,12 @@ func NewServerV2(
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot config tracer provider")
 	}
+
 	return &ServerV2{
 		core:         coreAPI,
-		GrpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
-		httpSvr:      NewHTTPServer("", cfg.HTTPPort, web3Handler),
-		websocketSvr: NewWebSocketServer("", cfg.WebSocketPort, web3Handler),
+		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
+		httpSvr:      NewHTTPServer("", cfg.HTTPPort, newHTTPHandler(web3Handler)),
+		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, NewWebsocketHandler(web3Handler)),
 		tracer:       tp,
 	}, nil
 }
@@ -106,8 +76,8 @@ func (svr *ServerV2) Start(ctx context.Context) error {
 	if err := svr.core.Start(ctx); err != nil {
 		return err
 	}
-	if svr.GrpcServer != nil {
-		if err := svr.GrpcServer.Start(ctx); err != nil {
+	if svr.grpcServer != nil {
+		if err := svr.grpcServer.Start(ctx); err != nil {
 			return err
 		}
 	}
@@ -141,8 +111,8 @@ func (svr *ServerV2) Stop(ctx context.Context) error {
 			return err
 		}
 	}
-	if svr.GrpcServer != nil {
-		if err := svr.GrpcServer.Stop(ctx); err != nil {
+	if svr.grpcServer != nil {
+		if err := svr.grpcServer.Stop(ctx); err != nil {
 			return err
 		}
 	}

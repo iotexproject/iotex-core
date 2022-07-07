@@ -14,14 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 func TestGenesisBlock(t *testing.T) {
 	r := require.New(t)
 
-	g := config.Default.Genesis
+	g := genesis.Default
 	genesis.SetGenesisTimestamp(g.Timestamp)
 	blk := GenesisBlock()
 	r.EqualValues(version.ProtocolVersion, blk.Version())
