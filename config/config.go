@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	consensusconfig "github.com/iotexproject/iotex-core/consensus/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -108,10 +109,10 @@ var (
 			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 			BlackList:          []string{},
 		},
-		Consensus: Consensus{
+		Consensus: consensusconfig.Config{
 			Scheme: StandaloneScheme,
-			RollDPoS: RollDPoS{
-				FSM: ConsensusTiming{
+			RollDPoS: consensusconfig.RollDPoS{
+				FSM: consensusconfig.ConsensusTiming{
 					UnmatchedEventTTL:            3 * time.Second,
 					UnmatchedEventInterval:       100 * time.Millisecond,
 					AcceptBlockTTL:               4 * time.Second,
@@ -243,13 +244,6 @@ type (
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 	}
 
-	// Consensus is the config struct for consensus package
-	Consensus struct {
-		// There are three schemes that are supported
-		Scheme   string   `yaml:"scheme"`
-		RollDPoS RollDPoS `yaml:"rollDPoS"`
-	}
-
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
 		Interval              time.Duration `yaml:"interval"` // update duration
@@ -272,25 +266,6 @@ type (
 		CommitTTL                    time.Duration `yaml:"commitTTL"`
 		BlockInterval                time.Duration `yaml:"blockInterval"`
 		Delay                        time.Duration `yaml:"delay"`
-	}
-
-	// RollDPoS is the config struct for RollDPoS consensus package
-	RollDPoS struct {
-		FSM               ConsensusTiming `yaml:"fsm"`
-		ToleratedOvertime time.Duration   `yaml:"toleratedOvertime"`
-		Delay             time.Duration   `yaml:"delay"`
-		ConsensusDBPath   string          `yaml:"consensusDBPath"`
-	}
-
-	// ConsensusTiming defines a set of time durations used in fsm and event queue size
-	ConsensusTiming struct {
-		EventChanSize                uint          `yaml:"eventChanSize"`
-		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
-		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
-		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
-		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
-		CommitTTL                    time.Duration `yaml:"commitTTL"`
 	}
 
 	// API is the api service config
@@ -358,7 +333,7 @@ type (
 		Network            p2p.Config                  `yaml:"network"`
 		Chain              Chain                       `yaml:"chain"`
 		ActPool            ActPool                     `yaml:"actPool"`
-		Consensus          Consensus                   `yaml:"consensus"`
+		Consensus          consensusconfig.Config      `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
 		BlockSync          BlockSync                   `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`

@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	consensusconfig "github.com/iotexproject/iotex-core/consensus/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -43,7 +44,7 @@ type Consensus interface {
 
 // IotxConsensus implements Consensus
 type IotxConsensus struct {
-	cfg    config.Consensus
+	cfg    consensusconfig.Config
 	scheme scheme.Scheme
 }
 

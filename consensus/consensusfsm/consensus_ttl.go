@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	consensusconfig "github.com/iotexproject/iotex-core/consensus/config"
 )
 
 type (
@@ -29,7 +30,7 @@ type (
 
 	// config implements ConsensusConfig
 	consensusCfg struct {
-		cfg           config.ConsensusTiming
+		cfg           consensusconfig.ConsensusTiming
 		dardanelles   config.DardanellesUpgrade
 		g             genesis.Genesis
 		blockInterval time.Duration
