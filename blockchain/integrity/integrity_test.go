@@ -485,7 +485,8 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -536,7 +537,8 @@ func TestGetBlockHash(t *testing.T) {
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -696,7 +698,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -768,7 +771,8 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -870,7 +874,8 @@ func TestConstantinople(t *testing.T) {
 		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB, deser)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -1116,7 +1121,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -1140,7 +1146,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		// Load a blockchain from DB
 		bc = blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -1348,7 +1355,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = testIndexPath2
 	// test using sm2 signature
-	cfg.Chain.SignatureScheme = []string{config.SigP256sm2}
+	cfg.Chain.SignatureScheme = []string{blockchain.SigP256sm2}
 	cfg.Chain.ProducerPrivKey = "308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6"
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
@@ -1414,7 +1421,8 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
 	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(sf),
@@ -1457,7 +1465,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	s, err := accountutil.AccountState(sf, identityset.Address(0))
@@ -1505,7 +1513,7 @@ func TestBlocks(t *testing.T) {
 	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 
 	// Create a blockchain from scratch
-	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1578,7 +1586,8 @@ func TestActions(t *testing.T) {
 	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	// Create a blockchain from scratch
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -1636,7 +1645,7 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	req.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	bc := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, ap))
+	bc := blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, dao, factory.NewMinter(sf, ap))
 	// mock
 	ctrl := gomock.NewController(t)
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
@@ -1864,7 +1873,8 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(

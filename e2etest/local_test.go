@@ -164,7 +164,8 @@ func TestLocalCommit(t *testing.T) {
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
 	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(

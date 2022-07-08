@@ -420,7 +420,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, rp.Register(registry))
 			dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 			chain := blockchain.NewBlockchain(
-				cfg,
+				cfg.Chain,
+				cfg.Genesis,
 				dao,
 				factory.NewMinter(sf, actPool),
 				blockchain.BlockValidatorOption(block.NewValidator(

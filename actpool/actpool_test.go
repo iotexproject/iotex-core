@@ -69,7 +69,7 @@ func TestActPool_NewActPool(t *testing.T) {
 
 	// all good
 	opt := EnableExperimentalActions()
-	require.Panics(func() { blockchain.NewBlockchain(cfg, nil, nil, nil) }, "option is nil")
+	require.Panics(func() { blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, nil, nil, nil) }, "option is nil")
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	act, err := NewActPool(sf, cfg.ActPool, opt)
 	require.NoError(err)

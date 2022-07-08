@@ -265,7 +265,8 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 		return nil, nil, errors.New("pointer is nil")
 	}
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
