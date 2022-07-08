@@ -15,15 +15,13 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestAlias(t *testing.T) {
 	require := require.New(t)
 
-	testPathd, err := testInit()
+	_, err := testInit(t)
 	require.NoError(err)
-	defer testutil.CleanupPath(testPathd)
 
 	raullen := "raullen"
 	qevan := "qevan"
@@ -65,11 +63,9 @@ func TestAlias(t *testing.T) {
 	require.Equal(jing, aliases["io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"])
 }
 
-func testInit() (string, error) {
-	testPathd, err := os.MkdirTemp(os.TempDir(), "kstest")
-	if err != nil {
-		return testPathd, err
-	}
+func testInit(t *testing.T) (string, error) {
+	var err error
+	testPathd := t.TempDir()
 	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 	config.ReadConfig, err = config.LoadConfig()
