@@ -358,7 +358,7 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 	if builder.cs.chain != nil {
 		return builder.cs.chain
 	}
-	var chainOpts = []blockchain.Option{blockchain.PubsubManagerOption(builder.cfg.BlockSync.BufferSize)}
+	var chainOpts []blockchain.Option
 	if !forSubChain {
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(builder.cs.factory, builder.cs.actpool)))
 	} else {

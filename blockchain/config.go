@@ -61,6 +61,8 @@ type (
 		StateDBCacheSize int `yaml:"stateDBCacheSize"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
+		// StreamingBlockBufferSize
+		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 	}
 )
 
@@ -95,6 +97,7 @@ var DefaultConfig = Config{
 	PollInitialCandidatesInterval: 10 * time.Second,
 	StateDBCacheSize:              1000,
 	WorkingSetCacheSize:           20,
+	StreamingBlockBufferSize:      200,
 }
 
 // ProducerAddress returns the configured producer address derived from key

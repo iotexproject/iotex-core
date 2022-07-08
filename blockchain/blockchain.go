@@ -152,14 +152,6 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 	}
 }
 
-// PubsubManagerOption creates the pubsub manager
-func PubsubManagerOption(size uint64) Option {
-	return func(bc *blockchain) error {
-		bc.pubSubManager = NewPubSub(size)
-		return nil
-	}
-}
-
 // ClockOption overrides the default clock
 func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain) error {
@@ -172,19 +164,17 @@ func ClockOption(clk clock.Clock) Option {
 func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
-		config:  cfg,
-		genesis: g,
-		dao:     dao,
-		bbf:     bbf,
-		clk:     clock.New(),
+		config:        cfg,
+		genesis:       g,
+		dao:           dao,
+		bbf:           bbf,
+		clk:           clock.New(),
+		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
 	}
 	for _, opt := range opts {
 		if err := opt(chain); err != nil {
 			log.S().Panicf("Failed to execute blockchain creation option %p: %v", opt, err)
 		}
-	}
-	if chain.pubSubManager == nil {
-		chain.pubSubManager = NewPubSub(200)
 	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_blockchain_perf",
