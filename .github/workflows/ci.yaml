@@ -1,9 +1,10 @@
 name: ci
 
 on:
-
   pull_request:
-    branches: [ master ]
+    branches: [master]
+#  push:
+#    branches: [ops]
 
 permissions:
   contents: read
@@ -18,27 +19,37 @@ jobs:
     name: ci flow
     runs-on: self-hosted
     steps:
+      - uses: actions/checkout@v3
+        # with:
+        #   submodules: recursive
 
-    - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17.2
+          # cache: true
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.17
+      - name: Error Check
+        uses: reviewdog/action-golangci-lint@v2
+        with:
+          golangci_lint_flags: "--disable-all -E errcheck"
+          tool_name: errcheck
+          level: info
 
-    - name: errcheck
-      uses: reviewdog/action-golangci-lint@v2
-      with:
-        golangci_lint_flags: "--disable-all -E errcheck"
-        tool_name: errcheck
-        level: info
-        
-    - name: run-test
-      id: unittest
-      run: |
-        bash <(curl -s https://codecov.io/bash)
-        
-    - name: make-minicluster
-      id: minicluster
-      run: |
-        make minicluster
+      - name: Run Test
+        id: unittest
+        shell: bash
+        run: |
+          go get -u golang.org/x/lint/golint
+          golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
+          #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
+          ./go.test.sh
+          #make test
+          go test -run=XXX -bench=. $(go list ./crypto)
+          bash <(curl -s https://codecov.io/bash)
+
+      - name: Make Minicluster
+        id: minicluster
+        shell: bash
+        run: |
+          make minicluster
