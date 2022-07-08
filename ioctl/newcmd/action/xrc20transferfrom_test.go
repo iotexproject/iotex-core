@@ -42,7 +42,7 @@ func TestNewXrc20TransferFrom(t *testing.T) {
 		prepare func(*gomock.Controller) *cobra.Command
 		err     string
 	}{{
-		"WrongArgCount", nil, prepare, "accepts 3 arg(s), received 1",
+		"WrongArgCount", nil, prepare, "accepts 3 arg(s), received 0",
 	}, {
 		"WrongOwnerAlias", []string{wrongAlias, "", ""}, prepare,
 		"failed to get owner address: cannot find address for alias " + wrongAlias,
