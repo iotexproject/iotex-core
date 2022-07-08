@@ -23,7 +23,27 @@ import (
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	for _, test := range _getAccountTests {
+		accountMeta := &iotextypes.AccountMeta{
+			Address: test.address,
+		}
+		blockIdentifier := &iotextypes.BlockIdentifier{}
+		request := &iotexapi.GetAccountRequest{
+			Address: test.address,
+		}
+
+		core.EXPECT().Account(gomock.Any()).Return(accountMeta, blockIdentifier, nil)
+
+		res, err := grpcSvr.GetAccount(context.Background(), request)
+		require.NoError(err)
+		require.Equal(test.address, res.AccountMeta.Address)
+	}
 }
 
 func TestGrpcServer_GetAction(t *testing.T) {
