@@ -403,6 +403,7 @@ func (c *client) PackABI(name string, args ...interface{}) ([]byte, error) {
 func (c *client) RemoveHdWalletConfigFile() error {
 	return os.Remove(c.hdWalletConfigFile)
 }
+
 func (c *client) IsHdWalletConfigFileExist() bool { // notest
 	return fileutil.FileExists(c.hdWalletConfigFile)
 }
