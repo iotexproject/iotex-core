@@ -36,26 +36,28 @@ var (
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
 
-// ChainManager defines the blockchain interface
-type ChainManager interface {
-	// Genesis returns the genesis
-	Genesis() genesis.Genesis
-	// BlockHeaderByHeight return block header by height
-	BlockHeaderByHeight(height uint64) (*block.Header, error)
-	// BlockFooterByHeight return block footer by height
-	BlockFooterByHeight(height uint64) (*block.Footer, error)
-	// MintNewBlock creates a new block with given actions
-	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(timestamp time.Time) (*block.Block, error)
-	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *block.Block) error
-	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block) error
-	// TipHeight returns tip block's height
-	TipHeight() uint64
-	// ChainAddress returns chain address on parent chain, the root chain return empty.
-	ChainAddress() string
-}
+type (
+	// ChainManager defines the blockchain interface
+	ChainManager interface {
+		// BlockProposeTime return propose time by height
+		BlockProposeTime(uint64) (time.Time, error)
+		// BlockCommitTime return commit time by height
+		BlockCommitTime(uint64) (time.Time, error)
+		// Genesis returns the genesis
+		Genesis() genesis.Genesis
+		// MintNewBlock creates a new block with given actions
+		// Note: the coinbase transfer will be added to the given transfers when minting a new block
+		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		// CommitBlock validates and appends a block to the chain
+		CommitBlock(blk *block.Block) error
+		// ValidateBlock validates a new block before adding it to the blockchain
+		ValidateBlock(blk *block.Block) error
+		// TipHeight returns tip block's height
+		TipHeight() uint64
+		// ChainAddress returns chain address on parent chain, the root chain return empty.
+		ChainAddress() string
+	}
+)
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {

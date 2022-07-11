@@ -86,6 +86,10 @@ type (
 		Genesis() genesis.Genesis
 		// Context returns current context
 		Context(context.Context) (context.Context, error)
+		// BlockProposeTime return propose time by height
+		BlockProposeTime(uint64) (time.Time, error)
+		// BlockCommitTime return commit time by height
+		BlockCommitTime(uint64) (time.Time, error)
 
 		// For block operations
 		// MintNewBlock creates a new block with given actions
@@ -419,6 +423,28 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	return bc.pubSubManager.RemoveBlockListener(s)
+}
+
+func (bc *blockchain) BlockProposeTime(height uint64) (time.Time, error) {
+	header, err := bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return header.Timestamp(), nil
+}
+
+func (bc *blockchain) BlockCommitTime(height uint64) (time.Time, error) {
+	footer, err := bc.BlockFooterByHeight(height)
+	if err != nil {
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return footer.CommitTime(), nil
 }
 
 //======================================

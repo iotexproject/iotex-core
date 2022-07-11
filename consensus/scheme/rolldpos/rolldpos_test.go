@@ -187,9 +187,8 @@ func TestValidateBlockFooter(t *testing.T) {
 	}
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
-	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
+	blockchain.EXPECT().BlockCommitTime(blockHeight).Return(time.Time{}, nil).Times(5)
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := config.Default
@@ -263,10 +262,9 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
-	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
-	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
+	blockchain.EXPECT().BlockCommitTime(blockHeight).Return(time.Time{}, nil).Times(2)
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := config.Default
