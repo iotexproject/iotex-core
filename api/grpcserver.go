@@ -41,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -198,14 +199,14 @@ func (svr *gRPCHandler) GetActions(ctx context.Context, in *iotexapi.GetActionsR
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
 		var (
-			request  = in.GetByBlk()
-			blkStore *block.Store
+			request = in.GetByBlk()
+			blk     *apitypes.BlockWithReceipts
 		)
-		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		blk, err = svr.coreService.BlockByHash(request.BlkHash)
 		if err != nil {
 			break
 		}
-		ret, err = actionsInBlock(blkStore.Block, blkStore.Receipts, request.Start, request.Count)
+		ret, err = actionsInBlock(blk.Block, blk.Receipts, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
@@ -268,10 +269,7 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 
 // GetBlockMetas returns block metadata
 func (svr *gRPCHandler) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetasRequest) (*iotexapi.GetBlockMetasResponse, error) {
-	var (
-		ret []*iotextypes.BlockMeta
-		err error
-	)
+	var ret []*iotextypes.BlockMeta
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
@@ -283,13 +281,11 @@ func (svr *gRPCHandler) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlock
 			ret = append(ret, generateBlockMeta(blkStore))
 		}
 	case in.GetByHash() != nil:
-		var blkStore *block.Store
-		request := in.GetByHash()
-		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		blk, err := svr.coreService.BlockByHash(in.GetByHash().BlkHash)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		ret = []*iotextypes.BlockMeta{generateBlockMeta(blkStore)}
+		ret = []*iotextypes.BlockMeta{generateBlockMeta(blk)}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -714,7 +710,7 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 }
 
 // generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blkStore *block.Store) *iotextypes.BlockMeta {
+func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMeta {
 	blk := blkStore.Block
 	header := blk.Header
 	height := header.Height()

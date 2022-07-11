@@ -62,14 +62,14 @@ func intStrToHex(str string) (string, error) {
 	return "0x" + fmt.Sprintf("%x", amount), nil
 }
 
-func (svr *web3Handler) getBlockWithTransactions(blkStore *block.Store, isDetailed bool) (*getBlockResult, error) {
-	if blkStore == nil || blkStore.Block == nil || blkStore.Receipts == nil {
+func (svr *web3Handler) getBlockWithTransactions(blk *block.Block, receipts []*action.Receipt, isDetailed bool) (*getBlockResult, error) {
+	if blk == nil || receipts == nil {
 		return nil, errInvalidBlock
 	}
 	transactions := make([]interface{}, 0)
-	for i, selp := range blkStore.Block.Actions {
+	for i, selp := range blk.Actions {
 		if isDetailed {
-			tx, err := svr.getTransactionFromActionInfo(blkStore.Block.HashBlock(), selp, blkStore.Receipts[i])
+			tx, err := svr.getTransactionFromActionInfo(blk.HashBlock(), selp, receipts[i])
 			if err != nil {
 				if errors.Cause(err) != errUnsupportedAction {
 					h, _ := selp.Hash()
@@ -87,7 +87,7 @@ func (svr *web3Handler) getBlockWithTransactions(blkStore *block.Store, isDetail
 		}
 	}
 	return &getBlockResult{
-		blk:          blkStore.Block,
+		blk:          blk,
 		transactions: transactions,
 	}, nil
 }

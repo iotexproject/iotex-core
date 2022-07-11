@@ -107,11 +107,11 @@ type (
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
 		// BlockByHeightRange returns blocks within the height range
-		BlockByHeightRange(uint64, uint64) ([]*block.Store, error)
+		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)
 		// BlockByHeight returns the block and its receipt from block height
-		BlockByHeight(uint64) (*block.Store, error)
+		BlockByHeight(uint64) (*apitypes.BlockWithReceipts, error)
 		// BlockByHash returns the block and its receipt
-		BlockByHash(string) (*block.Store, error)
+		BlockByHash(string) (*apitypes.BlockWithReceipts, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
@@ -1025,7 +1025,7 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 }
 
 // BlockByHash returns the block and its receipt from block hash
-func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
+func (core *coreService) BlockByHash(blkHash string) (*apitypes.BlockWithReceipts, error) {
 	if err := core.checkActionIndex(); err != nil {
 		return nil, err
 	}
@@ -1041,14 +1041,14 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{
+	return &apitypes.BlockWithReceipts{
 		Block:    blk,
 		Receipts: receipts,
 	}, nil
 }
 
 // BlockByHeightRange returns blocks within the height range
-func (core *coreService) BlockByHeightRange(start uint64, count uint64) ([]*block.Store, error) {
+func (core *coreService) BlockByHeightRange(start uint64, count uint64) ([]*apitypes.BlockWithReceipts, error) {
 	if count == 0 {
 		return nil, errors.Wrap(errInvalidFormat, "count must be greater than zero")
 	}
@@ -1058,7 +1058,7 @@ func (core *coreService) BlockByHeightRange(start uint64, count uint64) ([]*bloc
 
 	var (
 		tipHeight = core.bc.TipHeight()
-		res       = make([]*block.Store, 0)
+		res       = make([]*apitypes.BlockWithReceipts, 0)
 	)
 	if start > tipHeight {
 		return nil, errors.Wrap(errInvalidFormat, "start height should not exceed tip height")
@@ -1075,11 +1075,11 @@ func (core *coreService) BlockByHeightRange(start uint64, count uint64) ([]*bloc
 }
 
 // BlockByHeight returns the block and its receipt from block height
-func (core *coreService) BlockByHeight(height uint64) (*block.Store, error) {
+func (core *coreService) BlockByHeight(height uint64) (*apitypes.BlockWithReceipts, error) {
 	return core.getBlockByHeight(height)
 }
 
-func (core *coreService) getBlockByHeight(height uint64) (*block.Store, error) {
+func (core *coreService) getBlockByHeight(height uint64) (*apitypes.BlockWithReceipts, error) {
 	if height > core.bc.TipHeight() {
 		return nil, ErrNotFound
 	}
@@ -1095,7 +1095,7 @@ func (core *coreService) getBlockByHeight(height uint64) (*block.Store, error) {
 			return nil, errors.Wrap(ErrNotFound, err.Error())
 		}
 	}
-	return &block.Store{
+	return &apitypes.BlockWithReceipts{
 		Block:    blk,
 		Receipts: receipts,
 	}, nil

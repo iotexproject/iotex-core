@@ -137,10 +137,10 @@ func (mr *MockCoreServiceMockRecorder) ActionsInActPool(actHashes interface{}) *
 }
 
 // BlockByHash mocks base method.
-func (m *MockCoreService) BlockByHash(arg0 string) (*block.Store, error) {
+func (m *MockCoreService) BlockByHash(arg0 string) (*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHash", arg0)
-	ret0, _ := ret[0].(*block.Store)
+	ret0, _ := ret[0].(*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -152,10 +152,10 @@ func (mr *MockCoreServiceMockRecorder) BlockByHash(arg0 interface{}) *gomock.Cal
 }
 
 // BlockByHeight mocks base method.
-func (m *MockCoreService) BlockByHeight(arg0 uint64) (*block.Store, error) {
+func (m *MockCoreService) BlockByHeight(arg0 uint64) (*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHeight", arg0)
-	ret0, _ := ret[0].(*block.Store)
+	ret0, _ := ret[0].(*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -167,10 +167,10 @@ func (mr *MockCoreServiceMockRecorder) BlockByHeight(arg0 interface{}) *gomock.C
 }
 
 // BlockByHeightRange mocks base method.
-func (m *MockCoreService) BlockByHeightRange(arg0, arg1 uint64) ([]*block.Store, error) {
+func (m *MockCoreService) BlockByHeightRange(arg0, arg1 uint64) ([]*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHeightRange", arg0, arg1)
-	ret0, _ := ret[0].([]*block.Store)
+	ret0, _ := ret[0].([]*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
