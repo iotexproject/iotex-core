@@ -9,7 +9,6 @@ package action
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -322,7 +321,7 @@ func fixGasLimit(client ioctl.Client, caller string, execution *action.Execution
 }
 
 // SendRaw sends raw action to blockchain
-func SendRaw(client ioctl.Client, selp *iotextypes.Action) error {
+func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) error {
 	cli, err := client.APIServiceClient()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to endpoint")
@@ -354,7 +353,7 @@ func SendRaw(client ioctl.Client, selp *iotextypes.Action) error {
 	default:
 		URL = explorer + txhash
 	}
-	fmt.Printf("Action has been sent to blockchain.\nWait for several seconds and query this action by hash: %s", URL)
+	cmd.Printf("Action has been sent to blockchain.\nWait for several seconds and query this action by hash: %s\n", URL)
 	return nil
 }
 
@@ -407,7 +406,7 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 		return nil
 	}
 
-	return SendRaw(client, selp)
+	return SendRaw(client, cmd, selp)
 }
 
 // Execute sends signed execution transaction to blockchain

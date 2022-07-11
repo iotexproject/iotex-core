@@ -80,13 +80,17 @@ func TestSendRaw(t *testing.T) {
 		callbackInsecure := func(cb func(*bool, string, bool, string)) {
 			cb(&test.insecure, "insecure", !test.insecure, "insecure usage")
 		}
-		client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(callbackEndpoint)
-		client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure)
+		client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(callbackEndpoint).Times(3)
+		client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure).Times(3)
 
 		t.Run("sends raw action to blockchain", func(t *testing.T) {
 			response := &iotexapi.SendActionResponse{}
 
 			apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(response, nil).Times(3)
+
+			cmd := NewActionCmd(client)
+			_, err := util.ExecuteCmd(cmd)
+			require.NoError(err)
 
 			t.Run("endpoint iotexscan", func(t *testing.T) {
 				client.EXPECT().Config().Return(config.Config{
@@ -94,7 +98,7 @@ func TestSendRaw(t *testing.T) {
 					Endpoint: "testnet1",
 				}).Times(2)
 
-				err := SendRaw(client, selp)
+				err = SendRaw(client, cmd, selp)
 				require.NoError(err)
 			})
 
@@ -103,7 +107,7 @@ func TestSendRaw(t *testing.T) {
 					Explorer: "iotxplorer",
 				}).Times(2)
 
-				err := SendRaw(client, selp)
+				err := SendRaw(client, cmd, selp)
 				require.NoError(err)
 			})
 
@@ -112,7 +116,7 @@ func TestSendRaw(t *testing.T) {
 					Explorer: "test",
 				}).Times(2)
 
-				err := SendRaw(client, selp)
+				err := SendRaw(client, cmd, selp)
 				require.NoError(err)
 			})
 		})
@@ -123,7 +127,10 @@ func TestSendRaw(t *testing.T) {
 
 		apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
-		err := SendRaw(client, selp)
+		cmd := NewActionCmd(client)
+		_, err := util.ExecuteCmd(cmd)
+		require.NoError(err)
+		err = SendRaw(client, cmd, selp)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 }
