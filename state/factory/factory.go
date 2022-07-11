@@ -230,7 +230,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sf.cfg.Genesis.Timestamp, 0),
-				Producer:       sf.cfg.ProducerAddress(),
+				Producer:       sf.cfg.Chain.ProducerAddress(),
 				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
 			})
 		ctx = protocol.WithFeatureCtx(ctx)

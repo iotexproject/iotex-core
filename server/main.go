@@ -168,7 +168,7 @@ func main() {
 }
 
 func initLogger(cfg config.Config) error {
-	addr := cfg.ProducerAddress()
+	addr := cfg.Chain.ProducerAddress()
 	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
 	))
