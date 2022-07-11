@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
@@ -312,7 +313,7 @@ func TestValidateActPool(t *testing.T) {
 }
 
 func TestValidateMinGasPrice(t *testing.T) {
-	ap := ActPool{MinGasPriceStr: Default.ActPool.MinGasPriceStr}
+	ap := actpool.Config{MinGasPriceStr: Default.ActPool.MinGasPriceStr}
 	mgp := ap.MinGasPrice()
 	fmt.Printf("%T,%v", mgp, mgp)
 	require.IsType(t, &big.Int{}, mgp)

@@ -7,7 +7,6 @@
 package config
 
 import (
-	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
@@ -61,14 +61,7 @@ var (
 		SubLogs: make(map[string]log.GlobalConfig),
 		Network: p2p.DefaultConfig,
 		Chain:   blockchain.DefaultConfig,
-		ActPool: ActPool{
-			MaxNumActsPerPool:  32000,
-			MaxGasLimitPerPool: 320000000,
-			MaxNumActsPerAcct:  2000,
-			ActionExpiry:       10 * time.Minute,
-			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
-			BlackList:          []string{},
-		},
+		ActPool: actpool.DefaultConfig,
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
 			RollDPoS: RollDPoS{
@@ -244,22 +237,6 @@ type (
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
 	}
 
-	// ActPool is the actpool config
-	ActPool struct {
-		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
-		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
-		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
-		MaxGasLimitPerPool uint64 `yaml:"maxGasLimitPerPool"`
-		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
-		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
-		// ActionExpiry defines how long an action will be kept in action pool.
-		ActionExpiry time.Duration `yaml:"actionExpiry"`
-		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
-		MinGasPriceStr string `yaml:"minGasPrice"`
-		// BlackList lists the account address that are banned from initiating actions
-		BlackList []string `yaml:"blackList"`
-	}
-
 	// Indexer is the config for indexer
 	Indexer struct {
 		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
@@ -275,7 +252,7 @@ type (
 		Plugins            map[int]interface{}         `ymal:"plugins"`
 		Network            p2p.Config                  `yaml:"network"`
 		Chain              blockchain.Config           `yaml:"chain"`
-		ActPool            ActPool                     `yaml:"actPool"`
+		ActPool            actpool.Config              `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
 		BlockSync          BlockSync                   `yaml:"blockSync"`
@@ -372,15 +349,6 @@ func NewSub(configPaths []string, validates ...Validate) (Config, error) {
 		}
 	}
 	return cfg, nil
-}
-
-// MinGasPrice returns the minimal gas price threshold
-func (ap ActPool) MinGasPrice() *big.Int {
-	mgp, ok := new(big.Int).SetString(ap.MinGasPriceStr, 10)
-	if !ok {
-		log.S().Panicf("Error when parsing minimal gas price string: %s", ap.MinGasPriceStr)
-	}
-	return mgp
 }
 
 // ValidateDispatcher validates the dispatcher configs
