@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -58,17 +58,37 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	addrv1 := identityset.Address(27)
-	s, err := accountutil.LoadAccount(sm, addrv1)
-	require.NoError(err)
-	require.Equal(s.Balance, big.NewInt(0))
+	t.Run("legacy account type", func(t *testing.T) {
+		addrv1 := identityset.Address(27)
+		s, err := accountutil.LoadAccount(sm, addrv1, state.LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		require.Equal(big.NewInt(0), s.Balance)
+		require.Equal(int32(0), s.AccountType())
+		require.Equal(uint64(0x1), s.PendingNonce())
 
-	// create account
-	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
-	s, err = accountutil.LoadAccount(sm, addrv1)
-	require.NoError(err)
-	require.Equal("5", s.Balance.String())
-	require.Equal(uint64(0x1), s.PendingNonce())
+		require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
+		s, err = accountutil.LoadAccount(sm, addrv1, state.LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		require.Equal("5", s.Balance.String())
+		require.Equal(int32(0), s.AccountType())
+		require.Equal(uint64(0x1), s.PendingNonce())
+	})
+
+	t.Run("zero nonce account type", func(t *testing.T) {
+		addrv1 := identityset.Address(28)
+		s, err := accountutil.LoadAccount(sm, addrv1)
+		require.NoError(err)
+		require.Equal(big.NewInt(0), s.Balance)
+		require.Equal(int32(1), s.AccountType())
+		require.Equal(uint64(0x0), s.PendingNonce())
+
+		require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
+		s, err = accountutil.LoadAccount(sm, addrv1)
+		require.NoError(err)
+		require.Equal("5", s.Balance.String())
+		require.Equal(int32(1), s.AccountType())
+		require.Equal(uint64(0x0), s.PendingNonce())
+	})
 }
 
 func TestProtocol_Initialize(t *testing.T) {

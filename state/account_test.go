@@ -41,35 +41,69 @@ func TestNonce(t *testing.T) {
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	s1 := Account{
-		accountType: 1,
-		nonce:       0x10,
-		Balance:     big.NewInt(20000000),
-		CodeHash:    []byte("testing codehash"),
-	}
-	ss, err := s1.Serialize()
-	require.NoError(err)
-	require.NotEmpty(ss)
-	require.Equal(66, len(ss))
+	t.Run("legacy account type", func(t *testing.T) {
+		s1 := Account{
+			accountType: 1,
+			nonce:       0x10,
+			Balance:     big.NewInt(20000000),
+			CodeHash:    []byte("testing codehash"),
+		}
+		ss, err := s1.Serialize()
+		require.NoError(err)
+		require.NotEmpty(ss)
+		require.Equal(66, len(ss))
 
-	s2 := Account{}
-	require.NoError(s2.Deserialize(ss))
-	require.Equal(s1.accountType, s2.accountType)
-	require.Equal(s1.Balance, s2.Balance)
-	require.Equal(s1.nonce, s2.nonce)
-	require.Equal(hash.ZeroHash256, s2.Root)
-	require.Equal(s1.CodeHash, s2.CodeHash)
+		s2 := Account{}
+		require.NoError(s2.Deserialize(ss))
+		require.Equal(s1.accountType, s2.accountType)
+		require.Equal(s1.Balance, s2.Balance)
+		require.Equal(s1.nonce, s2.nonce)
+		require.Equal(hash.ZeroHash256, s2.Root)
+		require.Equal(s1.CodeHash, s2.CodeHash)
+	})
+	t.Run("zero nonce account type", func(t *testing.T) {
+		s1 := Account{
+			accountType: 0,
+			nonce:       0x10,
+			Balance:     big.NewInt(20000000),
+			CodeHash:    []byte("testing codehash"),
+		}
+		ss, err := s1.Serialize()
+		require.NoError(err)
+		require.NotEmpty(ss)
+		require.Equal(64, len(ss))
+
+		s2 := Account{}
+		require.NoError(s2.Deserialize(ss))
+		require.Equal(s1.accountType, s2.accountType)
+		require.Equal(s1.Balance, s2.Balance)
+		require.Equal(s1.nonce, s2.nonce)
+		require.Equal(hash.ZeroHash256, s2.Root)
+		require.Equal(s1.CodeHash, s2.CodeHash)
+	})
 }
 
 func TestProto(t *testing.T) {
 	require := require.New(t)
 	raw := "1201301a200000000000000000000000000000000000000000000000000000000000000000"
 	ss, _ := hex.DecodeString(raw)
-	s1 := Account{}
-	require.NoError(Deserialize(&s1, ss))
-	d, err := Serialize(s1)
-	require.NoError(err)
-	require.Equal(raw, hex.EncodeToString(d))
+
+	t.Run("legacy account type", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		require.NoError(acct.Deserialize(ss))
+		bytes, err := acct.Serialize()
+		require.NoError(err)
+		require.Equal(raw, hex.EncodeToString(bytes))
+	})
+	t.Run("zero nonce account type", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		require.NoError(acct.Deserialize(ss))
+		bytes, err := acct.Serialize()
+		require.NoError(err)
+		require.Equal(raw, hex.EncodeToString(bytes))
+	})
 }
 
 func TestBalance(t *testing.T) {
