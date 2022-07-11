@@ -8,6 +8,7 @@ package api
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
@@ -141,6 +143,45 @@ func TestGrpcServer_GetActions(t *testing.T) {
 			result, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
 			require.Equal(test.blkNumber, result.ActionInfo[0].BlkHeight)
+		}
+	})
+
+	t.Run("get actions by block test", func(t *testing.T) {
+		for _, test := range _getActionsByBlockTests {
+			gasConsumed, ok := new(big.Int).SetString(test.firstTxGas, 10)
+			if !ok {
+				gasConsumed = big.NewInt(0)
+			}
+
+			response := &block.Store{
+				Block: &block.Block{
+					Receipts: []*action.Receipt{
+						{
+							BlockHeight: test.blkHeight,
+							GasConsumed: gasConsumed.Uint64(),
+						},
+					},
+				},
+				Receipts: []*action.Receipt{
+					{
+						BlockHeight: test.blkHeight,
+						GasConsumed: gasConsumed.Uint64(),
+					},
+				},
+			}
+			request := &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByBlk{
+					ByBlk: &iotexapi.GetActionsByBlockRequest{
+						Start: test.start,
+						Count: test.count,
+					},
+				},
+			}
+
+			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil).AnyTimes()
+
+			_, err := grpcSvr.GetActions(context.Background(), request)
+			require.NoError(err)
 		}
 	})
 }
