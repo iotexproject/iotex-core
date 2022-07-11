@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	// DefaultConfig is the default config for actpool
 	DefaultConfig = Config{
 		MaxNumActsPerPool:  32000,
 		MaxGasLimitPerPool: 320000000,
