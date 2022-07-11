@@ -19,7 +19,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -122,7 +121,7 @@ func TestProtocol_Initialize(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	ge := config.Default.Genesis
+	ge := genesis.Default
 	ge.Account.InitBalanceMap = map[string]string{
 		identityset.Address(0).String(): "100",
 	}
