@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -95,7 +94,7 @@ func TestNewFileDAOv2(t *testing.T) {
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	_, err = newFileDAOv2(0, cfg, deser)
 	r.Equal(ErrNotSupported, err)
 
@@ -116,7 +115,7 @@ func TestNewFdInterface(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
-		deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
 		fd, err := newFileDAOv2(start, cfg, deser)
 		r.NoError(err)
 
@@ -258,7 +257,7 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	_, err = newFileDAOv2(0, cfg, deser)
 	r.Equal(ErrNotSupported, err)
 	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
@@ -277,7 +276,7 @@ func TestNewFdInterface(t *testing.T) {
 func TestNewFdStart(t *testing.T) {
 	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
-		deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
 		for _, num := range []uint64{3, _blockStoreBatchSize - 1, _blockStoreBatchSize, 2*_blockStoreBatchSize - 1} {
 			testutil.CleanupPath(cfg.DbPath)
 			fd, err := newFileDAOv2(start, cfg, deser)

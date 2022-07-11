@@ -318,18 +318,6 @@ func TestValidateMinGasPrice(t *testing.T) {
 	require.IsType(t, &big.Int{}, mgp)
 }
 
-func TestValidateProducerPrivateKey(t *testing.T) {
-	cfg := Default
-	sk := cfg.ProducerPrivateKey()
-	require.NotNil(t, sk)
-}
-
-func TestValidateProducerAddress(t *testing.T) {
-	cfg := Default
-	addr := cfg.ProducerAddress()
-	require.NotNil(t, addr)
-}
-
 func TestValidateForkHeights(t *testing.T) {
 	r := require.New(t)
 
@@ -492,17 +480,4 @@ func TestNewSubConfigWithLookupEnv(t *testing.T) {
 	cfg, err = NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
-}
-
-func TestWhitelist(t *testing.T) {
-	require := require.New(t)
-	cfg := Config{}
-	sk, err := crypto.HexStringToPrivateKey("308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6")
-	require.NoError(err)
-	require.False(cfg.whitelistSignatureScheme(sk))
-	cfg.Chain.ProducerPrivKey = sk.HexString()
-	require.Panics(func() { cfg.ProducerPrivateKey() })
-
-	cfg.Chain.SignatureScheme = append(cfg.Chain.SignatureScheme, SigP256sm2)
-	require.Equal(sk, cfg.ProducerPrivateKey())
 }

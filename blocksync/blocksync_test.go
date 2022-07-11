@@ -82,7 +82,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
-	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
+	mBc.EXPECT().ChainID().AnyTimes().Return(blockchain.DefaultConfig.ID)
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
@@ -133,7 +133,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
+	mBc.EXPECT().ChainID().AnyTimes().Return(blockchain.DefaultConfig.ID)
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
@@ -194,7 +194,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
@@ -256,7 +257,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain1 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap1),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
@@ -280,7 +282,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
 	chain2 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao2,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
@@ -351,7 +354,8 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain1 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap1),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
@@ -374,7 +378,8 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
 	chain2 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao2,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
@@ -438,7 +443,8 @@ func TestBlockSyncerSync(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
