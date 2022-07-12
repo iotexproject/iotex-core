@@ -127,11 +127,7 @@ func rename(oldPath string, newPath string, c chan bool) {
 }
 
 func share(args []string) error {
-	path, err := filepath.Abs(filepath.Clean(args[0]))
-	if err != nil {
-		return err
-	}
-	_givenPath = path
+	_givenPath = filepath.Clean(args[0])
 	if len(_givenPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
@@ -201,52 +197,73 @@ func share(args []string) error {
 
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				getPayloadPath := getPayload["path"].(string)
-				payloadPath := filepath.Join(_givenPath, filepath.Clean(getPayloadPath))
-				upload, err := os.ReadFile(payloadPath)
+				getPayloadPath, err := cleanPath(getPayload["path"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				getPayloadPath = filepath.Join(_givenPath, getPayloadPath)
+				upload, err := os.ReadFile(getPayloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
+					break
 				}
 				payload["content"] = string(upload)
-				payload["readonly"] = isReadOnly(payloadPath)
+				payload["readonly"] = isReadOnly(getPayloadPath)
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + easpcapeString(payloadPath))
+				log.Println("share: " + easpcapeString(getPayloadPath))
 
 			case "rename":
 				c := make(chan bool)
 				t := request.Payload
 				renamePayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				oldPath := filepath.Join(_givenPath, filepath.Clean(renamePayload["oldPath"].(string)))
-				newPath := filepath.Join(_givenPath, filepath.Clean(renamePayload["newPath"].(string)))
-				go rename(oldPath, newPath, c)
+				oldRenamePath, err := cleanPath(renamePayload["oldPath"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				newRenamePath, err := cleanPath(renamePayload["newPath"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				oldRenamePath = filepath.Join(_givenPath, oldRenamePath)
+				newRenamePath = filepath.Join(_givenPath, newRenamePath)
+				go rename(oldRenamePath, newRenamePath, c)
 				response.Payload = <-c
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("rename: " + easpcapeString(oldPath) + " to " + easpcapeString(newPath))
+				log.Println("rename: " + easpcapeString(oldRenamePath) + " to " + easpcapeString(newRenamePath))
 
 			case "set":
 				t := request.Payload
 				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				setPath := setPayload["path"].(string)
 				content := setPayload["content"].(string)
-				newPath := filepath.Join(_givenPath, filepath.Clean(setPath))
-				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
-					log.Println("mkdir failed: ", err)
+				setPath, err := cleanPath(setPayload["path"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
 				}
-				if err := os.WriteFile(newPath, []byte(content), 0644); err != nil {
+				setPath = filepath.Join(_givenPath, setPath)
+				if err := os.MkdirAll(filepath.Dir(setPath), 0755); err != nil {
+					log.Println("mkdir failed: ", err)
+					break
+				}
+				if err := os.WriteFile(setPath, []byte(content), 0644); err != nil {
 					log.Println("set file failed: ", err)
+					break
 				}
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Println("set: " + easpcapeString(newPath))
+				log.Println("set: " + easpcapeString(setPath))
 
 			default:
 				log.Println("Don't support this IDE yet. Can not handle websocket method: " + easpcapeString(request.Key))
@@ -257,6 +274,15 @@ func share(args []string) error {
 	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
+}
+
+func cleanPath(path string) (string, error) {
+	path = filepath.Clean(filepath.Join("/", path))
+	real, err := filepath.Rel("/", path)
+	if err != nil {
+		return "", err
+	}
+	return real, nil
 }
 
 func easpcapeString(str string) string {
