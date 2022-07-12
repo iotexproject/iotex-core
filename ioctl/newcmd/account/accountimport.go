@@ -25,10 +25,6 @@ var (
 		config.English: "Import IoTeX private key or keystore into wallet",
 		config.Chinese: "将IoTeX的私钥或私钥库导入钱包",
 	}
-	importCmdUses = map[config.Language]string{
-		config.English: "import",
-		config.Chinese: "import",
-	}
 	importKeyCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX private key into wallet",
 		config.Chinese: "将IoTeX的私钥导入钱包",
@@ -57,10 +53,9 @@ var (
 
 // NewAccountImportCmd combines three account import command
 func NewAccountImportCmd(client ioctl.Client) *cobra.Command {
-	importUses, _ := client.SelectTranslation(importCmdUses)
 	importShorts, _ := client.SelectTranslation(importCmdShorts)
 	accountImportCmd := &cobra.Command{
-		Use:   importUses,
+		Use:   "import",
 		Short: importShorts,
 	}
 

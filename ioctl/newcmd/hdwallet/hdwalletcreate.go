@@ -21,19 +21,14 @@ var (
 		config.English: "create hdwallet using mnemonic",
 		config.Chinese: "通过助记词创建新钱包",
 	}
-	_createByMnemonicCmdUses = map[config.Language]string{
-		config.English: "create",
-		config.Chinese: "create",
-	}
 )
 
 // NewHdwalletCreateCmd represents the hdwallet create command
 func NewHdwalletCreateCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_createByMnemonicCmdUses)
 	short, _ := client.SelectTranslation(_createByMnemonicCmdShorts)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "create",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

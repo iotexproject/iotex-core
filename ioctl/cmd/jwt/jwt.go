@@ -20,15 +20,11 @@ var (
 		config.English: "Manage Json Web Token on IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的JWT",
 	}
-	_jwtCmdUses = map[config.Language]string{
-		config.English: "jwt",
-		config.Chinese: "jwt",
-	}
 )
 
 // JwtCmd represents the jwt command
 var JwtCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_jwtCmdUses, config.UILanguage),
+	Use:   "jwt",
 	Short: config.TranslateInLang(_jwtCmdShorts, config.UILanguage),
 }
 

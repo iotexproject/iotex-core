@@ -23,10 +23,6 @@ var (
 		config.English: "Verify IoTeX public key and address by private key",
 		config.Chinese: "用私钥验证IoTeX的公钥和地址",
 	}
-	_verifyCmdUses = map[config.Language]string{
-		config.English: "verify",
-		config.Chinese: "verify",
-	}
 	_enterPrivateKey = map[config.Language]string{
 		config.English: "Enter private key:",
 		config.Chinese: "输入私钥:",
@@ -43,7 +39,6 @@ var (
 
 // NewAccountVerify represents the account verify command
 func NewAccountVerify(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_verifyCmdUses)
 	short, _ := client.SelectTranslation(_verifyCmdShorts)
 	_enterPrivateKey, _ := client.SelectTranslation(_enterPrivateKey)
 	_failToGetPrivateKey, _ := client.SelectTranslation(_failToGetPrivateKey)
@@ -51,7 +46,7 @@ func NewAccountVerify(client ioctl.Client) *cobra.Command {
 	_failToCovertHexStringToPrivateKey, _ := client.SelectTranslation(_failToCovertHexStringToPrivateKey)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "verify",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
