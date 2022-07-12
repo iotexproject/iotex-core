@@ -117,7 +117,7 @@ func isExist(path string) bool {
 }
 
 func rename(oldPath string, newPath string, c chan bool) {
-	if isExist(_givenPath + "/" + oldPath) {
+	if isExist(oldPath) {
 		if err := os.Rename(oldPath, newPath); err != nil {
 			log.Println("Rename file failed: ", err)
 		}
@@ -127,7 +127,7 @@ func rename(oldPath string, newPath string, c chan bool) {
 }
 
 func share(args []string) error {
-	_givenPath = args[0]
+	_givenPath = filepath.Clean(args[0])
 	if len(_givenPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
@@ -197,7 +197,7 @@ func share(args []string) error {
 
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				getPayloadPath := getPayload["path"].(string)
+				getPayloadPath := filepath.Clean(getPayload["path"].(string))
 				upload, err := os.ReadFile(_givenPath + "/" + getPayloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
@@ -215,30 +215,33 @@ func share(args []string) error {
 				c := make(chan bool)
 				t := request.Payload
 				renamePayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				oldPath := renamePayload["oldPath"].(string)
-				newPath := renamePayload["newPath"].(string)
+				oldPath := _givenPath + "/" + filepath.Clean(renamePayload["oldPath"].(string))
+				newPath := _givenPath + "/" + filepath.Clean(renamePayload["newPath"].(string))
 				go rename(oldPath, newPath, c)
 				response.Payload = <-c
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Printf("rename: %s/%s to %s/%s\n", _givenPath, oldPath, _givenPath, newPath)
+				log.Printf("rename: %s to %s\n", oldPath, newPath)
 
 			case "set":
 				t := request.Payload
 				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				setPath := setPayload["path"].(string)
+				setPath := filepath.Clean(setPayload["path"].(string))
 				content := setPayload["content"].(string)
-				err := os.WriteFile(_givenPath+"/"+setPath, []byte(content), 0777)
-				if err != nil {
+				newPath := _givenPath + "/" + setPath
+				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
+					log.Println("mkdir failed: ", err)
+				}
+				if err := os.WriteFile(newPath, []byte(content), 0644); err != nil {
 					log.Println("set file failed: ", err)
 				}
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Printf("set: %s/%s\n", _givenPath, setPath)
+				log.Printf("set: %s\n", newPath)
 
 			default:
 				log.Printf("Don't support this IDE yet. Can not handle websocket method: %s\n" + request.Key)
@@ -249,5 +252,4 @@ func share(args []string) error {
 	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
-
 }
