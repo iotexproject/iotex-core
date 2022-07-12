@@ -93,9 +93,10 @@ func (ps *pubSub) RemoveBlockListener(s BlockCreationSubscriber) error {
 
 // SendBlockToSubscribers sends block to every subscriber by using buffer channel
 func (ps *pubSub) SendBlockToSubscribers(blk *block.Block) {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
-	for _, elem := range ps.blocklisteners {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	blocklisteners := ps.blocklisteners
+	for _, elem := range blocklisteners {
 		elem.pendingBlksBuffer <- blk
 	}
 }

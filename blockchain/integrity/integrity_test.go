@@ -11,7 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -832,22 +832,17 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 }
 
 type MockSubscriber struct {
-	counter int
-	mu      sync.RWMutex
+	counter int32
 }
 
 func (ms *MockSubscriber) ReceiveBlock(blk *block.Block) error {
-	ms.mu.Lock()
 	tsfs, _ := classifyActions(blk.Actions)
-	ms.counter += len(tsfs)
-	ms.mu.Unlock()
+	atomic.AddInt32(&ms.counter, int32(len(tsfs)))
 	return nil
 }
 
 func (ms *MockSubscriber) Counter() int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.counter
+	return int(atomic.LoadInt32(&ms.counter))
 }
 
 func TestConstantinople(t *testing.T) {
