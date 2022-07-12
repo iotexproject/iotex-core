@@ -209,7 +209,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Printf("share: %s/%s\n", _givenPath, getPayloadPath)
+				log.Println("share: " + _givenPath + "/" + easpcapeString(getPayloadPath))
 
 			case "rename":
 				c := make(chan bool)
@@ -223,7 +223,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Printf("rename: %s to %s\n", oldPath, newPath)
+				log.Println("rename: " + easpcapeString(oldPath) + " to " + easpcapeString(newPath))
 
 			case "set":
 				t := request.Payload
@@ -241,10 +241,10 @@ func share(args []string) error {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Printf("set: %s\n", newPath)
+				log.Println("set: " + easpcapeString(newPath))
 
 			default:
-				log.Printf("Don't support this IDE yet. Can not handle websocket method: %s\n" + request.Key)
+				log.Println("Don't support this IDE yet. Can not handle websocket method: " + easpcapeString(request.Key))
 
 			}
 		}
@@ -252,4 +252,9 @@ func share(args []string) error {
 	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
+}
+
+func easpcapeString(str string) string {
+	escaped := strings.Replace(str, "\n", "", -1)
+	return strings.Replace(escaped, "\r", "", -1)
 }
