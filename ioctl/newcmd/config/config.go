@@ -8,6 +8,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"os"
 	"path"
 	"path/filepath"
@@ -125,6 +126,52 @@ func (c *info) reset() error {
 
 	fmt.Println("Config set to default values")
 	return nil
+}
+
+// get retrieves a config item from its key.
+func (c *info) get(arg string) (string, error) {
+	switch arg {
+	default:
+		return "", config.ErrConfigNotMatch
+	case "endpoint":
+		if c.readConfig.Endpoint == "" {
+			return "", config.ErrEmptyEndpoint
+		}
+		message := endpointMessage{Endpoint: c.readConfig.Endpoint, SecureConnect: c.readConfig.SecureConnect}
+		return message.String(), nil
+	case "wallet":
+		return c.readConfig.Wallet, nil
+	case "defaultacc":
+		if c.readConfig.DefaultAccount.AddressOrAlias == "" {
+			return "", config.ErrConfigDefaultAccount
+		}
+		return c.readConfig.DefaultAccount.String(), nil
+	case "explorer":
+		return c.readConfig.Explorer, nil
+	case "language":
+		return c.readConfig.Language, nil
+	case "nsv2height":
+		return strconv.FormatUint(c.readConfig.Nsv2height, 10), nil
+	case "analyserEndpoint":
+		return c.readConfig.AnalyserEndpoint, nil
+	case "all":
+		return c.readConfig.String(), nil
+	}
+
+	return "", config.ErrConfigNotMatch
+}
+
+type endpointMessage struct {
+	Endpoint      string `json:"endpoint"`
+	SecureConnect bool   `json:"secureConnect"`
+}
+
+func (m *endpointMessage) String() string {
+	if output.Format == "" {
+		message := fmt.Sprint(m.Endpoint, "    secure connect(TLS):", m.SecureConnect)
+		return message
+	}
+	return output.FormatString(output.Result, m)
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
