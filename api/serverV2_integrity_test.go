@@ -309,7 +309,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -354,7 +355,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
 }
 
-func setupActPool(g genesis.Genesis, sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
+func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (actpool.ActPool, error) {
 	ap, err := actpool.NewActPool(g, sf, cfg, actpool.EnableExperimentalActions())
 	if err != nil {
 		return nil, err

@@ -653,7 +653,8 @@ func TestEnforceChainID(t *testing.T) {
 	require.NoError(err)
 	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		blkMemDao,
 		factory.NewMinter(sf, ap),
 	)
