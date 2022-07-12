@@ -186,7 +186,7 @@ func share(args []string) error {
 			case "list":
 				payload := make(map[string]bool)
 				for _, ele := range _fileList {
-					payload[ele] = isReadOnly(_givenPath + "/" + ele)
+					payload[ele] = isReadOnly(filepath.Join(_givenPath, ele))
 				}
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
@@ -197,26 +197,27 @@ func share(args []string) error {
 
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				getPayloadPath := filepath.Clean(getPayload["path"].(string))
-				upload, err := os.ReadFile(_givenPath + "/" + getPayloadPath)
+				getPayloadPath := getPayload["path"].(string)
+				payloadPath := filepath.Join(_givenPath, filepath.Clean(getPayloadPath))
+				upload, err := os.ReadFile(payloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
 				}
 				payload["content"] = string(upload)
-				payload["readonly"] = isReadOnly(_givenPath + "/" + getPayloadPath)
+				payload["readonly"] = isReadOnly(payloadPath)
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + _givenPath + "/" + easpcapeString(getPayloadPath))
+				log.Println("share: " + easpcapeString(payloadPath))
 
 			case "rename":
 				c := make(chan bool)
 				t := request.Payload
 				renamePayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				oldPath := _givenPath + "/" + filepath.Clean(renamePayload["oldPath"].(string))
-				newPath := _givenPath + "/" + filepath.Clean(renamePayload["newPath"].(string))
+				oldPath := filepath.Join(_givenPath, filepath.Clean(renamePayload["oldPath"].(string)))
+				newPath := filepath.Join(_givenPath, filepath.Clean(renamePayload["newPath"].(string)))
 				go rename(oldPath, newPath, c)
 				response.Payload = <-c
 				if err := conn.WriteJSON(&response); err != nil {
@@ -228,9 +229,9 @@ func share(args []string) error {
 			case "set":
 				t := request.Payload
 				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				setPath := filepath.Clean(setPayload["path"].(string))
+				setPath := setPayload["path"].(string)
 				content := setPayload["content"].(string)
-				newPath := _givenPath + "/" + setPath
+				newPath := filepath.Join(_givenPath, filepath.Clean(setPath))
 				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
 					log.Println("mkdir failed: ", err)
 				}
