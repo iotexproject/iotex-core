@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -93,7 +92,7 @@ func EnableExperimentalActions() Option {
 // actPool implements ActPool interface
 type actPool struct {
 	mutex                     sync.RWMutex
-	cfg                       config.ActPool
+	cfg                       Config
 	sf                        protocol.StateReader
 	accountActs               map[string]ActQueue
 	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
@@ -106,7 +105,7 @@ type actPool struct {
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf protocol.StateReader, cfg config.ActPool, opts ...Option) (ActPool, error) {
+func NewActPool(sf protocol.StateReader, cfg Config, opts ...Option) (ActPool, error) {
 	if sf == nil {
 		return nil, errors.New("Try to attach a nil state reader")
 	}

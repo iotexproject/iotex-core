@@ -18,18 +18,20 @@ import (
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func TestNewProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	cfg := config.Default
-	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Genesis.ScoreThreshold = "1200000"
+	g := genesis.Default
+	g.ScoreThreshold = "1200000"
 	p, err := NewProtocol(
-		cfg,
+		_rollDPoSScheme,
+		blockchain.DefaultConfig,
+		g,
 		nil,
 		func(context.Context, string, []byte, bool) ([]byte, error) { return nil, nil },
 		nil,

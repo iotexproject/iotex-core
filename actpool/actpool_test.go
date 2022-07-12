@@ -31,7 +31,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -61,28 +60,27 @@ var (
 func TestActPool_NewActPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
-	cfg := config.Default
 
 	//error caused by nil blockchain
-	_, err := NewActPool(nil, cfg.ActPool, nil)
+	_, err := NewActPool(nil, DefaultConfig, nil)
 	require.Error(err)
 
 	// all good
 	opt := EnableExperimentalActions()
-	require.Panics(func() { blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, nil, nil, nil) }, "option is nil")
+	require.Panics(func() { blockchain.NewBlockchain(blockchain.DefaultConfig, genesis.Default, nil, nil, nil) }, "option is nil")
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	act, err := NewActPool(sf, cfg.ActPool, opt)
+	act, err := NewActPool(sf, DefaultConfig, opt)
 	require.NoError(err)
 	require.NotNil(act)
 
 	// panic caused by option is nil
-	require.Panics(func() { NewActPool(sf, cfg.ActPool, nil) }, "option is nil")
+	require.Panics(func() { NewActPool(sf, DefaultConfig, nil) }, "option is nil")
 
 	// error caused by option
 	opt2 := func(pool *actPool) error {
 		return errors.New("test error")
 	}
-	_, err = NewActPool(sf, cfg.ActPool, opt2)
+	_, err = NewActPool(sf, DefaultConfig, opt2)
 	require.Error(err)
 
 	// test AddAction nil
@@ -92,14 +90,15 @@ func TestActPool_NewActPool(t *testing.T) {
 func TestValidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	cfg := config.Default
-	cfg.Genesis.InitBalanceMap[_addr1] = "100"
+
+	g := genesis.Default
+	g.InitBalanceMap[_addr1] = "100"
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), re),
-		cfg.Genesis,
+		g,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
@@ -294,7 +293,7 @@ func TestActPool_PickActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
+	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		// Create actpool
 		Ap, err := NewActPool(sf, cfg, EnableExperimentalActions())
 		require.NoError(err)
@@ -1016,7 +1015,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
-	apConfig := config.Default.ActPool
+	apConfig := DefaultConfig
 	ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
 	require.NoError(t, err)
 	tsf, err := action.SignedTransfer(
@@ -1138,8 +1137,8 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	return state.Balance, nil
 }
 
-func getActPoolCfg() config.ActPool {
-	return config.ActPool{
+func getActPoolCfg() Config {
+	return Config{
 		MaxNumActsPerPool:  _maxNumActsPerPool,
 		MaxGasLimitPerPool: _maxGasLimitPerPool,
 		MaxNumActsPerAcct:  _maxNumActsPerAcct,
@@ -1162,4 +1161,10 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
+}
+
+func TestValidateMinGasPrice(t *testing.T) {
+	ap := Config{MinGasPriceStr: DefaultConfig.MinGasPriceStr}
+	mgp := ap.MinGasPrice()
+	require.IsType(t, &big.Int{}, mgp)
 }

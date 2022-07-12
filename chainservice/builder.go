@@ -480,7 +480,9 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	dao := builder.cs.blockdao
 	chain := builder.cs.chain
 	pollProtocol, err := poll.NewProtocol(
-		builder.cfg,
+		builder.cfg.Consensus.Scheme,
+		builder.cfg.Chain,
+		builder.cfg.Genesis,
 		builder.cs.candidateIndexer,
 		func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
 			gasLimit := uint64(1000000)

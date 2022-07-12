@@ -26,8 +26,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -365,7 +365,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			RewardAddress: identityset.Address(1).String(),
 		},
 	}
-	cfg := config.Default
+	g := genesis.Default
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
@@ -382,18 +382,18 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		nil,
 		2,
 		2,
-		cfg.Genesis.DardanellesNumSubEpochs,
-		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.ProbationEpochPeriod,
-		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.ProbationIntensityRate)
+		g.DardanellesNumSubEpochs,
+		g.ProductivityThreshold,
+		g.ProbationEpochPeriod,
+		g.UnproductiveDelegateMaxCacheSize,
+		g.ProbationIntensityRate)
 	require.NoError(t, err)
 	pp, err := poll.NewGovernanceChainCommitteeProtocol(
 		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		cfg.Chain.PollInitialCandidatesInterval,
+		blockchain.DefaultConfig.PollInitialCandidatesInterval,
 		slasher,
 	)
 	require.NoError(t, err)

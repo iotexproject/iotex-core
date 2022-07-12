@@ -8,7 +8,6 @@ package config
 
 import (
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -309,13 +308,6 @@ func TestValidateActPool(t *testing.T) {
 			"maximum number of actions per pool cannot be less than maximum number of actions per account",
 		),
 	)
-}
-
-func TestValidateMinGasPrice(t *testing.T) {
-	ap := ActPool{MinGasPriceStr: Default.ActPool.MinGasPriceStr}
-	mgp := ap.MinGasPrice()
-	fmt.Printf("%T,%v", mgp, mgp)
-	require.IsType(t, &big.Int{}, mgp)
 }
 
 func TestValidateForkHeights(t *testing.T) {

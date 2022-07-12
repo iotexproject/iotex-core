@@ -355,7 +355,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
 }
 
-func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
+func setupActPool(sf factory.Factory, cfg actpool.Config) (actpool.ActPool, error) {
 	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
 	if err != nil {
 		return nil, err
