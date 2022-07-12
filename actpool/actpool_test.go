@@ -31,7 +31,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -61,28 +60,27 @@ var (
 func TestActPool_NewActPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
-	cfg := config.Default
 
 	//error caused by nil blockchain
-	_, err := NewActPool(cfg.Genesis, nil, cfg.ActPool, nil)
+	_, err := NewActPool(genesis.Default, nil, DefaultConfig, nil)
 	require.Error(err)
 
 	// all good
 	opt := EnableExperimentalActions()
-	require.Panics(func() { blockchain.NewBlockchain(cfg.Chain, cfg.Genesis, nil, nil, nil) }, "option is nil")
+	require.Panics(func() { blockchain.NewBlockchain(blockchain.DefaultConfig, genesis.Default, nil, nil, nil) }, "option is nil")
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	act, err := NewActPool(cfg.Genesis, sf, cfg.ActPool, opt)
+	act, err := NewActPool(genesis.Default, sf, DefaultConfig, opt)
 	require.NoError(err)
 	require.NotNil(act)
 
 	// panic caused by option is nil
-	require.Panics(func() { NewActPool(cfg.Genesis, sf, cfg.ActPool, nil) }, "option is nil")
+	require.Panics(func() { NewActPool(genesis.Default, sf, DefaultConfig, nil) }, "option is nil")
 
 	// error caused by option
 	opt2 := func(pool *actPool) error {
 		return errors.New("test error")
 	}
-	_, err = NewActPool(cfg.Genesis, sf, cfg.ActPool, opt2)
+	_, err = NewActPool(genesis.Default, sf, DefaultConfig, opt2)
 	require.Error(err)
 
 	// test AddAction nil
@@ -92,21 +90,22 @@ func TestActPool_NewActPool(t *testing.T) {
 func TestValidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	cfg := config.Default
-	cfg.Genesis.InitBalanceMap[_addr1] = "100"
+
+	g := genesis.Default
+	g.InitBalanceMap[_addr1] = "100"
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), re),
-		cfg.Genesis,
+		g,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
 	mockError := errors.New("mock error")
 	sev.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(mockError).Times(1)
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(cfg.Genesis, sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(g, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -166,7 +165,7 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf8, err := action.SignedTransfer(_addr2, _priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -294,8 +293,8 @@ func TestActPool_PickActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
-	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		// Create actpool
 		Ap, err := NewActPool(genesis.Default, sf, cfg, EnableExperimentalActions())
 		require.NoError(err)
@@ -400,7 +399,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		return 0, nil
 	}).Times(8)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -506,7 +505,7 @@ func TestActPool_Reset(t *testing.T) {
 	tsf9, err := action.SignedTransfer(_addr1, _priKey3, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap1.Add(ctx, tsf1))
 	require.NoError(ap1.Add(ctx, tsf2))
 	err = ap1.Add(ctx, tsf3)
@@ -815,7 +814,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		return 0, nil
 	}).Times(8)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -862,7 +861,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	}).Times(10)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf3))
 	require.NoError(ap.Add(ctx, tsf4))
@@ -910,7 +909,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		return 0, nil
 	}).Times(10)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf3))
 	require.NoError(ap.Add(ctx, tsf4))
@@ -1011,7 +1010,7 @@ func TestActPool_GetSize(t *testing.T) {
 		return 0, nil
 	}).Times(8)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -1037,7 +1036,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
-	apConfig := config.Default.ActPool
+	apConfig := DefaultConfig
 	ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(t, err)
 	tsf, err := action.SignedTransfer(
@@ -1052,7 +1051,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 	require.Error(t, ap.Add(ctx, tsf))
 }
 
@@ -1088,7 +1087,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	require.NoError(err)
 
 	// A send action tsf1 with nonce 1, B send action tsf2 with nonce 1
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 
@@ -1140,7 +1139,7 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 		return 0, err
 	}
 	committedState, err := accountutil.AccountState(
-		genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
 		ap.sf,
 		_addr1,
 	)
@@ -1160,7 +1159,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 		return nil, err
 	}
 	state, err := accountutil.AccountState(
-		genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
 		ap.sf,
 		_addr1,
 	)
@@ -1171,8 +1170,8 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	return state.Balance, nil
 }
 
-func getActPoolCfg() config.ActPool {
-	return config.ActPool{
+func getActPoolCfg() Config {
+	return Config{
 		MaxNumActsPerPool:  _maxNumActsPerPool,
 		MaxGasLimitPerPool: _maxGasLimitPerPool,
 		MaxNumActsPerAcct:  _maxNumActsPerAcct,
@@ -1195,4 +1194,10 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
+}
+
+func TestValidateMinGasPrice(t *testing.T) {
+	ap := Config{MinGasPriceStr: DefaultConfig.MinGasPriceStr}
+	mgp := ap.MinGasPrice()
+	require.IsType(t, &big.Int{}, mgp)
 }
