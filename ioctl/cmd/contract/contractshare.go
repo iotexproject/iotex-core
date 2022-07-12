@@ -127,7 +127,11 @@ func rename(oldPath string, newPath string, c chan bool) {
 }
 
 func share(args []string) error {
-	_givenPath = filepath.Clean(args[0])
+	path, err := filepath.Abs(filepath.Clean(args[0]))
+	if err != nil {
+		return err
+	}
+	_givenPath = path
 	if len(_givenPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
