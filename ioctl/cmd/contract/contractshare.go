@@ -209,7 +209,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + _givenPath + "/" + getPayloadPath)
+				log.Printf("share: %s/%s\n", _givenPath, getPayloadPath)
 
 			case "rename":
 				c := make(chan bool)
@@ -223,7 +223,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("rename: " + _givenPath + "/" + oldPath + " to " + _givenPath + "/" + newPath)
+				log.Printf("rename: %s/%s to %s/%s\n", _givenPath, oldPath, _givenPath, newPath)
 
 			case "set":
 				t := request.Payload
@@ -238,10 +238,10 @@ func share(args []string) error {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Println("set: " + _givenPath + "/" + setPath)
+				log.Printf("set: %s/%s\n", _givenPath, setPath)
 
 			default:
-				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
+				log.Printf("Don't support this IDE yet. Can not handle websocket method: %s\n" + request.Key)
 
 			}
 		}
