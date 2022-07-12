@@ -1137,6 +1137,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		height := bc.TipHeight()
 		fmt.Printf("Open blockchain pass, height = %d\n", height)
 		require.NoError(addTestingTsfBlocks(cfg, bc, dao, ap))
+		//make sure pubsub is completed
+		time.Sleep(time.Millisecond * 200)
 		require.NoError(bc.Stop(ctx))
 		require.Equal(24, ms.Counter())
 
