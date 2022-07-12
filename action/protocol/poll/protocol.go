@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	_protocolID = "poll"
-	// RollDPoSScheme means randomized delegated proof of stake
-	RollDPoSScheme = "ROLLDPOS"
+	_protocolID     = "poll"
+	_rollDPoSScheme = "ROLLDPOS"
 )
 
 const (
@@ -139,7 +138,7 @@ func NewProtocol(
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
 ) (Protocol, error) {
-	if scheme != RollDPoSScheme {
+	if scheme != _rollDPoSScheme {
 		return nil, nil
 	}
 

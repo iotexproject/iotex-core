@@ -1195,3 +1195,9 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 	}
 	return l
 }
+
+func TestValidateMinGasPrice(t *testing.T) {
+	ap := Config{MinGasPriceStr: DefaultConfig.MinGasPriceStr}
+	mgp := ap.MinGasPrice()
+	require.IsType(t, &big.Int{}, mgp)
+}

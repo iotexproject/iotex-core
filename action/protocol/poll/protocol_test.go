@@ -29,7 +29,7 @@ func TestNewProtocol(t *testing.T) {
 	g := genesis.Default
 	g.ScoreThreshold = "1200000"
 	p, err := NewProtocol(
-		RollDPoSScheme,
+		_rollDPoSScheme,
 		blockchain.DefaultConfig,
 		g,
 		nil,

@@ -366,7 +366,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		},
 	}
 	g := genesis.Default
-	bcf := blockchain.DefaultConfig
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
@@ -394,7 +393,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		bcf.PollInitialCandidatesInterval,
+		blockchain.DefaultConfig.PollInitialCandidatesInterval,
 		slasher,
 	)
 	require.NoError(t, err)
