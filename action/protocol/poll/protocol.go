@@ -19,13 +19,15 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
-	_protocolID = "poll"
+	_protocolID     = "poll"
+	_rollDPoSScheme = "ROLLDPOS"
 )
 
 const (
@@ -122,7 +124,9 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
-	cfg config.Config,
+	scheme string,
+	chainConfig blockchain.Config,
+	genesisConfig genesis.Genesis,
 	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
 	getCandidates GetCandidates,
@@ -134,8 +138,7 @@ func NewProtocol(
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
 ) (Protocol, error) {
-	genesisConfig := cfg.Genesis
-	if cfg.Consensus.Scheme != config.RollDPoSScheme {
+	if scheme != _rollDPoSScheme {
 		return nil, nil
 	}
 
@@ -165,9 +168,9 @@ func NewProtocol(
 		if err != nil {
 			return nil, err
 		}
-		scoreThreshold, ok = new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+		scoreThreshold, ok = new(big.Int).SetString(genesisConfig.ScoreThreshold, 10)
 		if !ok {
-			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+			return nil, errors.Errorf("failed to parse score threshold %s", genesisConfig.ScoreThreshold)
 		}
 	}
 
@@ -182,7 +185,7 @@ func NewProtocol(
 			electionCommittee,
 			genesisConfig.GravityChainStartHeight,
 			getBlockTimeFunc,
-			cfg.Chain.PollInitialCandidatesInterval,
+			chainConfig.PollInitialCandidatesInterval,
 			slasher,
 		)
 		if err != nil {
@@ -192,8 +195,8 @@ func NewProtocol(
 			electionCommittee,
 			governance,
 			readContract,
-			cfg.Genesis.NativeStakingContractAddress,
-			cfg.Genesis.NativeStakingContractCode,
+			genesisConfig.NativeStakingContractAddress,
+			genesisConfig.NativeStakingContractCode,
 			scoreThreshold,
 		)
 		if err != nil {
