@@ -10,11 +10,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -40,7 +38,7 @@ type (
 var (
 	// DefaultConfig is the default config
 	DefaultConfig = Config{
-		ActionChanSize:             1000,
+		ActionChanSize:             5000,
 		BlockChanSize:              1000,
 		BlockSyncChanSize:          400,
 		ProcessSyncRequestInterval: 0 * time.Second,
@@ -119,8 +117,7 @@ func (m actionMsg) ChainID() uint32 {
 
 // IotxDispatcher is the request and event dispatcher for iotx node.
 type IotxDispatcher struct {
-	started        int32
-	shutdown       int32
+	lifecycle.Readiness
 	actionChanLock sync.RWMutex
 	blockChanLock  sync.RWMutex
 	syncChanLock   sync.RWMutex
@@ -164,23 +161,28 @@ func (d *IotxDispatcher) AddSubscriber(
 
 // Start starts the dispatcher.
 func (d *IotxDispatcher) Start(ctx context.Context) error {
-	if atomic.AddInt32(&d.started, 1) != 1 {
-		return errors.New("Dispatcher already started")
-	}
 	log.L().Info("Starting dispatcher.")
-	d.wg.Add(3)
-	go d.actionHandler()
+
+	// setup mutiple action consumers to enqueue actions into actpool
+	for i := 0; i < cap(d.actionChan)/5; i++ {
+		d.wg.Add(1)
+		go d.actionHandler()
+	}
+
+	d.wg.Add(1)
 	go d.blockHandler()
+
+	d.wg.Add(1)
 	go d.syncHandler()
 
-	return nil
+	return d.TurnOn()
 }
 
 // Stop gracefully shuts down the dispatcher by stopping all handlers and waiting for them to finish.
 func (d *IotxDispatcher) Stop(ctx context.Context) error {
-	if atomic.AddInt32(&d.shutdown, 1) != 1 {
+	if err := d.TurnOff(); err != nil {
 		log.L().Warn("Dispatcher already in the process of shutting down.")
-		return nil
+		return err
 	}
 	log.L().Info("Dispatcher is shutting down.")
 	close(d.quit)
@@ -209,12 +211,12 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 }
 
 func (d *IotxDispatcher) actionHandler() {
+	d.wg.Done()
 	for {
 		select {
 		case a := <-d.actionChan:
 			d.handleActionMsg(a)
 		case <-d.quit:
-			d.wg.Done()
 			log.L().Info("action handler is terminated.")
 			return
 		}
@@ -223,12 +225,12 @@ func (d *IotxDispatcher) actionHandler() {
 
 // blockHandler is the main handler for handling all news from peers.
 func (d *IotxDispatcher) blockHandler() {
+	defer d.wg.Done()
 	for {
 		select {
 		case b := <-d.blockChan:
 			d.handleBlockMsg(b)
 		case <-d.quit:
-			d.wg.Done()
 			log.L().Info("block handler is terminated.")
 			return
 		}
@@ -237,12 +239,12 @@ func (d *IotxDispatcher) blockHandler() {
 
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
+	defer d.wg.Done()
 	for {
 		select {
 		case m := <-d.syncChan:
 			d.handleBlockSyncMsg(m)
 		case <-d.quit:
-			d.wg.Done()
 			log.L().Info("block sync handler done.")
 			return
 		}
@@ -321,7 +323,7 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 
 // dispatchAction adds the passed action message to the news handling queue.
 func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg proto.Message) {
-	if atomic.LoadInt32(&d.shutdown) != 0 {
+	if !d.IsReady() {
 		return
 	}
 	subscriber := d.subscriber(chainID)
@@ -348,7 +350,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 
 // dispatchBlock adds the passed block message to the news handling queue.
 func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg proto.Message) {
-	if atomic.LoadInt32(&d.shutdown) != 0 {
+	if !d.IsReady() {
 		return
 	}
 	subscriber := d.subscriber(chainID)
@@ -376,7 +378,7 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
 func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint32, peer peer.AddrInfo, msg proto.Message) {
-	if atomic.LoadInt32(&d.shutdown) != 0 {
+	if !d.IsReady() {
 		return
 	}
 	subscriber := d.subscriber(chainID)

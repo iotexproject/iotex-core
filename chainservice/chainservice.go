@@ -32,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -76,11 +75,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err = cs.actpool.Add(ctx, act)
-	if err != nil {
-		log.L().Debug(err.Error())
-	}
-	return err
+	return cs.actpool.Add(ctx, act)
 }
 
 // HandleBlock handles incoming block request.
