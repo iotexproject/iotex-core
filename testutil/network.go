@@ -7,10 +7,11 @@
 package testutil
 
 import (
-	"math/rand"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 )
 
 func checkPortIsOpen(port int) bool {
@@ -25,9 +26,8 @@ func checkPortIsOpen(port int) bool {
 
 // RandomPort returns a random port number between 30000 and 50000
 func RandomPort() int {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	var port int
-	for port = r.Intn(2000) + 30000; port < 50000; port++ {
+	for port = randutil.Intn(2000) + 30000; port < 50000; port++ {
 		if !checkPortIsOpen(port) {
 			break
 		}

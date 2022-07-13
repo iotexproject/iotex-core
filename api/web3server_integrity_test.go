@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -498,7 +498,7 @@ func TestGetFilterLogsIntegrity(t *testing.T) {
 func TestLocalAPICacheIntegrity(t *testing.T) {
 	require := require.New(t)
 
-	testKey, testData := strconv.Itoa(rand.Int()), []byte(strconv.Itoa(rand.Int()))
+	testKey, testData := strconv.Itoa(randutil.Int()), []byte(strconv.Itoa(randutil.Int()))
 	cacheLocal := newAPICache(1*time.Second, "")
 	_, exist := cacheLocal.Get(testKey)
 	require.False(exist)

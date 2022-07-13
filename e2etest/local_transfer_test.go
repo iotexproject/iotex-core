@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -38,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -562,10 +562,9 @@ func initStateKeyAddr(
 		retAddr = addr.String()
 		retKey = sk
 	case AcntBadAddr:
-		rand.Seed(time.Now().UnixNano())
 		b := make([]byte, 41)
 		for i := range b {
-			b[i] = byte(65 + rand.Intn(26))
+			b[i] = byte(65 + randutil.Intn(26))
 		}
 		retAddr = string(b)
 	}

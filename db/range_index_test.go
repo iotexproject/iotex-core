@@ -8,11 +8,11 @@ package db
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -68,7 +68,7 @@ func TestRangeIndex(t *testing.T) {
 		// test 5 random keys between the new and previous insertion
 		gap := e.k - rangeTests[i-1].k
 		for j := 0; j < 5; j++ {
-			k := rangeTests[i-1].k + uint64(rand.Intn(int(gap)))
+			k := rangeTests[i-1].k + uint64(randutil.Intn(int(gap)))
 			v, err = index.Get(k)
 			require.NoError(err)
 			require.Equal(rangeTests[i-1].v, v)
@@ -82,7 +82,7 @@ func TestRangeIndex(t *testing.T) {
 
 		// test 5 random keys beyond new insertion
 		for j := 0; j < 5; j++ {
-			k := e.k + uint64(rand.Int())
+			k := e.k + uint64(randutil.Int())
 			v, err = index.Get(k)
 			require.NoError(err)
 			require.Equal(e.v, v)

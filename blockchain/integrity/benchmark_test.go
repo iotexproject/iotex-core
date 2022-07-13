@@ -11,9 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -36,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -68,7 +67,6 @@ func init() {
 
 func BenchmarkMintAndCommitBlock(b *testing.B) {
 	require := require.New(b)
-	rand.Seed(time.Now().Unix())
 	bc, ap, err := newChainInDB()
 	require.NoError(err)
 	nonceMap := make(map[string]uint64)
@@ -88,7 +86,6 @@ func BenchmarkMintAndCommitBlock(b *testing.B) {
 
 func BenchmarkMintBlock(b *testing.B) {
 	require := require.New(b)
-	rand.Seed(time.Now().Unix())
 	bc, ap, err := newChainInDB()
 	require.NoError(err)
 	nonceMap := make(map[string]uint64)
@@ -104,7 +101,6 @@ func BenchmarkMintBlock(b *testing.B) {
 
 func BenchmarkValidateBlock(b *testing.B) {
 	require := require.New(b)
-	rand.Seed(time.Now().Unix())
 	bc, ap, err := newChainInDB()
 	require.NoError(err)
 	nonceMap := make(map[string]uint64)
@@ -124,7 +120,7 @@ func BenchmarkValidateBlock(b *testing.B) {
 func injectTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
 	for i := 0; i < _totalActionPair; i++ {
 		nonceMap[userA.String()]++
-		tsf1, err := action.SignedTransfer(userB.String(), priKeyA, nonceMap[userA.String()], big.NewInt(int64(rand.Intn(2))), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+		tsf1, err := action.SignedTransfer(userB.String(), priKeyA, nonceMap[userA.String()], big.NewInt(int64(randutil.Intn(2))), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
@@ -133,7 +129,7 @@ func injectTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
 			return err
 		}
 		nonceMap[userB.String()]++
-		tsf2, err := action.SignedTransfer(userA.String(), priKeyB, nonceMap[userB.String()], big.NewInt(int64(rand.Intn(2))), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+		tsf2, err := action.SignedTransfer(userA.String(), priKeyB, nonceMap[userB.String()], big.NewInt(int64(randutil.Intn(2))), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
@@ -146,18 +142,17 @@ func injectTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
 }
 
 func injectMultipleAccountsTransfer(nonceMap map[string]uint64, ap actpool.ActPool) error {
-	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < 2*_totalActionPair; i++ {
-		senderIdx := rand.Intn(_randAccountSize)
+		senderIdx := randutil.Intn(_randAccountSize)
 		recipientIdx := senderIdx
-		for ; recipientIdx != senderIdx; recipientIdx = rand.Intn(_randAccountSize) {
+		for ; recipientIdx != senderIdx; recipientIdx = randutil.Intn(_randAccountSize) {
 		}
 		nonceMap[_randAccountsAddr[senderIdx].String()]++
 		tsf, err := action.SignedTransfer(
 			_randAccountsAddr[recipientIdx].String(),
 			_randAccountsPvk[senderIdx],
 			nonceMap[_randAccountsAddr[senderIdx].String()],
-			big.NewInt(int64(rand.Intn(2))),
+			big.NewInt(int64(randutil.Intn(2))),
 			[]byte{},
 			testutil.TestGasLimit,
 			big.NewInt(testutil.TestGasPriceInt64))

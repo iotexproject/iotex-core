@@ -9,9 +9,9 @@ package action
 import (
 	"encoding/hex"
 	"encoding/json"
-	"math/rand"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,7 +65,7 @@ func TestVerifyEccSig(t *testing.T) {
 	// test with modified signature
 	for _, v := range _sigTests {
 		sig, _ := hex.DecodeString(v.sig)
-		sig[rand.Intn(len(sig))]++
+		sig[randutil.Intn(len(sig))]++
 		pk, err := RecoverPubkeyFromEccSig("Ethereum", []byte(v.msg), sig)
 		if err == nil {
 			r.NotEqual(v.signer, hex.EncodeToString(pk.Hash()))

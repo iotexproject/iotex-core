@@ -8,11 +8,11 @@ package batch
 
 import (
 	"bytes"
-	"math/rand"
 	"strconv"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -237,7 +237,7 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 		k := hash.Hash256b([]byte(strconv.Itoa(i)))
 		var v [1024]byte
 		for i := range v {
-			v[i] = byte(rand.Intn(8))
+			v[i] = byte(randutil.Intn(8))
 		}
 		cb.Put(_bucket1, k[:], v[:], "")
 	}
@@ -257,7 +257,7 @@ func BenchmarkCachedBatch_Snapshot(b *testing.B) {
 	k := hash.Hash256b([]byte("test"))
 	var v [1024]byte
 	for i := range v {
-		v[i] = byte(rand.Intn(8))
+		v[i] = byte(randutil.Intn(8))
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

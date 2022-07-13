@@ -14,7 +14,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"os"
 	"strings"
 	"sync"
@@ -37,6 +36,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -265,7 +265,7 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 	case "execution":
 		return p.executionCaller()
 	case "mixed":
-		if rand.Intn(2) == 0 {
+		if randutil.Intn(2) == 0 {
 			return p.transferCaller()
 		}
 		return p.executionCaller()
@@ -276,7 +276,7 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 
 func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
-	sender := p.accounts[rand.Intn(len(p.accounts))]
+	sender := p.accounts[randutil.Intn(len(p.accounts))]
 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
 		nonce = val.(uint64)
 	}
@@ -288,7 +288,7 @@ func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	abiJSONVar, _ := abi.JSON(strings.NewReader(_abiStr))
 	contract := c.Contract(address, abiJSONVar)
 
-	data := rand.Int63()
+	data := randutil.Int63()
 	var dataBuf = make([]byte, 8)
 	binary.BigEndian.PutUint64(dataBuf, uint64(data))
 	dataHash := sha256.Sum256(dataBuf)
@@ -304,7 +304,7 @@ func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 
 func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
-	sender := p.accounts[rand.Intn(len(p.accounts))]
+	sender := p.accounts[randutil.Intn(len(p.accounts))]
 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
 		nonce = val.(uint64)
 	}
@@ -313,8 +313,8 @@ func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, operatorAccount)
 
-	recipient, _ := address.FromString(p.accounts[rand.Intn(len(p.accounts))].EncodedAddr)
-	data := rand.Int63()
+	recipient, _ := address.FromString(p.accounts[randutil.Intn(len(p.accounts))].EncodedAddr)
+	data := randutil.Int63()
 	var dataBuf = make([]byte, 8)
 	binary.BigEndian.PutUint64(dataBuf, uint64(data))
 	dataHash := sha256.Sum256(dataBuf)

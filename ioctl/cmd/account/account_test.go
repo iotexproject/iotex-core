@@ -8,7 +8,6 @@ package account
 
 import (
 	"crypto/ecdsa"
-	"math/rand"
 	"strconv"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 )
 
 func TestAccount(t *testing.T) {
@@ -32,7 +32,7 @@ func TestAccount(t *testing.T) {
 	r.NotNil(ks)
 
 	// create accounts
-	nonce := strconv.FormatInt(rand.Int63(), 10)
+	nonce := strconv.FormatInt(randutil.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
 
 	account, err := ks.NewAccount(passwd)

@@ -11,7 +11,6 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"math/big"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,6 +40,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -57,7 +57,7 @@ var _letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 func randStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = _letterRunes[rand.Intn(len(_letterRunes))]
+		b[i] = _letterRunes[randutil.Intn(len(_letterRunes))]
 	}
 	return string(b)
 }
@@ -1507,7 +1507,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		total := 500
 		acts := make([]action.SealedEnvelope, 0, total)
 		for numActs := 0; numActs < total; numActs++ {
-			senderIdx := rand.Int() % len(accounts)
+			senderIdx := randutil.Int() % len(accounts)
 
 			var chainIDBytes [4]byte
 			enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
@@ -1632,7 +1632,7 @@ func benchState(sf Factory, b *testing.B) {
 	total := 500
 	acts := make([]action.SealedEnvelope, 0, total)
 	for numActs := 0; numActs < total; numActs++ {
-		senderIdx := rand.Int() % len(accounts)
+		senderIdx := randutil.Int() % len(accounts)
 
 		var chainIDBytes [4]byte
 		enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
@@ -1676,7 +1676,7 @@ func benchState(sf Factory, b *testing.B) {
 	// measure state read time
 	for n := 1; n < b.N; n++ {
 		b.StartTimer()
-		idx := rand.Int() % len(accounts)
+		idx := randutil.Int() % len(accounts)
 		addr, err := address.FromString(accounts[idx])
 		if err != nil {
 			b.Fatal(err)
@@ -1687,8 +1687,4 @@ func benchState(sf Factory, b *testing.B) {
 		}
 		b.StopTimer()
 	}
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }

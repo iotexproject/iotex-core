@@ -8,7 +8,6 @@ package factory
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -229,9 +229,8 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 }
 
 func makeBlock(t *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
-	rand.Seed(time.Now().Unix())
 	var sevlps []action.SealedEnvelope
-	r := rand.Int()
+	r := randutil.Int()
 	tsf, err := action.NewTransfer(
 		uint64(r),
 		unit.ConvertIotxToRau(1000+int64(r)),

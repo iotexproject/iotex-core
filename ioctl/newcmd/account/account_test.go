@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
-	"math/rand"
 	"os"
 	"strconv"
 	"testing"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
@@ -430,7 +430,7 @@ func TestNewAccountByKey(t *testing.T) {
 
 func newTestAccount(t *testing.T) (string, string, string, error) {
 	testWallet := t.TempDir()
-	nonce := strconv.FormatInt(rand.Int63(), 10)
+	nonce := strconv.FormatInt(randutil.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
 	return testWallet, passwd, nonce, nil
 }

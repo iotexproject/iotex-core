@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -47,8 +47,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 	heap.Push(&pq, &nonceWithTTL{nonce: uint64(1)})
 	// Test built-in Remove implementation
 	// Remove a random nonce from noncePriorityQueue
-	rand.Seed(time.Now().UnixNano())
-	heap.Remove(&pq, rand.Intn(pq.Len()))
+	heap.Remove(&pq, randutil.Intn(pq.Len()))
 	t.Log("After randomly removing a dummy nonce, the remaining dummy nonces in the order of popped are as follows:")
 	for pq.Len() > 0 {
 		nonce := heap.Pop(&pq).(*nonceWithTTL).nonce

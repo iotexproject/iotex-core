@@ -1,7 +1,6 @@
 package assetcontract
 
 import (
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
@@ -151,7 +151,7 @@ func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
 // GenerateAssetID generates an asset ID
 func GenerateAssetID() string {
 	for {
-		id := strconv.Itoa(rand.Int())
+		id := strconv.Itoa(randutil.Int())
 		if len(id) >= 8 {
 			// attach 8-digit YYYYMMDD at front
 			t := time.Now().Format(time.RFC3339)

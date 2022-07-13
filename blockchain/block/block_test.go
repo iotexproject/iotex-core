@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -176,10 +176,9 @@ func BenchmarkBlockDecompression(b *testing.B) {
 }
 
 func makeBlock(tb testing.TB, n int) *Block {
-	rand.Seed(time.Now().Unix())
 	sevlps := make([]action.SealedEnvelope, 0)
 	for j := 1; j <= n; j++ {
-		i := rand.Int()
+		i := randutil.Int()
 		tsf, err := action.NewTransfer(
 			uint64(i),
 			unit.ConvertIotxToRau(1000+int64(i)),

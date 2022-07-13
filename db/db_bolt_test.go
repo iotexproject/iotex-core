@@ -8,10 +8,10 @@ package db
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 
 	"github.com/stretchr/testify/require"
 
@@ -91,7 +91,7 @@ func BenchmarkBoltDB_Get(b *testing.B) {
 		key := []byte("key")
 		data := make([]byte, size)
 		for i := range data {
-			data[i] = byte(rand.Int())
+			data[i] = byte(randutil.Int())
 		}
 		require.NoError(b, db.Put("ns", key, data))
 

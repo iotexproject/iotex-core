@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"os"
 	"strconv"
 	"sync"
@@ -33,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -160,7 +160,6 @@ func TestBlockEpochReward(t *testing.T) {
 	numNodes := 4
 
 	// Set mini-cluster configurations
-	rand.Seed(time.Now().UnixNano())
 	configs := make([]config.Config, numNodes)
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
@@ -187,7 +186,7 @@ func TestBlockEpochReward(t *testing.T) {
 		cfg.Genesis.Delegates[i].RewardAddrStr = identityset.Address(i + numNodes).String()
 		cfg.Genesis.Delegates[i].OperatorAddrStr = identityset.Address(i).String()
 		//Generate random votes  from [1000,2000]
-		cfg.Genesis.Delegates[i].VotesStr = strconv.Itoa(1000 + rand.Intn(1000))
+		cfg.Genesis.Delegates[i].VotesStr = strconv.Itoa(1000 + randutil.Intn(1000))
 		cfg.System.HTTPStatsPort = HTTPStatsPort
 		cfg.System.HTTPAdminPort = HTTPAdminPort
 		configs[i] = cfg
@@ -404,14 +403,13 @@ func TestBlockEpochReward(t *testing.T) {
 
 			// perform a random claim and record the amount
 			// chose a random node to claim
-			d := rand.Intn(numNodes)
+			d := randutil.Intn(numNodes)
 			var amount *big.Int
 			rewardAddrStr := identityset.Address(d + numNodes).String()
 			rewardPriKey := identityset.PrivateKey(d + numNodes)
 			expectedSuccess := true
 
-			rand.Seed(time.Now().UnixNano())
-			switch r := rand.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
+			switch r := randutil.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
 			case caseClaimZero:
 				//Claim 0
 				amount = big.NewInt(0)
@@ -423,7 +421,7 @@ func TestBlockEpochReward(t *testing.T) {
 				amount = big.NewInt(0).Mul(exptUnclaimed[rewardAddrStr], big.NewInt(2))
 			case caseClaimPartOfBalance:
 				//Claim random part of available
-				amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(rand.Intn(100000))))
+				amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(randutil.Intn(100000))))
 			case caseClaimNegative:
 				//Claim negative
 				amount = big.NewInt(-100000)

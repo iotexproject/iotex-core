@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
-	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -31,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
@@ -163,7 +163,6 @@ func InjectByAps(
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
 	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
-	rand.Seed(time.Now().UnixNano())
 
 loop:
 	for {
@@ -213,7 +212,7 @@ loop:
 				log.L().Error(err.Error())
 			}
 		rerand:
-			switch rand.Intn(3) {
+			switch randutil.Intn(3) {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				atomic.AddUint64(&totalTsfCreated, 1)
@@ -257,7 +256,6 @@ func InjectByInterval(
 	retryNum int,
 	retryInterval int,
 ) {
-	rand.Seed(time.Now().UnixNano())
 	for transferNum > 0 && voteNum > 0 && executionNum > 0 {
 		sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 		injectTransfer(nil, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
@@ -456,7 +454,7 @@ func injectFpTokenTransfer(
 			log.L().Error("Failed to read creditor's asset balance", zap.Error(err))
 		}
 	}
-	transfer := rand.Int63n(balance)
+	transfer := randutil.Int63n(balance)
 	senderPriKey := sender.PriKey.HexString()
 	// Transfer fp token
 	if _, err := fpToken.Transfer(fpContract, sender.EncodedAddr, senderPriKey,
@@ -514,12 +512,12 @@ func createTransferInjection(
 	counter map[string]uint64,
 	addrs []*AddressKey,
 ) (*AddressKey, *AddressKey, uint64, int64) {
-	sender := addrs[rand.Intn(len(addrs))]
-	recipient := addrs[rand.Intn(len(addrs))]
+	sender := addrs[randutil.Intn(len(addrs))]
+	recipient := addrs[randutil.Intn(len(addrs))]
 	nonce := counter[sender.EncodedAddr]
 	amount := int64(0)
 	for amount == int64(0) {
-		amount = int64(rand.Intn(5))
+		amount = int64(randutil.Intn(5))
 	}
 	counter[sender.EncodedAddr]++
 	return sender, recipient, nonce, amount
@@ -531,8 +529,8 @@ func createVoteInjection(
 	admins []*AddressKey,
 	delegates []*AddressKey,
 ) (*AddressKey, *AddressKey, uint64) {
-	sender := admins[rand.Intn(len(admins))]
-	recipient := delegates[rand.Intn(len(delegates))]
+	sender := admins[randutil.Intn(len(admins))]
+	recipient := delegates[randutil.Intn(len(delegates))]
 	nonce := counter[sender.EncodedAddr]
 	counter[sender.EncodedAddr]++
 	return sender, recipient, nonce
@@ -543,7 +541,7 @@ func createExecutionInjection(
 	counter map[string]uint64,
 	addrs []*AddressKey,
 ) (*AddressKey, uint64) {
-	executor := addrs[rand.Intn(len(addrs))]
+	executor := addrs[randutil.Intn(len(addrs))]
 	nonce := counter[executor.EncodedAddr]
 	counter[executor.EncodedAddr]++
 	return executor, nonce

@@ -2,7 +2,6 @@ package api
 
 import (
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
 )
 
@@ -223,7 +223,7 @@ func TestGetFilterLogs(t *testing.T) {
 
 func TestLocalAPICache(t *testing.T) {
 	require := require.New(t)
-	testKey, testData := strconv.Itoa(rand.Int()), []byte(strconv.Itoa(rand.Int()))
+	testKey, testData := strconv.Itoa(randutil.Int()), []byte(strconv.Itoa(randutil.Int()))
 	cacheLocal := newAPICache(1*time.Second, "")
 	_, exist := cacheLocal.Get(testKey)
 	require.False(exist)

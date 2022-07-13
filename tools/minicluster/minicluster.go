@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -227,10 +227,10 @@ func main() {
 			}
 			fpToken = ret.FpToken
 			// Randomly pick two accounts from delegate list as fp_token debtor and creditor
-			first := rand.Intn(len(admins))
+			first := randutil.Intn(len(admins))
 			second := first
 			for second == first {
-				second = rand.Intn(len(admins))
+				second = randutil.Intn(len(admins))
 			}
 			debtor = admins[first]
 			creditor = admins[second]

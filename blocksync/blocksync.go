@@ -9,10 +9,11 @@ package blocksync
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -213,7 +214,7 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		repeat = len(peers)
 	}
 	for i := 0; i < repeat; i++ {
-		peer := peers[rand.Intn(len(peers))]
+		peer := peers[randutil.Intn(len(peers))]
 		if err := bs.unicastOutbound(
 			ctx,
 			peer,

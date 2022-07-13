@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/pkg/util/randutil"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -133,7 +133,7 @@ func BenchmarkTrie_RootHashWithAsync(b *testing.B) {
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		tr.Upsert(keys[rand.Intn(len(keys))], []byte{})
+		tr.Upsert(keys[randutil.Intn(len(keys))], []byte{})
 		tr.RootHash()
 	}
 }
