@@ -115,19 +115,18 @@ func (worker *queueWorker) Handle(job workerJob) error {
 }
 
 func (worker *queueWorker) getConfirmedState(ctx context.Context, sender address.Address) (uint64, *big.Int, error) {
-	// TODO: account Balance(confirmedBalance) will be returned in PR#3377
-	confirmedState, err := accountutil.AccountState(ctx, worker.ap.sf, sender)
-	if err != nil {
-		return 0, nil, err
-	}
 	worker.mu.RLock()
 	queue := worker.accountActs[sender.String()]
 	worker.mu.RUnlock()
 	// account state isn't cached in the actpool
 	if queue == nil {
+		confirmedState, err := accountutil.AccountState(ctx, worker.ap.sf, sender)
+		if err != nil {
+			return 0, nil, err
+		}
 		return confirmedState.PendingNonce(), confirmedState.Balance, nil
 	}
-	return confirmedState.PendingNonce(), queue.PendingBalance(), nil
+	return queue.AccountNonce(), queue.AccountBalance(), nil
 }
 
 func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendingNonce uint64, balance *big.Int) error {
@@ -168,9 +167,12 @@ func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, p
 	worker.mu.RUnlock()
 
 	if queue == nil {
-		queue = NewActQueue(worker.ap, sender, WithTimeOut(worker.ap.cfg.ActionExpiry))
-		queue.SetPendingNonce(pendingNonce)
-		queue.SetPendingBalance(confirmedBalance)
+		queue = NewActQueue(worker.ap,
+			sender,
+			pendingNonce,
+			confirmedBalance,
+			WithTimeOut(worker.ap.cfg.ActionExpiry),
+		)
 		worker.mu.Lock()
 		worker.accountActs[sender] = queue
 		worker.mu.Unlock()
@@ -184,8 +186,6 @@ func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, p
 			zap.Error(err))
 		return err
 	}
-
-	queue.UpdateQueue(queue.PendingNonce()) // TODO: to be removed
 
 	return nil
 }
@@ -234,10 +234,10 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 			continue
 		}
 		queue.SetPendingNonce(confirmedState.PendingNonce())
-		queue.SetPendingBalance(confirmedState.Balance)
+		queue.SetAccountBalance(confirmedState.Balance)
 		// Remove all actions that are committed to new block
-		acts := queue.FilterNonce(queue.PendingNonce())
-		acts2 := queue.UpdateQueue(queue.PendingNonce())
+		acts := queue.CleanConfirmedAct()
+		acts2 := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(append(acts, acts2...))
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
@@ -257,7 +257,7 @@ func (worker *queueWorker) PendingActions(ctx context.Context) []*pendingActions
 			continue
 		}
 		// Remove the actions that are already timeout
-		acts := queue.UpdateQueue(queue.PendingNonce())
+		acts := queue.UpdateQueue()
 		worker.ap.removeInvalidActs(acts)
 		actionArr = append(actionArr, &pendingActions{
 			sender: from,
