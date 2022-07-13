@@ -31,6 +31,7 @@ func TestInt63n(t *testing.T) {
 		assert.GreaterOrEqual(n, int64(0))
 		assert.LessOrEqual(n, int64(10))
 	}
+	assert.Panics(func() { Int63n(0) }, "The code did not panic")
 }
 
 func TestInt(t *testing.T) {
