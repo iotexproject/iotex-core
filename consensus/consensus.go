@@ -101,8 +101,8 @@ func NewConsensus(
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
 		bd := rolldpos.NewRollDPoSBuilder().
-			SetAddr(cfg.ProducerAddress().String()).
-			SetPriKey(cfg.ProducerPrivateKey()).
+			SetAddr(cfg.Chain.ProducerAddress().String()).
+			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
 			SetChainManager(bc).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
