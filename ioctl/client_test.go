@@ -8,6 +8,7 @@ package ioctl
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -378,6 +379,15 @@ func TestWriteHdWalletConfigFile(t *testing.T) {
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
+}
+
+func TestClient_ConfigFilePath(t *testing.T) {
+	r := require.New(t)
+	testConfigPath := fmt.Sprintf("%s/%s", t.TempDir(), "/config.test")
+
+	c := NewClient(config.Config{}, testConfigPath)
+
+	r.Equal(testConfigPath, c.ConfigFilePath())
 }
 
 func writeTempConfig(t *testing.T, cfg *config.Config) string {
