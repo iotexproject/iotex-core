@@ -10,6 +10,7 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/facebookgo/clock"
@@ -70,6 +71,7 @@ type ActQueue interface {
 	Empty() bool
 	PendingActs(context.Context) []action.SealedEnvelope
 	AllActs() []action.SealedEnvelope
+	Reset()
 }
 
 // actQueue is a queue of actions from an account
@@ -86,11 +88,7 @@ type actQueue struct {
 	pendingBalance *big.Int
 	clock          clock.Clock
 	ttl            time.Duration
-}
-
-// ActQueueOption is the option for actQueue.
-type ActQueueOption interface {
-	SetActQueueOption(*actQueue)
+	mu             sync.RWMutex
 }
 
 // NewActQueue create a new action queue
@@ -113,6 +111,8 @@ func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act action.SealedEnvelope) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	nonce := act.Nonce()
 	if actInPool, exist := q.items[nonce]; exist {
 		// act of higher gas price cut in line
@@ -136,6 +136,8 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 
 // FilterNonce removes all actions from the map with a nonce lower than the given threshold
 func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	var removed []action.SealedEnvelope
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0].nonce < threshold {
@@ -173,6 +175,8 @@ func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 
 // UpdateQueue updates the pending nonce and balance of the queue
 func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	// First remove all timed out actions
 	removedFromQueue := q.cleanTimeout()
 
@@ -221,31 +225,43 @@ func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
 
 // SetPendingNonce sets pending nonce for the queue
 func (q *actQueue) SetPendingNonce(nonce uint64) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.pendingNonce = nonce
 }
 
 // PendingNonce returns the current pending nonce of the queue
 func (q *actQueue) PendingNonce() uint64 {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	return q.pendingNonce
 }
 
 // SetPendingBalance sets pending balance for the queue
 func (q *actQueue) SetPendingBalance(balance *big.Int) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.pendingBalance = balance
 }
 
 // PendingBalance returns the current pending balance of the queue
 func (q *actQueue) PendingBalance() *big.Int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	return q.pendingBalance
 }
 
 // Len returns the length of the action map
 func (q *actQueue) Len() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	return len(q.items)
 }
 
 // Empty returns whether the queue of actions is empty or not
 func (q *actQueue) Empty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	return q.Len() == 0
 }
 
@@ -266,6 +282,8 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 		return nil
 	}
 	nonce := confirmedState.PendingNonce()
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 	for ; ; nonce++ {
 		if _, exist := q.items[nonce]; !exist {
 			break
@@ -277,8 +295,10 @@ func (q *actQueue) PendingActs(ctx context.Context) []action.SealedEnvelope {
 
 // AllActs returns all the actions currently in queue
 func (q *actQueue) AllActs() []action.SealedEnvelope {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	if q.Len() == 0 {
+	if len(q.items) == 0 {
 		return acts
 	}
 	sort.Sort(q.index)
@@ -312,4 +332,14 @@ func (q *actQueue) enoughBalance(act action.SealedEnvelope, updateBalance bool) 
 	}
 
 	return true
+}
+
+// Reset resets the queue
+func (q *actQueue) Reset() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.items = make(map[uint64]action.SealedEnvelope)
+	q.index = noncePriorityQueue{}
+	q.pendingNonce = 1
+	q.pendingBalance = big.NewInt(0)
 }
