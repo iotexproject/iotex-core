@@ -95,8 +95,7 @@ func (ps *pubSub) RemoveBlockListener(s BlockCreationSubscriber) error {
 func (ps *pubSub) SendBlockToSubscribers(blk *block.Block) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
-	blocklisteners := ps.blocklisteners
-	for _, elem := range blocklisteners {
+	for _, elem := range ps.blocklisteners {
 		elem.pendingBlksBuffer <- blk
 	}
 }
