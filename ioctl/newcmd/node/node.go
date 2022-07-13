@@ -18,7 +18,7 @@ var (
 // NewNodeCmd represents the new node command.
 func NewNodeCmd(client ioctl.Client) *cobra.Command {
 	nodeShorts, _ := client.SelectTranslation(_nodeCmdShorts)
-	
+
 	nc := &cobra.Command{
 		Use:   "node",
 		Short: nodeShorts,

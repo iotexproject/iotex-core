@@ -27,7 +27,7 @@ func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_hdwalletExportCmdShorts)
 
 	return &cobra.Command{
-		Use:    "export",
+		Use:   "export",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

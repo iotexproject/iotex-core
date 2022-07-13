@@ -30,7 +30,7 @@ func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_importCmdShorts)
 
 	return &cobra.Command{
-		Use:    "import",
+		Use:   "import",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
