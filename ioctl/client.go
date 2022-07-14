@@ -42,6 +42,8 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// ConfigFilePath returns the file path of the config
+		ConfigFilePath() string
 		// SetEndpointWithFlag receives input flag value
 		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
@@ -156,6 +158,11 @@ func (c *client) Stop(context.Context) error {
 
 func (c *client) Config() config.Config {
 	return c.cfg
+}
+
+// ConfigFilePath returns the file path for the config.
+func (c *client) ConfigFilePath() string {
+	return c.configFilePath
 }
 
 func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {

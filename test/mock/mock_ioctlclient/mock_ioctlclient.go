@@ -141,6 +141,20 @@ func (mr *MockClientMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
 }
 
+// ConfigFilePath mocks base method.
+func (m *MockClient) ConfigFilePath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigFilePath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ConfigFilePath indicates an expected call of ConfigFilePath.
+func (mr *MockClientMockRecorder) ConfigFilePath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigFilePath", reflect.TypeOf((*MockClient)(nil).ConfigFilePath))
+}
+
 // DecryptPrivateKey mocks base method.
 func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, error) {
 	m.ctrl.T.Helper()

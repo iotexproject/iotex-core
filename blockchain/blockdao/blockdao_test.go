@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -179,7 +178,7 @@ func TestBlockDAO(t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
-				ChainID: config.Default.Chain.ID,
+				ChainID: 1,
 			})
 		require.NoError(dao.Start(ctx))
 		defer func() {
@@ -292,7 +291,7 @@ func TestBlockDAO(t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
-				ChainID: config.Default.Chain.ID,
+				ChainID: 1,
 			})
 		require.NoError(dao.Start(ctx))
 		defer func() {
@@ -441,7 +440,7 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil), nil
 	}
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(4689)
 	if legacy {
 		fileDAO, err := filedao.CreateFileDAO(true, cfg, deser)
 		if err != nil {
@@ -472,7 +471,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
 		cfg.MaxCacheSize = cacheSize
-		deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+		deser := block.NewDeserializer(4689)
 		blkDao := NewBlockDAO([]BlockIndexer{}, cfg, deser)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {

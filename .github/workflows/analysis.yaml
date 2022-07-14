@@ -2,11 +2,8 @@ name: "Code Scanning - CodeQL"
 
 on:
   schedule:
-    - cron: "30 0 * * 0"
-#   push:
-#     branches: [master]
-#   pull_request:
-#     branches: [master]
+    - cron: "30 0 * * *"
+  workflow_dispatch:
 
 jobs:
   CodeQL-Build:

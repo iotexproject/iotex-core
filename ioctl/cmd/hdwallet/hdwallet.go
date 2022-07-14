@@ -19,10 +19,6 @@ var (
 		config.English: "Manage hdwallets of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的钱包",
 	}
-	_hdwalletCmdUses = map[config.Language]string{
-		config.English: "hdwallet",
-		config.Chinese: "钱包",
-	}
 )
 
 // Errors
@@ -32,7 +28,7 @@ var (
 
 // HdwalletCmd represents the hdwallet command
 var HdwalletCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_hdwalletCmdUses, config.UILanguage),
+	Use:   "hdwallet",
 	Short: config.TranslateInLang(_hdwalletCmdShorts, config.UILanguage),
 }
 

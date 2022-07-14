@@ -6,17 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -65,7 +64,7 @@ func TestIndexBuilder(t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
-				ChainID: config.Default.Chain.ID,
+				ChainID: blockchain.DefaultConfig.ID,
 			})
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
@@ -162,7 +161,7 @@ func TestIndexBuilder(t *testing.T) {
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(blockchain.DefaultConfig.EVMNetworkID)
 	for _, v := range []struct {
 		dao   blockdao.BlockDAO
 		inMem bool

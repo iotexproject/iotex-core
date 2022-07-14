@@ -24,10 +24,6 @@ import (
 
 // Multi-language support
 var (
-	_uses = map[config.Language]string{
-		config.English: "version",
-		config.Chinese: "版本",
-	}
 	_shorts = map[config.Language]string{
 		config.English: "Print the version of ioctl and node",
 		config.Chinese: "打印ioctl和节点的版本号",
@@ -36,10 +32,9 @@ var (
 
 // NewVersionCmd represents the version command
 func NewVersionCmd(cli ioctl.Client) *cobra.Command {
-	use, _ := cli.SelectTranslation(_uses)
 	short, _ := cli.SelectTranslation(_shorts)
 	vc := &cobra.Command{
-		Use:   use,
+		Use:   "version",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
