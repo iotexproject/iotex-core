@@ -8,9 +8,11 @@ package chainservice
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-election/committee"
@@ -35,6 +37,28 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
+
+var (
+	_apiCallWithChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicall_chainid_metrics",
+			Help: "API call ChainID Statistics",
+		},
+		[]string{"chain_id"},
+	)
+	_apiCallWithOutChainIDMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_apicall_nochainid_metrics",
+			Help: "API call Without ChainID Statistics",
+		},
+		[]string{"sender", "recipient"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(_apiCallWithChainIDMtc)
+	prometheus.MustRegister(_apiCallWithOutChainIDMtc)
+}
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
@@ -74,6 +98,13 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	act, err := (&action.Deserializer{}).SetEvmNetworkID(cs.chain.EvmNetworkID()).ActionToSealedEnvelope(actPb)
 	if err != nil {
 		return err
+	}
+	chainID := strconv.FormatUint(uint64(act.ChainID()), 10)
+	if act.ChainID() > 0 {
+		_apiCallWithChainIDMtc.WithLabelValues(chainID).Inc()
+	} else {
+		recipient, _ := act.Destination()
+		_apiCallWithOutChainIDMtc.WithLabelValues(act.SenderAddress().String(), recipient).Inc()
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err = cs.actpool.Add(ctx, act)
