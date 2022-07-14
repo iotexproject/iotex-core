@@ -11,6 +11,7 @@ import (
 
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/httputil"
 )
 
 type (
@@ -31,17 +32,13 @@ func NewHTTPServer(route string, port int, handler http.Handler) *HTTPServer {
 	if port == 0 {
 		return nil
 	}
-	svr := &HTTPServer{
-		svr: &http.Server{
-			Addr:              ":" + strconv.Itoa(port),
-			WriteTimeout:      30 * time.Second,
-			ReadHeaderTimeout: 10 * time.Second,
-		},
-	}
 	mux := http.NewServeMux()
 	mux.Handle("/"+route, handler)
-	svr.svr.Handler = mux
-	return svr
+
+	svr := httputil.Server(":"+strconv.Itoa(port), mux, httputil.HeaderTimeout(10*time.Second))
+	return &HTTPServer{
+		svr: &svr,
+	}
 }
 
 // Start starts the http server

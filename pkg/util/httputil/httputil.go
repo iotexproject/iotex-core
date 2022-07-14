@@ -9,20 +9,51 @@ import (
 )
 
 const (
-	_connectionCount = 400
-	_readTimeout     = 35 * time.Second
-	_writeTimeout    = 35 * time.Second
-	_idleTimeout     = 120 * time.Second
+	_connectionCount   = 400
+	_readHeaderTimeout = 5 * time.Second
+	_readTimeout       = 30 * time.Second
+	_writeTimeout      = 30 * time.Second
+	_idleTimeout       = 120 * time.Second
 )
 
+type (
+	// ServerOption is a server option
+	ServerOption func(*serverConfig)
+
+	serverConfig struct {
+		ReadHeaderTimeout time.Duration
+		ReadTimeout       time.Duration
+		WriteTimeout      time.Duration
+		IdleTimeout       time.Duration
+	}
+)
+
+// HeaderTimeout sets header timeout
+func HeaderTimeout(h time.Duration) ServerOption {
+	return func(cfg *serverConfig) {
+		cfg.ReadHeaderTimeout = h
+	}
+}
+
 // Server creates a HTTP server with time out settings.
-func Server(addr string, handler http.Handler) http.Server {
+func Server(addr string, handler http.Handler, opts ...ServerOption) http.Server {
+	cfg := serverConfig{
+		ReadHeaderTimeout: _readHeaderTimeout,
+		ReadTimeout:       _readTimeout,
+		WriteTimeout:      _writeTimeout,
+		IdleTimeout:       _idleTimeout,
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	return http.Server{
-		ReadTimeout:  _readTimeout,
-		WriteTimeout: _writeTimeout,
-		IdleTimeout:  _idleTimeout,
-		Addr:         addr,
-		Handler:      handler,
+		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		IdleTimeout:       cfg.IdleTimeout,
+		Addr:              addr,
+		Handler:           handler,
 	}
 }
 
