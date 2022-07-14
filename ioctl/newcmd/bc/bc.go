@@ -30,19 +30,14 @@ var (
 		config.English: "Deal with blockchain of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链上的区块",
 	}
-	_bcCmdUses = map[config.Language]string{
-		config.English: "bc",
-		config.Chinese: "bc",
-	}
 )
 
 // NewBCCmd represents the bc(block chain) command
 func NewBCCmd(client ioctl.Client) *cobra.Command {
 	bcShorts, _ := client.SelectTranslation(_bcCmdShorts)
-	bcUses, _ := client.SelectTranslation(_bcCmdUses)
 
 	bc := &cobra.Command{
-		Use:   bcUses,
+		Use:   "bc",
 		Short: bcShorts,
 	}
 	bc.AddCommand(NewBCInfoCmd(client))

@@ -25,15 +25,11 @@ var (
 		config.English: "create hdwallet using mnemonic",
 		config.Chinese: "通过助记词创建新钱包",
 	}
-	_createByMnemonicCmdUses = map[config.Language]string{
-		config.English: "create",
-		config.Chinese: "create 创建",
-	}
 )
 
 // _hdwalletCreateCmd represents the hdwallet create command
 var _hdwalletCreateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_createByMnemonicCmdUses, config.UILanguage),
+	Use:   "create",
 	Short: config.TranslateInLang(_createByMnemonicCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
