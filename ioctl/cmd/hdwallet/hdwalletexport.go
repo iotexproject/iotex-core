@@ -25,15 +25,11 @@ var (
 		config.English: "export hdwallet mnemonic using password",
 		config.Chinese: "通过密码导出钱包助记词",
 	}
-	_hdwalletExportCmdUses = map[config.Language]string{
-		config.English: "export",
-		config.Chinese: "export 导出",
-	}
 )
 
 // _hdwalletExportCmd represents the hdwallet export command
 var _hdwalletExportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_hdwalletExportCmdUses, config.UILanguage),
+	Use:   "export",
 	Short: config.TranslateInLang(_hdwalletExportCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
