@@ -201,6 +201,7 @@ func share(args []string) error {
 				upload, err := os.ReadFile(_givenPath + "/" + getPayloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
+					break
 				}
 				payload["content"] = string(upload)
 				payload["readonly"] = isReadOnly(_givenPath + "/" + getPayloadPath)
@@ -209,7 +210,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + _givenPath + "/" + getPayloadPath)
+				log.Printf("share: %s/%s\n", _givenPath, easpcapeString(getPayloadPath))
 
 			case "rename":
 				c := make(chan bool)
@@ -223,7 +224,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("rename: " + _givenPath + "/" + oldPath + " to " + _givenPath + "/" + newPath)
+				log.Printf("rename: %s/%s to %s/%s\n", _givenPath, easpcapeString(oldPath), _givenPath, easpcapeString(newPath))
 
 			case "set":
 				t := request.Payload
@@ -233,15 +234,16 @@ func share(args []string) error {
 				err := os.WriteFile(_givenPath+"/"+setPath, []byte(content), 0777)
 				if err != nil {
 					log.Println("set file failed: ", err)
+					break
 				}
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Println("set: " + _givenPath + "/" + setPath)
+				log.Printf("set: %s/%s\n", _givenPath, easpcapeString(setPath))
 
 			default:
-				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
+				log.Printf("Don't support this IDE yet. Can not handle websocket method: %s\n", easpcapeString(request.Key))
 
 			}
 		}
@@ -249,5 +251,9 @@ func share(args []string) error {
 	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
+}
 
+func easpcapeString(str string) string {
+	escaped := strings.Replace(str, "\n", "", -1)
+	return strings.Replace(escaped, "\r", "", -1)
 }
