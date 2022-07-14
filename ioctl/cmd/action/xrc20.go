@@ -28,10 +28,6 @@ var (
 		config.English: "Support ERC20 standard command-line",
 		config.Chinese: "使ioctl命令行支持ERC20标准",
 	}
-	_xrc20CmdUses = map[config.Language]string{
-		config.English: "xrc20",
-		config.Chinese: "xrc20",
-	}
 	_flagContractAddressUsages = map[config.Language]string{
 		config.English: "set contract address",
 		config.Chinese: "设定合约地址",
@@ -48,7 +44,7 @@ var (
 
 //Xrc20Cmd represent xrc20 standard command-line
 var Xrc20Cmd = &cobra.Command{
-	Use:   config.TranslateInLang(_xrc20CmdUses, config.UILanguage),
+	Use:   "xrc20",
 	Short: config.TranslateInLang(_xrc20CmdShorts, config.UILanguage),
 }
 

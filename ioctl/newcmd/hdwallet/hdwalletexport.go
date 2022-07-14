@@ -20,19 +20,14 @@ var (
 		config.English: "export hdwallet mnemonic using password",
 		config.Chinese: "通过密码导出钱包助记词",
 	}
-	_hdwalletExportCmdUses = map[config.Language]string{
-		config.English: "export",
-		config.Chinese: "export 导出",
-	}
 )
 
 // NewHdwalletExportCmd represents the hdwallet export command
 func NewHdwalletExportCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_hdwalletExportCmdUses)
 	short, _ := client.SelectTranslation(_hdwalletExportCmdShorts)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "export",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

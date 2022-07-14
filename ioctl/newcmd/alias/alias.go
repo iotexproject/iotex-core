@@ -23,19 +23,14 @@ var (
 		config.English: "Manage aliases of IoTeX addresses",
 		config.Chinese: "管理IoTeX的地址别名",
 	}
-	_aliasCmdUses = map[config.Language]string{
-		config.English: "alias",
-		config.Chinese: "alias",
-	}
 )
 
 // NewAliasCmd represents the alias command
 func NewAliasCmd(client ioctl.Client) *cobra.Command {
 	aliasShorts, _ := client.SelectTranslation(_aliasCmdShorts)
-	aliasUses, _ := client.SelectTranslation(_aliasCmdUses)
 
 	ac := &cobra.Command{
-		Use:   aliasUses,
+		Use:   "alias",
 		Short: aliasShorts,
 	}
 

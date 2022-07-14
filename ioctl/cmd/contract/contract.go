@@ -31,10 +31,6 @@ var (
 
 // Multi-language support
 var (
-	_contractCmdUses = map[config.Language]string{
-		config.English: "contract",
-		config.Chinese: "contract",
-	}
 	_contractCmdShorts = map[config.Language]string{
 		config.English: "Deal with smart contract of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链的智能合约",
@@ -55,7 +51,7 @@ var (
 
 // ContractCmd represents the contract command
 var ContractCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_contractCmdUses, config.UILanguage),
+	Use:   "contract",
 	Short: config.TranslateInLang(_contractCmdShorts, config.UILanguage),
 }
 

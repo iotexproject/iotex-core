@@ -19,10 +19,6 @@ import (
 
 // Multi-language support
 var (
-	_prepareCmdUses = map[config.Language]string{
-		config.English: "prepare",
-		config.Chinese: "prepare",
-	}
 	_prepareCmdShorts = map[config.Language]string{
 		config.English: "Prepare solidity compiler",
 		config.Chinese: "准备solidity编译器",
@@ -31,7 +27,7 @@ var (
 
 // ContractPrepareCmd represents the contract prepare command
 var ContractPrepareCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_prepareCmdUses, config.UILanguage),
+	Use:   "prepare",
 	Short: config.TranslateInLang(_prepareCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
