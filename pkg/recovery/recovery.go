@@ -79,14 +79,18 @@ func LogCrash(r interface{}) {
 }
 
 func writeHeapProfile(path string) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		log.S().Errorf("crashlog: open heap profile error: %v", err)
 		return
 	}
-	defer f.Close()
 	if err := pprof.WriteHeapProfile(f); err != nil {
 		log.S().Errorf("crashlog: write heap profile error: %v", err)
+		return
+	}
+	if err = f.Close(); err != nil {
+		log.S().Errorf("crashlog: close heap profile error: %v", err)
+		return
 	}
 }
 
