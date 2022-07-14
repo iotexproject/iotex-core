@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -39,12 +38,6 @@ var (
 type (
 	// ChainManager defines the blockchain interface
 	ChainManager interface {
-		// BlockProposeTime return propose time by height
-		BlockProposeTime(uint64) (time.Time, error)
-		// BlockCommitTime return commit time by height
-		BlockCommitTime(uint64) (time.Time, error)
-		// Genesis returns the genesis
-		Genesis() genesis.Genesis
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
 		MintNewBlock(timestamp time.Time) (*block.Block, error)

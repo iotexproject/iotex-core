@@ -268,5 +268,6 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 			return addrs, nil
 		},
 		0,
+		&blockTime{bc: bc},
 	}
 }

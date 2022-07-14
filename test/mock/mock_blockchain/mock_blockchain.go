@@ -54,21 +54,6 @@ func (mr *MockBlockchainMockRecorder) AddSubscriber(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockBlockchain)(nil).AddSubscriber), arg0)
 }
 
-// BlockCommitTime mocks base method.
-func (m *MockBlockchain) BlockCommitTime(arg0 uint64) (time.Time, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockCommitTime", arg0)
-	ret0, _ := ret[0].(time.Time)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockCommitTime indicates an expected call of BlockCommitTime.
-func (mr *MockBlockchainMockRecorder) BlockCommitTime(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommitTime", reflect.TypeOf((*MockBlockchain)(nil).BlockCommitTime), arg0)
-}
-
 // BlockFooterByHeight mocks base method.
 func (m *MockBlockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
 	m.ctrl.T.Helper()
@@ -97,21 +82,6 @@ func (m *MockBlockchain) BlockHeaderByHeight(height uint64) (*block.Header, erro
 func (mr *MockBlockchainMockRecorder) BlockHeaderByHeight(height interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockHeaderByHeight), height)
-}
-
-// BlockProposeTime mocks base method.
-func (m *MockBlockchain) BlockProposeTime(arg0 uint64) (time.Time, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockProposeTime", arg0)
-	ret0, _ := ret[0].(time.Time)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockProposeTime indicates an expected call of BlockProposeTime.
-func (mr *MockBlockchainMockRecorder) BlockProposeTime(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockProposeTime", reflect.TypeOf((*MockBlockchain)(nil).BlockProposeTime), arg0)
 }
 
 // ChainAddress mocks base method.

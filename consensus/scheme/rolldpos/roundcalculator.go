@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
@@ -23,6 +24,7 @@ type roundCalculator struct {
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc DelegatesByEpochFunc
 	beringHeight         uint64
+	blockTime            *blockTime
 }
 
 // UpdateRound updates previous roundCtx
@@ -130,18 +132,18 @@ func (c *roundCalculator) roundInfo(
 	now time.Time,
 	toleratedOvertime time.Duration,
 ) (roundNum uint32, roundStartTime time.Time, err error) {
-	lastBlockTime := time.Unix(c.chain.Genesis().Timestamp, 0)
+	lastBlockTime := c.blockTime.GenesisTime()
 	if height > 1 {
 		if height >= c.beringHeight {
 			var lastBlkProposeTime time.Time
-			lastBlkProposeTime, err = c.chain.BlockProposeTime(height - 1)
+			lastBlkProposeTime, err = c.blockTime.BlockProposeTime(height - 1)
 			if err != nil {
 				return
 			}
 			lastBlockTime = lastBlockTime.Add(lastBlkProposeTime.Sub(lastBlockTime) / blockInterval * blockInterval)
 		} else {
 			var lastBlkCommitTime time.Time
-			lastBlkCommitTime, err = c.chain.BlockCommitTime(height - 1)
+			lastBlkCommitTime, err = c.blockTime.BlockCommitTime(height - 1)
 			if err != nil {
 				return
 			}
@@ -265,4 +267,37 @@ func (c *roundCalculator) calculateProposer(
 	}
 	proposer = delegates[idx%numDelegates]
 	return
+}
+
+type blockTime struct {
+	bc blockchain.Blockchain
+}
+
+// BlockProposeTime return propose time by height
+func (bt *blockTime) BlockProposeTime(height uint64) (time.Time, error) {
+	header, err := bt.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return header.Timestamp(), nil
+}
+
+// BlockCommitTime return commit time by height
+func (bt *blockTime) BlockCommitTime(height uint64) (time.Time, error) {
+	footer, err := bt.bc.BlockFooterByHeight(height)
+	if err != nil {
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return footer.CommitTime(), nil
+}
+
+// GenesisTime return Genesis time by default
+func (bt *blockTime) GenesisTime() time.Time {
+	return time.Unix(bt.bc.Genesis().Timestamp, 0)
 }
