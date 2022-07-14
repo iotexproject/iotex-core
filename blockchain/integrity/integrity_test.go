@@ -1139,11 +1139,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(addTestingTsfBlocks(cfg, bc, dao, ap))
 		//make sure pubsub is completed
 		err = testutil.WaitUntil(200*time.Millisecond, 3*time.Second, func() (bool, error) {
-			err = bc.Stop(ctx)
-			return err == nil, err
+			return 24 == ms.Counter(), nil
 		})
 		require.NoError(err)
-		require.Equal(24, ms.Counter())
+		require.NoError(bc.Stop(ctx))
 
 		// Load a blockchain from DB
 		bc = blockchain.NewBlockchain(
