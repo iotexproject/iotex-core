@@ -1138,8 +1138,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Open blockchain pass, height = %d\n", height)
 		require.NoError(addTestingTsfBlocks(cfg, bc, dao, ap))
 		//make sure pubsub is completed
-		time.Sleep(time.Millisecond * 200)
-		require.NoError(bc.Stop(ctx))
+		err = testutil.WaitUntil(200*time.Millisecond, 3*time.Second, func() (bool, error) {
+			err = bc.Stop(ctx)
+			return err == nil, err
+		})
+		require.NoError(err)
 		require.Equal(24, ms.Counter())
 
 		// Load a blockchain from DB
