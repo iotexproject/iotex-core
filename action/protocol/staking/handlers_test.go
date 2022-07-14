@@ -2057,7 +2057,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		// transfer to test.to through consignment
 		var consign []byte
 		if !test.nilPayload {
-			consign = newconsignment(require, test.sigIndex, test.sigNonce, test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
+			consign = newconsignment(require, int(test.sigIndex), int(test.sigNonce), test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
 		}
 
 		act, err := action.NewTransferStake(1, caller.String(), 0, consign, gasLimit, gasPrice)
@@ -2713,7 +2713,7 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 	return nil, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }
 
-func newconsignment(r *require.Assertions, bucketIdx, nonce uint64, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {
+func newconsignment(r *require.Assertions, bucketIdx, nonce int, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {
 	msg := action.ConsignMsgEther{
 		BucketIdx: bucketIdx,
 		Nonce:     nonce,

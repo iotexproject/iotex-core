@@ -57,8 +57,8 @@ type (
 
 	// ConsignMsgEther is the consignment message format of Ethereum
 	ConsignMsgEther struct {
-		BucketIdx uint64 `json:"bucket"`
-		Nonce     uint64 `json:"nonce"`
+		BucketIdx int    `json:"bucket"`
+		Nonce     int    `json:"nonce"`
 		Recipient string `json:"recipient"`
 		Reclaim   string `json:"reclaim"`
 	}
@@ -148,8 +148,8 @@ func NewConsignMsg(sigType, recipient string, bucketIdx, nonce uint64) ([]byte, 
 	switch sigType {
 	case "Ethereum":
 		msg := ConsignMsgEther{
-			BucketIdx: bucketIdx,
-			Nonce:     nonce,
+			BucketIdx: int(bucketIdx),
+			Nonce:     int(nonce),
 			Recipient: recipient,
 			Reclaim:   _reclaim,
 		}
