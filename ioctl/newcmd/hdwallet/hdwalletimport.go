@@ -23,19 +23,14 @@ var (
 		config.English: "import hdwallet using mnemonic",
 		config.Chinese: "通过助记词导入钱包",
 	}
-	_importCmdUses = map[config.Language]string{
-		config.English: "import",
-		config.Chinese: "import 导入",
-	}
 )
 
 // NewHdwalletImportCmd represents the hdwallet import command
 func NewHdwalletImportCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_importCmdUses)
 	short, _ := client.SelectTranslation(_importCmdShorts)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "import",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
