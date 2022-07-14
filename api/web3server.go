@@ -201,7 +201,7 @@ func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web
 		res, err = nil, errors.Wrapf(errors.New("web3 method not found"), "method: %s\n", web3Req.Get("method"))
 	}
 	if err != nil {
-		log.Logger("api").Error("web3server",
+		log.Logger("api").Debug("web3server",
 			zap.String("requestParams", fmt.Sprintf("%+v", web3Req)),
 			zap.Error(err))
 	} else {

@@ -259,10 +259,10 @@ func (bc *blockchain) TipHeight() uint64 {
 
 // ValidateBlock validates a new block before adding it to the blockchain
 func (bc *blockchain) ValidateBlock(blk *block.Block) error {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
 	defer timer.End()
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
 	if blk == nil {
 		return ErrInvalidBlock
 	}
@@ -365,10 +365,10 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 }
 
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
 	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return nil, err
@@ -401,10 +401,10 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 
 //  CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
 	return bc.commitBlock(blk)
 }
 

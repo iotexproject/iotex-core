@@ -97,7 +97,7 @@ func (h *HeartbeatHandler) Log() {
 	}
 
 	numPeers := len(peers)
-	h.l.Debug("Node status.",
+	h.l.Info("Node status.",
 		zap.Int("numConnectedPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))

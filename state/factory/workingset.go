@@ -496,6 +496,8 @@ func (ws *workingSet) pickAndRunActions(
 	}
 	ws.receipts = receipts
 
+	log.L().Info("DebugBenchmark", zap.Int("executedActions", len(executedActions)))
+
 	return executedActions, ws.finalize()
 }
 

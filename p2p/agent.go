@@ -208,7 +208,7 @@ func (p *agent) Start(ctx context.Context) error {
 		p2p.PrivateNetworkPSK(p.cfg.PrivateNetworkPSK),
 		p2p.DHTProtocolID(p.chainID),
 		p2p.DHTGroupID(p.chainID),
-		p2p.WithMaxPeer(uint32(p.cfg.MaxPeers)),
+		p2p.WithMaxPeer(uint32(50)),
 	}
 	if p.cfg.EnableRateLimit {
 		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))

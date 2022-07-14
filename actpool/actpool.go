@@ -33,7 +33,7 @@ import (
 
 const (
 	// move to config
-	_numWorker = 16
+	_numWorker = 64
 )
 
 var (
@@ -226,12 +226,16 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	}
 	wg.Wait()
 
+	var pendingActs uint64 = 0
 	ret := make(map[string][]action.SealedEnvelope, totalAccounts)
 	for _, v := range actsFromWorker {
 		for _, w := range v {
 			ret[w.sender] = w.acts
+			pendingActs += uint64(len(w.acts))
 		}
 	}
+
+	log.L().Info("DebugBenchmark", zap.Uint64("pendingActs", pendingActs))
 	return ret
 }
 
