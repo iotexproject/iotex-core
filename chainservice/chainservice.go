@@ -99,6 +99,16 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err != nil {
 		return err
 	}
+	cs.chainIDmetrics(act)
+	ctx = protocol.WithRegistry(ctx, cs.registry)
+	err = cs.actpool.Add(ctx, act)
+	if err != nil {
+		log.L().Debug(err.Error())
+	}
+	return err
+}
+
+func (cs *ChainService) chainIDmetrics(act action.SealedEnvelope) {
 	chainID := strconv.FormatUint(uint64(act.ChainID()), 10)
 	if act.ChainID() > 0 {
 		_apiCallWithChainIDMtc.WithLabelValues(chainID).Inc()
@@ -106,12 +116,6 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 		recipient, _ := act.Destination()
 		_apiCallWithOutChainIDMtc.WithLabelValues(act.SenderAddress().String(), recipient).Inc()
 	}
-	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err = cs.actpool.Add(ctx, act)
-	if err != nil {
-		log.L().Debug(err.Error())
-	}
-	return err
 }
 
 // HandleBlock handles incoming block request.
