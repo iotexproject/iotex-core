@@ -22,10 +22,6 @@ var (
 		config.English: "Remove alias",
 		config.Chinese: "移除别名",
 	}
-	_removeUses = map[config.Language]string{
-		config.English: "remove",
-		config.Chinese: "remove",
-	}
 	_removeInvalidAlias = map[config.Language]string{
 		config.English: "invalid alias %s",
 		config.Chinese: "不可用别名 %s",
@@ -42,14 +38,13 @@ var (
 
 // NewAliasRemove represents the removes alias command
 func NewAliasRemove(c ioctl.Client) *cobra.Command {
-	use, _ := c.SelectTranslation(_removeUses)
 	short, _ := c.SelectTranslation(_removeShorts)
 	invalidAlias, _ := c.SelectTranslation(_removeInvalidAlias)
 	writeError, _ := c.SelectTranslation(_removeWriteError)
 	result, _ := c.SelectTranslation(_removeResult)
 
 	ec := &cobra.Command{
-		Use:   use,
+		Use:   "remove",
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

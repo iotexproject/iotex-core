@@ -66,8 +66,8 @@ type bucket struct {
 
 // NewBCBucketCmd represents the bc Bucket command
 func NewBCBucketCmd(client ioctl.Client) *cobra.Command {
-	bcBucketUses, _ := client.SelectTranslation(_bcBlockCmdUses)
-	bcBucketCmdShorts, _ := client.SelectTranslation(_bcBlockCmdShorts)
+	bcBucketUses, _ := client.SelectTranslation(_bcBucketUses)
+	bcBucketCmdShorts, _ := client.SelectTranslation(_bcBucketCmdShorts)
 	bcBucketCmdExample, _ := client.SelectTranslation(_bcBucketCmdExample)
 
 	return &cobra.Command{

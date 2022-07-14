@@ -15,10 +15,6 @@ import (
 
 // Multi-language support
 var (
-	_invokeCmdUses = map[config.Language]string{
-		config.English: "invoke",
-		config.Chinese: "invoke",
-	}
 	_invokeCmdShorts = map[config.Language]string{
 		config.English: "Invoke smart contract on IoTeX blockchain",
 		config.Chinese: "调用IoTeX区块链上的智能合约",
@@ -27,7 +23,7 @@ var (
 
 // _contractInvokeCmd represents the contract invoke command
 var _contractInvokeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_invokeCmdUses, config.UILanguage),
+	Use:   "invoke",
 	Short: config.TranslateInLang(_invokeCmdShorts, config.UILanguage),
 }
 
