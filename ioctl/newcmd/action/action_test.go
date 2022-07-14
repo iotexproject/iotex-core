@@ -21,27 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-const (
-	veryLightScryptN = 2
-	veryLightScryptP = 1
-)
-
-var (
-	testData = []struct {
-		endpoint string
-		insecure bool
-	}{
-		{
-			endpoint: "111:222:333:444:5678",
-			insecure: false,
-		},
-		{
-			endpoint: "",
-			insecure: true,
-		},
-	}
-)
-
 func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -73,7 +52,19 @@ func TestSendRaw(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(12)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(7)
 
-	for _, test := range testData {
+	for _, test := range []struct {
+		endpoint string
+		insecure bool
+	}{
+		{
+			endpoint: "111:222:333:444:5678",
+			insecure: false,
+		},
+		{
+			endpoint: "",
+			insecure: true,
+		},
+	} {
 		callbackEndpoint := func(cb func(*string, string, string, string)) {
 			cb(&test.endpoint, "endpoint", test.endpoint, "endpoint usage")
 		}

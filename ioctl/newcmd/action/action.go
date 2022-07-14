@@ -40,10 +40,6 @@ var (
 		config.English: "Manage actions of IoTeX blockchain",
 		config.Chinese: "管理IoTex区块链的行为", // this translation
 	}
-	_actionCmdUses = map[config.Language]string{
-		config.English: "action",
-		config.Chinese: "action 行为", // this translation
-	}
 	_infoWarn = map[config.Language]string{
 		config.English: "** This is an irreversible action!\n" +
 			"Once an account is deleted, all the assets under this account may be lost!\n" +
@@ -207,7 +203,7 @@ func selectTranslation(client ioctl.Client, trls map[config.Language]string) str
 // NewActionCmd represents the action command
 func NewActionCmd(client ioctl.Client) *cobra.Command {
 	ac := &cobra.Command{
-		Use:   selectTranslation(client, _actionCmdUses),
+		Use:   "action",
 		Short: selectTranslation(client, _actionCmdShorts),
 	}
 
