@@ -34,10 +34,6 @@ var (
 		config.English: `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
 		config.Chinese: `ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
 	}
-	_ioctlRootCmdUses = map[config.Language]string{
-		config.English: "ioctl",
-		config.Chinese: "ioctl",
-	}
 	_xctlRootCmdShorts = map[config.Language]string{
 		config.English: "Command-line interface for consortium blockchain",
 		config.Chinese: "联盟链命令行工具",
@@ -45,10 +41,6 @@ var (
 	_xctlRootCmdLongs = map[config.Language]string{
 		config.English: `xctl is a command-line interface for interacting with consortium blockchain.`,
 		config.Chinese: `xctl 是用于与联盟链进行交互的命令行工具`,
-	}
-	_xctlRootCmdUses = map[config.Language]string{
-		config.English: "xctl",
-		config.Chinese: "xctl",
 	}
 	_flagOutputFormatUsages = map[config.Language]string{
 		config.English: "output format",
@@ -59,7 +51,7 @@ var (
 // NewIoctl returns ioctl root cmd
 func NewIoctl() *cobra.Command {
 	var rootCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_ioctlRootCmdUses, config.UILanguage),
+		Use:   "ioctl",
 		Short: config.TranslateInLang(_ioctlRootCmdShorts, config.UILanguage),
 		Long:  config.TranslateInLang(_ioctlRootCmdLongs, config.UILanguage),
 	}
@@ -87,7 +79,7 @@ func NewIoctl() *cobra.Command {
 // NewXctl returns xctl root cmd
 func NewXctl() *cobra.Command {
 	var rootCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_xctlRootCmdUses, config.UILanguage),
+		Use:   "xctl",
 		Short: config.TranslateInLang(_xctlRootCmdShorts, config.UILanguage),
 		Long:  config.TranslateInLang(_xctlRootCmdLongs, config.UILanguage),
 	}

@@ -23,18 +23,14 @@ var (
 		config.English: "List existing account for ioctl",
 		config.Chinese: "列出ioctl中已存在的账户",
 	}
-	_listCmdUses = map[config.Language]string{
-		config.English: "list",
-	}
 )
 
 // NewAccountList represents the account list command
 func NewAccountList(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_listCmdUses)
 	short, _ := client.SelectTranslation(_listCmdShorts)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "list",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

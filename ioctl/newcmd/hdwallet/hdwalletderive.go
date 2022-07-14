@@ -22,10 +22,6 @@ import (
 
 // Multi-language support
 var (
-	_hdwalletDeriveCmdUses = map[config.Language]string{
-		config.English: "derive id1/id2/id3",
-		config.Chinese: "derive id1/id2/id3",
-	}
 	_hdwalletDeriveCmdShorts = map[config.Language]string{
 		config.English: "derive key from HDWallet",
 		config.Chinese: "查询HDWallet钱包的派生key地址",
@@ -34,11 +30,10 @@ var (
 
 // NewHdwalletDeriveCmd represents the hdwallet derive command
 func NewHdwalletDeriveCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_hdwalletDeriveCmdUses)
 	short, _ := client.SelectTranslation(_hdwalletDeriveCmdShorts)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "derive id1/id2/id3",
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

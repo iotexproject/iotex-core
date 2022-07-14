@@ -47,7 +47,7 @@ var (
 	}
 	_actionsCmdUses = map[config.Language]string{
 		config.English: "actions (ALIAS|ADDRESS)  [SKIP]",
-		config.Chinese: "actions (ALIAS|ADDRESS)  [SKIP]",
+		config.Chinese: "actions (别名|地址)  [SKIP]",
 	}
 )
 

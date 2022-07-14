@@ -15,10 +15,6 @@ import (
 
 // Multi-language support
 var (
-	_deployCmdUses = map[config.Language]string{
-		config.English: "deploy",
-		config.Chinese: "deploy",
-	}
 	_deployCmdShorts = map[config.Language]string{
 		config.English: "Deploy smart contract of IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链部署智能合约",
@@ -27,7 +23,7 @@ var (
 
 // _contractDeployCmd represents the contract deploy command
 var _contractDeployCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_deployCmdUses, config.UILanguage),
+	Use:   "deploy",
 	Short: config.TranslateInLang(_deployCmdShorts, config.UILanguage),
 }
 
