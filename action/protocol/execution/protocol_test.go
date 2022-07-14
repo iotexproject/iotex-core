@@ -405,7 +405,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
 	}
 	if sct.IsLegacyNonceAccount {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 5
+		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 4
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
