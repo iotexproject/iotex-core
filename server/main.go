@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -118,15 +117,15 @@ func main() {
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	cfgToLog.Network.MasterKey = ""
-	zlog.L().Info().Msgf("Config in use: %+v", cfgToLog)
-	zlog.L().Info().Msgf("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
-	zlog.L().Info().Msgf("Genesis timestamp: %d", genesisCfg.Timestamp)
-	zlog.L().Info().Msgf("Genesis hash: %x", block.GenesisHash())
+	log.S().Infof("Config in use: %+v", cfgToLog)
+	log.S().Infof("EVM Network ID: %d, Chain ID: %d", cfg.Chain.EVMNetworkID, cfg.Chain.ID)
+	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
+	log.S().Infof("Genesis hash: %x", block.GenesisHash())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
 	if err := probeSvr.Start(ctx); err != nil {
-		zlog.L().Fatal().Err(err).Msg("Failed to start probe server.")
+		log.L().Fatal("Failed to start probe server.", zap.Error(err))
 	}
 	go func() {
 		<-stop
@@ -136,7 +135,7 @@ func main() {
 
 		// liveness end
 		if err := probeSvr.Stop(livenessCtx); err != nil {
-			zlog.L().Err(err).Msg("Error when stopping probe server.")
+			log.L().Error("Error when stopping probe server.", zap.Error(err))
 		}
 		livenessCancel()
 	}()
@@ -144,14 +143,14 @@ func main() {
 	// create and start the node
 	svr, err := itx.NewServer(cfg)
 	if err != nil {
-		zlog.L().Fatal().Err(err).Msg("Failed to create server.")
+		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
 	var cfgsub config.Config
 	if _subChainPath != "" {
 		cfgsub, err = config.NewSub([]string{_secretPath, _subChainPath})
 		if err != nil {
-			zlog.L().Fatal().Err(err).Msg("Failed to new sub chain config.")
+			log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
 		}
 	} else {
 		cfgsub = config.Config{}
@@ -159,7 +158,7 @@ func main() {
 
 	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewSubChainService(cfgsub); err != nil {
-			zlog.L().Fatal().Err(err).Msg("Failed to new sub chain.")
+			log.L().Fatal("Failed to new sub chain.", zap.Error(err))
 		}
 	}
 
@@ -170,8 +169,7 @@ func main() {
 
 func initLogger(cfg config.Config) error {
 	addr := cfg.Chain.ProducerAddress()
-	log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
+	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
 	))
-	return zlog.InitLoggers(cfg.Log, cfg.SubLogs, map[string]interface{}{"ioAddr": addr.String()})
 }

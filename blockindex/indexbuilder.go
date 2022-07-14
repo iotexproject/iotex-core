@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
 
@@ -124,7 +123,7 @@ func (ib *IndexBuilder) init(ctx context.Context) error {
 	}
 	if startHeight == tipHeight {
 		// indexer height consistent with dao height
-		zlog.L().Info().Uint64("height", startHeight).Msg("Consistent DB")
+		zap.L().Info("Consistent DB", zap.Uint64("height", startHeight))
 		return nil
 	}
 	if startHeight > tipHeight {
@@ -152,7 +151,7 @@ func (ib *IndexBuilder) init(ctx context.Context) error {
 				return err
 			}
 			blks = blks[:0]
-			zlog.L().Info().Uint64("height", startHeight).Msg("Finished indexing blocks up to")
+			zap.L().Info("Finished indexing blocks up to", zap.Uint64("height", startHeight))
 		}
 	}
 	if startHeight >= tipHeight {

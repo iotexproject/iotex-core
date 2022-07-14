@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
 )
 
@@ -69,7 +68,7 @@ func (s *Server) Start(_ context.Context) error {
 			return
 		}
 		if err := s.server.Serve(ln); err != nil {
-			zlog.L().Info().Err(err).Msg("Probe server stopped.")
+			log.L().Info("Probe server stopped.", zap.Error(err))
 		}
 	}()
 	return nil

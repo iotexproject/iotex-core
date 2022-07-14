@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 )
 
 type (
@@ -85,7 +84,7 @@ func (ps *pubSub) RemoveBlockListener(s BlockCreationSubscriber) error {
 			close(elem.cancel)
 			ps.blocklisteners[i] = nil
 			ps.blocklisteners = append(ps.blocklisteners[:i], ps.blocklisteners[i+1:]...)
-			zlog.L().Info().Msg("Successfully unsubscribe block creation.")
+			log.L().Info("Successfully unsubscribe block creation.")
 			return nil
 		}
 	}
@@ -107,7 +106,7 @@ func (ps *pubSub) Stop(_ context.Context) error {
 	defer ps.lock.Unlock()
 	for i, elem := range ps.blocklisteners {
 		close(elem.cancel)
-		zlog.L().Info().Int("listener", i).Msg("Successfully unsubscribe block creation.")
+		log.L().Info("Successfully unsubscribe block creation.", zap.Int("listener", i))
 	}
 	ps.blocklisteners = nil
 	return nil

@@ -45,7 +45,6 @@ import (
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
@@ -142,7 +141,7 @@ func (grpc *GRPCServer) Start(_ context.Context) error {
 		log.L().Error("grpc server failed to listen.", zap.Error(err))
 		return errors.Wrap(err, "grpc server failed to listen")
 	}
-	zlog.L().Info().Str("addr", lis.Addr().String()).Msg("grpc server is listening.")
+	log.L().Info("grpc server is listening.", zap.String("addr", lis.Addr().String()))
 	go func() {
 		defer recovery.Recover()
 		if err := grpc.svr.Serve(lis); err != nil {

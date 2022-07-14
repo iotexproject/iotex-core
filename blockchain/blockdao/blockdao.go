@@ -10,12 +10,13 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/iotexproject/go-pkgs/cache"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/cache"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
 
@@ -107,7 +107,10 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 		}); err != nil {
 			return err
 		}
-		zlog.L().Info().Int("indexer", i).Msg("indexer is up to date.")
+		log.L().Info(
+			"indexer is up to date.",
+			zap.Int("indexer", i),
+		)
 	}
 	return nil
 }

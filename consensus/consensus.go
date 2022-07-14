@@ -10,7 +10,6 @@ import (
 	"context"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -25,9 +24,9 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -154,10 +153,6 @@ func NewConsensus(
 				log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
 				return nil, err
 			}
-			zlog.Logger("consensus").Info().Fields(map[string]interface{}{
-				"height": blk.Height(),
-				"length": len(blk.Actions),
-			}).Msg("Created a new block")
 			log.Logger("consensus").Info("Created a new block.",
 				zap.Uint64("height", blk.Height()),
 				zap.Int("length", len(blk.Actions)))
@@ -192,7 +187,8 @@ func NewConsensus(
 
 // Start starts running the consensus algorithm
 func (c *IotxConsensus) Start(ctx context.Context) error {
-	zlog.Logger("consensus").Info().Str("scheme", c.cfg.Scheme).Msg("Starting IotxConsensus scheme.")
+	log.Logger("consensus").Info("Starting IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
+
 	err := c.scheme.Start(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to start scheme %s", c.cfg.Scheme)
@@ -202,7 +198,7 @@ func (c *IotxConsensus) Start(ctx context.Context) error {
 
 // Stop stops running the consensus algorithm
 func (c *IotxConsensus) Stop(ctx context.Context) error {
-	zlog.Logger("consensus").Info().Str("scheme", c.cfg.Scheme).Msg("Stopping IotxConsensus scheme.")
+	log.Logger("consensus").Info("Stopping IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
 
 	err := c.scheme.Stop(ctx)
 	if err != nil {

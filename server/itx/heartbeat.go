@@ -16,14 +16,14 @@ import (
 	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	statedb "github.com/iotexproject/iotex-core/state"
 )
@@ -55,14 +55,14 @@ func init() {
 // HeartbeatHandler is the handler to periodically log the system key metrics
 type HeartbeatHandler struct {
 	s *Server
-	l zerolog.Logger
+	l *zap.Logger
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
 func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
-		l: zlog.L().With().Str("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)).Logger(),
+		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
 	}
 }
 
@@ -74,7 +74,7 @@ func (h *HeartbeatHandler) Log() {
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
 	if !ok {
-		h.l.Error().Msg("dispatcher is not the instance of IotxDispatcher")
+		h.l.Error("dispatcher is not the instance of IotxDispatcher")
 		return
 	}
 	numDPEvts := dp.EventQueueSize()
@@ -86,22 +86,21 @@ func (h *HeartbeatHandler) Log() {
 	}
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
-		h.l.Err(err).Msg("error when serializing the dispatcher event audit map.")
+		h.l.Error("error when serializing the dispatcher event audit map.", zap.Error(err))
 		return
 	}
 
 	peers, err := p2pAgent.ConnectedPeers()
 	if err != nil {
-		h.l.Debug().Err(err).Msg("error when get neighbors.")
+		h.l.Debug("error when get connectedPeers.", zap.Error(err))
 		peers = nil
 	}
 
 	numPeers := len(peers)
-	h.l.Debug().Fields(map[string]interface{}{
-		"numPeers":                     numPeers,
-		"pendingDispatcherEvents":      "{" + strings.Join(events, ", ") + "}",
-		"pendingDispatcherEventsAudit": string(dpEvtsAudit),
-	}).Msg("Node status.")
+	h.l.Debug("Node status.",
+		zap.Int("numConnectedPeers", numPeers),
+		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
+		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
 	_heartbeatMtc.WithLabelValues("numConnectedPeers", "node").Set(float64(numPeers))
 	_heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
@@ -110,7 +109,7 @@ func (h *HeartbeatHandler) Log() {
 		// Consensus metrics
 		cs, ok := c.Consensus().(*consensus.IotxConsensus)
 		if !ok {
-			h.l.Info().Msg("consensus is not the instance of IotxConsensus.")
+			h.l.Info("consensus is not the instance of IotxConsensus.")
 			return
 		}
 		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
@@ -129,14 +128,14 @@ func (h *HeartbeatHandler) Log() {
 			consensusMetrics, err = rolldpos.Metrics()
 			if err != nil {
 				if height > 0 || errors.Cause(err) != statedb.ErrStateNotExist {
-					h.l.Err(err).Msg("failed to read consensus metrics")
+					h.l.Error("failed to read consensus metrics", zap.Error(err))
 					return
 				}
 			}
 			consensusEpoch = consensusMetrics.LatestEpoch
 			consensusHeight = consensusMetrics.LatestHeight
 		} else {
-			h.l.Debug().Msg("scheme is not the instance of RollDPoS")
+			h.l.Debug("scheme is not the instance of RollDPoS")
 		}
 
 		// Block metrics
@@ -144,17 +143,17 @@ func (h *HeartbeatHandler) Log() {
 		actPoolCapacity := c.ActionPool().GetCapacity()
 		targetHeight := c.BlockSync().TargetHeight()
 
-		h.l.Debug().Fields(map[string]interface{}{
-			"rolldposEvents":   numPendingEvts,
-			"fsmState":         string(state),
-			"blockchainHeight": height,
-			"actpoolSize":      actPoolSize,
-			"actpoolCapacity":  actPoolCapacity,
-			"chainID":          c.ChainID(),
-			"targetHeight":     targetHeight,
-			"concensusEpoch":   consensusEpoch,
-			"consensusHeight":  consensusHeight,
-		}).Msg("chain service status")
+		h.l.Debug("chain service status",
+			zap.Int("rolldposEvents", numPendingEvts),
+			zap.String("fsmState", string(state)),
+			zap.Uint64("blockchainHeight", height),
+			zap.Uint64("actpoolSize", actPoolSize),
+			zap.Uint64("actpoolCapacity", actPoolCapacity),
+			zap.Uint32("chainID", c.ChainID()),
+			zap.Uint64("targetHeight", targetHeight),
+			zap.Uint64("concensusEpoch", consensusEpoch),
+			zap.Uint64("consensusHeight", consensusHeight),
+		)
 
 		chainIDStr := strconv.FormatUint(uint64(c.ChainID()), 10)
 		_heartbeatMtc.WithLabelValues("consensusEpoch", chainIDStr).Set(float64(consensusHeight))

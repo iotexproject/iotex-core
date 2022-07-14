@@ -13,9 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	goproto "github.com/iotexproject/iotex-proto/golang"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,7 +21,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/log/zlog"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type (
@@ -168,7 +167,7 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 	if atomic.AddInt32(&d.started, 1) != 1 {
 		return errors.New("Dispatcher already started")
 	}
-	zlog.L().Info().Msg("Starting dispatcher.")
+	log.L().Info("Starting dispatcher.")
 	d.wg.Add(3)
 	go d.actionHandler()
 	go d.blockHandler()
@@ -183,7 +182,7 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 		log.L().Warn("Dispatcher already in the process of shutting down.")
 		return nil
 	}
-	zlog.L().Info().Msg("Dispatcher is shutting down.")
+	log.L().Info("Dispatcher is shutting down.")
 	close(d.quit)
 	d.wg.Wait()
 	return nil
@@ -216,7 +215,7 @@ func (d *IotxDispatcher) actionHandler() {
 			d.handleActionMsg(a)
 		case <-d.quit:
 			d.wg.Done()
-			zlog.L().Info().Msg("action handler is terminated.")
+			log.L().Info("action handler is terminated.")
 			return
 		}
 	}
@@ -230,7 +229,7 @@ func (d *IotxDispatcher) blockHandler() {
 			d.handleBlockMsg(b)
 		case <-d.quit:
 			d.wg.Done()
-			zlog.L().Info().Msg("block handler is terminated.")
+			log.L().Info("block handler is terminated.")
 			return
 		}
 	}
@@ -244,7 +243,7 @@ func (d *IotxDispatcher) syncHandler() {
 			d.handleBlockSyncMsg(m)
 		case <-d.quit:
 			d.wg.Done()
-			zlog.L().Info().Msg("block sync handler done.")
+			log.L().Info("block sync handler done.")
 			return
 		}
 	}
