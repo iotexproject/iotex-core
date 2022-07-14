@@ -72,7 +72,7 @@ func TestInt63n(t *testing.T) {
 	assert.Panics(func() { Int63n(0) }, "The code did not panic")
 }
 
-func TestRand(t *testing.T) {
+func TestRead(t *testing.T) {
 	b := make([]byte, 10)
 	Read(b)
 	assert.Equal(t, 10, len(b))
