@@ -15,10 +15,6 @@ import (
 
 // Multi-language support
 var (
-	_testCmdUses = map[config.Language]string{
-		config.English: "test",
-		config.Chinese: "test",
-	}
 	_testCmdShorts = map[config.Language]string{
 		config.English: "Test smart contract of IoTeX blockchain",
 		config.Chinese: "测试IoTeX区块链部署智能合约",
@@ -27,7 +23,7 @@ var (
 
 // contractTesCmd represents the contract test command
 var _contractTestCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_testCmdUses, config.UILanguage),
+	Use:   "test",
 	Short: config.TranslateInLang(_testCmdShorts, config.UILanguage),
 }
 

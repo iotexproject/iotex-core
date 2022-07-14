@@ -23,15 +23,11 @@ var (
 		config.English: "delete hdwallet",
 		config.Chinese: "删除钱包",
 	}
-	_hdwalletDeleteCmdUses = map[config.Language]string{
-		config.English: "delete",
-		config.Chinese: "delete 删除",
-	}
 )
 
 // _hdwalletDeleteCmd represents the hdwallet delete command
 var _hdwalletDeleteCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_hdwalletDeleteCmdUses, config.UILanguage),
+	Use:   "delete",
 	Short: config.TranslateInLang(_hdwalletDeleteCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {

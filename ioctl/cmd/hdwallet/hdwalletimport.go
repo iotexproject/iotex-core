@@ -28,15 +28,11 @@ var (
 		config.English: "import hdwallet using mnemonic",
 		config.Chinese: "通过助记词导入钱包",
 	}
-	_importCmdUses = map[config.Language]string{
-		config.English: "import",
-		config.Chinese: "import 导入",
-	}
 )
 
 // _hdwalletImportCmd represents the hdwallet import command
 var _hdwalletImportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_importCmdUses, config.UILanguage),
+	Use:   "import",
 	Short: config.TranslateInLang(_importCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
