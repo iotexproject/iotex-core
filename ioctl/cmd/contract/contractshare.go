@@ -117,7 +117,7 @@ func isExist(path string) bool {
 }
 
 func rename(oldPath string, newPath string, c chan bool) {
-	if isExist(_givenPath + "/" + oldPath) {
+	if isExist(oldPath) {
 		if err := os.Rename(oldPath, newPath); err != nil {
 			log.Println("Rename file failed: ", err)
 		}
@@ -127,7 +127,7 @@ func rename(oldPath string, newPath string, c chan bool) {
 }
 
 func share(args []string) error {
-	_givenPath = args[0]
+	_givenPath = filepath.Clean(args[0])
 	if len(_givenPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
@@ -186,7 +186,7 @@ func share(args []string) error {
 			case "list":
 				payload := make(map[string]bool)
 				for _, ele := range _fileList {
-					payload[ele] = isReadOnly(_givenPath + "/" + ele)
+					payload[ele] = isReadOnly(filepath.Join(_givenPath, ele))
 				}
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
@@ -197,48 +197,73 @@ func share(args []string) error {
 
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				getPayloadPath := getPayload["path"].(string)
-				upload, err := os.ReadFile(_givenPath + "/" + getPayloadPath)
+				getPayloadPath, err := cleanPath(getPayload["path"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				getPayloadPath = filepath.Join(_givenPath, getPayloadPath)
+				upload, err := os.ReadFile(getPayloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
+					break
 				}
 				payload["content"] = string(upload)
-				payload["readonly"] = isReadOnly(_givenPath + "/" + getPayloadPath)
+				payload["readonly"] = isReadOnly(getPayloadPath)
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + _givenPath + "/" + getPayloadPath)
+				log.Println("share: " + getPayloadPath)
 
 			case "rename":
 				c := make(chan bool)
 				t := request.Payload
 				renamePayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				oldPath := renamePayload["oldPath"].(string)
-				newPath := renamePayload["newPath"].(string)
-				go rename(oldPath, newPath, c)
+				oldRenamePath, err := cleanPath(renamePayload["oldPath"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				newRenamePath, err := cleanPath(renamePayload["newPath"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				oldRenamePath = filepath.Join(_givenPath, oldRenamePath)
+				newRenamePath = filepath.Join(_givenPath, newRenamePath)
+				go rename(oldRenamePath, newRenamePath, c)
 				response.Payload = <-c
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("rename: " + _givenPath + "/" + oldPath + " to " + _givenPath + "/" + newPath)
+				log.Println("rename: " + oldRenamePath + " to " + newRenamePath)
 
 			case "set":
 				t := request.Payload
 				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				setPath := setPayload["path"].(string)
 				content := setPayload["content"].(string)
-				err := os.WriteFile(_givenPath+"/"+setPath, []byte(content), 0777)
+				setPath, err := cleanPath(setPayload["path"].(string))
 				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				setPath = filepath.Join(_givenPath, setPath)
+				if err := os.MkdirAll(filepath.Dir(setPath), 0755); err != nil {
+					log.Println("mkdir failed: ", err)
+					break
+				}
+				if err := os.WriteFile(setPath, []byte(content), 0644); err != nil {
 					log.Println("set file failed: ", err)
+					break
 				}
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Println("set: " + _givenPath + "/" + setPath)
+				log.Println("set: " + setPath)
 
 			default:
 				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
@@ -249,5 +274,13 @@ func share(args []string) error {
 	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
+}
 
+func cleanPath(path string) (string, error) {
+	path = filepath.Clean(filepath.Join("/", path))
+	real, err := filepath.Rel("/", path)
+	if err != nil {
+		return "", err
+	}
+	return real, nil
 }
