@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -53,13 +52,13 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		BlockchainCtx{
 			Tip: TipInfo{
 				Height:    0,
-				Hash:      config.Default.Genesis.Hash(),
-				Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
+				Hash:      genesis.Default.Hash(),
+				Timestamp: time.Unix(genesis.Default.Timestamp, 0),
 			},
 		},
 	)
 
-	ctx = WithFeatureCtx(genesis.WithGenesisContext(ctx, config.Default.Genesis))
+	ctx = WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.Default))
 
 	valid := NewGenericValidator(nil, func(_ context.Context, sr StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()

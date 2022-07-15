@@ -26,10 +26,6 @@ var (
 		config.English: "Create N new accounts and print them",
 		config.Chinese: "创建 N 个新账户，并打印",
 	}
-	_createCmdUses = map[config.Language]string{
-		config.English: "create",
-		config.Chinese: "create 创建",
-	}
 	_flagNumUsages = map[config.Language]string{
 		config.English: "number of accounts to create",
 		config.Chinese: "指定创建账户的数量",
@@ -38,7 +34,7 @@ var (
 
 // _accountCreateCmd represents the account create command
 var _accountCreateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_createCmdUses, config.UILanguage),
+	Use:   "create",
 	Short: config.TranslateInLang(_createCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {

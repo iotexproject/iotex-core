@@ -9,7 +9,6 @@ package chainservice
 import (
 	"context"
 	"math/big"
-	"math/rand"
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -36,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -367,7 +365,7 @@ func (builder *Builder) createBlockchain(forSubChain, forTest bool) blockchain.B
 		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(builder.cs.factory))
 	}
 
-	return blockchain.NewBlockchain(builder.cfg, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
+	return blockchain.NewBlockchain(builder.cfg.Chain, builder.cfg.Genesis, builder.cs.blockdao, factory.NewMinter(builder.cs.factory, builder.cs.actpool), chainOpts...)
 }
 
 func (builder *Builder) buildBlockSyncer() error {
@@ -422,33 +420,9 @@ func (builder *Builder) buildBlockSyncer() error {
 			consens.Calibrate(blk.Height())
 			return nil
 		},
-		func(ctx context.Context, start uint64, end uint64, repeat int) {
-			peers, err := p2pAgent.Neighbors(ctx)
-			if err != nil {
-				log.L().Error("failed to get neighbours", zap.Error(err))
-				return
-			}
-			if len(peers) == 0 {
-				log.L().Error("no peers")
-				return
-			}
-			if repeat < 2 {
-				repeat = 2
-			}
-			if repeat > len(peers) {
-				repeat = len(peers)
-			}
-			for i := 0; i < repeat; i++ {
-				peer := peers[rand.Intn(len(peers)-i)]
-				if err := p2pAgent.UnicastOutbound(
-					ctx,
-					peer,
-					&iotexrpc.BlockSync{Start: start, End: end},
-				); err != nil {
-					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
-				}
-			}
-		},
+		p2pAgent.ConnectedPeers,
+		p2pAgent.UnicastOutbound,
+		p2pAgent.BlockPeer,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create block syncer")
@@ -506,7 +480,9 @@ func (builder *Builder) registerRollDPoSProtocol() error {
 	dao := builder.cs.blockdao
 	chain := builder.cs.chain
 	pollProtocol, err := poll.NewProtocol(
-		builder.cfg,
+		builder.cfg.Consensus.Scheme,
+		builder.cfg.Chain,
+		builder.cfg.Genesis,
 		builder.cs.candidateIndexer,
 		func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
 			gasLimit := uint64(1000000)

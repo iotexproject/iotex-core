@@ -98,13 +98,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *i
 
 // HandleSyncRequest handles incoming sync request.
 func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peer.AddrInfo, sync *iotexrpc.BlockSync) error {
-	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
-		return cs.p2pAgent.UnicastOutbound(
-			ctx,
-			peer,
-			blk.ConvertToBlockPb(),
-		)
-	})
+	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync.Start, sync.End)
 }
 
 // HandleConsensusMsg handles incoming consensus message.

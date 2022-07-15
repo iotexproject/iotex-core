@@ -23,15 +23,11 @@ var (
 		config.English: "List aliases",
 		config.Chinese: "列出别名",
 	}
-	_listCmdUses = map[config.Language]string{
-		config.English: "list",
-		config.Chinese: "list",
-	}
 )
 
 // _aliasListCmd represents the alias list command
 var _aliasListCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_listCmdUses, config.UILanguage),
+	Use:   "list",
 	Short: config.TranslateInLang(_listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {

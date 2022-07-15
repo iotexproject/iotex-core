@@ -96,7 +96,8 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	ap.AddActionEnvelopeValidators(genericValidator)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(

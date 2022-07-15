@@ -15,10 +15,6 @@ import (
 
 // Multi-language support
 var (
-	_nodeCmdUses = map[config.Language]string{
-		config.English: "node",
-		config.Chinese: "node",
-	}
 	_nodeCmdShorts = map[config.Language]string{
 		config.English: "Deal with nodes of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链的节点",
@@ -36,7 +32,7 @@ var (
 
 // NodeCmd represents the node command
 var NodeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_nodeCmdUses, config.UILanguage),
+	Use:   "node",
 	Short: config.TranslateInLang(_nodeCmdShorts, config.UILanguage),
 }
 

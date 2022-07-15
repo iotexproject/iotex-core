@@ -26,15 +26,11 @@ var (
 		config.English: "List existing account for ioctl",
 		config.Chinese: "列出ioctl中已存在的账户",
 	}
-	_listCmdUses = map[config.Language]string{
-		config.English: "list",
-		config.Chinese: "list",
-	}
 )
 
 // _accountListCmd represents the account list command
 var _accountListCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_listCmdUses, config.UILanguage),
+	Use:   "list",
 	Short: config.TranslateInLang(_listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {

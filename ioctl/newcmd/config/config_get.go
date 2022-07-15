@@ -18,10 +18,6 @@ import (
 )
 
 var (
-	_configGetUse = map[config.Language]string{
-		config.English: "get VARIABLE",
-		config.Chinese: "获取变量",
-	}
 	_configGetUseCmdShorts = map[config.Language]string{
 		config.English: "Get config fields from ioctl",
 		config.Chinese: "从 ioctl 获取配置字段",
@@ -36,10 +32,9 @@ var (
 func NewConfigGetCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_configGetUseCmdShorts)
 	long, _ := client.SelectTranslation(_configGetUseCmdLong)
-	use, _ := client.SelectTranslation(_configGetUse)
 
 	return &cobra.Command{
-		Use:       use,
+		Use:       "VARIABLE",
 		Short:     short,
 		Long:      long,
 		ValidArgs: _validGetArgs,
@@ -52,7 +47,7 @@ func NewConfigGetCmd(client ioctl.Client) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			result, err := newInfo(client.Config(), "").get(args[0])
+			result, err := newInfo(client.Config(), client.ConfigFilePath()).get(args[0])
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("issue fetching config value %s", args[0]))
 			}
