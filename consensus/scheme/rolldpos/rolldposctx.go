@@ -486,6 +486,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	case nil:
 		break
 	default:
+		log.L().Error("error when committing the block", zap.Error(err))
 		return false, errors.Wrap(err, "error when committing a block")
 	}
 	// Broadcast the committed block to the network

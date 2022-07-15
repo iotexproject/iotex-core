@@ -161,7 +161,7 @@ func NewConsensus(
 		commitBlockCB := func(blk *block.Block) error {
 			err := bc.CommitBlock(blk)
 			if err != nil {
-				log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				log.Logger("consensus").Error("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 			}
 			return err
 		}
