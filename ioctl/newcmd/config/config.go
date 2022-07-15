@@ -8,7 +8,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,6 +20,7 @@ import (
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Regexp patterns
@@ -143,7 +143,7 @@ func (c *info) get(arg string) (string, error) {
 		return c.readConfig.Wallet, nil
 	case "defaultacc":
 		if c.readConfig.DefaultAccount.AddressOrAlias == "" {
-			return "", config.ErrConfigDefaultAccount
+			return "", config.ErrConfigDefaultAccountNotSet
 		}
 		return c.readConfig.DefaultAccount.String(), nil
 	case "explorer":
@@ -157,8 +157,6 @@ func (c *info) get(arg string) (string, error) {
 	case "all":
 		return c.readConfig.String(), nil
 	}
-
-	return "", config.ErrConfigNotMatch
 }
 
 type endpointMessage struct {

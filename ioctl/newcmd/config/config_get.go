@@ -8,9 +8,9 @@ package config
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -18,11 +18,15 @@ import (
 )
 
 var (
-	_configUseCmdShorts = map[config.Language]string{
+	_configGetUse = map[config.Language]string{
+		config.English: "get VARIABLE",
+		config.Chinese: "获取变量",
+	}
+	_configGetUseCmdShorts = map[config.Language]string{
 		config.English: "Get config fields from ioctl",
 		config.Chinese: "从 ioctl 获取配置字段",
 	}
-	_configUseCmdLong = map[config.Language]string{
+	_configGetUseCmdLong = map[config.Language]string{
 		config.English: "Get config fields from ioctl\nValid Variables: [" + strings.Join(_validGetArgs, ", ") + "]",
 		config.Chinese: "从 ioctl 获取配置字段\n有效变量: [" + strings.Join(_validGetArgs, ", ") + "]",
 	}
@@ -30,11 +34,12 @@ var (
 
 // NewConfigGetCmd is a command to get config fields from iotcl.
 func NewConfigGetCmd(client ioctl.Client) *cobra.Command {
-	short, _ := client.SelectTranslation(_configUseCmdShorts)
-	long, _ := client.SelectTranslation(_configUseCmdLong)
+	short, _ := client.SelectTranslation(_configGetUseCmdShorts)
+	long, _ := client.SelectTranslation(_configGetUseCmdLong)
+	use, _ := client.SelectTranslation(_configGetUse)
 
 	return &cobra.Command{
-		Use:       "get VARIABLE",
+		Use:       use,
 		Short:     short,
 		Long:      long,
 		ValidArgs: _validGetArgs,
