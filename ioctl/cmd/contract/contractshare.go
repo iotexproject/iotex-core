@@ -92,7 +92,7 @@ func isDir(path string) bool {
 
 func isReadOnly(path string) bool {
 	var readOnly = false
-	file, err := os.OpenFile(path, os.O_WRONLY, 0666)
+	file, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY, 0666)
 	if err != nil {
 		if os.IsPermission(err) {
 			log.Println("Error: Write permission denied.")
@@ -198,7 +198,7 @@ func share(args []string) error {
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
 				getPayloadPath := getPayload["path"].(string)
-				upload, err := os.ReadFile(_givenPath + "/" + getPayloadPath)
+				upload, err := os.ReadFile(filepath.Clean(_givenPath + "/" + getPayloadPath))
 				if err != nil {
 					log.Println("read file failed: ", err)
 				}

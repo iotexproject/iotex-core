@@ -9,6 +9,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -137,7 +138,7 @@ func LoadConfig() (Config, error) {
 	ReadConfig := Config{
 		Aliases: make(map[string]string),
 	}
-	in, err := os.ReadFile(DefaultConfigFile)
+	in, err := os.ReadFile(filepath.Clean(DefaultConfigFile))
 	if err == nil {
 		if err := yaml.Unmarshal(in, &ReadConfig); err != nil {
 			return ReadConfig, err
