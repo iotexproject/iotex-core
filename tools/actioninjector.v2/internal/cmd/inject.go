@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +113,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 }
 
 func (p *injectProcessor) loadAccounts(keypairsPath string) error {
-	keyPairBytes, err := os.ReadFile(keypairsPath)
+	keyPairBytes, err := os.ReadFile(filepath.Clean(keypairsPath))
 	if err != nil {
 		return errors.Wrap(err, "failed to read key pairs file")
 	}
