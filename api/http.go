@@ -27,7 +27,6 @@ type (
 )
 
 // NewHTTPServer creates a new http server
-// TODO: move timeout into config
 func NewHTTPServer(route string, port int, handler http.Handler) *HTTPServer {
 	if port == 0 {
 		return nil
@@ -35,7 +34,7 @@ func NewHTTPServer(route string, port int, handler http.Handler) *HTTPServer {
 	mux := http.NewServeMux()
 	mux.Handle("/"+route, handler)
 
-	svr := httputil.NewServer(":"+strconv.Itoa(port), mux, httputil.HeaderTimeout(10*time.Second))
+	svr := httputil.NewServer(":"+strconv.Itoa(port), mux, httputil.ReadHeaderTimeout(10*time.Second))
 	return &HTTPServer{
 		svr: &svr,
 	}

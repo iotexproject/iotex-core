@@ -32,8 +32,8 @@ var DefaultServerConfig = serverConfig{
 	IdleTimeout:       120 * time.Second,
 }
 
-// HeaderTimeout sets header timeout
-func HeaderTimeout(h time.Duration) ServerOption {
+// ReadHeaderTimeout sets header timeout
+func ReadHeaderTimeout(h time.Duration) ServerOption {
 	return func(cfg *serverConfig) {
 		cfg.ReadHeaderTimeout = h
 	}

@@ -22,7 +22,7 @@ func TestServer(t *testing.T) {
 			Addr:              addr,
 			Handler:           handler,
 		}
-		result := NewServer(addr, handler, HeaderTimeout(2*time.Second))
+		result := NewServer(addr, handler, ReadHeaderTimeout(2*time.Second))
 		require.Equal(t, expectValue, result)
 	})
 }
