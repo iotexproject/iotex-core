@@ -99,7 +99,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err != nil {
 		return err
 	}
-	cs.chainIDmetrics(act)
+	chainIDmetrics(act)
 	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err = cs.actpool.Add(ctx, act)
 	if err != nil {
@@ -108,7 +108,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	return err
 }
 
-func (cs *ChainService) chainIDmetrics(act action.SealedEnvelope) {
+func chainIDmetrics(act action.SealedEnvelope) {
 	chainID := strconv.FormatUint(uint64(act.ChainID()), 10)
 	if act.ChainID() > 0 {
 		_apiCallWithChainIDMtc.WithLabelValues(chainID).Inc()
