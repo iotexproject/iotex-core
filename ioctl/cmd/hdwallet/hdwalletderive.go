@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
@@ -75,7 +76,7 @@ func DeriveKey(account, change, index uint32, password string) (string, crypto.P
 		return "", nil, output.NewError(output.InputError, "Run 'ioctl hdwallet create' to create your HDWallet first.", nil)
 	}
 
-	enctxt, err := os.ReadFile(hdWalletConfigFile)
+	enctxt, err := os.ReadFile(filepath.Clean(hdWalletConfigFile))
 	if err != nil {
 		return "", nil, output.NewError(output.InputError, "failed to read config", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"os"
+	"path/filepath"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -194,7 +195,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 }
 
 func copyDB(srcDB, dstDB string) error {
-	input, err := os.ReadFile(srcDB)
+	input, err := os.ReadFile(filepath.Clean(srcDB))
 	if err != nil {
 		return errors.Wrap(err, "failed to read source db file")
 	}

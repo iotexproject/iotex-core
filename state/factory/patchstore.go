@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -43,16 +44,16 @@ type (
  *     key: hex string
  *     value: hex string
  */
-func newPatchStore(filepath string) (*patchStore, error) {
+func newPatchStore(fpath string) (*patchStore, error) {
 	store := &patchStore{
 		patchs: map[uint64][]*patch{},
 	}
-	if filepath == "" {
+	if fpath == "" {
 		return store, nil
 	}
-	file, err := os.Open(filepath)
+	file, err := os.Open(filepath.Clean(fpath))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open kvstore patch, %s", filepath)
+		return nil, errors.Wrapf(err, "failed to open kvstore patch, %s", fpath)
 	}
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1

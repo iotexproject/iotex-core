@@ -309,7 +309,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return "", output.NewError(output.ReadFileError,
 			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)

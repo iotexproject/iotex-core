@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -105,7 +106,7 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 }
 
 func readAbiFile(abiFile string) (*abi.ABI, error) {
-	abiBytes, err := os.ReadFile(abiFile)
+	abiBytes, err := os.ReadFile(filepath.Clean(abiFile))
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
 	}
