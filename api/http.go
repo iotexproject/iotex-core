@@ -35,7 +35,7 @@ func NewHTTPServer(route string, port int, handler http.Handler) *HTTPServer {
 	mux := http.NewServeMux()
 	mux.Handle("/"+route, handler)
 
-	svr := httputil.Server(":"+strconv.Itoa(port), mux, httputil.HeaderTimeout(10*time.Second))
+	svr := httputil.NewServer(":"+strconv.Itoa(port), mux, httputil.HeaderTimeout(10*time.Second))
 	return &HTTPServer{
 		svr: &svr,
 	}

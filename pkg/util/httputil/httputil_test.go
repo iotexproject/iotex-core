@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -14,14 +15,14 @@ func TestServer(t *testing.T) {
 		addr := "myAddress"
 
 		expectValue := http.Server{
-			ReadHeaderTimeout: _readHeaderTimeout,
-			ReadTimeout:       _readTimeout,
-			WriteTimeout:      _writeTimeout,
-			IdleTimeout:       _idleTimeout,
+			ReadHeaderTimeout: 2 * time.Second,
+			ReadTimeout:       DefaultServerConfig.ReadTimeout,
+			WriteTimeout:      DefaultServerConfig.WriteTimeout,
+			IdleTimeout:       DefaultServerConfig.IdleTimeout,
 			Addr:              addr,
 			Handler:           handler,
 		}
-		result := Server(addr, handler)
+		result := NewServer(addr, handler, HeaderTimeout(2*time.Second))
 		require.Equal(t, expectValue, result)
 	})
 }
