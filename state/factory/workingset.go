@@ -93,34 +93,6 @@ func (ws *workingSet) validate(ctx context.Context) error {
 	return nil
 }
 
-func (ws *workingSet) runActions(
-	ctx context.Context,
-	elps []action.SealedEnvelope,
-) ([]*action.Receipt, error) {
-	if err := ws.validate(ctx); err != nil {
-		return nil, err
-	}
-	// Handle actions
-	receipts := make([]*action.Receipt, 0)
-	for _, elp := range elps {
-		ctx, err := withActionCtx(ctx, elp)
-		if err != nil {
-			return nil, err
-		}
-		receipt, err := ws.runAction(ctx, elp)
-		if err != nil {
-			return nil, errors.Wrap(err, "error when run action")
-		}
-		if receipt != nil {
-			receipts = append(receipts, receipt)
-		}
-	}
-	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
-		updateReceiptIndex(receipts)
-	}
-	return receipts, nil
-}
-
 func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
 	var actionCtx protocol.ActionCtx
 	var err error
@@ -368,32 +340,52 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) error {
-	var err error
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+
 	reg := protocol.MustGetRegistry(ctx)
 	for _, act := range actions {
-		if ctx, err = withActionCtx(ctx, act); err != nil {
+		ctxWithActionContext, err := withActionCtx(ctx, act)
+		if err != nil {
 			return err
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
-				if err := validator.Validate(ctx, act.Action(), ws); err != nil {
+				if err := validator.Validate(ctxWithActionContext, act.Action(), ws); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	for _, p := range protocol.MustGetRegistry(ctx).All() {
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return err
 			}
 		}
 	}
+
+	// Run actions
+	receipts := make([]*action.Receipt, 0)
+	for _, act := range actions {
+		ctxWithActionContext, err := withActionCtx(ctx, act)
+		if err != nil {
+			return err
+		}
+		receipt, err := ws.runAction(ctxWithActionContext, act)
+		if err != nil {
+			return errors.Wrap(err, "error when run action")
+		}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
+		}
+	}
+
 	// TODO: verify whether the post system actions are appended tail
 
-	receipts, err := ws.runActions(ctx, actions)
-	if err != nil {
-		return err
+	if protocol.MustGetFeatureCtx(ctx).CorrectTxLogIndex {
+		updateReceiptIndex(receipts)
 	}
 	ws.receipts = receipts
 	return ws.finalize()
