@@ -8,14 +8,12 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestInitConfig(t *testing.T) {
@@ -32,14 +30,10 @@ func TestInitConfig(t *testing.T) {
 
 func TestConfigGet(t *testing.T) {
 	require := require.New(t)
-	tempDir := os.TempDir()
-	testPath, err := os.MkdirTemp(tempDir, "testCfg")
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
+	testPath := t.TempDir()
 	_configDir = testPath
 	cfg, cfgFilePath, err := InitConfig()
+	require.NoError(err)
 	// the endpoint & default account are blank strings within the initial config, so I'm setting it here
 	cfg.Endpoint = "http://google.com"
 	cfg.DefaultAccount = config.Context{AddressOrAlias: "test"}
@@ -57,7 +51,7 @@ func TestConfigGet(t *testing.T) {
 		},
 		{
 			"wallet",
-			fmt.Sprintf("%s%s", tempDir, "testCfg"),
+			testPath,
 		},
 		{
 			"defaultacc",
@@ -87,40 +81,10 @@ func TestConfigGet(t *testing.T) {
 
 	for _, tc := range tcs {
 		cfgItem, err := info.get(tc.arg)
-		require.NoError(err)
+		if err != nil {
+			require.Contains(err.Error(), tc.expected)
+		}
 		require.Contains(cfgItem, tc.expected)
-	}
-}
-
-func TestConfigGetError(t *testing.T) {
-	require := require.New(t)
-	tempDir := os.TempDir()
-	testPath, err := os.MkdirTemp(tempDir, "testCfg")
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(testPath)
-	}()
-	_configDir = testPath
-	cfg, cfgFilePath, err := InitConfig()
-	info := newInfo(cfg, cfgFilePath)
-
-	tcs := []struct {
-		arg      string
-		expected string
-	}{
-		{
-			"endpoint",
-			"no endpoint has been set",
-		},
-		{
-			"defaultacc",
-			"default account not set",
-		},
-	}
-	for _, tc := range tcs {
-		_, err := info.get(tc.arg)
-		require.Error(err)
-		require.Contains(err.Error(), tc.expected)
 	}
 }
 

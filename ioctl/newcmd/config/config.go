@@ -20,7 +20,6 @@ import (
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Regexp patterns
@@ -132,14 +131,12 @@ func (c *info) reset() error {
 // get retrieves a config item from its key.
 func (c *info) get(arg string) (string, error) {
 	switch arg {
-	default:
-		return "", config.ErrConfigNotMatch
 	case "endpoint":
 		if c.readConfig.Endpoint == "" {
 			return "", config.ErrEmptyEndpoint
 		}
 		message := endpointMessage{Endpoint: c.readConfig.Endpoint, SecureConnect: c.readConfig.SecureConnect}
-		return message.String(), nil
+		return fmt.Sprint(message.Endpoint, "    secure connect(TLS):", message.SecureConnect), nil
 	case "wallet":
 		return c.readConfig.Wallet, nil
 	case "defaultacc":
@@ -157,20 +154,14 @@ func (c *info) get(arg string) (string, error) {
 		return c.readConfig.AnalyserEndpoint, nil
 	case "all":
 		return c.readConfig.String(), nil
+	default:
+		return "", config.ErrConfigNotMatch
 	}
 }
 
 type endpointMessage struct {
 	Endpoint      string `json:"endpoint"`
 	SecureConnect bool   `json:"secureConnect"`
-}
-
-func (m *endpointMessage) String() string {
-	if output.Format == "" {
-		message := fmt.Sprint(m.Endpoint, "    secure connect(TLS):", m.SecureConnect)
-		return message
-	}
-	return output.FormatString(output.Result, m)
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported

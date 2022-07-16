@@ -18,6 +18,10 @@ import (
 )
 
 var (
+	_configGetUse = map[config.Language]string{
+		config.English: "get VARIABLE",
+		config.Chinese: "get 变量",
+	}
 	_configGetUseCmdShorts = map[config.Language]string{
 		config.English: "Get config fields from ioctl",
 		config.Chinese: "从 ioctl 获取配置字段",
@@ -30,11 +34,12 @@ var (
 
 // NewConfigGetCmd is a command to get config fields from iotcl.
 func NewConfigGetCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_configGetUse)
 	short, _ := client.SelectTranslation(_configGetUseCmdShorts)
 	long, _ := client.SelectTranslation(_configGetUseCmdLong)
 
 	return &cobra.Command{
-		Use:       "VARIABLE",
+		Use:       use,
 		Short:     short,
 		Long:      long,
 		ValidArgs: _validGetArgs,
