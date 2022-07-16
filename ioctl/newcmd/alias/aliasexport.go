@@ -23,10 +23,6 @@ var (
 		config.English: "Export aliases to either json or yaml format",
 		config.Chinese: "以json或yaml格式导出别名",
 	}
-	_uses = map[config.Language]string{
-		config.English: "export",
-		config.Chinese: "export",
-	}
 	_flagUsages = map[config.Language]string{
 		config.English: "set format: json/yaml",
 		config.Chinese: "设置格式：json / yaml",
@@ -40,13 +36,11 @@ var (
 // NewAliasExport represents the alias export command
 func NewAliasExport(c ioctl.Client) *cobra.Command {
 	var format string
-
-	use, _ := c.SelectTranslation(_uses)
 	short, _ := c.SelectTranslation(_shorts)
 	flagUsage, _ := c.SelectTranslation(_flagUsages)
 	_invalidFlag, _ := c.SelectTranslation(_invalidFlag)
 	ec := &cobra.Command{
-		Use:   use,
+		Use:   "export",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -81,7 +75,6 @@ func NewAliasExport(c ioctl.Client) *cobra.Command {
 		"format", "f", "json", flagUsage)
 
 	return ec
-
 }
 
 type aliases struct {

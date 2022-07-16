@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -41,6 +42,8 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// ConfigFilePath returns the file path of the config
+		ConfigFilePath() string
 		// SetEndpointWithFlag receives input flag value
 		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
@@ -149,6 +152,11 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
+// ConfigFilePath returns the file path for the config.
+func (c *client) ConfigFilePath() string {
+	return c.configFilePath
+}
+
 func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
 	usage, _ := c.SelectTranslation(map[config.Language]string{
 		config.English: "set endpoint for once",
@@ -250,7 +258,7 @@ func (c *client) NewKeyStore() *keystore.KeyStore {
 }
 
 func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 	}

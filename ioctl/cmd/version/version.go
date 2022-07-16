@@ -24,10 +24,6 @@ import (
 
 // Multi-language support
 var (
-	_versionCmdUses = map[config.Language]string{
-		config.English: "version",
-		config.Chinese: "version",
-	}
 	_versionCmdShorts = map[config.Language]string{
 		config.English: "Print the version of ioctl and node",
 		config.Chinese: "打印ioctl和节点的版本",
@@ -44,7 +40,7 @@ var (
 
 // VersionCmd represents the version command
 var VersionCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_versionCmdUses, config.UILanguage),
+	Use:   "version",
 	Short: config.TranslateInLang(_versionCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {

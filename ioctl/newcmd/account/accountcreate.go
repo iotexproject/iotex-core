@@ -25,10 +25,6 @@ var (
 		config.English: "Create N new accounts and print them",
 		config.Chinese: "创建 N 个新账户，并打印",
 	}
-	_createUses = map[config.Language]string{
-		config.English: "create",
-		config.Chinese: "create 创建",
-	}
 	_createFlagUsages = map[config.Language]string{
 		config.English: "number of accounts to create",
 		config.Chinese: "指定创建账户的数量",
@@ -50,7 +46,6 @@ var (
 // NewAccountCreate represents the account create command
 func NewAccountCreate(client ioctl.Client) *cobra.Command {
 	var numAccounts uint
-	use, _ := client.SelectTranslation(_createUses)
 	short, _ := client.SelectTranslation(_createShorts)
 	usage, _ := client.SelectTranslation(_createFlagUsages)
 	_failToGenerateNewPrivateKey, _ := client.SelectTranslation(_failToGenerateNewPrivateKey)
@@ -58,7 +53,7 @@ func NewAccountCreate(client ioctl.Client) *cobra.Command {
 	_failToConvertPublicKeyIntoAddress, _ := client.SelectTranslation(_failToConvertPublicKeyIntoAddress)
 
 	cmd := &cobra.Command{
-		Use:   use,
+		Use:   "create",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
