@@ -55,7 +55,7 @@ type (
 		topIndex      atomic.Value
 		htf           db.RangeIndex
 		kvStore       db.KVStore
-		kvStores      *cache.ThreadSafeLruCache //store like map[index]db.KVStore,index from 1...N
+		kvStores      cache.LRUCache //store like map[index]db.KVStore,index from 1...N
 		deser         *block.Deserializer
 	}
 )
