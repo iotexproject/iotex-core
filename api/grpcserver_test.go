@@ -104,7 +104,20 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 }
 
 func TestGrpcServer_GetServerMeta(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	core.EXPECT().ServerMeta().Return("packageVersion", "packageCommitID", "gitStatus", "goVersion", "buildTime")
+	res, err := grpcSvr.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	require.NoError(err)
+	require.Equal("packageVersion", res.ServerMeta.PackageVersion)
+	require.Equal("packageCommitID", res.ServerMeta.PackageCommitID)
+	require.Equal("gitStatus", res.ServerMeta.GitStatus)
+	require.Equal("goVersion", res.ServerMeta.GoVersion)
+	require.Equal("buildTime", res.ServerMeta.BuildTime)
 }
 
 func TestGrpcServer_ReadContract(t *testing.T) {
