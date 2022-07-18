@@ -8,7 +8,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -146,64 +145,6 @@ func TestGrpcServer_GetActions(t *testing.T) {
 			require.Equal(test.blkNumber, result.ActionInfo[0].BlkHeight)
 		}
 	})
-
-	t.Run("get actions by block test", func(t *testing.T) {
-		_addr1 := identityset.Address(28).String()
-		_priKey1 := identityset.PrivateKey(28)
-
-		tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
-		require.NoError(err)
-
-		for _, test := range _getActionsByBlockTests {
-			gasConsumed, ok := new(big.Int).SetString(test.firstTxGas, 10)
-			if !ok {
-				gasConsumed = big.NewInt(0)
-			}
-
-			response := &block.Store{
-				Block: &block.Block{
-					Receipts: []*action.Receipt{
-						{
-							BlockHeight: test.blkHeight,
-							GasConsumed: gasConsumed.Uint64(),
-						},
-					},
-				},
-				Receipts: []*action.Receipt{
-					{
-						BlockHeight: test.blkHeight,
-						GasConsumed: gasConsumed.Uint64(),
-					},
-				},
-			}
-			fmt.Println(test.start)
-			// for i := 0; i < int(test.start); i++ {
-			// 	response.Block.Actions = append(response.Block.Actions, tsf1)
-			// }
-			response.Block.Actions = []action.SealedEnvelope{tsf1, tsf1}
-			request := &iotexapi.GetActionsRequest{
-				Lookup: &iotexapi.GetActionsRequest_ByBlk{
-					ByBlk: &iotexapi.GetActionsByBlockRequest{
-						Start: test.start,
-						Count: test.count,
-					},
-				},
-			}
-
-			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil).AnyTimes()
-
-			_, err := grpcSvr.GetActions(context.Background(), request)
-			require.NoError(err)
-		}
-	})
-}
-
-func TestGetActionsByBlock(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	core := mock_apicoreservice.NewMockCoreService(ctrl)
-	grpcSvr := newGRPCHandler(core)
 
 	t.Run("get actions by block test", func(t *testing.T) {
 		_addr1 := identityset.Address(28).String()
