@@ -36,13 +36,16 @@ func GenMarkdownTreeCustom(c *cobra.Command, dir string, name string, path strin
 	if err != nil {
 		return err
 	}
+	defer func() error {
+		return f.Close()
+	}()
 	if _, err := io.WriteString(f, filePrepender(filename)); err != nil {
 		return err
 	}
 	if err := GenMarkdownCustom(c, f, linkHandler); err != nil {
 		return err
 	}
-	return f.Close()
+	return nil
 }
 
 // GenMarkdownCustom creates custom markdown output.
