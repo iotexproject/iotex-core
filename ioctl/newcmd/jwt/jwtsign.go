@@ -1,0 +1,111 @@
+// Copyright (c) 2022 IoTeX Foundation
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package jwt
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"strconv"
+	"time"
+
+	"github.com/iotexproject/iotex-antenna-go/v2/jwt"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
+)
+
+// Multi-language support
+var (
+	_signCmdShorts = map[config.Language]string{
+		config.English: "Sign Json Web Token on IoTeX blockchain",
+		config.Chinese: "签发IoTeX区块链上的JWT",
+	}
+	_signCmdUses = map[config.Language]string{
+		config.English: "sign [-s SIGNER] [-P PASSWORD] [-y] --with-arguments [INVOKE_INPUT]",
+		config.Chinese: "sign [-s 签署人] [-P 密码] [-y] --with-arguments [输入]",
+	}
+)
+
+// NewJwtSignCmd represents the jwt sign command
+func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_signCmdUses)
+	short, _ := client.SelectTranslation(_signCmdShorts)
+
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+
+			var (
+				input map[string]string
+				exp   int64
+				err   error
+			)
+
+			arg := flag.WithArgumentsFlag.Value().(string)
+			if arg == "" {
+				arg = "{}"
+			}
+			if err = json.Unmarshal([]byte(arg), &input); err != nil {
+				return errors.Wrap(err, "failed to unmarshal arguments")
+			}
+			if input["exp"] != "" {
+				exp, err = strconv.ParseInt(input["exp"], 10, 64)
+				if err != nil {
+					return errors.Wrap(err, "invalid expire time")
+				}
+			} else {
+				input["exp"] = "0"
+			}
+
+			signer, err := action.Signer(client, cmd)
+			if err != nil {
+				return errors.Wrap(err, "failed to get signer address")
+			}
+			prvKey, err := account.PrivateKeyFromSigner(client, cmd, signer, "")
+			if err != nil {
+				return err
+			}
+			pubKey := prvKey.PublicKey()
+			addr := pubKey.Address()
+
+			// sign JWT
+			now := time.Now().Unix()
+			jwtString, err := jwt.SignJWT(now, exp, input["sub"], input["scope"], prvKey)
+			if err != nil {
+				return errors.Wrap(err, "failed to sign JWT token")
+			}
+			prvKey.Zero()
+
+			// format output
+			input["iat"] = strconv.FormatInt(now, 10)
+			input["iss"] = "0x" + pubKey.HexString()
+			byteAsJSON, err := json.MarshalIndent(input, "", "  ")
+			if err != nil {
+				log.Panic(err)
+			}
+			out := "JWT token: " + jwtString + "\n\n"
+			out += "signed by:\n"
+			out += "{\n"
+			out += "  address: " + addr.String() + "\n"
+			out += "  public key: " + input["iss"] + "\n"
+			out += "}\n"
+			out += "with following claims:\n"
+			out += fmt.Sprint(string(byteAsJSON))
+			cmd.Println(out)
+			return nil
+		},
+	}
+}
