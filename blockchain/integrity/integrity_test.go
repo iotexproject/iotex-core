@@ -11,7 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -832,22 +832,17 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 }
 
 type MockSubscriber struct {
-	counter int
-	mu      sync.RWMutex
+	counter int32
 }
 
 func (ms *MockSubscriber) ReceiveBlock(blk *block.Block) error {
-	ms.mu.Lock()
 	tsfs, _ := classifyActions(blk.Actions)
-	ms.counter += len(tsfs)
-	ms.mu.Unlock()
+	atomic.AddInt32(&ms.counter, int32(len(tsfs)))
 	return nil
 }
 
 func (ms *MockSubscriber) Counter() int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.counter
+	return int(atomic.LoadInt32(&ms.counter))
 }
 
 func TestConstantinople(t *testing.T) {
@@ -1142,8 +1137,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		height := bc.TipHeight()
 		fmt.Printf("Open blockchain pass, height = %d\n", height)
 		require.NoError(addTestingTsfBlocks(cfg, bc, dao, ap))
+		//make sure pubsub is completed
+		err = testutil.WaitUntil(200*time.Millisecond, 3*time.Second, func() (bool, error) {
+			return 24 == ms.Counter(), nil
+		})
+		require.NoError(err)
 		require.NoError(bc.Stop(ctx))
-		require.Equal(24, ms.Counter())
 
 		// Load a blockchain from DB
 		bc = blockchain.NewBlockchain(

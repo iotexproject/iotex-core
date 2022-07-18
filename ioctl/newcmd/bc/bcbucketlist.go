@@ -65,37 +65,40 @@ func NewBCBucketListCmd(client ioctl.Client) *cobra.Command {
 				err     error
 			)
 
-			offset, limit := uint64(0), uint64(1000)
-			method, addr := args[0], args[1]
-			s := args[2:]
+			offset, limit := uint32(0), uint32(1000)
+			method, addr, s := args[0], args[1], args[2:]
 
 			if len(s) > 0 {
-				offset, err = strconv.ParseUint(s[0], 10, 64)
+				val, err := strconv.ParseUint(s[0], 10, 32)
 				if err != nil {
 					return errors.Wrap(err, "invalid offset")
 				}
+				offset = uint32(val)
 			}
 			if len(s) > 1 {
-				limit, err = strconv.ParseUint(s[1], 10, 64)
+				val, err := strconv.ParseUint(s[1], 10, 32)
 				if err != nil {
 					return errors.Wrap(err, "invalid limit")
 				}
+				limit = uint32(val)
 			}
+
 			switch method {
 			case MethodVoter:
 				address, err = client.AddressWithDefaultIfNotExist(addr)
 				if err != nil {
 					return err
 				}
-				bl, err = getBucketListByVoterAddress(client, address, uint32(offset), uint32(limit))
+				bl, err = getBucketListByVoterAddress(client, address, offset, limit)
 			case MethodCandidate:
-				bl, err = getBucketListByCandidateName(client, addr, uint32(offset), uint32(limit))
+				bl, err = getBucketListByCandidateName(client, addr, offset, limit)
 			default:
 				return errors.New("unknown <method>")
 			}
 			if err != nil {
 				return err
 			}
+
 			var lines []string
 			if len(bl.Buckets) == 0 {
 				lines = append(lines, "Empty bucketlist with given address")
