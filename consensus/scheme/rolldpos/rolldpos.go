@@ -63,8 +63,8 @@ type (
 )
 
 // BlockProposeTime return propose time by height
-func (bt *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
-	header, err := bt.bc.BlockHeaderByHeight(height)
+func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
+	header, err := cm.bc.BlockHeaderByHeight(height)
 	if err != nil {
 		return time.Now(), errors.Wrapf(
 			err, "error when getting the block at height: %d",
@@ -75,8 +75,8 @@ func (bt *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 }
 
 // BlockCommitTime return commit time by height
-func (bt *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
-	footer, err := bt.bc.BlockFooterByHeight(height)
+func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
+	footer, err := cm.bc.BlockFooterByHeight(height)
 	if err != nil {
 		return time.Now(), errors.Wrapf(
 			err, "error when getting the block at height: %d",
@@ -87,8 +87,8 @@ func (bt *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
 }
 
 // GenesisTime return Genesis time by default
-func (bt *chainManager) GenesisTime() time.Time {
-	return time.Unix(bt.bc.Genesis().Timestamp, 0)
+func (cm *chainManager) GenesisTime() time.Time {
+	return time.Unix(cm.bc.Genesis().Timestamp, 0)
 }
 
 // MintNewBlock creates a new block with given actions
