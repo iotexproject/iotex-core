@@ -32,7 +32,7 @@ func GenMarkdownTreeCustom(c *cobra.Command, dir string, name string, path strin
 		filename = filepath.Join(path, "README.md")
 	}
 
-	f, err := os.Create(filename)
+	f, err := os.Create(filepath.Clean(filename))
 	if err != nil {
 		return err
 	}
