@@ -57,7 +57,7 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	if !secure {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
 	}
-	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 }
 
 // StringToRau converts different unit string into Rau big int
