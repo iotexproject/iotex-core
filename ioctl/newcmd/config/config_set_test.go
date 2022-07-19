@@ -15,14 +15,14 @@ func TestConfigSetCommand(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().Config().Return(config.Config{}).Times(1)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("config reset", config.English).Times(1)
+	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("config reset", config.English).AnyTimes()
 
 	t.Run("set config value", func(t *testing.T) {
 		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
 		cmd := NewConfigSetCmd(client)
-		result, err := util.ExecuteCmd(cmd, "set endpoint")
+		result, err := util.ExecuteCmd(cmd, "nsv2height", "44")
 		require.NoError(err)
-		require.Contains(result, "successfully reset config")
+		require.Contains(result, "Nsv2height is set to 44\n")
 	})
 }
