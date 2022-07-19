@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -81,7 +82,7 @@ func GetTotalTsfFailed() uint64 {
 // LoadAddresses loads key pairs from key pair path and construct addresses
 func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 	// Load Senders' public/private key pairs
-	keyPairBytes, err := os.ReadFile(keypairsPath)
+	keyPairBytes, err := os.ReadFile(filepath.Clean(keypairsPath))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read key pairs file")
 	}
