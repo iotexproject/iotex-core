@@ -12,12 +12,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 )
@@ -70,7 +69,7 @@ func TestReadFileHeader(t *testing.T) {
 	r.Equal(ErrFileNotExist, err)
 
 	// empty legacy file is invalid
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	legacy, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	ctx := context.Background()
@@ -145,7 +144,7 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	r.Equal(ErrFileNotExist, err)
 
 	// test empty db file, this will create new v2 file
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	fd, err := NewFileDAO(cfg, deser)
 	r.NoError(err)
 	r.NotNil(fd)
@@ -198,7 +197,7 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	cfg.SplitDBHeight = 5
 	cfg.SplitDBSizeMB = 20
 
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	ctx := context.Background()
@@ -318,7 +317,7 @@ func TestCheckFiles(t *testing.T) {
 	_, files = checkAuxFiles(cfg.DbPath, FileV2)
 	r.Nil(files)
 
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
 		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))

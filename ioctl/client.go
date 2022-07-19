@@ -41,6 +41,8 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// ConfigFilePath returns the file path of the config
+		ConfigFilePath() string
 		// SetEndpointWithFlag receives input flag value
 		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
@@ -83,8 +85,10 @@ type (
 		ReadInput() (string, error)
 		// HdwalletMnemonic returns the mnemonic of hdwallet
 		HdwalletMnemonic(string) (string, error)
-		// WriteHdWalletConfigFile write encrypting mnemonic into config file
+		// WriteHdWalletConfigFile writes encrypting mnemonic into config file
 		WriteHdWalletConfigFile(string, string) error
+		// RemoveHdWalletConfigFile removes hdwalletConfigFile
+		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
 	}
@@ -145,6 +149,11 @@ func (c *client) Stop(context.Context) error {
 
 func (c *client) Config() config.Config {
 	return c.cfg
+}
+
+// ConfigFilePath returns the file path for the config.
+func (c *client) ConfigFilePath() string {
+	return c.configFilePath
 }
 
 func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
@@ -383,6 +392,10 @@ func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error
 		return errors.Wrapf(err, "failed to write to config file %s", c.hdWalletConfigFile)
 	}
 	return nil
+}
+
+func (c *client) RemoveHdWalletConfigFile() error {
+	return os.Remove(c.hdWalletConfigFile)
 }
 
 func (c *client) IsHdWalletConfigFileExist() bool { // notest

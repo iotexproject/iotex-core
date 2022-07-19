@@ -164,7 +164,8 @@ func TestLocalCommit(t *testing.T) {
 	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
 	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -332,7 +333,7 @@ func TestLocalSync(t *testing.T) {
 	// bootnode
 	ctx := context.Background()
 	bootnodePort := testutil.RandomPort()
-	bootnode := p2p.NewAgent(p2p.Network{
+	bootnode := p2p.NewAgent(p2p.Config{
 		Host:              "127.0.0.1",
 		Port:              bootnodePort,
 		ReconnectInterval: 150 * time.Second},
@@ -404,7 +405,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().Neighbors(ctx)
+		peers, err := svr.P2PAgent().ConnectedPeers()
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)

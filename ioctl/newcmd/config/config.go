@@ -68,8 +68,9 @@ func InitConfig() (config.Config, string, error) {
 	// Load or reset config file
 	err = info.loadConfig()
 	if os.IsNotExist(err) {
-		err = info.reset() // Config file doesn't exist
-	} else if err != nil {
+		err = info.reset()
+	}
+	if err != nil {
 		return info.readConfig, info.defaultConfigFile, err
 	}
 

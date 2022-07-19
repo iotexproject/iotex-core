@@ -25,10 +25,6 @@ var (
 		config.English: "Import IoTeX private key or keystore into wallet",
 		config.Chinese: "将IoTeX的私钥或私钥库导入钱包",
 	}
-	_importCmdUses = map[config.Language]string{
-		config.English: "import",
-		config.Chinese: "导入",
-	}
 	_importKeyCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX private key into wallet",
 		config.Chinese: "将IoTeX的私钥导入钱包",
@@ -57,7 +53,7 @@ var (
 var (
 	// _accountImportCmd represents the account import command
 	_accountImportCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_importCmdUses, config.UILanguage),
+		Use:   "import",
 		Short: config.TranslateInLang(_importCmdShorts, config.UILanguage),
 	}
 	// _accountImportKeyCmd represents the account import key command

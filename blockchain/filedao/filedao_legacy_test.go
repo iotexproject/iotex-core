@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -31,7 +30,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
-		deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
 		fdLegacy, err := newFileDAOLegacy(cfg, deser)
 		r.NoError(err)
 		fd, ok := fdLegacy.(*fileDAOLegacy)
@@ -76,8 +75,8 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
+	block.LoadGenesisHash(&genesis.Default)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
@@ -96,7 +95,7 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
@@ -133,7 +132,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
-	deser := block.NewDeserializer(config.Default.Chain.EVMNetworkID)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
 	fd, err := newFileDAOLegacy(cfg, deser)
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)

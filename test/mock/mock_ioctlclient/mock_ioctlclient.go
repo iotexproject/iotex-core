@@ -141,6 +141,20 @@ func (mr *MockClientMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
 }
 
+// ConfigFilePath mocks base method.
+func (m *MockClient) ConfigFilePath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigFilePath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ConfigFilePath indicates an expected call of ConfigFilePath.
+func (mr *MockClientMockRecorder) ConfigFilePath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigFilePath", reflect.TypeOf((*MockClient)(nil).ConfigFilePath))
+}
+
 // DecryptPrivateKey mocks base method.
 func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, error) {
 	m.ctrl.T.Helper()
@@ -284,6 +298,20 @@ func (m *MockClient) ReadSecret() (string, error) {
 func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
+}
+
+// RemoveHdWalletConfigFile mocks base method.
+func (m *MockClient) RemoveHdWalletConfigFile() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHdWalletConfigFile")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHdWalletConfigFile indicates an expected call of RemoveHdWalletConfigFile.
+func (mr *MockClientMockRecorder) RemoveHdWalletConfigFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).RemoveHdWalletConfigFile))
 }
 
 // SelectTranslation mocks base method.
