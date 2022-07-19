@@ -86,7 +86,6 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	grpcSvr := newGRPCHandler(core)
 
 	for _, test := range _sendActionTests {
-		core.EXPECT().EVMNetworkID().Return(uint32(1))
 		core.EXPECT().SendAction(context.Background(), test.actionPb).Return(test.actionHash, nil)
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := grpcSvr.SendAction(context.Background(), request)
