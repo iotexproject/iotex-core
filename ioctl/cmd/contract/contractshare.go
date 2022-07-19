@@ -154,7 +154,7 @@ func share(args []string) error {
 		return nil
 	})
 
-	log.Println("Listening on 127.0.0.1:65520, Please open your IDE ( " + _iotexIDE + " ) to connect to local files")
+	log.Printf("Listening on 127.0.0.1:65520, Please open your IDE ( %s ) to connect to local files", _iotexIDE)
 
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		conn, err := _upgrade.Upgrade(writer, request, nil)
@@ -239,7 +239,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Printf("rename: %s to %s\n", easpcapeString(oldPath), easpcapeString(newPath))
+				log.Printf("rename: %s to %s\n", easpcapeString(oldRenamePath), easpcapeString(newRenamePath))
 
 			case "set":
 				t := request.Payload
@@ -275,7 +275,6 @@ func share(args []string) error {
 
 	return nil
 }
-
 
 func easpcapeString(str string) string {
 	escaped := strings.Replace(str, "\n", "", -1)
