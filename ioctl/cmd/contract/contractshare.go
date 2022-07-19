@@ -154,7 +154,7 @@ func share(args []string) error {
 		return nil
 	})
 
-	log.Println("Listening on 127.0.0.1:65520, Please open your IDE ( " + _iotexIDE + " ) to connect to local files")
+	log.Printf("Listening on 127.0.0.1:65520, Please open your IDE ( %s ) to connect to local files", _iotexIDE)
 
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		conn, err := _upgrade.Upgrade(writer, request, nil)
@@ -202,7 +202,7 @@ func share(args []string) error {
 					log.Println("clean file path failed: ", err)
 					break
 				}
-				getPayloadPath = filepath.Clean(filepath.Join(_givenPath, getPayloadPath))
+				getPayloadPath = filepath.Join(_givenPath, getPayloadPath)
 				upload, err := os.ReadFile(getPayloadPath)
 				if err != nil {
 					log.Println("read file failed: ", err)
@@ -215,7 +215,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + getPayloadPath)
+				log.Printf("share: %s\n", easpcapeString(getPayloadPath))
 
 			case "rename":
 				c := make(chan bool)
@@ -239,7 +239,7 @@ func share(args []string) error {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("rename: " + oldRenamePath + " to " + newRenamePath)
+				log.Printf("rename: %s to %s\n", easpcapeString(oldRenamePath), easpcapeString(newRenamePath))
 
 			case "set":
 				t := request.Payload
@@ -263,10 +263,10 @@ func share(args []string) error {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Println("set: " + setPath)
+				log.Printf("set: %s\n", easpcapeString(setPath))
 
 			default:
-				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
+				log.Printf("Don't support this IDE yet. Can not handle websocket method: %s\n", easpcapeString(request.Key))
 
 			}
 		}
@@ -274,6 +274,11 @@ func share(args []string) error {
 	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
+}
+
+func easpcapeString(str string) string {
+	escaped := strings.Replace(str, "\n", "", -1)
+	return strings.Replace(escaped, "\r", "", -1)
 }
 
 func cleanPath(path string) (string, error) {
