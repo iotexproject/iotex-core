@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -51,11 +52,11 @@ func NewConfigSetCmd(client ioctl.Client) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			_, err := newInfo(client.Config(), "").set(args)
+			result, err := newInfo(client.Config(), "").set(args)
 			if err != nil {
-				return err
+				return errors.Wrap(err, fmt.Sprintf("problem setting config fields %+v", args))
 			}
-
+			cmd.Println(result)
 			return nil
 		},
 	}
