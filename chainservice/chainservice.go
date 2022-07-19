@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -116,7 +117,17 @@ func chainIDmetrics(act action.SealedEnvelope) {
 		recipient, _ := act.Destination()
 		//it will be empty for staking action, change string to staking in such case
 		if recipient == "" {
-			recipient = "staking"
+			act, ok := act.Action().(action.EthCompatibleAction)
+			if ok {
+				if ethTx, err := act.ToEthTx(); err == nil {
+					if add, err := address.FromHex(ethTx.To().Hex()); err == nil {
+						recipient = add.String()
+					}
+				}
+			}
+			if recipient == "" {
+				recipient = "staking"
+			}
 		}
 		_apiCallWithOutChainIDMtc.WithLabelValues(act.SenderAddress().String(), recipient).Inc()
 	}
