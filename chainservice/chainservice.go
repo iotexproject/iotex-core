@@ -119,7 +119,7 @@ func chainIDmetrics(act action.SealedEnvelope) {
 		if recipient == "" {
 			act, ok := act.Action().(action.EthCompatibleAction)
 			if ok {
-				if ethTx, err := act.ToEthTx(); err == nil {
+				if ethTx, err := act.ToEthTx(); err == nil && ethTx.To() != nil {
 					if add, err := address.FromHex(ethTx.To().Hex()); err == nil {
 						recipient = add.String()
 					}
