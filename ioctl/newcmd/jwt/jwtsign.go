@@ -8,8 +8,6 @@ package jwt
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -94,17 +92,10 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 			input["iss"] = "0x" + pubKey.HexString()
 			byteAsJSON, err := json.MarshalIndent(input, "", "  ")
 			if err != nil {
-				log.Panic(err)
+				return err
 			}
-			out := "JWT token: " + jwtString + "\n\n"
-			out += "signed by:\n"
-			out += "{\n"
-			out += "  address: " + addr.String() + "\n"
-			out += "  public key: " + input["iss"] + "\n"
-			out += "}\n"
-			out += "with following claims:\n"
-			out += fmt.Sprint(string(byteAsJSON))
-			cmd.Println(out)
+			cmd.Printf("JWT token: %s\n\nsigned by:\n{\n  address: %s\n  public key: %s\n}\nwith following claims:\n%s",
+				jwtString, addr.String(), input["iss"], string(byteAsJSON))
 			return nil
 		},
 	}
