@@ -145,7 +145,7 @@ func (c *info) get(arg string) (string, error) {
 		if c.readConfig.DefaultAccount.AddressOrAlias == "" {
 			return "", config.ErrConfigDefaultAccountNotSet
 		}
-		return JSONString(c.readConfig.DefaultAccount), nil
+		return jsonString(c.readConfig.DefaultAccount), nil
 	case "explorer":
 		return c.readConfig.Explorer, nil
 	case "language":
@@ -155,7 +155,7 @@ func (c *info) get(arg string) (string, error) {
 	case "analyserEndpoint":
 		return c.readConfig.AnalyserEndpoint, nil
 	case "all":
-		return JSONString(c.readConfig), nil
+		return jsonString(c.readConfig), nil
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -203,8 +203,8 @@ func (c *info) loadConfig() error {
 	return nil
 }
 
-// JSONString returns json string for message
-func JSONString(out interface{}) string {
+// jsonString returns json string for message
+func jsonString(out interface{}) string {
 	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		log.Panic(err)
