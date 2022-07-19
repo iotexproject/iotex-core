@@ -44,7 +44,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	})
 
 	t.Run("case 2:panic because of rp is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, &chainManager{bc: b}, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -54,7 +54,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, &chainManager{bc: b}, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -64,19 +64,19 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = time.Second
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = time.Second
 	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, &chainManager{bc: b}, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	cfg.Genesis.Blockchain.BlockInterval = time.Second * 20
 	t.Run("case 5:panic because of nil CandidatesByHeight function", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), rp, nil, nil, "", nil, c, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, &chainManager{bc: b}, block.NewDeserializer(0), rp, nil, nil, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
 		bh := genesis.Default.BeringBlockHeight
-		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
+		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, &chainManager{bc: b}, block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
 		require.NoError(err)
 		require.Equal(bh, rctx.roundCalc.beringHeight)
 		require.NotNil(rctx)
@@ -95,7 +95,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		b,
+		&chainManager{bc: b},
 		block.NewDeserializer(0),
 		rp,
 		nil,
@@ -168,7 +168,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		b,
+		&chainManager{bc: b},
 		block.NewDeserializer(0),
 		rp,
 		nil,
@@ -280,7 +280,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		b,
+		&chainManager{bc: b},
 		block.NewDeserializer(0),
 		rp,
 		nil,

@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
@@ -38,6 +39,12 @@ var (
 type (
 	// ChainManager defines the blockchain interface
 	ChainManager interface {
+		// BlockProposeTime return propose time by height
+		BlockProposeTime(uint64) (time.Time, error)
+		// BlockCommitTime return commit time by height
+		BlockCommitTime(uint64) (time.Time, error)
+		// GenesisTime return Genesis time by default
+		GenesisTime() time.Time
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
 		MintNewBlock(timestamp time.Time) (*block.Block, error)
@@ -50,7 +57,64 @@ type (
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
 	}
+	chainManager struct {
+		bc blockchain.Blockchain
+	}
 )
+
+// BlockProposeTime return propose time by height
+func (bt *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
+	header, err := bt.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return header.Timestamp(), nil
+}
+
+// BlockCommitTime return commit time by height
+func (bt *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
+	footer, err := bt.bc.BlockFooterByHeight(height)
+	if err != nil {
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return footer.CommitTime(), nil
+}
+
+// GenesisTime return Genesis time by default
+func (bt *chainManager) GenesisTime() time.Time {
+	return time.Unix(bt.bc.Genesis().Timestamp, 0)
+}
+
+// MintNewBlock creates a new block with given actions
+func (cm *chainManager) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+	return cm.bc.MintNewBlock(timestamp)
+}
+
+// CommitBlock validates and appends a block to the chain
+func (cm *chainManager) CommitBlock(blk *block.Block) error {
+	return cm.bc.CommitBlock(blk)
+}
+
+// ValidateBlock validates a new block before adding it to the blockchain
+func (cm *chainManager) ValidateBlock(blk *block.Block) error {
+	return cm.bc.ValidateBlock(blk)
+}
+
+// TipHeight returns tip block's height
+func (cm *chainManager) TipHeight() uint64 {
+	return cm.bc.TipHeight()
+}
+
+// ChainAddress returns chain address on parent chain, the root chain return empty.
+func (cm *chainManager) ChainAddress() string {
+	return cm.bc.ChainAddress()
+}
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
@@ -262,8 +326,8 @@ func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
 }
 
 // SetChainManager sets the blockchain APIs
-func (b *Builder) SetChainManager(chain ChainManager) *Builder {
-	b.chain = chain
+func (b *Builder) SetChainManager(bc blockchain.Blockchain) *Builder {
+	b.chain = &chainManager{bc: bc}
 	return b
 }
 
