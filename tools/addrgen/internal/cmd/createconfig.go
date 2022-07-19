@@ -37,7 +37,7 @@ var createConfigCmd = &cobra.Command{
 			priKeyBytes,
 			pubKeyBytes,
 		)
-		if err := os.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
+		if err := os.WriteFile(_outputFile, []byte(cfgStr), 0600); err != nil {
 			log.L().Fatal("failed to write file", zap.Error(err))
 		}
 	},

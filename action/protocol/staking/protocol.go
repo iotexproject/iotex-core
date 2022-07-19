@@ -34,11 +34,11 @@ const (
 	// _protocolID is the protocol ID
 	_protocolID = "staking"
 
-	// StakingNameSpace is the bucket name for staking state
-	StakingNameSpace = "Staking"
+	// _stakingNameSpace is the bucket name for staking state
+	_stakingNameSpace = "Staking"
 
-	// CandidateNameSpace is the bucket name for candidate state
-	CandidateNameSpace = "Candidate"
+	// _candidateNameSpace is the bucket name for candidate state
+	_candidateNameSpace = "Candidate"
 )
 
 const (
@@ -239,7 +239,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
+		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
 			return err
 		}
 	}
