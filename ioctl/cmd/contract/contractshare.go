@@ -92,7 +92,7 @@ func isDir(path string) bool {
 
 func isReadOnly(path string) bool {
 	var readOnly = false
-	file, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY, 0666)
+	file, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY, 0600)
 	if err != nil {
 		if os.IsPermission(err) {
 			log.Println("Error: Write permission denied.")
@@ -255,7 +255,7 @@ func share(args []string) error {
 					log.Println("mkdir failed: ", err)
 					break
 				}
-				if err := os.WriteFile(setPath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(setPath, []byte(content), 0600); err != nil {
 					log.Println("set file failed: ", err)
 					break
 				}
