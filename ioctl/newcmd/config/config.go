@@ -8,6 +8,8 @@ package config
 
 import (
 	"fmt"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"os"
 	"path"
 	"path/filepath"
@@ -127,6 +129,76 @@ func (c *info) reset() error {
 	return nil
 }
 
+// set sets config variable
+func (c *info) set(args []string) (string, error) {
+	switch args[0] {
+	case "endpoint":
+		if !isValidEndpoint(args[1]) {
+			return "", errors.New(fmt.Sprintf("endpoint %s is not valid", args[1]))
+		}
+		c.readConfig.Endpoint = args[1]
+		// TODO: Work out what to do with this value
+		c.readConfig.SecureConnect = false
+	case "analyserEndpoint":
+		c.readConfig.AnalyserEndpoint = args[1]
+	case "wallet":
+		c.readConfig.Wallet = args[1]
+	case "explorer":
+		lowArg := strings.ToLower(args[1])
+		switch {
+		case isValidExplorer(lowArg):
+			c.readConfig.Explorer = lowArg
+		case args[1] == "custom":
+			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
+			var link string
+			fmt.Scanln(&link)
+			match, err := regexp.MatchString(_urlPattern, link)
+			if err != nil {
+				return "", errors.New(fmt.Sprintf("failed to validate link %s", link))
+			}
+			if match {
+				c.readConfig.Explorer = link
+			} else {
+				return "", errors.New(fmt.Sprintf("invalid link %s", link))
+			}
+		default:
+			return "", errors.New(
+				fmt.Sprintf("Explorer %s is not valid\nValid explorers: %s",
+					args[1], append(_validExpl, "custom")))
+		}
+	case "defaultacc":
+		err1 := validator.ValidateAlias(args[1])
+		err2 := validator.ValidateAddress(args[1])
+		if err1 != nil && err2 != nil {
+			return "", errors.New(fmt.Sprintf("failed to validate alias or address %s", args[1]))
+		}
+		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
+	case "language":
+		language := c.isSupportedLanguage(args[1])
+		if language == -1 {
+			return "", errors.New(
+				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
+					args[1], _supportedLanguage))
+		}
+		c.readConfig.Language = _supportedLanguage[language]
+	case "nsv2height":
+		height, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return "", errors.New(fmt.Sprintf("invalid height %d", height))
+		}
+		c.readConfig.Nsv2height = height
+	default:
+		return "", config.ErrConfigNotMatch
+	}
+
+	err := c.writeConfig()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Title(args[0]) + " is set to " + args[1], nil
+}
+
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
 func (c *info) isSupportedLanguage(arg string) config.Language {
 	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
@@ -138,6 +210,21 @@ func (c *info) isSupportedLanguage(arg string) config.Language {
 		}
 	}
 	return config.Language(-1)
+}
+
+// isValidEndpoint makes sure the endpoint matches the endpoint match pattern
+func isValidEndpoint(endpoint string) bool {
+	return _endpointCompile.MatchString(endpoint)
+}
+
+// isValidExplorer checks if the explorer is a valid option
+func isValidExplorer(arg string) bool {
+	for _, exp := range _validExpl {
+		if arg == exp {
+			return true
+		}
+	}
+	return false
 }
 
 // writeConfig writes to config file
