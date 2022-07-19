@@ -115,7 +115,7 @@ func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
 // Sync syncs the data from state manager
 func (bp *BucketPool) Sync(sm protocol.StateManager) error {
 	if bp.enableSMStorage {
-		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+		_, err := sm.State(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
 	// get stashed total amount
@@ -138,7 +138,7 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 	}
 
 	if bp.enableSMStorage {
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
 	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
@@ -148,7 +148,7 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket bool) error {
 	bp.total.AddBalance(amount, newBucket)
 	if bp.enableSMStorage {
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 		return err
 	}
 	return sm.Load(_protocolID, _stakingBucketPool, bp.total)
