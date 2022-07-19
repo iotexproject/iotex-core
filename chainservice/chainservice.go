@@ -99,12 +99,12 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err != nil {
 		return err
 	}
-	chainIDmetrics(act)
 	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
+	chainIDmetrics(act)
 	return err
 }
 
@@ -114,6 +114,10 @@ func chainIDmetrics(act action.SealedEnvelope) {
 		_apiCallWithChainIDMtc.WithLabelValues(chainID).Inc()
 	} else {
 		recipient, _ := act.Destination()
+		//it will be empty for staking action, change string to staking in such case
+		if recipient == "" {
+			recipient = "staking"
+		}
 		_apiCallWithOutChainIDMtc.WithLabelValues(act.SenderAddress().String(), recipient).Inc()
 	}
 }
