@@ -31,15 +31,15 @@ func TestInitConfig(t *testing.T) {
 func TestConfigGet(t *testing.T) {
 	require := require.New(t)
 	testPath := t.TempDir()
-	_configDir = testPath
-	cfg, cfgFilePath, err := InitConfig()
-	require.NoError(err)
-	// the endpoint & default account are blank strings within the initial config, so I'm setting it here
-	cfg.Endpoint = "http://google.com"
-	cfg.DefaultAccount = config.Context{AddressOrAlias: "test"}
-	require.NoError(err)
-
-	info := newInfo(cfg, cfgFilePath)
+	info := newInfo(config.Config{
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+	}, testPath)
 
 	tcs := []struct {
 		arg      string
@@ -47,7 +47,7 @@ func TestConfigGet(t *testing.T) {
 	}{
 		{
 			"endpoint",
-			"http://google.com    secure connect(TLS):true",
+			"no endpoint has been set",
 		},
 		{
 			"wallet",
@@ -67,15 +67,15 @@ func TestConfigGet(t *testing.T) {
 		},
 		{
 			"nsv2height",
-			"5165641",
+			"0",
 		},
 		{
 			"analyserEndpoint",
-			"https://iotex-analyser-api-mainnet.chainanalytics.org",
+			"testAnalyser",
 		},
 		{
 			"all",
-			"\"endpoint\": \"http://google.com\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 5165641,\n  \"analyserEndpoint\": \"https://iotex-analyser-api-mainnet.chainanalytics.org\"\n}",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\"\n}",
 		},
 	}
 
@@ -83,8 +83,9 @@ func TestConfigGet(t *testing.T) {
 		cfgItem, err := info.get(tc.arg)
 		if err != nil {
 			require.Contains(err.Error(), tc.expected)
+		} else {
+			require.Contains(cfgItem, tc.expected)
 		}
-		require.Contains(cfgItem, tc.expected)
 	}
 }
 
