@@ -234,11 +234,10 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
-	InitGenesis          GenesisBlockHeight `json:"initGenesis"`
-	IsLegacyNonceAccount bool               `json:"isLegacyNonceAccount"`
-	InitBalances         []ExpectedBalance  `json:"initBalances"`
-	Deployments          []ExecutionConfig  `json:"deployments"`
-	Executions           []ExecutionConfig  `json:"executions"`
+	InitGenesis  GenesisBlockHeight `json:"initGenesis"`
+	InitBalances []ExpectedBalance  `json:"initBalances"`
+	Deployments  []ExecutionConfig  `json:"deployments"`
+	Executions   []ExecutionConfig  `json:"executions"`
 }
 
 func NewSmartContractTest(t *testing.T, file string) {
@@ -403,9 +402,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	if sct.InitGenesis.IsLondon {
 		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
-	}
-	if sct.IsLegacyNonceAccount {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 4
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -1043,9 +1039,6 @@ func TestIstanbulEVM(t *testing.T) {
 func TestLondonEVM(t *testing.T) {
 	t.Run("factory", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/factory.json")
-	})
-	t.Run("factory-legacyNonceAccount", func(t *testing.T) {
-		NewSmartContractTest(t, "testdata-london/factory-legacyNonceAccount.json")
 	})
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
