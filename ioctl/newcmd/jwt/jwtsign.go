@@ -94,7 +94,14 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cmd.Printf("JWT token: %s\n\nsigned by:\n{\n  address: %s\n  public key: %s\n}\nwith following claims:\n%s",
+			cmd.Printf("JWT token: %s\n\n"+
+				"signed by:\n"+
+				"{\n"+
+				"  address: %s\n"+
+				"  public key: %s\n"+
+				"}\n"+
+				"with following claims:\n"+
+				"%s\n",
 				jwtString, addr.String(), input["iss"], string(byteAsJSON))
 			return nil
 		},
