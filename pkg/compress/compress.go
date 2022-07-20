@@ -55,30 +55,38 @@ func Decompress(value []byte, compressor string) ([]byte, error) {
 }
 
 // CompGzip uses gzip to compress the input bytes
-func CompGzip(data []byte) ([]byte, error) {
-	var bb bytes.Buffer
-	w, err := gzip.NewWriterLevel(&bb, gzip.BestCompression)
+func CompGzip(data []byte) (output []byte, err error) {
+	var (
+		bb bytes.Buffer
+		w  *gzip.Writer
+	)
+	w, err = gzip.NewWriterLevel(&bb, gzip.BestCompression)
 	if err != nil {
 		return nil, err
 	}
 	_, err = w.Write(data)
+	defer func() {
+		err = w.Close()
+	}()
 	if err != nil {
-		w.Close()
 		return nil, err
 	}
-	w.Close()
-	output := bb.Bytes()
+	output = bb.Bytes()
 	return output, nil
 }
 
 // DecompGzip uses gzip to uncompress the input bytes
-func DecompGzip(data []byte) ([]byte, error) {
-	r, err := gzip.NewReader(bytes.NewBuffer(data))
+func DecompGzip(data []byte) (output []byte, err error) {
+	var r *gzip.Reader
+	r, err = gzip.NewReader(bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
-	r.Close()
-	return io.ReadAll(r)
+	defer func() {
+		err = r.Close()
+	}()
+	output, err = io.ReadAll(r)
+	return output, err
 }
 
 // CompSnappy uses Snappy to compress the input bytes
