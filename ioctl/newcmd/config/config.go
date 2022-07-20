@@ -8,7 +8,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"os"
@@ -23,6 +22,7 @@ import (
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Regexp patterns
