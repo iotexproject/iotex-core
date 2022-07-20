@@ -55,7 +55,7 @@ func New(port int, opts ...Option) *Server {
 	mux.HandleFunc("/health", readiness)
 	mux.Handle("/metrics", promhttp.Handler())
 
-	s.server = httputil.Server(fmt.Sprintf(":%d", port), mux)
+	s.server = httputil.NewServer(fmt.Sprintf(":%d", port), mux)
 	return s
 }
 
