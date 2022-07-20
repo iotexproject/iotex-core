@@ -203,7 +203,7 @@ func (c *candSR) getTotalBucketCount() (uint64, error) {
 	var tc totalBucketCount
 	_, err := c.State(
 		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(TotalBucketKey))
 	return tc.count, err
 }
@@ -215,14 +215,14 @@ func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
 	)
 	if _, err = c.State(
 		&vb,
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return nil, err
 	}
 	var tc totalBucketCount
 	if _, err := c.State(
 		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (c *candSR) getBucket(index uint64) (*VoteBucket, error) {
 
 func (c *candSR) getAllBuckets() ([]*VoteBucket, uint64, error) {
 	height, iter, err := c.States(
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeysOption(func() ([][]byte, error) {
 			// TODO (zhi): fix potential racing issue
 			count, err := c.getTotalBucketCount()
@@ -285,7 +285,7 @@ func (c *candSR) getBucketIndices(addr address.Address, prefix byte) (*BucketInd
 	)
 	height, err := c.State(
 		&bis,
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(key))
 	if err != nil {
 		return nil, height, err
@@ -306,12 +306,12 @@ func (c *candSR) getCandidate(name address.Address) (*Candidate, uint64, error) 
 		return nil, 0, ErrNilParameters
 	}
 	var d Candidate
-	height, err := c.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
+	height, err := c.State(&d, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return &d, height, err
 }
 
 func (c *candSR) getAllCandidates() (CandidateList, uint64, error) {
-	height, iter, err := c.States(protocol.NamespaceOption(CandidateNameSpace))
+	height, iter, err := c.States(protocol.NamespaceOption(_candidateNameSpace))
 	if err != nil {
 		return nil, height, err
 	}
@@ -336,7 +336,7 @@ func (c *candSR) NewBucketPool(enableSMStorage bool) (*BucketPool, error) {
 	}
 
 	if bp.enableSMStorage {
-		switch _, err := c.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); errors.Cause(err) {
+		switch _, err := c.State(bp.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); errors.Cause(err) {
 		case nil:
 			return &bp, nil
 		case state.ErrStateNotExist:
