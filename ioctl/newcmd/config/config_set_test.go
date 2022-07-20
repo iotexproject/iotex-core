@@ -25,4 +25,19 @@ func TestConfigSetCommand(t *testing.T) {
 		require.NoError(err)
 		require.Contains(result, "Nsv2height is set to 44\n")
 	})
+
+	t.Run("config set error", func(t *testing.T) {
+		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
+		cmd := NewConfigSetCmd(client)
+		_, err := util.ExecuteCmd(cmd, "explorer", "invalid explorer")
+		require.Contains(err.Error(), "problem setting config fields [explorer invalid explorer]")
+	})
+
+	t.Run("config file path error", func(t *testing.T) {
+		client.EXPECT().ConfigFilePath().Return("\x00").AnyTimes()
+		// use invalid file name to force error
+		cmd := NewConfigSetCmd(client)
+		_, err := util.ExecuteCmd(cmd, "explorer", "iotxplorer")
+		require.Contains(err.Error(), "problem setting config fields [explorer iotxplorer]: failed to write to config file")
+	})
 }
