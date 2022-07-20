@@ -132,14 +132,14 @@ func (c *info) reset() error {
 }
 
 // set sets config variable
-func (c *info) set(args []string) (string, error) {
+func (c *info) set(args []string, insecure bool) (string, error) {
 	switch args[0] {
 	case "endpoint":
 		if !isValidEndpoint(args[1]) {
 			return "", errors.New(fmt.Sprintf("endpoint %s is not valid", args[1]))
 		}
 		c.readConfig.Endpoint = args[1]
-		c.readConfig.SecureConnect = !config.Insecure
+		c.readConfig.SecureConnect = !insecure
 	case "analyserEndpoint":
 		c.readConfig.AnalyserEndpoint = args[1]
 	case "wallet":

@@ -92,6 +92,8 @@ type (
 		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
+		// Insecure returns the insecure connect option of grpc dial, default is false
+		Insecure() bool
 	}
 
 	client struct {
@@ -401,6 +403,11 @@ func (c *client) RemoveHdWalletConfigFile() error {
 
 func (c *client) IsHdWalletConfigFileExist() bool { // notest
 	return fileutil.FileExists(c.hdWalletConfigFile)
+}
+
+// Insecure returns the insecure connect option of grpc dial, default is false
+func (c *client) Insecure() bool {
+	return c.insecure
 }
 
 func (m *ConfirmationMessage) String() string {

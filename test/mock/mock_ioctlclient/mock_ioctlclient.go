@@ -213,6 +213,20 @@ func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
 }
 
+// Insecure mocks base method.
+func (m *MockClient) Insecure() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Insecure")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Insecure indicates an expected call of Insecure.
+func (mr *MockClientMockRecorder) Insecure() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insecure", reflect.TypeOf((*MockClient)(nil).Insecure))
+}
+
 // IsCryptoSm2 mocks base method.
 func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
