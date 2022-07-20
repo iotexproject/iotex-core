@@ -69,3 +69,64 @@ func TestConfigReset(t *testing.T) {
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
 }
+
+func TestConfigSet(t *testing.T) {
+	require := require.New(t)
+	testPath := t.TempDir()
+	info := newInfo(config.Config{
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+	}, testPath)
+
+	tcs := []struct {
+		args     []string
+		expected string
+	}{
+		{
+			[]string{"endpoint"},
+			"no endpoint has been set",
+		},
+		{
+			[]string{"wallet"},
+			testPath,
+		},
+		{
+			[]string{"defaultacc"},
+			"{\n  \"addressOrAlias\": \"test\"\n}",
+		},
+		{
+			[]string{"explorer"},
+			"iotexscan",
+		},
+		{
+			[]string{"language"},
+			"English",
+		},
+		{
+			[]string{"nsv2height"},
+			"0",
+		},
+		{
+			[]string{"analyserEndpoint"},
+			"testAnalyser",
+		},
+		{
+			[]string{"all"},
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\"\n}",
+		},
+	}
+
+	for _, tc := range tcs {
+		setResult, err := info.set(tc.args)
+		if err != nil {
+			require.Contains(err.Error(), tc.expected)
+		} else {
+			require.Contains(setResult, tc.expected)
+		}
+	}
+}
