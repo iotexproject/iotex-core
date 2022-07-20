@@ -138,6 +138,7 @@ func newRollDPoSCtx(
 		rp:                   rp,
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
+		blockTime:            newBlockTime(chain.(blockchain.Blockchain)),
 	}
 	return &rollDPoSCtx{
 		ConsensusConfig:   cfg,
@@ -510,7 +511,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 
 	_consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	if pendingBlock.Height() > 1 {
-		prevBlkProposeTime, err := ctx.roundCalc.chain.BlockProposeTime(pendingBlock.Height() - 1)
+		prevBlkProposeTime, err := ctx.roundCalc.blockTime.BlockProposeTime(pendingBlock.Height() - 1)
 		if err != nil {
 			log.L().Error("Error when getting the previous block header.",
 				zap.Error(err),

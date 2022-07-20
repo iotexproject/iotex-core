@@ -227,7 +227,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
 	return &roundCalculator{
-		&chainManager{bc: bc},
+		bc,
 		true,
 		rp,
 		func(epochNum uint64) ([]string, error) {
@@ -268,5 +268,6 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 			return addrs, nil
 		},
 		0,
+		newBlockTime(bc),
 	}
 }
