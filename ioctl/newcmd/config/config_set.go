@@ -30,9 +30,6 @@ var (
 		config.English: "Set config fields for ioctl\nValid Variables: [" + strings.Join(_validArgs, ", ") + "]",
 		config.Chinese: "为 ioctl 设置配置字段\n有效变量: [" + strings.Join(_validArgs, ", ") + "]",
 	}
-
-	// Insecure represents the insecure connect option of grpc dial, default is false
-	Insecure = false
 )
 
 // NewConfigSetCmd is a command to set config fields from iotcl.
@@ -41,11 +38,11 @@ func NewConfigSetCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_configSetUseCmdShorts)
 	long, _ := client.SelectTranslation(_configSetUseCmdLong)
 
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:       use,
 		Short:     short,
 		Long:      long,
-		ValidArgs: _validGetArgs,
+		ValidArgs: _validArgs,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("accepts 2 arg(s), received %d\n"+
@@ -63,4 +60,7 @@ func NewConfigSetCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
+
+	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
+	return cmd
 }

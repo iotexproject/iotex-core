@@ -139,8 +139,7 @@ func (c *info) set(args []string) (string, error) {
 			return "", errors.New(fmt.Sprintf("endpoint %s is not valid", args[1]))
 		}
 		c.readConfig.Endpoint = args[1]
-		// TODO: Set this flag when we wire up the individual commands to the main config command.
-		c.readConfig.SecureConnect = !Insecure
+		c.readConfig.SecureConnect = !config.Insecure
 	case "analyserEndpoint":
 		c.readConfig.AnalyserEndpoint = args[1]
 	case "wallet":

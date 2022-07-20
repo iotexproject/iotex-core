@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 	"testing"
-	
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +19,11 @@ func TestConfigSetCommand(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("config reset", config.English).AnyTimes()
+	testInsecure := true
+	callbackInsecure := func(cb func(*bool, string, bool, string)) {
+		cb(&testInsecure, "insecure", !testInsecure, "insecure usage")
+	}
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(callbackInsecure).AnyTimes()
 
 	t.Run("set config value", func(t *testing.T) {
 		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))

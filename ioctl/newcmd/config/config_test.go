@@ -94,10 +94,6 @@ func TestConfigSet(t *testing.T) {
 			"endpoint invalid endpoint is not valid",
 		},
 		{
-			[]string{"analyserEndpoint", "testAnalyser"},
-			"testAnalyser",
-		},
-		{
 			[]string{"wallet", testPath},
 			testPath,
 		},
