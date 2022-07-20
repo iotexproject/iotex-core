@@ -8,8 +8,9 @@ package config
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"os"
 	"path"
 	"path/filepath"
@@ -150,7 +151,7 @@ func (c *info) set(args []string) (string, error) {
 		case isValidExplorer(lowArg):
 			c.readConfig.Explorer = lowArg
 		case args[1] == "custom":
-			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
+			fmt.Println(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
 			fmt.Scanln(&link)
 			match, err := regexp.MatchString(_urlPattern, link)
@@ -197,7 +198,7 @@ func (c *info) set(args []string) (string, error) {
 		return "", err
 	}
 
-	return strings.Title(args[0]) + " is set to " + args[1], nil
+	return cases.Title(language.Und).String(args[0]) + " is set to " + args[1], nil
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported

@@ -73,6 +73,8 @@ func TestConfigReset(t *testing.T) {
 func TestConfigSet(t *testing.T) {
 	require := require.New(t)
 	testPath := t.TempDir()
+	cfgFile := fmt.Sprintf("%s/%s", testPath, "config.test")
+
 	info := newInfo(config.Config{
 		Wallet:           testPath,
 		SecureConnect:    true,
@@ -81,48 +83,65 @@ func TestConfigSet(t *testing.T) {
 		Explorer:         "iotexscan",
 		Language:         "English",
 		AnalyserEndpoint: "testAnalyser",
-	}, testPath)
+	}, cfgFile)
 
 	tcs := []struct {
 		args     []string
 		expected string
 	}{
 		{
-			[]string{"endpoint"},
-			"no endpoint has been set",
+			[]string{"endpoint", "invalid endpoint"},
+			"endpoint invalid endpoint is not valid",
 		},
 		{
-			[]string{"wallet"},
-			testPath,
-		},
-		{
-			[]string{"defaultacc"},
-			"{\n  \"addressOrAlias\": \"test\"\n}",
-		},
-		{
-			[]string{"explorer"},
-			"iotexscan",
-		},
-		{
-			[]string{"language"},
-			"English",
-		},
-		{
-			[]string{"nsv2height"},
-			"0",
-		},
-		{
-			[]string{"analyserEndpoint"},
+			[]string{"analyserEndpoint", "testAnalyser"},
 			"testAnalyser",
 		},
 		{
-			[]string{"all"},
-			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\"\n}",
+			[]string{"wallet", testPath},
+			testPath,
+		},
+		{
+			[]string{"defaultacc", "address"},
+			"Defaultacc is set to address",
+		},
+		{
+			[]string{"defaultacc", "suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp"},
+			"failed to validate alias or address suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp",
+		},
+		{
+			[]string{"explorer", "iotxplorer"},
+			"Explorer is set to iotxplorer",
+		},
+		{
+			[]string{"explorer", "invalid"},
+			"Explorer invalid is not valid\nValid explorers: [iotexscan iotxplorer custom]",
+		},
+		{
+			[]string{"language", "中文"},
+			"Language is set to 中文",
+		},
+		{
+			[]string{"language", "unknown language"},
+			"Language unknown language is not supported\nSupported languages: [English 中文]",
+		},
+		{
+			[]string{"nsv2height", "20"},
+			"Nsv2height is set to 20",
+		},
+		{
+			[]string{"nsv2height", "invalid height"},
+			"invalid height",
+		},
+		{
+			[]string{"unknownField", ""},
+			"no matching config",
 		},
 	}
 
 	for _, tc := range tcs {
 		setResult, err := info.set(tc.args)
+		t.Logf("running %s \n result %s", tc, setResult)
 		if err != nil {
 			require.Contains(err.Error(), tc.expected)
 		} else {
