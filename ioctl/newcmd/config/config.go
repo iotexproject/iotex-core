@@ -137,8 +137,7 @@ func (c *info) get(arg string) (string, error) {
 		if c.readConfig.Endpoint == "" {
 			return "", config.ErrEmptyEndpoint
 		}
-		message := endpointMessage{Endpoint: c.readConfig.Endpoint, SecureConnect: c.readConfig.SecureConnect}
-		return fmt.Sprint(message.Endpoint, "    secure connect(TLS):", message.SecureConnect), nil
+		return fmt.Sprintf("%s secure connect(TLS): %t", c.readConfig.Endpoint, c.readConfig.SecureConnect), nil
 	case "wallet":
 		return c.readConfig.Wallet, nil
 	case "defaultacc":
@@ -159,11 +158,6 @@ func (c *info) get(arg string) (string, error) {
 	default:
 		return "", config.ErrConfigNotMatch
 	}
-}
-
-type endpointMessage struct {
-	Endpoint      string `json:"endpoint"`
-	SecureConnect bool   `json:"secureConnect"`
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
