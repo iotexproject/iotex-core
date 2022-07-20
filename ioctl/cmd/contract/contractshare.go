@@ -207,7 +207,7 @@ func share(args []string) error {
 					break
 				}
 				getPayloadPath = filepath.Join(_givenPath, getPayloadPath)
-				upload, err := os.ReadFile(getPayloadPath)
+				upload, err := os.ReadFile(filepath.Clean(getPayloadPath))
 				if err != nil {
 					log.Println("read file failed: ", err)
 					break
@@ -255,7 +255,7 @@ func share(args []string) error {
 					break
 				}
 				setPath = filepath.Join(_givenPath, setPath)
-				if err := os.MkdirAll(filepath.Dir(setPath), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(setPath), 0750); err != nil {
 					log.Println("mkdir failed: ", err)
 					break
 				}
