@@ -177,7 +177,10 @@ func (c *client) AskToConfirm(info string) bool {
 	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
 	var confirm string
-	fmt.Scanf("%s", &confirm)
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		fmt.Println(err)
+		return false
+	}
 	return strings.EqualFold(confirm, "yes")
 }
 
