@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -448,10 +449,13 @@ func (p *injectProcessor) InjectionV3(ctx context.Context, ch chan action.Sealed
 // 	}
 // }
 
+var (
+	_injectedActs uint64 = 0
+)
+
 func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
 
 	actHash, _ := selp.Hash()
-	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])))
 	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(rawInjectCfg.retryInterval)*time.Second), rawInjectCfg.retryNum)
 	rerr := backoff.Retry(func() error {
 		_, err := p.api.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
@@ -463,6 +467,8 @@ func (p *injectProcessor) injectV3(selp action.SealedEnvelope) {
 	if rerr != nil {
 		log.L().Error("Failed to inject.", zap.Error(rerr))
 	}
+	atomic.AddUint64(&_injectedActs, 1)
+	log.L().Info("act hash", zap.String("hash", hex.EncodeToString(actHash[:])), zap.Uint64("totalActs", atomic.LoadUint64(&_injectedActs)))
 }
 
 // func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
@@ -657,7 +663,7 @@ func init() {
 	flag := injectCmd.Flags()
 	flag.StringVar(&rawInjectCfg.configPath, "injector-config-path", "./tools/actioninjector.v2/gentsfaddrs.yaml",
 		"path of config file of genesis transfer addresses")
-	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "104.199.146.10:14014", "target ip:port for grpc connection")
+	flag.StringVar(&rawInjectCfg.serverAddr, "addr", "ab0ab34e44e114ae5b0ee35da91c8422-1001689351.eu-west-2.elb.amazonaws.com:14014", "target ip:port for grpc connection")
 	// flag.StringVar(&rawInjectCfg.serverAddr, "addr", "api.nightly-cluster-2.iotex.one:443", "target ip:port for grpc connection")
 	flag.Int64Var(&rawInjectCfg.transferAmount, "transfer-amount", 0, "execution amount")
 	flag.Uint64Var(&rawInjectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
