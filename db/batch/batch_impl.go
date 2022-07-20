@@ -70,14 +70,14 @@ func (b *baseKVStoreBatch) ClearAndUnlock() {
 func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	b.batch(Put, namespace, key, value, errorFormat, errorArgs...)
 }
 
 // Delete deletes a record
 func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	b.batch(Delete, namespace, key, nil, errorFormat, errorArgs...)
 }
 
 // Size returns the size of batch
@@ -260,7 +260,7 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
 	cb.currentCache().Write(&h, value)
-	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs...)
 }
 
 // Delete deletes a record
@@ -270,7 +270,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 	h := cb.hash(namespace, key)
 	cb.touchKey(h)
 	cb.currentCache().Evict(&h)
-	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs...)
 }
 
 // Clear clear the cached batch buffer
