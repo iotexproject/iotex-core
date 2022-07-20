@@ -20,15 +20,15 @@ import (
 var (
 	_configSetUse = map[config.Language]string{
 		config.English: "set VARIABLE VALUE",
-		config.Chinese: "set 变量值",
+		config.Chinese: "set 变量 值",
 	}
 	_configSetUseCmdShorts = map[config.Language]string{
 		config.English: "Set config fields for ioctl",
 		config.Chinese: "为 ioctl 设置配置字段",
 	}
 	_configSetUseCmdLong = map[config.Language]string{
-		config.English: "Set config fields for ioctl\nValid Variables: [" + strings.Join(_validGetArgs, ", ") + "]",
-		config.Chinese: "为 ioctl 设置配置字段\n有效变量: [" + strings.Join(_validGetArgs, ", ") + "]",
+		config.English: "Set config fields for ioctl\nValid Variables: [" + strings.Join(_validArgs, ", ") + "]",
+		config.Chinese: "为 ioctl 设置配置字段\n有效变量: [" + strings.Join(_validArgs, ", ") + "]",
 	}
 
 	// Insecure represents the insecure connect option of grpc dial, default is false
