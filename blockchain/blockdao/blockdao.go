@@ -52,9 +52,9 @@ type (
 		indexers     []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
-		headerCache  *cache.ThreadSafeLruCache
-		bodyCache    *cache.ThreadSafeLruCache
-		footerCache  *cache.ThreadSafeLruCache
+		headerCache  cache.LRUCache
+		bodyCache    cache.LRUCache
+		footerCache  cache.LRUCache
 		tipHeight    uint64
 	}
 )
@@ -336,20 +336,20 @@ func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Co
 	return blockDAO
 }
 
-func lruCacheGet(c *cache.ThreadSafeLruCache, key interface{}) (interface{}, bool) {
+func lruCacheGet(c cache.LRUCache, key interface{}) (interface{}, bool) {
 	if c != nil {
 		return c.Get(key)
 	}
 	return nil, false
 }
 
-func lruCachePut(c *cache.ThreadSafeLruCache, k, v interface{}) {
+func lruCachePut(c cache.LRUCache, k, v interface{}) {
 	if c != nil {
 		c.Add(k, v)
 	}
 }
 
-func lruCacheDel(c *cache.ThreadSafeLruCache, k interface{}) {
+func lruCacheDel(c cache.LRUCache, k interface{}) {
 	if c != nil {
 		c.Remove(k)
 	}

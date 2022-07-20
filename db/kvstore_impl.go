@@ -33,8 +33,8 @@ const (
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	data   *cache.ThreadSafeLruCache
-	bucket *cache.ThreadSafeLruCache
+	data   cache.LRUCache
+	bucket cache.LRUCache
 }
 
 // NewMemKVStore instantiates an in-memory KV store
