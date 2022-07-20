@@ -84,9 +84,15 @@ func writeHeapProfile(path string) {
 		log.S().Errorf("crashlog: open heap profile error: %v", err)
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if err = f.Close(); err != nil {
+			log.S().Errorf("crashlog: close heap profile error: %v", err)
+			return
+		}
+	}()
 	if err := pprof.WriteHeapProfile(f); err != nil {
 		log.S().Errorf("crashlog: write heap profile error: %v", err)
+		return
 	}
 }
 
