@@ -152,7 +152,10 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 		case args[1] == "custom":
 			fmt.Println(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
-			fmt.Scanln(&link)
+			_, err := fmt.Scanln(&link)
+			if err != nil {
+				return "", err
+			}
 			match, err := regexp.MatchString(_urlPattern, link)
 			if err != nil {
 				return "", errors.New(fmt.Sprintf("failed to validate link %s", link))
