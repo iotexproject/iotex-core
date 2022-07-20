@@ -223,12 +223,12 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = genesis.Default.BlockGasLimit * 100
 	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.ActPool.MaxNumActsPerAcct = 1000000000
+	cfg.ActPool.MaxNumActsPerAcct = 10000
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewBoltDB(cfg.DB)
-	sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
+	sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry), factory.DisableWorkingSetCacheOption())
 	if err != nil {
 		return nil, nil, err
 	}

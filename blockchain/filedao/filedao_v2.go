@@ -42,7 +42,7 @@ type (
 		header    *FileHeader
 		tip       *FileTip
 		blkBuffer *stagingBuffer
-		blkCache  *cache.ThreadSafeLruCache
+		blkCache  cache.LRUCache
 		kvStore   db.KVStore
 		batch     batch.KVStoreBatch
 		hashStore db.CountingIndex // store block hash

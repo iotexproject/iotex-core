@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
 	} else {
 		log.L().Info("secure connection")
-		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
 	if err != nil {
 		return nil, err
@@ -112,7 +113,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 }
 
 func (p *injectProcessor) loadAccounts(keypairsPath string) error {
-	keyPairBytes, err := os.ReadFile(keypairsPath)
+	keyPairBytes, err := os.ReadFile(filepath.Clean(keypairsPath))
 	if err != nil {
 		return errors.Wrap(err, "failed to read key pairs file")
 	}
