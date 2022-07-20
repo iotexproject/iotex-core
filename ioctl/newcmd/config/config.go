@@ -9,7 +9,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -144,7 +143,7 @@ func (c *info) get(arg string) (string, error) {
 		if c.readConfig.DefaultAccount.AddressOrAlias == "" {
 			return "", config.ErrConfigDefaultAccountNotSet
 		}
-		return jsonString(c.readConfig.DefaultAccount), nil
+		return jsonString(c.readConfig.DefaultAccount)
 	case "explorer":
 		return c.readConfig.Explorer, nil
 	case "language":
@@ -154,7 +153,7 @@ func (c *info) get(arg string) (string, error) {
 	case "analyserEndpoint":
 		return c.readConfig.AnalyserEndpoint, nil
 	case "all":
-		return jsonString(c.readConfig), nil
+		return jsonString(c.readConfig)
 	default:
 		return "", config.ErrConfigNotMatch
 	}
@@ -198,10 +197,10 @@ func (c *info) loadConfig() error {
 }
 
 // jsonString returns json string for message
-func jsonString(out interface{}) string {
+func jsonString(out interface{}) (string, error) {
 	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
-		log.Panic(err)
+		return "", errors.Wrap(err, "failed to JSON marshal config field")
 	}
-	return fmt.Sprint(string(byteAsJSON))
+	return fmt.Sprint(string(byteAsJSON)), nil
 }
