@@ -24,7 +24,7 @@ type (
 		key         []byte
 		value       []byte
 		errorFormat string
-		errorArgs   interface{}
+		errorArgs   []interface{}
 	}
 
 	// WriteInfoFilter filters a write
@@ -44,7 +44,7 @@ func NewWriteInfo(
 	key,
 	value []byte,
 	errorFormat string,
-	errorArgs interface{},
+	errorArgs []interface{},
 ) *WriteInfo {
 	return &WriteInfo{
 		writeType:   writeType,
@@ -88,7 +88,7 @@ func (wi *WriteInfo) ErrorFormat() string {
 }
 
 // ErrorArgs returns the error args
-func (wi *WriteInfo) ErrorArgs() interface{} {
+func (wi *WriteInfo) ErrorArgs() []interface{} {
 	return wi.errorArgs
 }
 

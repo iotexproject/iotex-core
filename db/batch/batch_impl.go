@@ -70,7 +70,7 @@ func (b *baseKVStoreBatch) ClearAndUnlock() {
 func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	b.batch(Put, namespace, key, value, errorFormat, errorArgs...)
 }
 
 // Delete deletes a record

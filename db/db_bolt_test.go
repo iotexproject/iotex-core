@@ -8,6 +8,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -17,6 +18,14 @@ import (
 
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+func TestBug(t *testing.T) {
+	b := batch.NewBatch()
+	b.Put("ns", _testK1[0], _testV1[0], "1 %v 2 %v", 1, 2)
+	st := NewMemKVStore()
+	err := st.WriteBatch(b)
+	fmt.Println(err.Error())
+}
 
 func TestBoltDB_NilDB_DoesNotPanic(t *testing.T) {
 	r := require.New(t)

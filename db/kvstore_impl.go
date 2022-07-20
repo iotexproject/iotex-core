@@ -140,9 +140,7 @@ func (m *memKVStore) WriteBatch(b batch.KVStoreBatch) (e error) {
 		}
 		switch write.WriteType() {
 		case batch.Put:
-			if err := m.Put(write.Namespace(), write.Key(), write.Value()); err != nil {
-				e = err
-			}
+			e = errors.Wrapf(ErrBucketNotExist, write.ErrorFormat(), write.ErrorArgs()...)
 		case batch.Delete:
 			if err := m.Delete(write.Namespace(), write.Key()); err != nil {
 				e = err
