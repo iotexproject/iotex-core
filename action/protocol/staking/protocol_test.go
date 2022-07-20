@@ -43,7 +43,7 @@ func TestProtocol(t *testing.T) {
 	csmTemp := newCandidateStateManager(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(TotalBucketKey),
 	)
 	r.NoError(err)
@@ -207,7 +207,7 @@ func TestCreatePreStates(t *testing.T) {
 	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 	require.NoError(p.CreatePreStates(ctx, sm))
-	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+	_, err = sm.State(nil, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -216,7 +216,7 @@ func TestCreatePreStates(t *testing.T) {
 		},
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
-	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+	_, err = sm.State(nil, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
 	ctx = protocol.WithBlockCtx(
 		ctx,
@@ -226,7 +226,7 @@ func TestCreatePreStates(t *testing.T) {
 	)
 	require.NoError(p.CreatePreStates(ctx, sm))
 	total := &totalAmount{}
-	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+	_, err = sm.State(total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	require.NoError(err)
 }
 
