@@ -8,8 +8,6 @@ package config
 
 import (
 	"fmt"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
