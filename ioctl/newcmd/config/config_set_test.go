@@ -33,8 +33,14 @@ func TestConfigSetCommand(t *testing.T) {
 		require.Contains(err.Error(), "problem setting config fields [explorer invalid explorer]")
 	})
 
+	t.Run("config set too many arguments", func(t *testing.T) {
+		cmd := NewConfigSetCmd(client)
+		_, err := util.ExecuteCmd(cmd, "explorer", "iotxplorer", "arg2", "arg3", "arg4")
+		require.Contains(err.Error(), "accepts 2 arg(s), received 5")
+	})
+
 	t.Run("config file path error", func(t *testing.T) {
-		client.EXPECT().ConfigFilePath().Return("\x00").AnyTimes()
+		client.EXPECT().ConfigFilePath().Return("\x00")
 		// use invalid file name to force error
 		cmd := NewConfigSetCmd(client)
 		_, err := util.ExecuteCmd(cmd, "explorer", "iotxplorer")

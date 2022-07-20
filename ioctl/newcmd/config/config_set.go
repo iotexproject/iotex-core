@@ -30,6 +30,9 @@ var (
 		config.English: "Set config fields for ioctl\nValid Variables: [" + strings.Join(_validGetArgs, ", ") + "]",
 		config.Chinese: "为 ioctl 设置配置字段\n有效变量: [" + strings.Join(_validGetArgs, ", ") + "]",
 	}
+
+	// Insecure represents the insecure connect option of grpc dial, default is false
+	Insecure = false
 )
 
 // NewConfigSetCmd is a command to set config fields from iotcl.
