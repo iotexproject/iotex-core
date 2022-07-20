@@ -163,7 +163,6 @@ func mustBoolean(v bool, err error) bool {
 	return v
 }
 
-
 func gasLimitFlagValue(cmd *cobra.Command) (v uint64) {
 	return mustUint64(cmd.Flags().GetUint64(gasLimitFlagLabel))
 }
@@ -387,7 +386,6 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 
 	selp := sealed.Proto()
 	sk.Zero()
-
 	// TODO wait newcmd/action/actionhash impl pr #3425
 	// actionInfo, err := printActionProto(selp)
 	// if err != nil {
@@ -424,7 +422,6 @@ func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *b
 	if err != nil {
 		return errors.Wrap(err, "failed to get nonce")
 	}
-
 	gasLimit := gasLimitFlagValue(cmd)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {

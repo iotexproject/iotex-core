@@ -396,8 +396,8 @@ func TestClient_ConfigFilePath(t *testing.T) {
 	r := require.New(t)
 	testConfigPath := fmt.Sprintf("%s/%s", t.TempDir(), "/config.test")
 
-	c := NewClient(config.Config{}, testConfigPath)
-
+	c, err := NewClient(config.Config{}, testConfigPath)
+	r.NoError(err)
 	r.Equal(testConfigPath, c.ConfigFilePath())
 }
 
