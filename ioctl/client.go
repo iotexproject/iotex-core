@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -222,7 +223,7 @@ func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	if c.insecure {
 		c.conn, err = grpc.Dial(c.endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
 	if err != nil {
 		return nil, err
@@ -266,7 +267,7 @@ func (c *client) NewKeyStore() *keystore.KeyStore {
 }
 
 func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 	}

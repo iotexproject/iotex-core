@@ -9,7 +9,6 @@ package action
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"math/big"
 	"strings"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -38,10 +39,6 @@ var (
 	_actionCmdShorts = map[config.Language]string{
 		config.English: "Manage actions of IoTeX blockchain",
 		config.Chinese: "管理IoTex区块链的行为", // this translation
-	}
-	_actionCmdUses = map[config.Language]string{
-		config.English: "action",
-		config.Chinese: "action 行为", // this translation
 	}
 	_infoWarn = map[config.Language]string{
 		config.English: "** This is an irreversible action!\n" +
@@ -55,34 +52,33 @@ var (
 		config.English: "quit",
 		config.Chinese: "退出",
 	}
-	_flagActionEndPointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点", // this translation
-	}
-	_flagActionInsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全连接", // this translation
-	}
 	_flagGasLimitUsages = map[config.Language]string{
 		config.English: "set gas limit",
+		config.Chinese: "设置燃气上限",
 	}
 	_flagGasPriceUsages = map[config.Language]string{
 		config.English: `set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is "0"`,
+		config.Chinese: `设置燃气费（单位：10^(-6)IOTX），如果输入为「0」，则使用默认燃气费`,
 	}
 	_flagNonceUsages = map[config.Language]string{
 		config.English: "set nonce (default using pending nonce)",
+		config.Chinese: "设置 nonce (默认使用 pending nonce)",
 	}
 	_flagSignerUsages = map[config.Language]string{
 		config.English: "choose a signing account",
+		config.Chinese: "选择要签名的帐户",
 	}
 	_flagBytecodeUsages = map[config.Language]string{
 		config.English: "set the byte code",
+		config.Chinese: "设置字节码",
 	}
 	_flagAssumeYesUsages = map[config.Language]string{
 		config.English: "answer yes for all confirmations",
+		config.Chinese: "为所有确认设置 yes",
 	}
 	_flagPasswordUsages = map[config.Language]string{
 		config.English: "input password for account",
+		config.Chinese: "设置密码",
 	}
 )
 
@@ -148,30 +144,31 @@ func registerPasswordFlag(client ioctl.Client, cmd *cobra.Command) {
 
 func mustString(v string, err error) string {
 	if err != nil {
-		panic(err)
+		log.L().Panic("input flag must be string", zap.Error(err))
 	}
 	return v
 }
 
 func mustUint64(v uint64, err error) uint64 {
 	if err != nil {
-		panic(err)
+		log.L().Panic("input flag must be uint64", zap.Error(err))
 	}
 	return v
 }
 
 func mustBoolean(v bool, err error) bool {
 	if err != nil {
-		panic(err)
+		log.L().Panic("input flag must be boolean", zap.Error(err))
 	}
 	return v
 }
 
-func getGasLimitFlagValue(cmd *cobra.Command) (v uint64) {
+
+func gasLimitFlagValue(cmd *cobra.Command) (v uint64) {
 	return mustUint64(cmd.Flags().GetUint64(gasLimitFlagLabel))
 }
 
-func getGasPriceFlagValue(cmd *cobra.Command) (v string) {
+func gasPriceFlagValue(cmd *cobra.Command) (v string) {
 	return mustString(cmd.Flags().GetString(gasPriceFlagLabel))
 }
 
@@ -188,11 +185,7 @@ func getBytecodeFlagValue(cmd *cobra.Command) (v string) {
 }
 
 func getDecodeBytecode(cmd *cobra.Command) ([]byte, error) {
-	bytecode, err := cmd.Flags().GetString(bytecodeFlagLabel)
-	if err != nil {
-		return nil, err
-	}
-	return hex.DecodeString(util.TrimHexPrefix(bytecode))
+	return hex.DecodeString(util.TrimHexPrefix(getBytecodeFlagValue(cmd)))
 }
 
 func getAssumeYesFlagValue(cmd *cobra.Command) (v bool) {
@@ -208,10 +201,10 @@ func selectTranslation(client ioctl.Client, trls map[config.Language]string) str
 	return txt
 }
 
-// NewAction represents the action command
-func NewAction(client ioctl.Client) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   selectTranslation(client, _actionCmdUses),
+// NewActionCmd represents the action command
+func NewActionCmd(client ioctl.Client) *cobra.Command {
+	ac := &cobra.Command{
+		Use:   "action",
 		Short: selectTranslation(client, _actionCmdShorts),
 	}
 
@@ -225,14 +218,10 @@ func NewAction(client ioctl.Client) *cobra.Command {
 	// cmd.AddCommand(NewActionDeposit(client))
 	// cmd.AddCommand(NewActionSendRaw(client))
 
-	var (
-		insecure bool
-		endpoint string
-	)
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, selectTranslation(client, _flagActionEndPointUsages))
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, selectTranslation(client, _flagActionInsecureUsages))
+	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
 
-	return cmd
+	return ac
 }
 
 // RegisterWriteCommand registers action flags for command
@@ -282,7 +271,7 @@ func gasPriceInRau(client ioctl.Client, cmd *cobra.Command) (*big.Int, error) {
 	if client.IsCryptoSm2() {
 		return big.NewInt(0), nil
 	}
-	gasPrice := getGasPriceFlagValue(cmd)
+	gasPrice := gasPriceFlagValue(cmd)
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
@@ -347,21 +336,21 @@ func SendRaw(client ioctl.Client, cmd *cobra.Command, selp *iotextypes.Action) e
 
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
+	URL := "https://"
 	endpoint := client.Config().Endpoint
 	explorer := client.Config().Explorer
 	switch explorer {
 	case "iotexscan":
 		if strings.Contains(endpoint, "testnet") {
-			message.URL += "testnet."
+			URL += "testnet."
 		}
-		message.URL += "iotexscan.io/action/" + txhash
+		URL += "iotexscan.io/action/" + txhash
 	case "iotxplorer":
-		message.URL = "iotxplorer.io/actions/" + txhash
+		URL = "iotxplorer.io/actions/" + txhash
 	default:
-		message.URL = explorer + txhash
+		URL = explorer + txhash
 	}
-	cmd.Println(message.String())
+	cmd.Printf("Action has been sent to blockchain.\nWait for several seconds and query this action by hash: %s\n", URL)
 	return nil
 }
 
@@ -398,15 +387,19 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 
 	selp := sealed.Proto()
 	sk.Zero()
-	actionInfo, err := printActionProto(client, selp)
-	if err != nil {
-		return errors.Wrap(err, "failed to print action proto message")
-	}
-	cmd.Println(actionInfo)
 
-	if getAssumeYesFlagValue(cmd) == false {
-		if !client.AskToConfirm(selectTranslation(client, _infoWarn)) {
-			cmd.Println(selectTranslation(client, _infoQuit))
+	// TODO wait newcmd/action/actionhash impl pr #3425
+	// actionInfo, err := printActionProto(selp)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to print action proto message")
+	// }
+	// cmd.Println(actionInfo)
+
+	if !getAssumeYesFlagValue(cmd) {
+		infoWarn := selectTranslation(client, _infoWarn)
+		infoQuit := selectTranslation(client, _infoQuit)
+		if !client.AskToConfirm(infoWarn) {
+			cmd.Println(infoQuit)
 		}
 		return nil
 	}
@@ -431,7 +424,8 @@ func Execute(client ioctl.Client, cmd *cobra.Command, contract string, amount *b
 	if err != nil {
 		return errors.Wrap(err, "failed to get nonce")
 	}
-	gasLimit := getGasLimitFlagValue(cmd)
+
+	gasLimit := gasLimitFlagValue(cmd)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
 		return errors.Wrap(err, "failed to make a Execution instance")
@@ -480,7 +474,7 @@ func Read(client ioctl.Client, cmd *cobra.Command, contract address.Address, amo
 				Data:     bytecode,
 			},
 			CallerAddress: callerAddr,
-			GasLimit:      getGasLimitFlagValue(cmd),
+			GasLimit:      gasLimitFlagValue(cmd),
 		},
 	)
 	if err != nil {
@@ -506,14 +500,4 @@ func isBalanceEnough(client ioctl.Client, address string, act action.SealedEnvel
 		return errors.New("balance is not enough")
 	}
 	return nil
-}
-
-type sendMessage struct {
-	Info   string `json:"info"`
-	TxHash string `json:"txHash"`
-	URL    string `json:"url"`
-}
-
-func (m *sendMessage) String() string {
-	return string(byteutil.Must(json.MarshalIndent(m, "", "  ")))
 }
