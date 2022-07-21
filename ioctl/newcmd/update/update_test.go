@@ -26,7 +26,7 @@ func TestNewUpdateCmd(t *testing.T) {
 	expectedValue := "ioctl is up-to-date now."
 	client.EXPECT().SelectTranslation(gomock.Any()).Return(expectedValue,
 		config.English).Times(18)
-	client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(2)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).Times(2)
 	client.EXPECT().Execute(gomock.Any()).Return(nil).Times(2)
 
 	t.Run("update cli with stable", func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestNewUpdateCmd(t *testing.T) {
 		expectedError := errors.New("failed to execute bash command")
 		client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
 			config.English).Times(9)
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(1)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).Times(1)
 		client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
 
 		cmd := NewUpdateCmd(client)

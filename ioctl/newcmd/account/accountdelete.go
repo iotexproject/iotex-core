@@ -120,14 +120,18 @@ func NewAccountDelete(client ioctl.Client) *cobra.Command {
 			if _, err = os.Stat(filePath); err != nil {
 				return errors.Wrapf(err, _failToFindAccount, addr)
 			}
-			if !client.AskToConfirm(_infoWarn) {
+			confirmed, err := client.AskToConfirm(_infoWarn)
+			if err != nil {
+				return errors.Wrap(err, "failed to ask confirm")
+			}
+			if !confirmed {
 				cmd.Println(_infoQuit)
 				return nil
 			}
-			if err := os.Remove(filePath); err != nil {
+			if err = os.Remove(filePath); err != nil {
 				return errors.Wrap(err, _failToRemoveKeystoreFile)
 			}
-			if err := client.DeleteAlias(client.AliasMap()[addr]); err != nil {
+			if err = client.DeleteAlias(client.AliasMap()[addr]); err != nil {
 				return errors.Wrap(err, _failToWriteToConfigFile)
 			}
 			cmd.Println(fmt.Sprintf(_resultSuccess, addr))
