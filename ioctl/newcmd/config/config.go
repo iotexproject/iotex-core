@@ -178,13 +178,13 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 		}
 		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
 	case "language":
-		language := isSupportedLanguage(args[1])
-		if language == -1 {
+		lang := isSupportedLanguage(args[1])
+		if lang == -1 {
 			return "", errors.New(
 				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
 					args[1], _supportedLanguage))
 		}
-		c.readConfig.Language = _supportedLanguage[language]
+		c.readConfig.Language = _supportedLanguage[lang]
 	case "nsv2height":
 		height, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {

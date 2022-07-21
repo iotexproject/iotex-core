@@ -18,7 +18,7 @@ func TestConfigSetCommand(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("config reset", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("config set", config.English).AnyTimes()
 	client.EXPECT().Insecure().Return(false).AnyTimes()
 	testInsecure := true
 	callbackInsecure := func(cb func(*bool, string, bool, string)) {
