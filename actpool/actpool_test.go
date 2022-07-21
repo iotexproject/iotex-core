@@ -31,7 +31,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -61,28 +60,27 @@ var (
 func TestActPool_NewActPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
-	cfg := config.Default
 
 	//error caused by nil blockchain
-	_, err := NewActPool(nil, cfg.ActPool, nil)
+	_, err := NewActPool(genesis.Default, nil, DefaultConfig, nil)
 	require.Error(err)
 
 	// all good
 	opt := EnableExperimentalActions()
-	require.Panics(func() { blockchain.NewBlockchain(cfg, nil, nil, nil) }, "option is nil")
+	require.Panics(func() { blockchain.NewBlockchain(blockchain.DefaultConfig, genesis.Default, nil, nil, nil) }, "option is nil")
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	act, err := NewActPool(sf, cfg.ActPool, opt)
+	act, err := NewActPool(genesis.Default, sf, DefaultConfig, opt)
 	require.NoError(err)
 	require.NotNil(act)
 
 	// panic caused by option is nil
-	require.Panics(func() { NewActPool(sf, cfg.ActPool, nil) }, "option is nil")
+	require.Panics(func() { NewActPool(genesis.Default, sf, DefaultConfig, nil) }, "option is nil")
 
 	// error caused by option
 	opt2 := func(pool *actPool) error {
 		return errors.New("test error")
 	}
-	_, err = NewActPool(sf, cfg.ActPool, opt2)
+	_, err = NewActPool(genesis.Default, sf, DefaultConfig, opt2)
 	require.Error(err)
 
 	// test AddAction nil
@@ -92,21 +90,22 @@ func TestActPool_NewActPool(t *testing.T) {
 func TestValidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	cfg := config.Default
-	cfg.Genesis.InitBalanceMap[_addr1] = "100"
+
+	g := genesis.Default
+	g.InitBalanceMap[_addr1] = "100"
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), re),
-		cfg.Genesis,
+		g,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
 	mockError := errors.New("mock error")
 	sev.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(mockError).Times(1)
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(g, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -129,21 +128,21 @@ func TestActPool_AddActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		cfg := &protocol.StateConfig{}
 		for _, opt := range opts {
 			opt(cfg)
 		}
 		if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
-			acct.Balance = big.NewInt(100)
+			require.NoError(acct.AddBalance(big.NewInt(100)))
 		} else {
-			acct.Balance = big.NewInt(10)
+			require.NoError(acct.AddBalance(big.NewInt(10)))
 		}
 		return 0, nil
 	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -166,7 +165,7 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf8, err := action.SignedTransfer(_addr2, _priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -203,7 +202,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Error(ap.Add(ctx, tsf1))
 	require.Error(ap.Add(ctx, tsf4))
 	// Case III: Pool space/gas space is full
-	Ap2, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap2, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
@@ -219,7 +218,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap2.Add(ctx, tsf4)
 	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
 
-	Ap3, err := NewActPool(sf, apConfig)
+	Ap3, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap3, ok := Ap3.(*actPool)
 	require.True(ok)
@@ -294,9 +293,10 @@ func TestActPool_PickActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		// Create actpool
-		Ap, err := NewActPool(sf, cfg, EnableExperimentalActions())
+		Ap, err := NewActPool(genesis.Default, sf, cfg, EnableExperimentalActions())
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
@@ -326,29 +326,29 @@ func TestActPool_PickActs(t *testing.T) {
 		sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 			acct, ok := account.(*state.Account)
 			require.True(ok)
-			acct.Nonce = 0
 			cfg := &protocol.StateConfig{}
 			for _, opt := range opts {
 				opt(cfg)
 			}
 			if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
-				acct.Balance = big.NewInt(100)
+				require.NoError(acct.AddBalance(big.NewInt(100)))
 			} else {
-				acct.Balance = big.NewInt(10)
+				require.NoError(acct.AddBalance(big.NewInt(10)))
 			}
 			return 0, nil
 		}).AnyTimes()
-		require.NoError(ap.Add(context.Background(), tsf1))
-		require.NoError(ap.Add(context.Background(), tsf2))
-		require.NoError(ap.Add(context.Background(), tsf3))
-		require.NoError(ap.Add(context.Background(), tsf4))
-		require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(context.Background(), tsf5)))
-		require.Error(ap.Add(context.Background(), tsf6))
+		sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+		require.NoError(ap.Add(ctx, tsf1))
+		require.NoError(ap.Add(ctx, tsf2))
+		require.NoError(ap.Add(ctx, tsf3))
+		require.NoError(ap.Add(ctx, tsf4))
+		require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(ctx, tsf5)))
+		require.Error(ap.Add(ctx, tsf6))
 
-		require.Error(ap.Add(context.Background(), tsf7))
-		require.NoError(ap.Add(context.Background(), tsf8))
-		require.NoError(ap.Add(context.Background(), tsf9))
-		require.NoError(ap.Add(context.Background(), tsf10))
+		require.Error(ap.Add(ctx, tsf7))
+		require.NoError(ap.Add(ctx, tsf8))
+		require.NoError(ap.Add(ctx, tsf9))
+		require.NoError(ap.Add(ctx, tsf10))
 
 		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{}, []action.SealedEnvelope{}
 	}
@@ -376,7 +376,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -394,27 +394,30 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[_addr1])
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 4
-		acct.Balance = big.NewInt(100000000000000000)
+		for i := uint64(1); i <= 4; i++ {
+			require.NoError(acct.SetPendingNonce(i + 1))
+		}
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.removeConfirmedActs(ctx)
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[_addr1])
 }
@@ -441,31 +444,42 @@ func TestActPool_Reset(t *testing.T) {
 		}
 		switch {
 		case bytes.Equal(cfg.Key, identityset.Address(28).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[0])
-			acct.Nonce = nonces[0]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[0])))
+			for i := uint64(1); i <= nonces[0]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(29).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[1])
-			acct.Nonce = nonces[1]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[1])))
+			for i := uint64(1); i <= nonces[1]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(30).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[2])
-			acct.Nonce = nonces[2]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[2])))
+			for i := uint64(1); i <= nonces[2]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(31).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[3])
-			acct.Nonce = nonces[3]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[3])))
+			for i := uint64(1); i <= nonces[3]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(32).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[4])
-			acct.Nonce = nonces[4]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[4])))
+			for i := uint64(1); i <= nonces[4]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		}
 		return 0, nil
 	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	apConfig := getActPoolCfg()
-	Ap1, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap1, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	Ap2, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap2, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
@@ -491,7 +505,7 @@ func TestActPool_Reset(t *testing.T) {
 	tsf9, err := action.SignedTransfer(_addr1, _priKey3, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap1.Add(ctx, tsf1))
 	require.NoError(ap1.Add(ctx, tsf2))
 	err = ap1.Add(ctx, tsf3)
@@ -778,7 +792,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -795,15 +809,16 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	hash1, err := tsf1.Hash()
 	require.NoError(err)
@@ -823,7 +838,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -840,15 +855,16 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(10)
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	nonce, err := ap.GetPendingNonce(_addr2)
 	require.NoError(err)
@@ -858,7 +874,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	require.Equal(uint64(2), nonce)
 
-	require.NoError(ap.Add(context.Background(), tsf2))
+	require.NoError(ap.Add(ctx, tsf2))
 	nonce, err = ap.GetPendingNonce(_addr1)
 	require.NoError(err)
 	require.Equal(uint64(5), nonce)
@@ -870,7 +886,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -888,15 +904,16 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(10)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
-	require.NoError(ap.Add(context.Background(), tsf5))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
+	require.NoError(ap.Add(ctx, tsf5))
 
 	acts := ap.GetUnconfirmedActs(_addr3)
 	require.Equal([]action.SealedEnvelope(nil), acts)
@@ -920,7 +937,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -954,7 +971,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -968,7 +985,7 @@ func TestActPool_GetSize(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -988,26 +1005,29 @@ func TestActPool_GetSize(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 	require.Equal(uint64(4), ap.GetSize())
 	require.Equal(uint64(40000), ap.GetGasSize())
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 4
-		acct.Balance = big.NewInt(100000000000000000)
+		for i := uint64(1); i <= 4; i++ {
+			require.NoError(acct.SetPendingNonce(i + 1))
+		}
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.removeConfirmedActs(ctx)
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())
 }
@@ -1016,8 +1036,8 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
-	apConfig := config.Default.ActPool
-	ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	apConfig := DefaultConfig
+	ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(t, err)
 	tsf, err := action.SignedTransfer(
 		identityset.Address(0).String(),
@@ -1031,6 +1051,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 	require.Error(t, ap.Add(ctx, tsf))
 }
 
@@ -1041,18 +1062,18 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		cfg := &protocol.StateConfig{}
 		for _, opt := range opts {
 			opt(cfg)
 		}
-		acct.Balance = big.NewInt(10000000)
+		require.NoError(acct.AddBalance(big.NewInt(10000000)))
 		return 0, nil
 	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -1066,7 +1087,7 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	require.NoError(err)
 
 	// A send action tsf1 with nonce 1, B send action tsf2 with nonce 1
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 
@@ -1117,8 +1138,15 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	committedState, err := accountutil.AccountState(ap.sf, _addr1)
-	return committedState.Nonce + 1, err
+	committedState, err := accountutil.AccountState(
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		ap.sf,
+		_addr1,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return committedState.PendingNonce(), nil
 }
 
 // Helper function to return the correct pending balance just in case of empty queue
@@ -1130,7 +1158,11 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	state, err := accountutil.AccountState(ap.sf, _addr1)
+	state, err := accountutil.AccountState(
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		ap.sf,
+		_addr1,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1138,8 +1170,8 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	return state.Balance, nil
 }
 
-func getActPoolCfg() config.ActPool {
-	return config.ActPool{
+func getActPoolCfg() Config {
+	return Config{
 		MaxNumActsPerPool:  _maxNumActsPerPool,
 		MaxGasLimitPerPool: _maxGasLimitPerPool,
 		MaxNumActsPerAcct:  _maxNumActsPerAcct,
@@ -1162,4 +1194,10 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
+}
+
+func TestValidateMinGasPrice(t *testing.T) {
+	ap := Config{MinGasPriceStr: DefaultConfig.MinGasPriceStr}
+	mgp := ap.MinGasPrice()
+	require.IsType(t, &big.Int{}, mgp)
 }

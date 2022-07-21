@@ -7,6 +7,7 @@ import (
 	"github.com/schollz/progressbar/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
@@ -85,7 +86,7 @@ func getProgressMod(num uint64) (int, int) {
 	return numInt, step
 }
 
-func migrateDbFile() error {
+func migrateDbFile() (err error) {
 	// Check flags
 	if oldFile == "" {
 		return fmt.Errorf("--old-file is empty")
@@ -113,11 +114,11 @@ func migrateDbFile() error {
 	}
 
 	cfg.DB.DbPath = oldFile
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	oldDAO := blockdao.NewBlockDAO(nil, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	oldDAO := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 
 	cfg.DB.DbPath = newFile
-	newDAO := blockdao.NewBlockDAO(nil, cfg.DB)
+	newDAO := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {
@@ -128,8 +129,8 @@ func migrateDbFile() error {
 	}
 
 	defer func() {
-		oldDAO.Stop(ctx)
-		newDAO.Stop(ctx)
+		err = oldDAO.Stop(ctx)
+		err = newDAO.Stop(ctx)
 	}()
 
 	// Show the progressbar
@@ -151,12 +152,16 @@ func migrateDbFile() error {
 		}
 
 		if i%uint64(step) == 0 {
-			bar.Add(1)
+			if err = bar.Add(1); err != nil {
+				return fmt.Errorf("failed to add 1 on bar on height %d: %v", i, err)
+			}
 			intHeight--
 		}
 	}
 	if intHeight > 0 {
-		bar.Add(intHeight)
+		if err = bar.Add(intHeight); err != nil {
+			return fmt.Errorf("failed to add %d on bar: %v", intHeight, err)
+		}
 	}
 
 	return nil

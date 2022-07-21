@@ -18,10 +18,6 @@ var (
 		config.English: "DID command",
 		config.Chinese: "DID command",
 	}
-	DIDCmdUses = map[config.Language]string{
-		config.English: "did command",
-		config.Chinese: "did command",
-	}
 	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
@@ -34,7 +30,7 @@ var (
 
 // DIDCmd represents the DID command
 var DIDCmd = &cobra.Command{
-	Use:   config.TranslateInLang(DIDCmdUses, config.UILanguage),
+	Use:   "did",
 	Short: config.TranslateInLang(DIDCmdShorts, config.UILanguage),
 }
 

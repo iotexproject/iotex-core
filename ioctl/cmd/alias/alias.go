@@ -25,10 +25,6 @@ var (
 		config.English: "Manage aliases of IoTeX addresses",
 		config.Chinese: "管理IoTeX的地址别名",
 	}
-	_aliasCmdUses = map[config.Language]string{
-		config.English: "alias",
-		config.Chinese: "alias",
-	}
 )
 
 // Errors
@@ -53,7 +49,7 @@ type aliases struct {
 
 // AliasCmd represents the alias command
 var AliasCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_aliasCmdUses, config.UILanguage),
+	Use:   "alias",
 	Short: config.TranslateInLang(_aliasCmdShorts, config.UILanguage),
 }
 

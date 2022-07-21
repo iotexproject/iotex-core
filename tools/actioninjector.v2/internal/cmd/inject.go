@@ -16,12 +16,14 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -35,7 +37,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -72,7 +73,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithInsecure())
 	} else {
 		log.L().Info("secure connection")
-		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		conn, err = grpc.DialContext(grpcctx, injectCfg.serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
 	if err != nil {
 		return nil, err
@@ -86,7 +87,9 @@ func newInjectionProcessor() (*injectProcessor, error) {
 		api:    api,
 		nonces: nonceCache,
 	}
-	p.randAccounts(injectCfg.randAccounts)
+	if err = p.randAccounts(injectCfg.randAccounts); err != nil {
+		return p, err
+	}
 	if injectCfg.loadTokenAmount.BitLen() != 0 {
 		if err := p.loadAccounts(injectCfg.configPath); err != nil {
 			return p, err
@@ -112,7 +115,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 }
 
 func (p *injectProcessor) loadAccounts(keypairsPath string) error {
-	keyPairBytes, err := os.ReadFile(keypairsPath)
+	keyPairBytes, err := os.ReadFile(filepath.Clean(keypairsPath))
 	if err != nil {
 		return errors.Wrap(err, "failed to read key pairs file")
 	}
@@ -394,7 +397,7 @@ func inject(_ []string) string {
 	executionAmount := big.NewInt(rawInjectCfg.executionAmount)
 	loadTokenAmount, ok := new(big.Int).SetString(rawInjectCfg.loadTokenAmount, 10)
 	if !ok {
-		errors.New("failed to load token amount")
+		return fmt.Sprint("failed to load token amount")
 	}
 
 	injectCfg.configPath = rawInjectCfg.configPath

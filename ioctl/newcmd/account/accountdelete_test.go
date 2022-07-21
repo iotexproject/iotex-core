@@ -7,7 +7,6 @@
 package account
 
 import (
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -19,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountDelete(t *testing.T) {
@@ -30,9 +28,7 @@ func TestNewAccountDelete(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).Times(30)
 
-	testAccountFolder, err := os.MkdirTemp(os.TempDir(), "testNewAccountDelete")
-	require.NoError(err)
-	defer testutil.CleanupPath(testAccountFolder)
+	testAccountFolder := t.TempDir()
 
 	t.Run("CryptoSm2 is false", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false).Times(2)
@@ -48,12 +44,12 @@ func TestNewAccountDelete(t *testing.T) {
 			"io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1": "ccc",
 		})
 
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, nil)
 		cmd := NewAccountDelete(client)
 		_, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil)
 		client.EXPECT().DeleteAlias("aaa").Return(nil)
 		cmd = NewAccountDelete(client)
 		result, err := util.ExecuteCmd(cmd)
@@ -86,7 +82,7 @@ func TestNewAccountDelete(t *testing.T) {
 		crypto.WritePrivateKeyToPem(pemFilePath, priKey2.(*crypto.P256sm2PrvKey), "test")
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(addr2.String(), nil)
 
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil)
 		client.EXPECT().DeleteAlias("aaa").Return(nil)
 		cmd := NewAccountDelete(client)
 		result, err := util.ExecuteCmd(cmd)

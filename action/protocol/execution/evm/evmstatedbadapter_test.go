@@ -91,13 +91,14 @@ func TestAddBalance(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)
@@ -113,13 +114,14 @@ func TestRefundAPIs(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -133,13 +135,14 @@ func TestEmptyAndCode(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -169,13 +172,14 @@ func TestForEachStorage(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	stateDB.CreateAccount(addr)
 	for k, v := range kvs {
 		stateDB.SetState(addr, k, v)
@@ -197,15 +201,14 @@ func TestReadContractStorage(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		AsyncContractTrieOption(),
-		SortCachedContractsOption(),
-		UsePendingNonceOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -240,17 +243,60 @@ func TestNonce(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 
-	sm, err := initMockStateManager(ctrl)
-	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	opt := []StateDBAdapterOption{
-		NotFixTopicCopyBugOption(),
-		FixSnapshotOrderOption(),
-	}
-	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
-	require.Equal(uint64(0), stateDB.GetNonce(addr))
-	stateDB.SetNonce(addr, 1)
-	require.Equal(uint64(1), stateDB.GetNonce(addr))
+	t.Run("legacy nonce account with confirmed nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			LegacyNonceAccountOption(),
+			UseConfirmedNonceOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(0), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 1)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+	})
+	t.Run("legacy nonce account with pending nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			LegacyNonceAccountOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 2)
+		require.Equal(uint64(2), stateDB.GetNonce(addr))
+	})
+	t.Run("zero nonce account with confirmed nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			UseConfirmedNonceOption(),
+		}
+		_, err = NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.Error(err)
+	})
+	t.Run("zero nonce account with pending nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(0), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 1)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+	})
 }
 
 var tests = []stateDBTest{
@@ -363,7 +409,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		if revertLog {
 			opt = append(opt, RevertLogOption())
 		}
-		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
 
 		for i, test := range tests {
 			// add balance
@@ -625,7 +672,8 @@ func TestClearSnapshots(t *testing.T) {
 		if fixSnapshotOrder {
 			opts = append(opts, FixSnapshotOrderOption())
 		}
-		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		require.NoError(err)
 
 		for i, test := range tests {
 			// add balance
@@ -701,13 +749,14 @@ func TestGetCommittedState(t *testing.T) {
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(
+		stateDB, err := NewStateDBAdapter(
 			sm,
 			1,
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
+		require.NoError(err)
 
 		stateDB.SetState(_c1, _k1, _v1)
 		// _k2 does not exist
@@ -739,13 +788,14 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(
+		stateDB, err := NewStateDBAdapter(
 			sm,
 			1,
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
+		assert.NoError(t, err)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -757,13 +807,14 @@ func TestPreimage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 
 	stateDB.AddPreimage(common.BytesToHash(_v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(_v2[:]), []byte("dog"))
@@ -785,6 +836,7 @@ func TestPreimage(t *testing.T) {
 }
 
 func TestSortMap(t *testing.T) {
+	require := require.New(t)
 	uniqueSlice := func(slice []string) bool {
 		for _, v := range slice[1:] {
 			if v != slice[0] {
@@ -799,7 +851,8 @@ func TestSortMap(t *testing.T) {
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
-		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		require.NoError(err)
 		size := 10
 
 		for i := 0; i < size; i++ {
@@ -812,13 +865,13 @@ func TestSortMap(t *testing.T) {
 		for i := 0; i < size; i++ {
 			stateDB.RevertToSnapshot(sn)
 			s := ""
-			if stateDB.sortCachedContracts {
-				for _, addr := range stateDB.cachedContractAddrs() {
-					c := stateDB.cachedContract[addr]
+			if stateDB.disableSortCachedContracts {
+				for _, c := range stateDB.cachedContract {
 					s += string(c.SelfState().Root[:])
 				}
 			} else {
-				for _, c := range stateDB.cachedContract {
+				for _, addr := range stateDB.cachedContractAddrs() {
+					c := stateDB.cachedContract[addr]
 					s += string(c.SelfState().Root[:])
 				}
 			}
@@ -827,16 +880,15 @@ func TestSortMap(t *testing.T) {
 		}
 		return uniqueSlice(caches)
 	}
-	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	t.Run("before fix sort map", func(t *testing.T) {
-		require.False(testFunc(t, sm))
+		require.False(testFunc(t, sm, DisableSortCachedContractsOption()))
 	})
 
 	t.Run("after fix sort map", func(t *testing.T) {
-		require.True(testFunc(t, sm, SortCachedContractsOption()))
+		require.True(testFunc(t, sm))
 	})
 }

@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -95,12 +94,13 @@ func TestNewFileDAOv2(t *testing.T) {
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
-	_, err = newFileDAOv2(0, cfg)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
+	_, err = newFileDAOv2(0, cfg, deser)
 	r.Equal(ErrNotSupported, err)
 
 	inMemFd, err := newFileDAOv2InMem(1)
 	r.NoError(err)
-	fd, err := newFileDAOv2(2, cfg)
+	fd, err := newFileDAOv2(2, cfg, deser)
 	r.NoError(err)
 
 	for _, v2Fd := range []*fileDAOv2{inMemFd, fd} {
@@ -115,7 +115,8 @@ func TestNewFdInterface(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(cfg.DbPath)
-		fd, err := newFileDAOv2(start, cfg)
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
+		fd, err := newFileDAOv2(start, cfg, deser)
 		r.NoError(err)
 
 		ctx := context.Background()
@@ -256,10 +257,11 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	_, err = newFileDAOv2(0, cfg)
+	deser := block.NewDeserializer(_defaultEVMNetworkID)
+	_, err = newFileDAOv2(0, cfg, deser)
 	r.Equal(ErrNotSupported, err)
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
+	block.LoadGenesisHash(&genesis.Default)
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, _blockStoreBatchSize + 1, 4 * _blockStoreBatchSize} {
@@ -274,10 +276,10 @@ func TestNewFdInterface(t *testing.T) {
 func TestNewFdStart(t *testing.T) {
 	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
-
+		deser := block.NewDeserializer(_defaultEVMNetworkID)
 		for _, num := range []uint64{3, _blockStoreBatchSize - 1, _blockStoreBatchSize, 2*_blockStoreBatchSize - 1} {
 			testutil.CleanupPath(cfg.DbPath)
-			fd, err := newFileDAOv2(start, cfg)
+			fd, err := newFileDAOv2(start, cfg, deser)
 			r.NoError(err)
 			ctx := context.Background()
 			r.NoError(fd.Start(ctx))
@@ -290,7 +292,7 @@ func TestNewFdStart(t *testing.T) {
 			r.NoError(fd.Stop(ctx))
 
 			// start from existing file
-			fd = openFileDAOv2(cfg)
+			fd = openFileDAOv2(cfg, deser)
 			r.NoError(fd.Start(ctx))
 			height, err = fd.Bottom()
 			r.NoError(err)

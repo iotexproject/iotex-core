@@ -239,7 +239,9 @@ func set(args []string) error {
 		case args[1] == "custom":
 			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
-			fmt.Scanln(&link)
+			if _, err := fmt.Scanln(&link); err != nil {
+				return output.NewError(output.InputError, "failed to input link", err)
+			}
 			match, err := regexp.MatchString(_urlPattern, link)
 			if err != nil {
 				return output.NewError(output.UndefinedError, "failed to validate link", nil)

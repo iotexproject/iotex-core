@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -41,6 +42,8 @@ type (
 		Stop(context.Context) error
 		// Config returns the config of the client
 		Config() config.Config
+		// ConfigFilePath returns the file path of the config
+		ConfigFilePath() string
 		// SetEndpointWithFlag receives input flag value
 		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
@@ -50,7 +53,7 @@ type (
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
-		AskToConfirm(string) bool
+		AskToConfirm(string) (bool, error)
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
 		// Execute a bash command
@@ -65,6 +68,8 @@ type (
 		DecryptPrivateKey(string, string) (*ecdsa.PrivateKey, error)
 		// AliasMap returns the alias map: accountAddr-aliasName
 		AliasMap() map[string]string
+		// Alias returns the alias corresponding to address
+		Alias(string) (string, error)
 		// SetAlias updates aliasname and account address and not write them into the default config file
 		SetAlias(string, string)
 		// SetAliasAndSave updates aliasname and account address and write them into the default config file
@@ -79,8 +84,12 @@ type (
 		QueryAnalyser(interface{}) (*http.Response, error)
 		// ReadInput reads the input from stdin
 		ReadInput() (string, error)
-		// WriteHdWalletConfigFile write encrypting mnemonic into config file
+		// HdwalletMnemonic returns the mnemonic of hdwallet
+		HdwalletMnemonic(string) (string, error)
+		// WriteHdWalletConfigFile writes encrypting mnemonic into config file
 		WriteHdWalletConfigFile(string, string) error
+		// RemoveHdWalletConfigFile removes hdwalletConfigFile
+		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
 	}
@@ -143,6 +152,11 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
+// ConfigFilePath returns the file path for the config.
+func (c *client) ConfigFilePath() string {
+	return c.configFilePath
+}
+
 func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
 	usage, _ := c.SelectTranslation(map[config.Language]string{
 		config.English: "set endpoint for once",
@@ -159,12 +173,14 @@ func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
 	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
 }
 
-func (c *client) AskToConfirm(info string) bool {
+func (c *client) AskToConfirm(info string) (bool, error) {
 	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
 	var confirm string
-	fmt.Scanf("%s", &confirm)
-	return strings.EqualFold(confirm, "yes")
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return false, err
+	}
+	return strings.EqualFold(confirm, "yes"), nil
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
@@ -200,7 +216,7 @@ func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	if c.insecure {
 		c.conn, err = grpc.Dial(c.endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
 	if err != nil {
 		return nil, err
@@ -244,7 +260,7 @@ func (c *client) NewKeyStore() *keystore.KeyStore {
 }
 
 func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 	}
@@ -271,6 +287,18 @@ func (c *client) AliasMap() map[string]string {
 		aliases[addr] = name
 	}
 	return aliases
+}
+
+func (c *client) Alias(address string) (string, error) {
+	if err := validator.ValidateAddress(address); err != nil {
+		return "", err
+	}
+	for aliasName, addr := range c.cfg.Aliases {
+		if addr == address {
+			return aliasName, nil
+		}
+	}
+	return "", errors.New("no alias is found")
 }
 
 func (c *client) SetAlias(aliasName string, addr string) {
@@ -329,6 +357,33 @@ func (c *client) ReadInput() (string, error) { // notest
 	return line, nil
 }
 
+func (c *client) HdwalletMnemonic(password string) (string, error) {
+	// derive key as "m/44'/304'/account'/change/index"
+	if !c.IsHdWalletConfigFileExist() {
+		return "", errors.New("run 'ioctl hdwallet create' to create your HDWallet first")
+	}
+	enctxt, err := os.ReadFile(c.hdWalletConfigFile)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read config file %s", c.hdWalletConfigFile)
+	}
+
+	enckey := util.HashSHA256([]byte(password))
+	dectxt, err := util.Decrypt(enctxt, enckey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decrypt")
+	}
+
+	dectxtLen := len(dectxt)
+	if dectxtLen <= 32 {
+		return "", errors.Errorf("incorrect data dectxtLen %d", dectxtLen)
+	}
+	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
+	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
+		return "", errors.New("password error")
+	}
+	return string(mnemonic), nil
+}
+
 func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error {
 	enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
 	enckey := util.HashSHA256([]byte(password))
@@ -340,6 +395,10 @@ func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error
 		return errors.Wrapf(err, "failed to write to config file %s", c.hdWalletConfigFile)
 	}
 	return nil
+}
+
+func (c *client) RemoveHdWalletConfigFile() error {
+	return os.Remove(c.hdWalletConfigFile)
 }
 
 func (c *client) IsHdWalletConfigFileExist() bool { // notest

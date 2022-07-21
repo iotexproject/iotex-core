@@ -26,13 +26,14 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
@@ -40,10 +41,6 @@ var (
 	_accountCmdShorts = map[config.Language]string{
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
-	}
-	_accountCmdUses = map[config.Language]string{
-		config.English: "account",
-		config.Chinese: "账户",
 	}
 	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
@@ -65,7 +62,7 @@ var CryptoSm2 bool
 
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_accountCmdUses, config.UILanguage),
+	Use:   "account",
 	Short: config.TranslateInLang(_accountCmdShorts, config.UILanguage),
 }
 
@@ -309,7 +306,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return "", output.NewError(output.ReadFileError,
 			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)

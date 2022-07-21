@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -220,19 +221,19 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableArchiveMode = true
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Genesis.BlockGasLimit = config.Default.Genesis.BlockGasLimit * 100
+	cfg.Genesis.BlockGasLimit = genesis.Default.BlockGasLimit * 100
 	cfg.ActPool.MinGasPriceStr = "0"
-	cfg.ActPool.MaxNumActsPerAcct = 1000000000
+	cfg.ActPool.MaxNumActsPerAcct = 10000
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewBoltDB(cfg.DB)
-	sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
+	sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry), factory.DisableWorkingSetCacheOption())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -258,13 +259,14 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(indexers, cfg.DB, deser)
 	if dao == nil {
 		return nil, nil, errors.New("pointer is nil")
 	}
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(

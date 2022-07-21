@@ -99,7 +99,7 @@ type (
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+		workingsets              cache.LRUCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
@@ -230,7 +230,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sf.cfg.Genesis.Timestamp, 0),
-				Producer:       sf.cfg.ProducerAddress(),
+				Producer:       sf.cfg.Chain.ProducerAddress(),
 				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
 			})
 		ctx = protocol.WithFeatureCtx(ctx)

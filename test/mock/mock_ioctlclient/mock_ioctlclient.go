@@ -84,6 +84,21 @@ func (mr *MockClientMockRecorder) AddressWithDefaultIfNotExist(in interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddressWithDefaultIfNotExist", reflect.TypeOf((*MockClient)(nil).AddressWithDefaultIfNotExist), in)
 }
 
+// Alias mocks base method.
+func (m *MockClient) Alias(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Alias", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Alias indicates an expected call of Alias.
+func (mr *MockClientMockRecorder) Alias(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Alias", reflect.TypeOf((*MockClient)(nil).Alias), arg0)
+}
+
 // AliasMap mocks base method.
 func (m *MockClient) AliasMap() map[string]string {
 	m.ctrl.T.Helper()
@@ -99,11 +114,12 @@ func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
 }
 
 // AskToConfirm mocks base method.
-func (m *MockClient) AskToConfirm(arg0 string) bool {
+func (m *MockClient) AskToConfirm(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
 	ret0, _ := ret[0].(bool)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AskToConfirm indicates an expected call of AskToConfirm.
@@ -124,6 +140,20 @@ func (m *MockClient) Config() config.Config {
 func (mr *MockClientMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
+}
+
+// ConfigFilePath mocks base method.
+func (m *MockClient) ConfigFilePath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigFilePath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ConfigFilePath indicates an expected call of ConfigFilePath.
+func (mr *MockClientMockRecorder) ConfigFilePath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigFilePath", reflect.TypeOf((*MockClient)(nil).ConfigFilePath))
 }
 
 // DecryptPrivateKey mocks base method.
@@ -167,6 +197,21 @@ func (m *MockClient) Execute(arg0 string) error {
 func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
+}
+
+// HdwalletMnemonic mocks base method.
+func (m *MockClient) HdwalletMnemonic(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HdwalletMnemonic", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HdwalletMnemonic indicates an expected call of HdwalletMnemonic.
+func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
 }
 
 // IsCryptoSm2 mocks base method.
@@ -254,6 +299,20 @@ func (m *MockClient) ReadSecret() (string, error) {
 func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
+}
+
+// RemoveHdWalletConfigFile mocks base method.
+func (m *MockClient) RemoveHdWalletConfigFile() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHdWalletConfigFile")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHdWalletConfigFile indicates an expected call of RemoveHdWalletConfigFile.
+func (mr *MockClientMockRecorder) RemoveHdWalletConfigFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).RemoveHdWalletConfigFile))
 }
 
 // SelectTranslation mocks base method.

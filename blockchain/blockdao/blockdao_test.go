@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -177,9 +176,9 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(dao BlockDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
-				ChainID: config.Default.Chain.ID,
+				ChainID: 1,
 			})
 		require.NoError(dao.Start(ctx))
 		defer func() {
@@ -290,9 +289,9 @@ func TestBlockDAO(t *testing.T) {
 
 	testDeleteDao := func(dao BlockDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
-			genesis.WithGenesisContext(context.Background(), config.Default.Genesis),
+			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
-				ChainID: config.Default.Chain.ID,
+				ChainID: 1,
 			})
 		require.NoError(dao.Start(ctx))
 		defer func() {
@@ -414,8 +413,8 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash(&config.Default.Genesis)
+	genesis.SetGenesisTimestamp(genesis.Default.Timestamp)
+	block.LoadGenesisHash(&genesis.Default)
 	for _, v := range daoList {
 		testutil.CleanupPath(testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
@@ -441,9 +440,9 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil), nil
 	}
-
+	deser := block.NewDeserializer(4689)
 	if legacy {
-		fileDAO, err := filedao.CreateFileDAO(true, cfg)
+		fileDAO, err := filedao.CreateFileDAO(true, cfg, deser)
 		if err != nil {
 			return nil, err
 		}
@@ -451,7 +450,7 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Conf
 	}
 
 	cfg.Compressor = compressBlock
-	return NewBlockDAO(nil, cfg), nil
+	return NewBlockDAO(nil, cfg, deser), nil
 }
 
 func BenchmarkBlockCache(b *testing.B) {
@@ -472,7 +471,8 @@ func BenchmarkBlockCache(b *testing.B) {
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
 		cfg.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO([]BlockIndexer{}, cfg)
+		deser := block.NewDeserializer(4689)
+		blkDao := NewBlockDAO([]BlockIndexer{}, cfg, deser)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

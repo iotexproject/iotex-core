@@ -199,7 +199,10 @@ func ExecuteContract(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
-	stateDB := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, nil, err
+	}
 	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err
@@ -280,18 +283,24 @@ func ReadContractStorage(
 			BlockHeight: bcCtx.Tip.Height + 1,
 		},
 	))
-	stateDB := prepareStateDB(ctx, sm)
+	stateDB, err := prepareStateDB(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
 	res := stateDB.GetState(common.BytesToAddress(contract.Bytes()), common.BytesToHash(key))
 	return res[:], nil
 }
 
-func prepareStateDB(ctx context.Context, sm protocol.StateManager) *StateDBAdapter {
+func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdapter, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	opts := []StateDBAdapterOption{}
-	if featureCtx.UsePendingNonceOption {
-		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
+	if featureCtx.CreateLegacyNonceAccount {
+		opts = append(opts, LegacyNonceAccountOption())
+	}
+	if !featureCtx.FixSortCacheContractsAndUsePendingNonce {
+		opts = append(opts, DisableSortCachedContractsOption(), UseConfirmedNonceOption())
 	}
 	if featureCtx.NotFixTopicCopyBug {
 		opts = append(opts, NotFixTopicCopyBugOption())

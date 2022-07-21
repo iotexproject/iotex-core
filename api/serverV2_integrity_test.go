@@ -285,7 +285,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
-	ap, err := setupActPool(sf, cfg.ActPool)
+	ap, err := setupActPool(cfg.Genesis, sf, cfg.ActPool)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
@@ -309,7 +309,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -354,8 +355,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
 }
 
-func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
-	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
+func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (actpool.ActPool, error) {
+	ap, err := actpool.NewActPool(g, sf, cfg, actpool.EnableExperimentalActions())
 	if err != nil {
 		return nil, err
 	}
@@ -435,6 +436,9 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = 0
+	cfg.API.WebSocketPort = 0
 	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err

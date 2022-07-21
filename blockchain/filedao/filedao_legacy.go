@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -56,17 +55,19 @@ type (
 		topIndex      atomic.Value
 		htf           db.RangeIndex
 		kvStore       db.KVStore
-		kvStores      *cache.ThreadSafeLruCache //store like map[index]db.KVStore,index from 1...N
+		kvStores      cache.LRUCache //store like map[index]db.KVStore,index from 1...N
+		deser         *block.Deserializer
 	}
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg db.Config) (FileDAO, error) {
+func newFileDAOLegacy(cfg db.Config, deser *block.Deserializer) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
 		kvStore:       db.NewBoltDB(cfg),
 		kvStores:      cache.NewThreadSafeLruCache(0),
+		deser:         deser,
 	}, nil
 }
 
@@ -263,8 +264,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		// block body could be empty
 		return &block.Body{}, nil
 	}
-	// TODO: pass the correct EVM network ID at the time of newFileDAOLegacy()
-	return (&block.Deserializer{}).SetEvmNetworkID(config.EVMNetworkID()).DeserializeBody(value)
+	return fd.deser.DeserializeBody(value)
 }
 
 func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {

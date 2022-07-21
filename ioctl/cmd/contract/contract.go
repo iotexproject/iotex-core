@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -31,10 +32,6 @@ var (
 
 // Multi-language support
 var (
-	_contractCmdUses = map[config.Language]string{
-		config.English: "contract",
-		config.Chinese: "contract",
-	}
 	_contractCmdShorts = map[config.Language]string{
 		config.English: "Deal with smart contract of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链的智能合约",
@@ -55,7 +52,7 @@ var (
 
 // ContractCmd represents the contract command
 var ContractCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_contractCmdUses, config.UILanguage),
+	Use:   "contract",
 	Short: config.TranslateInLang(_contractCmdShorts, config.UILanguage),
 }
 
@@ -105,7 +102,7 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 }
 
 func readAbiFile(abiFile string) (*abi.ABI, error) {
-	abiBytes, err := os.ReadFile(abiFile)
+	abiBytes, err := os.ReadFile(filepath.Clean(abiFile))
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
 	}

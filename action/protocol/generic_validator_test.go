@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -53,30 +52,45 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		BlockchainCtx{
 			Tip: TipInfo{
 				Height:    0,
-				Hash:      config.Default.Genesis.Hash(),
-				Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
+				Hash:      genesis.Default.Hash(),
+				Timestamp: time.Unix(genesis.Default.Timestamp, 0),
 			},
 		},
 	)
 
-	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
+	ctx = WithFeatureCtx(genesis.WithGenesisContext(ctx, genesis.Default))
 
-	valid := NewGenericValidator(nil, func(sr StateReader, addr address.Address) (*state.Account, error) {
+	valid := NewGenericValidator(nil, func(_ context.Context, sr StateReader, addr address.Address) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
 		eAddr := pk.Address()
 		if strings.EqualFold(eAddr.String(), addr.String()) {
 			return nil, errors.New("MockChainManager nonce error")
 		}
-		return &state.Account{Nonce: 2}, nil
+		acct, err := state.NewAccount()
+		if err != nil {
+			return nil, err
+		}
+		if err := acct.SetPendingNonce(1); err != nil {
+			return nil, err
+		}
+		if err := acct.SetPendingNonce(2); err != nil {
+			return nil, err
+		}
+		if err := acct.SetPendingNonce(3); err != nil {
+			return nil, err
+		}
+
+		return acct, nil
 	})
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	t.Run("normal", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", 3, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
+			SetNonce(3).
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
@@ -100,11 +114,12 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.Contains(err.Error(), action.ErrIntrinsicGas.Error())
 	})
 	t.Run("state error", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
+			SetNonce(1).
 			SetAction(v).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
@@ -113,6 +128,21 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.Contains(err.Error(), "invalid state of account")
+	})
+	t.Run("invalid system action nonce", func(t *testing.T) {
+		gr := action.GrantReward{}
+		gr.SetNonce(1)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetGasPrice(big.NewInt(10)).
+			SetNonce(1).
+			SetGasLimit(uint64(100000)).
+			SetAction(&gr).Build()
+		selp, err := action.Sign(elp, identityset.PrivateKey(28))
+		require.NoError(err)
+		nselp, err := (&action.Deserializer{}).SetEvmNetworkID(_evmNetworkID).ActionToSealedEnvelope(selp.Proto())
+		require.NoError(err)
+		err = valid.Validate(ctx, nselp)
+		require.Equal(action.ErrSystemActionNonce, errors.Cause(err))
 	})
 	t.Run("nonce too low", func(t *testing.T) {
 		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)

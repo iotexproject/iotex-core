@@ -25,20 +25,27 @@ const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
 	}
+	var (
+		fCtx      = protocol.MustGetFeatureCtx(ctx)
+		actionCtx = protocol.MustGetActionCtx(ctx)
+		blkCtx    = protocol.MustGetBlockCtx(ctx)
+	)
+	accountCreationOpts := []state.AccountCreationOption{}
+	if fCtx.CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+	}
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller)
+	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
 	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
+	if !sender.HasSufficientBalance(big.NewInt(0).Add(tsf.Amount(), gasFee)) {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
 			"sender %s balance %s, required amount %s",
@@ -48,10 +55,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	var (
-		depositLog *action.TransactionLog
-		fCtx       = protocol.MustGetFeatureCtx(ctx)
-	)
+	var depositLog *action.TransactionLog
 	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
@@ -65,6 +69,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 
+	if fCtx.FixGasAndNonceUpdate || tsf.Nonce() != 0 {
+		// update sender Nonce
+		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
+		}
+	}
+
 	var recipientAddr address.Address
 	if fCtx.TolerateLegacyAddress {
 		recipientAddr, err = address.FromStringLegacy(tsf.Recipient())
@@ -74,13 +85,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
 	}
-	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr)
+	recipientAcct, err := accountutil.LoadAccount(sm, recipientAddr, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 	}
 	if recipientAcct.IsContract() {
-		// update sender Nonce
-		accountutil.SetNonce(tsf, sender)
 		// put updated sender's state to trie
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
@@ -108,18 +117,20 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err := sender.SubBalance(tsf.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", actionCtx.Caller.String())
 	}
-	// update sender Nonce
-	accountutil.SetNonce(tsf, sender)
+
 	// put updated sender's state to trie
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
+
 	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr)
+	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr, accountCreationOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
-	recipient.AddBalance(tsf.Amount())
+	if err := recipient.AddBalance(tsf.Amount()); err != nil {
+		return nil, errors.Wrapf(err, "failed to add balance %s", tsf.Amount())
+	}
 	// put updated recipient's state to trie
 	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")

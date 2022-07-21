@@ -44,7 +44,7 @@ type stateDB struct {
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+	workingsets              cache.LRUCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 	ps                       *patchStore
@@ -124,6 +124,14 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 	}
 }
 
+// DisableWorkingSetCacheOption disable workingset cache
+func DisableWorkingSetCacheOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		sdb.workingsets = cache.NewDummyLruCache()
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
@@ -180,7 +188,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
-				Producer:       sdb.cfg.ProducerAddress(),
+				Producer:       sdb.cfg.Chain.ProducerAddress(),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
 			})
 		ctx = protocol.WithFeatureCtx(ctx)
