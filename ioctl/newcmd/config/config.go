@@ -7,9 +7,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -98,7 +98,7 @@ func InitConfig() (config.Config, string, error) {
 		}
 	}
 	// Set language for ioctl
-	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
+	if isSupportedLanguage(info.readConfig.Language) == -1 {
 		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
 	return info.readConfig, info.defaultConfigFile, nil
@@ -114,7 +114,7 @@ func newInfo(readConfig config.Config, defaultConfigFile string) *info {
 
 // reset resets all values of config
 func (c *info) reset() error {
-	c.readConfig.Wallet = path.Dir(c.defaultConfigFile)
+	c.readConfig.Wallet = filepath.Dir(c.defaultConfigFile)
 	c.readConfig.Endpoint = ""
 	c.readConfig.SecureConnect = true
 	c.readConfig.DefaultAccount = *new(config.Context)
@@ -178,7 +178,7 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 		}
 		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
 	case "language":
-		language := c.isSupportedLanguage(args[1])
+		language := isSupportedLanguage(args[1])
 		if language == -1 {
 			return "", errors.New(
 				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
@@ -203,17 +203,34 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 	return cases.Title(language.Und).String(args[0]) + " is set to " + args[1], nil
 }
 
-// isSupportedLanguage checks if the language is a supported option and returns index when supported
-func (c *info) isSupportedLanguage(arg string) config.Language {
-	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
-		return config.Language(index)
-	}
-	for i, lang := range _supportedLanguage {
-		if strings.EqualFold(arg, lang) {
-			return config.Language(i)
+// get retrieves a config item from its key.
+func (c *info) get(arg string) (string, error) {
+	switch arg {
+	case "endpoint":
+		if c.readConfig.Endpoint == "" {
+			return "", config.ErrEmptyEndpoint
 		}
+		return fmt.Sprintf("%s secure connect(TLS): %t", c.readConfig.Endpoint, c.readConfig.SecureConnect), nil
+	case "wallet":
+		return c.readConfig.Wallet, nil
+	case "defaultacc":
+		if c.readConfig.DefaultAccount.AddressOrAlias == "" {
+			return "", config.ErrConfigDefaultAccountNotSet
+		}
+		return jsonString(c.readConfig.DefaultAccount)
+	case "explorer":
+		return c.readConfig.Explorer, nil
+	case "language":
+		return c.readConfig.Language, nil
+	case "nsv2height":
+		return strconv.FormatUint(c.readConfig.Nsv2height, 10), nil
+	case "analyserEndpoint":
+		return c.readConfig.AnalyserEndpoint, nil
+	case "all":
+		return jsonString(c.readConfig)
+	default:
+		return "", config.ErrConfigNotMatch
 	}
-	return config.Language(-1)
 }
 
 // isValidEndpoint makes sure the endpoint matches the endpoint match pattern
@@ -253,4 +270,26 @@ func (c *info) loadConfig() error {
 		return errors.Wrap(err, "failed to unmarshal config")
 	}
 	return nil
+}
+
+// isSupportedLanguage checks if the language is a supported option and returns index when supported
+func isSupportedLanguage(arg string) config.Language {
+	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
+		return config.Language(index)
+	}
+	for i, lang := range _supportedLanguage {
+		if strings.EqualFold(arg, lang) {
+			return config.Language(i)
+		}
+	}
+	return config.Language(-1)
+}
+
+// jsonString returns json string for message
+func jsonString(input interface{}) (string, error) {
+	byteAsJSON, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to JSON marshal config field")
+	}
+	return fmt.Sprint(string(byteAsJSON)), nil
 }
