@@ -38,6 +38,9 @@ func GenMarkdownTreeCustom(c *cobra.Command, dir string, name string, path strin
 		return err
 	}
 	defer func() {
+		if err != nil {
+			return
+		}
 		err = f.Close()
 	}()
 	if _, err = io.WriteString(f, filePrepender(filename)); err != nil {
