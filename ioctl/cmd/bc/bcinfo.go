@@ -23,15 +23,11 @@ var (
 		config.English: "Get current blockchain information",
 		config.Chinese: "获取当前区块链信息",
 	}
-	_bcInfoCmdUses = map[config.Language]string{
-		config.English: "info",
-		config.Chinese: "info",
-	}
 )
 
 // _bcInfoCmd represents the bc info command
 var _bcInfoCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_bcInfoCmdUses, config.UILanguage),
+	Use:   "info",
 	Short: config.TranslateInLang(_bcInfoCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {

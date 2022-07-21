@@ -9,11 +9,12 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -32,6 +33,8 @@ var (
 	ErrConfigNotMatch = fmt.Errorf("no matching config")
 	// ErrEmptyEndpoint indicates error for empty endpoint
 	ErrEmptyEndpoint = fmt.Errorf("no endpoint has been set")
+	// ErrConfigDefaultAccountNotSet indicates an error for the default account not being set
+	ErrConfigDefaultAccountNotSet = fmt.Errorf("default account not set")
 )
 
 // Language type used to enumerate supported language of ioctl
@@ -106,7 +109,7 @@ func init() {
 		completeness = false
 	}
 	if ReadConfig.Nsv2height == 0 {
-		ReadConfig.Nsv2height = config.Default.Genesis.FairbankBlockHeight
+		ReadConfig.Nsv2height = genesis.Default.FairbankBlockHeight
 	}
 	if ReadConfig.AnalyserEndpoint == "" {
 		ReadConfig.AnalyserEndpoint = _defaultAnalyserEndpoint
@@ -137,7 +140,7 @@ func LoadConfig() (Config, error) {
 	ReadConfig := Config{
 		Aliases: make(map[string]string),
 	}
-	in, err := os.ReadFile(DefaultConfigFile)
+	in, err := os.ReadFile(filepath.Clean(DefaultConfigFile))
 	if err == nil {
 		if err := yaml.Unmarshal(in, &ReadConfig); err != nil {
 			return ReadConfig, err

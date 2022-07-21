@@ -18,10 +18,6 @@ import (
 
 // Multi-language support
 var (
-	_stake2CmdUses = map[config.Language]string{
-		config.English: "stake2",
-		config.Chinese: "stake2",
-	}
 	_stake2CmdShorts = map[config.Language]string{
 		config.English: "Support native staking of IoTeX blockchain",
 		config.Chinese: "支持来自ioctl的本地质押",
@@ -44,7 +40,7 @@ var _stake2AutoStake bool
 
 //Stake2Cmd represent stake2 command
 var Stake2Cmd = &cobra.Command{
-	Use:   config.TranslateInLang(_stake2CmdUses, config.UILanguage),
+	Use:   "stake2",
 	Short: config.TranslateInLang(_stake2CmdShorts, config.UILanguage),
 }
 

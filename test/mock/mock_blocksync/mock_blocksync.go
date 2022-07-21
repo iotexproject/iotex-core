@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 )
 
 // MockBlockSync is a mock of BlockSync interface.
@@ -50,7 +51,7 @@ func (mr *MockBlockSyncMockRecorder) ProcessBlock(arg0, arg1, arg2 interface{}) 
 }
 
 // ProcessSyncRequest mocks base method.
-func (m *MockBlockSync) ProcessSyncRequest(arg0 context.Context, arg1, arg2 uint64, arg3 func(context.Context, *block.Block) error) error {
+func (m *MockBlockSync) ProcessSyncRequest(arg0 context.Context, arg1 peer.AddrInfo, arg2, arg3 uint64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessSyncRequest", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

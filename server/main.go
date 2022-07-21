@@ -108,10 +108,9 @@ func main() {
 	}
 	defer recovery.Recover()
 
-	// populdate chain ID
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	if config.EVMNetworkID() == 0 {
-		glog.Fatalln("EVM Network ID is not set, call config.New() first")
+	// check EVM network ID and chain ID
+	if cfg.Chain.EVMNetworkID == 0 || cfg.Chain.ID == 0 {
+		glog.Fatalln("EVM Network ID or Chain ID is not set, call config.New() first")
 	}
 
 	cfg.Genesis = genesisCfg
@@ -119,7 +118,7 @@ func main() {
 	cfgToLog.Chain.ProducerPrivKey = ""
 	cfgToLog.Network.MasterKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
-	log.S().Infof("EVM Network ID: %d, Chain ID: %d", config.EVMNetworkID(), cfg.Chain.ID)
+	log.S().Infof("EVM Network ID: %d, Chain ID: %d", cfg.Chain.EVMNetworkID, cfg.Chain.ID)
 	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
 	log.S().Infof("Genesis hash: %x", block.GenesisHash())
 
@@ -169,7 +168,7 @@ func main() {
 }
 
 func initLogger(cfg config.Config) error {
-	addr := cfg.ProducerAddress()
+	addr := cfg.Chain.ProducerAddress()
 	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
 	))

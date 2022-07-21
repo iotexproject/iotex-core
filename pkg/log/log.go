@@ -90,7 +90,7 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 			return err
 		}
 		if cfg.StderrRedirectFile != nil {
-			stderrF, err := os.OpenFile(*cfg.StderrRedirectFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0644)
+			stderrF, err := os.OpenFile(*cfg.StderrRedirectFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0600)
 			if err != nil {
 				return err
 			}

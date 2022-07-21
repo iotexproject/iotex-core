@@ -114,11 +114,12 @@ func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
 }
 
 // AskToConfirm mocks base method.
-func (m *MockClient) AskToConfirm(arg0 string) bool {
+func (m *MockClient) AskToConfirm(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
 	ret0, _ := ret[0].(bool)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AskToConfirm indicates an expected call of AskToConfirm.
@@ -139,6 +140,20 @@ func (m *MockClient) Config() config.Config {
 func (mr *MockClientMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockClient)(nil).Config))
+}
+
+// ConfigFilePath mocks base method.
+func (m *MockClient) ConfigFilePath() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigFilePath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ConfigFilePath indicates an expected call of ConfigFilePath.
+func (mr *MockClientMockRecorder) ConfigFilePath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigFilePath", reflect.TypeOf((*MockClient)(nil).ConfigFilePath))
 }
 
 // DecryptPrivateKey mocks base method.
@@ -284,6 +299,20 @@ func (m *MockClient) ReadSecret() (string, error) {
 func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
+}
+
+// RemoveHdWalletConfigFile mocks base method.
+func (m *MockClient) RemoveHdWalletConfigFile() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHdWalletConfigFile")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHdWalletConfigFile indicates an expected call of RemoveHdWalletConfigFile.
+func (mr *MockClientMockRecorder) RemoveHdWalletConfigFile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).RemoveHdWalletConfigFile))
 }
 
 // SelectTranslation mocks base method.

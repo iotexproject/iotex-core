@@ -23,7 +23,27 @@ import (
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	for _, test := range _getAccountTests {
+		accountMeta := &iotextypes.AccountMeta{
+			Address: test.address,
+		}
+		blockIdentifier := &iotextypes.BlockIdentifier{}
+		request := &iotexapi.GetAccountRequest{
+			Address: test.address,
+		}
+
+		core.EXPECT().Account(gomock.Any()).Return(accountMeta, blockIdentifier, nil)
+
+		res, err := grpcSvr.GetAccount(context.Background(), request)
+		require.NoError(err)
+		require.Equal(test.address, res.AccountMeta.Address)
+	}
 }
 
 func TestGrpcServer_GetActions(t *testing.T) {
@@ -66,7 +86,6 @@ func TestGrpcServer_SendAction(t *testing.T) {
 	grpcSvr := newGRPCHandler(core)
 
 	for _, test := range _sendActionTests {
-		core.EXPECT().EVMNetworkID().Return(uint32(1))
 		core.EXPECT().SendAction(context.Background(), test.actionPb).Return(test.actionHash, nil)
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := grpcSvr.SendAction(context.Background(), request)
@@ -84,7 +103,20 @@ func TestGrpcServer_GetReceiptByAction(t *testing.T) {
 }
 
 func TestGrpcServer_GetServerMeta(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	core.EXPECT().ServerMeta().Return("packageVersion", "packageCommitID", "gitStatus", "goVersion", "buildTime")
+	res, err := grpcSvr.GetServerMeta(context.Background(), &iotexapi.GetServerMetaRequest{})
+	require.NoError(err)
+	require.Equal("packageVersion", res.ServerMeta.PackageVersion)
+	require.Equal("packageCommitID", res.ServerMeta.PackageCommitID)
+	require.Equal("gitStatus", res.ServerMeta.GitStatus)
+	require.Equal("goVersion", res.ServerMeta.GoVersion)
+	require.Equal("buildTime", res.ServerMeta.BuildTime)
 }
 
 func TestGrpcServer_ReadContract(t *testing.T) {

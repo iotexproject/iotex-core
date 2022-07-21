@@ -39,10 +39,6 @@ var (
 		config.English: "Manage actions of IoTeX blockchain",
 		config.Chinese: "管理IoTex区块链的行为", // this translation
 	}
-	_actionCmdUses = map[config.Language]string{
-		config.English: "action",
-		config.Chinese: "action 行为", // this translation
-	}
 	_flagActionEndPointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点", // this translation
@@ -70,7 +66,7 @@ var (
 
 // ActionCmd represents the action command
 var ActionCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_actionCmdUses, config.UILanguage),
+	Use:   "action",
 	Short: config.TranslateInLang(_actionCmdShorts, config.UILanguage),
 }
 
@@ -299,7 +295,9 @@ func SendAction(elp action.Envelope, signer string) error {
 		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 		fmt.Println(message.String())
 
-		fmt.Scanf("%s", &confirm)
+		if _, err := fmt.Scanf("%s", &confirm); err != nil {
+			return output.NewError(output.InputError, "failed to input yes", err)
+		}
 		if !strings.EqualFold(confirm, "yes") {
 			output.PrintResult("quit")
 			return nil

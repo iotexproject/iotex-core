@@ -40,10 +40,6 @@ var (
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
 	}
-	_accountCmdUses = map[config.Language]string{
-		config.English: "account",
-		config.Chinese: "账户",
-	}
 )
 
 // Errors
@@ -54,11 +50,10 @@ var (
 
 // NewAccountCmd represents the account command
 func NewAccountCmd(client ioctl.Client) *cobra.Command {
-	accountUses, _ := client.SelectTranslation(_accountCmdUses)
 	accountShorts, _ := client.SelectTranslation(_accountCmdShorts)
 
 	ac := &cobra.Command{
-		Use:   accountUses,
+		Use:   "account",
 		Short: accountShorts,
 	}
 	ac.AddCommand(NewAccountCreate(client))

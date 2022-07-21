@@ -29,11 +29,15 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if !ok {
 		return nil, nil
 	}
+	var (
+		fCtx      = protocol.MustGetFeatureCtx(ctx)
+		actionCtx = protocol.MustGetActionCtx(ctx)
+		blkCtx    = protocol.MustGetBlockCtx(ctx)
+	)
 	accountCreationOpts := []state.AccountCreationOption{}
-	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+	if fCtx.CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
-	actionCtx := protocol.MustGetActionCtx(ctx)
 	// check sender
 	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
@@ -51,10 +55,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	var (
-		depositLog *action.TransactionLog
-		fCtx       = protocol.MustGetFeatureCtx(ctx)
-	)
+	var depositLog *action.TransactionLog
 	if !fCtx.FixDoubleChargeGas {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
@@ -65,6 +66,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			if err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	if fCtx.FixGasAndNonceUpdate || tsf.Nonce() != 0 {
+		// update sender Nonce
+		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
+			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
 		}
 	}
 
@@ -81,15 +89,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load address %s", tsf.Recipient())
 	}
-	fixNonce := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if recipientAcct.IsContract() {
-		if fixNonce || tsf.Nonce() != 0 {
-			// update sender Nonce
-			if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
-				return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
-			}
-		}
 		// put updated sender's state to trie
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
@@ -117,16 +117,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err := sender.SubBalance(tsf.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", actionCtx.Caller.String())
 	}
-	if fixNonce || tsf.Nonce() != 0 {
-		// update sender Nonce
-		if err := sender.SetPendingNonce(tsf.Nonce() + 1); err != nil {
-			return nil, errors.Wrapf(err, "failed to update pending nonce of sender %s", actionCtx.Caller.String())
-		}
-	}
+
 	// put updated sender's state to trie
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
+
 	// check recipient
 	recipient, err := accountutil.LoadOrCreateAccount(sm, recipientAddr, accountCreationOpts...)
 	if err != nil {
