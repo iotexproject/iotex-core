@@ -86,13 +86,17 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 				return errors.New(fmt.Sprintf(invalidVersionType, versionType))
 			}
 
-			if !c.AskToConfirm(_infoWarn) {
+			confirmed, err := c.AskToConfirm(_infoWarn)
+			if err != nil {
+				return errors.Wrap(err, "failed to ask confirm")
+			}
+			if !confirmed {
 				cmd.Println(_infoQuit)
 				return nil
 			}
 			cmd.Printf(info, versionType)
 
-			if err := c.Execute(cmdString); err != nil {
+			if err = c.Execute(cmdString); err != nil {
 				return errors.Wrap(err, fail)
 			}
 			cmd.Println(success)
