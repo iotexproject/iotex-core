@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -96,7 +95,7 @@ func InitConfig() (config.Config, string, error) {
 		}
 	}
 	// Set language for ioctl
-	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
+	if isSupportedLanguage(info.readConfig.Language) == -1 {
 		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
 	return info.readConfig, info.defaultConfigFile, nil
@@ -112,7 +111,7 @@ func newInfo(readConfig config.Config, defaultConfigFile string) *info {
 
 // reset resets all values of config
 func (c *info) reset() error {
-	c.readConfig.Wallet = path.Dir(c.defaultConfigFile)
+	c.readConfig.Wallet = filepath.Dir(c.defaultConfigFile)
 	c.readConfig.Endpoint = ""
 	c.readConfig.SecureConnect = true
 	c.readConfig.DefaultAccount = *new(config.Context)
@@ -159,19 +158,6 @@ func (c *info) get(arg string) (string, error) {
 	}
 }
 
-// isSupportedLanguage checks if the language is a supported option and returns index when supported
-func (c *info) isSupportedLanguage(arg string) config.Language {
-	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
-		return config.Language(index)
-	}
-	for i, lang := range _supportedLanguage {
-		if strings.EqualFold(arg, lang) {
-			return config.Language(i)
-		}
-	}
-	return config.Language(-1)
-}
-
 // writeConfig writes to config file
 func (c *info) writeConfig() error {
 	out, err := yaml.Marshal(&c.readConfig)
@@ -196,9 +182,22 @@ func (c *info) loadConfig() error {
 	return nil
 }
 
+// isSupportedLanguage checks if the language is a supported option and returns index when supported
+func isSupportedLanguage(arg string) config.Language {
+	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
+		return config.Language(index)
+	}
+	for i, lang := range _supportedLanguage {
+		if strings.EqualFold(arg, lang) {
+			return config.Language(i)
+		}
+	}
+	return config.Language(-1)
+}
+
 // jsonString returns json string for message
-func jsonString(out interface{}) (string, error) {
-	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+func jsonString(input interface{}) (string, error) {
+	byteAsJSON, err := json.MarshalIndent(input, "", "  ")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to JSON marshal config field")
 	}

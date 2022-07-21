@@ -43,13 +43,7 @@ func NewConfigGetCmd(client ioctl.Client) *cobra.Command {
 		Short:     short,
 		Long:      long,
 		ValidArgs: _validGetArgs,
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("accepts 1 arg(s), received %d\n"+
-					"Valid arg(s): %s", len(args), _validGetArgs)
-			}
-			return cobra.OnlyValidArgs(cmd, args)
-		},
+		Args:      cobra.ExactValidArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			result, err := newInfo(client.Config(), client.ConfigFilePath()).get(args[0])
