@@ -495,8 +495,7 @@ func (p *agent) joinP2P(ctx context.Context) error {
 	if err := p.host.Advertise(); err != nil {
 		return err
 	}
-	p.host.FindPeers(ctx)
-	return nil
+	return p.host.FindPeers(ctx)
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {

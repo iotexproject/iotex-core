@@ -968,7 +968,10 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		v := stateDB.preimages[k]
 		h := make([]byte, len(k))
 		copy(h, k[:])
-		stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
+		if _, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h)); err != nil {
+			stateDB.logError(err)
+			return errors.Wrap(err, "failed to update preimage")
+		}
 	}
 	return nil
 }

@@ -114,7 +114,10 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 			log.L().Error(" read native staking contract", zap.Error(err))
 			return nil, err
 		}
-		votes.tally(vote, ts)
+		if err = votes.tally(vote, ts); err != nil {
+			log.L().Error(" read vote tally", zap.Error(err))
+			return nil, err
+		}
 		if len(vote) < int(limit.Int64()) {
 			// all data been read
 			break
