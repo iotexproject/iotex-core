@@ -970,7 +970,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		copy(h, k[:])
 		if _, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h)); err != nil {
 			stateDB.logError(err)
-			return errors.Wrap(err, "failed to update preimage")
+			return errors.Wrap(err, "failed to update preimage to db")
 		}
 	}
 	return nil
