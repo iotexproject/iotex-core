@@ -136,7 +136,7 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 	switch args[0] {
 	case "endpoint":
 		if !isValidEndpoint(args[1]) {
-			return "", errors.New(fmt.Sprintf("endpoint %s is not valid", args[1]))
+			return "", errors.Errorf("endpoint %s is not valid", args[1])
 		}
 		c.readConfig.Endpoint = args[1]
 		c.readConfig.SecureConnect = !insecure
@@ -158,7 +158,7 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 			}
 			match, err := regexp.MatchString(_urlPattern, link)
 			if err != nil {
-				return "", errors.New(fmt.Sprintf("failed to validate link %s", link))
+				return "", errors.Errorf("failed to validate link %s", link)
 			}
 			if match {
 				c.readConfig.Explorer = link
@@ -166,29 +166,27 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 				return "", errors.New(fmt.Sprintf("invalid link %s", link))
 			}
 		default:
-			return "", errors.New(
-				fmt.Sprintf("Explorer %s is not valid\nValid explorers: %s",
-					args[1], append(_validExpl, "custom")))
+			return "", errors.Errorf("explorer %s is not valid\nValid explorers: %s",
+				args[1], append(_validExpl, "custom"))
 		}
 	case "defaultacc":
 		err1 := validator.ValidateAlias(args[1])
 		err2 := validator.ValidateAddress(args[1])
 		if err1 != nil && err2 != nil {
-			return "", errors.New(fmt.Sprintf("failed to validate alias or address %s", args[1]))
+			return "", errors.Errorf("failed to validate alias or address %s", args[1])
 		}
 		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
 	case "language":
 		lang := isSupportedLanguage(args[1])
 		if lang == -1 {
-			return "", errors.New(
-				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
-					args[1], _supportedLanguage))
+			return "", errors.Errorf("language %s is not supported\nSupported languages: %s",
+				args[1], _supportedLanguage)
 		}
 		c.readConfig.Language = _supportedLanguage[lang]
 	case "nsv2height":
 		height, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("invalid height %d", height))
+			return "", errors.Errorf("invalid height %d", height)
 		}
 		c.readConfig.Nsv2height = height
 	default:
