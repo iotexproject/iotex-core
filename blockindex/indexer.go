@@ -9,6 +9,7 @@ package blockindex
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -155,7 +156,7 @@ func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) err
 	}
 	// delete hash --> height
 	hash := blk.HashBlock()
-	x.batch.Delete(_blockHashToHeightNS, hash[_hashOffset:], "failed to delete block at height %d", height)
+	x.batch.Delete(_blockHashToHeightNS, hash[_hashOffset:], fmt.Sprintf("failed to delete block at height %d", height))
 	// delete from total block index
 	if err := x.tbk.Revert(1); err != nil {
 		return err
@@ -170,7 +171,7 @@ func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) err
 		if err != nil {
 			return err
 		}
-		x.batch.Delete(_actionToBlockHashNS, actHash[_hashOffset:], "failed to delete action hash %x", actHash)
+		x.batch.Delete(_actionToBlockHashNS, actHash[_hashOffset:], fmt.Sprintf("failed to delete action hash %x", actHash))
 		if err := x.indexAction(actHash, selp, false, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
@@ -336,7 +337,7 @@ func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 		if err != nil {
 			return err
 		}
-		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, "failed to put action hash %x", actHash)
+		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, fmt.Sprintf("failed to put action hash %x", actHash))
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err
