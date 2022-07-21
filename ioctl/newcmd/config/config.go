@@ -163,7 +163,7 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 			if match {
 				c.readConfig.Explorer = link
 			} else {
-				return "", errors.New(fmt.Sprintf("invalid link %s", link))
+				return "", errors.Errorf("invalid link %s", link)
 			}
 		default:
 			return "", errors.Errorf("explorer %s is not valid\nValid explorers: %s",
