@@ -86,7 +86,7 @@ func getProgressMod(num uint64) (int, int) {
 	return numInt, step
 }
 
-func migrateDbFile() error {
+func migrateDbFile() (err error) {
 	// Check flags
 	if oldFile == "" {
 		return fmt.Errorf("--old-file is empty")
@@ -129,8 +129,8 @@ func migrateDbFile() error {
 	}
 
 	defer func() {
-		oldDAO.Stop(ctx)
-		newDAO.Stop(ctx)
+		err = oldDAO.Stop(ctx)
+		err = newDAO.Stop(ctx)
 	}()
 
 	// Show the progressbar
@@ -152,12 +152,16 @@ func migrateDbFile() error {
 		}
 
 		if i%uint64(step) == 0 {
-			bar.Add(1)
+			if err = bar.Add(1); err != nil {
+				return fmt.Errorf("failed to add 1 on bar on height %d: %v", i, err)
+			}
 			intHeight--
 		}
 	}
 	if intHeight > 0 {
-		bar.Add(intHeight)
+		if err = bar.Add(intHeight); err != nil {
+			return fmt.Errorf("failed to add %d on bar: %v", intHeight, err)
+		}
 	}
 
 	return nil

@@ -83,7 +83,9 @@ func init() {
 		config.ReadConfig.Endpoint, config.TranslateInLang(_flagXrc20EndPointUsages, config.UILanguage))
 	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		config.TranslateInLang(_flagXrc20InsecureUsages, config.UILanguage))
-	cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address")
+	if err := cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address"); err != nil {
+		fmt.Printf("failed to mark flag: %v\n", err)
+	}
 }
 
 func parseAmount(contract address.Address, amount string) (*big.Int, error) {
