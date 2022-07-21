@@ -94,11 +94,6 @@ func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
 	return footer.CommitTime(), nil
 }
 
-// GenesisTime return Genesis time by default
-func (cm *chainManager) GenesisTime() time.Time {
-	return time.Unix(cm.bc.Genesis().Timestamp, 0)
-}
-
 // MintNewBlock creates a new block with given actions
 func (cm *chainManager) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	return cm.bc.MintNewBlock(timestamp)
