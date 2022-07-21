@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
-	"github.com/stretchr/testify/require"
 )
 
 // test for chainListener
@@ -64,6 +65,7 @@ func TestRandID(t *testing.T) {
 	require := require.New(t)
 
 	gen := newIDGenerator(_idSize)
-	id := gen.newID()
+	id, err := gen.newID()
+	require.NoError(err)
 	require.Equal(34, len(id))
 }

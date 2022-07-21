@@ -97,7 +97,11 @@ func (cl *chainListener) AddResponder(responder apitypes.Responder) (string, err
 	listenerID, i := "", 0
 	// An new id is assumed to be found, because combinations (2^62) is far larger than capacity
 	for ; i < _idRetry; i++ {
-		listenerID = cl.idGenerator.newID()
+		id, err := cl.idGenerator.newID()
+		if err != nil {
+			return "", errors.Wrap(err, "failed to generate newID")
+		}
+		listenerID = id
 		if _, exist := cl.streamMap.Get(listenerID); !exist {
 			break
 		}
@@ -136,8 +140,10 @@ func newIDGenerator(length uint8) *randID {
 	return &randID{length: length}
 }
 
-func (id *randID) newID() string {
+func (id *randID) newID() (string, error) {
 	token := make([]byte, id.length)
-	rand.Read(token)
-	return "0x" + hex.EncodeToString(token)
+	if _, err := rand.Read(token); err != nil {
+		return "", err
+	}
+	return "0x" + hex.EncodeToString(token), nil
 }
