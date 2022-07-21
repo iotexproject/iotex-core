@@ -33,6 +33,8 @@ var (
 	ErrConfigNotMatch = fmt.Errorf("no matching config")
 	// ErrEmptyEndpoint indicates error for empty endpoint
 	ErrEmptyEndpoint = fmt.Errorf("no endpoint has been set")
+	// ErrConfigDefaultAccountNotSet indicates an error for the default account not being set
+	ErrConfigDefaultAccountNotSet = fmt.Errorf("default account not set")
 )
 
 // Language type used to enumerate supported language of ioctl
