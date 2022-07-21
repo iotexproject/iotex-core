@@ -9,6 +9,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,11 +30,11 @@ import (
 const (
 	_ipPattern               = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
 	_domainPattern           = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
-	_urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 	_defaultConfigFileName   = "config.default"
+	_endpoint                = "endpoint"
 )
 
 var (
@@ -132,9 +133,9 @@ func (c *info) reset() error {
 }
 
 // set sets config variable
-func (c *info) set(args []string, insecure bool) (string, error) {
+func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, error) {
 	switch args[0] {
-	case "endpoint":
+	case _endpoint:
 		if !isValidEndpoint(args[1]) {
 			return "", errors.Errorf("endpoint %s is not valid", args[1])
 		}
@@ -150,32 +151,22 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 		case isValidExplorer(lowArg):
 			c.readConfig.Explorer = lowArg
 		case args[1] == "custom":
-			fmt.Println(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
-			var link string
-			_, err := fmt.Scanln(&link)
+			link, err := client.CustomLink()
 			if err != nil {
-				return "", err
-			}
-			match, err := regexp.MatchString(_urlPattern, link)
-			if err != nil {
-				return "", errors.Errorf("failed to validate link %s", link)
-			}
-			if match {
-				c.readConfig.Explorer = link
-			} else {
 				return "", errors.Errorf("invalid link %s", link)
 			}
+			c.readConfig.Explorer = link
 		default:
 			return "", errors.Errorf("explorer %s is not valid\nValid explorers: %s",
 				args[1], append(_validExpl, "custom"))
 		}
 	case "defaultacc":
-		err1 := validator.ValidateAlias(args[1])
-		err2 := validator.ValidateAddress(args[1])
-		if err1 != nil && err2 != nil {
+		if err := validator.ValidateAlias(args[1]); err == nil {
+		} else if err = validator.ValidateAddress(args[1]); err == nil {
+			c.readConfig.DefaultAccount.AddressOrAlias = args[1]
+		} else {
 			return "", errors.Errorf("failed to validate alias or address %s", args[1])
 		}
-		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
 	case "language":
 		lang := isSupportedLanguage(args[1])
 		if lang == -1 {
@@ -204,7 +195,7 @@ func (c *info) set(args []string, insecure bool) (string, error) {
 // get retrieves a config item from its key.
 func (c *info) get(arg string) (string, error) {
 	switch arg {
-	case "endpoint":
+	case _endpoint:
 		if c.readConfig.Endpoint == "" {
 			return "", config.ErrEmptyEndpoint
 		}

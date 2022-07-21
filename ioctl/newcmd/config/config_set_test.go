@@ -34,6 +34,15 @@ func TestConfigSetCommand(t *testing.T) {
 		require.Contains(result, "Nsv2height is set to 44\n")
 	})
 
+	t.Run("set custom link config value", func(t *testing.T) {
+		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
+		client.EXPECT().CustomLink().Return("http://custom-link.com", nil).Times(1)
+		cmd := NewConfigSetCmd(client)
+		result, err := util.ExecuteCmd(cmd, "explorer", "custom")
+		require.NoError(err)
+		require.Contains(result, "Explorer is set to custom\n")
+	})
+
 	t.Run("config set error", func(t *testing.T) {
 		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
 		cmd := NewConfigSetCmd(client)

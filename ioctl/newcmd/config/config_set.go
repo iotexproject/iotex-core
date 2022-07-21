@@ -52,7 +52,7 @@ func NewConfigSetCmd(client ioctl.Client) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			result, err := newInfo(client.Config(), client.ConfigFilePath()).set(args, client.Insecure())
+			result, err := newInfo(client.Config(), client.ConfigFilePath()).set(args, client.Insecure(), client)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("problem setting config fields %+v", args))
 			}

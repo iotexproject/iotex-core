@@ -159,8 +159,8 @@ func TestConfigSet(t *testing.T) {
 			testPath,
 		},
 		{
-			[]string{"defaultacc", "address"},
-			"Defaultacc is set to address",
+			[]string{"defaultacc", "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he"},
+			"Defaultacc is set to io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he",
 		},
 		{
 			[]string{"defaultacc", "suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp"},
@@ -172,7 +172,7 @@ func TestConfigSet(t *testing.T) {
 		},
 		{
 			[]string{"explorer", "invalid"},
-			"Explorer invalid is not valid\nValid explorers: [iotexscan iotxplorer custom]",
+			"explorer invalid is not valid\nValid explorers: [iotexscan iotxplorer custom]",
 		},
 		{
 			[]string{"language", "中文"},
@@ -180,7 +180,7 @@ func TestConfigSet(t *testing.T) {
 		},
 		{
 			[]string{"language", "unknown language"},
-			"Language unknown language is not supported\nSupported languages: [English 中文]",
+			"language unknown language is not supported\nSupported languages: [English 中文]",
 		},
 		{
 			[]string{"nsv2height", "20"},
@@ -197,7 +197,7 @@ func TestConfigSet(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		setResult, err := info.set(tc.args, false)
+		setResult, err := info.set(tc.args, false, nil)
 		t.Logf("running %s \n result %s", tc, setResult)
 		if err != nil {
 			require.Contains(err.Error(), tc.expected)
