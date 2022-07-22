@@ -137,15 +137,13 @@ func (c *roundCalculator) roundInfo(
 	if height > 1 {
 		if height >= c.beringHeight {
 			var lastBlkProposeTime time.Time
-			lastBlkProposeTime, err = c.chain.BlockProposeTime(height - 1)
-			if err != nil {
+			if lastBlkProposeTime, err = c.chain.BlockProposeTime(height - 1); err != nil {
 				return
 			}
 			lastBlockTime = lastBlockTime.Add(lastBlkProposeTime.Sub(lastBlockTime) / blockInterval * blockInterval)
 		} else {
 			var lastBlkCommitTime time.Time
-			lastBlkCommitTime, err = c.chain.BlockCommitTime(height - 1)
-			if err != nil {
+			if lastBlkCommitTime, err = c.chain.BlockCommitTime(height - 1); err != nil {
 				return
 			}
 			lastBlockTime = lastBlockTime.Add(lastBlkCommitTime.Sub(lastBlockTime) / blockInterval * blockInterval)
