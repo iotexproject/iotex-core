@@ -44,7 +44,9 @@ func hdwalletDelete() error {
 		"Type 'YES' to continue, quit for anything else.")
 	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
-	fmt.Scanf("%s", &confirm)
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return output.NewError(output.InputError, "failed to input yes", err)
+	}
 	if !strings.EqualFold(confirm, "yes") {
 		output.PrintResult("quit")
 		return nil

@@ -302,19 +302,17 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 					return e
 				}
 				ns := write.Namespace()
-				errFmt := write.ErrorFormat()
-				errArgs := write.ErrorArgs()
 				switch write.WriteType() {
 				case batch.Put:
 					bucket, e := tx.CreateBucketIfNotExists([]byte(ns))
 					if e != nil {
-						return errors.Wrapf(e, errFmt, errArgs)
+						return errors.Wrap(e, write.Error())
 					}
 					if p, ok := kvsb.CheckFillPercent(ns); ok {
 						bucket.FillPercent = p
 					}
 					if e := bucket.Put(write.Key(), write.Value()); e != nil {
-						return errors.Wrapf(e, errFmt, errArgs)
+						return errors.Wrap(e, write.Error())
 					}
 				case batch.Delete:
 					bucket := tx.Bucket([]byte(ns))
@@ -322,7 +320,7 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 						continue
 					}
 					if e := bucket.Delete(write.Key()); e != nil {
-						return errors.Wrapf(e, errFmt, errArgs)
+						return errors.Wrap(e, write.Error())
 					}
 				}
 			}

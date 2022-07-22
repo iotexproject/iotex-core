@@ -71,7 +71,11 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 			}
 
 			if addr, ok := client.Config().Aliases[args[0]]; ok {
-				if !client.AskToConfirm(fmt.Sprintf(_aliasHasAlreadyUsed, args[0], addr)) {
+				confirmed, err := client.AskToConfirm(fmt.Sprintf(_aliasHasAlreadyUsed, args[0], addr))
+				if err != nil {
+					return errors.Wrap(err, "failed to ask confirm")
+				}
+				if !confirmed {
 					cmd.Println(infoQuit)
 					return nil
 				}
