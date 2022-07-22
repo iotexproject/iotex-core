@@ -99,7 +99,7 @@ type (
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+		workingsets              cache.LRUCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 		ps                       *patchStore

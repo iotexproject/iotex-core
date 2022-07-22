@@ -61,12 +61,13 @@ func CompGzip(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = w.Write(data)
-	if err != nil {
-		w.Close()
+	if _, err = w.Write(data); err != nil {
+		err = w.Close()
 		return nil, err
 	}
-	w.Close()
+	if err = w.Close(); err != nil {
+		return nil, err
+	}
 	output := bb.Bytes()
 	return output, nil
 }
@@ -77,7 +78,9 @@ func DecompGzip(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.Close()
+	if err = r.Close(); err != nil {
+		return nil, err
+	}
 	return io.ReadAll(r)
 }
 

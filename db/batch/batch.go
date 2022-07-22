@@ -40,9 +40,9 @@ type (
 		// ClearAndUnlock clears the write queue and unlocks the batch
 		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
-		Put(string, []byte, []byte, string, ...interface{})
+		Put(string, []byte, []byte, string)
 		// Delete deletes a record by (namespace, key)
-		Delete(string, []byte, string, ...interface{})
+		Delete(string, []byte, string)
 		// Size returns the size of batch
 		Size() int
 		// Entry returns the entry at the index
