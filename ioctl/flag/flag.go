@@ -7,6 +7,8 @@
 package flag
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -57,7 +59,9 @@ type (
 )
 
 func (f *flagBase) MarkFlagRequired(cmd *cobra.Command) {
-	cmd.MarkFlagRequired(f.label)
+	if err := cmd.MarkFlagRequired(f.label); err != nil {
+		fmt.Printf("failed to mark flag %s: %v\n", f.label, err)
+	}
 }
 
 func (f *flagBase) Label() string {
