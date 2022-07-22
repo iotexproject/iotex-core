@@ -23,7 +23,7 @@ var (
 	}
 )
 
-// NewJwtCmd represents the jwt sign command
+// NewJwtCmd represents the jwt command
 func NewJwtCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_jwtCmdShorts)
 
