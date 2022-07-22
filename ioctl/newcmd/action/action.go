@@ -208,8 +208,8 @@ func NewActionCmd(client ioctl.Client) *cobra.Command {
 	}
 
 	// TODO add sub commands
-	// cmd.AddCommand(NewActionHash(client))
-	// cmd.AddCommand(NewActionTransfer(client))
+	ac.AddCommand(NewActionHashCmd(client))
+	ac.AddCommand(NewActionTransferCmd(client))
 	// cmd.AddCommand(NewActionDeploy(client))
 	// cmd.AddCommand(NewActionInvoke(client))
 	// cmd.AddCommand(NewActionRead(client))
