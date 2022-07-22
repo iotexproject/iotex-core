@@ -402,8 +402,6 @@ func newConfig() config.Config {
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.API.RangeQueryLimit = 100
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
 
 	return cfg
 }
@@ -437,8 +435,8 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 		return nil
 	})}
 	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.API.HTTPPort = 0
-	cfg.API.WebSocketPort = 0
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
