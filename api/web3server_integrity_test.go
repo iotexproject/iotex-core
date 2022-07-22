@@ -84,7 +84,7 @@ func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, act
 	}
 }
 
-func serveTestHttp(require *require.Assertions, handler *hTTPHandler, method string, param string) interface{} {
+func serveTestHTTP(require *require.Assertions, handler *hTTPHandler, method string, param string) interface{} {
 	req, _ := http.NewRequest(http.MethodPost, "http://url.com",
 		strings.NewReader(fmt.Sprintf(`[{"jsonrpc":"2.0","method":"%s","params":%s,"id":1}]`, method, param)))
 	resp := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func serveTestHttp(require *require.Assertions, handler *hTTPHandler, method str
 
 func gasPriceIntegrity(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHttp(require, handler, "eth_gasPrice", "[]")
+	result := serveTestHTTP(require, handler, "eth_gasPrice", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(1000000000000), actual)
@@ -112,7 +112,7 @@ func gasPriceIntegrity(t *testing.T, handler *hTTPHandler) {
 
 func chainIDIntegrity(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHttp(require, handler, "eth_chainId", "[]")
+	result := serveTestHTTP(require, handler, "eth_chainId", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(1), actual)
@@ -121,7 +121,7 @@ func chainIDIntegrity(t *testing.T, handler *hTTPHandler) {
 
 func blockNumberIntegrity(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHttp(require, handler, "eth_blockNumber", "[]")
+	result := serveTestHTTP(require, handler, "eth_blockNumber", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal(uint64ToHex(4), actual)
@@ -137,7 +137,7 @@ func blockByNumberIntegrity(t *testing.T, handler *hTTPHandler) {
 		{`["1", false]`, 2},
 		{`["10", false]`, 0},
 	} {
-		result := serveTestHttp(require, handler, "eth_getBlockByNumber", test.params)
+		result := serveTestHTTP(require, handler, "eth_getBlockByNumber", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
 		} else {
@@ -150,7 +150,7 @@ func blockByNumberIntegrity(t *testing.T, handler *hTTPHandler) {
 
 func balanceIntegrity(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHttp(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]`)
+	result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]`)
 	ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
 	require.True(ok)
 	actual, ok := result.(string)
@@ -169,7 +169,7 @@ func transactionCountIntegrity(t *testing.T, handler *hTTPHandler) {
 		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "0x1"]`, 2},
 		{`["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", "pending"]`, 2},
 	} {
-		result := serveTestHttp(require, handler, "eth_getTransactionCount", test.params)
+		result := serveTestHTTP(require, handler, "eth_getTransactionCount", test.params)
 		actual, ok := result.(string)
 		require.True(ok)
 		require.Equal(uint64ToHex(uint64(test.expected)), actual)
@@ -207,7 +207,7 @@ func callIntegrity(t *testing.T, handler *hTTPHandler) {
 			0,
 		},
 	} {
-		result := serveTestHttp(require, handler, "eth_call", test.params)
+		result := serveTestHTTP(require, handler, "eth_call", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
 			return
@@ -220,7 +220,7 @@ func callIntegrity(t *testing.T, handler *hTTPHandler) {
 
 func nodeInfoIntegrity(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
-	result := serveTestHttp(require, handler, "web3_clientVersion", "[]")
+	result := serveTestHTTP(require, handler, "web3_clientVersion", "[]")
 	actual, ok := result.(string)
 	require.True(ok)
 	require.Equal("NoBuildInfo/NoBuildInfo", actual)
@@ -241,7 +241,7 @@ func storageAtIntegrity(t *testing.T, handler *hTTPHandler, bc blockchain.Blockc
 		{`[1]`, 0},
 		{`["TEST", "TEST"]`, 0},
 	} {
-		result := serveTestHttp(require, handler, "eth_getStorageAt", test.params)
+		result := serveTestHTTP(require, handler, "eth_getStorageAt", test.params)
 		if test.expected == 0 {
 			require.Nil(result)
 			return
