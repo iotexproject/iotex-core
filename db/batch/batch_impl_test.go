@@ -64,7 +64,6 @@ func TestBaseKVStoreBatch(t *testing.T) {
 				wi.Key(),
 				wi.Value(),
 				"",
-				nil,
 			)
 		}
 		return wi
