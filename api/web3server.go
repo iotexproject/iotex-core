@@ -97,8 +97,9 @@ func (svr *web3Handler) HandlePOSTReq(reader io.Reader, writer apitypes.Web3Resp
 		return svr.handleWeb3Req(&web3Reqs, writer)
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
-	for _, web3Req := range web3Reqs.Array() {
-		if err := svr.handleWeb3Req(&web3Req, batchWriter); err != nil {
+	web3ReqArr := web3Reqs.Array()
+	for i := range web3ReqArr {
+		if err := svr.handleWeb3Req(&web3ReqArr[i], batchWriter); err != nil {
 			return err
 		}
 	}
