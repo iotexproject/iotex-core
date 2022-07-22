@@ -495,7 +495,10 @@ func (p *agent) joinP2P(ctx context.Context) error {
 	if err := p.host.Advertise(); err != nil {
 		return err
 	}
-	return p.host.FindPeers(ctx)
+	if err := p.host.FindPeers(ctx); err != nil {
+		log.L().Error("fail to find peers", zap.Error(err))
+	}
+	return nil
 }
 
 func (p *agent) connectBootNode(ctx context.Context) error {
