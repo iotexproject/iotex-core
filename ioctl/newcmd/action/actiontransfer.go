@@ -53,7 +53,7 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "failed to get account meta")
 			}
 			if accountMeta.IsContract {
-				return errors.Wrap(err, "use 'ioctl contract' command instead")
+				return errors.New("use 'ioctl contract' command instead")
 			}
 
 			amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
@@ -82,13 +82,10 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 			}
 			nonce, err := nonce(client, cmd, sender)
 			if err != nil {
-				return errors.Wrap(err, "failed to get nonce ")
+				return errors.Wrap(err, "failed to get nonce")
 			}
-			tx, err := action.NewTransfer(nonce, amount,
+			tx, _ := action.NewTransfer(nonce, amount,
 				recipient, payload, gasLimit, gasPriceRau)
-			if err != nil {
-				return errors.Wrap(err, "failed to make a Transfer instance")
-			}
 			return SendAction(
 				client,
 				cmd,
