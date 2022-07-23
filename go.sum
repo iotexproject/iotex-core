@@ -380,7 +380,6 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgf
 github.com/grpc-ecosystem/grpc-gateway v1.5.0/go.mod h1:RSKVYQBd5MCa4OVpNdGskqpgL2+G+NZTnrVHpWWfpdw=
 github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-gateway v1.9.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
-github.com/grpc-ecosystem/grpc-gateway v1.16.0 h1:gmcG1KaJ57LophUzW0Hy8NmPhnMZb4M0+kPpLofRdBo=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/gxed/hashland/keccakpg v0.0.1/go.mod h1:kRzw3HkwxFU1mpmPP8v1WyQzwdGfmKFJ6tItnhQ67kU=
 github.com/gxed/hashland/murmur3 v0.0.1/go.mod h1:KjXop02n4/ckmZSnY2+HKcLud/tcmvhST0bie/0lS48=
@@ -460,8 +459,8 @@ github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
 github.com/iotexproject/iotex-proto v0.5.2/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=
-github.com/iotexproject/iotex-proto v0.5.10-0.20220415042310-0d4bcef3febf h1:WYy4bBinJXJBqkgIVQk7rTwQzW0d/Ci6DKQL6CnveM4=
-github.com/iotexproject/iotex-proto v0.5.10-0.20220415042310-0d4bcef3febf/go.mod h1:OfmLvjBmy5EYeLxxDv6kesJq+Mm3Adn5GKgDJgF9G9U=
+github.com/iotexproject/iotex-proto v0.5.10-0.20220726212046-4fbdc50b0b59 h1:OnyVd0KhseNEbiHkXwxMezahWGs/WMaynHonj8YF/Io=
+github.com/iotexproject/iotex-proto v0.5.10-0.20220726212046-4fbdc50b0b59/go.mod h1:cpbdKH1ZyxaXhMvzP9phjc9jIQ29RRJq7oqGRFJj5bc=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

@@ -145,7 +145,7 @@ func (cs *ChainService) NewAPIServer(cfg config.API, plugins map[int]interface{}
 	p2pAgent := cs.p2pAgent
 	apiServerOptions := []api.Option{
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-			return p2pAgent.BroadcastOutbound(ctx, msg)
+			return p2pAgent.BroadcastOutboundInBatch(ctx, msg)
 		}),
 		api.WithNativeElection(cs.electionCommittee),
 	}

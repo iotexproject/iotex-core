@@ -101,6 +101,8 @@ type (
 		lifecycle.StartStopper
 		// BroadcastOutbound sends a broadcast message to the whole network
 		BroadcastOutbound(ctx context.Context, msg proto.Message) (err error)
+		// BroadcastOutboundInBatch puts a broadcast message in batch
+		BroadcastOutboundInBatch(ctx context.Context, msg proto.Message, opts ...BatchOption) (err error)
 		// UnicastOutbound sends a unicast message to the given address
 		UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) (err error)
 		// Info returns agents' peer info.
@@ -126,6 +128,7 @@ type (
 		reconnectTimeout           time.Duration
 		reconnectTask              *routine.RecurringTask
 		qosMetrics                 *Qos
+		batchManager               *batchManager
 	}
 )
 
@@ -161,6 +164,10 @@ func (*dummyAgent) BroadcastOutbound(ctx context.Context, msg proto.Message) err
 	return nil
 }
 
+func (*dummyAgent) BroadcastOutboundInBatch(ctx context.Context, msg proto.Message, opts ...BatchOption) (err error) {
+	return nil
+}
+
 func (*dummyAgent) UnicastOutbound(_ context.Context, peer peer.AddrInfo, msg proto.Message) error {
 	return nil
 }
@@ -193,6 +200,7 @@ func NewAgent(cfg Config, chainID uint32, genesisHash hash.Hash256, broadcastHan
 		unicastInboundAsyncHandler: unicastHandler,
 		reconnectTimeout:           cfg.ReconnectInterval,
 		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
+		batchManager:               newBatchManager(),
 	}
 }
 
@@ -342,6 +350,8 @@ func (p *agent) Start(ctx context.Context) error {
 	}
 	close(ready)
 
+	go p.handleBatchFactory()
+
 	// check network connectivity every 60 blocks, and reconnect in case of disconnection
 	p.reconnectTask = routine.NewRecurringTask(p.reconnect, p.reconnectTimeout)
 	return p.reconnectTask.Start(ctx)
@@ -388,26 +398,76 @@ func (p *agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	if err != nil {
 		return
 	}
-	broadcast := iotexrpc.BroadcastMsg{
+	broadcast := &iotexrpc.BroadcastMsg{
 		ChainId:   p.chainID,
 		PeerId:    host.HostIdentity(),
 		MsgType:   msgType,
 		MsgBody:   msgBody,
 		Timestamp: timestamppb.Now(),
 	}
-	data, err := proto.Marshal(&broadcast)
+	return p.broadcastMsg(ctx, broadcast)
+}
+
+func (p *agent) broadcastMsg(ctx context.Context, msg *iotexrpc.BroadcastMsg) (err error) {
+	data, err := proto.Marshal(msg)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
 		return
 	}
 	t := time.Now()
-	if err = host.Broadcast(ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
+	if err = p.host.Broadcast(ctx, _broadcastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
 		p.qosMetrics.updateSendBroadcast(t, false)
 		return
 	}
 	p.qosMetrics.updateSendBroadcast(t, true)
 	return
+}
+
+// TODO: add Close()
+func (p *agent) handleBatchFactory() {
+	for {
+		select {
+		case msg := <-p.batchManager.OutputChannel():
+			if msg.Target == nil {
+				broadcastMsg := &iotexrpc.BroadcastMsg{
+					ChainId:   msg.ChainID,
+					PeerId:    p.host.HostIdentity(),
+					MsgType:   msg.MsgType,
+					MsgBody:   msg.Data,
+					Timestamp: timestamppb.Now(),
+				}
+				if err := p.broadcastMsg(context.Background(), broadcastMsg); err != nil {
+					log.L().Error("fail to broadcast a message in batch fatory", zap.Error(err))
+				}
+			} else {
+				log.L().Panic("unicast is unsupported now")
+			}
+		}
+	}
+}
+
+func (p *agent) BroadcastOutboundInBatch(ctx context.Context, msg proto.Message, opts ...BatchOption) (err error) {
+	host := p.host
+	if host == nil {
+		return ErrAgentNotStarted
+	}
+	var msgType iotexrpc.MessageType
+	var msgBody []byte
+
+	msgType, msgBody, err = convertAppMsg(msg)
+	if err != nil {
+		return
+	}
+	return p.batchManager.Put(
+		&Message{
+			MsgType: msgType,
+			ChainID: p.chainID,
+			Target:  nil,
+			Data:    msgBody,
+		},
+		opts...,
+	)
 }
 
 func (p *agent) UnicastOutbound(ctx context.Context, peer peer.AddrInfo, msg proto.Message) (err error) {

@@ -20,7 +20,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.8
 	github.com/iotexproject/iotex-antenna-go/v2 v2.5.1
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
-	github.com/iotexproject/iotex-proto v0.5.10-0.20220415042310-0d4bcef3febf
+	github.com/iotexproject/iotex-proto v0.5.10-0.20220726212046-4fbdc50b0b59
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
@@ -55,6 +55,7 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.2
 )
@@ -65,7 +66,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
@@ -78,7 +78,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/uuid v1.1.5 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect

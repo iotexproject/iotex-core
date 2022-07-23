@@ -1,7 +1,9 @@
 package action
 
 import (
+	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -9,10 +11,12 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -205,4 +209,122 @@ func createSealedEnvelope(chainID uint32) (SealedEnvelope, error) {
 	se.srcPubkey = cPubKey
 	se.signature = _signByte
 	return se, err
+}
+
+func TestDataContanetation(t *testing.T) {
+	require := require.New(t)
+
+	// raw data
+	tx1, _ := SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64))
+	txHash1, _ := tx1.Hash()
+	serilizedTx1, err := proto.Marshal(tx1.Proto())
+	require.NoError(err)
+	tx2, _ := SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+	txHash2, _ := tx2.Hash()
+	serilizedTx2, err := proto.Marshal(tx2.Proto())
+	require.NoError(err)
+
+	t.Run("tx1", func(t *testing.T) {
+		act1 := &iotextypes.Action{}
+		err := proto.Unmarshal(serilizedTx1, act1)
+		require.NoError(err)
+		se1, err := (&Deserializer{}).ActionToSealedEnvelope(act1)
+		require.NoError(err)
+		actHash1, err := se1.Hash()
+		require.NoError(err)
+		require.Equal(txHash1, actHash1)
+
+		act2 := &iotextypes.Action{}
+		err = proto.Unmarshal(serilizedTx2, act2)
+		require.NoError(err)
+	})
+
+	t.Run("tx2", func(t *testing.T) {
+		act2 := &iotextypes.Action{}
+		err = proto.Unmarshal(serilizedTx2, act2)
+		require.NoError(err)
+		se2, err := (&Deserializer{}).ActionToSealedEnvelope(act2)
+		require.NoError(err)
+		actHash2, err := se2.Hash()
+		require.NoError(err)
+		require.Equal(txHash2, actHash2)
+	})
+
+	// t.Run("tx1+tx2", func(t *testing.T) {
+	// 	acts := &iotextypes.Actions{}
+	// 	err = proto.Unmarshal(append(serilizedTx1, serilizedTx2...), acts)
+	// 	require.NoError(err)
+	// 	require.Equal(2, len(acts.Actions))
+	// 	se, err := (&Deserializer{}).ActionToSealedEnvelope(acts.Actions[0])
+	// 	require.NoError(err)
+	// 	actHash, err := se.Hash()
+	// 	require.NoError(err)
+	// 	require.Equal(txHash1, actHash)
+	// })
+
+	rawActs1 := &iotextypes.Actions{
+		Actions: []*iotextypes.Action{tx1.Proto()},
+	}
+	serilizedActs1, err := proto.Marshal(rawActs1)
+	require.NoError(err)
+	rawActs2 := &iotextypes.Actions{
+		Actions: []*iotextypes.Action{tx2.Proto()},
+	}
+	serilizedActs2, err := proto.Marshal(rawActs2)
+	require.NoError(err)
+
+	t.Run("tx1", func(t *testing.T) {
+		acts := &iotextypes.Actions{}
+		err = proto.Unmarshal(serilizedActs1, acts)
+		require.NoError(err)
+		require.Equal(1, len(acts.Actions))
+		se, err := (&Deserializer{}).ActionToSealedEnvelope(acts.Actions[0])
+		require.NoError(err)
+		actHash, err := se.Hash()
+		require.NoError(err)
+		require.Equal(txHash1, actHash)
+	})
+
+	t.Run("tx2", func(t *testing.T) {
+		acts := &iotextypes.Actions{}
+		err = proto.Unmarshal(serilizedActs2, acts)
+		require.NoError(err)
+		require.Equal(1, len(acts.Actions))
+		se, err := (&Deserializer{}).ActionToSealedEnvelope(acts.Actions[0])
+		require.NoError(err)
+		actHash, err := se.Hash()
+		require.NoError(err)
+		require.Equal(txHash2, actHash)
+	})
+
+	t.Run("tx1+tx2+tx1", func(t *testing.T) {
+		acts := &iotextypes.Actions{}
+		data := append(serilizedActs1, serilizedActs2...)
+		data = append(data, serilizedActs1...)
+		fmt.Println(binary.Size(data))
+		err = proto.Unmarshal(data, acts)
+		require.NoError(err)
+		require.Equal(3, len(acts.Actions))
+		se, err := (&Deserializer{}).ActionToSealedEnvelope(acts.Actions[0])
+		require.NoError(err)
+		actHash, err := se.Hash()
+		require.NoError(err)
+		require.Equal(txHash1, actHash)
+
+		se, err = (&Deserializer{}).ActionToSealedEnvelope(acts.Actions[1])
+		require.NoError(err)
+		actHash, err = se.Hash()
+		require.NoError(err)
+		require.Equal(txHash2, actHash)
+
+		se, err = (&Deserializer{}).ActionToSealedEnvelope(acts.Actions[2])
+		require.NoError(err)
+		actHash, err = se.Hash()
+		require.NoError(err)
+		require.Equal(txHash1, actHash)
+	})
 }

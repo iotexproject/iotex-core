@@ -327,7 +327,7 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
-func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg proto.Message) {
+func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg *iotextypes.Action) {
 	if !d.IsReady() {
 		return
 	}
@@ -344,7 +344,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 		d.actionChan <- &actionMsg{
 			ctx:     ctx,
 			chainID: chainID,
-			action:  (msg).(*iotextypes.Action),
+			action:  msg,
 		}
 		l++
 	} else {
@@ -434,7 +434,12 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, pe
 			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
 		}
 	case iotexrpc.MessageType_ACTION:
-		d.dispatchAction(ctx, chainID, message)
+		d.dispatchAction(ctx, chainID, message.(*iotextypes.Action))
+	case iotexrpc.MessageType_ACTIONS:
+		acts := message.(*iotextypes.Actions)
+		for i := range acts.Actions {
+			d.dispatchAction(ctx, chainID, acts.Actions[i])
+		}
 	case iotexrpc.MessageType_BLOCK:
 		d.dispatchBlock(ctx, chainID, peer, message)
 	default:
