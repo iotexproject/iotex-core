@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/abci/types"
+	"github.com/iotexproject/iotex-sdk/abci/types"
 )
 
 // Client defines the interface for an ABCI client.

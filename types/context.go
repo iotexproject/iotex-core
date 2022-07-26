@@ -6,7 +6,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/infra/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
 type Context struct {

@@ -3,7 +3,8 @@ package baseapp
 import (
 	"fmt"
 
-	abci "github.com/iotexproject/iotex-core/abci/types"
+	abci "github.com/iotexproject/iotex-sdk/abci/types"
+	sdk "github.com/iotexproject/iotex-sdk/types"
 )
 
 const (
@@ -23,7 +24,12 @@ type BaseApp struct {
 	name string // application name from abci.Info
 	// db
 	// cache
-	// anteHandler
+
+	anteHandler sdk.AnteHandler // ante handler for fee and auth
+	postHandler sdk.AnteHandler // post handler, optional, e.g. for tips
+	// initChainer  sdk.InitChainer  // initialize state with validators and state blob
+	beginBlocker sdk.BeginBlocker // logic to run before any txs
+	// endBlocker   sdk.EndBlocker   // logic to run after all txs, and to determine valset changes
 }
 
 func (app *BaseApp) CheckTx(req *abci.RequestCheckTx) (*abci.ResponseCheckTx, error) {
@@ -72,6 +78,11 @@ func (app *BaseApp) DeliverTx(req *abci.RequestDeliverTx) (*abci.ResponseDeliver
 		Data:      result.Data,
 		// Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
 	}, nil
+}
+
+func (app *BaseApp) BeginBlock(req *abci.RequestBeginBlock) (*abci.RequestBeginBlock, error) {
+
+	return &abci.RequestBeginBlock{}, nil
 }
 
 func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo abci.GasInfo, result *abci.Result, anteEvents []abci.Event, priority int64, err error) {

@@ -1,7 +1,7 @@
 package types
 
 import (
-	abci "github.com/iotexproject/iotex-core/abci/types"
+	abci "github.com/iotexproject/iotex-sdk/abci/types"
 )
 
 // ----------------------------------------------------------------------------
