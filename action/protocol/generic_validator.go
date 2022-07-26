@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -22,21 +23,33 @@ type (
 	AccountState func(context.Context, StateReader, address.Address) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
-		accountState AccountState
-		sr           StateReader
+		accountState  AccountState
+		sr            StateReader
+		validatedActs *cache.ThreadSafeLruCache
 	}
+)
+
+const (
+	_maxItems = 3e4
 )
 
 // NewGenericValidator constructs a new genericValidator
 func NewGenericValidator(sr StateReader, accountState AccountState) *GenericValidator {
 	return &GenericValidator{
-		sr:           sr,
-		accountState: accountState,
+		sr:            sr,
+		accountState:  accountState,
+		validatedActs: cache.NewThreadSafeLruCache(_maxItems),
 	}
 }
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
+	actHash, _ := selp.Hash()
+
+	if _, exist := v.validatedActs.Get(actHash); exist {
+		return nil
+	}
+
 	intrinsicGas, err := selp.IntrinsicGas()
 	if err != nil {
 		return err
@@ -71,5 +84,10 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 		}
 	}
 
-	return selp.Action().SanityCheck()
+	if err := selp.Action().SanityCheck(); err != nil {
+		return err
+	}
+	// For testing
+	v.validatedActs.Add(actHash, struct{}{})
+	return nil
 }
