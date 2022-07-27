@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 )
@@ -41,35 +40,60 @@ func TestNonce(t *testing.T) {
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	s1 := Account{
-		accountType: 1,
-		nonce:       0x10,
-		Balance:     big.NewInt(20000000),
-		CodeHash:    []byte("testing codehash"),
-	}
-	ss, err := s1.Serialize()
-	require.NoError(err)
-	require.NotEmpty(ss)
-	require.Equal(66, len(ss))
 
-	s2 := Account{}
-	require.NoError(s2.Deserialize(ss))
-	require.Equal(s1.accountType, s2.accountType)
-	require.Equal(s1.Balance, s2.Balance)
-	require.Equal(s1.nonce, s2.nonce)
-	require.Equal(hash.ZeroHash256, s2.Root)
-	require.Equal(s1.CodeHash, s2.CodeHash)
+	for _, test := range []struct {
+		accountType int32
+		expectedLen int
+	}{
+		{
+			1, 66,
+		},
+		{
+			0, 64,
+		},
+	} {
+		acc := Account{
+			accountType: test.accountType,
+			Balance:     big.NewInt(20000000),
+			nonce:       0x10,
+			CodeHash:    []byte("testing codehash"),
+		}
+		ss, err := acc.Serialize()
+		require.NoError(err)
+		require.NotEmpty(ss)
+		require.Equal(test.expectedLen, len(ss))
+
+		s2 := Account{}
+		require.NoError(s2.Deserialize(ss))
+		require.Equal(acc.accountType, s2.accountType)
+		require.Equal(acc.Balance, s2.Balance)
+		require.Equal(acc.nonce, s2.nonce)
+		require.Equal(hash.ZeroHash256, s2.Root)
+		require.Equal(acc.CodeHash, s2.CodeHash)
+	}
 }
 
 func TestProto(t *testing.T) {
 	require := require.New(t)
-	raw := "1201301a200000000000000000000000000000000000000000000000000000000000000000"
-	ss, _ := hex.DecodeString(raw)
-	s1 := Account{}
-	require.NoError(Deserialize(&s1, ss))
-	d, err := Serialize(s1)
-	require.NoError(err)
-	require.Equal(raw, hex.EncodeToString(d))
+
+	for _, test := range []struct {
+		accountType int32
+		raw         string
+	}{
+		{
+			0, "1201301a200000000000000000000000000000000000000000000000000000000000000000",
+		},
+		{
+			1, "1201301a2000000000000000000000000000000000000000000000000000000000000000003801",
+		},
+	} {
+		acc := Account{accountType: test.accountType}
+		ss, _ := hex.DecodeString(test.raw)
+		require.NoError(acc.Deserialize(ss))
+		bytes, err := acc.Serialize()
+		require.NoError(err)
+		require.Equal(test.raw, hex.EncodeToString(bytes))
+	}
 }
 
 func TestBalance(t *testing.T) {
