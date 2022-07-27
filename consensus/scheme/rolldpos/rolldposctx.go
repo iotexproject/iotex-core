@@ -513,7 +513,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	if pendingBlock.Height() > 1 {
 		prevBlkProposeTime, err := ctx.chain.BlockProposeTime(pendingBlock.Height() - 1)
 		if err != nil {
-			log.L().Error("Error when getting the previous block header.",
+			ctx.logger().Error("Error when getting the previous block header.",
 				zap.Error(err),
 				zap.Uint64("height", pendingBlock.Height()-1),
 			)

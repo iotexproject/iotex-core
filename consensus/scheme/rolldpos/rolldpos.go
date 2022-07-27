@@ -74,7 +74,7 @@ func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 	}
 	header, err := cm.bc.BlockHeaderByHeight(height)
 	if err != nil {
-		return time.Now(), errors.Wrapf(
+		return time.Time{}, errors.Wrapf(
 			err, "error when getting the block at height: %d",
 			height,
 		)
@@ -86,7 +86,7 @@ func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
 func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
 	footer, err := cm.bc.BlockFooterByHeight(height)
 	if err != nil {
-		return time.Now(), errors.Wrapf(
+		return time.Time{}, errors.Wrapf(
 			err, "error when getting the block at height: %d",
 			height,
 		)
