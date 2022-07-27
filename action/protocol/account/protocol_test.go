@@ -57,37 +57,48 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	t.Run("legacy account type", func(t *testing.T) {
-		addrv1 := identityset.Address(27)
-		s, err := accountutil.LoadAccount(sm, addrv1, state.LegacyNonceAccountTypeOption())
+	for _, test := range []struct {
+		accountType   int32
+		addr          address.Address
+		expectedNonce uint64
+	}{
+		{
+			0,
+			identityset.Address(27),
+			uint64(0x1),
+		},
+		{
+			1,
+			identityset.Address(28),
+			uint64(0x0),
+		},
+	} {
+		var (
+			s   *state.Account
+			err error
+		)
+		if test.accountType == 0 {
+			s, err = accountutil.LoadAccount(sm, test.addr, state.LegacyNonceAccountTypeOption())
+		} else {
+			s, err = accountutil.LoadAccount(sm, test.addr)
+		}
 		require.NoError(err)
 		require.Equal(big.NewInt(0), s.Balance)
-		require.Equal(int32(0), s.AccountType())
-		require.Equal(uint64(0x1), s.PendingNonce())
+		require.Equal(test.accountType, s.AccountType())
+		require.Equal(test.expectedNonce, s.PendingNonce())
 
-		require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
-		s, err = accountutil.LoadAccount(sm, addrv1, state.LegacyNonceAccountTypeOption())
+		if test.accountType == 0 {
+			require.NoError(createAccount(sm, test.addr.String(), big.NewInt(5), state.LegacyNonceAccountTypeOption()))
+			s, err = accountutil.LoadAccount(sm, test.addr, state.LegacyNonceAccountTypeOption())
+		} else {
+			require.NoError(createAccount(sm, test.addr.String(), big.NewInt(5)))
+			s, err = accountutil.LoadAccount(sm, test.addr)
+		}
 		require.NoError(err)
 		require.Equal("5", s.Balance.String())
-		require.Equal(int32(0), s.AccountType())
-		require.Equal(uint64(0x1), s.PendingNonce())
-	})
-
-	t.Run("zero nonce account type", func(t *testing.T) {
-		addrv1 := identityset.Address(28)
-		s, err := accountutil.LoadAccount(sm, addrv1)
-		require.NoError(err)
-		require.Equal(big.NewInt(0), s.Balance)
-		require.Equal(int32(1), s.AccountType())
-		require.Equal(uint64(0x0), s.PendingNonce())
-
-		require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
-		s, err = accountutil.LoadAccount(sm, addrv1)
-		require.NoError(err)
-		require.Equal("5", s.Balance.String())
-		require.Equal(int32(1), s.AccountType())
-		require.Equal(uint64(0x0), s.PendingNonce())
-	})
+		require.Equal(test.accountType, s.AccountType())
+		require.Equal(test.expectedNonce, s.PendingNonce())
+	}
 }
 
 func TestProtocol_Initialize(t *testing.T) {
