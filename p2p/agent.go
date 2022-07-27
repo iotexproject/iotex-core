@@ -233,11 +233,11 @@ func (p *agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(ctx, _broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
+	if err := host.AddBroadcastPubSub(ctx, _broadcastTopic+p.topicSuffix, func(ctx context.Context, pID peer.ID, data []byte) (err error) {
+		peerID := pID.Pretty()
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var (
-			peerID    string
 			broadcast iotexrpc.BroadcastMsg
 			latency   int64
 		)
@@ -259,12 +259,6 @@ func (p *agent) Start(ctx context.Context) error {
 			return
 		}
 		// Skip the broadcast message if it's from the node itself
-		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
-		if !ok {
-			err = errors.New("error when asserting broadcast msg context")
-			return
-		}
-		peerID = rawmsg.GetFrom().Pretty()
 		if p.host.HostIdentity() == peerID {
 			skip = true
 			return
