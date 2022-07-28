@@ -1,7 +1,7 @@
 package fastrand
 
 import (
-	_ "unsafe"
+	_ "unsafe" // for go link runtime fastrand
 )
 
 // Uint32 returns a random 32-bit
