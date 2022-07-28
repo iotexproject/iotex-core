@@ -69,7 +69,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -85,7 +85,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -105,7 +105,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -207,7 +207,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(blockchain).
+		SetChainManager(NewChainManager(blockchain)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -285,7 +285,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(blockchain).
+		SetChainManager(NewChainManager(blockchain)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -441,7 +441,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg).
-				SetChainManager(chain).
+				SetChainManager(NewChainManager(chain)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				RegisterProtocol(rp).
