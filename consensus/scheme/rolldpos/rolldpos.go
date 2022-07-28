@@ -18,8 +18,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -36,25 +36,87 @@ var (
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
 
-// ChainManager defines the blockchain interface
-type ChainManager interface {
-	// Genesis returns the genesis
-	Genesis() genesis.Genesis
-	// BlockHeaderByHeight return block header by height
-	BlockHeaderByHeight(height uint64) (*block.Header, error)
-	// BlockFooterByHeight return block footer by height
-	BlockFooterByHeight(height uint64) (*block.Footer, error)
-	// MintNewBlock creates a new block with given actions
-	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(timestamp time.Time) (*block.Block, error)
-	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *block.Block) error
-	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block) error
-	// TipHeight returns tip block's height
-	TipHeight() uint64
-	// ChainAddress returns chain address on parent chain, the root chain return empty.
-	ChainAddress() string
+type (
+	// ChainManager defines the blockchain interface
+	ChainManager interface {
+		// BlockProposeTime return propose time by height
+		BlockProposeTime(uint64) (time.Time, error)
+		// BlockCommitTime return commit time by height
+		BlockCommitTime(uint64) (time.Time, error)
+		// MintNewBlock creates a new block with given actions
+		// Note: the coinbase transfer will be added to the given transfers when minting a new block
+		MintNewBlock(timestamp time.Time) (*block.Block, error)
+		// CommitBlock validates and appends a block to the chain
+		CommitBlock(blk *block.Block) error
+		// ValidateBlock validates a new block before adding it to the blockchain
+		ValidateBlock(blk *block.Block) error
+		// TipHeight returns tip block's height
+		TipHeight() uint64
+		// ChainAddress returns chain address on parent chain, the root chain return empty.
+		ChainAddress() string
+	}
+	chainManager struct {
+		bc blockchain.Blockchain
+	}
+)
+
+// NewChainManager creates a chain manager
+func NewChainManager(bc blockchain.Blockchain) ChainManager {
+	return &chainManager{
+		bc: bc,
+	}
+}
+
+// BlockProposeTime return propose time by height
+func (cm *chainManager) BlockProposeTime(height uint64) (time.Time, error) {
+	if height == 0 {
+		return time.Unix(cm.bc.Genesis().Timestamp, 0), nil
+	}
+	header, err := cm.bc.BlockHeaderByHeight(height)
+	if err != nil {
+		return time.Time{}, errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return header.Timestamp(), nil
+}
+
+// BlockCommitTime return commit time by height
+func (cm *chainManager) BlockCommitTime(height uint64) (time.Time, error) {
+	footer, err := cm.bc.BlockFooterByHeight(height)
+	if err != nil {
+		return time.Time{}, errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
+	}
+	return footer.CommitTime(), nil
+}
+
+// MintNewBlock creates a new block with given actions
+func (cm *chainManager) MintNewBlock(timestamp time.Time) (*block.Block, error) {
+	return cm.bc.MintNewBlock(timestamp)
+}
+
+// CommitBlock validates and appends a block to the chain
+func (cm *chainManager) CommitBlock(blk *block.Block) error {
+	return cm.bc.CommitBlock(blk)
+}
+
+// ValidateBlock validates a new block before adding it to the blockchain
+func (cm *chainManager) ValidateBlock(blk *block.Block) error {
+	return cm.bc.ValidateBlock(blk)
+}
+
+// TipHeight returns tip block's height
+func (cm *chainManager) TipHeight() uint64 {
+	return cm.bc.TipHeight()
+}
+
+// ChainAddress returns chain address on parent chain, the root chain return empty.
+func (cm *chainManager) ChainAddress() string {
+	return cm.bc.ChainAddress()
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance
