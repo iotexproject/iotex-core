@@ -42,7 +42,9 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		// populate to staging buffer, if the block is in latest round
 		height := info.Block.Height()
 		if height > blockStoreTip {
-			buffer.Put(stagingKey(height, fd.header), v)
+			if _, err = buffer.Put(stagingKey(height, fd.header), v); err != nil {
+				return nil, err
+			}
 		} else {
 			break
 		}
