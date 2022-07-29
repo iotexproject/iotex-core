@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -214,7 +213,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		cfg := config.Default.Indexer
+		cfg := DefaultConfig
 		cfg.RangeBloomFilterNumElements = 16
 		cfg.RangeBloomFilterSize = 4096
 		cfg.RangeBloomFilterNumHash = 4
@@ -276,7 +275,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 func BenchmarkBloomfilterIndexer(b *testing.B) {
 	require := require.New(b)
 
-	indexerCfg := config.Default.Indexer
+	indexerCfg := DefaultConfig
 	indexerCfg.RangeBloomFilterNumElements = 16
 	indexerCfg.RangeBloomFilterSize = 4096
 	indexerCfg.RangeBloomFilterNumHash = 4
