@@ -109,7 +109,7 @@ func (sc *stakingCommand) CalculateUnproductiveDelegates(
 	sr protocol.StateReader,
 ) ([]string, error) {
 	if sc.useV2(ctx, sr) {
-		return sc.stakingV2.CalculateUnproductiveDelegates(ctx, sr)
+		_, _ = sc.stakingV2.CalculateUnproductiveDelegates(ctx, sr)
 	}
 	return sc.stakingV1.CalculateUnproductiveDelegates(ctx, sr)
 }
