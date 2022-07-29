@@ -333,13 +333,18 @@ func (p *agent) Start(ctx context.Context) error {
 		return err
 	}
 	host.JoinOverlay()
+	p.host = host
 
 	// connect to bootstrap nodes
-	p.host = host
-	if err := p.joinP2P(ctx); err != nil {
-		log.L().Error("fail to join p2p network", zap.Error(err))
+	if err := p.connectBootNode(ctx); err != nil {
+		log.L().Error("fail to connect bootnode", zap.Error(err))
 		return err
 	}
+	if err := p.host.AdvertiseAsync(); err != nil {
+		return err
+	}
+	p.host.FindPeersAsync()
+
 	close(ready)
 
 	// check network connectivity every 60 blocks, and reconnect in case of disconnection
@@ -484,22 +489,10 @@ func (p *agent) BlockPeer(pidStr string) {
 	p.host.BlockPeer(pid)
 }
 
-func (p *agent) joinP2P(ctx context.Context) error {
+func (p *agent) connectBootNode(ctx context.Context) error {
 	if len(p.cfg.BootstrapNodes) == 0 {
 		return nil
 	}
-	if err := p.connectBootNode(ctx); err != nil {
-		return err
-	}
-	// it might take a few seconds to establish handshake with bootstrap
-	if err := p.host.Advertise(); err != nil {
-		return err
-	}
-	p.host.FindPeers(ctx)
-	return nil
-}
-
-func (p *agent) connectBootNode(ctx context.Context) error {
 	var errNum, connNum, desiredConnNum int
 	conn := make(chan struct{}, len(p.cfg.BootstrapNodes))
 	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
@@ -550,14 +543,18 @@ func (p *agent) reconnect() {
 	if len(p.host.ConnectedPeers()) == 0 || p.qosMetrics.lostConnection() {
 		log.L().Info("network lost, try re-connecting.")
 		p.host.ClearBlocklist()
-		if err := p.joinP2P(context.Background()); err != nil {
-			log.L().Error("fail to join p2p network", zap.Error(err))
+		if err := p.connectBootNode(context.Background()); err != nil {
+			log.L().Error("fail to connect bootnode", zap.Error(err))
+			return
 		}
+		if err := p.host.AdvertiseAsync(); err != nil {
+			log.L().Error("fail to advertise", zap.Error(err))
+			return
+		}
+		p.host.FindPeersAsync()
 		return
 	}
-	if err := p.host.FindPeers(context.Background()); err != nil {
-		log.L().Error("fail to find peers", zap.Error(err))
-	}
+	p.host.FindPeersAsync()
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
