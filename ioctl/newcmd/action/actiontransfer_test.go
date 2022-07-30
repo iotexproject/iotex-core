@@ -41,6 +41,7 @@ func TestNewActionTransferCmd(t *testing.T) {
 	require.NoError(err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().Alias(gomock.Any()).Return("producer", nil).Times(10)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
 	client.EXPECT().IsCryptoSm2().Return(false).Times(19)
 	client.EXPECT().ReadSecret().Return("", nil).Times(6)
