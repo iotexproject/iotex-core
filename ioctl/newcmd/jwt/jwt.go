@@ -34,9 +34,11 @@ func NewJwtCmd(client ioctl.Client) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
-			cmd.AddCommand(NewJwtSignCmd(client))
+			jwtSignCmd := NewJwtSignCmd(client)
+
+			cmd.AddCommand(jwtSignCmd)
 			action.RegisterWriteCommand(client, cmd)
-			flag.WithArgumentsFlag.RegisterCommand(NewJwtSignCmd(client))
+			flag.WithArgumentsFlag.RegisterCommand(jwtSignCmd)
 			return nil
 		},
 	}
