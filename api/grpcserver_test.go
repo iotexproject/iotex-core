@@ -142,15 +142,16 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 			result, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
+			require.Equal(1, len(result.ActionInfo))
 			require.Equal(test.blkNumber, result.ActionInfo[0].BlkHeight)
 		}
 	})
 
 	t.Run("get actions by block test", func(t *testing.T) {
-		_addr1 := identityset.Address(28).String()
-		_priKey1 := identityset.PrivateKey(28)
+		addr1 := identityset.Address(28).String()
+		priKey1 := identityset.PrivateKey(28)
 
-		tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+		tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
 		for _, test := range _getActionsByBlockTests {
@@ -163,13 +164,14 @@ func TestGrpcServer_GetActions(t *testing.T) {
 				Block:    &block.Block{},
 				Receipts: []*action.Receipt{},
 			}
-			for i := 0; i <= int(test.count+test.start); i++ {
+			for i := 1; i <= test.numActions; i++ {
 				response.Block.Actions = append(response.Block.Actions, tsf1)
 				response.Receipts = append(response.Receipts, &action.Receipt{
 					BlockHeight: test.blkHeight,
 					GasConsumed: gasConsumed.Uint64(),
 				})
 			}
+
 			request := &iotexapi.GetActionsRequest{
 				Lookup: &iotexapi.GetActionsRequest_ByBlk{
 					ByBlk: &iotexapi.GetActionsByBlockRequest{
@@ -180,14 +182,11 @@ func TestGrpcServer_GetActions(t *testing.T) {
 				},
 			}
 
-			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil).AnyTimes()
+			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil)
 
-			_, err := grpcSvr.GetActions(context.Background(), request)
-			if test.count == 0 {
-				require.Error(err)
-				continue
-			}
+			result, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
+			require.Equal(test.numActions-int(test.start), int(result.Total))
 		}
 	})
 }
