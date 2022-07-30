@@ -138,6 +138,6 @@ func newIDGenerator(length uint8) *randID {
 
 func (id *randID) newID() string {
 	token := make([]byte, id.length)
-	rand.Read(token)
+	_, _ = rand.Read(token)
 	return "0x" + hex.EncodeToString(token)
 }
