@@ -35,9 +35,8 @@ func NewJwtCmd(client ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 
 			jwtSignCmd := NewJwtSignCmd(client)
-
 			cmd.AddCommand(jwtSignCmd)
-			action.RegisterWriteCommand(client, cmd)
+			action.RegisterWriteCommand(client, jwtSignCmd)
 			flag.WithArgumentsFlag.RegisterCommand(jwtSignCmd)
 			return nil
 		},
