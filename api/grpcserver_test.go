@@ -142,7 +142,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 			result, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
-			require.Equal(1, len(result.ActionInfo))
+			require.Len(result.ActionInfo, 1)
 			require.Equal(test.blkNumber, result.ActionInfo[0].BlkHeight)
 		}
 	})
