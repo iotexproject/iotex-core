@@ -198,7 +198,6 @@ func TestConfigSet(t *testing.T) {
 
 	for _, tc := range tcs {
 		setResult, err := info.set(tc.args, false, nil)
-		t.Logf("running %s \n result %s", tc, setResult)
 		if err != nil {
 			require.Contains(err.Error(), tc.expected)
 		} else {

@@ -57,8 +57,8 @@ type (
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
-		// CustomLink scans a custom link from terminal and validates it.
-		CustomLink() (string, error)
+		// ReadCustomLink scans a custom link from terminal and validates it.
+		ReadCustomLink() (string, error)
 		// AskToConfirm asks user to confirm from terminal, true to continue
 		AskToConfirm(string) (bool, error)
 		// ReadSecret reads password from terminal
@@ -192,23 +192,19 @@ func (c *client) AskToConfirm(info string) (bool, error) {
 	return strings.EqualFold(confirm, "yes"), nil
 }
 
-// CustomLink is used when setting the explorer config field with a custom link.
-func (c *client) CustomLink() (string, error) {
+func (c *client) ReadCustomLink() (string, error) { // notest
 	var link string
-	_, err := fmt.Scanln(&link)
-	if err != nil {
+	if _, err := fmt.Scanln(&link); err != nil {
 		return "", err
 	}
 
 	match, err := regexp.MatchString(_urlPattern, link)
 	if err != nil {
-		return "", errors.Errorf("failed to validate link %s", link)
+		return "", errors.Wrapf(err, "failed to validate link %s", link)
 	}
-
 	if match {
 		return link, nil
 	}
-
 	return "", errors.Errorf("link is not a valid url %s", link)
 }
 

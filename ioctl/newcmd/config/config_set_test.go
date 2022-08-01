@@ -36,7 +36,7 @@ func TestConfigSetCommand(t *testing.T) {
 
 	t.Run("set custom link config value", func(t *testing.T) {
 		client.EXPECT().ConfigFilePath().Return(fmt.Sprintf("%s/%s", t.TempDir(), "config.file"))
-		client.EXPECT().CustomLink().Return("http://custom-link.com", nil).Times(1)
+		client.EXPECT().ReadCustomLink().Return("http://custom-link.com", nil).Times(1)
 		cmd := NewConfigSetCmd(client)
 		result, err := util.ExecuteCmd(cmd, "explorer", "custom")
 		require.NoError(err)

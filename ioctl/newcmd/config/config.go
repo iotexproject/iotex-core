@@ -9,7 +9,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/iotexproject/iotex-core/ioctl"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,6 +21,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
@@ -34,7 +34,6 @@ const (
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
 	_defaultConfigFileName   = "config.default"
-	_endpoint                = "endpoint"
 )
 
 var (
@@ -135,7 +134,7 @@ func (c *info) reset() error {
 // set sets config variable
 func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, error) {
 	switch args[0] {
-	case _endpoint:
+	case "endpoint":
 		if !isValidEndpoint(args[1]) {
 			return "", errors.Errorf("endpoint %s is not valid", args[1])
 		}
@@ -151,9 +150,9 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 		case isValidExplorer(lowArg):
 			c.readConfig.Explorer = lowArg
 		case args[1] == "custom":
-			link, err := client.CustomLink()
+			link, err := client.ReadCustomLink()
 			if err != nil {
-				return "", errors.Errorf("invalid link %s", link)
+				return "", errors.Wrapf(err, "invalid link %s", link)
 			}
 			c.readConfig.Explorer = link
 		default:
@@ -163,10 +162,10 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 	case "defaultacc":
 		if err := validator.ValidateAlias(args[1]); err == nil {
 		} else if err = validator.ValidateAddress(args[1]); err == nil {
-			c.readConfig.DefaultAccount.AddressOrAlias = args[1]
 		} else {
 			return "", errors.Errorf("failed to validate alias or address %s", args[1])
 		}
+		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
 	case "language":
 		lang := isSupportedLanguage(args[1])
 		if lang == -1 {
@@ -177,7 +176,7 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 	case "nsv2height":
 		height, err := strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
-			return "", errors.Errorf("invalid height %d", height)
+			return "", errors.Wrapf(err, "invalid height %d", height)
 		}
 		c.readConfig.Nsv2height = height
 	default:
@@ -195,7 +194,7 @@ func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, e
 // get retrieves a config item from its key.
 func (c *info) get(arg string) (string, error) {
 	switch arg {
-	case _endpoint:
+	case "endpoint":
 		if c.readConfig.Endpoint == "" {
 			return "", config.ErrEmptyEndpoint
 		}

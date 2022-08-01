@@ -156,21 +156,6 @@ func (mr *MockClientMockRecorder) ConfigFilePath() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigFilePath", reflect.TypeOf((*MockClient)(nil).ConfigFilePath))
 }
 
-// CustomLink mocks base method.
-func (m *MockClient) CustomLink() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CustomLink")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CustomLink indicates an expected call of CustomLink.
-func (mr *MockClientMockRecorder) CustomLink() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CustomLink", reflect.TypeOf((*MockClient)(nil).CustomLink))
-}
-
 // DecryptPrivateKey mocks base method.
 func (m *MockClient) DecryptPrivateKey(arg0, arg1 string) (*ecdsa.PrivateKey, error) {
 	m.ctrl.T.Helper()
@@ -298,6 +283,21 @@ func (m *MockClient) QueryAnalyser(arg0 interface{}) (*http.Response, error) {
 func (mr *MockClientMockRecorder) QueryAnalyser(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAnalyser", reflect.TypeOf((*MockClient)(nil).QueryAnalyser), arg0)
+}
+
+// ReadCustomLink mocks base method.
+func (m *MockClient) ReadCustomLink() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadCustomLink")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadCustomLink indicates an expected call of ReadCustomLink.
+func (mr *MockClientMockRecorder) ReadCustomLink() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadCustomLink", reflect.TypeOf((*MockClient)(nil).ReadCustomLink))
 }
 
 // ReadInput mocks base method.
