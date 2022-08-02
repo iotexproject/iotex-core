@@ -2,17 +2,15 @@ package api
 
 import (
 	"encoding/hex"
-	"math/rand"
 	"sync"
-	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/ttl"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/cache/ttl"
-
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -132,12 +130,11 @@ type randID struct {
 }
 
 func newIDGenerator(length uint8) *randID {
-	rand.Seed(time.Now().UnixNano())
 	return &randID{length: length}
 }
 
 func (id *randID) newID() string {
 	token := make([]byte, id.length)
-	_, _ = rand.Read(token)
+	fastrand.Read(token)
 	return "0x" + hex.EncodeToString(token)
 }
