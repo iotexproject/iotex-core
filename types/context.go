@@ -15,7 +15,6 @@ type Context struct {
 	header  *block.Header
 	chainID string
 	txBytes []byte
-	// logger  *zap.Logger
 	// voteInfo      []abci.VoteInfo
 	// gasMeter      GasMeter
 	// blockGasMeter GasMeter
@@ -36,7 +35,6 @@ func (c Context) BlockTime() time.Time { return c.header.Timestamp() }
 func (c Context) ChainID() string      { return c.chainID }
 func (c Context) TxBytes() []byte      { return c.txBytes }
 
-// func (c Context) Logger() log.Logger          { return c.logger }
 // func (c Context) VoteInfos() []abci.VoteInfo  { return c.voteInfo }
 // func (c Context) GasMeter() GasMeter          { return c.gasMeter }
 // func (c Context) BlockGasMeter() GasMeter     { return c.blockGasMeter }
@@ -52,10 +50,6 @@ func (c Context) HeaderHash() hash.Hash256 {
 	return c.header.HashBlock()
 }
 
-// func (c Context) ConsensusParams() *tmproto.ConsensusParams {
-// return proto.Clone(c.consParams).(*tmproto.ConsensusParams)
-// }
-
 func (c Context) Deadline() (deadline time.Time, ok bool) {
 	return c.baseCtx.Deadline()
 }
@@ -66,4 +60,19 @@ func (c Context) Done() <-chan struct{} {
 
 func (c Context) Err() error {
 	return c.baseCtx.Err()
+}
+
+func (c Context) WithTxBytes(txBytes []byte) Context {
+	c.txBytes = txBytes
+	return c
+}
+
+// WithIsRecheckTx called with true will also set true on checkTx in order to
+// enforce the invariant that if recheckTx = true then checkTx = true as well.
+func (c Context) WithIsReCheckTx(isRecheckTx bool) Context {
+	if isRecheckTx {
+		c.checkTx = true
+	}
+	c.recheckTx = isRecheckTx
+	return c
 }

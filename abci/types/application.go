@@ -5,9 +5,9 @@ package types
 type Application interface {
 
 	// Mempool Connection
-	CheckTx(RequestCheckTx) ResponseCheckTx // Validate a tx for the mempool
+	CheckTx(*RequestCheckTx) (*ResponseCheckTx, error) // Validate a tx for the mempool
 
 	// Consensus Connection
-	BeginBlock(RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
-	DeliverTx(RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
+	BeginBlock(*RequestBeginBlock) (*ResponseBeginBlock, error) // Signals the beginning of a block
+	DeliverTx(*RequestDeliverTx) (*ResponseDeliverTx, error)    // Deliver a tx for full processing
 }
