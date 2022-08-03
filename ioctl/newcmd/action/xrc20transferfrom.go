@@ -40,15 +40,15 @@ func NewXrc20TransferFromCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			owner, err := alias.EtherAddress(args[0])
+			owner, err := alias.EtherAddress(client, args[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to get owner address")
 			}
-			recipient, err := alias.EtherAddress(args[1])
+			recipient, err := alias.EtherAddress(client, args[1])
 			if err != nil {
 				return errors.Wrap(err, "failed to get recipient address")
 			}
-			contract, err := xrc20Contract(client, cmd)
+			contract, err := xrc20Contract(client)
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}

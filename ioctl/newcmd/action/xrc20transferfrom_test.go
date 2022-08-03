@@ -1,8 +1,7 @@
 package action
 
 import (
-	"os"
-	"path"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -21,12 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-const (
-	contractAddrFlagLabel      = "contract-address"
-	contractAddrFlagShortLabel = "c"
-	contractAddrFlagUsage      = "set contract address"
-)
-
 func TestNewXrc20TransferFrom(t *testing.T) {
 	var (
 		require = require.New(t)
@@ -42,138 +35,22 @@ func TestNewXrc20TransferFrom(t *testing.T) {
 		dftContract     = identityset.Address(2).String()
 		dftAmount       = "100"
 		dftContractData = "2F"
+		dftBalance      = "20000000000000100000"
 	)
-	tests := []struct {
-		name        string
-		args        []string
-		prepare     func(*gomock.Controller) *cobra.Command
-		expectedErr string
-	}{
-		{
-			"WrongArgCount",
-			nil,
-			prepare,
-			"accepts 3 arg(s), received 0",
-		}, {
-			"WrongOwnerAlias",
-			[]string{wrongAlias, "", ""},
-			prepare,
-			"failed to get owner address: cannot find address for alias " + wrongAlias,
-		}, {
-			"WrongOwnerAddress",
-			[]string{wrongAddr, "", ""},
-			prepare,
-			"failed to get owner address: " + wrongAddr + ": invalid IoTeX address",
-		}, {
-			"NoContractAddress",
-			[]string{dftOwner, dftRecipient, ""},
-			prepare,
-			"failed to get contract address: invalid xrc20 address flag: cannot find address for alias ",
-		}, {
-			"WrongContractAlias",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			prepareWithContractAddr(wrongAlias, dftOwner, dftContractData),
-			"failed to get contract address: invalid xrc20 address flag: cannot find address for alias " + wrongAlias,
-		}, {
-			"WrongContractAddress",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			prepareWithContractAddr(wrongAddr, dftOwner, dftContractData),
-			"failed to get contract address: invalid xrc20 address flag: " + wrongAddr + ": invalid IoTeX address",
-		}, {
-			"WrongAmount",
-			[]string{dftOwner, dftRecipient, wrongAmount},
-			prepareWithContractAddr(dftContract, dftOwner, dftContractData),
-			"failed to parse amount: failed to convert string into big int",
-		}, {
-			"WrongContractDataRsp",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			prepareWithContractAddr(dftContract, dftOwner, wrongContractData),
-			"failed to parse amount: failed to convert string into int64: strconv.ParseInt: parsing \"" + wrongContractData + "\": invalid syntax",
-		}, {
-			"BalanceNotEnough",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			prepareWithFullMockClientAndAPI(dftContract, true, true, false),
-			"failed to pass balance check: balance is not enough",
-		}, {
-			"ShouldPass",
-			[]string{dftOwner, dftRecipient, dftAmount},
-			prepareWithFullMockClientAndAPI(dftContract, true, true, true),
-			"",
-		}}
-	cwd, _ := os.Getwd()
-	defer os.RemoveAll(path.Join(cwd, "passwd"))
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			cmd := test.prepare(ctrl)
-			result, err := util.ExecuteCmd(cmd, test.args...)
-			if test.expectedErr == "" {
-				require.NoError(err)
-				require.Contains(result, "Action has been sent to blockchain.\nWait for several seconds and query this action by hash:")
-			} else {
-				require.Equal(test.expectedErr, err.Error())
-			}
-		})
-	}
-}
+	passwd := "passwd"
+	ks := keystore.NewKeyStore(t.TempDir(), 2, 1)
+	account, err := ks.NewAccount(passwd)
+	require.NoError(err)
+	accountAddr, err := address.FromBytes(account.Address.Bytes())
+	require.NoError(err)
 
-type prepareFn func(*gomock.Controller) *cobra.Command
-
-func prepare(ctrl *gomock.Controller) *cobra.Command {
-	cli := mock_ioctlclient.NewMockClient(ctrl)
-	api := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	cli.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
-	cli.EXPECT().APIServiceClient().Return(api, nil).AnyTimes()
-	cli.EXPECT().Xrc20ContractAddr().Return("")
-	return NewXrc20TransferFromCmd(cli)
-}
-
-func prepareWithContractAddr(addr, owner, data string) prepareFn {
-	return func(ctrl *gomock.Controller) *cobra.Command {
-		cli := mock_ioctlclient.NewMockClient(ctrl)
-		api := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-
-		cli.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
-		cli.EXPECT().APIServiceClient().Return(api, nil).AnyTimes()
-		cli.EXPECT().Xrc20ContractAddr().Return(addr)
-
-		if owner != "" {
-			cli.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(owner, nil)
-			api.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(&iotexapi.ReadContractResponse{Data: data}, nil)
-		}
-
-		cmd := NewXrc20TransferFromCmd(cli)
-		xrc20ContractAddr := ""
-		cmd.PersistentFlags().StringVarP(&xrc20ContractAddr,
-			contractAddrFlagLabel,
-			contractAddrFlagShortLabel,
-			addr,
-			contractAddrFlagUsage,
-		)
-		return cmd
-	}
-}
-
-func prepareWithFullMockClientAndAPI(
-	contractAddr string,
-	validContractData bool,
-	validOwner bool,
-	validBalance bool,
-) prepareFn {
-	return func(ctrl *gomock.Controller) *cobra.Command {
-		passwd := "passwd"
-		ks := keystore.NewKeyStore(passwd, 2, 1)
-		account, err := ks.NewAccount(passwd)
-		if err != nil {
-			return nil
-		}
-		accountAddr, err := address.FromBytes(account.Address.Bytes())
-		owner := accountAddr.String()
-		if !validOwner {
-			owner = "aaaa"
-		}
-
+	newcmd := func(
+		contractAddr string,
+		contractData string,
+		owner string,
+		balance string,
+	) *cobra.Command {
 		cli := mock_ioctlclient.NewMockClient(ctrl)
 		api := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 
@@ -189,11 +66,6 @@ func prepareWithFullMockClientAndAPI(
 		cli.EXPECT().Alias(gomock.Any()).Return("", nil).AnyTimes()
 		cli.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).AnyTimes()
 
-		contractData := "2f"
-		if !validContractData {
-			contractData = "xxx"
-		}
-
 		api.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&iotexapi.ReadContractResponse{Data: contractData}, nil)
 		api.EXPECT().GetAccount(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -203,10 +75,6 @@ func prepareWithFullMockClientAndAPI(
 		api.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).
 			Return(&iotexapi.GetChainMetaResponse{}, nil)
 
-		balance := "20000000000000100000"
-		if !validBalance {
-			balance = "0"
-		}
 		api.EXPECT().GetAccount(gomock.Any(), gomock.Any()).
 			Return(&iotexapi.GetAccountResponse{
 				AccountMeta: &iotextypes.AccountMeta{Balance: balance},
@@ -222,11 +90,72 @@ func prepareWithFullMockClientAndAPI(
 		cmd := NewXrc20TransferFromCmd(cli)
 		xrc20ContractAddr := ""
 		cmd.PersistentFlags().StringVarP(&xrc20ContractAddr,
-			contractAddrFlagLabel,
-			contractAddrFlagShortLabel,
+			"contract-address",
+			"c",
 			contractAddr,
-			contractAddrFlagUsage,
+			"set contract address",
 		)
 		return cmd
+	}
+
+	tests := []struct {
+		name        string
+		args        []string
+		newcmd      *cobra.Command
+		expectedErr string
+	}{
+		{
+			"WrongArgCount",
+			nil,
+			newcmd("", "", "", ""),
+			"accepts 3 arg(s), received 0",
+		}, {
+			"WrongOwnerAlias",
+			[]string{wrongAlias, "", ""},
+			newcmd(dftContract, dftContractData, wrongAlias, dftBalance),
+			fmt.Sprintf("failed to get owner address: address length = %d, expecting 41: invalid address", len(wrongAlias)),
+		}, {
+			"WrongOwnerAddress",
+			[]string{wrongAddr, "", ""},
+			newcmd(dftContract, dftContractData, wrongAddr, dftBalance),
+			"failed to get owner address: invalid index of 1: invalid address",
+		}, {
+			"WrongContractAddress",
+			[]string{dftOwner, dftRecipient, dftAmount},
+			newcmd(wrongAddr, dftContractData, dftOwner, dftBalance),
+			fmt.Sprintf("invalid address #%s", dftOwner),
+		}, {
+			"WrongAmount",
+			[]string{dftOwner, dftRecipient, wrongAmount},
+			newcmd(dftContract, dftContractData, dftOwner, dftBalance),
+			"failed to parse amount: failed to convert string into big int",
+		}, {
+			"WrongContractDataRsp",
+			[]string{dftOwner, dftRecipient, dftAmount},
+			newcmd(dftContract, wrongContractData, dftOwner, dftBalance),
+			fmt.Sprintf("failed to parse amount: failed to convert string into int64: strconv.ParseInt: parsing \"%s\": invalid syntax", wrongContractData),
+		}, {
+			"BalanceNotEnough",
+			[]string{dftOwner, dftRecipient, dftAmount},
+			newcmd(dftContract, dftContractData, accountAddr.String(), "0"),
+			"failed to pass balance check: balance is not enough",
+		}, {
+			"ShouldPass",
+			[]string{dftOwner, dftRecipient, dftAmount},
+			newcmd(dftContract, dftContractData, accountAddr.String(), dftBalance),
+			"",
+		}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cmd := test.newcmd
+			result, err := util.ExecuteCmd(cmd, test.args...)
+			if test.expectedErr == "" {
+				require.NoError(err)
+				require.Contains(result, "Action has been sent to blockchain.\nWait for several seconds and query this action by hash:")
+			} else {
+				require.Equal(test.expectedErr, err.Error())
+			}
+		})
 	}
 }

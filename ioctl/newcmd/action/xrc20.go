@@ -51,9 +51,8 @@ func NewXrc20Cmd(client ioctl.Client) *cobra.Command {
 	return cmd
 }
 
-func xrc20Contract(client ioctl.Client, cmd *cobra.Command) (address.Address, error) {
-	in := client.Xrc20ContractAddr()
-	addr, err := alias.IOAddress(in)
+func xrc20Contract(client ioctl.Client) (address.Address, error) {
+	addr, err := alias.IOAddress(client, client.Xrc20ContractAddr())
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid xrc20 address flag")
 	}
