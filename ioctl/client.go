@@ -45,10 +45,14 @@ type (
 		Config() config.Config
 		// ConfigFilePath returns the file path of the config
 		ConfigFilePath() string
+		// Xrc20ContractAddr returns the value of flag
+		Xrc20ContractAddr() string
 		// SetEndpointWithFlag receives input flag value
 		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
 		SetInsecureWithFlag(func(*bool, string, bool, string))
+		// SetXrc20ContractAddrWithFlag receives input flag value
+		SetXrc20ContractAddrWithFlag(func(*string, string, string, string, string), func(string) error)
 		// APIServiceClient returns an API service client
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
@@ -104,6 +108,7 @@ type (
 		configFilePath     string
 		endpoint           string
 		insecure           bool
+		xrc20ContractAddr  string
 		hdWalletConfigFile string
 		xrc20ABI           abi.ABI
 	}
@@ -161,9 +166,12 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
-// ConfigFilePath returns the file path for the config.
 func (c *client) ConfigFilePath() string {
 	return c.configFilePath
+}
+
+func (c *client) Xrc20ContractAddr() string {
+	return c.xrc20ContractAddr
 }
 
 func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
@@ -180,6 +188,18 @@ func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
 		config.Chinese: "一次不安全连接",
 	})
 	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
+}
+
+func (c *client) SetXrc20ContractAddrWithFlag(cb func(*string, string, string, string, string), cbFlagRequired func(string) error) {
+	usage, _ := c.SelectTranslation(map[config.Language]string{
+		config.English: "set contract address",
+		config.Chinese: "设定合约地址",
+	})
+	const name = "contract-address"
+	cb(&c.xrc20ContractAddr, name, "c", "", usage)
+	if err := cbFlagRequired(name); err != nil {
+		fmt.Printf("failed to set required flag: %v\n", err)
+	}
 }
 
 func (c *client) AskToConfirm(info string) bool {

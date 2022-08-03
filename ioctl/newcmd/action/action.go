@@ -398,8 +398,8 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 		infoQuit := selectTranslation(client, _infoQuit)
 		if !client.AskToConfirm(infoWarn) {
 			cmd.Println(infoQuit)
+			return nil
 		}
-		return nil
 	}
 
 	return SendRaw(client, cmd, selp)

@@ -29,6 +29,11 @@ func TestStop(t *testing.T) {
 	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
 		*p = true
 	})
+	c.SetXrc20ContractAddrWithFlag(func(p *string, _ string, _ string, _ string, _ string) {
+		*p = "0xsjfdjfk"
+	}, func(_ string) error {
+		return nil
+	})
 	_, err = c.APIServiceClient()
 	r.NoError(err)
 	err = c.Stop(context.Background())

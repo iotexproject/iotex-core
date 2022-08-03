@@ -29,14 +29,6 @@ var (
 		config.English: "Support ERC20 standard command-line",
 		config.Chinese: "使ioctl命令行支持ERC20标准",
 	}
-	_xrc20CmdUses = map[config.Language]string{
-		config.English: "xrc20",
-		config.Chinese: "xrc20",
-	}
-	_flagContractAddressUsages = map[config.Language]string{
-		config.English: "set contract address",
-		config.Chinese: "设定合约地址",
-	}
 	_flagXrc20EndPointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
@@ -47,16 +39,11 @@ var (
 	}
 )
 
-const (
-	contractAddrFlagLabel      = "contract-address"
-	contractAddrFlagShortLabel = "c"
-)
-
 // NewXrc20 represent xrc20 standard command-line
 func NewXrc20(client ioctl.Client) *cobra.Command {
-	cmd := &cobra.Command{}
-
-	cmd.Use, _ = client.SelectTranslation(_xrc20CmdUses)
+	cmd := &cobra.Command{
+		Use: "xrc20",
+	}
 	cmd.Short, _ = client.SelectTranslation(_xrc20CmdShorts)
 
 	// add sub commands
@@ -67,27 +54,16 @@ func NewXrc20(client ioctl.Client) *cobra.Command {
 	// TODO cmd.AddCommand(NewXrc20Approve(client))
 	// TODO cmd.AddCommand(NewXrc20Allowance(client))
 
-	var (
-		contractAddr string
-		endpoint     string
-		insecure     bool
-	)
-
-	// set persistent flags
-	cmd.PersistentFlags().StringVarP(&contractAddr, contractAddrFlagLabel, contractAddrFlagShortLabel, "", selectTranslation(client, _flagContractAddressUsages))
-	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, selectTranslation(client, _flagXrc20EndPointUsages))
-	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, selectTranslation(client, _flagXrc20InsecureUsages))
-	_ = cmd.MarkFlagRequired("contract-address")
+	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
+	client.SetXrc20ContractAddrWithFlag(cmd.PersistentFlags().StringVarP, cmd.MarkFlagRequired)
 
 	return cmd
 }
 
-func xrc20Contract(cmd *cobra.Command) (address.Address, error) {
-	val, err := cmd.Flags().GetString(contractAddrFlagLabel)
-	if err != nil {
-		return nil, err
-	}
-	addr, err := alias.IOAddress(val)
+func xrc20Contract(client ioctl.Client, cmd *cobra.Command) (address.Address, error) {
+	in := client.Xrc20ContractAddr()
+	addr, err := alias.IOAddress(in)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid xrc20 address flag")
 	}
