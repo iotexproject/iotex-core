@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
@@ -37,19 +35,18 @@ func TestNewJwtSignCmd(t *testing.T) {
 
 	t.Run("sign jwt with no arg", func(t *testing.T) {
 		cmd := NewJwtSignCmd(client)
-		action.RegisterWriteCommand(client, cmd)
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
 		require.Contains(result, "address: "+accAddr.String())
+		require.Contains(result, `"exp": "0"`)
 	})
 
 	t.Run("sign jwt with arg", func(t *testing.T) {
 		cmd := NewJwtSignCmd(client)
-		flag.WithArgumentsFlag.RegisterCommand(cmd)
-		action.RegisterWriteCommand(client, cmd)
 		result, err := util.ExecuteCmd(cmd, "--with-arguments", `{"exp":"-10"}`)
 		require.NoError(err)
 		require.Contains(result, "address: "+accAddr.String())
+		require.Contains(result, `"exp": "-10"`)
 	})
 
 	t.Run("failed to get signer address", func(t *testing.T) {
@@ -57,7 +54,6 @@ func TestNewJwtSignCmd(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("", expectedErr)
 
 		cmd := NewJwtSignCmd(client)
-		action.RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -66,8 +62,6 @@ func TestNewJwtSignCmd(t *testing.T) {
 		expectedErr := errors.New("failed to unmarshal arguments")
 
 		cmd := NewJwtSignCmd(client)
-		flag.WithArgumentsFlag.RegisterCommand(cmd)
-		action.RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--with-arguments", "test")
 		require.Contains(err.Error(), expectedErr.Error())
 	})

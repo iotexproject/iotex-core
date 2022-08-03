@@ -20,6 +20,7 @@ func TestNewJwtCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("jwt", config.English).AnyTimes()
 
 	cmd := NewJwtCmd(client)
-	_, err := util.ExecuteCmd(cmd)
+	result, err := util.ExecuteCmd(cmd)
 	require.NoError(err)
+	require.Contains(result, "Available Commands")
 }

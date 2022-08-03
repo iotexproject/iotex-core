@@ -11,8 +11,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/flag"
-	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
 )
 
 // Multi-language support
@@ -26,19 +24,10 @@ var (
 // NewJwtCmd represents the jwt command
 func NewJwtCmd(client ioctl.Client) *cobra.Command {
 	short, _ := client.SelectTranslation(_jwtCmdShorts)
-
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "jwt",
 		Short: short,
-		Args:  cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.SilenceUsage = true
-
-			jwtSignCmd := NewJwtSignCmd(client)
-			cmd.AddCommand(jwtSignCmd)
-			action.RegisterWriteCommand(client, jwtSignCmd)
-			flag.WithArgumentsFlag.RegisterCommand(jwtSignCmd)
-			return nil
-		},
 	}
+	cmd.AddCommand(NewJwtSignCmd(client))
+	return cmd
 }

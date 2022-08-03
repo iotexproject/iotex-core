@@ -39,7 +39,7 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_signCmdUses)
 	short, _ := client.SelectTranslation(_signCmdShorts)
 
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
 		Args:  cobra.ExactArgs(0),
@@ -106,4 +106,7 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
+	action.RegisterWriteCommand(client, cmd)
+	flag.WithArgumentsFlag.RegisterCommand(cmd)
+	return cmd
 }
