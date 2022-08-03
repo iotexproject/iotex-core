@@ -187,7 +187,7 @@ func prepareWithFullMockClientAndAPI(
 		cli.EXPECT().ReadSecret().Return(passwd, nil).AnyTimes()
 		cli.EXPECT().Address(gomock.Any()).Return(owner, nil).AnyTimes()
 		cli.EXPECT().Alias(gomock.Any()).Return("", nil).AnyTimes()
-		cli.EXPECT().AskToConfirm(gomock.Any()).Return(true).AnyTimes()
+		cli.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).AnyTimes()
 
 		contractData := "2f"
 		if !validContractData {
