@@ -1037,6 +1037,9 @@ func TestIstanbulEVM(t *testing.T) {
 }
 
 func TestLondonEVM(t *testing.T) {
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/factory.json")
+	})
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
 	})

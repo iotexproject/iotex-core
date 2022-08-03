@@ -114,11 +114,12 @@ func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
 }
 
 // AskToConfirm mocks base method.
-func (m *MockClient) AskToConfirm(arg0 string) bool {
+func (m *MockClient) AskToConfirm(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
 	ret0, _ := ret[0].(bool)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AskToConfirm indicates an expected call of AskToConfirm.

@@ -28,6 +28,67 @@ func TestInitConfig(t *testing.T) {
 	require.Equal(filepath.Join(testPath, _defaultConfigFileName), cfgFilePath)
 }
 
+func TestConfigGet(t *testing.T) {
+	require := require.New(t)
+	testPath := t.TempDir()
+	info := newInfo(config.Config{
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+	}, testPath)
+
+	tcs := []struct {
+		arg      string
+		expected string
+	}{
+		{
+			"endpoint",
+			"no endpoint has been set",
+		},
+		{
+			"wallet",
+			testPath,
+		},
+		{
+			"defaultacc",
+			"{\n  \"addressOrAlias\": \"test\"\n}",
+		},
+		{
+			"explorer",
+			"iotexscan",
+		},
+		{
+			"language",
+			"English",
+		},
+		{
+			"nsv2height",
+			"0",
+		},
+		{
+			"analyserEndpoint",
+			"testAnalyser",
+		},
+		{
+			"all",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\"\n}",
+		},
+	}
+
+	for _, tc := range tcs {
+		cfgItem, err := info.get(tc.arg)
+		if err != nil {
+			require.Contains(err.Error(), tc.expected)
+		} else {
+			require.Contains(cfgItem, tc.expected)
+		}
+	}
+}
+
 func TestConfigReset(t *testing.T) {
 	require := require.New(t)
 	cfgDir := t.TempDir()

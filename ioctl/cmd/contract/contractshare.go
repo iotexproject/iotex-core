@@ -102,7 +102,9 @@ func isReadOnly(path string) bool {
 		}
 		readOnly = true
 	}
-	file.Close()
+	if err = file.Close(); err != nil {
+		log.Printf("fialed to close file: %v", err)
+	}
 	return readOnly
 }
 
@@ -140,7 +142,7 @@ func share(args []string) error {
 		return output.NewError(output.FlagError, "failed to get IoTeX ide url instance", nil)
 	}
 
-	filepath.Walk(_givenPath, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(_givenPath, func(path string, info os.FileInfo, err error) error {
 		if !isDir(path) {
 			relPath, err := filepath.Rel(_givenPath, path)
 			if err != nil {
@@ -152,7 +154,9 @@ func share(args []string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return output.NewError(output.ReadFileError, "failed to walk directory", err)
+	}
 
 	log.Printf("Listening on 127.0.0.1:65520, Please open your IDE ( %s ) to connect to local files", _iotexIDE)
 
@@ -203,7 +207,7 @@ func share(args []string) error {
 					break
 				}
 				getPayloadPath = filepath.Join(_givenPath, getPayloadPath)
-				upload, err := os.ReadFile(getPayloadPath)
+				upload, err := os.ReadFile(filepath.Clean(getPayloadPath))
 				if err != nil {
 					log.Println("read file failed: ", err)
 					break
@@ -251,7 +255,7 @@ func share(args []string) error {
 					break
 				}
 				setPath = filepath.Join(_givenPath, setPath)
-				if err := os.MkdirAll(filepath.Dir(setPath), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(setPath), 0750); err != nil {
 					log.Println("mkdir failed: ", err)
 					break
 				}

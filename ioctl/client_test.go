@@ -45,9 +45,10 @@ func TestAskToConfirm(t *testing.T) {
 	c, err := NewClient(config.Config{}, "")
 	r.NoError(err)
 	defer c.Stop(context.Background())
-	blang := c.AskToConfirm("test")
+	confirmed, err := c.AskToConfirm("test")
 	// no input
-	r.False(blang)
+	r.Equal("EOF", err.Error())
+	r.False(confirmed)
 }
 
 func TestAPIServiceClient(t *testing.T) {

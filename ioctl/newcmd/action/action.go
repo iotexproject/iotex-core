@@ -396,7 +396,11 @@ func SendAction(client ioctl.Client, cmd *cobra.Command, elp action.Envelope, si
 	if !getAssumeYesFlagValue(cmd) {
 		infoWarn := selectTranslation(client, _infoWarn)
 		infoQuit := selectTranslation(client, _infoQuit)
-		if !client.AskToConfirm(infoWarn) {
+		confirmed, err := client.AskToConfirm(infoWarn)
+		if err != nil {
+			return errors.Wrap(err, "failed to ask confirm")
+		}
+		if !confirmed {
 			cmd.Println(infoQuit)
 			return nil
 		}
