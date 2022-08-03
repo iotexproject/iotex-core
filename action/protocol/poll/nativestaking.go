@@ -102,6 +102,7 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 	}
 	prevIndex := big.NewInt(0)
 	limit := big.NewInt(256)
+	featureCtx := protocol.MustGetFeatureCtx(ctx)
 
 	for {
 		vote, index, err := ns.readBuckets(ctx, prevIndex, limit, correctGas)
@@ -114,7 +115,8 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 			log.L().Error(" read native staking contract", zap.Error(err))
 			return nil, err
 		}
-		if err = votes.tally(vote, ts); err != nil {
+		err = votes.tally(vote, ts)
+		if featureCtx.FixUnproductiveDelegates && err != nil {
 			log.L().Error(" read vote tally", zap.Error(err))
 			return nil, err
 		}

@@ -73,6 +73,7 @@ type (
 		legacyNonceAccount         bool
 		fixSnapshotOrder           bool
 		revertLog                  bool
+		fixUnproductiveDelegates   bool
 	}
 )
 
@@ -131,6 +132,14 @@ func FixSnapshotOrderOption() StateDBAdapterOption {
 func RevertLogOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
 		adapter.revertLog = true
+		return nil
+	}
+}
+
+// FixUnproductiveDelegatesOption set fixUnproductiveDelegates as true
+func FixUnproductiveDelegatesOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.fixUnproductiveDelegates = true
 		return nil
 	}
 }
@@ -968,7 +977,8 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		v := stateDB.preimages[k]
 		h := make([]byte, len(k))
 		copy(h, k[:])
-		if _, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h)); err != nil {
+		_, err = stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
+		if stateDB.fixUnproductiveDelegates && err != nil {
 			stateDB.logError(err)
 			return errors.Wrap(err, "failed to update preimage to db")
 		}

@@ -249,7 +249,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
+		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight, featureCtx.FixUnproductiveDelegates); err != nil {
 			return err
 		}
 	}

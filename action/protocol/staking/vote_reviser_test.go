@@ -149,7 +149,13 @@ func TestVoteReviser(t *testing.T) {
 	// test revise
 	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
 	r.False(stk.voteReviser.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(stk.voteReviser.Revise(csm, genesis.Default.HawaiiBlockHeight))
+
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.ToBeEnabledBlockHeight,
+		})
+	ctx = protocol.WithFeatureCtx(ctx)
+	r.NoError(stk.voteReviser.Revise(csm, genesis.Default.HawaiiBlockHeight, protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates))
 	r.NoError(csm.Commit())
 	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
 
