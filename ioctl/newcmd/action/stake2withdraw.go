@@ -72,7 +72,7 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 			}
 			nonce, err := nonce(client, cmd, sender)
 			if err != nil {
-				return errors.Wrap(err, "failed to get nonce ")
+				return errors.Wrap(err, "failed to get nonce")
 			}
 
 			s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
