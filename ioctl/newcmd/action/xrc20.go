@@ -8,7 +8,7 @@ package action
 
 import (
 	"encoding/hex"
-	"encoding/json"
+	"fmt"
 	"math/big"
 	"strconv"
 
@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // Multi-language support
@@ -29,25 +28,17 @@ var (
 		config.English: "Support ERC20 standard command-line",
 		config.Chinese: "使ioctl命令行支持ERC20标准",
 	}
-	_flagXrc20EndPointUsages = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
-	}
-	_flagXrc20InsecureUsages = map[config.Language]string{
-		config.English: "insecure connection for once (default false)",
-		config.Chinese: "一次不安全的连接（默认为false）",
-	}
 )
 
-// NewXrc20 represent xrc20 standard command-line
-func NewXrc20(client ioctl.Client) *cobra.Command {
+// NewXrc20Cmd represent xrc20 standard command-line
+func NewXrc20Cmd(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "xrc20",
 	}
 	cmd.Short, _ = client.SelectTranslation(_xrc20CmdShorts)
 
 	// add sub commands
-	cmd.AddCommand(NewXrc20TransferFrom(client))
+	cmd.AddCommand(NewXrc20TransferFromCmd(client))
 	// TODO cmd.AddCommand(NewXrc20TotalSupply(client))
 	// TODO cmd.AddCommand(NewXrc20BalanceOf(client))
 	// TODO cmd.AddCommand(NewXrc20Transfer(client))
@@ -57,7 +48,6 @@ func NewXrc20(client ioctl.Client) *cobra.Command {
 	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
 	client.SetXrc20ContractAddrWithFlag(cmd.PersistentFlags().StringVarP, cmd.MarkFlagRequired)
-
 	return cmd
 }
 
@@ -70,13 +60,8 @@ func xrc20Contract(client ioctl.Client, cmd *cobra.Command) (address.Address, er
 	return addr, nil
 }
 
-type amountMessage struct {
-	RawData string `json:"rawData"`
-	Decimal string `json:"decimal"`
-}
-
-func (m *amountMessage) String() string {
-	return string(byteutil.Must(json.MarshalIndent(m, "", "  ")))
+func amountMessage(rawData, decimal string) string {
+	return fmt.Sprintf("Raw output: %s\nOutput in decimal: %s", rawData, decimal)
 }
 
 func parseAmount(client ioctl.Client, cmd *cobra.Command, contract address.Address, amount string) (*big.Int, error) {
@@ -98,6 +83,5 @@ func parseAmount(client ioctl.Client, cmd *cobra.Command, contract address.Addre
 	} else {
 		decimal = int64(0)
 	}
-
 	return util.StringToRau(amount, int(decimal))
 }

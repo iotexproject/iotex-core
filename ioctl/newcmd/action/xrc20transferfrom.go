@@ -32,8 +32,8 @@ var (
 	}
 )
 
-// NewXrc20TransferFrom represent xrc20TransferFrom command
-func NewXrc20TransferFrom(client ioctl.Client) *cobra.Command {
+// NewXrc20TransferFromCmd represent xrc20TransferFrom command
+func NewXrc20TransferFromCmd(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   selectTranslation(client, _xrc20TransferFromCmdUses),
 		Short: selectTranslation(client, _xrc20TransferFromCmdShorts),

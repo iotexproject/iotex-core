@@ -125,7 +125,7 @@ func prepare(ctrl *gomock.Controller) *cobra.Command {
 	cli.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
 	cli.EXPECT().APIServiceClient().Return(api, nil).AnyTimes()
 	cli.EXPECT().Xrc20ContractAddr().Return("")
-	return NewXrc20TransferFrom(cli)
+	return NewXrc20TransferFromCmd(cli)
 }
 
 func prepareWithContractAddr(addr, owner, data string) prepareFn {
@@ -143,9 +143,9 @@ func prepareWithContractAddr(addr, owner, data string) prepareFn {
 				Return(&iotexapi.ReadContractResponse{Data: data}, nil)
 		}
 
-		cmd := NewXrc20TransferFrom(cli)
-		xrc20ContractAddress := ""
-		cmd.PersistentFlags().StringVarP(&xrc20ContractAddress,
+		cmd := NewXrc20TransferFromCmd(cli)
+		xrc20ContractAddr := ""
+		cmd.PersistentFlags().StringVarP(&xrc20ContractAddr,
 			contractAddrFlagLabel,
 			contractAddrFlagShortLabel,
 			addr,
@@ -219,9 +219,9 @@ func prepareWithFullMockClientAndAPI(
 			Endpoint: "testnet1",
 		}).Times(2)
 
-		cmd := NewXrc20TransferFrom(cli)
-		xrc20ContractAddress := ""
-		cmd.PersistentFlags().StringVarP(&xrc20ContractAddress,
+		cmd := NewXrc20TransferFromCmd(cli)
+		xrc20ContractAddr := ""
+		cmd.PersistentFlags().StringVarP(&xrc20ContractAddr,
 			contractAddrFlagLabel,
 			contractAddrFlagShortLabel,
 			contractAddr,
