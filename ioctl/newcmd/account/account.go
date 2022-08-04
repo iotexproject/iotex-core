@@ -141,7 +141,6 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 	if !IsSignerExist(client, signer) && !util.AliasIsHdwalletKey(signer) {
 		return nil, fmt.Errorf("invalid address #%s", signer)
 	}
-
 	if password == "" {
 		cmd.Printf("Enter password for #%s:\n", signer)
 		password, err = client.ReadSecret()
