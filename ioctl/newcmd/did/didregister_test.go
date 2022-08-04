@@ -12,14 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
 func TestNewJwtSignCmd(t *testing.T) {
@@ -69,8 +70,9 @@ func TestNewJwtSignCmd(t *testing.T) {
 
 	t.Run("did register", func(t *testing.T) {
 		cmd := NewDidRegisterCmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr.String(), payload, "test", "--signer", accAddr.String())
+		result, err := util.ExecuteCmd(cmd, accAddr.String(), payload, "test", "--signer", accAddr.String())
 		require.NoError(err)
+		require.Contains(result, "Action has been sent to blockchain")
 	})
 
 	t.Run("failed to decode data", func(t *testing.T) {
