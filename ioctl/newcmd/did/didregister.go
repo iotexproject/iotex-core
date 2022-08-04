@@ -20,16 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
 )
 
-const (
-	_registerDIDName   = "registerDID"
-	_getHashName       = "getHash"
-	_getURIName        = "getURI"
-	_updateDIDName     = "updateDID"
-	_deregisterDIDName = "deregisterDID"
-	// DIDABI is the did abi
-	DIDABI = `[{"constant": false,"inputs": [],"name": "deregisterDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getHash","outputs": [{"internalType": "bytes32","name": "","type": "bytes32"}],"payable": false,"stateMutability": "view","type": "function"},   {"constant": true,"inputs": [{"internalType": "bytes","name": "did","type": "bytes"}],"name": "getURI","outputs": [{"internalType": "bytes","name": "","type": "bytes"}],"payable": false,"stateMutability": "view","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "registerDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"},{"constant": false,"inputs": [{"internalType": "bytes32","name": "h","type": "bytes32"},{"internalType": "bytes","name": "uri","type": "bytes"}],"name": "updateDID","outputs": [],"payable": false,"stateMutability": "nonpayable","type": "function"}]`
-)
-
 // Multi-language support
 var (
 	_registerCmdUses = map[config.Language]string{
@@ -64,18 +54,8 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			}
 			var hashArray [32]byte
 			copy(hashArray[:], hashSlice)
-			abi, err := abi.JSON(strings.NewReader(DIDABI))
-			if err != nil {
-				return errors.Wrap(err, "falied to parse abi")
-			}
-			_, exist := abi.Methods[_registerDIDName]
-			if !exist {
-				return errors.New("method is not found")
-			}
-			bytecode, err := abi.Pack(_registerDIDName, hashArray, []byte(args[2]))
-			if err != nil {
-				return errors.Wrap(err, "invalid bytecode")
-			}
+			abi, _ := abi.JSON(strings.NewReader(DIDABI))
+			bytecode, _ := abi.Pack(_registerDIDName, hashArray, []byte(args[2]))
 			return action.Execute(client, cmd, contract, big.NewInt(0), bytecode)
 		},
 	}
