@@ -10,10 +10,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewDidCmd(t *testing.T) {
@@ -22,11 +23,12 @@ func TestNewDidCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).AnyTimes()
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
 
 	cmd := NewDidCmd(client)
-	_, err := util.ExecuteCmd(cmd)
+	result, err := util.ExecuteCmd(cmd)
 	require.NoError(err)
+	require.Contains(result, "Available Commands")
 }

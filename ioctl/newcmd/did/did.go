@@ -38,7 +38,7 @@ func NewDidCmd(client ioctl.Client) *cobra.Command {
 		Use:   "did",
 		Short: short,
 	}
-
+	cmd.AddCommand(NewDidRegisterCmd(client))
 	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
 	return cmd
