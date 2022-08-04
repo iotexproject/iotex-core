@@ -315,7 +315,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 		opts = append(opts, RevertLogOption())
 	}
 	if featureCtx.FixUnproductiveDelegates {
-		opts = append(opts, FixUnproductiveDelegatesOption())
+		opts = append(opts, CheckPutStateErrorOption())
 	}
 
 	return NewStateDBAdapter(

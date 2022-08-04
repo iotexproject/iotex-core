@@ -106,14 +106,7 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, fixUnprodu
 			}
 			cand.SelfStake = bucket.StakedAmount
 		} else {
-			err = cand.AddVote(calculateVoteWeight(vr.c, bucket, false))
-			if fixUnproductiveDelegates && err != nil {
-				log.L().Error("fiailed to add vote for candidate",
-					zap.Uint64("bucket index", bucket.Index),
-					zap.String("candidate", bucket.Candidate.String()),
-					zap.Error(err))
-				continue
-			}
+			_ = cand.AddVote(calculateVoteWeight(vr.c, bucket, false))
 		}
 	}
 

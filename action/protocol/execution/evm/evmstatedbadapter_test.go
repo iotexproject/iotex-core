@@ -813,7 +813,7 @@ func TestPreimage(t *testing.T) {
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
-		FixUnproductiveDelegatesOption(),
+		CheckPutStateErrorOption(),
 	)
 	require.NoError(err)
 
