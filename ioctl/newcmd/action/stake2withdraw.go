@@ -79,7 +79,7 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to make a changeCandidate instance")
 			}
-			SendAction(
+			return SendAction(
 				client,
 				cmd,
 				(&action.EnvelopeBuilder{}).
@@ -88,7 +88,6 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 					SetGasLimit(gasLimit).
 					SetAction(s2w).Build(),
 				sender)
-			return nil
 		},
 	}
 	RegisterWriteCommand(client, cmd)
