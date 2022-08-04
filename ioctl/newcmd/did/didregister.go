@@ -44,9 +44,12 @@ var (
 
 // NewDidRegisterCmd represents the did register command
 func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_registerCmdUses)
+	short, _ := client.SelectTranslation(_registerCmdShorts)
+
 	cmd := &cobra.Command{
-		Use:   config.TranslateInLang(_registerCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(_registerCmdShorts, config.UILanguage),
+		Use:   use,
+		Short: short,
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
