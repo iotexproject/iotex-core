@@ -8,6 +8,7 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -188,6 +189,31 @@ func TestGrpcServer_GetActions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(test.numActions-int(test.start), int(res.Total))
 		}
+	})
+
+	t.Run("invalid GetActionsRequest type", func(t *testing.T) {
+		expectedErr := errors.New("invalid GetActionsRequest type")
+		request := &iotexapi.GetActionsRequest{}
+
+		_, err := grpcSvr.GetActions(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get actions", func(t *testing.T) {
+		expectedErr := errors.New("failed to get actions")
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash:   hex.EncodeToString(_transferHash1[:]),
+					CheckPending: false,
+				},
+			},
+		}
+
+		core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
+
+		_, err := grpcSvr.GetActions(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
 	})
 }
 
