@@ -29,9 +29,9 @@ func NewVoteReviser(c genesis.VoteWeightCalConsts, reviseHeights ...uint64) *Vot
 }
 
 // Revise recalculate candidate votes on preset revising height.
-func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64, fixUnproductiveDelegates bool) error {
+func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
 	if !vr.isCacheExist(height) {
-		cands, err := vr.calculateVoteWeight(csm, fixUnproductiveDelegates)
+		cands, err := vr.calculateVoteWeight(csm)
 		if err != nil {
 			return err
 		}
@@ -64,7 +64,7 @@ func (vr *VoteReviser) NeedRevise(height uint64) bool {
 	return false
 }
 
-func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, fixUnproductiveDelegates bool) (CandidateList, error) {
+func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (CandidateList, error) {
 	csr := newCandidateStateReader(csm.SM())
 	cands, _, err := csr.getAllCandidates()
 	switch {
@@ -97,7 +97,7 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager, fixUnprodu
 
 		if cand.SelfStakeBucketIdx == bucket.Index {
 			err = cand.AddVote(calculateVoteWeight(vr.c, bucket, true))
-			if fixUnproductiveDelegates && err != nil {
+			if err != nil {
 				log.L().Error("failed to add vote for candidate",
 					zap.Uint64("bucket index", bucket.Index),
 					zap.String("candidate", bucket.Candidate.String()),
