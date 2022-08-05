@@ -54,8 +54,14 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			}
 			var hashArray [32]byte
 			copy(hashArray[:], hashSlice)
-			abi, _ := abi.JSON(strings.NewReader(DIDABI))
-			bytecode, _ := abi.Pack(_registerDIDName, hashArray, []byte(args[2]))
+			abi, err := abi.JSON(strings.NewReader(DIDABI))
+			if err != nil {
+				return errors.Wrap(err, "falied to parse abi")
+			}
+			bytecode, err := abi.Pack(_registerDIDName, hashArray, []byte(args[2]))
+			if err != nil {
+				return errors.Wrap(err, "invalid bytecode")
+			}
 			return action.Execute(client, cmd, contract, big.NewInt(0), bytecode)
 		},
 	}

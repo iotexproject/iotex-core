@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewJwtSignCmd(t *testing.T) {
+func TestNewDidRegisterCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
