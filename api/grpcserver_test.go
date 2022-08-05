@@ -120,7 +120,68 @@ func TestGrpcServer_GetServerMeta(t *testing.T) {
 }
 
 func TestGrpcServer_ReadContract(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	request := &iotexapi.ReadContractRequest{
+		Execution: &iotextypes.Execution{
+			Data: _executionHash1[:],
+		},
+		CallerAddress: "",
+		GasLimit:      10100,
+	}
+	response := &iotextypes.Receipt{
+		ActHash:     []byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"),
+		GasConsumed: 10100,
+	}
 
+	core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil).Times(2)
+
+	t.Run("read contract from empty address", func(t *testing.T) {
+		result, err := grpcSvr.ReadContract(context.Background(), request)
+		require.NoError(err)
+		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), result.Receipt.ActHash)
+		require.Equal(10100, int(result.Receipt.GasConsumed))
+	})
+
+	t.Run("read contract", func(t *testing.T) {
+		request.CallerAddress = identityset.Address(0).String()
+
+		result, err := grpcSvr.ReadContract(context.Background(), request)
+		require.NoError(err)
+		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), result.Receipt.ActHash)
+		require.Equal(10100, int(result.Receipt.GasConsumed))
+	})
+
+	t.Run("failed to read contract", func(t *testing.T) {
+		expectedErr := errors.New("failed to read contract")
+
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil, expectedErr)
+
+		_, err := grpcSvr.ReadContract(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to load execution", func(t *testing.T) {
+		expectedErr := errors.New("empty action proto to load")
+		request = &iotexapi.ReadContractRequest{
+			CallerAddress: "",
+			GasLimit:      10100,
+		}
+
+		_, err := grpcSvr.ReadContract(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("invalid caller address", func(t *testing.T) {
+		expectedErr := errors.New("invalid address")
+		request.CallerAddress = "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5"
+
+		_, err := grpcSvr.ReadContract(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_SuggestGasPrice(t *testing.T) {
