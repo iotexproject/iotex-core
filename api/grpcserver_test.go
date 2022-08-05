@@ -115,9 +115,9 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 			for _, request := range requests {
 				request.call()
-				result, err := grpcSvr.GetActions(context.Background(), request.req)
+				res, err := grpcSvr.GetActions(context.Background(), request.req)
 				require.NoError(err)
-				require.Equal(uint64(test.numActions), result.Total)
+				require.Equal(uint64(test.numActions), res.Total)
 			}
 		}
 	})
@@ -140,10 +140,10 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 			core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(response, nil)
 
-			result, err := grpcSvr.GetActions(context.Background(), request)
+			res, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
-			require.Len(result.ActionInfo, 1)
-			require.Equal(test.blkNumber, result.ActionInfo[0].BlkHeight)
+			require.Len(res.ActionInfo, 1)
+			require.Equal(test.blkNumber, res.ActionInfo[0].BlkHeight)
 		}
 	})
 
@@ -184,9 +184,9 @@ func TestGrpcServer_GetActions(t *testing.T) {
 
 			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil)
 
-			result, err := grpcSvr.GetActions(context.Background(), request)
+			res, err := grpcSvr.GetActions(context.Background(), request)
 			require.NoError(err)
-			require.Equal(test.numActions-int(test.start), int(result.Total))
+			require.Equal(test.numActions-int(test.start), int(res.Total))
 		}
 	})
 }
