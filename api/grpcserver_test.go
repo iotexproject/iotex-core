@@ -122,7 +122,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 		}
 	})
 
-	t.Run("get actions by action test", func(t *testing.T) {
+	t.Run("get actions by hash", func(t *testing.T) {
 		for _, test := range _getActionTests {
 			response := &iotexapi.ActionInfo{
 				Index:     0,
