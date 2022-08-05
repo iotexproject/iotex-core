@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewXrc20TransferFrom(t *testing.T) {
+func TestNewXrc20TransferFromCmd(t *testing.T) {
 	var (
 		require = require.New(t)
 		ctrl    = gomock.NewController(t)
