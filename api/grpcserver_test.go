@@ -140,19 +140,19 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 	core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil).Times(2)
 
 	t.Run("read contract from empty address", func(t *testing.T) {
-		result, err := grpcSvr.ReadContract(context.Background(), request)
+		res, err := grpcSvr.ReadContract(context.Background(), request)
 		require.NoError(err)
-		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), result.Receipt.ActHash)
-		require.Equal(10100, int(result.Receipt.GasConsumed))
+		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), res.Receipt.ActHash)
+		require.Equal(10100, int(res.Receipt.GasConsumed))
 	})
 
 	t.Run("read contract", func(t *testing.T) {
 		request.CallerAddress = identityset.Address(0).String()
 
-		result, err := grpcSvr.ReadContract(context.Background(), request)
+		res, err := grpcSvr.ReadContract(context.Background(), request)
 		require.NoError(err)
-		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), result.Receipt.ActHash)
-		require.Equal(10100, int(result.Receipt.GasConsumed))
+		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), res.Receipt.ActHash)
+		require.Equal(10100, int(res.Receipt.GasConsumed))
 	})
 
 	t.Run("failed to read contract", func(t *testing.T) {
