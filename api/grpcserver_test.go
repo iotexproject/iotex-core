@@ -276,19 +276,19 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 	defer ctrl.Finish()
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
-	request := &iotexapi.ReadContractRequest{
-		Execution: &iotextypes.Execution{
-			Data: _executionHash1[:],
-		},
-		CallerAddress: "",
-		GasLimit:      10100,
-	}
 	response := &iotextypes.Receipt{
 		ActHash:     []byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"),
 		GasConsumed: 10100,
 	}
 
-	t.Run("read contract from empty address", func(t *testing.T) {
+	t.Run("read contract", func(t *testing.T) {
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: identityset.Address(0).String(),
+			GasLimit:      10100,
+		}
 		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
 
 		res, err := grpcSvr.ReadContract(context.Background(), request)
@@ -297,8 +297,14 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 		require.Equal(10100, int(res.Receipt.GasConsumed))
 	})
 
-	t.Run("read contract", func(t *testing.T) {
-		request.CallerAddress = identityset.Address(0).String()
+	t.Run("read contract from empty address", func(t *testing.T) {
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: "",
+			GasLimit:      10100,
+		}
 		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
 
 		res, err := grpcSvr.ReadContract(context.Background(), request)
@@ -309,6 +315,13 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 
 	t.Run("failed to read contract", func(t *testing.T) {
 		expectedErr := errors.New("failed to read contract")
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: "",
+			GasLimit:      10100,
+		}
 		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil, expectedErr)
 
 		_, err := grpcSvr.ReadContract(context.Background(), request)
@@ -317,7 +330,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 
 	t.Run("failed to load execution", func(t *testing.T) {
 		expectedErr := errors.New("empty action proto to load")
-		request = &iotexapi.ReadContractRequest{
+		request := &iotexapi.ReadContractRequest{
 			CallerAddress: "",
 			GasLimit:      10100,
 		}
@@ -328,7 +341,13 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 
 	t.Run("invalid caller address", func(t *testing.T) {
 		expectedErr := errors.New("invalid address")
-		request.CallerAddress = "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5"
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5",
+			GasLimit:      10100,
+		}
 
 		_, err := grpcSvr.ReadContract(context.Background(), request)
 		require.Contains(err.Error(), expectedErr.Error())
