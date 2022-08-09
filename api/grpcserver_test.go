@@ -288,9 +288,9 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 		GasConsumed: 10100,
 	}
 
-	core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil).Times(2)
-
 	t.Run("read contract from empty address", func(t *testing.T) {
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
+
 		res, err := grpcSvr.ReadContract(context.Background(), request)
 		require.NoError(err)
 		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), res.Receipt.ActHash)
@@ -299,6 +299,7 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 
 	t.Run("read contract", func(t *testing.T) {
 		request.CallerAddress = identityset.Address(0).String()
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
 
 		res, err := grpcSvr.ReadContract(context.Background(), request)
 		require.NoError(err)
@@ -308,7 +309,6 @@ func TestGrpcServer_ReadContract(t *testing.T) {
 
 	t.Run("failed to read contract", func(t *testing.T) {
 		expectedErr := errors.New("failed to read contract")
-
 		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil, expectedErr)
 
 		_, err := grpcSvr.ReadContract(context.Background(), request)
