@@ -71,7 +71,7 @@ func TestWeb3ResponseMarshal(t *testing.T) {
 	})
 }
 
-func TestBlockObjectV2Marshal(t *testing.T) {
+func TestBlockObjectMarshal(t *testing.T) {
 	require := require.New(t)
 
 	var (
