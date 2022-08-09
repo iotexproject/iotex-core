@@ -97,17 +97,14 @@ func (ws *workingSet) runActions(
 	ctx context.Context,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
-	if err := ws.validate(ctx); err != nil {
-		return nil, err
-	}
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
-		ctx, err := withActionCtx(ctx, elp)
+		ctxWithActionContext, err := withActionCtx(ctx, elp)
 		if err != nil {
 			return nil, err
 		}
-		receipt, err := ws.runAction(ctx, elp)
+		receipt, err := ws.runAction(ctxWithActionContext, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -367,21 +364,25 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) error {
-	var err error
+	if err := ws.validate(ctx); err != nil {
+		return err
+	}
+
 	reg := protocol.MustGetRegistry(ctx)
 	for _, act := range actions {
-		if ctx, err = withActionCtx(ctx, act); err != nil {
+		ctxWithActionContext, err := withActionCtx(ctx, act)
+		if err != nil {
 			return err
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
-				if err := validator.Validate(ctx, act.Action(), ws); err != nil {
+				if err := validator.Validate(ctxWithActionContext, act.Action(), ws); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	for _, p := range protocol.MustGetRegistry(ctx).All() {
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return err
