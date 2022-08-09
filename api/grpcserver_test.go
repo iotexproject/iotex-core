@@ -33,21 +33,45 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
-	for _, test := range _getAccountTests {
-		accountMeta := &iotextypes.AccountMeta{
-			Address: test.address,
+	t.Run("get acccount", func(t *testing.T) {
+		for _, test := range _getAccountTests {
+			accountMeta := &iotextypes.AccountMeta{
+				Address: test.address,
+			}
+			blockIdentifier := &iotextypes.BlockIdentifier{}
+			request := &iotexapi.GetAccountRequest{
+				Address: test.address,
+			}
+
+			core.EXPECT().Account(gomock.Any()).Return(accountMeta, blockIdentifier, nil)
+
+			res, err := grpcSvr.GetAccount(context.Background(), request)
+			require.NoError(err)
+			require.Equal(test.address, res.AccountMeta.Address)
 		}
-		blockIdentifier := &iotextypes.BlockIdentifier{}
+	})
+
+	t.Run("failed to get account", func(t *testing.T) {
+		expectedErr := errors.New("failed to get account")
 		request := &iotexapi.GetAccountRequest{
-			Address: test.address,
+			Address: "io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 		}
 
-		core.EXPECT().Account(gomock.Any()).Return(accountMeta, blockIdentifier, nil)
+		core.EXPECT().Account(gomock.Any()).Return(nil, nil, expectedErr)
 
-		res, err := grpcSvr.GetAccount(context.Background(), request)
-		require.NoError(err)
-		require.Equal(test.address, res.AccountMeta.Address)
-	}
+		_, err := grpcSvr.GetAccount(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("invalid address", func(t *testing.T) {
+		expectedErr := errors.New("invalid address")
+		request := &iotexapi.GetAccountRequest{
+			Address: "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5",
+		}
+
+		_, err := grpcSvr.GetAccount(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_GetActions(t *testing.T) {
