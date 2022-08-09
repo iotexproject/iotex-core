@@ -102,7 +102,7 @@ func (st *Account) FromProto(acPb *accountpb.Account) {
 	} else {
 		balance, ok := new(big.Int).SetString(acPb.Balance, 10)
 		if !ok {
-			errors.Errorf("invalid balance %s", acPb.Balance)
+			panic(errors.Errorf("invalid balance %s", acPb.Balance))
 		}
 		st.Balance = balance
 	}

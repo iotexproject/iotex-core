@@ -253,7 +253,9 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 			ProbatedStatus: isProbated,
 		})
 	}
-	fillMessage(cli, message, aliases, isActive, pb)
+	if err = fillMessage(cli, message, aliases, isActive, pb); err != nil {
+		return err
+	}
 	return sortAndPrint(message)
 }
 

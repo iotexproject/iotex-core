@@ -16,12 +16,12 @@ import (
 // GenMarkdownTreeCustom is the the same as GenMarkdownTree, but
 // with custom filePrepender and linkHandler.
 func GenMarkdownTreeCustom(c *cobra.Command, dir string, name string, path string, filePrepender func(string) string,
-	linkHandler func(*cobra.Command, string) string) error {
+	linkHandler func(*cobra.Command, string) string) (err error) {
 	for _, child := range c.Commands() {
 		if !child.IsAvailableCommand() || child.IsAdditionalHelpTopicCommand() {
 			continue
 		}
-		if err := GenMarkdownTreeCustom(child, dir, name, path, filePrepender, linkHandler); err != nil {
+		if err = GenMarkdownTreeCustom(child, dir, name, path, filePrepender, linkHandler); err != nil {
 			return err
 		}
 	}
@@ -32,19 +32,24 @@ func GenMarkdownTreeCustom(c *cobra.Command, dir string, name string, path strin
 		filename = filepath.Join(path, "README.md")
 	}
 
-	f, err := os.Create(filepath.Clean(filename))
+	var f *os.File
+	f, err = os.Create(filepath.Clean(filename))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
-	if _, err := io.WriteString(f, filePrepender(filename)); err != nil {
+	defer func() {
+		err1 := f.Close()
+		if err == nil {
+			err = err1
+		}
+	}()
+	if _, err = io.WriteString(f, filePrepender(filename)); err != nil {
 		return err
 	}
-	if err := GenMarkdownCustom(c, f, linkHandler); err != nil {
+	if err = GenMarkdownCustom(c, f, linkHandler); err != nil {
 		return err
 	}
-	return nil
+	return err
 }
 
 // GenMarkdownCustom creates custom markdown output.

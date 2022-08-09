@@ -38,9 +38,10 @@ func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
 	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
-	blang := c.AskToConfirm("test")
+	confirmed, err := c.AskToConfirm("test")
 	// no input
-	r.False(blang)
+	r.Equal("EOF", err.Error())
+	r.False(confirmed)
 }
 
 func TestAPIServiceClient(t *testing.T) {

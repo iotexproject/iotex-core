@@ -44,7 +44,7 @@ type stateDB struct {
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+	workingsets              cache.LRUCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 	ps                       *patchStore
@@ -120,6 +120,14 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 func SkipBlockValidationStateDBOption() StateDBOption {
 	return func(sdb *stateDB, cfg config.Config) error {
 		sdb.skipBlockValidationOnPut = true
+		return nil
+	}
+}
+
+// DisableWorkingSetCacheOption disable workingset cache
+func DisableWorkingSetCacheOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		sdb.workingsets = cache.NewDummyLruCache()
 		return nil
 	}
 }

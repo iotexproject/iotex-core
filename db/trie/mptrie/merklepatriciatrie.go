@@ -223,8 +223,7 @@ func (mpt *merklePatriciaTrie) isEmptyRootHash(h []byte) bool {
 func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 	if len(rootHash) == 0 || mpt.isEmptyRootHash(rootHash) {
 		emptyRoot := newEmptyRootBranchNode(mpt)
-		mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
-		return nil
+		return mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
 	}
 	node, err := mpt.loadNode(rootHash)
 	if err != nil {
