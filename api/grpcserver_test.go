@@ -8,6 +8,8 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
@@ -47,23 +50,171 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 }
 
 func TestGrpcServer_GetActions(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
-}
+	t.Run("get actions by address tests", func(t *testing.T) {
+		for _, test := range _getActionsByAddressTests {
+			actInfo := &iotexapi.ActionInfo{
+				Index:   0,
+				ActHash: "test",
+			}
+			response := []*iotexapi.ActionInfo{}
+			for i := 1; i <= test.numActions; i++ {
+				response = append(response, actInfo)
+			}
 
-func TestGrpcServer_GetAction(t *testing.T) {
+			requests := []struct {
+				req  *iotexapi.GetActionsRequest
+				call func()
+			}{
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_ByAddr{
+							ByAddr: &iotexapi.GetActionsByAddressRequest{
+								Address: test.address,
+								Start:   test.start,
+								Count:   test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().ActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_UnconfirmedByAddr{
+							UnconfirmedByAddr: &iotexapi.GetUnconfirmedActionsByAddressRequest{
+								Address: test.address,
+								Start:   test.start,
+								Count:   test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().UnconfirmedActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_ByIndex{
+							ByIndex: &iotexapi.GetActionsByIndexRequest{
+								Start: test.start,
+								Count: test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().Actions(gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+			}
 
-}
+			for _, request := range requests {
+				request.call()
+				res, err := grpcSvr.GetActions(context.Background(), request.req)
+				require.NoError(err)
+				require.Equal(uint64(test.numActions), res.Total)
+			}
+		}
+	})
 
-func TestGrpcServer_GetActionsByAddress(t *testing.T) {
+	t.Run("get actions by hash", func(t *testing.T) {
+		for _, test := range _getActionTests {
+			response := &iotexapi.ActionInfo{
+				Index:     0,
+				ActHash:   "test",
+				BlkHeight: test.blkNumber,
+			}
+			request := &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByHash{
+					ByHash: &iotexapi.GetActionByHashRequest{
+						ActionHash:   test.in,
+						CheckPending: test.checkPending,
+					},
+				},
+			}
 
-}
+			core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(response, nil)
 
-func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
+			res, err := grpcSvr.GetActions(context.Background(), request)
+			require.NoError(err)
+			require.Len(res.ActionInfo, 1)
+			require.Equal(test.blkNumber, res.ActionInfo[0].BlkHeight)
+		}
+	})
 
-}
+	t.Run("get actions by block test", func(t *testing.T) {
+		addr1 := identityset.Address(28).String()
+		priKey1 := identityset.PrivateKey(28)
 
-func TestGrpcServer_GetActionsByBlock(t *testing.T) {
+		tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
 
+		for _, test := range _getActionsByBlockTests {
+			gasConsumed, ok := new(big.Int).SetString(test.firstTxGas, 10)
+			if !ok {
+				gasConsumed = big.NewInt(0)
+			}
+
+			response := &block.Store{
+				Block:    &block.Block{},
+				Receipts: []*action.Receipt{},
+			}
+			for i := 1; i <= test.numActions; i++ {
+				response.Block.Actions = append(response.Block.Actions, tsf1)
+				response.Receipts = append(response.Receipts, &action.Receipt{
+					BlockHeight: test.blkHeight,
+					GasConsumed: gasConsumed.Uint64(),
+				})
+			}
+
+			request := &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByBlk{
+					ByBlk: &iotexapi.GetActionsByBlockRequest{
+						BlkHash: _blkHash[test.blkHeight],
+						Start:   test.start,
+						Count:   test.count,
+					},
+				},
+			}
+
+			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil)
+
+			res, err := grpcSvr.GetActions(context.Background(), request)
+			require.NoError(err)
+			require.Equal(test.numActions-int(test.start), int(res.Total))
+		}
+	})
+
+	t.Run("invalid GetActionsRequest type", func(t *testing.T) {
+		expectedErr := errors.New("invalid GetActionsRequest type")
+		request := &iotexapi.GetActionsRequest{}
+
+		_, err := grpcSvr.GetActions(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get actions", func(t *testing.T) {
+		expectedErr := errors.New("failed to get actions")
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash:   hex.EncodeToString(_transferHash1[:]),
+					CheckPending: false,
+				},
+			},
+		}
+
+		core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
+
+		_, err := grpcSvr.GetActions(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_GetBlockMetas(t *testing.T) {
