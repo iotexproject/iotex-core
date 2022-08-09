@@ -7,7 +7,6 @@
 package action
 
 import (
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -22,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestSigner(t *testing.T) {
@@ -134,9 +132,6 @@ func TestSendAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	testWallet, err := os.MkdirTemp(os.TempDir(), "testWallet")
-	require.NoError(err)
-	defer testutil.CleanupPath(testWallet)
 	passwd := "123456"
 
 	ks := keystore.NewKeyStore(t.TempDir(), 2, 1)
@@ -164,7 +159,6 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("failed to get privateKey", func(t *testing.T) {
 		expectedErr := errors.New("failed to get privateKey")
-
 		client.EXPECT().ReadSecret().Return("", expectedErr).Times(1)
 
 		cmd := NewActionCmd(client)
@@ -199,7 +193,6 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("send action with nonce", func(t *testing.T) {
 		mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
-
 		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
 
 		cmd := NewActionCmd(client)
@@ -221,7 +214,6 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("failed to ask confirm", func(t *testing.T) {
 		expectedErr := errors.New("failed to ask confirm")
-
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, expectedErr)
 
 		cmd := NewActionCmd(client)
@@ -233,7 +225,6 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("failed to pass balance check", func(t *testing.T) {
 		expectedErr := errors.New("failed to pass balance check")
-
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
@@ -246,9 +237,7 @@ func TestSendAction(t *testing.T) {
 	t.Run("failed to get nonce", func(t *testing.T) {
 		mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 		expectedErr := errors.New("failed to get nonce")
-
 		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
-
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
@@ -260,7 +249,6 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("failed to get chain meta", func(t *testing.T) {
 		expectedErr := errors.New("failed to get chain meta")
-
 		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
