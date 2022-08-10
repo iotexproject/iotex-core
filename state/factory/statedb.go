@@ -50,11 +50,11 @@ type stateDB struct {
 }
 
 // StateDBOption sets stateDB construction parameter
-type StateDBOption func(*stateDB, Config) error
+type StateDBOption func(*stateDB, *Config) error
 
 // PrecreatedStateDBOption uses pre-created state db
 func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		if kv == nil {
 			return errors.New("Invalid state db")
 		}
@@ -65,7 +65,7 @@ func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
 
 // DefaultStateDBOption creates default state db from config
 func DefaultStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
@@ -79,7 +79,7 @@ func DefaultStateDBOption() StateDBOption {
 
 // DefaultPatchOption loads patchs
 func DefaultPatchOption() StateDBOption {
-	return func(sdb *stateDB, cfg Config) (err error) {
+	return func(sdb *stateDB, cfg *Config) (err error) {
 		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
@@ -87,7 +87,7 @@ func DefaultPatchOption() StateDBOption {
 
 // CachedStateDBOption creates state db with cache from config
 func CachedStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
@@ -101,7 +101,7 @@ func CachedStateDBOption() StateDBOption {
 
 // InMemStateDBOption creates in memory state db
 func InMemStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.dao = db.NewMemKVStore()
 		return nil
 	}
@@ -109,7 +109,7 @@ func InMemStateDBOption() StateDBOption {
 
 // RegistryStateDBOption sets the registry in state db
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.registry = reg
 		return nil
 	}
@@ -117,7 +117,7 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 
 // SkipBlockValidationStateDBOption skips block validation on PutBlock
 func SkipBlockValidationStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -125,7 +125,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
-	return func(sdb *stateDB, cfg Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.workingsets = cache.NewDummyLruCache()
 		return nil
 	}
@@ -141,7 +141,7 @@ func NewStateDB(cfg Config, opts ...StateDBOption) (Factory, error) {
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
-		if err := opt(&sdb, cfg); err != nil {
+		if err := opt(&sdb, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
