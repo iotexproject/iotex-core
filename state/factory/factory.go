@@ -25,9 +25,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -92,7 +92,7 @@ type (
 	factory struct {
 		lifecycle                lifecycle.Lifecycle
 		mutex                    sync.RWMutex
-		cfg                      config.Config
+		cfg                      Config
 		registry                 *protocol.Registry
 		currentChainHeight       uint64
 		saveHistory              bool
@@ -104,14 +104,21 @@ type (
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
+
+	// Config contains the config for factory
+	Config struct {
+		DB      db.Config
+		Chain   blockchain.Config
+		Genesis genesis.Genesis
+	}
 )
 
 // Option sets Factory construction parameter
-type Option func(*factory, config.Config) error
+type Option func(*factory, Config) error
 
 // PrecreatedTrieDBOption uses pre-created trie DB for state factory
 func PrecreatedTrieDBOption(kv db.KVStore) Option {
-	return func(sf *factory, cfg config.Config) (err error) {
+	return func(sf *factory, cfg Config) (err error) {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
 		}
@@ -122,7 +129,7 @@ func PrecreatedTrieDBOption(kv db.KVStore) Option {
 
 // DefaultTrieOption creates trie from config for state factory
 func DefaultTrieOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
+	return func(sf *factory, cfg Config) (err error) {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
@@ -135,7 +142,7 @@ func DefaultTrieOption() Option {
 
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
+	return func(sf *factory, cfg Config) (err error) {
 		sf.dao = db.NewMemKVStore()
 		return nil
 	}
@@ -143,7 +150,7 @@ func InMemTrieOption() Option {
 
 // RegistryOption sets the registry in state db
 func RegistryOption(reg *protocol.Registry) Option {
-	return func(sf *factory, cfg config.Config) error {
+	return func(sf *factory, cfg Config) error {
 		sf.registry = reg
 		return nil
 	}
@@ -151,7 +158,7 @@ func RegistryOption(reg *protocol.Registry) Option {
 
 // SkipBlockValidationOption skips block validation on PutBlock
 func SkipBlockValidationOption() Option {
-	return func(sf *factory, cfg config.Config) error {
+	return func(sf *factory, cfg Config) error {
 		sf.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -159,14 +166,14 @@ func SkipBlockValidationOption() Option {
 
 // DefaultTriePatchOption loads patchs
 func DefaultTriePatchOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
+	return func(sf *factory, cfg Config) (err error) {
 		sf.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
+func NewFactory(cfg Config, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,

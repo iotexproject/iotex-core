@@ -35,9 +35,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
@@ -62,12 +62,30 @@ func randStringRunes(n int) string {
 	return string(b)
 }
 
+func initConfig() Config {
+	return Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.Default,
+		DB: db.Config{
+			NumRetries:            3,
+			MaxCacheSize:          64,
+			BlockStoreBatchSize:   16,
+			V2BlocksToSplitDB:     1000000,
+			Compressor:            "Snappy",
+			CompressLegacy:        false,
+			SplitDBSizeMB:         0,
+			SplitDBHeight:         900000,
+			HistoryStateRetention: 2000,
+		},
+	}
+}
+
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
@@ -97,7 +115,7 @@ func TestSDBSnapshot(t *testing.T) {
 	require.NoError(err)
 	defer testutil.CleanupPath(testStateDBPath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
@@ -216,14 +234,14 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 }
 
 func TestCandidates(t *testing.T) {
-	cfg := config.Default
+	cfg := initConfig()
 	sf, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testCandidates(sf, t)
 }
 
 func TestSDBCandidates(t *testing.T) {
-	cfg := config.Default
+	cfg := initConfig()
 	sdb, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 	testCandidates(sdb, t)
@@ -260,7 +278,7 @@ func testCandidates(sf Factory, t *testing.T) {
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
 	require.NoError(t, sf.Register(rolldpos.NewProtocol(36, 36, 20)))
-	cfg := config.Default
+	cfg := initConfig()
 	slasher, err := poll.NewSlasher(
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
@@ -340,7 +358,7 @@ func TestState(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
 	require.NoError(t, err)
@@ -351,7 +369,7 @@ func TestHistoryState(t *testing.T) {
 	r := require.New(t)
 	var err error
 	// using factory and enable history
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = true
@@ -388,7 +406,7 @@ func TestHistoryState(t *testing.T) {
 func TestFactoryStates(t *testing.T) {
 	r := require.New(t)
 	var err error
-	cfg := config.Default
+	cfg := initConfig()
 
 	// using factory
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
@@ -411,7 +429,7 @@ func TestSDBState(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testDBPath
 	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -702,7 +720,7 @@ func TestNonce(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
 	require.NoError(t, err)
@@ -714,7 +732,7 @@ func TestSDBNonce(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testDBPath
 	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -810,7 +828,7 @@ func TestLoadStoreHeight(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testTriePath
 	statefactory, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
 	require.NoError(t, err)
@@ -823,7 +841,7 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testTriePath
 	statefactory, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
 	require.NoError(t, err)
@@ -835,7 +853,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -847,7 +865,7 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testDBPath)
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -892,7 +910,7 @@ func TestRunActions(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
@@ -919,7 +937,7 @@ func TestSTXRunActions(t *testing.T) {
 	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
@@ -1000,7 +1018,7 @@ func TestPickAndRunActions(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
@@ -1027,7 +1045,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
@@ -1105,7 +1123,7 @@ func TestSimulateExecution(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
@@ -1135,7 +1153,7 @@ func TestSTXSimulateExecution(t *testing.T) {
 	testStateDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
@@ -1176,7 +1194,7 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 }
 
 func TestCachedBatch(t *testing.T) {
-	sf, err := NewFactory(config.Default, InMemTrieOption())
+	sf, err := NewFactory(initConfig(), InMemTrieOption())
 	require.NoError(t, err)
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
@@ -1189,7 +1207,7 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	sdb, err := NewStateDB(initConfig(), InMemStateDBOption())
 	require.NoError(t, err)
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
@@ -1265,7 +1283,7 @@ func TestStateDBPatch(t *testing.T) {
 
 	testDBPath, err := testutil.PathOfTempFile(_stateDBPath)
 	require.NoError(err)
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = testDBPath
 	cfg.Chain.TrieDBPatchFile = patchFile
 	trieDB := db.NewBoltDB(cfg.DB)
@@ -1374,14 +1392,14 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		genesis.Default,
 	)
 	t.Run("workingSet", func(t *testing.T) {
-		sf, err := NewFactory(config.Default, InMemTrieOption())
+		sf, err := NewFactory(initConfig(), InMemTrieOption())
 		require.NoError(t, err)
 		ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+		sdb, err := NewStateDB(initConfig(), InMemStateDBOption())
 		require.NoError(t, err)
 		ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
@@ -1390,7 +1408,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 }
 
 func BenchmarkInMemRunAction(b *testing.B) {
-	cfg := config.Default
+	cfg := initConfig()
 	sf, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
 	if err != nil {
 		b.Fatal(err)
@@ -1404,7 +1422,7 @@ func BenchmarkDBRunAction(b *testing.B) {
 		b.Error("Fail to remove testDB file")
 	}
 
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.DB.DbPath = tp
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
 	if err != nil {
@@ -1418,7 +1436,7 @@ func BenchmarkDBRunAction(b *testing.B) {
 }
 
 func BenchmarkSDBInMemRunAction(b *testing.B) {
-	cfg := config.Default
+	cfg := initConfig()
 	sdb, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
@@ -1431,7 +1449,7 @@ func BenchmarkSDBRunAction(b *testing.B) {
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = tp
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {
@@ -1448,7 +1466,7 @@ func BenchmarkCachedSDBRunAction(b *testing.B) {
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = tp
 	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {
@@ -1558,7 +1576,7 @@ func BenchmarkSDBState(b *testing.B) {
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = tp
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {
@@ -1575,7 +1593,7 @@ func BenchmarkCachedSDBState(b *testing.B) {
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
-	cfg := config.Default
+	cfg := initConfig()
 	cfg.Chain.TrieDBPath = tp
 	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {

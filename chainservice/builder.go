@@ -140,9 +140,14 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if builder.cs.factory != nil {
 		return builder.cs.factory, nil
 	}
+	factoryCfg := factory.Config{
+		DB:      builder.cfg.DB,
+		Chain:   builder.cfg.Chain,
+		Genesis: builder.cfg.Genesis,
+	}
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if forTest {
-			return factory.NewStateDB(builder.cfg, factory.InMemStateDBOption(), factory.RegistryStateDBOption(builder.cs.registry))
+			return factory.NewStateDB(factoryCfg, factory.InMemStateDBOption(), factory.RegistryStateDBOption(builder.cs.registry))
 		}
 		opts := []factory.StateDBOption{
 			factory.RegistryStateDBOption(builder.cs.registry),
@@ -153,14 +158,14 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		} else {
 			opts = append(opts, factory.DefaultStateDBOption())
 		}
-		return factory.NewStateDB(builder.cfg, opts...)
+		return factory.NewStateDB(factoryCfg, opts...)
 	}
 	if forTest {
-		return factory.NewFactory(builder.cfg, factory.InMemTrieOption(), factory.RegistryOption(builder.cs.registry))
+		return factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(builder.cs.registry))
 	}
 
 	return factory.NewFactory(
-		builder.cfg,
+		factoryCfg,
 		factory.DefaultTrieOption(),
 		factory.RegistryOption(builder.cs.registry),
 		factory.DefaultTriePatchOption(),

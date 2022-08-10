@@ -413,14 +413,20 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(rp.Register(registry))
 	// create state factory
 	var sf factory.Factory
+
+	factoryCfg := factory.Config{
+		DB:      cfg.DB,
+		Chain:   cfg.Chain,
+		Genesis: cfg.Genesis,
+	}
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			sf, err = factory.NewStateDB(factoryCfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 		} else {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			sf, err = factory.NewStateDB(factoryCfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 		}
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	}
 	r.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
@@ -639,8 +645,13 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
+		factoryCfg := factory.Config{
+			DB:      cfg.DB,
+			Chain:   cfg.Chain,
+			Genesis: cfg.Genesis,
+		}
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)

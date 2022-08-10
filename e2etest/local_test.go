@@ -155,7 +155,12 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	sf2, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+	factoryCfg := factory.Config{
+		DB:      cfg.DB,
+		Chain:   cfg.Chain,
+		Genesis: cfg.Genesis,
+	}
+	sf2, err := factory.NewStateDB(factoryCfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)

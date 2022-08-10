@@ -46,7 +46,12 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.Config{
+		DB:      cfg.DB,
+		Chain:   cfg.Chain,
+		Genesis: cfg.Genesis,
+	}
+	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -123,7 +128,12 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.Config{
+		DB:      cfg.DB,
+		Chain:   cfg.Chain,
+		Genesis: cfg.Genesis,
+	}
+	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)

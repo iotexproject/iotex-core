@@ -281,7 +281,12 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.Config{
+		Chain:   cfg.Chain,
+		DB:      cfg.DB,
+		Genesis: cfg.Genesis,
+	}
+	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}

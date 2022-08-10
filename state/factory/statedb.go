@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -40,7 +39,7 @@ import (
 type stateDB struct {
 	mutex                    sync.RWMutex
 	currentChainHeight       uint64
-	cfg                      config.Config
+	cfg                      Config
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
@@ -51,11 +50,11 @@ type stateDB struct {
 }
 
 // StateDBOption sets stateDB construction parameter
-type StateDBOption func(*stateDB, config.Config) error
+type StateDBOption func(*stateDB, Config) error
 
 // PrecreatedStateDBOption uses pre-created state db
 func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		if kv == nil {
 			return errors.New("Invalid state db")
 		}
@@ -66,7 +65,7 @@ func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
 
 // DefaultStateDBOption creates default state db from config
 func DefaultStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
@@ -80,7 +79,7 @@ func DefaultStateDBOption() StateDBOption {
 
 // DefaultPatchOption loads patchs
 func DefaultPatchOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) (err error) {
+	return func(sdb *stateDB, cfg Config) (err error) {
 		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
@@ -88,7 +87,7 @@ func DefaultPatchOption() StateDBOption {
 
 // CachedStateDBOption creates state db with cache from config
 func CachedStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
@@ -102,7 +101,7 @@ func CachedStateDBOption() StateDBOption {
 
 // InMemStateDBOption creates in memory state db
 func InMemStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		sdb.dao = db.NewMemKVStore()
 		return nil
 	}
@@ -110,7 +109,7 @@ func InMemStateDBOption() StateDBOption {
 
 // RegistryStateDBOption sets the registry in state db
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		sdb.registry = reg
 		return nil
 	}
@@ -118,7 +117,7 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 
 // SkipBlockValidationStateDBOption skips block validation on PutBlock
 func SkipBlockValidationStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -126,14 +125,14 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg Config) error {
 		sdb.workingsets = cache.NewDummyLruCache()
 		return nil
 	}
 }
 
 // NewStateDB creates a new state db
-func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
+func NewStateDB(cfg Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,

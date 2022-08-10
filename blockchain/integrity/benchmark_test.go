@@ -228,7 +228,12 @@ func newChainInDB() (blockchain.Blockchain, actpool.ActPool, error) {
 	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewBoltDB(cfg.DB)
-	sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry), factory.DisableWorkingSetCacheOption())
+	factoryCfg := factory.Config{
+		DB:      cfg.DB,
+		Chain:   cfg.Chain,
+		Genesis: cfg.Genesis,
+	}
+	sf, err = factory.NewStateDB(factoryCfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry), factory.DisableWorkingSetCacheOption())
 	if err != nil {
 		return nil, nil, err
 	}
