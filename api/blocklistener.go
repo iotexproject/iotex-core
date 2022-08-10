@@ -79,7 +79,7 @@ func NewWeb3BlockListener(handler streamHandler) apitypes.Responder {
 func (bl *web3BlockListener) Respond(id string, blk *block.Block) error {
 	res := &streamResponse{
 		id: id,
-		result: &getBlockResultV2{
+		result: &getBlockResult{
 			blk: blk,
 		},
 	}

@@ -31,7 +31,7 @@ var (
 	_statusKey            = []byte("status")
 )
 
-//EndorsedByMajorityFunc defines a function to give an information of consensus status
+// EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
 
 type endorserEndorsementCollection struct {
