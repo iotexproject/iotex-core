@@ -38,7 +38,7 @@ var (
 
 var _stake2AutoStake bool
 
-//Stake2Cmd represent stake2 command
+// Stake2Cmd represent stake2 command
 var Stake2Cmd = &cobra.Command{
 	Use:   "stake2",
 	Short: config.TranslateInLang(_stake2CmdShorts, config.UILanguage),

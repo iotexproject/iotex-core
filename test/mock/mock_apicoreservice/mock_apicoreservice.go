@@ -137,10 +137,10 @@ func (mr *MockCoreServiceMockRecorder) ActionsInActPool(actHashes interface{}) *
 }
 
 // BlockByHash mocks base method.
-func (m *MockCoreService) BlockByHash(arg0 string) (*block.Store, error) {
+func (m *MockCoreService) BlockByHash(arg0 string) (*apitypes.BlockWithReceipts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockByHash", arg0)
-	ret0, _ := ret[0].(*block.Store)
+	ret0, _ := ret[0].(*apitypes.BlockWithReceipts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -149,6 +149,36 @@ func (m *MockCoreService) BlockByHash(arg0 string) (*block.Store, error) {
 func (mr *MockCoreServiceMockRecorder) BlockByHash(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHash", reflect.TypeOf((*MockCoreService)(nil).BlockByHash), arg0)
+}
+
+// BlockByHeight mocks base method.
+func (m *MockCoreService) BlockByHeight(arg0 uint64) (*apitypes.BlockWithReceipts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockByHeight", arg0)
+	ret0, _ := ret[0].(*apitypes.BlockWithReceipts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockByHeight indicates an expected call of BlockByHeight.
+func (mr *MockCoreServiceMockRecorder) BlockByHeight(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHeight", reflect.TypeOf((*MockCoreService)(nil).BlockByHeight), arg0)
+}
+
+// BlockByHeightRange mocks base method.
+func (m *MockCoreService) BlockByHeightRange(arg0, arg1 uint64) ([]*apitypes.BlockWithReceipts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockByHeightRange", arg0, arg1)
+	ret0, _ := ret[0].([]*apitypes.BlockWithReceipts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockByHeightRange indicates an expected call of BlockByHeightRange.
+func (mr *MockCoreServiceMockRecorder) BlockByHeightRange(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHeightRange", reflect.TypeOf((*MockCoreService)(nil).BlockByHeightRange), arg0, arg1)
 }
 
 // BlockHashByBlockHeight mocks base method.
@@ -164,36 +194,6 @@ func (m *MockCoreService) BlockHashByBlockHeight(blkHeight uint64) (hash.Hash256
 func (mr *MockCoreServiceMockRecorder) BlockHashByBlockHeight(blkHeight interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHashByBlockHeight", reflect.TypeOf((*MockCoreService)(nil).BlockHashByBlockHeight), blkHeight)
-}
-
-// BlockMetaByHash mocks base method.
-func (m *MockCoreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockMetaByHash", blkHash)
-	ret0, _ := ret[0].(*iotextypes.BlockMeta)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockMetaByHash indicates an expected call of BlockMetaByHash.
-func (mr *MockCoreServiceMockRecorder) BlockMetaByHash(blkHash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockMetaByHash", reflect.TypeOf((*MockCoreService)(nil).BlockMetaByHash), blkHash)
-}
-
-// BlockMetas mocks base method.
-func (m *MockCoreService) BlockMetas(start, count uint64) ([]*iotextypes.BlockMeta, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockMetas", start, count)
-	ret0, _ := ret[0].([]*iotextypes.BlockMeta)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockMetas indicates an expected call of BlockMetas.
-func (mr *MockCoreServiceMockRecorder) BlockMetas(start, count interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockMetas", reflect.TypeOf((*MockCoreService)(nil).BlockMetas), start, count)
 }
 
 // ChainID mocks base method.
