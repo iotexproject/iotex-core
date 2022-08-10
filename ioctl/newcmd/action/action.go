@@ -217,8 +217,6 @@ func NewActionCmd(client ioctl.Client) *cobra.Command {
 	// cmd.AddCommand(NewActionDeposit(client))
 	// cmd.AddCommand(NewActionSendRaw(client))
 
-	RegisterWriteCommand(client, cmd)
-
 	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
 

@@ -35,6 +35,7 @@ func TestSigner(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil).AnyTimes()
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--signer", "test")
 		require.NoError(err)
 		result, err := Signer(client, cmd)
@@ -162,6 +163,7 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("", expectedErr).Times(1)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", "")
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String())
@@ -185,6 +187,7 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("sends signed action to blockchain", func(t *testing.T) {
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String())
@@ -196,6 +199,7 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, "hdw::1/2")
@@ -206,6 +210,7 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, nil)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String())
@@ -217,6 +222,7 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, expectedErr)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String())
@@ -228,6 +234,7 @@ func TestSendAction(t *testing.T) {
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String())
@@ -241,6 +248,7 @@ func TestSendAction(t *testing.T) {
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, "hdw::1/2")
@@ -252,6 +260,7 @@ func TestSendAction(t *testing.T) {
 		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
+		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String())
