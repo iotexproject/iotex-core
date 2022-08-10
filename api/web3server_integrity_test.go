@@ -287,7 +287,7 @@ func TestGetBlockByHashIntegrity(t *testing.T) {
 	ret, err := svr.getBlockByHash(&testData)
 	require.NoError(err)
 	ans := ret.(*getBlockResult)
-	require.Equal(hex.EncodeToString(blkHash[:]), ans.blkMeta.Hash)
+	require.Equal(blkHash, ans.blk.HashBlock())
 	require.Equal(2, len(ans.transactions))
 
 	testData2 := gjson.Parse(`{"params":["0xa2e8e0c9cafbe93f2b7f7c9d32534bc6fde95f2185e5f2aaa6bf7ebdf1a6610a", false]}`)
