@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -185,7 +186,7 @@ func TestGrpcServer_GetActions(t *testing.T) {
 				gasConsumed = big.NewInt(0)
 			}
 
-			response := &block.Store{
+			response := &apitypes.BlockWithReceipts{
 				Block:    &block.Block{},
 				Receipts: []*action.Receipt{},
 			}
