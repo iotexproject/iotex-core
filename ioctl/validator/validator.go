@@ -24,9 +24,9 @@ var (
 	ErrNonPositiveNumber = errors.New("invalid number that is not positive")
 	// ErrInvalidStakeDuration indicates error for invalid stake duration
 	ErrInvalidStakeDuration = errors.New("stake duration must be within 0 and 1050 and in multiples of 7")
-	// ErrInvalidCandidateName indicates error for invalid candidate name
+	// ErrLongCandidateName ErrInvalidCandidateName indicates error for invalid candidate name
 	ErrLongCandidateName = errors.New("invalid length of candidate name that is more than 12 ")
-	// ErrInvalidCandidateName indicates error for invalid candidate name (for ioctl stake2 command)
+	// ErrStake2CandidateName ErrInvalidCandidateName indicates error for invalid candidate name (for ioctl stake2 command)
 	ErrStake2CandidateName = errors.New("the candidate name string is not valid")
 )
 
