@@ -21,20 +21,14 @@ import (
 
 func TestStop(t *testing.T) {
 	r := require.New(t)
-	c, err := NewClient(config.Config{}, "", EnableCryptoSm2())
-	r.NoError(err)
+	c := NewClient(config.Config{}, "", EnableCryptoSm2())
 	c.SetEndpointWithFlag(func(p *string, _ string, _ string, _ string) {
 		*p = "127.0.0.1:14014"
 	})
 	c.SetInsecureWithFlag(func(p *bool, _ string, _ bool, _ string) {
 		*p = true
 	})
-	c.SetXrc20ContractAddrWithFlag(func(p *string, _ string, _ string, _ string, _ string) {
-		*p = "0xsjfdjfk"
-	}, func(_ string) error {
-		return nil
-	})
-	_, err = c.APIServiceClient()
+	_, err := c.APIServiceClient()
 	r.NoError(err)
 	err = c.Stop(context.Background())
 	r.NoError(err)
@@ -42,8 +36,7 @@ func TestStop(t *testing.T) {
 
 func TestAskToConfirm(t *testing.T) {
 	r := require.New(t)
-	c, err := NewClient(config.Config{}, "")
-	r.NoError(err)
+	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
 	confirmed, err := c.AskToConfirm("test")
 	// no input
@@ -53,8 +46,7 @@ func TestAskToConfirm(t *testing.T) {
 
 func TestAPIServiceClient(t *testing.T) {
 	r := require.New(t)
-	c, err := NewClient(config.Config{}, "")
-	r.NoError(err)
+	c := NewClient(config.Config{}, "")
 	defer c.Stop(context.Background())
 
 	apiServiceClient, err := c.APIServiceClient()
@@ -145,8 +137,7 @@ func TestGetAddress(t *testing.T) {
 		cfgload := loadTempConfig(t, configFilePath)
 		r.Equal(test.cfg, cfgload)
 
-		c, err := NewClient(cfgload, configFilePath)
-		r.NoError(err)
+		c := NewClient(cfgload, configFilePath)
 		out, err := c.AddressWithDefaultIfNotExist(test.in)
 		if err != nil {
 			r.Contains(err.Error(), test.errMsg)
@@ -159,10 +150,9 @@ func TestNewKeyStore(t *testing.T) {
 	r := require.New(t)
 	testWallet := t.TempDir()
 
-	c, err := NewClient(config.Config{
+	c := NewClient(config.Config{
 		Wallet: testWallet,
 	}, testWallet+"/config.default")
-	r.NoError(err)
 	defer c.Stop(context.Background())
 
 	ks := c.NewKeyStore()
@@ -193,8 +183,7 @@ func TestAliasMap(t *testing.T) {
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hbbb": "bbb",
 		"io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hccc": "ccc",
 	}
-	c, err := NewClient(cfgload, configFilePath)
-	r.NoError(err)
+	c := NewClient(cfgload, configFilePath)
 	defer c.Stop(context.Background())
 	result := c.AliasMap()
 	r.Equal(exprAliases, result)
@@ -212,8 +201,7 @@ func TestAlias(t *testing.T) {
 	cfgload := loadTempConfig(t, configFilePath)
 	r.Equal(cfg, cfgload)
 
-	c, err := NewClient(cfgload, configFilePath)
-	r.NoError(err)
+	c := NewClient(cfgload, configFilePath)
 	defer c.Stop(context.Background())
 	for alias, addr := range cfg.Aliases {
 		result, err := c.Alias(addr)
@@ -294,8 +282,7 @@ func TestSetAlias(t *testing.T) {
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
-		c, err := NewClient(test.cfg, configFilePath)
-		r.NoError(err)
+		c := NewClient(test.cfg, configFilePath)
 		r.NoError(c.SetAliasAndSave(test.alias, test.addr))
 		cfgload := loadTempConfig(t, configFilePath)
 		count := 0
@@ -359,8 +346,7 @@ func TestDeleteAlias(t *testing.T) {
 
 	for _, test := range tests {
 		configFilePath := testPathd + "/config.default"
-		c, err := NewClient(test.cfg, configFilePath)
-		r.NoError(err)
+		c := NewClient(test.cfg, configFilePath)
 		r.NoError(c.DeleteAlias(test.alias))
 		cfgload := loadTempConfig(t, configFilePath)
 		r.NotContains(cfgload.Aliases, test.alias)
@@ -373,10 +359,9 @@ func TestDeleteAlias(t *testing.T) {
 func TestHdwalletMnemonic(t *testing.T) {
 	r := require.New(t)
 	testPathWallet := t.TempDir()
-	c, err := NewClient(config.Config{
+	c := NewClient(config.Config{
 		Wallet: testPathWallet,
 	}, testPathWallet+"/config.default")
-	r.NoError(err)
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
@@ -389,10 +374,9 @@ func TestWriteHdWalletConfigFile(t *testing.T) {
 	r := require.New(t)
 	testPathWallet := t.TempDir()
 
-	c, err := NewClient(config.Config{
+	c := NewClient(config.Config{
 		Wallet: testPathWallet,
 	}, testPathWallet+"/config.default")
-	r.NoError(err)
 	mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
 	password := "123"
 	r.NoError(c.WriteHdWalletConfigFile(mnemonic, password))
@@ -402,8 +386,8 @@ func TestClient_ConfigFilePath(t *testing.T) {
 	r := require.New(t)
 	testConfigPath := fmt.Sprintf("%s/%s", t.TempDir(), "/config.test")
 
-	c, err := NewClient(config.Config{}, testConfigPath)
-	r.NoError(err)
+	c := NewClient(config.Config{}, testConfigPath)
+
 	r.Equal(testConfigPath, c.ConfigFilePath())
 }
 

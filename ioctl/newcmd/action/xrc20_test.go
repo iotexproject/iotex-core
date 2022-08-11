@@ -19,7 +19,6 @@ func TestNewXrc20Cmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("xrc20", config.English).AnyTimes()
 	client.EXPECT().SetEndpointWithFlag(gomock.Any())
 	client.EXPECT().SetInsecureWithFlag(gomock.Any())
-	client.EXPECT().SetXrc20ContractAddrWithFlag(gomock.Any(), gomock.Any())
 
 	cmd := NewXrc20Cmd(client)
 	result, err := util.ExecuteCmd(cmd)

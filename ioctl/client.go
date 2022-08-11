@@ -21,7 +21,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
@@ -50,14 +49,10 @@ type (
 		Config() config.Config
 		// ConfigFilePath returns the file path of the config
 		ConfigFilePath() string
-		// Xrc20ContractAddr returns the value of flag
-		Xrc20ContractAddr() string
 		// SetEndpointWithFlag receives input flag value
 		SetEndpointWithFlag(func(*string, string, string, string))
 		// SetInsecureWithFlag receives input flag value
 		SetInsecureWithFlag(func(*bool, string, bool, string))
-		// SetXrc20ContractAddrWithFlag receives input flag value
-		SetXrc20ContractAddrWithFlag(func(*string, string, string, string, string), func(string) error)
 		// APIServiceClient returns an API service client
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
@@ -104,8 +99,6 @@ type (
 		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
-		// PackABI pack abi with abi content, pack name and arguments
-		PackABI(string, ...interface{}) ([]byte, error)
 		// Insecure returns the insecure connect option of grpc dial, default is false
 		Insecure() bool
 	}
@@ -117,9 +110,7 @@ type (
 		configFilePath     string
 		endpoint           string
 		insecure           bool
-		xrc20ContractAddr  string
 		hdWalletConfigFile string
-		xrc20ABI           abi.ABI
 	}
 
 	// Option sets client construction parameter
@@ -140,21 +131,16 @@ func EnableCryptoSm2() Option {
 }
 
 // NewClient creates a new ioctl client
-func NewClient(cfg config.Config, configFilePath string, opts ...Option) (Client, error) {
-	xrc20ABI, err := abi.JSON(strings.NewReader(_xrc20ABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot get abi JSON data")
-	}
+func NewClient(cfg config.Config, configFilePath string, opts ...Option) Client {
 	c := &client{
 		cfg:                cfg,
 		configFilePath:     configFilePath,
 		hdWalletConfigFile: cfg.Wallet + "/hdwallet",
-		xrc20ABI:           xrc20ABI,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
-	return c, nil
+	return c
 }
 
 func (c *client) Start(context.Context) error {
@@ -175,12 +161,9 @@ func (c *client) Config() config.Config {
 	return c.cfg
 }
 
+// ConfigFilePath returns the file path for the config.
 func (c *client) ConfigFilePath() string {
 	return c.configFilePath
-}
-
-func (c *client) Xrc20ContractAddr() string {
-	return c.xrc20ContractAddr
 }
 
 func (c *client) SetEndpointWithFlag(cb func(*string, string, string, string)) {
@@ -197,18 +180,6 @@ func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
 		config.Chinese: "一次不安全连接",
 	})
 	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
-}
-
-func (c *client) SetXrc20ContractAddrWithFlag(cb func(*string, string, string, string, string), cbFlagRequired func(string) error) {
-	usage, _ := c.SelectTranslation(map[config.Language]string{
-		config.English: "set contract address",
-		config.Chinese: "设定合约地址",
-	})
-	const name = "contract-address"
-	cb(&c.xrc20ContractAddr, name, "c", "", usage)
-	if err := cbFlagRequired(name); err != nil {
-		fmt.Printf("failed to set required flag: %v\n", err)
-	}
 }
 
 func (c *client) AskToConfirm(info string) (bool, error) {
@@ -449,10 +420,6 @@ func (c *client) WriteHdWalletConfigFile(mnemonic string, password string) error
 		return errors.Wrapf(err, "failed to write to config file %s", c.hdWalletConfigFile)
 	}
 	return nil
-}
-
-func (c *client) PackABI(name string, args ...interface{}) ([]byte, error) {
-	return c.xrc20ABI.Pack(name, args...)
 }
 
 func (c *client) RemoveHdWalletConfigFile() error {

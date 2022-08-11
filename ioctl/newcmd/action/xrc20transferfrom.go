@@ -48,7 +48,11 @@ func NewXrc20TransferFromCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get recipient address")
 			}
-			contract, err := xrc20Contract(client)
+			contractAddr, err := cmd.Flags().GetString("contract-address")
+			if err != nil {
+				return errors.Wrap(err, "failed to get contract address")
+			}
+			contract, err := xrc20Contract(client, contractAddr)
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}
@@ -56,7 +60,7 @@ func NewXrc20TransferFromCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to parse amount")
 			}
-			bytecode, err := client.PackABI("transferFrom", owner, recipient, amount)
+			bytecode, err := xrc20abi.Pack("transferFrom", owner, recipient, amount)
 			if err != nil {
 				return errors.Wrap(err, "cannot generate bytecode from given command")
 			}

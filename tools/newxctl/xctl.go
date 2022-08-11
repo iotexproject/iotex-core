@@ -20,10 +20,7 @@ func main() {
 	if err != nil {
 		log.L().Panic(err.Error())
 	}
-	client, err := ioctl.NewClient(readConfig, defaultConfigFile, ioctl.EnableCryptoSm2())
-	if err != nil {
-		log.L().Panic(err.Error())
-	}
+	client := ioctl.NewClient(readConfig, defaultConfigFile, ioctl.EnableCryptoSm2())
 	if err := newcmd.NewXctl(client).Execute(); err != nil {
 		os.Exit(1)
 	}

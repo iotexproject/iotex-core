@@ -59,7 +59,6 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 
 		cli.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(owner, nil).AnyTimes()
 		cli.EXPECT().NewKeyStore().Return(ks).AnyTimes()
-		cli.EXPECT().PackABI(gomock.Any(), gomock.Any()).Return([]byte(""), nil)
 		cli.EXPECT().IsCryptoSm2().Return(false).AnyTimes()
 		cli.EXPECT().ReadSecret().Return(passwd, nil).AnyTimes()
 		cli.EXPECT().Address(gomock.Any()).Return(owner, nil).AnyTimes()
@@ -79,7 +78,6 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 			Return(&iotexapi.GetAccountResponse{
 				AccountMeta: &iotextypes.AccountMeta{Balance: balance},
 			}, nil)
-		cli.EXPECT().Xrc20ContractAddr().Return(contractAddr)
 		api.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil)
 
 		cli.EXPECT().Config().Return(config.Config{

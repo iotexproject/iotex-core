@@ -270,26 +270,6 @@ func (mr *MockClientMockRecorder) NewKeyStore() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore))
 }
 
-// PackABI mocks base method.
-func (m *MockClient) PackABI(arg0 string, arg1 ...interface{}) ([]byte, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "PackABI", varargs...)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PackABI indicates an expected call of PackABI.
-func (mr *MockClientMockRecorder) PackABI(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PackABI", reflect.TypeOf((*MockClient)(nil).PackABI), varargs...)
-}
-
 // QueryAnalyser mocks base method.
 func (m *MockClient) QueryAnalyser(arg0 interface{}) (*http.Response, error) {
 	m.ctrl.T.Helper()
@@ -429,18 +409,6 @@ func (mr *MockClientMockRecorder) SetInsecureWithFlag(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInsecureWithFlag", reflect.TypeOf((*MockClient)(nil).SetInsecureWithFlag), arg0)
 }
 
-// SetXrc20ContractAddrWithFlag mocks base method.
-func (m *MockClient) SetXrc20ContractAddrWithFlag(arg0 func(*string, string, string, string, string), arg1 func(string) error) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetXrc20ContractAddrWithFlag", arg0, arg1)
-}
-
-// SetXrc20ContractAddrWithFlag indicates an expected call of SetXrc20ContractAddrWithFlag.
-func (mr *MockClientMockRecorder) SetXrc20ContractAddrWithFlag(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetXrc20ContractAddrWithFlag", reflect.TypeOf((*MockClient)(nil).SetXrc20ContractAddrWithFlag), arg0, arg1)
-}
-
 // Start mocks base method.
 func (m *MockClient) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -495,18 +463,4 @@ func (m *MockClient) WriteHdWalletConfigFile(arg0, arg1 string) error {
 func (mr *MockClientMockRecorder) WriteHdWalletConfigFile(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteHdWalletConfigFile", reflect.TypeOf((*MockClient)(nil).WriteHdWalletConfigFile), arg0, arg1)
-}
-
-// Xrc20ContractAddr mocks base method.
-func (m *MockClient) Xrc20ContractAddr() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Xrc20ContractAddr")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Xrc20ContractAddr indicates an expected call of Xrc20ContractAddr.
-func (mr *MockClientMockRecorder) Xrc20ContractAddr() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Xrc20ContractAddr", reflect.TypeOf((*MockClient)(nil).Xrc20ContractAddr))
 }

@@ -20,10 +20,7 @@ func main() {
 	if err != nil {
 		log.L().Panic(err.Error())
 	}
-	client, err := ioctl.NewClient(readConfig, defaultConfigFile)
-	if err != nil {
-		log.L().Panic(err.Error())
-	}
+	client := ioctl.NewClient(readConfig, defaultConfigFile)
 	if err := newcmd.NewIoctl(client).Execute(); err != nil {
 		os.Exit(1)
 	}

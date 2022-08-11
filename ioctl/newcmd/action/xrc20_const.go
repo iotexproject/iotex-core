@@ -1,4 +1,17 @@
-package ioctl
+// Copyright (c) 2022 IoTeX Foundation
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package action
+
+import (
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/pkg/errors"
+)
 
 const (
 	_xrc20ABI = `[
@@ -177,3 +190,13 @@ const (
 		}
 	]`
 )
+
+var xrc20abi abi.ABI
+
+func init() {
+	var err error
+	xrc20abi, err = abi.JSON(strings.NewReader(_xrc20ABI))
+	if err != nil {
+		panic(errors.Wrap(err, "cannot get abi JSON data"))
+	}
+}
