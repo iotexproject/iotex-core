@@ -137,7 +137,7 @@ func (builder *Builder) buildFactory(forTest bool) error {
 }
 
 func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
-	var daoDB db.KVStore
+	var daoStateDB db.KVStore
 	var err error
 	if builder.cs.factory != nil {
 		return builder.cs.factory, nil
@@ -156,25 +156,25 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			daoDB, err = factory.CreateTrieDBWithCache(builder.cfg.DB, builder.cfg.Chain)
+			daoStateDB, err = factory.CreateDAOForStateDBWithCache(builder.cfg.DB, builder.cfg.Chain)
 		} else {
-			daoDB, err = factory.CreateTrieDB(builder.cfg.DB, builder.cfg.Chain)
+			daoStateDB, err = factory.CreateDAOForStateDB(builder.cfg.DB, builder.cfg.Chain)
 		}
 		if err != nil {
 			return nil, err
 		}
-		return factory.NewStateDB(factoryCfg, daoDB, opts...)
+		return factory.NewStateDB(factoryCfg, daoStateDB, opts...)
 	}
 	if forTest {
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-	daoDB, err = factory.CreateTrieDB(builder.cfg.DB, builder.cfg.Chain)
+	daoFactory, err := factory.CreateDAOForStateDB(builder.cfg.DB, builder.cfg.Chain)
 	if err != nil {
 		return nil, err
 	}
 	return factory.NewFactory(
 		factoryCfg,
-		daoDB,
+		daoFactory,
 		factory.RegistryOption(builder.cs.registry),
 		factory.DefaultTriePatchOption(),
 	)

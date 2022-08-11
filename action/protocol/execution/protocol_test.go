@@ -422,9 +422,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			daoKV, err = factory.CreateTrieDBWithCache(cfg.DB, cfg.Chain)
+			daoKV, err = factory.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
 		} else {
-			daoKV, err = factory.CreateTrieDB(cfg.DB, cfg.Chain)
+			daoKV, err = factory.CreateDAOForStateDB(cfg.DB, cfg.Chain)
 		}
 		r.NoError(err)
 		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
@@ -653,7 +653,7 @@ func TestProtocol_Handle(t *testing.T) {
 			Chain:   cfg.Chain,
 			Genesis: cfg.Genesis,
 		}
-		db2, err := factory.CreateTrieDBWithCache(cfg.DB, cfg.Chain)
+		db2, err := factory.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
 		require.NoError(err)
 		// create state factory
 		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))

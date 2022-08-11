@@ -85,8 +85,8 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
-// CreateTrieDB creates state db from config
-func CreateTrieDB(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
+// CreateDAOForStateDB creates state db from config
+func CreateDAOForStateDB(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
 	dbPath := chainCfg.TrieDBPath
 	if len(dbPath) == 0 {
 		return nil, errors.New("Invalid empty trie db path")
@@ -97,9 +97,9 @@ func CreateTrieDB(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, erro
 
 }
 
-// CreateTrieDBWithCache creates state db with cache from config
-func CreateTrieDBWithCache(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
-	dao, err := CreateTrieDB(dbCfg, chainCfg)
+// CreateDAOForStateDBWithCache creates state db with cache from config
+func CreateDAOForStateDBWithCache(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
+	dao, err := CreateDAOForStateDB(dbCfg, chainCfg)
 	if err != nil {
 		return nil, err
 	}

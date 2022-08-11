@@ -160,7 +160,7 @@ func TestLocalCommit(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	db1, err := factory.CreateTrieDBWithCache(cfg.DB, cfg.Chain)
+	db1, err := factory.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
 	require.NoError(err)
 	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
