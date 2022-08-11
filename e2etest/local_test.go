@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -160,7 +161,7 @@ func TestLocalCommit(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	db1, err := factory.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
 	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)

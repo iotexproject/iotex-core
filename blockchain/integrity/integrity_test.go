@@ -877,7 +877,7 @@ func TestConstantinople(t *testing.T) {
 			Chain:   cfg.Chain,
 			Genesis: cfg.Genesis,
 		}
-		db2, err := factory.CreateDAOForStateDB(cfg.DB, cfg.Chain)
+		db2, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
 		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
@@ -1125,7 +1125,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			Chain:   cfg.Chain,
 			Genesis: cfg.Genesis,
 		}
-		db2, err := factory.CreateDAOForStateDB(cfg.DB, cfg.Chain)
+		db2, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
 		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
@@ -1449,7 +1449,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	db2, err := factory.CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(err)
 	sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 	require.NoError(err)

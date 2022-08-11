@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
@@ -83,28 +82,6 @@ func DisableWorkingSetCacheOption() StateDBOption {
 		sdb.workingsets = cache.NewDummyLruCache()
 		return nil
 	}
-}
-
-// CreateDAOForStateDB creates state db from config
-func CreateDAOForStateDB(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
-	dbPath := chainCfg.TrieDBPath
-	if len(dbPath) == 0 {
-		return nil, errors.New("Invalid empty trie db path")
-	}
-	dbCfg.DbPath = dbPath
-
-	return db.NewBoltDB(dbCfg), nil
-
-}
-
-// CreateDAOForStateDBWithCache creates state db with cache from config
-func CreateDAOForStateDBWithCache(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
-	dao, err := CreateDAOForStateDB(dbCfg, chainCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return db.NewKvStoreWithCache(dao, chainCfg.StateDBCacheSize), nil
 }
 
 // NewStateDB creates a new state db

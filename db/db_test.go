@@ -443,3 +443,25 @@ func TestFilter(t *testing.T) {
 		testFunc(NewBoltDB(cfg), t)
 	})
 }
+
+func TestTrieDB(t *testing.T) {
+	require := require.New(t)
+
+	path := "test-trie.bolt"
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
+	defer testutil.CleanupPath(testPath)
+	cfg := DefaultConfig
+
+	d, err := CreateDAOForStateDB(cfg, testPath)
+	require.NoError(err)
+	require.NotNil(d)
+
+	d, err = CreateDAOForStateDB(cfg, "")
+	require.ErrorIs(err, ErrDBEmptyTrieDBPath)
+	require.Nil(d)
+
+	d, err = CreateDAOForStateDBWithCache(cfg, testPath, 5)
+	require.NoError(err)
+	require.NotNil(d)
+}

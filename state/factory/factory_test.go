@@ -103,7 +103,7 @@ func TestSDBSnapshot(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
 	registry := protocol.NewRegistry()
 
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
 	sdb, err := NewStateDB(cfg, db2, RegistryStateDBOption(registry))
 	require.NoError(err)
@@ -357,7 +357,7 @@ func TestHistoryState(t *testing.T) {
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = true
-	db1, err := CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	r.NoError(err)
 	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
@@ -366,7 +366,7 @@ func TestHistoryState(t *testing.T) {
 	// using stateDB and enable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
@@ -376,7 +376,7 @@ func TestHistoryState(t *testing.T) {
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = false
-	db1, err = CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db1, err = db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	r.NoError(err)
 	sf, err = NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
@@ -385,7 +385,7 @@ func TestHistoryState(t *testing.T) {
 	// using stateDB and disable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	db2, err = CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err = db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	r.NoError(err)
@@ -402,7 +402,7 @@ func TestFactoryStates(t *testing.T) {
 	// using factory
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
 	r.NoError(err)
-	db1, err := CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	r.NoError(err)
 	sf, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	r.NoError(err)
@@ -410,7 +410,7 @@ func TestFactoryStates(t *testing.T) {
 
 	// using stateDB
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(_triePath)
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	r.NoError(err)
 	r.NoError(err)
 	sf, err = NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
@@ -426,7 +426,7 @@ func TestSDBState(t *testing.T) {
 
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
-	db1, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(t, err)
 	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -732,7 +732,7 @@ func TestSDBNonce(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
 
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(t, err)
 	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -831,7 +831,7 @@ func TestLoadStoreHeight(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testTriePath
 
-	db1, err := CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(t, err)
 	statefactory, err := NewFactory(cfg, db1, SkipBlockValidationOption())
 	require.NoError(t, err)
@@ -859,7 +859,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = testDBPath
 
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(t, err)
 	db, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
@@ -948,7 +948,7 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
 	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	require.NoError(err)
@@ -1059,7 +1059,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
 	sdb, err := NewStateDB(cfg, db2, RegistryStateDBOption(registry))
 	require.NoError(err)
@@ -1169,7 +1169,7 @@ func TestSTXSimulateExecution(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
 	sdb, err := NewStateDB(cfg, db2, RegistryStateDBOption(registry))
 	require.NoError(err)
@@ -1464,7 +1464,7 @@ func BenchmarkSDBRunAction(b *testing.B) {
 	}
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	db1, err := CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(b, err)
 	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
 	if err != nil {
@@ -1483,7 +1483,7 @@ func BenchmarkCachedSDBRunAction(b *testing.B) {
 	}
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(b, err)
 	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	if err != nil {
@@ -1595,7 +1595,7 @@ func BenchmarkSDBState(b *testing.B) {
 	}
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	db1, err := CreateDAOForStateDB(cfg.DB, cfg.Chain)
+	db1, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(b, err)
 	sdb, err := NewStateDB(cfg, db1, SkipBlockValidationStateDBOption())
 	if err != nil {
@@ -1614,7 +1614,7 @@ func BenchmarkCachedSDBState(b *testing.B) {
 	}
 	cfg := DefaultConfig
 	cfg.Chain.TrieDBPath = tp
-	db2, err := CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain)
+	db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(b, err)
 	sdb, err := NewStateDB(cfg, db2, SkipBlockValidationStateDBOption())
 	if err != nil {
