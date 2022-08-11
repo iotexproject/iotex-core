@@ -484,7 +484,7 @@ func TestCreateBlockchain(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -541,7 +541,7 @@ func TestGetBlockHash(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -708,7 +708,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -786,7 +786,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(t, err)
@@ -877,7 +877,9 @@ func TestConstantinople(t *testing.T) {
 			Chain:   cfg.Chain,
 			Genesis: cfg.Genesis,
 		}
-		sf, err := factory.NewFactory(factoryCfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		db2, err := factory.CreateTrieDB(cfg.DB, cfg.Chain)
+		require.NoError(err)
+		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -1123,7 +1125,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			Chain:   cfg.Chain,
 			Genesis: cfg.Genesis,
 		}
-		sf, err := factory.NewFactory(factoryCfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		db2, err := factory.CreateTrieDB(cfg.DB, cfg.Chain)
+		require.NoError(err)
+		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -1445,7 +1449,9 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+	db2, err := factory.CreateTrieDB(cfg.DB, cfg.Chain)
+	require.NoError(err)
+	sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1501,7 +1507,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1549,7 +1555,7 @@ func TestBlocks(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1626,7 +1632,7 @@ func TestActions(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)
@@ -1695,7 +1701,7 @@ func TestBlockchain_AddRemoveSubscriber(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	req.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	req.NoError(err)
@@ -1907,10 +1913,10 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 		Genesis: cfg.Genesis,
 	}
 	if stateTX {
-		sf, err = factory.NewStateDB(factoryCfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
+		sf, err = factory.NewStateDB(factoryCfg, kv, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 	} else {
-		sf, err = factory.NewFactory(factoryCfg, factory.PrecreatedTrieDBOption(kv), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, kv, factory.RegistryOption(registry))
 		require.NoError(err)
 	}
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)

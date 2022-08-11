@@ -65,6 +65,13 @@ var (
 		},
 		[]string{},
 	)
+
+	//DefaultConfig is the default config for state factory
+	DefaultConfig = Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.Default,
+		DB:      db.DefaultConfig,
+	}
 )
 
 func init() {
@@ -116,38 +123,6 @@ type (
 // Option sets Factory construction parameter
 type Option func(*factory, Config) error
 
-// PrecreatedTrieDBOption uses pre-created trie DB for state factory
-func PrecreatedTrieDBOption(kv db.KVStore) Option {
-	return func(sf *factory, cfg Config) (err error) {
-		if kv == nil {
-			return errors.New("Invalid empty trie db")
-		}
-		sf.dao = kv
-		return nil
-	}
-}
-
-// DefaultTrieOption creates trie from config for state factory
-func DefaultTrieOption() Option {
-	return func(sf *factory, cfg Config) (err error) {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sf.dao = db.NewBoltDB(cfg.DB)
-		return nil
-	}
-}
-
-// InMemTrieOption creates in memory trie for state factory
-func InMemTrieOption() Option {
-	return func(sf *factory, cfg Config) (err error) {
-		sf.dao = db.NewMemKVStore()
-		return nil
-	}
-}
-
 // RegistryOption sets the registry in state db
 func RegistryOption(reg *protocol.Registry) Option {
 	return func(sf *factory, cfg Config) error {
@@ -173,7 +148,7 @@ func DefaultTriePatchOption() Option {
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg Config, opts ...Option) (Factory, error) {
+func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
@@ -199,6 +174,7 @@ func NewFactory(cfg Config, opts ...Option) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sf.timerFactory = timerFactory
+	sf.dao = dao
 
 	return sf, nil
 }

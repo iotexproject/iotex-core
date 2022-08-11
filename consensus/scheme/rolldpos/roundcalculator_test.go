@@ -185,7 +185,9 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf, err := factory.NewFactory(factoryCfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+	db1, err := factory.CreateTrieDB(cfg.DB, cfg.Chain)
+	require.NoError(err)
+	sf, err := factory.NewFactory(factoryCfg, db1, factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)

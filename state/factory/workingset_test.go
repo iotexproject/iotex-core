@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -47,7 +48,7 @@ func (s *testString) Deserialize(v []byte) error {
 
 func newFactoryWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
-	sf, err := NewFactory(initConfig(), InMemTrieOption())
+	sf, err := NewFactory(DefaultConfig, db.NewMemKVStore())
 	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(
@@ -64,7 +65,7 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 
 func newStateDBWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
-	sf, err := NewStateDB(initConfig(), InMemStateDBOption())
+	sf, err := NewStateDB(DefaultConfig, db.NewMemKVStore())
 	r.NoError(err)
 
 	ctx := genesis.WithGenesisContext(
@@ -185,8 +186,8 @@ func TestWorkingSet_Dock(t *testing.T) {
 func TestWorkingSet_ValidateBlock(t *testing.T) {
 	var (
 		require    = require.New(t)
-		f1, _      = NewFactory(initConfig(), InMemTrieOption())
-		f2, _      = NewStateDB(initConfig(), InMemStateDBOption())
+		f1, _      = NewFactory(DefaultConfig, db.NewMemKVStore())
+		f2, _      = NewStateDB(DefaultConfig, db.NewMemKVStore())
 		factories  = []Factory{f1, f2}
 		digestHash = hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
 			101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})

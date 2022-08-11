@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
@@ -52,58 +53,11 @@ type stateDB struct {
 // StateDBOption sets stateDB construction parameter
 type StateDBOption func(*stateDB, *Config) error
 
-// PrecreatedStateDBOption uses pre-created state db
-func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		if kv == nil {
-			return errors.New("Invalid state db")
-		}
-		sdb.dao = kv
-		return nil
-	}
-}
-
-// DefaultStateDBOption creates default state db from config
-func DefaultStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sdb.dao = db.NewBoltDB(cfg.DB)
-
-		return nil
-	}
-}
-
 // DefaultPatchOption loads patchs
 func DefaultPatchOption() StateDBOption {
 	return func(sdb *stateDB, cfg *Config) (err error) {
 		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
-	}
-}
-
-// CachedStateDBOption creates state db with cache from config
-func CachedStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sdb.dao = db.NewKvStoreWithCache(db.NewBoltDB(cfg.DB), cfg.Chain.StateDBCacheSize)
-
-		return nil
-	}
-}
-
-// InMemStateDBOption creates in memory state db
-func InMemStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
-		sdb.dao = db.NewMemKVStore()
-		return nil
 	}
 }
 
@@ -131,8 +85,30 @@ func DisableWorkingSetCacheOption() StateDBOption {
 	}
 }
 
+// CreateTrieDB creates state db from config
+func CreateTrieDB(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
+	dbPath := chainCfg.TrieDBPath
+	if len(dbPath) == 0 {
+		return nil, errors.New("Invalid empty trie db path")
+	}
+	dbCfg.DbPath = dbPath
+
+	return db.NewBoltDB(dbCfg), nil
+
+}
+
+// CreateTrieDBWithCache creates state db with cache from config
+func CreateTrieDBWithCache(dbCfg db.Config, chainCfg blockchain.Config) (db.KVStore, error) {
+	dao, err := CreateTrieDB(dbCfg, chainCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return db.NewKvStoreWithCache(dao, chainCfg.StateDBCacheSize), nil
+}
+
 // NewStateDB creates a new state db
-func NewStateDB(cfg Config, opts ...StateDBOption) (Factory, error) {
+func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
@@ -156,6 +132,7 @@ func NewStateDB(cfg Config, opts ...StateDBOption) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
+	sdb.dao = dao
 	return &sdb, nil
 }
 

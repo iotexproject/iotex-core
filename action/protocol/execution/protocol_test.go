@@ -413,6 +413,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(rp.Register(registry))
 	// create state factory
 	var sf factory.Factory
+	var daoKV db.KVStore
 
 	factoryCfg := factory.Config{
 		DB:      cfg.DB,
@@ -421,12 +422,14 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			sf, err = factory.NewStateDB(factoryCfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = factory.CreateTrieDBWithCache(cfg.DB, cfg.Chain)
 		} else {
-			sf, err = factory.NewStateDB(factoryCfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = factory.CreateTrieDB(cfg.DB, cfg.Chain)
 		}
+		r.NoError(err)
+		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
 	} else {
-		sf, err = factory.NewFactory(factoryCfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	}
 	r.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
@@ -650,8 +653,10 @@ func TestProtocol_Handle(t *testing.T) {
 			Chain:   cfg.Chain,
 			Genesis: cfg.Genesis,
 		}
+		db2, err := factory.CreateTrieDBWithCache(cfg.DB, cfg.Chain)
+		require.NoError(err)
 		// create state factory
-		sf, err := factory.NewStateDB(factoryCfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)

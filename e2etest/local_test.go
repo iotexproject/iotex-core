@@ -160,7 +160,9 @@ func TestLocalCommit(t *testing.T) {
 		Chain:   cfg.Chain,
 		Genesis: cfg.Genesis,
 	}
-	sf2, err := factory.NewStateDB(factoryCfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+	db1, err := factory.CreateTrieDBWithCache(cfg.DB, cfg.Chain)
+	require.NoError(err)
+	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)
