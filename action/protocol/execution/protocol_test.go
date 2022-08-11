@@ -401,7 +401,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.IcelandBlockHeight = 0
 	}
 	if sct.InitGenesis.IsLondon {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
+		// London is enabled at okhotsk height
+		cfg.Genesis.Blockchain.OkhotskBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
