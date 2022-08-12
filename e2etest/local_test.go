@@ -156,11 +156,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	db1, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
 	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))

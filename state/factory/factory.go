@@ -70,7 +70,6 @@ var (
 	DefaultConfig = Config{
 		Chain:   blockchain.DefaultConfig,
 		Genesis: genesis.Default,
-		DB:      db.DefaultConfig,
 	}
 )
 
@@ -114,18 +113,25 @@ type (
 
 	// Config contains the config for factory
 	Config struct {
-		DB      db.Config
 		Chain   blockchain.Config
 		Genesis genesis.Genesis
 	}
 )
 
+// GenerateConfig generates the factory config
+func GenerateConfig(chain blockchain.Config, g genesis.Genesis) Config {
+	return Config{
+		Chain:   chain,
+		Genesis: g,
+	}
+}
+
 // Option sets Factory construction parameter
-type Option func(*factory, Config) error
+type Option func(*factory, *Config) error
 
 // RegistryOption sets the registry in state db
 func RegistryOption(reg *protocol.Registry) Option {
-	return func(sf *factory, cfg Config) error {
+	return func(sf *factory, cfg *Config) error {
 		sf.registry = reg
 		return nil
 	}
@@ -133,7 +139,7 @@ func RegistryOption(reg *protocol.Registry) Option {
 
 // SkipBlockValidationOption skips block validation on PutBlock
 func SkipBlockValidationOption() Option {
-	return func(sf *factory, cfg Config) error {
+	return func(sf *factory, cfg *Config) error {
 		sf.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -141,7 +147,7 @@ func SkipBlockValidationOption() Option {
 
 // DefaultTriePatchOption loads patchs
 func DefaultTriePatchOption() Option {
-	return func(sf *factory, cfg Config) (err error) {
+	return func(sf *factory, cfg *Config) (err error) {
 		sf.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
@@ -159,7 +165,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 	}
 
 	for _, opt := range opts {
-		if err := opt(sf, cfg); err != nil {
+		if err := opt(sf, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}

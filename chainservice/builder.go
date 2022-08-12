@@ -142,11 +142,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if builder.cs.factory != nil {
 		return builder.cs.factory, nil
 	}
-	factoryCfg := factory.Config{
-		DB:      builder.cfg.DB,
-		Chain:   builder.cfg.Chain,
-		Genesis: builder.cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(builder.cfg.Chain, builder.cfg.Genesis)
 	if builder.cfg.Chain.EnableTrielessStateDB {
 		if forTest {
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))

@@ -648,11 +648,7 @@ func TestEnforceChainID(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)

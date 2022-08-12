@@ -41,11 +41,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -138,11 +134,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())

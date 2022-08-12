@@ -89,11 +89,7 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	r.NoError(err)
 	genericValidator := protocol.NewGenericValidator(sf, accountutil.AccountState)

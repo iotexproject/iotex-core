@@ -181,11 +181,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		}
 	}
 	registry := protocol.NewRegistry()
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	db1, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(err)
 	sf, err := factory.NewFactory(factoryCfg, db1, factory.RegistryOption(registry))

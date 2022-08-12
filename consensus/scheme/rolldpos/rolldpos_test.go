@@ -402,11 +402,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		chains := make([]blockchain.Blockchain, 0, numNodes)
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
-		factoryCfg := factory.Config{
-			DB:      cfg.DB,
-			Chain:   cfg.Chain,
-			Genesis: cfg.Genesis,
-		}
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
 			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())

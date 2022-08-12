@@ -415,11 +415,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	var sf factory.Factory
 	var daoKV db.KVStore
 
-	factoryCfg := factory.Config{
-		DB:      cfg.DB,
-		Chain:   cfg.Chain,
-		Genesis: cfg.Genesis,
-	}
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
 			daoKV, err = db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
@@ -648,11 +644,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
-		factoryCfg := factory.Config{
-			DB:      cfg.DB,
-			Chain:   cfg.Chain,
-			Genesis: cfg.Genesis,
-		}
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 		db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		require.NoError(err)
 		// create state factory
