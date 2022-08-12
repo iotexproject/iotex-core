@@ -7,7 +7,7 @@ var (
 	ErrEmptyDBPath = errors.New("empty db path")
 )
 
-// CreateKVStore creates state db from config
+// CreateKVStore creates db from config and db path
 func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 	if len(dbPath) == 0 {
 		return nil, ErrEmptyDBPath
@@ -17,7 +17,7 @@ func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 	return NewBoltDB(cfg), nil
 }
 
-// CreateKVStoreWithCache creates state db with cache from config
+// CreateKVStoreWithCache creates db with cache from config and db path, cacheSize
 func CreateKVStoreWithCache(cfg Config, dbPath string, cacheSize int) (KVStore, error) {
 	dao, err := CreateKVStore(cfg, dbPath)
 	if err != nil {
