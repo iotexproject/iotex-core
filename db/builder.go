@@ -3,27 +3,26 @@ package db
 import "github.com/pkg/errors"
 
 var (
-	// ErrDBEmptyTrieDBPath is the error when trie db path is empty
-	ErrDBEmptyTrieDBPath = errors.New("Invalid empty trie db path")
+	// ErrEmptyDBPath is the error when db path is empty
+	ErrEmptyDBPath = errors.New("empty db path")
 )
 
-// CreateDAOForStateDB creates state db from config
-func CreateDAOForStateDB(cfg Config, dbPath string) (KVStore, error) {
+// CreateKVStore creates state db from config
+func CreateKVStore(cfg Config, dbPath string) (KVStore, error) {
 	if len(dbPath) == 0 {
-		return nil, ErrDBEmptyTrieDBPath
+		return nil, ErrEmptyDBPath
 	}
 	cfg.DbPath = dbPath
 
 	return NewBoltDB(cfg), nil
-
 }
 
-// CreateDAOForStateDBWithCache creates state db with cache from config
-func CreateDAOForStateDBWithCache(cfg Config, dbPath string, stateDBCacheSize int) (KVStore, error) {
-	dao, err := CreateDAOForStateDB(cfg, dbPath)
+// CreateKVStoreWithCache creates state db with cache from config
+func CreateKVStoreWithCache(cfg Config, dbPath string, cacheSize int) (KVStore, error) {
+	dao, err := CreateKVStore(cfg, dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewKvStoreWithCache(dao, stateDBCacheSize), nil
+	return NewKvStoreWithCache(dao, cacheSize), nil
 }

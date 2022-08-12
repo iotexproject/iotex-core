@@ -418,9 +418,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			daoKV, err = db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+			daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		} else {
-			daoKV, err = db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
+			daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		}
 		r.NoError(err)
 		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
@@ -645,7 +645,7 @@ func TestProtocol_Handle(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-		db2, err := db.CreateDAOForStateDBWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+		db2, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		require.NoError(err)
 		// create state factory
 		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))

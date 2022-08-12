@@ -152,9 +152,9 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			factory.DefaultPatchOption(),
 		}
 		if builder.cfg.Chain.EnableStateDBCaching {
-			daoStateDB, err = db.CreateDAOForStateDBWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
+			daoStateDB, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
-			daoStateDB, err = db.CreateDAOForStateDB(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+			daoStateDB, err = db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
 		}
 		if err != nil {
 			return nil, err
@@ -164,7 +164,7 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 	if forTest {
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
 	}
-	daoFactory, err := db.CreateDAOForStateDB(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
+	daoFactory, err := db.CreateKVStore(builder.cfg.DB, builder.cfg.Chain.TrieDBPath)
 	if err != nil {
 		return nil, err
 	}

@@ -444,24 +444,24 @@ func TestFilter(t *testing.T) {
 	})
 }
 
-func TestTrieDB(t *testing.T) {
+func TestCreateKVStore(t *testing.T) {
 	require := require.New(t)
 
-	path := "test-trie.bolt"
+	path := "test-kv-db.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
 	defer testutil.CleanupPath(testPath)
 	cfg := DefaultConfig
 
-	d, err := CreateDAOForStateDB(cfg, testPath)
+	d, err := CreateKVStore(cfg, testPath)
 	require.NoError(err)
 	require.NotNil(d)
 
-	d, err = CreateDAOForStateDB(cfg, "")
-	require.ErrorIs(err, ErrDBEmptyTrieDBPath)
+	d, err = CreateKVStore(cfg, "")
+	require.ErrorIs(err, ErrEmptyDBPath)
 	require.Nil(d)
 
-	d, err = CreateDAOForStateDBWithCache(cfg, testPath, 5)
+	d, err = CreateKVStoreWithCache(cfg, testPath, 5)
 	require.NoError(err)
 	require.NotNil(d)
 }

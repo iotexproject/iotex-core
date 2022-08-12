@@ -857,7 +857,7 @@ func TestConstantinople(t *testing.T) {
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-		db2, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
+		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
 		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
@@ -1101,7 +1101,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
 		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-		db2, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
+		db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		require.NoError(err)
 		sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 		require.NoError(err)
@@ -1421,7 +1421,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
-	db2, err := db.CreateDAOForStateDB(cfg.DB, cfg.Chain.TrieDBPath)
+	db2, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(err)
 	sf, err := factory.NewFactory(factoryCfg, db2, factory.RegistryOption(registry))
 	require.NoError(err)
