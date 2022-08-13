@@ -96,10 +96,16 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (Candidate
 		}
 
 		if cand.SelfStakeBucketIdx == bucket.Index {
-			cand.AddVote(calculateVoteWeight(vr.c, bucket, true))
+			if err = cand.AddVote(calculateVoteWeight(vr.c, bucket, true)); err != nil {
+				log.L().Error("failed to add vote for candidate",
+					zap.Uint64("bucket index", bucket.Index),
+					zap.String("candidate", bucket.Candidate.String()),
+					zap.Error(err))
+				continue
+			}
 			cand.SelfStake = bucket.StakedAmount
 		} else {
-			cand.AddVote(calculateVoteWeight(vr.c, bucket, false))
+			_ = cand.AddVote(calculateVoteWeight(vr.c, bucket, false))
 		}
 	}
 
