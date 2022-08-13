@@ -8,7 +8,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -44,12 +43,6 @@ type (
 	}
 
 	getBlockResult struct {
-		blkMeta      *iotextypes.BlockMeta
-		transactions []interface{}
-	}
-
-	// TODO: repalce getBlockResult with getBlockResultV2 after BlockMeta is removed in coreservice
-	getBlockResultV2 struct {
 		blk          *block.Block
 		transactions []interface{}
 	}
@@ -126,63 +119,6 @@ func (obj *web3Response) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
-	if obj.blkMeta == nil {
-		return nil, errInvalidObject
-	}
-	producerAddr, err := ioAddrToEthAddr(obj.blkMeta.ProducerAddress)
-	if err != nil {
-		return nil, err
-	}
-	txs := make([]interface{}, 0)
-	if len(obj.transactions) > 0 {
-		txs = obj.transactions
-	}
-	return json.Marshal(&struct {
-		Author           string        `json:"author"`
-		Number           string        `json:"number"`
-		Hash             string        `json:"hash"`
-		ParentHash       string        `json:"parentHash"`
-		Sha3Uncles       string        `json:"sha3Uncles"`
-		LogsBloom        string        `json:"logsBloom"`
-		TransactionsRoot string        `json:"transactionsRoot"`
-		StateRoot        string        `json:"stateRoot"`
-		ReceiptsRoot     string        `json:"receiptsRoot"`
-		Miner            string        `json:"miner"`
-		Difficulty       string        `json:"difficulty"`
-		TotalDifficulty  string        `json:"totalDifficulty"`
-		ExtraData        string        `json:"extraData"`
-		Size             string        `json:"size"`
-		GasLimit         string        `json:"gasLimit"`
-		GasUsed          string        `json:"gasUsed"`
-		Timestamp        string        `json:"timestamp"`
-		Transactions     []interface{} `json:"transactions"`
-		Step             string        `json:"step"`
-		Uncles           []string      `json:"uncles"`
-	}{
-		Author:           producerAddr,
-		Number:           uint64ToHex(obj.blkMeta.Height),
-		Hash:             "0x" + obj.blkMeta.Hash,
-		ParentHash:       "0x" + obj.blkMeta.PreviousBlockHash,
-		Sha3Uncles:       "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-		LogsBloom:        getLogsBloomHex(obj.blkMeta.LogsBloom),
-		TransactionsRoot: "0x" + obj.blkMeta.TxRoot,
-		StateRoot:        "0x" + obj.blkMeta.DeltaStateDigest,
-		ReceiptsRoot:     "0x" + obj.blkMeta.ReceiptRoot,
-		Miner:            producerAddr,
-		Difficulty:       "0xfffffffffffffffffffffffffffffffe",
-		TotalDifficulty:  "0xff14700000000000000000000000486001d72",
-		ExtraData:        "0x",
-		Size:             uint64ToHex(uint64(obj.blkMeta.NumActions)),
-		GasLimit:         uint64ToHex(obj.blkMeta.GasLimit),
-		GasUsed:          uint64ToHex(obj.blkMeta.GasUsed),
-		Timestamp:        uint64ToHex(uint64(obj.blkMeta.Timestamp.Seconds)),
-		Transactions:     txs,
-		Step:             "373422302",
-		Uncles:           []string{},
-	})
-}
-
 func getLogsBloomHex(logsbloom string) string {
 	if len(logsbloom) == 0 {
 		return _zeroLogsBloom
@@ -190,7 +126,7 @@ func getLogsBloomHex(logsbloom string) string {
 	return "0x" + logsbloom
 }
 
-func (obj *getBlockResultV2) MarshalJSON() ([]byte, error) {
+func (obj *getBlockResult) MarshalJSON() ([]byte, error) {
 	if obj.blk == nil {
 		return nil, errInvalidObject
 	}

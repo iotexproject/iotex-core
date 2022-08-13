@@ -314,6 +314,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if featureCtx.RevertLog {
 		opts = append(opts, RevertLogOption())
 	}
+	if !featureCtx.FixUnproductiveDelegates {
+		opts = append(opts, NotCheckPutStateErrorOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,
@@ -341,7 +344,7 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 	return &chainConfig
 }
 
-//Error in executeInEVM is a consensus issue
+// Error in executeInEVM is a consensus issue
 func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapter, g genesis.Blockchain, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, iotextypes.ReceiptStatus, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
