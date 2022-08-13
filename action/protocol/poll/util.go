@@ -192,8 +192,8 @@ func setCandidates(
 			}
 		}
 		candAddr, err := address.FromString(candidate.Address)
-		if err != nil {
-			errors.Wrap(err, "failed to convert candidate address")
+		if err != nil && protocol.MustGetFeatureCtx(ctx).FixUnproductiveDelegates {
+			return errors.Wrap(err, "failed to convert candidate address")
 		}
 		if err := accountutil.StoreAccount(sm, candAddr, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
