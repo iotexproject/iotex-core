@@ -14,7 +14,7 @@ import (
 type kvStoreWithCache struct {
 	mutex       sync.RWMutex // lock for stateCaches
 	store       KVStore
-	stateCaches map[string]*cache.ThreadSafeLruCache // map having lru cache to store current states for speed up
+	stateCaches map[string]cache.LRUCache // map having lru cache to store current states for speed up
 	cacheSize   int
 }
 
@@ -22,7 +22,7 @@ type kvStoreWithCache struct {
 func NewKvStoreWithCache(kvstore KVStore, cacheSize int) KVStore {
 	return &kvStoreWithCache{
 		store:       kvstore,
-		stateCaches: make(map[string]*cache.ThreadSafeLruCache),
+		stateCaches: make(map[string]cache.LRUCache),
 		cacheSize:   cacheSize,
 	}
 }

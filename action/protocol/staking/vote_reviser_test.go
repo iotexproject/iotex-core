@@ -26,7 +26,7 @@ func TestVoteReviser(t *testing.T) {
 	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(TotalBucketKey),
 	)
 	r.NoError(err)

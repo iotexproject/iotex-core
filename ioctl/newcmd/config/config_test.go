@@ -28,6 +28,67 @@ func TestInitConfig(t *testing.T) {
 	require.Equal(filepath.Join(testPath, _defaultConfigFileName), cfgFilePath)
 }
 
+func TestConfigGet(t *testing.T) {
+	require := require.New(t)
+	testPath := t.TempDir()
+	info := newInfo(config.Config{
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+	}, testPath)
+
+	tcs := []struct {
+		arg      string
+		expected string
+	}{
+		{
+			"endpoint",
+			"no endpoint has been set",
+		},
+		{
+			"wallet",
+			testPath,
+		},
+		{
+			"defaultacc",
+			"{\n  \"addressOrAlias\": \"test\"\n}",
+		},
+		{
+			"explorer",
+			"iotexscan",
+		},
+		{
+			"language",
+			"English",
+		},
+		{
+			"nsv2height",
+			"0",
+		},
+		{
+			"analyserEndpoint",
+			"testAnalyser",
+		},
+		{
+			"all",
+			"\"endpoint\": \"\",\n  \"secureConnect\": true,\n  \"aliases\": {},\n  \"defaultAccount\": {\n    \"addressOrAlias\": \"test\"\n  },\n  \"explorer\": \"iotexscan\",\n  \"language\": \"English\",\n  \"nsv2height\": 0,\n  \"analyserEndpoint\": \"testAnalyser\"\n}",
+		},
+	}
+
+	for _, tc := range tcs {
+		cfgItem, err := info.get(tc.arg)
+		if err != nil {
+			require.Contains(err.Error(), tc.expected)
+		} else {
+			require.Contains(cfgItem, tc.expected)
+		}
+	}
+}
+
 func TestConfigReset(t *testing.T) {
 	require := require.New(t)
 	cfgDir := t.TempDir()
@@ -68,4 +129,79 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(_defaultAnalyserEndpoint, resetCfg.AnalyserEndpoint)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
+}
+
+func TestConfigSet(t *testing.T) {
+	require := require.New(t)
+	testPath := t.TempDir()
+	cfgFile := fmt.Sprintf("%s/%s", testPath, "config.test")
+
+	info := newInfo(config.Config{
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+	}, cfgFile)
+
+	tcs := []struct {
+		args     []string
+		expected string
+	}{
+		{
+			[]string{"endpoint", "invalid endpoint"},
+			"endpoint invalid endpoint is not valid",
+		},
+		{
+			[]string{"wallet", testPath},
+			testPath,
+		},
+		{
+			[]string{"defaultacc", "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he"},
+			"Defaultacc is set to io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he",
+		},
+		{
+			[]string{"defaultacc", "suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp"},
+			"failed to validate alias or address suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp",
+		},
+		{
+			[]string{"explorer", "iotxplorer"},
+			"Explorer is set to iotxplorer",
+		},
+		{
+			[]string{"explorer", "invalid"},
+			"explorer invalid is not valid\nValid explorers: [iotexscan iotxplorer custom]",
+		},
+		{
+			[]string{"language", "中文"},
+			"Language is set to 中文",
+		},
+		{
+			[]string{"language", "unknown language"},
+			"language unknown language is not supported\nSupported languages: [English 中文]",
+		},
+		{
+			[]string{"nsv2height", "20"},
+			"Nsv2height is set to 20",
+		},
+		{
+			[]string{"nsv2height", "invalid height"},
+			"invalid height",
+		},
+		{
+			[]string{"unknownField", ""},
+			"no matching config",
+		},
+	}
+
+	for _, tc := range tcs {
+		setResult, err := info.set(tc.args, false, nil)
+		if err != nil {
+			require.Contains(err.Error(), tc.expected)
+		} else {
+			require.Contains(setResult, tc.expected)
+		}
+	}
 }

@@ -114,11 +114,12 @@ func (mr *MockClientMockRecorder) AliasMap() *gomock.Call {
 }
 
 // AskToConfirm mocks base method.
-func (m *MockClient) AskToConfirm(arg0 string) bool {
+func (m *MockClient) AskToConfirm(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AskToConfirm", arg0)
 	ret0, _ := ret[0].(bool)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AskToConfirm indicates an expected call of AskToConfirm.
@@ -213,6 +214,20 @@ func (mr *MockClientMockRecorder) HdwalletMnemonic(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HdwalletMnemonic", reflect.TypeOf((*MockClient)(nil).HdwalletMnemonic), arg0)
 }
 
+// Insecure mocks base method.
+func (m *MockClient) Insecure() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Insecure")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Insecure indicates an expected call of Insecure.
+func (mr *MockClientMockRecorder) Insecure() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insecure", reflect.TypeOf((*MockClient)(nil).Insecure))
+}
+
 // IsCryptoSm2 mocks base method.
 func (m *MockClient) IsCryptoSm2() bool {
 	m.ctrl.T.Helper()
@@ -268,6 +283,21 @@ func (m *MockClient) QueryAnalyser(arg0 interface{}) (*http.Response, error) {
 func (mr *MockClientMockRecorder) QueryAnalyser(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAnalyser", reflect.TypeOf((*MockClient)(nil).QueryAnalyser), arg0)
+}
+
+// ReadCustomLink mocks base method.
+func (m *MockClient) ReadCustomLink() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadCustomLink")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadCustomLink indicates an expected call of ReadCustomLink.
+func (mr *MockClientMockRecorder) ReadCustomLink() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadCustomLink", reflect.TypeOf((*MockClient)(nil).ReadCustomLink))
 }
 
 // ReadInput mocks base method.

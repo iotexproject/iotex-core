@@ -17,6 +17,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -30,6 +32,10 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+)
+
+const (
+	_urlPattern = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 )
 
 type (
@@ -51,8 +57,10 @@ type (
 		APIServiceClient() (iotexapi.APIServiceClient, error)
 		// SelectTranslation select a translation based on UILanguage
 		SelectTranslation(map[config.Language]string) (string, config.Language)
+		// ReadCustomLink scans a custom link from terminal and validates it.
+		ReadCustomLink() (string, error)
 		// AskToConfirm asks user to confirm from terminal, true to continue
-		AskToConfirm(string) bool
+		AskToConfirm(string) (bool, error)
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
 		// Execute a bash command
@@ -91,6 +99,8 @@ type (
 		RemoveHdWalletConfigFile() error
 		// IsHdWalletConfigFileExist return true if config file is existed, false if not existed
 		IsHdWalletConfigFileExist() bool
+		// Insecure returns the insecure connect option of grpc dial, default is false
+		Insecure() bool
 	}
 
 	client struct {
@@ -172,12 +182,30 @@ func (c *client) SetInsecureWithFlag(cb func(*bool, string, bool, string)) {
 	cb(&c.insecure, "insecure", !c.cfg.SecureConnect, usage)
 }
 
-func (c *client) AskToConfirm(info string) bool {
+func (c *client) AskToConfirm(info string) (bool, error) {
 	message := ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
 	var confirm string
-	fmt.Scanf("%s", &confirm)
-	return strings.EqualFold(confirm, "yes")
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return false, err
+	}
+	return strings.EqualFold(confirm, "yes"), nil
+}
+
+func (c *client) ReadCustomLink() (string, error) { // notest
+	var link string
+	if _, err := fmt.Scanln(&link); err != nil {
+		return "", err
+	}
+
+	match, err := regexp.MatchString(_urlPattern, link)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to validate link %s", link)
+	}
+	if match {
+		return link, nil
+	}
+	return "", errors.Errorf("link is not a valid url %s", link)
 }
 
 func (c *client) SelectTranslation(trls map[config.Language]string) (string, config.Language) {
@@ -213,7 +241,7 @@ func (c *client) APIServiceClient() (iotexapi.APIServiceClient, error) {
 	if c.insecure {
 		c.conn, err = grpc.Dial(c.endpoint, grpc.WithInsecure())
 	} else {
-		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		c.conn, err = grpc.Dial(c.endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 	}
 	if err != nil {
 		return nil, err
@@ -257,7 +285,7 @@ func (c *client) NewKeyStore() *keystore.KeyStore {
 }
 
 func (c *client) DecryptPrivateKey(passwordOfKeyStore, keyStorePath string) (*ecdsa.PrivateKey, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return nil, fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 	}
@@ -400,6 +428,11 @@ func (c *client) RemoveHdWalletConfigFile() error {
 
 func (c *client) IsHdWalletConfigFileExist() bool { // notest
 	return fileutil.FileExists(c.hdWalletConfigFile)
+}
+
+// Insecure returns the insecure connect option of grpc dial, default is false
+func (c *client) Insecure() bool {
+	return c.insecure
 }
 
 func (m *ConfirmationMessage) String() string {

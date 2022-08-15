@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
@@ -35,7 +34,6 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -43,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api/logfilter"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -72,27 +71,7 @@ var (
 		Time:    60 * time.Second, // Ping the client if it is idle for 60 seconds to ensure the connection is still active
 		Timeout: 10 * time.Second, // Wait 10 seconds for the ping ack before assuming the connection is dead
 	}
-
-	_apiCallSourceWithChainIDMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_apicallsource_chainid_metrics",
-			Help: "API call Source ChainID Statistics",
-		},
-		[]string{"chain_id"},
-	)
-	_apiCallSourceWithOutChainIDMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_apicallsource_nochainid_metrics",
-			Help: "API call Source Without ChainID Statistics",
-		},
-		[]string{"client_ip", "sender"},
-	)
 )
-
-func init() {
-	prometheus.MustRegister(_apiCallSourceWithChainIDMtc)
-	prometheus.MustRegister(_apiCallSourceWithOutChainIDMtc)
-}
 
 // RecoveryInterceptor handles panic to a custom error
 func RecoveryInterceptor() grpc_recovery.Option {
@@ -220,19 +199,19 @@ func (svr *gRPCHandler) GetActions(ctx context.Context, in *iotexapi.GetActionsR
 		ret, err = svr.coreService.UnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
 	case in.GetByBlk() != nil:
 		var (
-			request  = in.GetByBlk()
-			blkStore *block.Store
+			request = in.GetByBlk()
+			blk     *apitypes.BlockWithReceipts
 		)
-		blkStore, err = svr.coreService.BlockByHash(request.BlkHash)
+		blk, err = svr.coreService.BlockByHash(request.BlkHash)
 		if err != nil {
 			break
 		}
-		ret, err = actionsInBlock(blkStore.Block, blkStore.Receipts, request.Start, request.Count)
+		ret, err = actionsInBlock(blk.Block, blk.Receipts, request.Start, request.Count)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(ret)),
@@ -290,25 +269,27 @@ func actionsInBlock(blk *block.Block, receipts []*action.Receipt, start, count u
 
 // GetBlockMetas returns block metadata
 func (svr *gRPCHandler) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetasRequest) (*iotexapi.GetBlockMetasResponse, error) {
-	var (
-		ret []*iotextypes.BlockMeta
-		err error
-	)
+	var ret []*iotextypes.BlockMeta
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
-		ret, err = svr.coreService.BlockMetas(request.Start, request.Count)
+		blkStores, err := svr.coreService.BlockByHeightRange(request.Start, request.Count)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		for _, blkStore := range blkStores {
+			ret = append(ret, generateBlockMeta(blkStore))
+		}
 	case in.GetByHash() != nil:
-		var blkMeta *iotextypes.BlockMeta
-		request := in.GetByHash()
-		blkMeta, err = svr.coreService.BlockMetaByHash(request.BlkHash)
-		ret = []*iotextypes.BlockMeta{blkMeta}
+		blk, err := svr.coreService.BlockByHash(in.GetByHash().BlkHash)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		ret = []*iotextypes.BlockMeta{generateBlockMeta(blk)}
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    uint64(len(ret)),
 		BlkMetas: ret,
@@ -342,22 +323,6 @@ func (svr *gRPCHandler) SendAction(ctx context.Context, in *iotexapi.SendActionR
 	// tags output
 	span.SetAttributes(attribute.String("actType", fmt.Sprintf("%T", in.GetAction().GetCore())))
 	defer span.End()
-	chainID := strconv.FormatUint(uint64(in.GetAction().GetCore().GetChainID()), 10)
-	if in.GetAction().GetCore().GetChainID() > 0 {
-		_apiCallSourceWithChainIDMtc.WithLabelValues(chainID).Inc()
-	} else {
-		selp, err := (&action.Deserializer{}).SetEvmNetworkID(svr.coreService.EVMNetworkID()).ActionToSealedEnvelope(in.GetAction())
-		if err != nil {
-			return nil, err
-		}
-		var clientIP string
-		if p, ok := peer.FromContext(ctx); ok {
-			clientIP, _, _ = net.SplitHostPort(p.Addr.String())
-		} else {
-			clientIP = "unknownIP"
-		}
-		_apiCallSourceWithOutChainIDMtc.WithLabelValues(clientIP, selp.SenderAddress().String()).Inc()
-	}
 	actHash, err := svr.coreService.SendAction(ctx, in.GetAction())
 	if err != nil {
 		return nil, err
@@ -745,7 +710,8 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 }
 
 // generateBlockMeta generates BlockMeta from block
-func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+func generateBlockMeta(blkStore *apitypes.BlockWithReceipts) *iotextypes.BlockMeta {
+	blk := blkStore.Block
 	header := blk.Header
 	height := header.Height()
 	ts := timestamppb.New(header.Timestamp())
@@ -779,6 +745,17 @@ func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	}
 	blockMeta.NumActions = int64(len(blk.Actions))
 	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk.Actions, blkStore.Receipts)
 	return &blockMeta
+}
+
+func gasLimitAndUsed(acts []action.SealedEnvelope, receipts []*action.Receipt) (uint64, uint64) {
+	var gasLimit, gasUsed uint64
+	for _, tx := range acts {
+		gasLimit += tx.GasLimit()
+	}
+	for _, r := range receipts {
+		gasUsed += r.GasConsumed
+	}
+	return gasLimit, gasUsed
 }
