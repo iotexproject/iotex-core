@@ -33,25 +33,25 @@ import (
 func TestBlockBufferFlush(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-	cfg, err := newTestConfig()
+	bcCfg, gCfg, _, err := newTestConfig()
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	rp := rolldpos.NewProtocol(gCfg.NumCandidateDelegates, gCfg.NumDelegates, gCfg.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	factoryCfg := factory.GenerateConfig(bcCfg, gCfg)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	ap, err := actpool.NewActPool(gCfg, sf, actpool.DefaultConfig, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := blockchain.NewBlockchain(
-		cfg.Chain,
-		cfg.Genesis,
+		bcCfg,
+		gCfg,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
@@ -129,21 +129,21 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 	ctx := context.Background()
-	cfg, err := newTestConfig()
+	bcCfg, gCfg, _, err := newTestConfig()
 	require.NoError(err)
 	registry := protocol.NewRegistry()
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	rp := rolldpos.NewProtocol(gCfg.NumCandidateDelegates, gCfg.NumDelegates, gCfg.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	factoryCfg := factory.GenerateConfig(bcCfg, gCfg)
 	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
-	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	ap, err := actpool.NewActPool(gCfg, sf, actpool.DefaultConfig, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := blockchain.NewBlockchain(
-		cfg.Chain,
-		cfg.Genesis,
+		bcCfg,
+		gCfg,
 		dao,
 		factory.NewMinter(sf, ap),
 	)

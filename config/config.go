@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -90,14 +91,7 @@ var (
 			BlockInterval:                5 * time.Second,
 			Delay:                        2 * time.Second,
 		},
-		BlockSync: BlockSync{
-			Interval:              30 * time.Second,
-			ProcessSyncRequestTTL: 10 * time.Second,
-			BufferSize:            200,
-			IntervalSize:          20,
-			MaxRepeat:             3,
-			RepeatDecayStep:       1,
-		},
+		BlockSync:  blocksync.DefaultConfig,
 		Dispatcher: dispatcher.DefaultConfig,
 		API: API{
 			UseRDS:        false,
@@ -232,7 +226,7 @@ type (
 		ActPool            actpool.Config              `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
-		BlockSync          BlockSync                   `yaml:"blockSync"`
+		BlockSync          blocksync.Config            `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`
 		API                API                         `yaml:"api"`
 		System             System                      `yaml:"system"`
