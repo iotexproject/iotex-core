@@ -443,3 +443,25 @@ func TestFilter(t *testing.T) {
 		testFunc(NewBoltDB(cfg), t)
 	})
 }
+
+func TestCreateKVStore(t *testing.T) {
+	require := require.New(t)
+
+	path := "test-kv-db.bolt"
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
+	defer testutil.CleanupPath(testPath)
+	cfg := DefaultConfig
+
+	d, err := CreateKVStore(cfg, testPath)
+	require.NoError(err)
+	require.NotNil(d)
+
+	d, err = CreateKVStore(cfg, "")
+	require.ErrorIs(err, ErrEmptyDBPath)
+	require.Nil(d)
+
+	d, err = CreateKVStoreWithCache(cfg, testPath, 5)
+	require.NoError(err)
+	require.NotNil(d)
+}
