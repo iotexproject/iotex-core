@@ -162,6 +162,7 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dao:                dao,
 	}
 
 	for _, opt := range opts {
@@ -180,7 +181,6 @@ func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sf.timerFactory = timerFactory
-	sf.dao = dao
 
 	return sf, nil
 }
