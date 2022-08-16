@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -155,7 +156,10 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	sf2, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	db1, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+	require.NoError(err)
+	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
 	require.NoError(err)
