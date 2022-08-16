@@ -116,7 +116,7 @@ var (
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
+			HTTPAdminPort:         0,
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
