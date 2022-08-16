@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -40,7 +41,8 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
@@ -132,7 +134,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
