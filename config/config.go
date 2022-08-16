@@ -120,17 +120,7 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB: db.Config{
-			NumRetries:            3,
-			MaxCacheSize:          64,
-			BlockStoreBatchSize:   16,
-			V2BlocksToSplitDB:     1000000,
-			Compressor:            "Snappy",
-			CompressLegacy:        false,
-			SplitDBSizeMB:         0,
-			SplitDBHeight:         900000,
-			HistoryStateRetention: 2000,
-		},
+		DB:      db.DefaultConfig,
 		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
 	}
