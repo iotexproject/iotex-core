@@ -92,6 +92,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dao:                dao,
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, &cfg); err != nil {
@@ -109,7 +110,6 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
-	sdb.dao = dao
 	return &sdb, nil
 }
 
