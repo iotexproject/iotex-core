@@ -18,11 +18,15 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -290,9 +294,21 @@ func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
+// BuilderConfig returns the configuration of the builder
+type BuilderConfig struct {
+	DB                 db.Config
+	Chain              blockchain.Config
+	ActPool            actpool.Config
+	Consensus          consensus.Config
+	DardanellesUpgrade consensus.DardanellesUpgrade
+	BlockSync          blocksync.Config
+	Genesis            genesis.Genesis
+	SystemActive       bool
+}
+
 // Builder is the builder for RollDPoS
 type Builder struct {
-	cfg config.Config
+	cfg BuilderConfig
 	// TODO: we should use keystore in the future
 	encodedAddr       string
 	priKey            crypto.PrivateKey
@@ -311,7 +327,7 @@ func NewRollDPoSBuilder() *Builder {
 }
 
 // SetConfig sets config
-func (b *Builder) SetConfig(cfg config.Config) *Builder {
+func (b *Builder) SetConfig(cfg BuilderConfig) *Builder {
 	b.cfg = cfg
 	return b
 }
@@ -379,9 +395,9 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
 	ctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(b.cfg),
+		consensusfsm.NewConsensusConfig(b.cfg.Consensus, b.cfg.Genesis),
 		b.cfg.DB,
-		b.cfg.System.Active,
+		b.cfg.SystemActive,
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,

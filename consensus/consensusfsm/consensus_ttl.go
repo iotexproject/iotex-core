@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 )
 
 type (
@@ -29,8 +29,8 @@ type (
 
 	// config implements ConsensusConfig
 	consensusCfg struct {
-		cfg           config.ConsensusTiming
-		dardanelles   config.DardanellesUpgrade
+		cfg           consensus.ConsensusTiming
+		dardanelles   consensus.DardanellesUpgrade
 		g             genesis.Genesis
 		blockInterval time.Duration
 		delay         time.Duration
@@ -38,13 +38,13 @@ type (
 )
 
 // NewConsensusConfig creates a ConsensusConfig out of config.
-func NewConsensusConfig(cfg config.Config) ConsensusConfig {
+func NewConsensusConfig(cfg consensus.Config, g genesis.Genesis) ConsensusConfig {
 	return &consensusCfg{
-		cfg:           cfg.Consensus.RollDPoS.FSM,
+		cfg:           cfg.RollDPoS.FSM,
 		dardanelles:   cfg.DardanellesUpgrade,
 		g:             cfg.Genesis,
 		blockInterval: cfg.Genesis.Blockchain.BlockInterval,
-		delay:         cfg.Consensus.RollDPoS.Delay,
+		delay:         cfg.RollDPoS.Delay,
 	}
 }
 

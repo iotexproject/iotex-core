@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -59,40 +60,15 @@ func (ss *strs) Set(str string) error {
 var (
 	// Default is the default config
 	Default = Config{
-		Plugins: make(map[int]interface{}),
-		SubLogs: make(map[string]log.GlobalConfig),
-		Network: p2p.DefaultConfig,
-		Chain:   blockchain.DefaultConfig,
-		ActPool: actpool.DefaultConfig,
-		Consensus: Consensus{
-			Scheme: StandaloneScheme,
-			RollDPoS: RollDPoS{
-				FSM: ConsensusTiming{
-					UnmatchedEventTTL:            3 * time.Second,
-					UnmatchedEventInterval:       100 * time.Millisecond,
-					AcceptBlockTTL:               4 * time.Second,
-					AcceptProposalEndorsementTTL: 2 * time.Second,
-					AcceptLockEndorsementTTL:     2 * time.Second,
-					CommitTTL:                    2 * time.Second,
-					EventChanSize:                10000,
-				},
-				ToleratedOvertime: 2 * time.Second,
-				Delay:             5 * time.Second,
-				ConsensusDBPath:   "/var/data/consensus.db",
-			},
-		},
-		DardanellesUpgrade: DardanellesUpgrade{
-			UnmatchedEventTTL:            2 * time.Second,
-			UnmatchedEventInterval:       100 * time.Millisecond,
-			AcceptBlockTTL:               2 * time.Second,
-			AcceptProposalEndorsementTTL: time.Second,
-			AcceptLockEndorsementTTL:     time.Second,
-			CommitTTL:                    time.Second,
-			BlockInterval:                5 * time.Second,
-			Delay:                        2 * time.Second,
-		},
-		BlockSync:  blocksync.DefaultConfig,
-		Dispatcher: dispatcher.DefaultConfig,
+		Plugins:            make(map[int]interface{}),
+		SubLogs:            make(map[string]log.GlobalConfig),
+		Network:            p2p.DefaultConfig,
+		Chain:              blockchain.DefaultConfig,
+		ActPool:            actpool.DefaultConfig,
+		Consensus:          consensus.DefaultConfig,
+		DardanellesUpgrade: consensus.DefaultDardanellesUpgradeConfig,
+		BlockSync:          blocksync.DefaultConfig,
+		Dispatcher:         dispatcher.DefaultConfig,
 		API: API{
 			UseRDS:        false,
 			GRPCPort:      14014,

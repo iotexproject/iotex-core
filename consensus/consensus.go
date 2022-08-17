@@ -43,7 +43,7 @@ type Consensus interface {
 
 // IotxConsensus implements Consensus
 type IotxConsensus struct {
-	cfg    config.Consensus
+	cfg    Config
 	scheme scheme.Scheme
 }
 
