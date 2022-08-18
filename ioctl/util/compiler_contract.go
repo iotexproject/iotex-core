@@ -27,8 +27,6 @@ type Solidity struct {
 	ExtraAllowedPath           []string
 }
 
-type Contract compiler.Contract
-
 // SolidityVersion runs solc and parses its version output.
 func SolidityVersion(solc string) (*Solidity, error) {
 	if solc == "" {
