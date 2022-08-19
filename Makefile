@@ -194,6 +194,11 @@ run:
 docker:
 	DOCKER_BUILDKIT=1 $(DOCKERCMD) build -t $(USER)/iotex-core:latest .
 
+.PHONY: docker-scan
+docker-scan: docker
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) login
+	DOCKER_BUILDKIT=1 $(DOCKERCMD) scan $(USER)/iotex-core:latest .
+
 .PHONY: minicluster
 minicluster:
 	$(ECHO_V)rm -rf *chain*.db
