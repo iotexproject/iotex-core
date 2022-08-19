@@ -1,4 +1,4 @@
-FROM golang:1.13.5-stretch
+FROM golang:1.17.13-buster
 
 WORKDIR apps/iotex-bot
 
