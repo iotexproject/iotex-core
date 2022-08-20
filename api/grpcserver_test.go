@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -275,7 +276,51 @@ func TestGrpcServer_StreamLogs(t *testing.T) {
 }
 
 func TestGrpcServer_GetReceiptByAction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	receipt := &action.Receipt{
+		Status:          1,
+		BlockHeight:     1,
+		ActionHash:      hash.BytesToHash256([]byte("test")),
+		GasConsumed:     1,
+		ContractAddress: "test",
+		TxIndex:         1,
+	}
 
+	t.Run("get receipt by action", func(t *testing.T) {
+		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+		core.EXPECT().BlockHashByBlockHeight(gomock.Any()).Return(hash.ZeroHash256, nil)
+
+		res, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
+		require.NoError(err)
+		require.Equal(receipt.Status, res.ReceiptInfo.Receipt.Status)
+		require.Equal(receipt.BlockHeight, res.ReceiptInfo.Receipt.BlkHeight)
+		require.Equal(receipt.ActionHash[:], res.ReceiptInfo.Receipt.ActHash)
+		require.Equal(receipt.GasConsumed, res.ReceiptInfo.Receipt.GasConsumed)
+		require.Equal(receipt.ContractAddress, res.ReceiptInfo.Receipt.ContractAddress)
+		require.Equal(receipt.TxIndex, res.ReceiptInfo.Receipt.TxIndex)
+		require.Equal(hex.EncodeToString(hash.ZeroHash256[:]), res.ReceiptInfo.BlkHash)
+	})
+
+	t.Run("failed to get block hash by block height", func(t *testing.T) {
+		expectedErr := errors.New("failed to get block hash by block height")
+		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+		core.EXPECT().BlockHashByBlockHeight(gomock.Any()).Return(hash.ZeroHash256, expectedErr)
+
+		_, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get reciept by action hash", func(t *testing.T) {
+		expectedErr := errors.New("failed to get reciept by action hash")
+		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, expectedErr)
+
+		_, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_GetServerMeta(t *testing.T) {
