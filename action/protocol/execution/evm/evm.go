@@ -339,8 +339,8 @@ func getChainConfig(g genesis.Blockchain, height uint64, id uint32) *params.Chai
 		chainConfig.ChainID = new(big.Int).SetUint64(uint64(id))
 	}
 	// enable Berlin and London
-	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
-	chainConfig.LondonBlock = new(big.Int).SetUint64(g.ToBeEnabledBlockHeight)
+	chainConfig.BerlinBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
+	chainConfig.LondonBlock = new(big.Int).SetUint64(g.OkhotskBlockHeight)
 	return &chainConfig
 }
 
@@ -360,7 +360,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	chainConfig := getChainConfig(g, blockHeight, evmParams.evmNetworkID)
 	evm := vm.NewEVM(evmParams.context, evmParams.txCtx, stateDB, chainConfig, config)
-	if g.IsToBeEnabled(blockHeight) {
+	if g.IsOkhotsk(blockHeight) {
 		accessList = evmParams.accessList
 	}
 	intriGas, err := intrinsicGas(uint64(len(evmParams.data)), accessList)
@@ -445,7 +445,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 // evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
 func evmErrToErrStatusCode(evmErr error, g genesis.Blockchain, height uint64) iotextypes.ReceiptStatus {
 	// specific error starting London
-	if g.IsToBeEnabled(height) {
+	if g.IsOkhotsk(height) {
 		if evmErr == vm.ErrInvalidCode {
 			return iotextypes.ReceiptStatus_ErrInvalidCode
 		}
