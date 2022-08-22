@@ -92,6 +92,7 @@ func GenMarkdownCustom(c *cobra.Command, w io.Writer, linkHandler func(*cobra.Co
 			link = strings.Replace(link, " ", "_", -1)
 			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", pName, linkHandler(c, link), parent.Short))
 			c.VisitParents(func(c *cobra.Command) {
+				// empty func
 			})
 		}
 
