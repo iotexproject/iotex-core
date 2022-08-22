@@ -91,11 +91,7 @@ func GenMarkdownCustom(c *cobra.Command, w io.Writer, linkHandler func(*cobra.Co
 			link := pName + ".md"
 			link = strings.Replace(link, " ", "_", -1)
 			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", pName, linkHandler(c, link), parent.Short))
-			c.VisitParents(func(c *cobra.Command) {
-				if c.DisableAutoGenTag {
-					c.DisableAutoGenTag = c.DisableAutoGenTag
-				}
-			})
+			c.VisitParents(func(c *cobra.Command) {})
 		}
 
 		children := c.Commands()
