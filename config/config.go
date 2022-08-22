@@ -116,7 +116,7 @@ var (
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
+			HTTPAdminPort:         0,
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
@@ -423,6 +423,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "LordHowe is heigher than Midway")
 	case hu.MidwayBlockHeight > hu.NewfoundlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Midway is heigher than Newfoundland")
+	case hu.NewfoundlandBlockHeight > hu.OkhotskBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Newfoundland is heigher than Okhotsk")
 	}
 	return nil
 }
