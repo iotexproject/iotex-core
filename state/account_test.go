@@ -114,6 +114,8 @@ func TestBalance(t *testing.T) {
 
 	require.Contains(state.AddBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
 	require.Contains(state.SubBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.AddBalance(nil).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(nil).Error(), ErrInvalidAmount.Error())
 }
 
 func TestClone(t *testing.T) {
