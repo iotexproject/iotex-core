@@ -28,7 +28,7 @@ var (
 	// ErrUnknownAccountType is the error that the account type is unknown
 	ErrUnknownAccountType = errors.New("unknown account type")
 	// ErrNonceOverflow is the error that the nonce overflow
-	ErrNonceOverflow = errors.New("nonce uint64 overflow")
+	ErrNonceOverflow = errors.New("nonce overflow")
 )
 
 // LegacyNonceAccountTypeOption is an option to create account with new account type
@@ -141,14 +141,14 @@ func (st *Account) AccountType() int32 {
 	return st.accountType
 }
 
-func (st *Account) isNonceOverflow() bool {
-	// if st.accountType is 0, nonce will add 2. so use +2 as overflow flag
+func (st *Account) isMaxNonce() bool {
+	// for legacy account, nonce will finally +2. so use +2 as overflow flag
 	return st.nonce+2 < st.nonce
 }
 
 // SetPendingNonce sets the pending nonce
 func (st *Account) SetPendingNonce(nonce uint64) error {
-	if st.isNonceOverflow() {
+	if st.isMaxNonce() {
 		return errors.Wrapf(ErrNonceOverflow, "current value %d", st.nonce)
 	}
 	switch st.accountType {
