@@ -8,6 +8,7 @@ package state
 
 import (
 	"encoding/hex"
+	"math"
 	"math/big"
 	"testing"
 
@@ -35,6 +36,42 @@ func TestNonce(t *testing.T) {
 		require.Error(acct.SetPendingNonce(2))
 		require.NoError(acct.SetPendingNonce(1))
 		require.Equal(uint64(1), acct.PendingNonce())
+	})
+}
+
+func TestNonceOverflow(t *testing.T) {
+	require := require.New(t)
+	t.Run("account nonce uint64 max", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64
+		acct.nonce = uint64(target)
+		require.Error(acct.SetPendingNonce(0))
+		require.Equal(target, acct.PendingNonce())
+	})
+	t.Run("account nonce uint64 max-1", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 1
+		acct.nonce = uint64(target)
+		require.Error(acct.SetPendingNonce(0))
+		require.Equal(target, acct.PendingNonce())
+	})
+	t.Run("account nonce uint64 max-2", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 2
+		acct.nonce = uint64(target)
+		require.NoError(acct.SetPendingNonce(target + 1))
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max-2", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 2
+		acct.nonce = uint64(target)
+		require.NoError(acct.SetPendingNonce(target + 2))
+		require.Equal(target+2, acct.PendingNonce())
 	})
 }
 
