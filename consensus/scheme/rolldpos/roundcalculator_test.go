@@ -209,7 +209,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	)
 
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.Rewarding, cfg.Consensus.Scheme)
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))

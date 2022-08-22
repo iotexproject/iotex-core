@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -24,7 +25,8 @@ const (
 	// ExecutionSizeLimit is the maximum size of execution allowed
 	ExecutionSizeLimit = 32 * 1024
 	// TODO: it works only for one instance per protocol definition now
-	_protocolID = "smart_contract"
+	_protocolID     = "smart_contract"
+	_rollDPoSScheme = "ROLLDPOS"
 )
 
 // Protocol defines the protocol of handling executions

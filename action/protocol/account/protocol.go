@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -24,7 +25,10 @@ import (
 
 // protocolID is the protocol ID
 // TODO: it works only for one instance per protocol definition now
-const protocolID = "account"
+const (
+	protocolID      = "account"
+	_rollDPoSScheme = "ROLLDPOS"
+)
 
 // Protocol defines the protocol of handling account
 type Protocol struct {

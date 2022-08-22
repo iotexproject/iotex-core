@@ -36,6 +36,7 @@ type ServerV2 struct {
 // NewServerV2 creates a new server with coreService and GRPC Server
 func NewServerV2(
 	cfg config.API,
+	scheme string,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -46,7 +47,7 @@ func NewServerV2(
 	registry *protocol.Registry,
 	opts ...Option,
 ) (*ServerV2, error) {
-	coreAPI, err := newCoreService(cfg, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
+	coreAPI, err := newCoreService(cfg,scheme, chain, bs, sf, dao, indexer, bfIndexer, actPool, registry, opts...)
 	if err != nil {
 		return nil, err
 	}

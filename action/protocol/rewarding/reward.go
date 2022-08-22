@@ -94,8 +94,12 @@ func (p *Protocol) GrantBlockReward(
 	}
 	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
-		log.S().Debugf("Producer %s doesn't have a reward address", producerAddrStr)
-		return nil, nil
+		if p.scheme == _standaloneScheme {
+			rewardAddrStr = producerAddrStr
+		} else {
+			log.S().Debugf("Producer %s doesn't have a reward address", producerAddrStr)
+			return nil, nil
+		}
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
 

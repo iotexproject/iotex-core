@@ -30,6 +30,8 @@ const (
 	// TODO: it works only for one instance per protocol definition now
 	_protocolID           = "rewarding"
 	_v2RewardingNamespace = "Rewarding"
+	_rollDPoSScheme       = "ROLLDPOS"
+	_standaloneScheme     = "STANDALONE"
 )
 
 var (
@@ -49,10 +51,11 @@ type Protocol struct {
 	keyPrefix []byte
 	addr      address.Address
 	cfg       genesis.Rewarding
+	scheme    string
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cfg genesis.Rewarding) *Protocol {
+func NewProtocol(cfg genesis.Rewarding, scheme string) *Protocol {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -65,6 +68,7 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 		keyPrefix: h[:],
 		addr:      addr,
 		cfg:       cfg,
+		scheme:    scheme,
 	}
 }
 
