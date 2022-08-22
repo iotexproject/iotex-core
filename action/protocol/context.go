@@ -237,9 +237,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			RevertLog:                               g.IsMidway(height),
 			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
 			ValidateRewardProtocol:                  g.IsNewfoundland(height),
-			CreateLegacyNonceAccount:                !g.IsToBeEnabled(height),
-			FixGasAndNonceUpdate:                    g.IsToBeEnabled(height),
-			FixUnproductiveDelegates:                g.IsToBeEnabled(height),
+			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
+			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
+			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 		},
 	)
 }
