@@ -46,7 +46,7 @@ func TestNonceOverflow(t *testing.T) {
 		require.NoError(err)
 		var target uint64 = math.MaxUint64
 		acct.nonce = uint64(target)
-		require.Error(acct.SetPendingNonce(target + 1))
+		require.ErrorIs(acct.SetPendingNonce(target+1), ErrNonceOverflow)
 		require.Equal(target, acct.PendingNonce())
 	})
 	t.Run("account nonce uint64 max-1", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestNonceOverflow(t *testing.T) {
 		require.NoError(err)
 		var target uint64 = math.MaxUint64
 		acct.nonce = uint64(target)
-		require.Error(acct.SetPendingNonce(target + 2))
+		require.ErrorIs(acct.SetPendingNonce(target+2), ErrNonceOverflow)
 		require.Equal(target+1, acct.PendingNonce())
 	})
 	t.Run("legacy account nonce uint64 max-1", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestNonceOverflow(t *testing.T) {
 		require.NoError(err)
 		var target uint64 = math.MaxUint64 - 1
 		acct.nonce = uint64(target)
-		require.Error(acct.SetPendingNonce(target + 2))
+		require.ErrorIs(acct.SetPendingNonce(target+2), ErrNonceOverflow)
 		require.Equal(target+1, acct.PendingNonce())
 	})
 	t.Run("legacy account nonce uint64 max-2", func(t *testing.T) {
