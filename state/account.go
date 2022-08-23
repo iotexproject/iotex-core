@@ -141,23 +141,21 @@ func (st *Account) AccountType() int32 {
 	return st.accountType
 }
 
-func (st *Account) isMaxNonce() bool {
-	// for legacy account, nonce will finally +2. so use +2 as overflow flag
-	return st.nonce+2 < st.nonce
-}
-
 // SetPendingNonce sets the pending nonce
 func (st *Account) SetPendingNonce(nonce uint64) error {
-	if st.isMaxNonce() {
-		return errors.Wrapf(ErrNonceOverflow, "current value %d", st.nonce)
-	}
 	switch st.accountType {
 	case 1:
+		if st.nonce+1 < st.nonce {
+			return errors.Wrapf(ErrNonceOverflow, "current value %d", st.nonce)
+		}
 		if nonce != st.nonce+1 {
 			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+1)
 		}
 		st.nonce++
 	case 0:
+		if st.nonce+2 < st.nonce {
+			return errors.Wrapf(ErrNonceOverflow, "current value %d", st.nonce)
+		}
 		if nonce != st.nonce+2 {
 			return errors.Wrapf(ErrInvalidNonce, "actual value %d, %d expected", nonce, st.nonce+2)
 		}
