@@ -145,6 +145,14 @@ func TestBalance(t *testing.T) {
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 	// Sub 40 to the balance
 	require.Equal(ErrNotEnoughBalance, state.SubBalance(big.NewInt(40)))
+
+	require.True(state.HasSufficientBalance(big.NewInt(30)))
+	require.False(state.HasSufficientBalance(big.NewInt(31)))
+
+	require.Contains(state.AddBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.AddBalance(nil).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(nil).Error(), ErrInvalidAmount.Error())
 }
 
 func TestClone(t *testing.T) {
