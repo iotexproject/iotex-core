@@ -183,10 +183,28 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			16509240,
 		},
-		// after Midway
+		// Midway - NewFoundland
 		{
 			action.EmptyAddress,
 			16509241,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			17662680,
+		},
+		// NewFoundland - Okhotsk
+		{
+			action.EmptyAddress,
+			17662681,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			37662680,
+		},
+		// after Okhotsk
+		{
+			action.EmptyAddress,
+			37662681,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -271,10 +289,10 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isIceland, chainRules.IsIstanbul)
 
 		// enable Berlin and London
-		isBerlin := g.IsToBeEnabled(e.height)
+		isBerlin := g.IsOkhotsk(e.height)
 		require.Equal(isBerlin, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
 		require.Equal(isBerlin, chainRules.IsBerlin)
-		isLondon := g.IsToBeEnabled(e.height)
+		isLondon := g.IsOkhotsk(e.height)
 		require.Equal(isLondon, evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.Equal(isLondon, chainRules.IsLondon)
 		require.False(evmChainConfig.IsCatalyst(evm.Context.BlockNumber))
@@ -300,8 +318,8 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range beringTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), v.status)
@@ -319,8 +337,8 @@ func TestEvmError(t *testing.T) {
 		{errors.New("unknown"), iotextypes.ReceiptStatus_ErrUnknown},
 	}
 	for _, v := range jutlandTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), v.status)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
@@ -334,8 +352,8 @@ func TestEvmError(t *testing.T) {
 		{vm.ErrInvalidCode, iotextypes.ReceiptStatus_ErrInvalidCode},
 	}
 	for _, v := range newTests {
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight), v.status)
-		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.ToBeEnabledBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight), v.status)
+		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.OkhotskBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.JutlandBlockHeight-1), iotextypes.ReceiptStatus_ErrUnknown)
 		r.Equal(evmErrToErrStatusCode(v.evmError, g, g.BeringBlockHeight), iotextypes.ReceiptStatus_ErrUnknown)
