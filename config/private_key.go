@@ -64,6 +64,9 @@ func (l *vaultPrivKeyLoader) load() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read vault secret")
 	}
+	if secret == nil {
+		return "", errors.New("vault secret not exist")
+	}
 	data, ok := secret.Data["data"].(map[string]interface{})
 	if !ok {
 		return "", errors.New("vault data type invalid")
