@@ -9,13 +9,13 @@ api/* 		@Liuhaai @millken
 config/*	@dustinxie @CoderZhi 
 p2p/* 		@Liuhaai @dustinxie
 
-action		@dustinxie
-blockchain	@dustinxie
-blockindex	@dustinxie
-crypto		@dustinxie
-db		@dustinxie
-dispatcher	@dustinxie
-pkg		@dustinxie
-server		@dustinxie
-state		@dustinxie
-actpool		@Liuhaai
+action/*		@dustinxie
+blockchain/*	@dustinxie
+blockindex/*	@dustinxie
+crypto/*		@dustinxie
+db/*		@dustinxie
+dispatcher/*/*	@dustinxie
+pkg/*		@dustinxie
+server/*		@dustinxie
+state/*		@dustinxie
+actpool/*		@Liuhaai
