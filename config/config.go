@@ -111,13 +111,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	// Consensus is the config struct for consensus package
-	Consensus struct {
-		// There are three schemes that are supported
-		Scheme   string   `yaml:"scheme"`
-		RollDPoS RollDPoS `yaml:"rollDPoS"`
-	}
-
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
 		Interval              time.Duration `yaml:"interval"` // update duration
@@ -196,21 +189,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins            map[int]interface{}         `ymal:"plugins"`
-		Network            p2p.Config                  `yaml:"network"`
-		Chain              blockchain.Config           `yaml:"chain"`
-		ActPool            actpool.Config              `yaml:"actPool"`
-		Consensus          Consensus                   `yaml:"consensus"`
-		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
-		BlockSync          blocksync.Config            `yaml:"blockSync"`
-		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`
-		API                API                         `yaml:"api"`
-		System             System                      `yaml:"system"`
-		DB                 db.Config                   `yaml:"db"`
-		Indexer            blockindex.Config           `yaml:"indexer"`
-		Log                log.GlobalConfig            `yaml:"log"`
-		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
-		Genesis            genesis.Genesis             `yaml:"genesis"`
+		Plugins            map[int]interface{}          `ymal:"plugins"`
+		Network            p2p.Config                   `yaml:"network"`
+		Chain              blockchain.Config            `yaml:"chain"`
+		ActPool            actpool.Config               `yaml:"actPool"`
+		Consensus          consensus.Config             `yaml:"consensus"`
+		DardanellesUpgrade consensus.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
+		BlockSync          blocksync.Config             `yaml:"blockSync"`
+		Dispatcher         dispatcher.Config            `yaml:"dispatcher"`
+		API                API                          `yaml:"api"`
+		System             System                       `yaml:"system"`
+		DB                 db.Config                    `yaml:"db"`
+		Indexer            blockindex.Config            `yaml:"indexer"`
+		Log                log.GlobalConfig             `yaml:"log"`
+		SubLogs            map[string]log.GlobalConfig  `yaml:"subLogs"`
+		Genesis            genesis.Genesis              `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config

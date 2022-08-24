@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package consensus
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -141,7 +140,7 @@ func TestRoundInfo(t *testing.T) {
 
 func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.ActPool, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
-	cfg := config.Default
+	cfg := createTestDefaultBuilderConfig()
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
@@ -152,16 +151,17 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 		testutil.CleanupPath(testIndexPath)
 	}()
 
-	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Network.Port = testutil.RandomPort()
-	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.Consensus.Scheme = RollDPoSScheme
+	// cfg.Network.Port = testutil.RandomPort()
+	// cfg.API.GRPCPort = testutil.RandomPort()
+	// cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.Genesis.Timestamp = 1562382372
 	sk, err := crypto.GenerateKey()
 	cfg.Chain.ProducerPrivKey = sk.HexString()

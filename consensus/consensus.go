@@ -19,9 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -82,7 +80,7 @@ func WithPollProtocol(pp poll.Protocol) Option {
 
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
-	cfg config.Config,
+	cfg BuilderConfig,
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	opts ...Option,
@@ -98,12 +96,12 @@ func NewConsensus(
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	var err error
 	switch cfg.Consensus.Scheme {
-	case config.RollDPoSScheme:
-		bd := rolldpos.NewRollDPoSBuilder().
+	case RollDPoSScheme:
+		bd := NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetChainManager(rolldpos.NewChainManager(bc)).
+			SetChainManager(NewChainManager(bc)).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
@@ -144,9 +142,9 @@ func NewConsensus(
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
-	case config.NOOPScheme:
+	case NOOPScheme:
 		cs.scheme = scheme.NewNoop()
-	case config.StandaloneScheme:
+	case StandaloneScheme:
 		mintBlockCB := func() (*block.Block, error) {
 			blk, err := bc.MintNewBlock(clock.Now())
 			if err != nil {

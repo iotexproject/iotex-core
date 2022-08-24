@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package consensus
 
 import (
 	"context"
@@ -18,15 +18,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -125,7 +119,7 @@ func (cm *chainManager) ChainAddress() string {
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
-	cfsm       *consensusfsm.ConsensusFSM
+	cfsm       *FSM
 	ctx        *rollDPoSCtx
 	startDelay time.Duration
 	ready      chan interface{}
@@ -291,19 +285,7 @@ func (r *RollDPoS) Activate(active bool) {
 
 // Active is true if the roll-DPoS consensus is active, or false if it is stand-by
 func (r *RollDPoS) Active() bool {
-	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
-}
-
-// BuilderConfig returns the configuration of the builder
-type BuilderConfig struct {
-	DB                 db.Config
-	Chain              blockchain.Config
-	ActPool            actpool.Config
-	Consensus          consensus.Config
-	DardanellesUpgrade consensus.DardanellesUpgrade
-	BlockSync          blocksync.Config
-	Genesis            genesis.Genesis
-	SystemActive       bool
+	return r.ctx.Active() || r.cfsm.CurrentState() != InitState
 }
 
 // Builder is the builder for RollDPoS
@@ -395,7 +377,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
 	ctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(b.cfg.Consensus, b.cfg.Genesis),
+		NewFSMConfig(b.cfg.Consensus, b.cfg.DardanellesUpgrade, b.cfg.Genesis),
 		b.cfg.DB,
 		b.cfg.SystemActive,
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
@@ -413,7 +395,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
 	}
-	cfsm, err := consensusfsm.NewConsensusFSM(ctx, b.clock)
+	cfsm, err := NewFSM(ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}

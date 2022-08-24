@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -112,7 +111,7 @@ func (h *HeartbeatHandler) Log() {
 			h.l.Info("consensus is not the instance of IotxConsensus.")
 			return
 		}
-		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
+		rolldpos, ok := cs.Scheme().(*consensus.RollDPoS)
 		numPendingEvts := 0
 		consensusEpoch := uint64(0)
 		consensusHeight := uint64(0)

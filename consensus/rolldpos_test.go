@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package consensus
 
 import (
 	"encoding/hex"
@@ -36,7 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blocksync"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -52,12 +52,24 @@ type addrKeyPair struct {
 	encodedAddr string
 }
 
+func createTestDefaultBuilderConfig() BuilderConfig {
+	return BuilderConfig{
+		DB:                 db.DefaultConfig,
+		Chain:              blockchain.DefaultConfig,
+		ActPool:            actpool.DefaultConfig,
+		Consensus:          DefaultConfig,
+		DardanellesUpgrade: DefaultDardanellesUpgradeConfig,
+		BlockSync:          blocksync.DefaultConfig,
+		Genesis:            genesis.Default,
+	}
+}
+
 func TestNewRollDPoS(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
 
-	cfg := config.Default
+	cfg := createTestDefaultBuilderConfig()
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
@@ -193,7 +205,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 
 	sk1 := identityset.PrivateKey(1)
-	cfg := config.Default
+	cfg := createTestDefaultBuilderConfig()
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
 	cfg.Genesis.BlockInterval = 10 * time.Second
@@ -270,7 +282,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
 
 	sk1 := identityset.PrivateKey(1)
-	cfg := config.Default
+	cfg := createTestDefaultBuilderConfig()
 	cfg.Consensus.RollDPoS.ConsensusDBPath = "consensus.db"
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
@@ -353,7 +365,7 @@ func (o *directOverlay) GetPeers() []net.Addr {
 
 func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
-		cfg := config.Default
+		cfg := createTestDefaultBuilderConfig()
 		cfg.Consensus.RollDPoS.ConsensusDBPath = ""
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 800 * time.Millisecond

@@ -1,6 +1,17 @@
 package consensus
 
-import "time"
+import (
+	"time"
+
+	"github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
+	"github.com/iotexproject/iotex-core/db"
+	"go.uber.org/zap"
+)
 
 const (
 	// RollDPoSScheme means randomized delegated proof of stake
@@ -15,7 +26,7 @@ var (
 	//DefaultConfig is the default config for blocksync
 	DefaultConfig = Config{
 		Scheme: StandaloneScheme,
-		RollDPoS: RollDPoS{
+		RollDPoS: RollDPoSConfig{
 			FSM: ConsensusTiming{
 				UnmatchedEventTTL:            3 * time.Second,
 				UnmatchedEventInterval:       100 * time.Millisecond,
@@ -48,12 +59,12 @@ type (
 	// Config is the config struct for consensus package
 	Config struct {
 		// There are three schemes that are supported
-		Scheme   string   `yaml:"scheme"`
-		RollDPoS RollDPoS `yaml:"rollDPoS"`
+		Scheme   string         `yaml:"scheme"`
+		RollDPoS RollDPoSConfig `yaml:"rollDPoS"`
 	}
 
-	// RollDPoS is the config struct for RollDPoS consensus package
-	RollDPoS struct {
+	// RollDPoSConfig is the config struct for RollDPoS consensus package
+	RollDPoSConfig struct {
 		FSM               ConsensusTiming `yaml:"fsm"`
 		ToleratedOvertime time.Duration   `yaml:"toleratedOvertime"`
 		Delay             time.Duration   `yaml:"delay"`
@@ -82,4 +93,151 @@ type (
 		BlockInterval                time.Duration `yaml:"blockInterval"`
 		Delay                        time.Duration `yaml:"delay"`
 	}
+
+	// BuilderConfig returns the configuration of the builder
+	BuilderConfig struct {
+		Scheme             string
+		DB                 db.Config
+		Chain              blockchain.Config
+		ActPool            actpool.Config
+		Consensus          Config
+		DardanellesUpgrade DardanellesUpgrade
+		BlockSync          blocksync.Config
+		Genesis            genesis.Genesis
+		SystemActive       bool
+	}
+
+	// FSMConfig defines a set of time durations used in fsm
+	FSMConfig interface {
+		EventChanSize() uint
+		UnmatchedEventTTL(uint64) time.Duration
+		UnmatchedEventInterval(uint64) time.Duration
+		AcceptBlockTTL(uint64) time.Duration
+		AcceptProposalEndorsementTTL(uint64) time.Duration
+		AcceptLockEndorsementTTL(uint64) time.Duration
+		CommitTTL(uint64) time.Duration
+		BlockInterval(uint64) time.Duration
+		Delay(uint64) time.Duration
+	}
+
+	// FSMContext defines the context of the fsm
+	FSMContext interface {
+		Activate(bool)
+		Active() bool
+		IsStaleEvent(*consensusfsm.ConsensusEvent) bool
+		IsFutureEvent(*consensusfsm.ConsensusEvent) bool
+		IsStaleUnmatchedEvent(*consensusfsm.ConsensusEvent) bool
+
+		Logger() *zap.Logger
+		Height() uint64
+
+		NewConsensusEvent(fsm.EventType, interface{}) *consensusfsm.ConsensusEvent
+		NewBackdoorEvt(fsm.State) *consensusfsm.ConsensusEvent
+
+		Broadcast(interface{})
+
+		Prepare() error
+		IsDelegate() bool
+		Proposal() (interface{}, error)
+		WaitUntilRoundStart() time.Duration
+		PreCommitEndorsement() interface{}
+		NewProposalEndorsement(interface{}) (interface{}, error)
+		NewLockEndorsement(interface{}) (interface{}, error)
+		NewPreCommitEndorsement(interface{}) (interface{}, error)
+		Commit(interface{}) (bool, error)
+		FSMConfig
+	}
+
+	// config implements FSMConfig
+	fsmCfg struct {
+		cfg           ConsensusTiming
+		dardanelles   DardanellesUpgrade
+		g             genesis.Genesis
+		blockInterval time.Duration
+		delay         time.Duration
+	}
 )
+
+//CreateBuilderConfig creates a builder config
+func CreateBuilderConfig(cfg Config, dc db.Config, bcc blockchain.Config, g genesis.Genesis, ac actpool.Config, du DardanellesUpgrade, bsc blocksync.Config) BuilderConfig {
+	return BuilderConfig{
+		DB:                 dc,
+		Chain:              bcc,
+		ActPool:            ac,
+		Consensus:          cfg,
+		DardanellesUpgrade: du,
+		BlockSync:          bsc,
+		Genesis:            g,
+	}
+}
+
+// NewFSMConfig creates a FSMConfig out of config.
+func NewFSMConfig(cfg Config, dardanelles DardanellesUpgrade, g genesis.Genesis) FSMConfig {
+	return &fsmCfg{
+		cfg:           cfg.RollDPoS.FSM,
+		dardanelles:   dardanelles,
+		g:             g,
+		blockInterval: g.Blockchain.BlockInterval,
+		delay:         cfg.RollDPoS.Delay,
+	}
+}
+
+func (c *fsmCfg) EventChanSize() uint {
+	return c.cfg.EventChanSize
+}
+
+func (c *fsmCfg) UnmatchedEventTTL(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.UnmatchedEventTTL
+	}
+	return c.cfg.UnmatchedEventTTL
+}
+
+func (c *fsmCfg) UnmatchedEventInterval(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.UnmatchedEventInterval
+	}
+	return c.cfg.UnmatchedEventInterval
+}
+
+func (c *fsmCfg) AcceptBlockTTL(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.AcceptBlockTTL
+	}
+	return c.cfg.AcceptBlockTTL
+}
+
+func (c *fsmCfg) AcceptProposalEndorsementTTL(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.AcceptProposalEndorsementTTL
+	}
+	return c.cfg.AcceptProposalEndorsementTTL
+}
+
+func (c *fsmCfg) AcceptLockEndorsementTTL(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.AcceptLockEndorsementTTL
+	}
+	return c.cfg.AcceptLockEndorsementTTL
+}
+
+func (c *fsmCfg) CommitTTL(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.CommitTTL
+	}
+	return c.cfg.CommitTTL
+}
+
+func (c *fsmCfg) BlockInterval(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.BlockInterval
+	}
+	return c.blockInterval
+}
+
+func (c *fsmCfg) Delay(height uint64) time.Duration {
+	if c.g.IsDardanelles(height) {
+		return c.dardanelles.Delay
+	}
+	return c.delay
+}

@@ -6,37 +6,30 @@
 
 package consensusfsm
 
-import (
-	"time"
+// // Context defines the context of the fsm
+// type Context interface {
+// 	Activate(bool)
+// 	Active() bool
+// 	IsStaleEvent(*ConsensusEvent) bool
+// 	IsFutureEvent(*ConsensusEvent) bool
+// 	IsStaleUnmatchedEvent(*ConsensusEvent) bool
 
-	fsm "github.com/iotexproject/go-fsm"
-	"go.uber.org/zap"
-)
+// 	Logger() *zap.Logger
+// 	Height() uint64
 
-// Context defines the context of the fsm
-type Context interface {
-	Activate(bool)
-	Active() bool
-	IsStaleEvent(*ConsensusEvent) bool
-	IsFutureEvent(*ConsensusEvent) bool
-	IsStaleUnmatchedEvent(*ConsensusEvent) bool
+// 	NewConsensusEvent(fsm.EventType, interface{}) *ConsensusEvent
+// 	NewBackdoorEvt(fsm.State) *ConsensusEvent
 
-	Logger() *zap.Logger
-	Height() uint64
+// 	Broadcast(interface{})
 
-	NewConsensusEvent(fsm.EventType, interface{}) *ConsensusEvent
-	NewBackdoorEvt(fsm.State) *ConsensusEvent
-
-	Broadcast(interface{})
-
-	Prepare() error
-	IsDelegate() bool
-	Proposal() (interface{}, error)
-	WaitUntilRoundStart() time.Duration
-	PreCommitEndorsement() interface{}
-	NewProposalEndorsement(interface{}) (interface{}, error)
-	NewLockEndorsement(interface{}) (interface{}, error)
-	NewPreCommitEndorsement(interface{}) (interface{}, error)
-	Commit(interface{}) (bool, error)
-	ConsensusConfig
-}
+// 	Prepare() error
+// 	IsDelegate() bool
+// 	Proposal() (interface{}, error)
+// 	WaitUntilRoundStart() time.Duration
+// 	PreCommitEndorsement() interface{}
+// 	NewProposalEndorsement(interface{}) (interface{}, error)
+// 	NewLockEndorsement(interface{}) (interface{}, error)
+// 	NewPreCommitEndorsement(interface{}) (interface{}, error)
+// 	Commit(interface{}) (bool, error)
+// 	ConsensusConfig
+// }

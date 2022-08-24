@@ -553,7 +553,17 @@ func (builder *Builder) buildConsensusComponent() error {
 	}
 
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	component, err := consensus.NewConsensus(builder.cfg, builder.cs.chain, builder.cs.factory, copts...)
+	builderCfg := consensus.BuilderConfig{
+		Scheme:             builder.cfg.Consensus.Scheme,
+		DB:                 builder.cfg.DB,
+		Genesis:            builder.cfg.Genesis,
+		Chain:              builder.cfg.Chain,
+		ActPool:            builder.cfg.ActPool,
+		DardanellesUpgrade: builder.cfg.DardanellesUpgrade,
+		BlockSync:          builder.cfg.BlockSync,
+		SystemActive:       builder.cfg.System.Active,
+	}
+	component, err := consensus.NewConsensus(builderCfg, builder.cs.chain, builder.cs.factory, copts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create consensus component")
 	}

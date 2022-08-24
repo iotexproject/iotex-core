@@ -6,104 +6,97 @@
 
 package consensusfsm
 
-import (
-	"time"
+// type (
+// 	// ConsensusConfig defines a set of time durations used in fsm
+// 	ConsensusConfig interface {
+// 		EventChanSize() uint
+// 		UnmatchedEventTTL(uint64) time.Duration
+// 		UnmatchedEventInterval(uint64) time.Duration
+// 		AcceptBlockTTL(uint64) time.Duration
+// 		AcceptProposalEndorsementTTL(uint64) time.Duration
+// 		AcceptLockEndorsementTTL(uint64) time.Duration
+// 		CommitTTL(uint64) time.Duration
+// 		BlockInterval(uint64) time.Duration
+// 		Delay(uint64) time.Duration
+// 	}
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/consensus"
-)
+// 	// config implements ConsensusConfig
+// 	consensusCfg struct {
+// 		cfg           consensus.ConsensusTiming
+// 		dardanelles   consensus.DardanellesUpgrade
+// 		g             genesis.Genesis
+// 		blockInterval time.Duration
+// 		delay         time.Duration
+// 	}
+// )
 
-type (
-	// ConsensusConfig defines a set of time durations used in fsm
-	ConsensusConfig interface {
-		EventChanSize() uint
-		UnmatchedEventTTL(uint64) time.Duration
-		UnmatchedEventInterval(uint64) time.Duration
-		AcceptBlockTTL(uint64) time.Duration
-		AcceptProposalEndorsementTTL(uint64) time.Duration
-		AcceptLockEndorsementTTL(uint64) time.Duration
-		CommitTTL(uint64) time.Duration
-		BlockInterval(uint64) time.Duration
-		Delay(uint64) time.Duration
-	}
+// // NewConsensusConfig creates a ConsensusConfig out of config.
+// func NewConsensusConfig(cfg consensus.Config, g genesis.Genesis) ConsensusConfig {
+// 	return &consensusCfg{
+// 		cfg:           cfg.RollDPoS.FSM,
+// 		dardanelles:   cfg.DardanellesUpgrade,
+// 		g:             cfg.Genesis,
+// 		blockInterval: cfg.Genesis.Blockchain.BlockInterval,
+// 		delay:         cfg.RollDPoS.Delay,
+// 	}
+// }
 
-	// config implements ConsensusConfig
-	consensusCfg struct {
-		cfg           consensus.ConsensusTiming
-		dardanelles   consensus.DardanellesUpgrade
-		g             genesis.Genesis
-		blockInterval time.Duration
-		delay         time.Duration
-	}
-)
+// func (c *consensusCfg) EventChanSize() uint {
+// 	return c.cfg.EventChanSize
+// }
 
-// NewConsensusConfig creates a ConsensusConfig out of config.
-func NewConsensusConfig(cfg consensus.Config, g genesis.Genesis) ConsensusConfig {
-	return &consensusCfg{
-		cfg:           cfg.RollDPoS.FSM,
-		dardanelles:   cfg.DardanellesUpgrade,
-		g:             cfg.Genesis,
-		blockInterval: cfg.Genesis.Blockchain.BlockInterval,
-		delay:         cfg.RollDPoS.Delay,
-	}
-}
+// func (c *consensusCfg) UnmatchedEventTTL(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.UnmatchedEventTTL
+// 	}
+// 	return c.cfg.UnmatchedEventTTL
+// }
 
-func (c *consensusCfg) EventChanSize() uint {
-	return c.cfg.EventChanSize
-}
+// func (c *consensusCfg) UnmatchedEventInterval(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.UnmatchedEventInterval
+// 	}
+// 	return c.cfg.UnmatchedEventInterval
+// }
 
-func (c *consensusCfg) UnmatchedEventTTL(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.UnmatchedEventTTL
-	}
-	return c.cfg.UnmatchedEventTTL
-}
+// func (c *consensusCfg) AcceptBlockTTL(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.AcceptBlockTTL
+// 	}
+// 	return c.cfg.AcceptBlockTTL
+// }
 
-func (c *consensusCfg) UnmatchedEventInterval(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.UnmatchedEventInterval
-	}
-	return c.cfg.UnmatchedEventInterval
-}
+// func (c *consensusCfg) AcceptProposalEndorsementTTL(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.AcceptProposalEndorsementTTL
+// 	}
+// 	return c.cfg.AcceptProposalEndorsementTTL
+// }
 
-func (c *consensusCfg) AcceptBlockTTL(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.AcceptBlockTTL
-	}
-	return c.cfg.AcceptBlockTTL
-}
+// func (c *consensusCfg) AcceptLockEndorsementTTL(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.AcceptLockEndorsementTTL
+// 	}
+// 	return c.cfg.AcceptLockEndorsementTTL
+// }
 
-func (c *consensusCfg) AcceptProposalEndorsementTTL(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.AcceptProposalEndorsementTTL
-	}
-	return c.cfg.AcceptProposalEndorsementTTL
-}
+// func (c *consensusCfg) CommitTTL(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.CommitTTL
+// 	}
+// 	return c.cfg.CommitTTL
+// }
 
-func (c *consensusCfg) AcceptLockEndorsementTTL(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.AcceptLockEndorsementTTL
-	}
-	return c.cfg.AcceptLockEndorsementTTL
-}
+// func (c *consensusCfg) BlockInterval(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.BlockInterval
+// 	}
+// 	return c.blockInterval
+// }
 
-func (c *consensusCfg) CommitTTL(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.CommitTTL
-	}
-	return c.cfg.CommitTTL
-}
-
-func (c *consensusCfg) BlockInterval(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.BlockInterval
-	}
-	return c.blockInterval
-}
-
-func (c *consensusCfg) Delay(height uint64) time.Duration {
-	if c.g.IsDardanelles(height) {
-		return c.dardanelles.Delay
-	}
-	return c.delay
-}
+// func (c *consensusCfg) Delay(height uint64) time.Duration {
+// 	if c.g.IsDardanelles(height) {
+// 		return c.dardanelles.Delay
+// 	}
+// 	return c.delay
+// }

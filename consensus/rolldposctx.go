@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package consensus
 
 import (
 	"context"
@@ -72,7 +72,7 @@ func init() {
 // DelegatesByEpochFunc defines a function to overwrite candidates
 type DelegatesByEpochFunc func(uint64) ([]string, error)
 type rollDPoSCtx struct {
-	consensusfsm.ConsensusConfig
+	FSMConfig
 
 	// TODO: explorer dependency deleted at #1085, need to add api params here
 	chain             ChainManager
@@ -91,7 +91,7 @@ type rollDPoSCtx struct {
 }
 
 func newRollDPoSCtx(
-	cfg consensusfsm.ConsensusConfig,
+	cfg FSMConfig,
 	consensusDBConfig db.Config,
 	active bool,
 	toleratedOvertime time.Duration,
@@ -140,7 +140,7 @@ func newRollDPoSCtx(
 		beringHeight:         beringHeight,
 	}
 	return &rollDPoSCtx{
-		ConsensusConfig:   cfg,
+		FSMConfig:         cfg,
 		active:            active,
 		encodedAddr:       encodedAddr,
 		priKey:            priKey,
@@ -280,7 +280,7 @@ func (ctx *rollDPoSCtx) NewBackdoorEvt(
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.newConsensusEvent(consensusfsm.BackdoorEvent, dst)
+	return ctx.newConsensusEvent(BackdoorEvent, dst)
 }
 
 func (ctx *rollDPoSCtx) Logger() *zap.Logger {
