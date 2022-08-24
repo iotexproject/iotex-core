@@ -109,14 +109,14 @@ func TestStrs_String(t *testing.T) {
 }
 
 func TestNewDefaultConfig(t *testing.T) {
-	cfg, err := New([]string{}, []string{})
+	cfg, err := New([]string{}, []string{}, "")
 	require.NoError(t, err)
 	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	require.Equal(t, cfg.Genesis.Timestamp, genesis.Timestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {
-	cfg, err := New([]string{}, []string{}, DoNotValidate)
+	cfg, err := New([]string{}, []string{}, "", DoNotValidate)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	exp := Default
@@ -125,7 +125,7 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 }
 
 func TestNewConfigWithWrongConfigPath(t *testing.T) {
-	cfg, err := New([]string{"wrong_path", ""}, []string{})
+	cfg, err := New([]string{"wrong_path", ""}, []string{}, "")
 	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
@@ -138,7 +138,7 @@ func TestNewConfigWithPlugins(t *testing.T) {
 	_plugins := strs{
 		"gateway",
 	}
-	cfg, err := New([]string{}, _plugins)
+	cfg, err := New([]string{}, _plugins, "")
 
 	require.Nil(t, cfg.Plugins[GatewayPlugin])
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestNewConfigWithPlugins(t *testing.T) {
 		"trick",
 	}
 
-	cfg, err = New([]string{}, _plugins)
+	cfg, err = New([]string{}, _plugins, "")
 
 	require.Equal(t, Config{}, cfg)
 	require.Error(t, err)
@@ -165,7 +165,7 @@ func TestNewConfigWithOverride(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_overwritePath"})
 
-	cfg, err := New([]string{_overwritePath, ""}, []string{})
+	cfg, err := New([]string{_overwritePath, ""}, []string{}, "")
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -181,7 +181,7 @@ func TestNewConfigWithSecret(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_overwritePath", "_secretPath"})
 
-	cfg, err := New([]string{_overwritePath, _secretPath}, []string{})
+	cfg, err := New([]string{_overwritePath, _secretPath}, []string{}, "")
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -196,14 +196,14 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_overwritePath")
 
-	cfg, err := New([]string{_overwritePath, ""}, []string{})
+	cfg, err := New([]string{_overwritePath, ""}, []string{}, "")
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.NoError(t, err)
 
-	cfg, err = New([]string{_overwritePath, ""}, []string{})
+	cfg, err = New([]string{_overwritePath, ""}, []string{}, "")
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
