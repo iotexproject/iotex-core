@@ -27,7 +27,7 @@ func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
 
@@ -51,7 +51,7 @@ func TestSendRaw(t *testing.T) {
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	selp := &iotextypes.Action{}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(3)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(7)
 
 	for _, test := range []struct {
@@ -152,7 +152,7 @@ func TestSendAction(t *testing.T) {
 		Balance:      cost.String(),
 	}}
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(64)
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).AnyTimes()
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).AnyTimes()
 	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
