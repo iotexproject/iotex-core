@@ -19,19 +19,19 @@ import (
 
 // Multi-language support
 var (
-	createAddCmdShorts = map[config.Language]string{
+	_createAddCmdShorts = map[config.Language]string{
 		config.English: "Create new account for ioctl",
 		config.Chinese: "为ioctl创建新账户",
 	}
-	createAddCmdUses = map[config.Language]string{
+	_createAddCmdUses = map[config.Language]string{
 		config.English: "createadd ALIAS",
 		config.Chinese: "createadd 别名",
 	}
-	invalidAlias = map[config.Language]string{
+	_invalidAlias = map[config.Language]string{
 		config.English: "invalid alias",
 		config.Chinese: "无效别名",
 	}
-	aliasHasAlreadyUsed = map[config.Language]string{
+	_aliasHasAlreadyUsed = map[config.Language]string{
 		config.English: "** Alias \"%s\" has already used for %s\n" +
 			"Overwriting the account will keep the previous keystore file stay, " +
 			"but bind the alias to the new one.\nWould you like to continue?\n",
@@ -39,7 +39,7 @@ var (
 			"复写帐户后先前的 keystore 文件将会留存!\n" +
 			"但底下的别名将绑定为新的。您是否要继续？",
 	}
-	outputMessage = map[config.Language]string{
+	_outputMessage = map[config.Language]string{
 		config.English: "New account \"%s\" is created.\n" +
 			"Please Keep your password, or you will lose your private key.",
 		config.Chinese: "新帐户 \"%s\" 已建立。\n" +
@@ -49,15 +49,15 @@ var (
 
 // NewAccountCreateAdd represents the account createadd command
 func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(createAddCmdUses)
-	short, _ := client.SelectTranslation(createAddCmdShorts)
-	invalidAlias, _ := client.SelectTranslation(invalidAlias)
-	aliasHasAlreadyUsed, _ := client.SelectTranslation(aliasHasAlreadyUsed)
-	infoQuit, _ := client.SelectTranslation(infoQuit)
-	failToWriteToConfigFile, _ := client.SelectTranslation(failToWriteToConfigFile)
-	failToGenerateNewPrivateKey, _ := client.SelectTranslation(failToGenerateNewPrivateKey)
-	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(failToGenerateNewPrivateKeySm2)
-	outputMessage, _ := client.SelectTranslation(outputMessage)
+	use, _ := client.SelectTranslation(_createAddCmdUses)
+	short, _ := client.SelectTranslation(_createAddCmdShorts)
+	_invalidAlias, _ := client.SelectTranslation(_invalidAlias)
+	_aliasHasAlreadyUsed, _ := client.SelectTranslation(_aliasHasAlreadyUsed)
+	infoQuit, _ := client.SelectTranslation(_infoQuit)
+	failToWriteToConfigFile, _ := client.SelectTranslation(_failToWriteToConfigFile)
+	failToGenerateNewPrivateKey, _ := client.SelectTranslation(_failToGenerateNewPrivateKey)
+	failToGenerateNewPrivateKeySm2, _ := client.SelectTranslation(_failToGenerateNewPrivateKeySm2)
+	_outputMessage, _ := client.SelectTranslation(_outputMessage)
 
 	return &cobra.Command{
 		Use:   use,
@@ -67,11 +67,15 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 
 			if err := validator.ValidateAlias(args[0]); err != nil {
-				return errors.Wrap(err, invalidAlias)
+				return errors.Wrap(err, _invalidAlias)
 			}
 
 			if addr, ok := client.Config().Aliases[args[0]]; ok {
-				if !client.AskToConfirm(fmt.Sprintf(aliasHasAlreadyUsed, args[0], addr)) {
+				confirmed, err := client.AskToConfirm(fmt.Sprintf(_aliasHasAlreadyUsed, args[0], addr))
+				if err != nil {
+					return errors.Wrap(err, "failed to ask confirm")
+				}
+				if !confirmed {
 					cmd.Println(infoQuit)
 					return nil
 				}
@@ -90,10 +94,10 @@ func NewAccountCreateAdd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, failToGenerateNewPrivateKeySm2)
 				}
 			}
-			if err := client.SetAlias(args[0], addr); err != nil {
+			if err := client.SetAliasAndSave(args[0], addr); err != nil {
 				return errors.Wrapf(err, failToWriteToConfigFile)
 			}
-			cmd.Println(fmt.Sprintf(outputMessage, args[0]))
+			cmd.Println(fmt.Sprintf(_outputMessage, args[0]))
 			return nil
 		},
 	}

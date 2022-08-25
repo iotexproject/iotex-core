@@ -15,13 +15,14 @@ func TestServer(t *testing.T) {
 		addr := "myAddress"
 
 		expectValue := http.Server{
-			ReadTimeout:  35 * time.Second,
-			WriteTimeout: 35 * time.Second,
-			IdleTimeout:  120 * time.Second,
-			Addr:         addr,
-			Handler:      handler,
+			ReadHeaderTimeout: 2 * time.Second,
+			ReadTimeout:       DefaultServerConfig.ReadTimeout,
+			WriteTimeout:      DefaultServerConfig.WriteTimeout,
+			IdleTimeout:       DefaultServerConfig.IdleTimeout,
+			Addr:              addr,
+			Handler:           handler,
 		}
-		result := Server(addr, handler)
+		result := NewServer(addr, handler, ReadHeaderTimeout(2*time.Second))
 		require.Equal(t, expectValue, result)
 	})
 }
@@ -37,6 +38,11 @@ func TestLimitListener(t *testing.T) {
 
 	t.Run("input empty string", func(t *testing.T) {
 		_, err := LimitListener("")
-		require.NoError(t, err)
+		// fix none root permission error
+		if err != nil {
+			require.Equal(t, "listen tcp :80: bind: permission denied", err.Error())
+		} else {
+			require.NoError(t, err)
+		}
 	})
 }

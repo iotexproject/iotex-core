@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -64,13 +64,14 @@ func TestIndexBuilder(t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			genesis.WithGenesisContext(context.Background(), genesis.Default),
 			protocol.BlockchainCtx{
-				ChainID: config.Default.Chain.ID,
+				ChainID: blockchain.DefaultConfig.ID,
 			})
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		ib := &IndexBuilder{
 			dao:     dao,
 			indexer: indexer,
+			genesis: genesis.Default,
 		}
 		defer func() {
 			require.NoError(ib.Stop(ctx))
@@ -88,7 +89,7 @@ func TestIndexBuilder(t *testing.T) {
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks
-		require.NoError(ib.init())
+		require.NoError(ib.init(ctx))
 		height, err := ib.indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)
@@ -135,7 +136,7 @@ func TestIndexBuilder(t *testing.T) {
 
 		for i := 0; i < 3; i++ {
 			amount := big.NewInt(0)
-			tsfs, _ := action.ClassifyActions(blks[i].Actions)
+			tsfs, _ := classifyActions(blks[i].Actions)
 			for _, tsf := range tsfs {
 				amount.Add(amount, tsf.Amount())
 			}
@@ -160,7 +161,7 @@ func TestIndexBuilder(t *testing.T) {
 	}()
 	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
-
+	deser := block.NewDeserializer(blockchain.DefaultConfig.EVMNetworkID)
 	for _, v := range []struct {
 		dao   blockdao.BlockDAO
 		inMem bool
@@ -169,7 +170,7 @@ func TestIndexBuilder(t *testing.T) {
 			blockdao.NewBlockDAOInMemForTest(nil), true,
 		},
 		{
-			blockdao.NewBlockDAO(nil, cfg), false,
+			blockdao.NewBlockDAO(nil, cfg, deser), false,
 		},
 	} {
 		t.Run("test indexbuilder", func(t *testing.T) {
@@ -187,4 +188,20 @@ func TestIndexBuilder(t *testing.T) {
 			testIndexer(v.dao, indexer, t)
 		})
 	}
+}
+
+// classifyActions classfies actions
+func classifyActions(actions []action.SealedEnvelope) ([]*action.Transfer, []*action.Execution) {
+	tsfs := make([]*action.Transfer, 0)
+	exes := make([]*action.Execution, 0)
+	for _, elp := range actions {
+		act := elp.Action()
+		switch act := act.(type) {
+		case *action.Transfer:
+			tsfs = append(tsfs, act)
+		case *action.Execution:
+			exes = append(exes, act)
+		}
+	}
+	return tsfs, exes
 }

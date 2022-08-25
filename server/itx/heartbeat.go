@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,7 +7,6 @@
 package itx
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -32,7 +31,7 @@ import (
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
 // approach to do so in the future
 
-var heartbeatMtc = prometheus.NewGaugeVec(
+var _heartbeatMtc = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "iotex_heartbeat_status",
 		Help: "Node heartbeat status.",
@@ -40,7 +39,7 @@ var heartbeatMtc = prometheus.NewGaugeVec(
 	[]string{"status_type", "source"},
 )
 
-var versionMtc = prometheus.NewGaugeVec(
+var _versionMtc = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "iotex_version_status",
 		Help: "Node software version status.",
@@ -49,8 +48,8 @@ var versionMtc = prometheus.NewGaugeVec(
 )
 
 func init() {
-	prometheus.MustRegister(heartbeatMtc)
-	prometheus.MustRegister(versionMtc)
+	prometheus.MustRegister(_heartbeatMtc)
+	prometheus.MustRegister(_versionMtc)
 }
 
 // HeartbeatHandler is the handler to periodically log the system key metrics
@@ -60,7 +59,7 @@ type HeartbeatHandler struct {
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
-func NewHeartbeatHandler(s *Server, cfg p2p.Network) *HeartbeatHandler {
+func NewHeartbeatHandler(s *Server, cfg p2p.Config) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
 		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
@@ -91,20 +90,20 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 
-	ctx := context.Background()
-	peers, err := p2pAgent.Neighbors(ctx)
+	peers, err := p2pAgent.ConnectedPeers()
 	if err != nil {
-		h.l.Debug("error when get neighbors.", zap.Error(err))
+		h.l.Debug("error when get connectedPeers.", zap.Error(err))
 		peers = nil
 	}
+
 	numPeers := len(peers)
 	h.l.Debug("Node status.",
-		zap.Int("numPeers", numPeers),
+		zap.Int("numConnectedPeers", numPeers),
 		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
-	heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
-	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
+	_heartbeatMtc.WithLabelValues("numConnectedPeers", "node").Set(float64(numPeers))
+	_heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
 	// chain service
 	for _, c := range h.s.chainservices {
 		// Consensus metrics
@@ -157,17 +156,17 @@ func (h *HeartbeatHandler) Log() {
 		)
 
 		chainIDStr := strconv.FormatUint(uint64(c.ChainID()), 10)
-		heartbeatMtc.WithLabelValues("consensusEpoch", chainIDStr).Set(float64(consensusHeight))
-		heartbeatMtc.WithLabelValues("consensusRound", chainIDStr).Set(float64(consensusEpoch))
-		heartbeatMtc.WithLabelValues("pendingRolldposEvents", chainIDStr).Set(float64(numPendingEvts))
-		heartbeatMtc.WithLabelValues("blockchainHeight", chainIDStr).Set(float64(height))
-		heartbeatMtc.WithLabelValues("actpoolSize", chainIDStr).Set(float64(actPoolSize))
-		heartbeatMtc.WithLabelValues("actpoolGasInPool", chainIDStr).Set(float64(c.ActionPool().GetGasSize()))
-		heartbeatMtc.WithLabelValues("actpoolCapacity", chainIDStr).Set(float64(actPoolCapacity))
-		heartbeatMtc.WithLabelValues("targetHeight", chainIDStr).Set(float64(targetHeight))
-		heartbeatMtc.WithLabelValues("packageVersion", version.PackageVersion).Set(1)
-		heartbeatMtc.WithLabelValues("packageCommitID", version.PackageCommitID).Set(1)
-		heartbeatMtc.WithLabelValues("goVersion", version.GoVersion).Set(1)
+		_heartbeatMtc.WithLabelValues("consensusEpoch", chainIDStr).Set(float64(consensusHeight))
+		_heartbeatMtc.WithLabelValues("consensusRound", chainIDStr).Set(float64(consensusEpoch))
+		_heartbeatMtc.WithLabelValues("pendingRolldposEvents", chainIDStr).Set(float64(numPendingEvts))
+		_heartbeatMtc.WithLabelValues("blockchainHeight", chainIDStr).Set(float64(height))
+		_heartbeatMtc.WithLabelValues("actpoolSize", chainIDStr).Set(float64(actPoolSize))
+		_heartbeatMtc.WithLabelValues("actpoolGasInPool", chainIDStr).Set(float64(c.ActionPool().GetGasSize()))
+		_heartbeatMtc.WithLabelValues("actpoolCapacity", chainIDStr).Set(float64(actPoolCapacity))
+		_heartbeatMtc.WithLabelValues("targetHeight", chainIDStr).Set(float64(targetHeight))
+		_heartbeatMtc.WithLabelValues("packageVersion", version.PackageVersion).Set(1)
+		_heartbeatMtc.WithLabelValues("packageCommitID", version.PackageCommitID).Set(1)
+		_heartbeatMtc.WithLabelValues("goVersion", version.GoVersion).Set(1)
 	}
 
 	// Mem metrics
@@ -180,15 +179,15 @@ func memMetrics() {
 	}
 	var memStat runtime.MemStats
 	runtime.ReadMemStats(&memStat)
-	heartbeatMtc.WithLabelValues("allocatedHeapObjects", "node").Set(float64(bToMb(memStat.Alloc)))
-	heartbeatMtc.WithLabelValues("totalAllocatedHeapObjects", "node").Set(float64(bToMb(memStat.TotalAlloc)))
-	heartbeatMtc.WithLabelValues("stackInUse", "node").Set(float64(bToMb(memStat.StackInuse)))
-	heartbeatMtc.WithLabelValues("stackFromOS", "node").Set(float64(bToMb(memStat.StackSys)))
-	heartbeatMtc.WithLabelValues("totalFromOS", "node").Set(float64(bToMb(memStat.Sys)))
-	heartbeatMtc.WithLabelValues("heapInUse", "node").Set(float64(bToMb(memStat.HeapInuse)))
-	heartbeatMtc.WithLabelValues("heapFromOS", "node").Set(float64(bToMb(memStat.HeapSys)))
-	heartbeatMtc.WithLabelValues("heapIdle", "node").Set(float64(bToMb(memStat.HeapIdle)))
-	heartbeatMtc.WithLabelValues("heapReleased", "node").Set(float64(bToMb(memStat.HeapReleased)))
-	heartbeatMtc.WithLabelValues("numberOfGC", "node").Set(float64(memStat.NumGC))
-	heartbeatMtc.WithLabelValues("numberOfRoutines", "node").Set(float64(runtime.NumGoroutine()))
+	_heartbeatMtc.WithLabelValues("allocatedHeapObjects", "node").Set(float64(bToMb(memStat.Alloc)))
+	_heartbeatMtc.WithLabelValues("totalAllocatedHeapObjects", "node").Set(float64(bToMb(memStat.TotalAlloc)))
+	_heartbeatMtc.WithLabelValues("stackInUse", "node").Set(float64(bToMb(memStat.StackInuse)))
+	_heartbeatMtc.WithLabelValues("stackFromOS", "node").Set(float64(bToMb(memStat.StackSys)))
+	_heartbeatMtc.WithLabelValues("totalFromOS", "node").Set(float64(bToMb(memStat.Sys)))
+	_heartbeatMtc.WithLabelValues("heapInUse", "node").Set(float64(bToMb(memStat.HeapInuse)))
+	_heartbeatMtc.WithLabelValues("heapFromOS", "node").Set(float64(bToMb(memStat.HeapSys)))
+	_heartbeatMtc.WithLabelValues("heapIdle", "node").Set(float64(bToMb(memStat.HeapIdle)))
+	_heartbeatMtc.WithLabelValues("heapReleased", "node").Set(float64(bToMb(memStat.HeapReleased)))
+	_heartbeatMtc.WithLabelValues("numberOfGC", "node").Set(float64(memStat.NumGC))
+	_heartbeatMtc.WithLabelValues("numberOfRoutines", "node").Set(float64(runtime.NumGoroutine()))
 }

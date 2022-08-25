@@ -73,7 +73,7 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	if err := p.assertNoRewardYet(ctx, sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
+	if err := p.assertNoRewardYet(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 
@@ -100,7 +100,7 @@ func (p *Protocol) GrantBlockReward(
 	rewardAddr, err := address.FromString(rewardAddrStr)
 
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
 	if err := p.updateAvailableBalance(ctx, sm, a.blockReward); err != nil {
@@ -112,7 +112,7 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.grantToAccount(ctx, sm, rewardAddr, a.blockReward); err != nil {
 		return nil, err
 	}
-	if err := p.updateRewardHistory(ctx, sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
+	if err := p.updateRewardHistory(ctx, sm, _blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 	rewardLog := rewardingpb.RewardLog{
@@ -144,20 +144,20 @@ func (p *Protocol) GrantEpochReward(
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	if err := p.assertNoRewardYet(ctx, sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
+	if err := p.assertNoRewardYet(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
 	}
 	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
 		return nil, err
 	}
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return nil, err
 	}
 
 	// Get the delegate list who exempts epoch reward
 	e := exempt{}
-	if _, err := p.state(ctx, sm, exemptKey, &e); err != nil {
+	if _, err := p.state(ctx, sm, _exemptKey, &e); err != nil {
 		return nil, err
 	}
 	exemptAddrs := make(map[string]interface{})
@@ -267,7 +267,7 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(ctx, sm, actualTotalReward); err != nil {
 		return nil, err
 	}
-	if err := p.updateRewardHistory(ctx, sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
+	if err := p.updateRewardHistory(ctx, sm, _epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
 	}
 	return rewardLogs, nil
@@ -305,7 +305,7 @@ func (p *Protocol) UnclaimedBalance(
 	addr address.Address,
 ) (*big.Int, uint64, error) {
 	acc := rewardAccount{}
-	accKey := append(adminKey, addr.Bytes()...)
+	accKey := append(_adminKey, addr.Bytes()...)
 	height, err := p.state(ctx, sm, accKey, &acc)
 	if err == nil {
 		return acc.balance, height, nil
@@ -318,7 +318,7 @@ func (p *Protocol) UnclaimedBalance(
 
 func (p *Protocol) updateTotalBalance(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
 	f := fund{}
-	if _, err := p.state(ctx, sm, fundKey, &f); err != nil {
+	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return err
 	}
 	totalBalance := big.NewInt(0).Sub(f.totalBalance, amount)
@@ -326,12 +326,12 @@ func (p *Protocol) updateTotalBalance(ctx context.Context, sm protocol.StateMana
 		return errors.New("no enough total balance")
 	}
 	f.totalBalance = totalBalance
-	return p.putState(ctx, sm, fundKey, &f)
+	return p.putState(ctx, sm, _fundKey, &f)
 }
 
 func (p *Protocol) updateAvailableBalance(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
 	f := fund{}
-	if _, err := p.state(ctx, sm, fundKey, &f); err != nil {
+	if _, err := p.state(ctx, sm, _fundKey, &f); err != nil {
 		return err
 	}
 	availableBalance := big.NewInt(0).Sub(f.unclaimedBalance, amount)
@@ -339,12 +339,12 @@ func (p *Protocol) updateAvailableBalance(ctx context.Context, sm protocol.State
 		return errors.New("no enough available balance")
 	}
 	f.unclaimedBalance = availableBalance
-	return p.putState(ctx, sm, fundKey, &f)
+	return p.putState(ctx, sm, _fundKey, &f)
 }
 
 func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager, addr address.Address, amount *big.Int) error {
 	acc := rewardAccount{}
-	accKey := append(adminKey, addr.Bytes()...)
+	accKey := append(_adminKey, addr.Bytes()...)
 	_, fromLegacy, err := p.stateCheckLegacy(ctx, sm, accKey, &acc)
 	if err != nil {
 		if errors.Cause(err) != state.ErrStateNotExist {
@@ -369,7 +369,7 @@ func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager,
 func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManager, addr address.Address, amount *big.Int) error {
 	// Update reward account
 	acc := rewardAccount{}
-	accKey := append(adminKey, addr.Bytes()...)
+	accKey := append(_adminKey, addr.Bytes()...)
 	_, fromLegacy, err := p.stateCheckLegacy(ctx, sm, accKey, &acc)
 	if err != nil {
 		return err
@@ -388,13 +388,18 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 			return err
 		}
 	}
-
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+	}
 	// Update primary account
-	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}
-	primAcc.Balance = big.NewInt(0).Add(primAcc.Balance, amount)
+	if err := primAcc.AddBalance(amount); err != nil {
+		return err
+	}
 	return accountutil.StoreAccount(sm, addr, primAcc)
 }
 

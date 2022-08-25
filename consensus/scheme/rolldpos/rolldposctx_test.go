@@ -39,22 +39,22 @@ func TestRollDPoSCtx(t *testing.T) {
 	b, _, _, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 2:panic because of rp is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
 	rp := rolldpos.NewProtocol(
-		config.Default.Genesis.NumCandidateDelegates,
-		config.Default.Genesis.NumDelegates,
-		config.Default.Genesis.NumSubEpochs,
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -64,19 +64,19 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = time.Second
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = time.Second
 	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	cfg.Genesis.Blockchain.BlockInterval = time.Second * 20
 	t.Run("case 5:panic because of nil CandidatesByHeight function", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, nil, "", nil, c, 0)
+		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, nil, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
-		bh := config.Default.Genesis.BeringBlockHeight
-		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
+		bh := genesis.Default.BeringBlockHeight
+		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
 		require.NoError(err)
 		require.Equal(bh, rctx.roundCalc.beringHeight)
 		require.NotNil(rctx)
@@ -95,7 +95,8 @@ func TestCheckVoteEndorser(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		b,
+		NewChainManager(b),
+		block.NewDeserializer(0),
 		rp,
 		nil,
 		func(epochnum uint64) ([]string, error) {
@@ -138,7 +139,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		"",
 		nil,
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -167,7 +168,8 @@ func TestCheckBlockProposer(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		b,
+		NewChainManager(b),
+		block.NewDeserializer(0),
 		rp,
 		nil,
 		func(epochnum uint64) ([]string, error) {
@@ -210,7 +212,7 @@ func TestCheckBlockProposer(t *testing.T) {
 		"",
 		nil,
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -278,7 +280,8 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		true,
 		time.Second,
 		true,
-		b,
+		NewChainManager(b),
+		block.NewDeserializer(0),
 		rp,
 		nil,
 		func(epochnum uint64) ([]string, error) {
@@ -321,7 +324,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 		"",
 		identityset.PrivateKey(10),
 		c,
-		config.Default.Genesis.BeringBlockHeight,
+		genesis.Default.BeringBlockHeight,
 	)
 	require.NoError(err)
 	require.NotNil(rctx)

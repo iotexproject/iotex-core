@@ -100,10 +100,11 @@ func NewConsensus(
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
 		bd := rolldpos.NewRollDPoSBuilder().
-			SetAddr(cfg.ProducerAddress().String()).
-			SetPriKey(cfg.ProducerPrivateKey()).
+			SetAddr(cfg.Chain.ProducerAddress().String()).
+			SetPriKey(cfg.Chain.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetChainManager(bc).
+			SetChainManager(rolldpos.NewChainManager(bc)).
+			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
@@ -160,7 +161,7 @@ func NewConsensus(
 		commitBlockCB := func(blk *block.Block) error {
 			err := bc.CommitBlock(blk)
 			if err != nil {
-				log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				log.Logger("consensus").Error("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 			}
 			return err
 		}

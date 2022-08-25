@@ -30,7 +30,7 @@ const (
 	// RestakeBaseIntrinsicGas represents the base intrinsic gas for stake again
 	RestakeBaseIntrinsicGas = uint64(10000)
 
-	restakeInterfaceABI = `[
+	_restakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -78,7 +78,7 @@ type Restake struct {
 }
 
 func init() {
-	restakeInterface, err := abi.JSON(strings.NewReader(restakeInterfaceABI))
+	restakeInterface, err := abi.JSON(strings.NewReader(_restakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}

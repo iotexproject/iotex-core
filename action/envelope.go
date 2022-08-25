@@ -40,6 +40,9 @@ type (
 // Version returns the version
 func (elp *envelope) Version() uint32 { return elp.version }
 
+// ChainID return the chainID value
+func (elp *envelope) ChainID() uint32 { return elp.chainID }
+
 // Nonce returns the nonce
 func (elp *envelope) Nonce() uint64 { return elp.nonce }
 
@@ -84,6 +87,7 @@ func (elp *envelope) Proto() *iotextypes.ActionCore {
 		Version:  elp.version,
 		Nonce:    elp.nonce,
 		GasLimit: elp.gasLimit,
+		ChainID:  elp.chainID,
 	}
 	if elp.gasPrice != nil {
 		actCore.GasPrice = elp.gasPrice.String()
@@ -139,6 +143,7 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
+	elp.chainID = pbAct.GetChainID()
 	if pbAct.GetGasPrice() == "" {
 		elp.gasPrice = big.NewInt(0)
 	} else {
@@ -244,14 +249,12 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	default:
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
+	elp.payload.SetEnvelopeContext(elp)
 	return nil
 }
 
 // SetNonce sets the nonce value
 func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
-
-// ChainID return the chainID value
-func (elp *envelope) ChainID() uint32 { return elp.chainID }
 
 // SetChainID sets the chainID value
 func (elp *envelope) SetChainID(chainID uint32) { elp.chainID = chainID }

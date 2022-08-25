@@ -20,7 +20,8 @@ import (
 func TestAlias(t *testing.T) {
 	require := require.New(t)
 
-	require.NoError(testInit())
+	_, err := testInit(t)
+	require.NoError(err)
 
 	raullen := "raullen"
 	qevan := "qevan"
@@ -62,22 +63,22 @@ func TestAlias(t *testing.T) {
 	require.Equal(jing, aliases["io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"])
 }
 
-func testInit() error {
-	testPathd, _ := os.MkdirTemp(os.TempDir(), "kstest")
-	config.ConfigDir = testPathd
+func testInit(t *testing.T) (string, error) {
 	var err error
+	testPathd := t.TempDir()
+	config.ConfigDir = testPathd
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 	config.ReadConfig, err = config.LoadConfig()
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return testPathd, err
 	}
 	config.ReadConfig.Wallet = config.ConfigDir
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return err
+		return testPathd, err
 	}
 	if err := os.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return err
+		return testPathd, err
 	}
-	return nil
+	return testPathd, nil
 }

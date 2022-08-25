@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -9,69 +9,43 @@ package alias
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 // Multi-language support
 var (
-	aliasCmdShorts = map[config.Language]string{
+	_aliasCmdShorts = map[config.Language]string{
 		config.English: "Manage aliases of IoTeX addresses",
 		config.Chinese: "管理IoTeX的地址别名",
 	}
-	aliasCmdUses = map[config.Language]string{
-		config.English: "alias",
-		config.Chinese: "alias",
-	}
 )
-
-// Errors
-var (
-	ErrNoAliasFound = errors.New("no alias is found")
-)
-
-// Flags
-var (
-	format      string
-	forceImport bool
-)
-
-//type alias struct {
-//	Name    string `json:"name" yaml:"name"`
-//	Address string `json:"address" yaml:"address"`
-//}
-//
-//type aliases struct {
-//	Aliases []alias `json:"aliases" yaml:"aliases"`
-//}
 
 // NewAliasCmd represents the alias command
 func NewAliasCmd(client ioctl.Client) *cobra.Command {
-	aliasShorts, _ := client.SelectTranslation(aliasCmdShorts)
-	aliasUses, _ := client.SelectTranslation(aliasCmdUses)
+	aliasShorts, _ := client.SelectTranslation(_aliasCmdShorts)
 
-	ec := &cobra.Command{
-		Use:   aliasUses,
+	ac := &cobra.Command{
+		Use:   "alias",
 		Short: aliasShorts,
 	}
 
-	ec.AddCommand(NewAliasImportCmd(client))
+	ac.AddCommand(NewAliasImport(client))
+	ac.AddCommand(NewAliasExport(client))
+	ac.AddCommand(NewAliasRemove(client))
 
-	return ec
+	return ac
 }
 
 // IOAddress returns the address in IoTeX address format
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return nil, output.NewError(output.AddressError, "", err)
+		return nil, err
 	}
 	return address.FromString(addr)
 }
@@ -80,20 +54,7 @@ func IOAddress(in string) (address.Address, error) {
 func EtherAddress(in string) (common.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return common.Address{}, output.NewError(output.AddressError, "", err)
+		return common.Address{}, err
 	}
 	return addrutil.IoAddrToEvmAddr(addr)
-}
-
-// Alias returns the alias corresponding to address
-func Alias(address string) (string, error) {
-	if err := validator.ValidateAddress(address); err != nil {
-		return "", output.NewError(output.ValidationError, "", err)
-	}
-	for alias, addr := range config.ReadConfig.Aliases {
-		if addr == address {
-			return alias, nil
-		}
-	}
-	return "", output.NewError(output.AddressError, ErrNoAliasFound.Error(), nil)
 }

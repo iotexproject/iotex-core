@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,7 +7,6 @@
 package block
 
 import (
-	"encoding/hex"
 	"time"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -51,35 +50,6 @@ func (b *Block) ConvertToBlockPb() *iotextypes.Block {
 // Serialize returns the serialized byte stream of the block
 func (b *Block) Serialize() ([]byte, error) {
 	return proto.Marshal(b.ConvertToBlockPb())
-}
-
-// ConvertFromBlockPb converts Block to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
-	b.Header = Header{}
-	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
-		return err
-	}
-	b.Body = Body{}
-	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
-		return err
-	}
-
-	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())
-}
-
-// Deserialize parses the byte stream into a Block
-func (b *Block) Deserialize(buf []byte) error {
-	pbBlock := iotextypes.Block{}
-	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
-		return err
-	}
-	if err := b.ConvertFromBlockPb(&pbBlock); err != nil {
-		return err
-	}
-	b.Receipts = nil
-
-	// verify merkle root can match after deserialize
-	return b.VerifyTxRoot()
 }
 
 // VerifyTxRoot verifies the transaction root hash
@@ -130,18 +100,4 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 		return nil
 	}
 	return &blkLog
-}
-
-// ActionHashs returns action hashs in the block
-func (b *Block) ActionHashs() []string {
-	actHash := make([]string, len(b.Actions))
-	for i := range b.Actions {
-		h, err := b.Actions[i].Hash()
-		if err != nil {
-			log.L().Debug("Skipping action due to hash error", zap.Error(err))
-			continue
-		}
-		actHash[i] = hex.EncodeToString(h[:])
-	}
-	return actHash
 }

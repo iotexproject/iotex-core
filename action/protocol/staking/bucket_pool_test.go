@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -59,12 +59,12 @@ func TestBucketPool(t *testing.T) {
 	r := require.New(t)
 
 	// bucket pool address does not interfere with buckets data
-	r.Equal(-1, bytes.Compare(bucketPoolAddrKey, bucketKey(0)))
+	r.Equal(-1, bytes.Compare(_bucketPoolAddrKey, bucketKey(0)))
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
 
-	pool, err := NewBucketPool(sm, false)
+	pool, err := newCandidateStateReader(sm).NewBucketPool(false)
 	r.NoError(err)
 	r.Equal(big.NewInt(0), pool.Total())
 	r.EqualValues(0, pool.Count())
@@ -73,13 +73,13 @@ func TestBucketPool(t *testing.T) {
 	// add 4 buckets
 	addr := identityset.Address(1)
 	for i := 0; i < 4; i++ {
-		_, err = putBucket(sm, NewVoteBucket(addr, addr, big.NewInt(10000), 21, time.Now(), true))
+		_, err = newCandidateStateManager(sm).putBucket(NewVoteBucket(addr, addr, big.NewInt(10000), 21, time.Now(), true))
 		r.NoError(err)
 	}
 
 	view, _, err := CreateBaseView(sm, false)
 	r.NoError(err)
-	sm.WriteView(protocolID, view)
+	sm.WriteView(_protocolID, view)
 	pool = view.bucketPool
 	total := big.NewInt(40000)
 	count := uint64(4)
@@ -157,7 +157,7 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if !testGreenland && v.postGreenland {
-			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 			r.NoError(err)
 			testGreenland = true
 		}
@@ -165,7 +165,7 @@ func TestBucketPool(t *testing.T) {
 
 	// verify state has been created successfully
 	var b totalAmount
-	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	_, err = sm.State(&b, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	r.NoError(err)
 	r.Equal(total, b.amount)
 	r.Equal(count, b.count)

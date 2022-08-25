@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,20 +23,20 @@ import (
 
 // Multi-language support
 var (
-	getURICmdUses = map[config.Language]string{
+	_getURICmdUses = map[config.Language]string{
 		config.English: "geturi (CONTRACT_ADDRESS|ALIAS) DID",
 		config.Chinese: "geturi (合约地址|别名) DID",
 	}
-	getURICmdShorts = map[config.Language]string{
+	_getURICmdShorts = map[config.Language]string{
 		config.English: "Geturi get DID URI on IoTeX blockchain",
 		config.Chinese: "Geturi 在IoTeX链上获取相应DID的uri",
 	}
 )
 
-// didGetURICmd represents the contract invoke getURI command
-var didGetURICmd = &cobra.Command{
-	Use:   config.TranslateInLang(getURICmdUses, config.UILanguage),
-	Short: config.TranslateInLang(getURICmdShorts, config.UILanguage),
+// _didGetURICmd represents the contract invoke getURI command
+var _didGetURICmd = &cobra.Command{
+	Use:   config.TranslateInLang(_getURICmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_getURICmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -53,7 +53,7 @@ func getURI(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	bytecode, err := encodeGet(abi, getURIName, args[1])
+	bytecode, err := encodeGet(abi, _getURIName, args[1])
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
@@ -69,7 +69,7 @@ func getURI(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	res, err := abi.Unpack(getURIName, dec)
+	res, err := abi.Unpack(_getURIName, dec)
 	if err != nil {
 		return errors.New("DID does not exist")
 	}

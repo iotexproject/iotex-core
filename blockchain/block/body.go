@@ -37,30 +37,6 @@ func (b *Body) Serialize() ([]byte, error) {
 	return proto.Marshal(b.Proto())
 }
 
-// LoadProto loads body from proto
-func (b *Body) LoadProto(pbBlock *iotextypes.BlockBody) error {
-	b.Actions = []action.SealedEnvelope{}
-	for _, actPb := range pbBlock.Actions {
-		act := action.SealedEnvelope{}
-		if err := act.LoadProto(actPb); err != nil {
-			return err
-		}
-		b.Actions = append(b.Actions, act)
-	}
-
-	return nil
-}
-
-// Deserialize parses the byte stream into a Block
-func (b *Body) Deserialize(buf []byte) error {
-	pb := iotextypes.BlockBody{}
-	if err := proto.Unmarshal(buf, &pb); err != nil {
-		return err
-	}
-
-	return b.LoadProto(&pb)
-}
-
 // CalculateTxRoot returns the Merkle root of all txs and actions in this block.
 func (b *Body) CalculateTxRoot() (hash.Hash256, error) {
 	return calculateTxRoot(b.Actions)

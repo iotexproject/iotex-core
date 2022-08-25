@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,22 +20,22 @@ import (
 
 // Multi-language support
 var (
-	stake2ChangeCmdUses = map[config.Language]string{
+	_stake2ChangeCmdUses = map[config.Language]string{
 		config.English: "change CANDIDATE_NAME BUCKET_INDEX [DATA]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 		config.Chinese: "change 候选人名字 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
-	stake2ChangeCmdShorts = map[config.Language]string{
+	_stake2ChangeCmdShorts = map[config.Language]string{
 		config.English: "Change stake candidate",
 		config.Chinese: "在IoTeX区块链上改变投票候选人",
 	}
 )
 
-// stake2ChangeCmd represents the stake2 change command
-var stake2ChangeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(stake2ChangeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(stake2ChangeCmdShorts, config.UILanguage),
+// _stake2ChangeCmd represents the stake2 change command
+var _stake2ChangeCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_stake2ChangeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_stake2ChangeCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -45,7 +45,7 @@ var stake2ChangeCmd = &cobra.Command{
 }
 
 func init() {
-	RegisterWriteCommand(stake2ChangeCmd)
+	RegisterWriteCommand(_stake2ChangeCmd)
 }
 
 func stake2Change(args []string) error {
@@ -72,7 +72,7 @@ func stake2Change(args []string) error {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}
 
-	gasLimit := gasLimitFlag.Value().(uint64)
+	gasLimit := _gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.MoveStakeBaseIntrinsicGas + action.MoveStakePayloadGas*uint64(len(data))
 	}

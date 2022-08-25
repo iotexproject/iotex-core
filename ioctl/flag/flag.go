@@ -7,6 +7,8 @@
 package flag
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -14,12 +16,12 @@ import (
 
 // vars
 var (
-	flagWithArgumentsUsage = map[config.Language]string{
+	_flagWithArgumentsUsage = map[config.Language]string{
 		config.English: "pass arguments in JSON format",
 		config.Chinese: "按照JSON格式传入参数",
 	}
 	WithArgumentsFlag = NewStringVar("with-arguments", "",
-		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
+		config.TranslateInLang(_flagWithArgumentsUsage, config.UILanguage))
 )
 
 type (
@@ -57,7 +59,9 @@ type (
 )
 
 func (f *flagBase) MarkFlagRequired(cmd *cobra.Command) {
-	cmd.MarkFlagRequired(f.label)
+	if err := cmd.MarkFlagRequired(f.label); err != nil {
+		fmt.Printf("failed to mark flag %s: %v\n", f.label, err)
+	}
 }
 
 func (f *flagBase) Label() string {

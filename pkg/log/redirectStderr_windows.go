@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	kernel32         = syscall.MustLoadDLL("kernel32.dll")
-	procSetStdHandle = kernel32.MustFindProc("SetStdHandle")
+	_kernel32         = syscall.MustLoadDLL("_kernel32.dll")
+	_procSetStdHandle = _kernel32.MustFindProc("SetStdHandle")
 )
 
 func setStdHandle(stdhandle int32, handle syscall.Handle) error {
-	r0, _, e1 := syscall.Syscall(procSetStdHandle.Addr(), 2, uintptr(stdhandle), uintptr(handle), 0)
+	r0, _, e1 := syscall.Syscall(_procSetStdHandle.Addr(), 2, uintptr(stdhandle), uintptr(handle), 0)
 	if r0 == 0 {
 		if e1 != 0 {
 			return error(e1)

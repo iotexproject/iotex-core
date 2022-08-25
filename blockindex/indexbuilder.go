@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
@@ -36,12 +37,12 @@ func init() {
 // they are left here only for record
 // do NOT use them in the future to avoid potential conflict
 const (
-	blockActionBlockMappingNS        = "a2b"
-	blockAddressActionMappingNS      = "a2a"
-	blockAddressActionCountMappingNS = "a2c"
-	blockActionReceiptMappingNS      = "a2r"
-	numActionsNS                     = "nac"
-	transferAmountNS                 = "tfa"
+	_blockActionBlockMappingNS        = "a2b"
+	_blockAddressActionMappingNS      = "a2a"
+	_blockAddressActionCountMappingNS = "a2c"
+	_blockActionReceiptMappingNS      = "a2r"
+	_numActionsNS                     = "nac"
+	_transferAmountNS                 = "tfa"
 )
 
 // IndexBuilder defines the index builder
@@ -49,10 +50,11 @@ type IndexBuilder struct {
 	timerFactory *prometheustimer.TimerFactory
 	dao          blockdao.BlockDAO
 	indexer      Indexer
+	genesis      genesis.Genesis
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, dao blockdao.BlockDAO, indexer Indexer) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, g genesis.Genesis, dao blockdao.BlockDAO, indexer Indexer) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
@@ -66,6 +68,7 @@ func NewIndexBuilder(chainID uint32, dao blockdao.BlockDAO, indexer Indexer) (*I
 		timerFactory: timerFactory,
 		dao:          dao,
 		indexer:      indexer,
+		genesis:      g,
 	}, nil
 }
 
@@ -74,7 +77,7 @@ func (ib *IndexBuilder) Start(ctx context.Context) error {
 	if err := ib.indexer.Start(ctx); err != nil {
 		return err
 	}
-	if err := ib.init(); err != nil {
+	if err := ib.init(ctx); err != nil {
 		return err
 	}
 	// start handler to index incoming new block
@@ -94,7 +97,7 @@ func (ib *IndexBuilder) Indexer() Indexer {
 // ReceiveBlock handles the block and create the indices for the actions and receipts in it
 func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	timer := ib.timerFactory.NewTimer("indexBlock")
-	if err := ib.indexer.PutBlock(context.Background(), blk); err != nil {
+	if err := ib.indexer.PutBlock(genesis.WithGenesisContext(context.Background(), ib.genesis), blk); err != nil {
 		log.L().Error(
 			"Error when indexing the block",
 			zap.Uint64("height", blk.Height()),
@@ -109,7 +112,7 @@ func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	return nil
 }
 
-func (ib *IndexBuilder) init() error {
+func (ib *IndexBuilder) init(ctx context.Context) error {
 	startHeight, err := ib.indexer.Height()
 	if err != nil {
 		return err
@@ -132,7 +135,10 @@ func (ib *IndexBuilder) init() error {
 		return err
 	}
 	// update index to latest block
-	blks := make([]*block.Block, 0, 5000)
+	var (
+		gCtx = genesis.WithGenesisContext(ctx, ib.genesis)
+		blks = make([]*block.Block, 0, 5000)
+	)
 	for startHeight++; startHeight <= tipHeight; startHeight++ {
 		blk, err := ib.dao.GetBlockByHeight(startHeight)
 		if err != nil {
@@ -141,7 +147,7 @@ func (ib *IndexBuilder) init() error {
 		blks = append(blks, blk)
 		// commit once every 5000 blocks
 		if startHeight%5000 == 0 || startHeight == tipHeight {
-			if err := ib.indexer.PutBlocks(blks); err != nil {
+			if err := ib.indexer.PutBlocks(gCtx, blks); err != nil {
 				return err
 			}
 			blks = blks[:0]

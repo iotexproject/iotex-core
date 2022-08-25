@@ -5,12 +5,12 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -22,6 +22,8 @@ type SealedEnvelope struct {
 	evmNetworkID uint32
 	srcPubkey    crypto.PublicKey
 	signature    []byte
+	srcAddress   address.Address
+	hash         hash.Hash256
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -48,6 +50,17 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
+	if sealed.hash == hash.ZeroHash256 {
+		hashVal, hashErr := sealed.calcHash()
+		if hashErr == nil {
+			sealed.hash = hashVal
+		}
+		return sealed.hash, hashErr
+	}
+	return sealed.hash, nil
+}
+
+func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		act, ok := sealed.Action().(EthCompatibleAction)
@@ -68,6 +81,14 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 
 // SrcPubkey returns the source public key
 func (sealed *SealedEnvelope) SrcPubkey() crypto.PublicKey { return sealed.srcPubkey }
+
+// SenderAddress returns address of the source public key
+func (sealed *SealedEnvelope) SenderAddress() address.Address {
+	if sealed.srcAddress == nil {
+		sealed.srcAddress = sealed.srcPubkey.Address()
+	}
+	return sealed.srcAddress
+}
 
 // Signature returns signature bytes
 func (sealed *SealedEnvelope) Signature() []byte {
@@ -91,8 +112,8 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 	}
 }
 
-// LoadProto loads from proto scheme.
-func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
+// loadProto loads from proto scheme.
+func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) error {
 	if pbAct == nil {
 		return ErrNilProto
 	}
@@ -125,10 +146,10 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
+		if _, err = rlpSignedHash(tx, evmID, pbAct.GetSignature()); err != nil {
 			return err
 		}
-		sealed.evmNetworkID = config.EVMNetworkID()
+		sealed.evmNetworkID = evmID
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
@@ -141,21 +162,16 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.signature = make([]byte, sigSize)
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
-	elp.Action().SetEnvelopeContext(*sealed)
+	sealed.hash = hash.ZeroHash256
+	sealed.srcAddress = nil
 	return nil
 }
 
-// Verify verifies the action using sender's public key
-func (sealed *SealedEnvelope) Verify() error {
+// VerifySignature verifies the action using sender's public key
+func (sealed *SealedEnvelope) VerifySignature() error {
 	if sealed.SrcPubkey() == nil {
 		return errors.New("empty public key")
 	}
-	// Reject action with insufficient gas limit
-	intrinsicGas, err := sealed.IntrinsicGas()
-	if intrinsicGas > sealed.GasLimit() || err != nil {
-		return ErrIntrinsicGas
-	}
-
 	h, err := sealed.envelopeHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to generate envelope hash")

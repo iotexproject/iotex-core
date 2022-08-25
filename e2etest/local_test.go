@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -42,11 +43,11 @@ import (
 )
 
 const (
-	dBPath     = "db.test"
-	dBPath2    = "db.test2"
-	triePath   = "trie.test"
-	triePath2  = "trie.test2"
-	disabledIP = "169.254."
+	_dBPath     = "db.test"
+	_dBPath2    = "db.test2"
+	_triePath   = "trie.test"
+	_triePath2  = "trie.test2"
+	_disabledIP = "169.254."
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -54,11 +55,11 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile(dBPath)
+	testDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	indexDBPath, err := testutil.PathOfTempFile(dBPath)
+	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
@@ -71,7 +72,7 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// create server
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
@@ -86,7 +87,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(sf)
 	require.NotNil(ap)
 
-	i27State, err := accountutil.AccountState(sf, identityset.Address(27))
+	i27State, err := accountutil.AccountState(ctx, sf, identityset.Address(27))
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc, ap))
 	require.EqualValues(5, bc.TipHeight())
@@ -104,12 +105,12 @@ func TestLocalCommit(t *testing.T) {
 		{32, "100"},
 		{33, "5242883"},
 	} {
-		s, err := accountutil.AccountState(sf, identityset.Address(v.addrIndex))
+		s, err := accountutil.AccountState(ctx, sf, identityset.Address(v.addrIndex))
 		require.NoError(err)
 		require.Equal(v.balance, s.Balance.String())
 		change.Add(change, s.Balance)
 	}
-	s, err := accountutil.AccountState(sf, identityset.Address(27))
+	s, err := accountutil.AccountState(ctx, sf, identityset.Address(27))
 	require.NoError(err)
 	change.Add(change, s.Balance)
 	change.Sub(change, i27State.Balance)
@@ -137,11 +138,11 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// create local chain
-	testTriePath2, err := testutil.PathOfTempFile(triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(_triePath2)
 	require.NoError(err)
-	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(testTriePath2)
@@ -155,15 +156,22 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	sf2, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	db1, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 	require.NoError(err)
-	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
+	sf2, err := factory.NewStateDB(factoryCfg, db1, factory.RegistryStateDBOption(registry))
 	require.NoError(err)
+	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool)
+	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf2}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
-		cfg,
-		nil,
+		cfg.Chain,
+		cfg.Genesis,
+		dao,
 		factory.NewMinter(sf2, ap2),
-		blockchain.BoltDBDaoOption(sf2),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),
@@ -187,8 +195,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 1
 	// C --> A
-	s, _ = accountutil.AccountState(sf, identityset.Address(30))
-	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(30))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf1))
@@ -208,8 +216,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = accountutil.AccountState(sf, identityset.Address(33))
-	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(33))
+	tsf2, err := action.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf2))
@@ -229,8 +237,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = accountutil.AccountState(sf, identityset.Address(29))
-	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(29))
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf3))
@@ -250,8 +258,8 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = accountutil.AccountState(sf, identityset.Address(27))
-	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = accountutil.AccountState(ctx, sf, identityset.Address(27))
+	tsf4, err := action.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.PendingNonce(), big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(context.Background(), tsf4))
@@ -293,12 +301,12 @@ func TestLocalCommit(t *testing.T) {
 		{32, "101"},
 		{33, "5242882"},
 	} {
-		s, err = accountutil.AccountState(sf, identityset.Address(v.addrIndex))
+		s, err = accountutil.AccountState(ctx, sf, identityset.Address(v.addrIndex))
 		require.NoError(err)
 		require.Equal(v.balance, s.Balance.String())
 		change.Add(change, s.Balance)
 	}
-	s, err = accountutil.AccountState(sf, identityset.Address(27))
+	s, err = accountutil.AccountState(ctx, sf, identityset.Address(27))
 	require.NoError(err)
 	change.Add(change, s.Balance)
 	change.Sub(change, i27State.Balance)
@@ -310,11 +318,11 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
-	testDBPath, err := testutil.PathOfTempFile(dBPath)
+	testDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	indexDBPath, err := testutil.PathOfTempFile(dBPath)
+	indexDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
 	cfg.Chain.TrieDBPatchFile = ""
 	cfg.Chain.TrieDBPath = testTriePath
@@ -329,7 +337,7 @@ func TestLocalSync(t *testing.T) {
 	// bootnode
 	ctx := context.Background()
 	bootnodePort := testutil.RandomPort()
-	bootnode := p2p.NewAgent(p2p.Network{
+	bootnode := p2p.NewAgent(p2p.Config{
 		Host:              "127.0.0.1",
 		Port:              bootnodePort,
 		ReconnectInterval: 150 * time.Second},
@@ -366,11 +374,11 @@ func TestLocalSync(t *testing.T) {
 		blkHash[i-1] = blk.HashBlock()
 	}
 
-	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
-	testTriePath2, err := testutil.PathOfTempFile(triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(_triePath2)
 	require.NoError(err)
-	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(_dBPath2)
 	require.NoError(err)
 
 	cfg, err = newTestConfig()
@@ -401,7 +409,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		peers, err := svr.P2PAgent().Neighbors(ctx)
+		peers, err := svr.P2PAgent().ConnectedPeers()
 		return len(peers) >= 1, err
 	})
 	require.NoError(err)
@@ -425,11 +433,11 @@ func TestLocalSync(t *testing.T) {
 func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-	testDBPath, err := testutil.PathOfTempFile(dBPath)
+	testDBPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
-	testTriePath, err := testutil.PathOfTempFile(triePath)
+	testTriePath, err := testutil.PathOfTempFile(_triePath)
 	require.NoError(err)
-	testIndexPath, err := testutil.PathOfTempFile(dBPath)
+	testIndexPath, err := testutil.PathOfTempFile(_dBPath)
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
@@ -474,8 +482,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao := blockdao.NewBlockDAO(nil, cfg.DB)
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
@@ -497,8 +505,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
-	dao = blockdao.NewBlockDAO(nil, cfg.DB)
+	dao = blockdao.NewBlockDAO(nil, cfg.DB, deser)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(
 		genesis.WithGenesisContext(ctx, cfg.Genesis),
 		protocol.BlockchainCtx{
@@ -520,13 +527,14 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 func newTestConfig() (config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = triePath
-	cfg.Chain.ChainDBPath = dBPath
+	cfg.Chain.TrieDBPath = _triePath
+	cfg.Chain.ChainDBPath = _dBPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
+	cfg.API.WebSocketPort = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.MidwayBlockHeight = 1
 	sk, err := crypto.GenerateKey()
@@ -540,7 +548,7 @@ func newTestConfig() (config.Config, error) {
 
 func validNetworkAddr(addrs []multiaddr.Multiaddr) (ret string) {
 	for _, addr := range addrs {
-		if !strings.Contains(addr.String(), disabledIP) {
+		if !strings.Contains(addr.String(), _disabledIP) {
 			return addr.String()
 		}
 	}

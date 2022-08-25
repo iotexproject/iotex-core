@@ -39,36 +39,6 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 	}
 }
 
-// FromProto converts from proto message
-func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
-	blk, err := (&Deserializer{}).FromBlockProto(pb.Block)
-	if err != nil {
-		return err
-	}
-	// verify merkle root can match after deserialize
-	if err := blk.VerifyTxRoot(); err != nil {
-		return err
-	}
-
-	in.Block = blk
-	in.Receipts = []*action.Receipt{}
-	for _, receiptPb := range pb.Receipts {
-		receipt := &action.Receipt{}
-		receipt.ConvertFromReceiptPb(receiptPb)
-		in.Receipts = append(in.Receipts, receipt)
-	}
-	return nil
-}
-
-// Deserialize parses the byte stream into Store
-func (in *Store) Deserialize(buf []byte) error {
-	pbStore := &iotextypes.BlockStore{}
-	if err := proto.Unmarshal(buf, pbStore); err != nil {
-		return err
-	}
-	return in.FromProto(pbStore)
-}
-
 // DeserializeBlockStoresPb decode byte stream into BlockStores pb message
 func DeserializeBlockStoresPb(buf []byte) (*iotextypes.BlockStores, error) {
 	pbStores := &iotextypes.BlockStores{}

@@ -20,11 +20,11 @@ import (
 
 // Multi-language support
 var (
-	balanceCmdUses = map[config.Language]string{
+	_balanceCmdUses = map[config.Language]string{
 		config.English: "balance [ALIAS|ADDRESS]",
 		config.Chinese: "balance [别名|地址]",
 	}
-	balanceCmdShorts = map[config.Language]string{
+	_balanceCmdShorts = map[config.Language]string{
 		config.English: "Get balance of an account",
 		config.Chinese: "查询账号余额",
 	}
@@ -32,8 +32,8 @@ var (
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   config.TranslateInLang(balanceCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(balanceCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(_balanceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_balanceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

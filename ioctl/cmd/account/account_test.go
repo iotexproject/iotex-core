@@ -9,8 +9,6 @@ package account
 import (
 	"crypto/ecdsa"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -22,18 +20,12 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testPath = "ksTest"
 )
 
 func TestAccount(t *testing.T) {
 	r := require.New(t)
 
-	testWallet := filepath.Join(os.TempDir(), testPath)
-	defer testutil.CleanupPath(testWallet)
+	testWallet := t.TempDir()
 	config.ReadConfig.Wallet = testWallet
 
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)

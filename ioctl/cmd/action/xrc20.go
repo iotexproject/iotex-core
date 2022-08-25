@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -24,38 +24,34 @@ import (
 
 // Multi-language support
 var (
-	xrc20CmdShorts = map[config.Language]string{
+	_xrc20CmdShorts = map[config.Language]string{
 		config.English: "Support ERC20 standard command-line",
 		config.Chinese: "使ioctl命令行支持ERC20标准",
 	}
-	xrc20CmdUses = map[config.Language]string{
-		config.English: "xrc20",
-		config.Chinese: "xrc20",
-	}
-	flagContractAddressUsages = map[config.Language]string{
+	_flagContractAddressUsages = map[config.Language]string{
 		config.English: "set contract address",
 		config.Chinese: "设定合约地址",
 	}
-	flagXrc20EndPointUsages = map[config.Language]string{
+	_flagXrc20EndPointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagXrc20InsecureUsages = map[config.Language]string{
+	_flagXrc20InsecureUsages = map[config.Language]string{
 		config.English: "insecure connection for once (default false)",
 		config.Chinese: "一次不安全的连接（默认为false）",
 	}
 )
 
-//Xrc20Cmd represent erc20 standard command-line
+// Xrc20Cmd represent xrc20 standard command-line
 var Xrc20Cmd = &cobra.Command{
-	Use:   config.TranslateInLang(xrc20CmdUses, config.UILanguage),
-	Short: config.TranslateInLang(xrc20CmdShorts, config.UILanguage),
+	Use:   "xrc20",
+	Short: config.TranslateInLang(_xrc20CmdShorts, config.UILanguage),
 }
 
-var xrc20ContractAddress string
+var _xrc20ContractAddress string
 
 func xrc20Contract() (address.Address, error) {
-	addr, err := alias.IOAddress(xrc20ContractAddress)
+	addr, err := alias.IOAddress(_xrc20ContractAddress)
 	if err != nil {
 		return nil, output.NewError(output.FlagError, "invalid xrc20 address flag", err)
 	}
@@ -75,19 +71,21 @@ func (m *amountMessage) String() string {
 }
 
 func init() {
-	Xrc20Cmd.AddCommand(xrc20TotalSupplyCmd)
-	Xrc20Cmd.AddCommand(xrc20BalanceOfCmd)
-	Xrc20Cmd.AddCommand(xrc20TransferCmd)
-	Xrc20Cmd.AddCommand(xrc20TransferFromCmd)
-	Xrc20Cmd.AddCommand(xrc20ApproveCmd)
-	Xrc20Cmd.AddCommand(xrc20AllowanceCmd)
-	Xrc20Cmd.PersistentFlags().StringVarP(&xrc20ContractAddress, "contract-address", "c", "",
-		config.TranslateInLang(flagContractAddressUsages, config.UILanguage))
+	Xrc20Cmd.AddCommand(_xrc20TotalSupplyCmd)
+	Xrc20Cmd.AddCommand(_xrc20BalanceOfCmd)
+	Xrc20Cmd.AddCommand(_xrc20TransferCmd)
+	Xrc20Cmd.AddCommand(_xrc20TransferFromCmd)
+	Xrc20Cmd.AddCommand(_xrc20ApproveCmd)
+	Xrc20Cmd.AddCommand(_xrc20AllowanceCmd)
+	Xrc20Cmd.PersistentFlags().StringVarP(&_xrc20ContractAddress, "contract-address", "c", "",
+		config.TranslateInLang(_flagContractAddressUsages, config.UILanguage))
 	Xrc20Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagXrc20EndPointUsages, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagXrc20EndPointUsages, config.UILanguage))
 	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		config.TranslateInLang(flagXrc20InsecureUsages, config.UILanguage))
-	cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address")
+		config.TranslateInLang(_flagXrc20InsecureUsages, config.UILanguage))
+	if err := cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address"); err != nil {
+		fmt.Printf("failed to mark flag: %v\n", err)
+	}
 }
 
 func parseAmount(contract address.Address, amount string) (*big.Int, error) {

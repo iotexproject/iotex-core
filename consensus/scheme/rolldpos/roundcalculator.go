@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
@@ -131,20 +130,23 @@ func (c *roundCalculator) roundInfo(
 	now time.Time,
 	toleratedOvertime time.Duration,
 ) (roundNum uint32, roundStartTime time.Time, err error) {
-	lastBlockTime := time.Unix(c.chain.Genesis().Timestamp, 0)
+	var lastBlockTime time.Time
+	if lastBlockTime, err = c.chain.BlockProposeTime(0); err != nil {
+		return
+	}
 	if height > 1 {
 		if height >= c.beringHeight {
-			var lastBlock *block.Header
-			if lastBlock, err = c.chain.BlockHeaderByHeight(height - 1); err != nil {
+			var lastBlkProposeTime time.Time
+			if lastBlkProposeTime, err = c.chain.BlockProposeTime(height - 1); err != nil {
 				return
 			}
-			lastBlockTime = lastBlockTime.Add(lastBlock.Timestamp().Sub(lastBlockTime) / blockInterval * blockInterval)
+			lastBlockTime = lastBlockTime.Add(lastBlkProposeTime.Sub(lastBlockTime) / blockInterval * blockInterval)
 		} else {
-			var lastBlock *block.Footer
-			if lastBlock, err = c.chain.BlockFooterByHeight(height - 1); err != nil {
+			var lastBlkCommitTime time.Time
+			if lastBlkCommitTime, err = c.chain.BlockCommitTime(height - 1); err != nil {
 				return
 			}
-			lastBlockTime = lastBlockTime.Add(lastBlock.CommitTime().Sub(lastBlockTime) / blockInterval * blockInterval)
+			lastBlockTime = lastBlockTime.Add(lastBlkCommitTime.Sub(lastBlockTime) / blockInterval * blockInterval)
 		}
 	}
 	if !lastBlockTime.Before(now) {
@@ -224,7 +226,7 @@ func (c *roundCalculator) newRound(
 		}
 	}
 	if eManager == nil {
-		if eManager, err = newEndorsementManager(nil); err != nil {
+		if eManager, err = newEndorsementManager(nil, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -240,7 +242,7 @@ func (c *roundCalculator) newRound(
 		eManager:           eManager,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
-		status:             open,
+		status:             _open,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 

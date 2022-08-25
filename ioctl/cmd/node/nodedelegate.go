@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -34,37 +34,37 @@ import (
 )
 
 const (
-	protocolID          = "staking"
-	readCandidatesLimit = 20000
-	defaultDelegateNum  = 36
+	_protocolID          = "staking"
+	_readCandidatesLimit = 20000
+	_defaultDelegateNum  = 36
 )
 
 // Multi-language support
 var (
-	delegateCmdUses = map[config.Language]string{
+	_delegateCmdUses = map[config.Language]string{
 		config.English: "delegate [-e epoch-num] [-a]",
 		config.Chinese: "delegate [-e epoch数] [-a]",
 	}
-	delegateCmdShorts = map[config.Language]string{
+	_delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
 		config.Chinese: "打印在特定epoch内的公认代表的信息",
 	}
-	flagEpochNumUsages = map[config.Language]string{
+	_flagEpochNumUsages = map[config.Language]string{
 		config.English: "specify specific epoch",
 		config.Chinese: "指定特定epoch",
 	}
 )
 
 var (
-	epochNum       uint64
-	nodeStatus     map[bool]string
-	probatedStatus map[bool]string
+	_epochNum       uint64
+	_nodeStatus     map[bool]string
+	_probatedStatus map[bool]string
 )
 
-// nodeDelegateCmd represents the node delegate command
-var nodeDelegateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(delegateCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(delegateCmdShorts, config.UILanguage),
+// _nodeDelegateCmd represents the node delegate command
+var _nodeDelegateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_delegateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_delegateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -81,7 +81,7 @@ type delegate struct {
 	Active             bool     `json:"active"`
 	Production         int      `json:"production"`
 	Votes              string   `json:"votes"`
-	ProbatedStatus     bool     `json:"probatedStatus"`
+	ProbatedStatus     bool     `json:"_probatedStatus"`
 	TotalWeightedVotes *big.Int `json:"totalWeightedVotes"`
 }
 
@@ -107,7 +107,7 @@ func (m *delegatesMessage) String() string {
 		lines = append(lines, fmt.Sprintf(formatTitleString,
 			"Address", "Name", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
 		for _, bp := range m.Delegates {
-			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Name, bp.Rank, bp.Alias, nodeStatus[bp.Active], bp.Production, probatedStatus[bp.ProbatedStatus], bp.Votes))
+			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Name, bp.Rank, bp.Alias, _nodeStatus[bp.Active], bp.Production, _probatedStatus[bp.ProbatedStatus], bp.Votes))
 		}
 		return strings.Join(lines, "\n")
 	}
@@ -115,14 +115,14 @@ func (m *delegatesMessage) String() string {
 }
 
 func init() {
-	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
-		config.TranslateInLang(flagEpochNumUsages, config.UILanguage))
-	nodeStatus = map[bool]string{true: "active", false: ""}
-	probatedStatus = map[bool]string{true: "probated", false: ""}
+	_nodeDelegateCmd.Flags().Uint64VarP(&_epochNum, "epoch-num", "e", 0,
+		config.TranslateInLang(_flagEpochNumUsages, config.UILanguage))
+	_nodeStatus = map[bool]string{true: "active", false: ""}
+	_probatedStatus = map[bool]string{true: "probated", false: ""}
 }
 
 func delegates() error {
-	if epochNum == 0 {
+	if _epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
 			return output.NewError(0, "failed to get chain meta", err)
@@ -131,9 +131,9 @@ func delegates() error {
 		if epochData == nil {
 			return output.NewError(0, "ROLLDPOS is not registered", nil)
 		}
-		epochNum = epochData.Num
+		_epochNum = epochData.Num
 	}
-	response, err := bc.GetEpochMeta(epochNum)
+	response, err := bc.GetEpochMeta(_epochNum)
 	if err != nil {
 		return output.NewError(0, "failed to get epoch meta", err)
 	}
@@ -144,7 +144,7 @@ func delegates() error {
 		StartBlock:  int(epochData.Height),
 		TotalBlocks: int(response.TotalBlocks),
 	}
-	probationList, err := getProbationList(epochNum, epochData.Height)
+	probationList, err := getProbationList(_epochNum, epochData.Height)
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)
 	}
@@ -253,17 +253,19 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 			ProbatedStatus: isProbated,
 		})
 	}
-	fillMessage(cli, message, aliases, isActive, pb)
+	if err = fillMessage(cli, message, aliases, isActive, pb); err != nil {
+		return err
+	}
 	return sortAndPrint(message)
 }
 
 func sortAndPrint(message *delegatesMessage) error {
-	if allFlag.Value() == false && len(message.Delegates) > defaultDelegateNum {
-		message.Delegates = message.Delegates[:defaultDelegateNum]
+	if _allFlag.Value() == false && len(message.Delegates) > _defaultDelegateNum {
+		message.Delegates = message.Delegates[:_defaultDelegateNum]
 		fmt.Println(message.String())
 		return nil
 	}
-	for i := defaultDelegateNum; i < len(message.Delegates); i++ {
+	for i := _defaultDelegateNum; i < len(message.Delegates); i++ {
 		totalWeightedVotes, ok := big.NewFloat(0).SetString(message.Delegates[i].Votes)
 		if !ok {
 			return errors.New("string convert to big float")
@@ -271,14 +273,14 @@ func sortAndPrint(message *delegatesMessage) error {
 		totalWeightedVotesInt, _ := totalWeightedVotes.Int(nil)
 		message.Delegates[i].TotalWeightedVotes = totalWeightedVotesInt
 	}
-	if len(message.Delegates) > defaultDelegateNum {
-		latter := message.Delegates[defaultDelegateNum:]
-		message.Delegates = message.Delegates[:defaultDelegateNum]
+	if len(message.Delegates) > _defaultDelegateNum {
+		latter := message.Delegates[_defaultDelegateNum:]
+		message.Delegates = message.Delegates[:_defaultDelegateNum]
 		sort.SliceStable(latter, func(i, j int) bool {
 			return latter[i].TotalWeightedVotes.Cmp(latter[j].TotalWeightedVotes) > 0
 		})
 		for i, t := range latter {
-			t.Rank = defaultDelegateNum + i + 1
+			t.Rank = _defaultDelegateNum + i + 1
 			message.Delegates = append(message.Delegates, t)
 		}
 	}
@@ -286,8 +288,8 @@ func sortAndPrint(message *delegatesMessage) error {
 	return nil
 }
 
-func getProbationList(epochNum uint64, epochStartHeight uint64) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(epochNum, epochStartHeight)
+func getProbationList(_epochNum uint64, epochStartHeight uint64) (*vote.ProbationList, error) {
+	probationListRes, err := bc.GetProbationList(_epochNum, epochStartHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -349,14 +351,14 @@ func fillMessage(cli iotexapi.APIServiceClient, message *delegatesMessage, alias
 func getAllStakingCandidates(chainClient iotexapi.APIServiceClient) (candidateListAll *iotextypes.CandidateListV2, err error) {
 	candidateListAll = &iotextypes.CandidateListV2{}
 	for i := uint32(0); ; i++ {
-		offset := i * readCandidatesLimit
-		size := uint32(readCandidatesLimit)
+		offset := i * _readCandidatesLimit
+		size := uint32(_readCandidatesLimit)
 		candidateList, err := getStakingCandidates(chainClient, offset, size)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get candidates")
 		}
 		candidateListAll.Candidates = append(candidateListAll.Candidates, candidateList.Candidates...)
-		if len(candidateList.Candidates) < readCandidatesLimit {
+		if len(candidateList.Candidates) < _readCandidatesLimit {
 			break
 		}
 	}
@@ -384,7 +386,7 @@ func getStakingCandidates(chainClient iotexapi.APIServiceClient, offset, limit u
 		return nil, err
 	}
 	readStateRequest := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(protocolID),
+		ProtocolID: []byte(_protocolID),
 		MethodName: methodName,
 		Arguments:  [][]byte{arg},
 	}

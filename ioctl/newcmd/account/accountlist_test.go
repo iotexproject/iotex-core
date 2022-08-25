@@ -8,8 +8,6 @@ package account
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -30,13 +28,9 @@ func TestNewAccountList(t *testing.T) {
 
 	t.Run("When NewAccountList returns no error", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(false)
-		testAccountFolder := filepath.Join(os.TempDir(), "testAccount")
-		require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
-		defer func() {
-			require.NoError(os.RemoveAll(testAccountFolder))
-		}()
+		testAccountFolder := t.TempDir()
 
-		ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+		ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 		genAccount := func(passwd string) string {
 			account, err := ks.NewAccount(passwd)
 			require.NoError(err)

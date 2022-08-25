@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -91,13 +90,14 @@ func TestAddBalance(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)
@@ -113,13 +113,14 @@ func TestRefundAPIs(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -133,13 +134,14 @@ func TestEmptyAndCode(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -169,13 +171,14 @@ func TestForEachStorage(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	stateDB.CreateAccount(addr)
 	for k, v := range kvs {
 		stateDB.SetState(addr, k, v)
@@ -197,15 +200,14 @@ func TestReadContractStorage(t *testing.T) {
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		AsyncContractTrieOption(),
-		SortCachedContractsOption(),
-		UsePendingNonceOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -240,81 +242,124 @@ func TestNonce(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 
-	sm, err := initMockStateManager(ctrl)
-	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	opt := []StateDBAdapterOption{
-		NotFixTopicCopyBugOption(),
-		FixSnapshotOrderOption(),
-	}
-	stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
-	require.Equal(uint64(0), stateDB.GetNonce(addr))
-	stateDB.SetNonce(addr, 1)
-	require.Equal(uint64(1), stateDB.GetNonce(addr))
+	t.Run("legacy nonce account with confirmed nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			LegacyNonceAccountOption(),
+			UseConfirmedNonceOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(0), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 1)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+	})
+	t.Run("legacy nonce account with pending nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			LegacyNonceAccountOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 2)
+		require.Equal(uint64(2), stateDB.GetNonce(addr))
+	})
+	t.Run("zero nonce account with confirmed nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+			UseConfirmedNonceOption(),
+		}
+		_, err = NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.Error(err)
+	})
+	t.Run("zero nonce account with pending nonce", func(t *testing.T) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		opt := []StateDBAdapterOption{
+			NotFixTopicCopyBugOption(),
+			FixSnapshotOrderOption(),
+		}
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
+		require.Equal(uint64(0), stateDB.GetNonce(addr))
+		stateDB.SetNonce(addr, 1)
+		require.Equal(uint64(1), stateDB.GetNonce(addr))
+	})
 }
 
 var tests = []stateDBTest{
 	{
 		[]bal{
-			{addr1, big.NewInt(40000)},
+			{_addr1, big.NewInt(40000)},
 		},
 		[]code{
-			{c1, bytecode},
+			{_c1, _bytecode},
 		},
 		[]evmSet{
-			{c1, k1, v1},
-			{c1, k2, v2},
-			{c3, k3, v4},
+			{_c1, _k1, _v1},
+			{_c1, _k2, _v2},
+			{_c3, _k3, _v4},
 		},
 		[]sui{
-			{c2, false, false},
-			{C4, false, false},
+			{_c2, false, false},
+			{_c4, false, false},
 		},
 		[]image{
-			{common.BytesToHash(v1[:]), []byte("cat")},
-			{common.BytesToHash(v2[:]), []byte("dog")},
+			{common.BytesToHash(_v1[:]), []byte("cat")},
+			{common.BytesToHash(_v2[:]), []byte("dog")},
 		},
 		[]access{
-			{c1, []common.Hash{k1, k2}, []common.Hash{k3, k4}, false},
+			{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, false},
 		},
 		[]*types.Log{
-			newTestLog(c3), newTestLog(c2), newTestLog(c1),
+			newTestLog(_c3), newTestLog(_c2), newTestLog(_c1),
 		},
 		[]*action.TransactionLog{
-			newTestTxLog(c3), newTestTxLog(c1),
+			newTestTxLog(_c3), newTestTxLog(_c1),
 		},
 		3, 2,
 		"io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r", "io1q87zge3ngux0v2hz49tdy85dfqwr560pj9mk7r",
 	},
 	{
 		[]bal{
-			{addr1, big.NewInt(40000)},
+			{_addr1, big.NewInt(40000)},
 		},
 		[]code{
-			{c2, bytecode},
+			{_c2, _bytecode},
 		},
 		[]evmSet{
-			{c1, k1, v3},
-			{c1, k2, v4},
-			{c2, k3, v3},
-			{c2, k4, v4},
+			{_c1, _k1, _v3},
+			{_c1, _k2, _v4},
+			{_c2, _k3, _v3},
+			{_c2, _k4, _v4},
 		},
 		[]sui{
-			{c1, true, true},
-			{c3, true, true},
+			{_c1, true, true},
+			{_c3, true, true},
 		},
 		[]image{
-			{common.BytesToHash(v3[:]), []byte("hen")},
+			{common.BytesToHash(_v3[:]), []byte("hen")},
 		},
 		[]access{
-			{c1, []common.Hash{k3, k4}, nil, true},
-			{c2, []common.Hash{k1, k3}, []common.Hash{k2, k4}, false},
+			{_c1, []common.Hash{_k3, _k4}, nil, true},
+			{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, false},
 		},
 		[]*types.Log{
-			newTestLog(C4),
+			newTestLog(_c4),
 		},
 		[]*action.TransactionLog{
-			newTestTxLog(c2), newTestTxLog(c1), newTestTxLog(C4),
+			newTestTxLog(_c2), newTestTxLog(_c1), newTestTxLog(_c4),
 		},
 		4, 5,
 		"io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q", "io1zg0qrlpyvc68pnmz4c4f2mfc6jqu8f57jjy09q",
@@ -323,20 +368,20 @@ var tests = []stateDBTest{
 		nil,
 		nil,
 		[]evmSet{
-			{c2, k3, v1},
-			{c2, k4, v2},
+			{_c2, _k3, _v1},
+			{_c2, _k4, _v2},
 		},
 		[]sui{
-			{addr1, true, true},
+			{_addr1, true, true},
 		},
 		[]image{
-			{common.BytesToHash(v4[:]), []byte("fox")},
+			{common.BytesToHash(_v4[:]), []byte("fox")},
 		},
 		[]access{
-			{c2, []common.Hash{k2, k4}, nil, true},
+			{_c2, []common.Hash{_k2, _k4}, nil, true},
 		},
 		[]*types.Log{
-			newTestLog(c1), newTestLog(c2),
+			newTestLog(_c1), newTestLog(_c2),
 		},
 		nil,
 		6, 5,
@@ -345,7 +390,7 @@ var tests = []stateDBTest{
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot, revertLog bool) {
+	testSnapshotAndRevert := func(t *testing.T, async, fixSnapshot, revertLog bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -363,7 +408,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		if revertLog {
 			opt = append(opt, RevertLogOption())
 		}
-		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opt...)
+		require.NoError(err)
 
 		for i, test := range tests {
 			// add balance
@@ -425,31 +471,31 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		reverts := []stateDBTest{
 			{
 				[]bal{
-					{addr1, big.NewInt(0)},
+					{_addr1, big.NewInt(0)},
 				},
 				[]code{},
 				[]evmSet{
-					{c1, k1, v3},
-					{c1, k2, v4},
-					{c2, k3, v1},
-					{c2, k4, v2},
+					{_c1, _k1, _v3},
+					{_c1, _k2, _v4},
+					{_c2, _k3, _v1},
+					{_c2, _k4, _v2},
 				},
 				[]sui{
-					{c1, true, true},
-					{c3, true, true},
-					{c2, false, true},
-					{C4, false, false},
-					{addr1, true, true},
+					{_c1, true, true},
+					{_c3, true, true},
+					{_c2, false, true},
+					{_c4, false, false},
+					{_addr1, true, true},
 				},
 				[]image{
-					{common.BytesToHash(v1[:]), []byte("cat")},
-					{common.BytesToHash(v2[:]), []byte("dog")},
-					{common.BytesToHash(v3[:]), []byte("hen")},
-					{common.BytesToHash(v4[:]), []byte("fox")},
+					{common.BytesToHash(_v1[:]), []byte("cat")},
+					{common.BytesToHash(_v2[:]), []byte("dog")},
+					{common.BytesToHash(_v3[:]), []byte("hen")},
+					{common.BytesToHash(_v4[:]), []byte("fox")},
 				},
 				[]access{
-					{c1, []common.Hash{k1, k2, k3, k4}, nil, true},
-					{c2, []common.Hash{k1, k2, k3, k4}, nil, true},
+					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
+					{_c2, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
 				},
 				nil, nil,
 				6, 5,
@@ -457,26 +503,26 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{addr1, big.NewInt(80000)},
+					{_addr1, big.NewInt(80000)},
 				},
 				[]code{},
 				tests[1].states,
 				[]sui{
-					{c1, true, true},
-					{c3, true, true},
-					{c2, false, true},
-					{C4, false, false},
-					{addr1, false, true},
+					{_c1, true, true},
+					{_c3, true, true},
+					{_c2, false, true},
+					{_c4, false, false},
+					{_addr1, false, true},
 				},
 				[]image{
-					{common.BytesToHash(v1[:]), []byte("cat")},
-					{common.BytesToHash(v2[:]), []byte("dog")},
-					{common.BytesToHash(v3[:]), []byte("hen")},
-					{common.BytesToHash(v4[:]), []byte(nil)},
+					{common.BytesToHash(_v1[:]), []byte("cat")},
+					{common.BytesToHash(_v2[:]), []byte("dog")},
+					{common.BytesToHash(_v3[:]), []byte("hen")},
+					{common.BytesToHash(_v4[:]), []byte(nil)},
 				},
 				[]access{
-					{c1, []common.Hash{k1, k2, k3, k4}, nil, true},
-					{c2, []common.Hash{k1, k3}, []common.Hash{k2, k4}, true},
+					{_c1, []common.Hash{_k1, _k2, _k3, _k4}, nil, true},
+					{_c2, []common.Hash{_k1, _k3}, []common.Hash{_k2, _k4}, true},
 				},
 				nil, nil,
 				4, 5,
@@ -484,30 +530,30 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			},
 			{
 				[]bal{
-					{addr1, big.NewInt(40000)},
+					{_addr1, big.NewInt(40000)},
 				},
 				[]code{},
 				[]evmSet{
-					{c1, k1, v1},
-					{c1, k2, v2},
-					{c3, k3, v4},
+					{_c1, _k1, _v1},
+					{_c1, _k2, _v2},
+					{_c3, _k3, _v4},
 				},
 				[]sui{
-					{c1, false, true},
-					{c3, false, true},
-					{c2, false, false},
-					{C4, false, false},
-					{addr1, false, true},
+					{_c1, false, true},
+					{_c3, false, true},
+					{_c2, false, false},
+					{_c4, false, false},
+					{_addr1, false, true},
 				},
 				[]image{
-					{common.BytesToHash(v1[:]), []byte("cat")},
-					{common.BytesToHash(v2[:]), []byte("dog")},
-					{common.BytesToHash(v3[:]), []byte(nil)},
-					{common.BytesToHash(v4[:]), []byte(nil)},
+					{common.BytesToHash(_v1[:]), []byte("cat")},
+					{common.BytesToHash(_v2[:]), []byte("dog")},
+					{common.BytesToHash(_v3[:]), []byte(nil)},
+					{common.BytesToHash(_v4[:]), []byte(nil)},
 				},
 				[]access{
-					{c1, []common.Hash{k1, k2}, []common.Hash{k3, k4}, true},
-					{c2, nil, []common.Hash{k1, k2, k3, k4}, false},
+					{_c1, []common.Hash{_k1, _k2}, []common.Hash{_k3, _k4}, true},
+					{_c2, nil, []common.Hash{_k1, _k2, _k3, _k4}, false},
 				},
 				nil, nil,
 				3, 2,
@@ -591,25 +637,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 	}
 
 	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, true, false)
+		testSnapshotAndRevert(t, false, true, false)
 	})
 	t.Run("contract snapshot/revert/commit w/o bug fix and revert log", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, false, true)
+		testSnapshotAndRevert(t, false, false, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie and revert log", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, true, true)
+		testSnapshotAndRevert(t, true, true, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie and w/o bug fix", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, false, false)
+		testSnapshotAndRevert(t, true, false, false)
 	})
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(_ config.Config, t *testing.T, async, fixSnapshotOrder bool) {
+	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -625,7 +667,8 @@ func TestClearSnapshots(t *testing.T) {
 		if fixSnapshotOrder {
 			opts = append(opts, FixSnapshotOrderOption())
 		}
-		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		require.NoError(err)
 
 		for i, test := range tests {
 			// add balance
@@ -685,12 +728,10 @@ func TestClearSnapshots(t *testing.T) {
 
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
-		cfg := config.Default
-		testClearSnapshots(cfg, t, false, false)
+		testClearSnapshots(t, false, false)
 	})
 	t.Run("contract with clear snapshots", func(t *testing.T) {
-		cfg := config.Default
-		testClearSnapshots(cfg, t, false, true)
+		testClearSnapshots(t, false, true)
 	})
 }
 
@@ -701,30 +742,31 @@ func TestGetCommittedState(t *testing.T) {
 
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(
+		stateDB, err := NewStateDBAdapter(
 			sm,
 			1,
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
+		require.NoError(err)
 
-		stateDB.SetState(c1, k1, v1)
-		// k2 does not exist
-		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
-		require.Equal(v1, stateDB.GetState(c1, k1))
-		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
+		stateDB.SetState(_c1, _k1, _v1)
+		// _k2 does not exist
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(_c1, common.BytesToHash(_k2[:])))
+		require.Equal(_v1, stateDB.GetState(_c1, _k1))
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(_c1, common.BytesToHash(_k2[:])))
 
-		// commit (k1, v1)
+		// commit (_k1, _v1)
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
 
-		require.Equal(v1, stateDB.GetState(c1, k1))
-		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
-		stateDB.SetState(c1, k1, v2)
-		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
-		require.Equal(v2, stateDB.GetState(c1, k1))
-		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+		require.Equal(_v1, stateDB.GetState(_c1, _k1))
+		require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
+		stateDB.SetState(_c1, _k1, _v2)
+		require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
+		require.Equal(_v2, stateDB.GetState(_c1, _k1))
+		require.Equal(common.BytesToHash(_v1[:]), stateDB.GetCommittedState(_c1, common.BytesToHash(_k1[:])))
 	})
 }
 
@@ -739,13 +781,14 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(
+		stateDB, err := NewStateDBAdapter(
 			sm,
 			1,
 			hash.ZeroHash256,
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
+		assert.NoError(t, err)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -757,34 +800,36 @@ func TestPreimage(t *testing.T) {
 
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
-	stateDB := NewStateDBAdapter(
+	stateDB, err := NewStateDBAdapter(
 		sm,
 		1,
 		hash.ZeroHash256,
 		NotFixTopicCopyBugOption(),
 		FixSnapshotOrderOption(),
 	)
+	require.NoError(err)
 
-	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
-	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
-	stateDB.AddPreimage(common.BytesToHash(v3[:]), []byte("hen"))
-	// this won't overwrite preimage of v1
-	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("fox"))
+	stateDB.AddPreimage(common.BytesToHash(_v1[:]), []byte("cat"))
+	stateDB.AddPreimage(common.BytesToHash(_v2[:]), []byte("dog"))
+	stateDB.AddPreimage(common.BytesToHash(_v3[:]), []byte("hen"))
+	// this won't overwrite preimage of _v1
+	stateDB.AddPreimage(common.BytesToHash(_v1[:]), []byte("fox"))
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	var k protocol.SerializableBytes
-	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v1[:]))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(_v1[:]))
 	require.NoError(err)
 	require.Equal([]byte("cat"), []byte(k))
-	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v2[:]))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(_v2[:]))
 	require.NoError(err)
 	require.Equal([]byte("dog"), []byte(k))
-	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v3[:]))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(_v3[:]))
 	require.NoError(err)
 	require.Equal([]byte("hen"), []byte(k))
 }
 
 func TestSortMap(t *testing.T) {
+	require := require.New(t)
 	uniqueSlice := func(slice []string) bool {
 		for _, v := range slice[1:] {
 			if v != slice[0] {
@@ -799,26 +844,27 @@ func TestSortMap(t *testing.T) {
 			NotFixTopicCopyBugOption(),
 			FixSnapshotOrderOption(),
 		)
-		stateDB := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		stateDB, err := NewStateDBAdapter(sm, 1, hash.ZeroHash256, opts...)
+		require.NoError(err)
 		size := 10
 
 		for i := 0; i < size; i++ {
 			addr := common.HexToAddress(identityset.Address(i).Hex())
 			stateDB.SetCode(addr, []byte("0123456789"))
-			stateDB.SetState(addr, k1, k2)
+			stateDB.SetState(addr, _k1, _k2)
 		}
 		sn := stateDB.Snapshot()
 		caches := []string{}
 		for i := 0; i < size; i++ {
 			stateDB.RevertToSnapshot(sn)
 			s := ""
-			if stateDB.sortCachedContracts {
-				for _, addr := range stateDB.cachedContractAddrs() {
-					c := stateDB.cachedContract[addr]
+			if stateDB.disableSortCachedContracts {
+				for _, c := range stateDB.cachedContract {
 					s += string(c.SelfState().Root[:])
 				}
 			} else {
-				for _, c := range stateDB.cachedContract {
+				for _, addr := range stateDB.cachedContractAddrs() {
+					c := stateDB.cachedContract[addr]
 					s += string(c.SelfState().Root[:])
 				}
 			}
@@ -827,16 +873,15 @@ func TestSortMap(t *testing.T) {
 		}
 		return uniqueSlice(caches)
 	}
-	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
 	sm, err := initMockStateManager(ctrl)
 	require.NoError(err)
 	t.Run("before fix sort map", func(t *testing.T) {
-		require.False(testFunc(t, sm))
+		require.False(testFunc(t, sm, DisableSortCachedContractsOption()))
 	})
 
 	t.Run("after fix sort map", func(t *testing.T) {
-		require.True(testFunc(t, sm, SortCachedContractsOption()))
+		require.True(testFunc(t, sm))
 	})
 }

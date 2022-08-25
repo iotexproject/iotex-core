@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -22,21 +22,21 @@ import (
 
 // Multi-language support
 var (
-	testFunctionCmdUses = map[config.Language]string{
+	_testFunctionCmdUses = map[config.Language]string{
 		config.English: "function (CONTRACT_ADDRESS|ALIAS) ABI_PATH FUNCTION_NAME [AMOUNT_IOTX] " +
 			"[--with-arguments INVOKE_INPUT]",
 		config.Chinese: "function (合约地址|别名) ABI文件路径 函数名 [IOTX数量] [--with-arguments 调用输入]",
 	}
-	testFunctionCmdShorts = map[config.Language]string{
+	_testFunctionCmdShorts = map[config.Language]string{
 		config.English: "test smart contract on IoTeX blockchain with function name",
 		config.Chinese: "调用函数测试IoTeX区块链上的智能合约",
 	}
 )
 
-// contractTestFunctionCmd represents the contract test bytecode command
-var contractTestFunctionCmd = &cobra.Command{
-	Use:   config.TranslateInLang(testFunctionCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(testFunctionCmdShorts, config.UILanguage),
+// _contractTestFunctionCmd represents the contract test bytecode command
+var _contractTestFunctionCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_testFunctionCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_testFunctionCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

@@ -25,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -36,7 +36,13 @@ import (
 // TODO: we need something like mock_nativestaking to test properly with native buckets
 // now in the unit tests, native bucket is empty
 func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
-	cfg := config.Default
+	cfg := struct {
+		Genesis genesis.Genesis
+		Chain   blockchain.Config
+	}{
+		Genesis: genesis.Default,
+		Chain:   blockchain.DefaultConfig,
+	}
 	cfg.Genesis.NativeStakingContractAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
 	producer := identityset.Address(0)
 	ctx := protocol.WithBlockCtx(
@@ -53,7 +59,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	}
 	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, registry),
-		config.Default.Genesis,
+		genesis.Default,
 	)
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{})
 	ctx = protocol.WithActionCtx(
@@ -62,6 +68,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			Caller: producer,
 		},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -261,7 +268,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller := selp2.SrcPubkey().Address()
+		caller := selp2.SenderAddress()
 		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
@@ -298,7 +305,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
-		caller := selp3.SrcPubkey().Address()
+		caller := selp3.SenderAddress()
 		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
 			ctx3,
@@ -334,7 +341,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
-		caller := selp4.SrcPubkey().Address()
+		caller := selp4.SenderAddress()
 		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
 			ctx4,
@@ -370,7 +377,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)
-		caller := selp5.SrcPubkey().Address()
+		caller := selp5.SenderAddress()
 		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(
 			ctx5,

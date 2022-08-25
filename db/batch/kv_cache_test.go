@@ -9,15 +9,13 @@ package batch
 import (
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	k1 = hash.Hash160b([]byte("key_1"))
-	k2 = hash.Hash160b([]byte([]byte("key_2")))
-	k3 = hash.Hash160b([]byte([]byte("key_3")))
+	k1 = &kvCacheKey{"ns", "key"}
+	k2 = &kvCacheKey{"nsk", "ey"}
+	k3 = &kvCacheKey{"n", "skey"}
 
 	v1 = []byte("value_1")
 	v2 = []byte("value_2")
@@ -96,4 +94,24 @@ func TestKvCache(t *testing.T) {
 	v, err = c.Read(k3)
 	require.NoError(err)
 	require.Equal(v, v3)
+}
+
+func TestWriteIfNotExist(t *testing.T) {
+	require := require.New(t)
+
+	c := NewKVCache()
+
+	v, err := c.Read(k1)
+	require.Equal(err, ErrNotExist)
+	require.Nil(v)
+
+	err = c.WriteIfNotExist(k1, v1)
+	require.NoError(err)
+
+	err = c.WriteIfNotExist(k1, v1)
+	require.Equal(err, ErrAlreadyExist)
+
+	c.Evict(k1)
+	err = c.WriteIfNotExist(k1, v1)
+	require.NoError(err)
 }

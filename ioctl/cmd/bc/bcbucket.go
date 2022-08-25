@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -28,26 +28,26 @@ import (
 )
 
 const (
-	bcBucketOptMax   = "max"
-	bcBucketOptCount = "count"
+	_bcBucketOptMax   = "max"
+	_bcBucketOptCount = "count"
 )
 
 // Multi-language support
 var (
-	bcBucketCmdShorts = map[config.Language]string{
+	_bcBucketCmdShorts = map[config.Language]string{
 		config.English: "Get bucket for given index on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上根据索引读取投票",
 	}
-	bcBucketUses = map[config.Language]string{
+	_bcBucketUses = map[config.Language]string{
 		config.English: "bucket [OPTION|BUCKET_INDEX]",
 		config.Chinese: "bucket [选项|票索引]",
 	}
 )
 
-// bcBucketCmd represents the bc Bucket command
-var bcBucketCmd = &cobra.Command{
-	Use:   config.TranslateInLang(bcBucketUses, config.UILanguage),
-	Short: config.TranslateInLang(bcBucketCmdShorts, config.UILanguage),
+// _bcBucketCmd represents the bc Bucket command
+var _bcBucketCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_bcBucketUses, config.UILanguage),
+	Short: config.TranslateInLang(_bcBucketCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	Example: `ioctl bc bucket [BUCKET_INDEX], to read bucket information by bucket index
 ioctl bc bucket max, to query the max bucket index
@@ -56,9 +56,9 @@ ioctl bc bucket count, to query total number of active buckets
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		cmd.SilenceUsage = true
 		switch args[0] {
-		case bcBucketOptMax:
+		case _bcBucketOptMax:
 			err = getBucketsTotalCount()
-		case bcBucketOptCount:
+		case _bcBucketOptCount:
 			err = getBucketsActiveCount()
 		default:
 			err = getBucket(args[0])

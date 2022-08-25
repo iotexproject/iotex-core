@@ -38,8 +38,9 @@ type (
 		WriteView(string, interface{}) error
 	}
 	stateDBWorkingSetStore struct {
-		view    protocol.View
-		flusher db.KVStoreFlusher
+		view       protocol.View
+		flusher    db.KVStoreFlusher
+		readBuffer bool
 	}
 	factoryWorkingSetStore struct {
 		view      protocol.View
@@ -49,10 +50,11 @@ type (
 	}
 )
 
-func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher) workingSetStore {
+func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, readBuffer bool) workingSetStore {
 	return &stateDBWorkingSetStore{
-		flusher: flusher,
-		view:    view,
+		flusher:    flusher,
+		view:       view,
+		readBuffer: readBuffer,
 	}
 }
 
@@ -108,7 +110,10 @@ func (store *stateDBWorkingSetStore) Delete(ns string, key []byte) error {
 }
 
 func (store *stateDBWorkingSetStore) States(ns string, keys [][]byte) ([][]byte, error) {
-	return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+	if store.readBuffer {
+		return readStates(store.flusher.KVStoreWithBuffer(), ns, keys)
+	}
+	return readStates(store.flusher.BaseKVStore(), ns, keys)
 }
 
 func (store *stateDBWorkingSetStore) Digest() hash.Hash256 {
@@ -232,7 +237,7 @@ func (store *factoryWorkingSetStore) Finalize(h uint64) error {
 }
 
 func (store *factoryWorkingSetStore) Commit() error {
-	dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
+	_dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
 	return store.flusher.Flush()
 }
 

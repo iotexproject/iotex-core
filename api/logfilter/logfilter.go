@@ -4,14 +4,10 @@ import (
 	"bytes"
 
 	"github.com/iotexproject/go-pkgs/bloom"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -22,8 +18,6 @@ const (
 
 // LogFilter contains options for contract log filtering.
 type LogFilter struct {
-	stream   iotexapi.APIService_StreamLogsServer
-	errChan  chan error
 	pbFilter *iotexapi.LogsFilter
 	// FilterLogsRequest.Topics restricts matches to particular event topics. Each event has a list
 	// of topics. Topics matches a prefix of that list. An empty element slice matches any
@@ -39,58 +33,27 @@ type LogFilter struct {
 }
 
 // NewLogFilter returns a new log filter
-func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) *LogFilter {
+func NewLogFilter(in *iotexapi.LogsFilter) *LogFilter {
 	return &LogFilter{
-		stream:   stream,
-		errChan:  errChan,
 		pbFilter: in,
 	}
 }
 
-// Respond to new block
-func (l *LogFilter) Respond(blk *block.Block) error {
-	if !l.ExistInBloomFilter(blk.LogsBloomfilter()) {
-		return nil
-	}
-
-	logs := l.MatchLogs(blk.Receipts, blk.HashBlock())
-	if len(logs) == 0 {
-		return nil
-	}
-	// send matched logs thru streaming API
-	for _, e := range logs {
-		if err := l.stream.Send(&iotexapi.StreamLogsResponse{Log: e}); err != nil {
-			l.errChan <- err
-			log.L().Info("error streaming the log",
-				zap.Uint64("height", e.BlkHeight),
-				zap.Error(err))
-			return err
-		}
-	}
-	return nil
-}
-
-// Exit send to error channel
-func (l *LogFilter) Exit() {
-	l.errChan <- nil
-}
-
 // MatchLogs returns matching logs in a given block
-func (l *LogFilter) MatchLogs(receipts []*action.Receipt, blkHash hash.Hash256) []*iotextypes.Log {
-	var logs []*iotextypes.Log
+func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*action.Log {
+	res := []*action.Log{}
 	for _, r := range receipts {
-		for _, v := range r.Logs() {
-			log := v.ConvertToLogPb()
-			if l.match(log) {
-				log.BlkHash = blkHash[:]
-				logs = append(logs, log)
+		for j, v := range r.Logs() {
+			if l.match(v.ConvertToLogPb()) {
+				res = append(res, r.Logs()[j])
 			}
 		}
 	}
-	return logs
+	return res
 }
 
 // match checks if a given log matches the filter
+// TODO: replace iotextypes.Log with action.log
 func (l *LogFilter) match(log *iotextypes.Log) bool {
 	addrMatch := len(l.pbFilter.Address) == 0
 	if !addrMatch {

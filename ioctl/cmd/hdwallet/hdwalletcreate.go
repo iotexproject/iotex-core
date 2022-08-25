@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -21,20 +21,16 @@ import (
 
 // Multi-language support
 var (
-	createByMnemonicCmdShorts = map[config.Language]string{
+	_createByMnemonicCmdShorts = map[config.Language]string{
 		config.English: "create hdwallet using mnemonic",
 		config.Chinese: "通过助记词创建新钱包",
 	}
-	createByMnemonicCmdUses = map[config.Language]string{
-		config.English: "create",
-		config.Chinese: "create 创建",
-	}
 )
 
-// hdwalletCreateCmd represents the hdwallet create command
-var hdwalletCreateCmd = &cobra.Command{
-	Use:   config.TranslateInLang(createByMnemonicCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(createByMnemonicCmdShorts, config.UILanguage),
+// _hdwalletCreateCmd represents the hdwallet create command
+var _hdwalletCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: config.TranslateInLang(_createByMnemonicCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -44,7 +40,7 @@ var hdwalletCreateCmd = &cobra.Command{
 }
 
 func hdwalletCreate() error {
-	if fileutil.FileExists(hdWalletConfigFile) {
+	if fileutil.FileExists(_hdWalletConfigFile) {
 		output.PrintResult("already created hdwallet, if you forgot password，use delete/import command.")
 		return nil
 	}
@@ -73,9 +69,9 @@ func hdwalletCreate() error {
 		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
 	}
 
-	if err := os.WriteFile(hdWalletConfigFile, out, 0600); err != nil {
+	if err := os.WriteFile(_hdWalletConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", hdWalletConfigFile), err)
+			fmt.Sprintf("failed to write to config file %s", _hdWalletConfigFile), err)
 	}
 
 	output.PrintResult(fmt.Sprintf("Mnemonic phrase: %s\n"+

@@ -20,23 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 )
 
-func checkMasterChainDBFile(defaultName string) (*FileHeader, error) {
-	h, err := readFileHeader(defaultName, FileAll)
-	if err == ErrFileNotExist || err == ErrFileInvalid || err == ErrFileCantAccess {
-		return nil, err
-	}
-
-	switch h.Version {
-	case FileLegacyAuxiliary:
-		// default chain db file is legacy format, but not master, the master file has been corrupted
-		return h, ErrFileInvalid
-	case FileLegacyMaster, FileV2:
-		return h, nil
-	default:
-		panic(fmt.Errorf("corrupted file version: %s", h.Version))
-	}
-}
-
 func readFileHeader(filename, fileType string) (*FileHeader, error) {
 	if err := fileExists(filename); err != nil {
 		return nil, err
@@ -149,7 +132,7 @@ func kthAuxFileName(file string, k uint64) string {
 }
 
 func hashKey(h hash.Hash256) []byte {
-	return append(hashPrefix, h[:]...)
+	return append(_hashPrefix, h[:]...)
 }
 
 func getValueMustBe8Bytes(kvs db.KVStore, ns string, key []byte) ([]byte, error) {

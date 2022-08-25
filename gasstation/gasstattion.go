@@ -13,14 +13,12 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // BlockDAO represents the block data access object
@@ -34,31 +32,17 @@ type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.
 
 // GasStation provide gas related api
 type GasStation struct {
-	bc        blockchain.Blockchain
-	simulator SimulateFunc
-	dao       BlockDAO
-	cfg       config.API
+	bc  blockchain.Blockchain
+	dao BlockDAO
+	cfg config.API
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, simulator SimulateFunc, dao BlockDAO, cfg config.API) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, dao BlockDAO, cfg config.API) *GasStation {
 	return &GasStation{
-		bc:        bc,
-		simulator: simulator,
-		dao:       dao,
-		cfg:       cfg,
-	}
-}
-
-//IsSystemAction determine whether input action belongs to system action
-func (gs *GasStation) IsSystemAction(act action.SealedEnvelope) bool {
-	switch act.Action().(type) {
-	case *action.GrantReward:
-		return true
-	case *action.PutPollResult:
-		return true
-	default:
-		return false
+		bc:  bc,
+		dao: dao,
+		cfg: cfg,
 	}
 }
 
@@ -80,12 +64,12 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		if len(blk.Actions) == 0 {
 			continue
 		}
-		if len(blk.Actions) == 1 && gs.IsSystemAction(blk.Actions[0]) {
+		if len(blk.Actions) == 1 && action.IsSystemAction(blk.Actions[0]) {
 			continue
 		}
 		smallestPrice := blk.Actions[0].GasPrice()
 		for _, act := range blk.Actions {
-			if gs.IsSystemAction(act) {
+			if action.IsSystemAction(act) {
 				continue
 			}
 			if smallestPrice.Cmp(act.GasPrice()) == 1 {
@@ -105,35 +89,6 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		gasPrice = gs.cfg.GasStation.DefaultGas
 	}
 	return gasPrice, nil
-}
-
-// EstimateGasForAction estimate gas for action
-func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, error) {
-	selp, err := (&action.Deserializer{}).ActionToSealedEnvelope(actPb)
-	if err != nil {
-		return 0, err
-	}
-	// Special handling for executions
-	if sc, ok := selp.Action().(*action.Execution); ok {
-		callerAddr := selp.SrcPubkey().Address()
-		if callerAddr == nil {
-			return 0, errors.New("failed to get address")
-		}
-		ctx, err := gs.bc.Context(context.Background())
-		if err != nil {
-			return 0, err
-		}
-		_, receipt, err := gs.simulator(ctx, callerAddr, sc, gs.dao.GetBlockHash)
-		if err != nil {
-			return 0, err
-		}
-		return receipt.GasConsumed, nil
-	}
-	gas, err := selp.IntrinsicGas()
-	if err != nil {
-		return 0, err
-	}
-	return gas, nil
 }
 
 type bigIntArray []*big.Int

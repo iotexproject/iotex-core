@@ -79,8 +79,8 @@ func (tsf *Transfer) TotalSize() uint32 {
 	if tsf.amount != nil && len(tsf.amount.Bytes()) > 0 {
 		size += uint32(len(tsf.amount.Bytes()))
 	}
-
-	return size + uint32(len(tsf.payload))
+	// 65 is the pubkey size
+	return size + uint32(len(tsf.payload)) + 65
 }
 
 // Serialize returns a raw byte stream of this Transfer
@@ -149,11 +149,6 @@ func (tsf *Transfer) SanityCheck() error {
 	if tsf.Amount().Sign() < 0 {
 		return ErrNegativeValue
 	}
-	// check if recipient's address is valid
-	if _, err := address.FromString(tsf.Recipient()); err != nil {
-		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
-	}
-
 	return tsf.AbstractAction.SanityCheck()
 }
 

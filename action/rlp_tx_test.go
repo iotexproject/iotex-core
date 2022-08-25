@@ -14,8 +14,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -45,14 +43,14 @@ func TestGenerateRlp(t *testing.T) {
 	rlpExec := &Execution{
 		AbstractAction: ab,
 		amount:         big.NewInt(100),
-		data:           signByte,
+		data:           _signByte,
 	}
 	hE1, _ := hex.DecodeString("fcdd0c3d07f438d6e67ea852b40e5dc256d75f5e1fa9ac3ca96030efeb634150")
 	rlpExec1 := &Execution{
 		AbstractAction: ab,
 		contract:       "io1x9qa70ewgs24xwak66lz5dgm9ku7ap80vw3070",
 		amount:         big.NewInt(100),
-		data:           signByte,
+		data:           _signByte,
 	}
 	hE2, _ := hex.DecodeString("fee3db88ee7d7defa9eded672d08fc8641f760f3a11d404a53276ad6f412b8a5")
 	rlpTests := []struct {
@@ -61,13 +59,13 @@ func TestGenerateRlp(t *testing.T) {
 		err  string
 		hash hash.Hash256
 	}{
-		{nil, validSig, ErrNilAction.Error(), hash.ZeroHash256},
-		{rlpTsf, validSig, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, signByte, "address prefix io don't match", hash.ZeroHash256},
-		{rlpTsf1, validSig, "", hash.BytesToHash256(hT1)},
-		{rlpTsf2, validSig, "", hash.BytesToHash256(hT2)},
-		{rlpExec, validSig, "", hash.BytesToHash256(hE1)},
-		{rlpExec1, validSig, "", hash.BytesToHash256(hE2)},
+		{nil, _validSig, ErrNilAction.Error(), hash.ZeroHash256},
+		{rlpTsf, _validSig, address.ErrInvalidAddr.Error(), hash.ZeroHash256},
+		{rlpTsf1, _signByte, "address length = 0, expecting 41", hash.ZeroHash256},
+		{rlpTsf1, _validSig, "", hash.BytesToHash256(hT1)},
+		{rlpTsf2, _validSig, "", hash.BytesToHash256(hT2)},
+		{rlpExec, _validSig, "", hash.BytesToHash256(hE1)},
+		{rlpExec1, _validSig, "", hash.BytesToHash256(hE2)},
 	}
 
 	for _, v := range rlpTests {
@@ -81,7 +79,7 @@ func TestGenerateRlp(t *testing.T) {
 			require.Contains(err.Error(), v.err)
 			continue
 		}
-		h, err := rlpSignedHash(tx, 4689, v.sig)
+		h, err := rlpSignedHash(tx, _evmNetworkID, v.sig)
 		if err != nil {
 			require.Contains(err.Error(), v.err)
 		}
@@ -90,9 +88,6 @@ func TestGenerateRlp(t *testing.T) {
 }
 
 func TestRlpDecodeVerify(t *testing.T) {
-	// register the extern chain ID
-	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
-
 	require := require.New(t)
 
 	rlpTests := []struct {
@@ -277,7 +272,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// extract signature and recover pubkey
 		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
+		recID := uint32(w.Int64()) - 2*_evmNetworkID - 8
 		sig := make([]byte, 64, 65)
 		rSize := len(r.Bytes())
 		copy(sig[32-rSize:32], r.Bytes())
@@ -286,7 +281,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		sig = append(sig, byte(recID))
 
 		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(&tx)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(_evmNetworkID))).Hash(&tx)
 		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -307,7 +302,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		// receive from API
 		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
-		require.NoError(selp.LoadProto(pb))
+		require.NoError(selp.loadProto(pb, _evmNetworkID))
 		act, ok := selp.Action().(EthCompatibleAction)
 		require.True(ok)
 		rlpTx, err := act.ToEthTx()
@@ -333,7 +328,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		require.NoError(err)
 		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
-		require.NoError(selp.Verify())
+		require.NoError(selp.VerifySignature())
 	}
 }
 
@@ -342,27 +337,16 @@ func convertToNativeProto(tx *types.Transaction, actType string) *iotextypes.Act
 	elpBuilder.SetGasLimit(tx.Gas()).SetGasPrice(tx.GasPrice()).SetNonce(tx.Nonce())
 	switch actType {
 	case "transfer":
-		tsf := &Transfer{}
-		tsf.amount = tx.Value()
-		ioAddr, _ := address.FromBytes(tx.To().Bytes())
-		tsf.recipient = ioAddr.String()
-		tsf.payload = tx.Data()
-		elpBuilder.SetAction(tsf)
+		elp, _ := elpBuilder.BuildTransfer(tx)
+		return elp.Proto()
 	case "execution":
-		ex := &Execution{}
-		ex.amount = tx.Value()
-		if tx.To() != nil {
-			ioAddr, _ := address.FromBytes(tx.To().Bytes())
-			ex.contract = ioAddr.String()
-		}
-		ex.data = tx.Data()
-		elpBuilder.SetAction(ex)
+		elp, _ := elpBuilder.BuildExecution(tx)
+		return elp.Proto()
 	case "stakeCreate", "stakeAddDeposit", "changeCandidate", "unstake", "withdrawStake", "restake",
 		"transferStake", "candidateRegister", "candidateUpdate":
-		act, _ := NewStakingActionFromABIBinary(tx.Data())
-		elpBuilder.SetAction(act.(actionPayload))
+		elp, _ := elpBuilder.BuildStakingAction(tx)
+		return elp.Proto()
 	default:
 		panic("unsupported")
 	}
-	return elpBuilder.Build().Proto()
 }

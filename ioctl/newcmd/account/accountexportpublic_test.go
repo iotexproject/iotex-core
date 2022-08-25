@@ -7,8 +7,6 @@
 package account
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -28,12 +26,8 @@ func TestNewAccountExportPublic(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testAccountFolder := filepath.Join(os.TempDir(), "testNewAccountExportPublic")
-	require.NoError(os.MkdirAll(testAccountFolder, os.ModePerm))
-	defer func() {
-		require.NoError(os.RemoveAll(testAccountFolder))
-	}()
-	ks := keystore.NewKeyStore(testAccountFolder, keystore.StandardScryptN, keystore.StandardScryptP)
+	testAccountFolder := t.TempDir()
+	ks := keystore.NewKeyStore(testAccountFolder, veryLightScryptN, veryLightScryptP)
 	client.EXPECT().NewKeyStore().Return(ks).AnyTimes()
 
 	t.Run("true AliasIsHdwalletKey", func(t *testing.T) {

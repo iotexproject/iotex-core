@@ -28,18 +28,18 @@ import (
 
 const (
 	// TODO: it works only for one instance per protocol definition now
-	protocolID  = "rewarding"
-	v2Namespace = "Rewarding"
+	_protocolID           = "rewarding"
+	_v2RewardingNamespace = "Rewarding"
 )
 
 var (
-	adminKey                    = []byte("adm")
-	fundKey                     = []byte("fnd")
-	blockRewardHistoryKeyPrefix = []byte("brh")
-	epochRewardHistoryKeyPrefix = []byte("erh")
-	accountKeyPrefix            = []byte("acc")
-	exemptKey                   = []byte("xpt")
-	errInvalidEpoch             = errors.New("invalid start/end epoch number")
+	_adminKey                    = []byte("adm")
+	_fundKey                     = []byte("fnd")
+	_blockRewardHistoryKeyPrefix = []byte("brh")
+	_epochRewardHistoryKeyPrefix = []byte("erh")
+	_accountKeyPrefix            = []byte("acc")
+	_exemptKey                   = []byte("xpt")
+	errInvalidEpoch              = errors.New("invalid start/end epoch number")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
@@ -53,7 +53,7 @@ type Protocol struct {
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(cfg genesis.Rewarding) *Protocol {
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
@@ -70,7 +70,7 @@ func NewProtocol(cfg genesis.Rewarding) *Protocol {
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	return protocol.HashStringToAddress(protocolID)
+	return protocol.HashStringToAddress(_protocolID)
 }
 
 // verify that foundation bonus extension epochs are in increasing order
@@ -88,7 +88,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		return nil
 	}
@@ -117,13 +117,13 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
-	if err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
+	if err := p.migrateValue(sm, _adminKey, &admin{}); err != nil {
 		return err
 	}
-	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
+	if err := p.migrateValue(sm, _fundKey, &fund{}); err != nil {
 		return err
 	}
-	return p.migrateValue(sm, exemptKey, &exempt{})
+	return p.migrateValue(sm, _exemptKey, &exempt{})
 }
 
 func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) error {
@@ -142,7 +142,7 @@ func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value inte
 
 func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.StateManager) error {
 	a := admin{}
-	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, _adminKey, &a); err != nil {
 		return err
 	}
 
@@ -156,7 +156,7 @@ func (p *Protocol) setFoundationBonusExtension(ctx context.Context, sm protocol.
 	if a.foundationBonusLastEpoch < newLastEpoch {
 		a.foundationBonusLastEpoch = newLastEpoch
 	}
-	return p.putState(ctx, sm, adminKey, &a)
+	return p.putState(ctx, sm, _adminKey, &a)
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
@@ -183,6 +183,24 @@ func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
 		Build()
 }
 
+// Validate validates a reward action
+func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	if !protocol.MustGetFeatureCtx(ctx).ValidateRewardProtocol {
+		return nil
+	}
+	switch act.(type) {
+	case *action.GrantReward:
+		actionCtx := protocol.MustGetActionCtx(ctx)
+		if !address.Equal(protocol.MustGetBlockCtx(ctx).Producer, actionCtx.Caller) {
+			return errors.New("Only producer could create reward")
+		}
+		if actionCtx.GasPrice != nil && actionCtx.GasPrice.Cmp(big.NewInt(0)) != 0 || actionCtx.IntrinsicGas != 0 {
+			return errors.New("invalid gas price or intrinsic gas for reward action")
+		}
+	}
+	return nil
+}
+
 // Handle handles the actions on the rewarding protocol
 func (p *Protocol) Handle(
 	ctx context.Context,
@@ -196,17 +214,17 @@ func (p *Protocol) Handle(
 		rlog, err := p.Deposit(ctx, sm, act.Amount(), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+		return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
 		rlog, err := p.Claim(ctx, sm, act.Amount())
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+			return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
+		return p.settleUserAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
@@ -214,20 +232,20 @@ func (p *Protocol) Handle(
 			rewardLog, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+				return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			if rewardLog == nil {
-				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil)
+				return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil)
 			}
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
+			return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
 		case action.EpochReward:
 			si := sm.Snapshot()
 			rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
+				return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
+			return p.settleSystemAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
 		}
 	}
 	return nil, nil
@@ -273,17 +291,17 @@ func (p *Protocol) ReadState(
 
 // Register registers the protocol with a unique ID
 func (p *Protocol) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, p)
+	return r.Register(_protocolID, p)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, p)
+	return r.ForceRegister(_protocolID, p)
 }
 
 // Name returns the name of protocol
 func (p *Protocol) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 // useV2Storage return true after greenland when we start using v2 storage.
@@ -314,7 +332,7 @@ func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{
 
 func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
 	k := append(p.keyPrefix, key...)
-	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
+	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(_v2RewardingNamespace))
 }
 
 func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key []byte, value interface{}) error {
@@ -332,7 +350,7 @@ func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interf
 
 func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interface{}) error {
 	k := append(p.keyPrefix, key...)
-	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
+	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(_v2RewardingNamespace))
 	return err
 }
 
@@ -355,7 +373,7 @@ func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 
 func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 	k := append(p.keyPrefix, key...)
-	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
+	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(_v2RewardingNamespace))
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil
@@ -363,11 +381,34 @@ func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 	return err
 }
 
+func (p *Protocol) settleSystemAction(
+	ctx context.Context,
+	sm protocol.StateManager,
+	status uint64,
+	si int,
+	logs []*action.Log,
+	tLogs ...*action.TransactionLog,
+) (*action.Receipt, error) {
+	return p.settleAction(ctx, sm, status, si, true, logs, tLogs...)
+}
+
+func (p *Protocol) settleUserAction(
+	ctx context.Context,
+	sm protocol.StateManager,
+	status uint64,
+	si int,
+	logs []*action.Log,
+	tLogs ...*action.TransactionLog,
+) (*action.Receipt, error) {
+	return p.settleAction(ctx, sm, status, si, false, logs, tLogs...)
+}
+
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	status uint64,
 	si int,
+	isSystemAction bool,
 	logs []*action.Log,
 	tLogs ...*action.TransactionLog,
 ) (*action.Receipt, error) {
@@ -378,28 +419,43 @@ func (p *Protocol) settleAction(
 			return nil, err
 		}
 	}
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	depositLog, err := DepositGas(ctx, sm, gasFee)
-	if err != nil {
-		return nil, err
+	skipUpdateForSystemAction := protocol.MustGetFeatureCtx(ctx).FixGasAndNonceUpdate
+	if !isSystemAction || !skipUpdateForSystemAction {
+		gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+		depositLog, err := DepositGas(ctx, sm, gasFee)
+		if err != nil {
+			return nil, err
+		}
+		if depositLog != nil {
+			tLogs = append(tLogs, depositLog)
+		}
+		if err := p.increaseNonce(
+			ctx,
+			sm,
+			actionCtx.Caller,
+			actionCtx.Nonce,
+			!skipUpdateForSystemAction && actionCtx.Nonce == 0,
+		); err != nil {
+			return nil, err
+		}
 	}
-	if depositLog != nil {
-		tLogs = append(tLogs, depositLog)
-	}
-	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
-		return nil, err
-	}
+
 	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs, tLogs...), nil
 }
 
-func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+func (p *Protocol) increaseNonce(ctx context.Context, sm protocol.StateManager, addr address.Address, nonce uint64, skipSetNonce bool) error {
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+	}
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr, accountCreationOpts...)
 	if err != nil {
 		return err
 	}
-	// TODO: this check shouldn't be necessary
-	if nonce > acc.Nonce {
-		acc.Nonce = nonce
+	if !skipSetNonce {
+		if err := acc.SetPendingNonce(nonce + 1); err != nil {
+			return errors.Wrapf(err, "invalid nonce %d", nonce)
+		}
 	}
 	return accountutil.StoreAccount(sm, addr, acc)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 type (
@@ -44,13 +45,33 @@ type (
 	}
 )
 
-// CrashLog write down the current memory and stack info and the cpu/mem/disk infos into log dir
-func CrashLog(r interface{}, cfgLog log.GlobalConfig) {
-	log.S().Errorf("crashlog: %v", r)
-	if cfgLog.StderrRedirectFile != nil {
-		writeHeapProfile(filepath.Join(filepath.Dir(*cfgLog.StderrRedirectFile),
-			"heapdump_"+time.Now().Format("20060102150405")+".out"))
+// _crashlogDir saves the directory of crashlog
+var _crashlogDir string = "/"
+
+// Recover catchs the crashing goroutine
+func Recover() {
+	if r := recover(); r != nil {
+		LogCrash(r)
 	}
+}
+
+// SetCrashlogDir set the directory of crashlog
+func SetCrashlogDir(dir string) error {
+	if !fileutil.FileExists(dir) {
+		if err := os.MkdirAll(dir, 0744); err != nil {
+			log.S().Error(err.Error())
+			return err
+		}
+	}
+	_crashlogDir = dir
+	return nil
+}
+
+// LogCrash write down the current memory and stack info and the cpu/mem/disk infos into log dir
+func LogCrash(r interface{}) {
+	log.S().Errorf("crashlog: %v", r)
+	writeHeapProfile(filepath.Join(_crashlogDir,
+		"heapdump_"+time.Now().String()+".out"))
 	log.S().Infow("crashlog", "stack", string(debug.Stack()))
 	printInfo("cpu", cpuInfo)
 	printInfo("memory", memInfo)
@@ -58,13 +79,20 @@ func CrashLog(r interface{}, cfgLog log.GlobalConfig) {
 }
 
 func writeHeapProfile(path string) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
-		log.S().Fatalf("crashlog: open heap profile error: %v", err)
+		log.S().Errorf("crashlog: open heap profile error: %v", err)
+		return
 	}
-	defer f.Close()
+	defer func() {
+		if err = f.Close(); err != nil {
+			log.S().Errorf("crashlog: close heap profile error: %v", err)
+			return
+		}
+	}()
 	if err := pprof.WriteHeapProfile(f); err != nil {
-		log.S().Fatalf("crashlog: write heap profile error: %v", err)
+		log.S().Errorf("crashlog: write heap profile error: %v", err)
+		return
 	}
 }
 

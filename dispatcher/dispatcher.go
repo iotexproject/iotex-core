@@ -235,25 +235,12 @@ func (d *IotxDispatcher) blockHandler() {
 	}
 }
 
-func (d *IotxDispatcher) checkSyncPermission(peerID string) bool {
-	now := time.Now()
-	last, ok := d.peerLastSync[peerID]
-	if ok && last.Add(d.syncInterval).After(now) {
-		return false
-	}
-
-	d.peerLastSync[peerID] = now
-	return true
-}
-
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
 	for {
 		select {
 		case m := <-d.syncChan:
-			if d.checkSyncPermission(m.peer.ID.Pretty()) {
-				d.handleBlockSyncMsg(m)
-			}
+			d.handleBlockSyncMsg(m)
 		case <-d.quit:
 			d.wg.Done()
 			log.L().Info("block sync handler done.")
@@ -397,8 +384,15 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		log.L().Debug("no subscriber for this chain id, drop the request", zap.Uint32("chain id", chainID))
 		return
 	}
+	now := time.Now()
+	peerID := peer.ID.Pretty()
 	d.syncChanLock.Lock()
 	defer d.syncChanLock.Unlock()
+	last, ok := d.peerLastSync[peerID]
+	if ok && last.Add(d.syncInterval).After(now) {
+		return
+	}
+	d.peerLastSync[peerID] = now
 	l := len(d.syncChan)
 	c := cap(d.syncChan)
 	if l < c {
@@ -417,26 +411,23 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, message proto.Message) {
-	msgType, err := goproto.GetTypeFromRPCMsg(message)
-	if err != nil {
-		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
-	}
 	subscriber := d.subscriber(chainID)
 	if subscriber == nil {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", chainID))
 		return
 	}
 
-	switch msgType {
-	case iotexrpc.MessageType_CONSENSUS:
-		if err := subscriber.HandleConsensusMsg(message.(*iotextypes.ConsensusMessage)); err != nil {
+	switch msg := message.(type) {
+	case *iotextypes.ConsensusMessage:
+		if err := subscriber.HandleConsensusMsg(msg); err != nil {
 			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
 		}
-	case iotexrpc.MessageType_ACTION:
+	case *iotextypes.Action:
 		d.dispatchAction(ctx, chainID, message)
-	case iotexrpc.MessageType_BLOCK:
+	case *iotextypes.Block:
 		d.dispatchBlock(ctx, chainID, peer, message)
 	default:
+		msgType, _ := goproto.GetTypeFromRPCMsg(message)
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 	}
 }
