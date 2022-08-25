@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,39 +23,39 @@ import (
 )
 
 var (
-	iotexIDE  string
-	fileList  []string
-	givenPath string
+	_iotexIDE  string
+	_fileList  []string
+	_givenPath string
 
-	addr = flag.String("addr", "localhost:65520", "http service address")
+	_addr = flag.String("_addr", "localhost:65520", "http service _address")
 
-	upgrade = websocket.Upgrader{
+	_upgrade = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			return iotexIDE == r.Header["Origin"][0]
+			return _iotexIDE == r.Header["Origin"][0]
 		},
 	}
 )
 
 // Multi-language support
 var (
-	contractShareCmdUses = map[config.Language]string{
+	_contractShareCmdUses = map[config.Language]string{
 		config.English: "share LOCAL_FOLDER_PATH [--iotex-ide YOUR_IOTEX_IDE_URL_INSTANCE]",
 		config.Chinese: "share 本地文件路径 [--iotex-ide 你的IOTEX_IDE的URL]",
 	}
-	contractShareCmdShorts = map[config.Language]string{
+	_contractShareCmdShorts = map[config.Language]string{
 		config.English: "share a folder from your local computer to the IoTex smart contract dev.(default to https://ide.iotex.io)",
 		config.Chinese: "share 将本地文件夹内容分享到IoTex在线智能合约IDE(默认为https://ide.iotex.io)",
 	}
-	flagIoTexIDEUrlUsage = map[config.Language]string{
+	_flagIoTexIDEUrlUsage = map[config.Language]string{
 		config.English: "set your IoTeX IDE url instance",
 		config.Chinese: "设置自定义IoTeX IDE Url",
 	}
 )
 
-// contractShareCmd represents the contract share command
-var contractShareCmd = &cobra.Command{
-	Use:   config.TranslateInLang(contractShareCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(contractShareCmdShorts, config.UILanguage),
+// _contractShareCmd represents the contract share command
+var _contractShareCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_contractShareCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_contractShareCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -65,7 +65,7 @@ var contractShareCmd = &cobra.Command{
 }
 
 func init() {
-	contractShareCmd.Flags().StringVar(&iotexIDE, "iotex-ide", "https://ide.iotex.io", config.TranslateInLang(flagIoTexIDEUrlUsage, config.UILanguage))
+	_contractShareCmd.Flags().StringVar(&_iotexIDE, "iotex-ide", "https://ide.iotex.io", config.TranslateInLang(_flagIoTexIDEUrlUsage, config.UILanguage))
 }
 
 type requestMessage struct {
@@ -92,7 +92,7 @@ func isDir(path string) bool {
 
 func isReadOnly(path string) bool {
 	var readOnly = false
-	file, err := os.OpenFile(path, os.O_WRONLY, 0666)
+	file, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY, 0600)
 	if err != nil {
 		if os.IsPermission(err) {
 			log.Println("Error: Write permission denied.")
@@ -102,7 +102,9 @@ func isReadOnly(path string) bool {
 		}
 		readOnly = true
 	}
-	file.Close()
+	if err = file.Close(); err != nil {
+		log.Printf("fialed to close file: %v", err)
+	}
 	return readOnly
 }
 
@@ -117,7 +119,7 @@ func isExist(path string) bool {
 }
 
 func rename(oldPath string, newPath string, c chan bool) {
-	if isExist(givenPath + "/" + oldPath) {
+	if isExist(oldPath) {
 		if err := os.Rename(oldPath, newPath); err != nil {
 			log.Println("Rename file failed: ", err)
 		}
@@ -127,37 +129,39 @@ func rename(oldPath string, newPath string, c chan bool) {
 }
 
 func share(args []string) error {
-	givenPath = args[0]
-	if len(givenPath) == 0 {
+	_givenPath = filepath.Clean(args[0])
+	if len(_givenPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
 
-	if !isDir(givenPath) {
+	if !isDir(_givenPath) {
 		return output.NewError(output.InputError, "given file rather than directory", nil)
 	}
 
-	if len(iotexIDE) == 0 {
+	if len(_iotexIDE) == 0 {
 		return output.NewError(output.FlagError, "failed to get IoTeX ide url instance", nil)
 	}
 
-	filepath.Walk(givenPath, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(_givenPath, func(path string, info os.FileInfo, err error) error {
 		if !isDir(path) {
-			relPath, err := filepath.Rel(givenPath, path)
+			relPath, err := filepath.Rel(_givenPath, path)
 			if err != nil {
 				return err
 			}
 
 			if !strings.HasPrefix(relPath, ".") {
-				fileList = append(fileList, relPath)
+				_fileList = append(_fileList, relPath)
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return output.NewError(output.ReadFileError, "failed to walk directory", err)
+	}
 
-	log.Println("Listening on 127.0.0.1:65520, Please open your IDE ( " + iotexIDE + " ) to connect to local files")
+	log.Printf("Listening on 127.0.0.1:65520, Please open your IDE ( %s ) to connect to local files", _iotexIDE)
 
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		conn, err := upgrade.Upgrade(writer, request, nil)
+		conn, err := _upgrade.Upgrade(writer, request, nil)
 
 		if err != nil {
 			log.Println("websocket error:", err)
@@ -185,8 +189,8 @@ func share(args []string) error {
 				}
 			case "list":
 				payload := make(map[string]bool)
-				for _, ele := range fileList {
-					payload[ele] = isReadOnly(givenPath + "/" + ele)
+				for _, ele := range _fileList {
+					payload[ele] = isReadOnly(filepath.Join(_givenPath, ele))
 				}
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
@@ -197,57 +201,95 @@ func share(args []string) error {
 
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				getPayloadPath := getPayload["path"].(string)
-				upload, err := os.ReadFile(givenPath + "/" + getPayloadPath)
+				getPayloadPath, err := cleanPath(getPayload["path"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				getPayloadPath = filepath.Join(_givenPath, getPayloadPath)
+				upload, err := os.ReadFile(filepath.Clean(getPayloadPath))
 				if err != nil {
 					log.Println("read file failed: ", err)
+					break
 				}
 				payload["content"] = string(upload)
-				payload["readonly"] = isReadOnly(givenPath + "/" + getPayloadPath)
+				payload["readonly"] = isReadOnly(getPayloadPath)
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("share: " + givenPath + "/" + getPayloadPath)
+				log.Printf("share: %s\n", easpcapeString(getPayloadPath))
 
 			case "rename":
 				c := make(chan bool)
 				t := request.Payload
 				renamePayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				oldPath := renamePayload["oldPath"].(string)
-				newPath := renamePayload["newPath"].(string)
-				go rename(oldPath, newPath, c)
+				oldRenamePath, err := cleanPath(renamePayload["oldPath"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				newRenamePath, err := cleanPath(renamePayload["newPath"].(string))
+				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				oldRenamePath = filepath.Join(_givenPath, oldRenamePath)
+				newRenamePath = filepath.Join(_givenPath, newRenamePath)
+				go rename(oldRenamePath, newRenamePath, c)
 				response.Payload = <-c
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send get response: ", err)
 					break
 				}
-				log.Println("rename: " + givenPath + "/" + oldPath + " to " + givenPath + "/" + newPath)
+				log.Printf("rename: %s to %s\n", easpcapeString(oldRenamePath), easpcapeString(newRenamePath))
 
 			case "set":
 				t := request.Payload
 				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
-				setPath := setPayload["path"].(string)
 				content := setPayload["content"].(string)
-				err := os.WriteFile(givenPath+"/"+setPath, []byte(content), 0777)
+				setPath, err := cleanPath(setPayload["path"].(string))
 				if err != nil {
+					log.Println("clean file path failed: ", err)
+					break
+				}
+				setPath = filepath.Join(_givenPath, setPath)
+				if err := os.MkdirAll(filepath.Dir(setPath), 0750); err != nil {
+					log.Println("mkdir failed: ", err)
+					break
+				}
+				if err := os.WriteFile(setPath, []byte(content), 0600); err != nil {
 					log.Println("set file failed: ", err)
+					break
 				}
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send set response: ", err)
 					break
 				}
-				log.Println("set: " + givenPath + "/" + setPath)
+				log.Printf("set: %s\n", easpcapeString(setPath))
 
 			default:
-				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
+				log.Printf("Don't support this IDE yet. Can not handle websocket method: %s\n", easpcapeString(request.Key))
 
 			}
 		}
 	})
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	log.Fatal(http.ListenAndServe(*_addr, nil))
 
 	return nil
+}
 
+func easpcapeString(str string) string {
+	escaped := strings.Replace(str, "\n", "", -1)
+	return strings.Replace(escaped, "\r", "", -1)
+}
+
+func cleanPath(path string) (string, error) {
+	path = filepath.Clean(filepath.Join("/", path))
+	real, err := filepath.Rel("/", path)
+	if err != nil {
+		return "", err
+	}
+	return real, nil
 }

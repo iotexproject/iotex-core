@@ -58,8 +58,8 @@ func TestStakingContract(t *testing.T) {
 		require.NotNil(registry)
 		admin := identityset.PrivateKey(26)
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
-		var s state.Account
-		_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+		s := &state.Account{}
+		_, err = sf.State(s, protocol.LegacyKeyOption(state0))
 		require.NoError(err)
 		require.Equal(unit.ConvertIotxToRau(100000000), s.Balance)
 
@@ -101,7 +101,7 @@ func TestStakingContract(t *testing.T) {
 			require.NoError(bc.CommitBlock(blk))
 
 			state0 = hash.BytesToHash160(identityset.Address(i).Bytes())
-			_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+			_, err = sf.State(s, protocol.LegacyKeyOption(state0))
 			require.NoError(err)
 			require.Equal(unit.ConvertIotxToRau(100000000-int64(numBucket)*200), s.Balance)
 		}
@@ -145,6 +145,10 @@ func TestStakingContract(t *testing.T) {
 				}),
 			cfg.Genesis,
 		)
+		ctx = protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx,
+			protocol.BlockCtx{
+				BlockHeight: genesis.Default.OkhotskBlockHeight,
+			}))
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)

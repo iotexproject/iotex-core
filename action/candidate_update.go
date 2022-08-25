@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -26,7 +27,7 @@ const (
 	// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
 	CandidateUpdateBaseIntrinsicGas = uint64(10000)
 
-	candidateUpdateInterfaceABI = `[
+	_candidateUpdateInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -68,12 +69,12 @@ type CandidateUpdate struct {
 }
 
 func init() {
-	candidateUpdateInterface, err := abi.JSON(strings.NewReader(candidateUpdateInterfaceABI))
+	_candidateUpdateInterface, err := abi.JSON(strings.NewReader(_candidateUpdateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_candidateUpdateMethod, ok = candidateUpdateInterface.Methods["candidateUpdate"]
+	_candidateUpdateMethod, ok = _candidateUpdateInterface.Methods["candidateUpdate"]
 	if !ok {
 		panic("fail to load the method")
 	}
@@ -147,7 +148,7 @@ func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
 // LoadProto converts a protobuf's Action to CandidateUpdate
 func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cu.name = pbAct.GetName()
@@ -187,6 +188,10 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (cu *CandidateUpdate) EncodeABIBinary() ([]byte, error) {
+	return cu.encodeABIBinary()
+}
+
+func (cu *CandidateUpdate) encodeABIBinary() ([]byte, error) {
 	operatorEthAddr := common.BytesToAddress(cu.operatorAddress.Bytes())
 	rewardEthAddr := common.BytesToAddress(cu.rewardAddress.Bytes())
 	data, err := _candidateUpdateMethod.Inputs.Pack(cu.name, operatorEthAddr, rewardEthAddr)
@@ -221,4 +226,18 @@ func NewCandidateUpdateFromABIBinary(data []byte) (*CandidateUpdate, error) {
 		return nil, err
 	}
 	return &cu, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cu *CandidateUpdate) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cu.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cu.Nonce(), ethAddr, big.NewInt(0), cu.GasLimit(), cu.GasPrice(), data), nil
 }

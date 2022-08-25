@@ -22,9 +22,9 @@ var ErrInsufficientEndorsements = errors.New("Insufficient endorsements")
 type status int
 
 const (
-	open status = iota
-	locked
-	unlocked
+	_open status = iota
+	_locked
+	_unlocked
 )
 
 // roundCtx keeps the context data for the current round and block.
@@ -114,11 +114,11 @@ func (ctx *roundCtx) Endorsements(blkHash []byte, topics []ConsensusVoteTopic) [
 }
 
 func (ctx *roundCtx) IsLocked() bool {
-	return ctx.status == locked
+	return ctx.status == _locked
 }
 
 func (ctx *roundCtx) IsUnlocked() bool {
-	return ctx.status == unlocked
+	return ctx.status == _unlocked
 }
 
 func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
@@ -197,6 +197,9 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	if !endorsement.VerifyEndorsement(vote, en) {
 		return errors.New("invalid endorsement for the vote")
 	}
+	if addr := en.Endorser().Address(); addr == nil || !ctx.IsDelegate(addr.String()) {
+		return errors.New("invalid endorser")
+	}
 	blockHash := vote.BlockHash()
 	// TODO: (zhi) request for block
 	if len(blockHash) != 0 && ctx.block(blockHash) == nil {
@@ -208,7 +211,7 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	if vote.Topic() == LOCK {
 		return nil
 	}
-	if len(blockHash) != 0 && ctx.status == locked {
+	if len(blockHash) != 0 && ctx.status == _locked {
 		return nil
 	}
 	endorsements := ctx.endorsements(
@@ -220,9 +223,9 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	}
 	if len(blockHash) == 0 {
 		// TODO: (zhi) look into details of unlock
-		ctx.status = unlocked
+		ctx.status = _unlocked
 	} else {
-		ctx.status = locked
+		ctx.status = _locked
 	}
 	ctx.blockInLock = blockHash
 	ctx.proofOfLock = endorsements

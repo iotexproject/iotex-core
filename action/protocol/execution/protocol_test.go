@@ -17,6 +17,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -37,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -64,11 +67,17 @@ type (
 	GenesisBlockHeight struct {
 		IsBering  bool `json:"isBering"`
 		IsIceland bool `json:"isIceland"`
+		IsLondon  bool `json:"isLondon"`
 	}
 
 	Log struct {
 		Topics []string `json:"topics"`
 		Data   string   `json:"data"`
+	}
+
+	AccessTuple struct {
+		Address     string   `json:"address"`
+		StorageKeys []string `json:"storageKeys"`
 	}
 
 	ExecutionConfig struct {
@@ -83,6 +92,7 @@ type (
 		RawAmount               string            `json:"rawAmount"`
 		RawGasLimit             uint              `json:"rawGasLimit"`
 		RawGasPrice             string            `json:"rawGasPrice"`
+		RawAccessList           []AccessTuple     `json:"rawAccessList"`
 		Failed                  bool              `json:"failed"`
 		RawReturnValue          string            `json:"rawReturnValue"`
 		RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
@@ -188,6 +198,23 @@ func (cfg *ExecutionConfig) GasLimit() uint64 {
 	return uint64(cfg.RawGasLimit)
 }
 
+func (cfg *ExecutionConfig) AccessList() types.AccessList {
+	if len(cfg.RawAccessList) == 0 {
+		return nil
+	}
+	accessList := make(types.AccessList, len(cfg.RawAccessList))
+	for i, rawAccessList := range cfg.RawAccessList {
+		accessList[i].Address = common.HexToAddress(rawAccessList.Address)
+		if numKey := len(rawAccessList.StorageKeys); numKey > 0 {
+			accessList[i].StorageKeys = make([]common.Hash, numKey)
+			for j, rawStorageKey := range rawAccessList.StorageKeys {
+				accessList[i].StorageKeys[j] = common.HexToHash(rawStorageKey)
+			}
+		}
+	}
+	return accessList
+}
+
 func (cfg *ExecutionConfig) ExpectedGasConsumed() uint64 {
 	return uint64(cfg.RawExpectedGasConsumed)
 }
@@ -233,17 +260,18 @@ func readExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	state, err := accountutil.AccountState(sf, ecfg.Executor())
+	state, err := accountutil.AccountState(genesis.WithGenesisContext(context.Background(), bc.Genesis()), sf, ecfg.Executor())
 	if err != nil {
 		return nil, nil, err
 	}
-	exec, err := action.NewExecution(
+	exec, err := action.NewExecutionWithAccessList(
 		contractAddr,
-		state.Nonce+1,
+		state.PendingNonce(),
 		ecfg.Amount(),
 		ecfg.GasLimit(),
 		ecfg.GasPrice(),
 		ecfg.ByteCode(),
+		ecfg.AccessList(),
 	)
 	if err != nil {
 		return nil, nil, err
@@ -272,25 +300,25 @@ func runExecutions(
 	hashes := []hash.Hash256{}
 	for i, ecfg := range ecfgs {
 		log.S().Info(ecfg.Comment)
-		var nonce uint64
+		nonce := uint64(1)
 		var ok bool
 		executor := ecfg.Executor()
 		if nonce, ok = nonces[executor.String()]; !ok {
-			state, err := accountutil.AccountState(sf, executor)
+			state, err := accountutil.AccountState(genesis.WithGenesisContext(context.Background(), bc.Genesis()), sf, executor)
 			if err != nil {
 				return nil, nil, err
 			}
-			nonce = state.Nonce
+			nonce = state.PendingNonce()
 		}
-		nonce = nonce + 1
 		nonces[executor.String()] = nonce
-		exec, err := action.NewExecution(
+		exec, err := action.NewExecutionWithAccessList(
 			contractAddrs[i],
 			nonce,
 			ecfg.Amount(),
 			ecfg.GasLimit(),
 			ecfg.GasPrice(),
 			ecfg.ByteCode(),
+			ecfg.AccessList(),
 		)
 		if err != nil {
 			return nil, nil, err
@@ -372,6 +400,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.GreenlandBlockHeight = 0
 		cfg.Genesis.IcelandBlockHeight = 0
 	}
+	if sct.InitGenesis.IsLondon {
+		// London is enabled at okhotsk height
+		cfg.Genesis.Blockchain.OkhotskBlockHeight = 0
+	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
 	}
@@ -382,17 +414,22 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(rp.Register(registry))
 	// create state factory
 	var sf factory.Factory
+	var daoKV db.KVStore
+
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		} else {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		}
+		r.NoError(err)
+		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	}
 	r.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
@@ -401,7 +438,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -478,7 +516,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
-
+	ctx = genesis.WithGenesisContext(context.Background(), bc.Genesis())
 	// deploy smart contract
 	contractAddresses := sct.deployContracts(bc, sf, dao, ap, r)
 	if len(contractAddresses) == 0 {
@@ -538,7 +576,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 			addr, err := address.FromString(account)
 			r.NoError(err)
-			state, err := accountutil.AccountState(sf, addr)
+			state, err := accountutil.AccountState(ctx, sf, addr)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -564,9 +602,8 @@ func TestProtocol_Validate(t *testing.T) {
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
-	data := make([]byte, 32769)
 
-	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), make([]byte, 32684))
 	require.NoError(err)
 	require.Equal(action.ErrOversizedData, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
@@ -576,7 +613,6 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Info("Test EVM")
 		require := require.New(t)
 
-		ctx := context.Background()
 		cfg := config.Default
 		defer func() {
 			delete(cfg.Plugins, config.GatewayPlugin)
@@ -602,15 +638,20 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
+		ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
+
 		registry := protocol.NewRegistry()
 		acc := account.NewProtocol(rewarding.DepositGas)
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
-		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		require.NoError(err)
-		ap, err := actpool.NewActPool(sf, cfg.ActPool)
+		// create state factory
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
+		require.NoError(err)
+		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -621,7 +662,8 @@ func TestProtocol_Handle(t *testing.T) {
 		dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -663,7 +705,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		// test IsContract
-		state, err := accountutil.AccountState(sf, contract)
+		state, err := accountutil.AccountState(ctx, sf, contract)
 		require.NoError(err)
 		require.True(state.IsContract())
 
@@ -926,8 +968,6 @@ func TestMaxTime(t *testing.T) {
 }
 
 func TestIstanbulEVM(t *testing.T) {
-	cfg := config.Default
-	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/array-return.json")
 	})
@@ -999,6 +1039,87 @@ func TestIstanbulEVM(t *testing.T) {
 	})
 	t.Run("datacopy", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/datacopy.json")
+	})
+	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
+	})
+}
+
+func TestLondonEVM(t *testing.T) {
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/factory.json")
+	})
+	t.Run("ArrayReturn", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/array-return.json")
+	})
+	t.Run("BasicToken", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/basic-token.json")
+	})
+	t.Run("CallDynamic", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/call-dynamic.json")
+	})
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/chainid-selfbalance.json")
+	})
+	t.Run("ChangeState", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/changestate.json")
+	})
+	t.Run("F.value", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/f.value.json")
+	})
+	t.Run("Gas-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/gas-test.json")
+	})
+	t.Run("InfiniteLoop", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/infiniteloop.json")
+	})
+	t.Run("MappingDelete", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/mapping-delete.json")
+	})
+	t.Run("max-time", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/maxtime.json")
+	})
+	t.Run("Modifier", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/modifiers.json")
+	})
+	t.Run("Multisend", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/multisend.json")
+	})
+	t.Run("NoVariableLengthReturns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/no-variable-length-returns.json")
+	})
+	t.Run("PublicMapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/public-mapping.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/reentry-attack.json")
+	})
+	t.Run("RemoveFromArray", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/remove-from-array.json")
+	})
+	t.Run("SendEth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/send-eth.json")
+	})
+	t.Run("Sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/sha3.json")
+	})
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/storage-test.json")
+	})
+	t.Run("TailRecursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/tail-recursion.json")
+	})
+	t.Run("Tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/tuple.json")
+	})
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/wireconnection.json")
+	})
+	t.Run("self-destruct", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/self-destruct.json")
+	})
+	t.Run("datacopy", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/datacopy.json")
 	})
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")

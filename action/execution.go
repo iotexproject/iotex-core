@@ -42,7 +42,7 @@ type Execution struct {
 	accessList types.AccessList
 }
 
-// NewExecution returns a Execution instance
+// NewExecution returns an Execution instance (w/o access list)
 func NewExecution(
 	contractAddress string,
 	nonce uint64,
@@ -61,6 +61,30 @@ func NewExecution(
 		contract: contractAddress,
 		amount:   amount,
 		data:     data,
+	}, nil
+}
+
+// NewExecutionWithAccessList returns an Execution instance with access list
+func NewExecutionWithAccessList(
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	data []byte,
+	list types.AccessList,
+) (*Execution, error) {
+	return &Execution{
+		AbstractAction: AbstractAction{
+			version:  version.ProtocolVersion,
+			nonce:    nonce,
+			gasLimit: gasLimit,
+			gasPrice: gasPrice,
+		},
+		contract:   contractAddress,
+		amount:     amount,
+		data:       data,
+		accessList: list,
 	}, nil
 }
 
@@ -126,8 +150,8 @@ func (ex *Execution) TotalSize() uint32 {
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		size += uint32(len(ex.amount.Bytes()))
 	}
-
-	return size + uint32(len(ex.data))
+	// 65 is the pubkey size
+	return size + uint32(len(ex.data)) + 65
 }
 
 // Serialize returns a raw byte stream of this Transfer
@@ -151,10 +175,10 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 // LoadProto converts a protobuf's Execution to Execution
 func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 	if ex == nil {
-		return errors.New("nil action to load proto")
+		return ErrNilAction
 	}
 	*ex = Execution{}
 
@@ -205,4 +229,17 @@ func (ex *Execution) SanityCheck() error {
 		}
 	}
 	return ex.AbstractAction.SanityCheck()
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (ex *Execution) ToEthTx() (*types.Transaction, error) {
+	if ex.contract == EmptyAddress {
+		return types.NewContractCreation(ex.Nonce(), ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
+	}
+	addr, err := address.FromString(ex.contract)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	return types.NewTransaction(ex.Nonce(), ethAddr, ex.amount, ex.GasLimit(), ex.GasPrice(), ex.data), nil
 }

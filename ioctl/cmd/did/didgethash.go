@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,20 +23,20 @@ import (
 
 // Multi-language support
 var (
-	getHashCmdUses = map[config.Language]string{
+	_getHashCmdUses = map[config.Language]string{
 		config.English: "gethash (CONTRACT_ADDRESS|ALIAS) DID",
 		config.Chinese: "gethash (合约地址|别名) DID",
 	}
-	getHashCmdShorts = map[config.Language]string{
+	_getHashCmdShorts = map[config.Language]string{
 		config.English: "Gethash get DID doc's hash on IoTeX blockchain",
 		config.Chinese: "Gethash 在IoTeX链上获取相应DID的doc hash",
 	}
 )
 
-// didGetHashCmd represents the contract invoke getHash command
-var didGetHashCmd = &cobra.Command{
-	Use:   config.TranslateInLang(getHashCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(getHashCmdShorts, config.UILanguage),
+// _didGetHashCmd represents the contract invoke getHash command
+var _didGetHashCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_getHashCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_getHashCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -59,7 +59,7 @@ func getHash(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	bytecode, err := encodeGet(abi, getHashName, args[1])
+	bytecode, err := encodeGet(abi, _getHashName, args[1])
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
@@ -72,7 +72,7 @@ func getHash(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	res, err := abi.Unpack(getHashName, ret)
+	res, err := abi.Unpack(_getHashName, ret)
 	if err != nil {
 		return errors.New("DID does not exist")
 	}

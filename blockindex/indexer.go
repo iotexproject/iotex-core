@@ -9,6 +9,7 @@ package blockindex
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -17,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -27,14 +29,14 @@ import (
 // still we use 2-byte NS/bucket name here, to clearly differentiate from those (3-byte) in BlockDAO
 const (
 	// first 12-byte of hash is cut off, only last 20-byte is written to DB to reduce storage
-	hashOffset          = 12
-	blockHashToHeightNS = "hh"
-	actionToBlockHashNS = "ab"
+	_hashOffset          = 12
+	_blockHashToHeightNS = "hh"
+	_actionToBlockHashNS = "ab"
 )
 
 var (
-	totalBlocksBucket  = []byte("bk")
-	totalActionsBucket = []byte("ac")
+	_totalBlocksBucket  = []byte("bk")
+	_totalActionsBucket = []byte("ac")
 	// ErrActionIndexNA indicates action index is not supported
 	ErrActionIndexNA = errors.New("action index not supported")
 )
@@ -47,8 +49,8 @@ type (
 		Start(context.Context) error
 		Stop(context.Context) error
 		PutBlock(context.Context, *block.Block) error
-		PutBlocks([]*block.Block) error
-		DeleteTipBlock(*block.Block) error
+		PutBlocks(context.Context, []*block.Block) error
+		DeleteTipBlock(context.Context, *block.Block) error
 		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
@@ -97,7 +99,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	}
 	// create the total block and action index
 	var err error
-	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, totalBlocksBucket); err != nil {
+	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, _totalBlocksBucket); err != nil {
 		return err
 	}
 	if x.tbk.Size() == 0 {
@@ -109,7 +111,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 			return err
 		}
 	}
-	x.tac, err = db.NewCountingIndexNX(x.kvStore, totalActionsBucket)
+	x.tac, err = db.NewCountingIndexNX(x.kvStore, _totalActionsBucket)
 	return err
 }
 
@@ -119,11 +121,11 @@ func (x *blockIndexer) Stop(ctx context.Context) error {
 }
 
 // PutBlocks writes the batch to DB
-func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
+func (x *blockIndexer) PutBlocks(ctx context.Context, blks []*block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 	for _, blk := range blks {
-		if err := x.putBlock(blk); err != nil {
+		if err := x.putBlock(ctx, blk); err != nil {
 			// TODO: Revert changes
 			return err
 		}
@@ -132,18 +134,18 @@ func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
 }
 
 // PutBlock index the block
-func (x *blockIndexer) PutBlock(_ context.Context, blk *block.Block) error {
+func (x *blockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
-	if err := x.putBlock(blk); err != nil {
+	if err := x.putBlock(ctx, blk); err != nil {
 		return err
 	}
 	return x.commit()
 }
 
 // DeleteBlock deletes a block's index
-func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
+func (x *blockIndexer) DeleteTipBlock(ctx context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -154,20 +156,23 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	}
 	// delete hash --> height
 	hash := blk.HashBlock()
-	x.batch.Delete(blockHashToHeightNS, hash[hashOffset:], "failed to delete block at height %d", height)
+	x.batch.Delete(_blockHashToHeightNS, hash[_hashOffset:], fmt.Sprintf("failed to delete block at height %d", height))
 	// delete from total block index
 	if err := x.tbk.Revert(1); err != nil {
 		return err
 	}
 
 	// delete action index
+	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: blk.Height(),
+	})))
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {
 			return err
 		}
-		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
-		if err := x.indexAction(actHash, selp, false); err != nil {
+		x.batch.Delete(_actionToBlockHashNS, actHash[_hashOffset:], fmt.Sprintf("failed to delete action hash %x", actHash))
+		if err := x.indexAction(actHash, selp, false, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
 	}
@@ -203,7 +208,7 @@ func (x *blockIndexer) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	value, err := x.kvStore.Get(blockHashToHeightNS, hash[hashOffset:])
+	value, err := x.kvStore.Get(_blockHashToHeightNS, hash[_hashOffset:])
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
@@ -234,7 +239,7 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	v, err := x.kvStore.Get(actionToBlockHashNS, h[hashOffset:])
+	v, err := x.kvStore.Get(_actionToBlockHashNS, h[_hashOffset:])
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +299,7 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	return addr.Range(start, count)
 }
 
-func (x *blockIndexer) putBlock(blk *block.Block) error {
+func (x *blockIndexer) putBlock(ctx context.Context, blk *block.Block) error {
 	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
 	height := blk.Height()
 	if height != x.tbk.Size() {
@@ -303,7 +308,7 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 
 	// index hash --> height
 	hash := blk.HashBlock()
-	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	x.batch.Put(_blockHashToHeightNS, hash[_hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// index height --> block hash, number of actions, and total transfer amount
 	bd := &blockIndex{
@@ -324,17 +329,20 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 		return err
 	}
 	// index actions in the block
+	fCtx := protocol.MustGetFeatureCtx(protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: blk.Height(),
+	})))
 	for _, selp := range blk.Actions {
 		actHash, err := selp.Hash()
 		if err != nil {
 			return err
 		}
-		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
+		x.batch.Put(_actionToBlockHashNS, actHash[_hashOffset:], ad, fmt.Sprintf("failed to put action hash %x", actHash))
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err
 		}
-		if err := x.indexAction(actHash, selp, true); err != nil {
+		if err := x.indexAction(actHash, selp, true, fCtx.TolerateLegacyAddress); err != nil {
 			return err
 		}
 	}
@@ -393,7 +401,7 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 }
 
 // indexAction builds index for an action
-func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert bool) error {
+func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert, tolerateLegacyAddress bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
 	sender, err := x.getIndexerForAddr(callerAddrBytes, insert)
@@ -413,7 +421,13 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 	if !ok || dst == "" {
 		return nil
 	}
-	dstAddr, err := address.FromString(dst)
+
+	var dstAddr address.Address
+	if tolerateLegacyAddress {
+		dstAddr, err = address.FromStringLegacy(dst)
+	} else {
+		dstAddr, err = address.FromString(dst)
+	}
 	if err != nil {
 		return err
 	}

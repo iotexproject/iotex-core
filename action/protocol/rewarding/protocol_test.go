@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -38,7 +37,7 @@ import (
 func TestValidateExtension(t *testing.T) {
 	r := require.New(t)
 
-	g := config.Default.Genesis.Rewarding
+	g := genesis.Default.Rewarding
 	r.NoError(validateFoundationBonusExtension(g))
 
 	last := g.FoundationBonusP2StartEpoch
@@ -58,7 +57,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	registry := protocol.NewRegistry()
 	sm := testdb.NewMockStateManager(ctrl)
 
-	g := config.Default.Genesis
+	g := genesis.Default
 	// Create a test account with 1000 token
 	g.InitBalanceMap[identityset.Address(28).String()] = "1000"
 	g.Rewarding.InitBalanceStr = "0"
@@ -219,10 +218,62 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	test(t, ctx, sm, p)
 }
 
+func TestProtocol_Validate(t *testing.T) {
+	g := genesis.Default
+	g.NewfoundlandBlockHeight = 0
+	p := NewProtocol(g.Rewarding)
+	act := createGrantRewardAction(0, uint64(0)).Action()
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ctx = genesis.WithGenesisContext(
+		ctx,
+		genesis.Genesis{},
+	)
+	ctx = protocol.WithActionCtx(
+		protocol.WithFeatureCtx(ctx),
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+		},
+	)
+	require.NoError(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(1),
+			GasPrice: big.NewInt(0),
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(1),
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+	require.Error(t, p.Validate(ctx, act, nil))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       identityset.Address(0),
+			GasPrice:     big.NewInt(0),
+			IntrinsicGas: 1,
+		},
+	)
+	require.Error(t, p.Validate(ctx, act, nil))
+}
+
 func TestProtocol_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	g := config.Default.Genesis
+	g := genesis.Default
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
@@ -312,6 +363,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.ActionCtx{
 			Caller:   identityset.Address(0),
 			GasPrice: big.NewInt(0),
+			Nonce:    1,
 		},
 	)
 
@@ -319,7 +371,7 @@ func TestProtocol_Handle(t *testing.T) {
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
 	eb1 := action.EnvelopeBuilder{}
-	e1 := eb1.SetNonce(0).
+	e1 := eb1.SetNonce(1).
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(deposit.GasLimit()).
 		SetAction(&deposit).
@@ -338,11 +390,26 @@ func TestProtocol_Handle(t *testing.T) {
 	e2 := createGrantRewardAction(0, uint64(0))
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
-
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+			Nonce:    0,
+		},
+	)
 	receipt, err := p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs()))
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+			Nonce:    0,
+		},
+	)
 	// Grant the block reward again should fail
 	receipt, err = p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
@@ -352,14 +419,21 @@ func TestProtocol_Handle(t *testing.T) {
 	claimBuilder := action.ClaimFromRewardingFundBuilder{}
 	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
 	eb3 := action.EnvelopeBuilder{}
-	e3 := eb3.SetNonce(0).
+	e3 := eb3.SetNonce(4).
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(claim.GasLimit()).
 		SetAction(&claim).
 		Build()
 	se3, err := action.Sign(e3, identityset.PrivateKey(0))
 	require.NoError(t, err)
-
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+			Nonce:    2,
+		},
+	)
 	_, err = p.Handle(ctx, se3.Action(), sm)
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
@@ -478,7 +552,7 @@ func TestStateCheckLegacy(t *testing.T) {
 	acc := rewardAccount{
 		balance: tests[0].before,
 	}
-	accKey := append(adminKey, addr.Bytes()...)
+	accKey := append(_adminKey, addr.Bytes()...)
 	require.NoError(p.putState(ctx, sm, accKey, &acc))
 
 	for useV2 := 0; useV2 < 2; useV2++ {
@@ -542,17 +616,17 @@ func TestMigrateValue(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// verify v1 state
 		a := admin{}
-		_, err := p.stateV1(sm, adminKey, &a)
+		_, err := p.stateV1(sm, _adminKey, &a)
 		r.NoError(err)
 		r.Equal(a1, a)
 
 		f := fund{}
-		_, err = p.stateV1(sm, fundKey, &f)
+		_, err = p.stateV1(sm, _fundKey, &f)
 		r.NoError(err)
 		r.Equal(f1, f)
 
 		e := exempt{}
-		_, err = p.stateV1(sm, exemptKey, &e)
+		_, err = p.stateV1(sm, _exemptKey, &e)
 		r.NoError(err)
 		r.Equal(e1, e)
 
@@ -588,20 +662,20 @@ func TestMigrateValue(t *testing.T) {
 			r.NoError(p.CreatePreStates(fCtx, sm))
 
 			// verify v1 is deleted
-			_, err = p.stateV1(sm, adminKey, &a)
+			_, err = p.stateV1(sm, _adminKey, &a)
 			r.Equal(state.ErrStateNotExist, err)
-			_, err = p.stateV1(sm, fundKey, &f)
+			_, err = p.stateV1(sm, _fundKey, &f)
 			r.Equal(state.ErrStateNotExist, err)
-			_, err = p.stateV1(sm, exemptKey, &e)
+			_, err = p.stateV1(sm, _exemptKey, &e)
 			r.Equal(state.ErrStateNotExist, err)
 
 			// verify v2 exist
-			_, err = p.stateV2(sm, adminKey, &a)
+			_, err = p.stateV2(sm, _adminKey, &a)
 			r.NoError(err)
-			_, err = p.stateV2(sm, fundKey, &f)
+			_, err = p.stateV2(sm, _fundKey, &f)
 			r.NoError(err)
 			r.Equal(f1, f)
-			_, err = p.stateV2(sm, exemptKey, &e)
+			_, err = p.stateV2(sm, _exemptKey, &e)
 			r.NoError(err)
 			r.Equal(e1, e)
 

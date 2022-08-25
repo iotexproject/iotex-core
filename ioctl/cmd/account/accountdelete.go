@@ -27,20 +27,20 @@ import (
 
 // Multi-language support
 var (
-	deleteCmdShorts = map[config.Language]string{
+	_deleteCmdShorts = map[config.Language]string{
 		config.English: "Delete an IoTeX account/address from wallet/config",
 		config.Chinese: "从 钱包/配置 中删除一个IoTeX的账户或地址",
 	}
-	deleteCmdUses = map[config.Language]string{
+	_deleteCmdUses = map[config.Language]string{
 		config.English: "delete [ALIAS|ADDRESS]",
 		config.Chinese: "delete [别名|地址]",
 	}
 )
 
-// accountDeleteCmd represents the account delete command
-var accountDeleteCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deleteCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(deleteCmdShorts, config.UILanguage),
+// _accountDeleteCmd represents the account delete command
+var _accountDeleteCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_deleteCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_deleteCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -91,7 +91,9 @@ func accountDelete(arg string) error {
 		"Type 'YES' to continue, quit for anything else.")
 	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
-	fmt.Scanf("%s", &confirm)
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return output.NewError(output.InputError, "failed to input yes", err)
+	}
 	if !strings.EqualFold(confirm, "yes") {
 		output.PrintResult("quit")
 		return nil

@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -30,8 +29,8 @@ import (
 )
 
 var (
-	data1 = hash.Hash256b([]byte("Deposit"))
-	data2 = hash.Hash256b([]byte("Withdraw"))
+	_data1 = hash.Hash256b([]byte("Deposit"))
+	_data2 = hash.Hash256b([]byte("Withdraw"))
 )
 
 func newTestLog(addr string, topics []hash.Hash256) *action.Log {
@@ -59,23 +58,23 @@ func getTestLogBlocks(t *testing.T) []*block.Block {
 	execution2, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
 	require.NoError(t, err)
 
-	testLog1 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data1})
+	testLog1 := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data1})
 	receipt1 := &action.Receipt{}
 	receipt1.AddLogs(testLog1)
 
-	testLog2 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
+	testLog2 := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data2})
 	receipt2 := &action.Receipt{}
 	receipt2.AddLogs(testLog1, testLog2)
 
-	testLog3 := newTestLog(identityset.Address(18).String(), []hash.Hash256{data1})
+	testLog3 := newTestLog(identityset.Address(18).String(), []hash.Hash256{_data1})
 	receipt3 := &action.Receipt{}
 	receipt3.AddLogs(testLog3)
 
-	testLog4 := newTestLog(identityset.Address(18).String(), []hash.Hash256{data2})
+	testLog4 := newTestLog(identityset.Address(18).String(), []hash.Hash256{_data2})
 	receipt4 := &action.Receipt{}
 	receipt4.AddLogs(testLog4)
 
-	testLog5 := newTestLog(identityset.Address(28).String(), []hash.Hash256{data1, data2})
+	testLog5 := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data1, _data2})
 	receipt5 := &action.Receipt{}
 	receipt5.AddLogs(testLog5)
 
@@ -152,8 +151,8 @@ func TestBloomfilterIndexer(t *testing.T) {
 			Topics: []*iotexapi.Topics{
 				{
 					Topic: [][]byte{
-						data1[:],
-						data2[:],
+						_data1[:],
+						_data2[:],
 					},
 				},
 				nil,
@@ -164,7 +163,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 			Topics: []*iotexapi.Topics{
 				{
 					Topic: [][]byte{
-						data1[:],
+						_data1[:],
 					},
 				},
 				nil,
@@ -176,7 +175,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 				nil,
 				{
 					Topic: [][]byte{
-						data2[:],
+						_data2[:],
 					},
 				},
 			},
@@ -214,7 +213,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		cfg := config.Default.Indexer
+		cfg := DefaultConfig
 		cfg.RangeBloomFilterNumElements = 16
 		cfg.RangeBloomFilterSize = 4096
 		cfg.RangeBloomFilterNumHash = 4
@@ -232,7 +231,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(0, height)
 
-		testinglf := logfilter.NewLogFilter(testFilter[2], nil, nil)
+		testinglf := logfilter.NewLogFilter(testFilter[2])
 
 		for i := 0; i < len(blks); i++ {
 			require.NoError(indexer.PutBlock(context.Background(), blks[i]))
@@ -246,17 +245,17 @@ func TestBloomfilterIndexer(t *testing.T) {
 		}
 
 		for i, l := range testFilter {
-			lf := logfilter.NewLogFilter(l, nil, nil)
+			lf := logfilter.NewLogFilter(l)
 
-			res, err := indexer.FilterBlocksInRange(lf, 1, 5)
+			res, err := indexer.FilterBlocksInRange(lf, 1, 5, 0)
 			require.NoError(err)
 			require.Equal(expectedRes2[i], res)
 
-			res, err = indexer.FilterBlocksInRange(lf, 4, 5)
+			res, err = indexer.FilterBlocksInRange(lf, 4, 5, 0)
 			require.NoError(err)
 			require.Equal(expectedRes3[i], res)
 
-			res, err = indexer.FilterBlocksInRange(lf, 1, 3)
+			res, err = indexer.FilterBlocksInRange(lf, 1, 3, 0)
 			require.NoError(err)
 			require.Equal(expectedRes4[i], res)
 		}
@@ -276,7 +275,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 func BenchmarkBloomfilterIndexer(b *testing.B) {
 	require := require.New(b)
 
-	indexerCfg := config.Default.Indexer
+	indexerCfg := DefaultConfig
 	indexerCfg.RangeBloomFilterNumElements = 16
 	indexerCfg.RangeBloomFilterSize = 4096
 	indexerCfg.RangeBloomFilterNumHash = 4
@@ -286,12 +285,12 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 		Topics: []*iotexapi.Topics{
 			{
 				Topic: [][]byte{
-					data2[:],
+					_data2[:],
 				},
 			},
 		},
 	}
-	testinglf := logfilter.NewLogFilter(&testFilter, nil, nil)
+	testinglf := logfilter.NewLogFilter(&testFilter)
 
 	var (
 		blkNum           = 2000
@@ -306,7 +305,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 			receipts := make([]*action.Receipt, receiptNumPerBlk)
 			for j := 0; j < receiptNumPerBlk; j++ {
 				receipt := &action.Receipt{}
-				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{data2})
+				testLog := newTestLog(identityset.Address(28).String(), []hash.Hash256{_data2})
 				receipt.AddLogs(testLog)
 				receipts[j] = receipt
 			}
@@ -340,7 +339,7 @@ func BenchmarkBloomfilterIndexer(b *testing.B) {
 		require.NoError(indexer.PutBlock(context.Background(), &blks[i]))
 	}
 	runtime.GC()
-	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1))
+	res, err := indexer.FilterBlocksInRange(testinglf, 1, uint64(blkNum-1), 0)
 	require.NoError(err)
 	require.Equal(blkNum-1, len(res))
 }

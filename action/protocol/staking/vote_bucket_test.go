@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	stateDBPath = "stateDB.test"
+	_stateDBPath = "stateDB.test"
 )
 
 func TestGetPutStaking(t *testing.T) {
@@ -32,9 +32,11 @@ func TestGetPutStaking(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
+	csm := newCandidateStateManager(sm)
+	csr := newCandidateStateReader(sm)
 	sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(StakingNameSpace),
+		protocol.NamespaceOption(_stakingNameSpace),
 		protocol.KeyOption(TotalBucketKey),
 	)
 
@@ -63,41 +65,41 @@ func TestGetPutStaking(t *testing.T) {
 	// put buckets and get
 	for _, e := range tests {
 		addr, _ := address.FromBytes(e.name[:])
-		_, err := getBucket(sm, e.index)
+		_, err := csr.getBucket(e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
 		vb := NewVoteBucket(addr, identityset.Address(1), big.NewInt(2100000000), 21*uint32(e.index+1), time.Now(), true)
 
-		count, err := getTotalBucketCount(sm)
+		count, err := csr.getTotalBucketCount()
 		require.NoError(err)
 		require.Equal(e.index, count)
-		count, err = putBucket(sm, vb)
+		count, err = csm.putBucket(vb)
 		require.NoError(err)
 		require.Equal(e.index, count)
-		count, err = getTotalBucketCount(sm)
+		count, err = csr.getTotalBucketCount()
 		require.NoError(err)
 		require.Equal(e.index+1, count)
-		vb1, err := getBucket(sm, e.index)
+		vb1, err := csr.getBucket(e.index)
 		require.NoError(err)
 		require.Equal(e.index, vb1.Index)
 		require.Equal(vb, vb1)
 	}
 
-	vb, err := getBucket(sm, 2)
+	vb, err := csr.getBucket(2)
 	require.NoError(err)
 	vb.AutoStake = false
 	vb.StakedAmount.Sub(vb.StakedAmount, big.NewInt(100))
 	vb.UnstakeStartTime = time.Now().UTC()
 	require.True(vb.isUnstaked())
-	require.NoError(updateBucket(sm, 2, vb))
-	vb1, err := getBucket(sm, 2)
+	require.NoError(csm.updateBucket(2, vb))
+	vb1, err := csr.getBucket(2)
 	require.NoError(err)
 	require.Equal(vb, vb1)
 
 	// delete buckets and get
 	for _, e := range tests {
-		require.NoError(delBucket(sm, e.index))
-		_, err := getBucket(sm, e.index)
+		require.NoError(csm.delBucket(e.index))
+		_, err := csr.getBucket(e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }

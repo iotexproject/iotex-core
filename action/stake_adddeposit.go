@@ -12,9 +12,12 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -27,7 +30,7 @@ const (
 	// DepositToStakeBaseIntrinsicGas represents the base intrinsic gas for DepositToStake
 	DepositToStakeBaseIntrinsicGas = uint64(10000)
 
-	depositToStakeInterfaceABI = `[
+	_depositToStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -69,7 +72,7 @@ type DepositToStake struct {
 }
 
 func init() {
-	depositToStakeInterface, err := abi.JSON(strings.NewReader(depositToStakeInterfaceABI))
+	depositToStakeInterface, err := abi.JSON(strings.NewReader(_depositToStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
@@ -136,7 +139,7 @@ func (ds *DepositToStake) Proto() *iotextypes.StakeAddDeposit {
 // LoadProto converts a protobuf's Action to DepositToStake
 func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	ds.bucketIndex = pbAct.GetBucketIndex()
@@ -181,6 +184,10 @@ func (ds *DepositToStake) SanityCheck() error {
 
 // EncodeABIBinary encodes data in abi encoding
 func (ds *DepositToStake) EncodeABIBinary() ([]byte, error) {
+	return ds.encodeABIBinary()
+}
+
+func (ds *DepositToStake) encodeABIBinary() ([]byte, error) {
 	data, err := _depositToStakeMethod.Inputs.Pack(ds.bucketIndex, ds.amount, ds.payload)
 	if err != nil {
 		return nil, err
@@ -212,4 +219,18 @@ func NewDepositToStakeFromABIBinary(data []byte) (*DepositToStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &ds, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (ds *DepositToStake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := ds.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(ds.Nonce(), ethAddr, big.NewInt(0), ds.GasLimit(), ds.GasPrice(), data), nil
 }

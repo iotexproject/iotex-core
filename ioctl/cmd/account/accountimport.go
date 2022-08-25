@@ -21,49 +21,45 @@ import (
 
 // Multi-language support
 var (
-	importCmdShorts = map[config.Language]string{
+	_importCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX private key or keystore into wallet",
 		config.Chinese: "将IoTeX的私钥或私钥库导入钱包",
 	}
-	importCmdUses = map[config.Language]string{
-		config.English: "import",
-		config.Chinese: "导入",
-	}
-	importKeyCmdShorts = map[config.Language]string{
+	_importKeyCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX private key into wallet",
 		config.Chinese: "将IoTeX的私钥导入钱包",
 	}
-	importKeyCmdUses = map[config.Language]string{
+	_importKeyCmdUses = map[config.Language]string{
 		config.English: "key ALIAS",
 		config.Chinese: "key 别名",
 	}
-	importKeyStoreCmdShorts = map[config.Language]string{
+	_importKeyStoreCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX keystore into wallet",
 		config.Chinese: "将IoTeX的私钥库导入钱包",
 	}
-	importKeyStoreCmdUses = map[config.Language]string{
+	_importKeyStoreCmdUses = map[config.Language]string{
 		config.English: "keystore ALIAS FILEPATH",
 		config.Chinese: "keystore 别名 文件路径",
 	}
-	importPemCmdShorts = map[config.Language]string{
+	_importPemCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX key from pem file into wallet",
 		config.Chinese: "将IoTeX私钥从pem文件导入钱包",
 	}
-	importPemCmdUses = map[config.Language]string{
+	_importPemCmdUses = map[config.Language]string{
 		config.English: "pem ALIAS FILEPATH",
 		config.Chinese: "pem 别名 文件路径",
 	}
 )
 var (
-	// accountImportCmd represents the account import command
-	accountImportCmd = &cobra.Command{
-		Use:   config.TranslateInLang(importCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
+	// _accountImportCmd represents the account import command
+	_accountImportCmd = &cobra.Command{
+		Use:   "import",
+		Short: config.TranslateInLang(_importCmdShorts, config.UILanguage),
 	}
-	// accountImportKeyCmd represents the account import key command
-	accountImportKeyCmd = &cobra.Command{
-		Use:   config.TranslateInLang(importKeyCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(importKeyCmdShorts, config.UILanguage),
+	// _accountImportKeyCmd represents the account import key command
+	_accountImportKeyCmd = &cobra.Command{
+		Use:   config.TranslateInLang(_importKeyCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(_importKeyCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -71,10 +67,10 @@ var (
 			return output.PrintError(err)
 		},
 	}
-	// accountImportKeyStoreCmd represents the account import keystore command
-	accountImportKeyStoreCmd = &cobra.Command{
-		Use:   config.TranslateInLang(importKeyStoreCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(importKeyStoreCmdShorts, config.UILanguage),
+	// _accountImportKeyStoreCmd represents the account import keystore command
+	_accountImportKeyStoreCmd = &cobra.Command{
+		Use:   config.TranslateInLang(_importKeyStoreCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(_importKeyStoreCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -82,10 +78,10 @@ var (
 			return output.PrintError(err)
 		},
 	}
-	// accountImportPemCmd represents the account import pem command
-	accountImportPemCmd = &cobra.Command{
-		Use:   config.TranslateInLang(importPemCmdUses, config.UILanguage),
-		Short: config.TranslateInLang(importPemCmdShorts, config.UILanguage),
+	// _accountImportPemCmd represents the account import pem command
+	_accountImportPemCmd = &cobra.Command{
+		Use:   config.TranslateInLang(_importPemCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(_importPemCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -96,9 +92,9 @@ var (
 )
 
 func init() {
-	accountImportCmd.AddCommand(accountImportKeyCmd)
-	accountImportCmd.AddCommand(accountImportKeyStoreCmd)
-	accountImportCmd.AddCommand(accountImportPemCmd)
+	_accountImportCmd.AddCommand(_accountImportKeyCmd)
+	_accountImportCmd.AddCommand(_accountImportKeyStoreCmd)
+	_accountImportCmd.AddCommand(_accountImportPemCmd)
 }
 func validateAlias(alias string) error {
 	if err := validator.ValidateAlias(alias); err != nil {

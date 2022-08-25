@@ -21,20 +21,20 @@ import (
 
 // Multi-language support
 var (
-	infoCmdUses = map[config.Language]string{
+	_infoCmdUses = map[config.Language]string{
 		config.English: "info [ALIAS|ADDRESS]",
 		config.Chinese: "info [别名|地址]",
 	}
-	infoCmdShorts = map[config.Language]string{
+	_infoCmdShorts = map[config.Language]string{
 		config.English: "Display an account's information",
 		config.Chinese: "显示账号信息",
 	}
 )
 
-// accountInfoCmd represents the account info command
-var accountInfoCmd = &cobra.Command{
-	Use:   config.TranslateInLang(infoCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(infoCmdShorts, config.UILanguage),
+// _accountInfoCmd represents the account info command
+var _accountInfoCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_infoCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_infoCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

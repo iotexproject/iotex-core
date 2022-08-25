@@ -12,6 +12,9 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -26,7 +29,7 @@ const (
 	// CreateStakeBaseIntrinsicGas represents the base intrinsic gas for CreateStake
 	CreateStakeBaseIntrinsicGas = uint64(10000)
 
-	createStakeInterfaceABI = `[
+	_createStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -82,7 +85,7 @@ type CreateStake struct {
 }
 
 func init() {
-	createStakeInterface, err := abi.JSON(strings.NewReader(createStakeInterfaceABI))
+	createStakeInterface, err := abi.JSON(strings.NewReader(_createStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
@@ -165,7 +168,7 @@ func (cs *CreateStake) Proto() *iotextypes.StakeCreate {
 // LoadProto converts a protobuf's Action to CreateStake
 func (cs *CreateStake) LoadProto(pbAct *iotextypes.StakeCreate) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cs.candName = pbAct.GetCandidateName()
@@ -214,6 +217,10 @@ func (cs *CreateStake) SanityCheck() error {
 
 // EncodeABIBinary encodes data in abi encoding
 func (cs *CreateStake) EncodeABIBinary() ([]byte, error) {
+	return cs.encodeABIBinary()
+}
+
+func (cs *CreateStake) encodeABIBinary() ([]byte, error) {
 	data, err := _createStakeMethod.Inputs.Pack(cs.candName, cs.amount, cs.duration, cs.autoStake, cs.payload)
 	if err != nil {
 		return nil, err
@@ -251,4 +258,18 @@ func NewCreateStakeFromABIBinary(data []byte) (*CreateStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &cs, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cs *CreateStake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cs.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cs.Nonce(), ethAddr, big.NewInt(0), cs.GasLimit(), cs.GasPrice(), data), nil
 }

@@ -12,9 +12,12 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -27,7 +30,7 @@ const (
 	// ReclaimStakeBaseIntrinsicGas represents the base intrinsic gas for stake reclaim
 	ReclaimStakeBaseIntrinsicGas = uint64(10000)
 
-	reclaimStakeInterfaceABI = `[
+	_reclaimStakeInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -75,7 +78,7 @@ var (
 )
 
 func init() {
-	reclaimStakeInterface, err := abi.JSON(strings.NewReader(reclaimStakeInterfaceABI))
+	reclaimStakeInterface, err := abi.JSON(strings.NewReader(_reclaimStakeInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
@@ -122,7 +125,7 @@ func (sr *reclaimStake) Proto() *iotextypes.StakeReclaim {
 // LoadProto converts a protobuf's Action to reclaimStake
 func (sr *reclaimStake) LoadProto(pbAct *iotextypes.StakeReclaim) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	sr.bucketIndex = pbAct.GetBucketIndex()
@@ -175,6 +178,10 @@ func (su *Unstake) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (su *Unstake) EncodeABIBinary() ([]byte, error) {
+	return su.encodeABIBinary()
+}
+
+func (su *Unstake) encodeABIBinary() ([]byte, error) {
 	data, err := _unstakeMethod.Inputs.Pack(su.bucketIndex, su.payload)
 	if err != nil {
 		return nil, err
@@ -203,6 +210,20 @@ func NewUnstakeFromABIBinary(data []byte) (*Unstake, error) {
 		return nil, errDecodeFailure
 	}
 	return &su, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (su *Unstake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := su.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(su.Nonce(), ethAddr, big.NewInt(0), su.GasLimit(), su.GasPrice(), data), nil
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -250,6 +271,10 @@ func (sw *WithdrawStake) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (sw *WithdrawStake) EncodeABIBinary() ([]byte, error) {
+	return sw.encodeABIBinary()
+}
+
+func (sw *WithdrawStake) encodeABIBinary() ([]byte, error) {
 	data, err := _withdrawStakeMethod.Inputs.Pack(sw.bucketIndex, sw.payload)
 	if err != nil {
 		return nil, err
@@ -278,4 +303,18 @@ func NewWithdrawStakeFromABIBinary(data []byte) (*WithdrawStake, error) {
 		return nil, errDecodeFailure
 	}
 	return &sw, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (sw *WithdrawStake) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := sw.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(sw.Nonce(), ethAddr, big.NewInt(0), sw.GasLimit(), sw.GasPrice(), data), nil
 }

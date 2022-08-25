@@ -21,42 +21,42 @@ import (
 )
 
 var (
-	amount = big.NewInt(100)
+	_amount = big.NewInt(100)
 
-	evmLog = &action.TransactionLog{
+	_evmLog = &action.TransactionLog{
 		Sender:    identityset.Address(0).String(),
 		Recipient: identityset.Address(1).String(),
-		Amount:    amount,
+		Amount:    _amount,
 		Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
 	}
-	createLog = &action.TransactionLog{
+	_createLog = &action.TransactionLog{
 		Sender:    identityset.Address(0).String(),
 		Recipient: address.StakingBucketPoolAddr,
-		Amount:    amount,
+		Amount:    _amount,
 		Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
 	}
-	depositLog = &action.TransactionLog{
+	_depositLog = &action.TransactionLog{
 		Sender:    identityset.Address(0).String(),
 		Recipient: address.StakingBucketPoolAddr,
-		Amount:    amount,
+		Amount:    _amount,
 		Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
 	}
 	withdrawLog = &action.TransactionLog{
 		Sender:    address.StakingBucketPoolAddr,
 		Recipient: identityset.Address(0).String(),
-		Amount:    amount,
+		Amount:    _amount,
 		Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
 	}
 	selfstakeLog = &action.TransactionLog{
 		Sender:    identityset.Address(0).String(),
 		Recipient: address.StakingBucketPoolAddr,
-		Amount:    amount,
+		Amount:    _amount,
 		Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
 	}
 	registerLog = &action.TransactionLog{
 		Sender:    identityset.Address(0).String(),
 		Recipient: address.RewardingPoolAddr,
-		Amount:    amount,
+		Amount:    _amount,
 		Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
 	}
 	normalLog = &action.Log{
@@ -65,7 +65,7 @@ var (
 			hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash()),
 			hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash()),
 		},
-		Data: amount.Bytes(),
+		Data: _amount.Bytes(),
 	}
 	receiptTest = []struct {
 		r   *action.Receipt
@@ -83,17 +83,17 @@ var (
 		},
 		{
 			// contain evm transfer
-			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(evmLog),
+			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(_evmLog),
 			1,
 		},
 		{
 			// contain create bucket
-			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(createLog),
+			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(_createLog),
 			1,
 		},
 		{
 			// contain deposit bucket
-			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(depositLog),
+			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(_depositLog),
 			1,
 		},
 		{
@@ -113,7 +113,7 @@ var (
 		},
 		{
 			// contain all
-			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog),
+			(&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success)}).AddTransactionLogs(_evmLog, _createLog, _depositLog, withdrawLog, selfstakeLog, registerLog),
 			6,
 		},
 	}

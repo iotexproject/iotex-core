@@ -16,30 +16,30 @@ import (
 )
 
 var (
-	cuNonce           = uint64(20)
-	cuName            = "test"
-	cuOperatorAddrStr = "io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng"
-	cuRewardAddrStr   = "io1juvx5g063eu4ts832nukp4vgcwk2gnc5cu9ayd"
-	cuGasLimit        = uint64(200000)
-	cuGasPrice        = big.NewInt(2000)
+	_cuNonce           = uint64(20)
+	_cuName            = "test"
+	_cuOperatorAddrStr = "io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng"
+	_cuRewardAddrStr   = "io1juvx5g063eu4ts832nukp4vgcwk2gnc5cu9ayd"
+	_cuGasLimit        = uint64(200000)
+	_cuGasPrice        = big.NewInt(2000)
 )
 
 func TestCandidateUpdate(t *testing.T) {
 	require := require.New(t)
-	cu, err := NewCandidateUpdate(cuNonce, cuName, cuOperatorAddrStr, cuRewardAddrStr, cuGasLimit, cuGasPrice)
+	cu, err := NewCandidateUpdate(_cuNonce, _cuName, _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
 	require.NoError(err)
 
 	ser := cu.Serialize()
 	require.Equal("0a04746573741229696f31636c36726c32657635646661393838716d677a673278346866617a6d7039766e326736366e671a29696f316a757678356730363365753474733833326e756b7034766763776b32676e6335637539617964", hex.EncodeToString(ser))
 
 	require.NoError(err)
-	require.Equal(cuGasLimit, cu.GasLimit())
-	require.Equal(cuGasPrice, cu.GasPrice())
-	require.Equal(cuNonce, cu.Nonce())
+	require.Equal(_cuGasLimit, cu.GasLimit())
+	require.Equal(_cuGasPrice, cu.GasPrice())
+	require.Equal(_cuNonce, cu.Nonce())
 
-	require.Equal(cuName, cu.Name())
-	require.Equal(cuOperatorAddrStr, cu.OperatorAddress().String())
-	require.Equal(cuRewardAddrStr, cu.RewardAddress().String())
+	require.Equal(_cuName, cu.Name())
+	require.Equal(_cuOperatorAddrStr, cu.OperatorAddress().String())
+	require.Equal(_cuRewardAddrStr, cu.RewardAddress().String())
 
 	gas, err := cu.IntrinsicGas()
 	require.NoError(err)
@@ -51,22 +51,22 @@ func TestCandidateUpdate(t *testing.T) {
 	proto := cu.Proto()
 	cu2 := &CandidateUpdate{}
 	require.NoError(cu2.LoadProto(proto))
-	require.Equal(cuName, cu2.Name())
-	require.Equal(cuOperatorAddrStr, cu2.OperatorAddress().String())
-	require.Equal(cuRewardAddrStr, cu2.RewardAddress().String())
+	require.Equal(_cuName, cu2.Name())
+	require.Equal(_cuOperatorAddrStr, cu2.OperatorAddress().String())
+	require.Equal(_cuRewardAddrStr, cu2.RewardAddress().String())
 }
 
 func TestCandidateUpdateSignVerify(t *testing.T) {
 	require := require.New(t)
-	cu, err := NewCandidateUpdate(cuNonce, cuName, cuOperatorAddrStr, cuRewardAddrStr, cuGasLimit, cuGasPrice)
+	cu, err := NewCandidateUpdate(_cuNonce, _cuName, _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
-		SetGasPrice(gasprice).
+	elp := bd.SetGasLimit(_gaslimit).
+		SetGasPrice(_gasprice).
 		SetAction(cu).Build()
 	// sign
-	selp, err := Sign(elp, senderKey)
+	selp, err := Sign(elp, _senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	ser, err := proto.Marshal(selp.Proto())
@@ -76,19 +76,19 @@ func TestCandidateUpdateSignVerify(t *testing.T) {
 	require.NoError(err)
 	require.Equal("ca1a28f0e9a58ffc67037cc75066dbdd8e024aa2b2e416e4d6ce16c3d86282e5", hex.EncodeToString(hash[:]))
 	// verify signature
-	require.NoError(selp.Verify())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestCandidateUpdateABIEncodeAndDecode(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewCandidateUpdate(cuNonce, cuName, cuOperatorAddrStr, cuRewardAddrStr, cuGasLimit, cuGasPrice)
+	stake, err := NewCandidateUpdate(_cuNonce, _cuName, _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
 	require.NoError(err)
 
 	data, err := stake.EncodeABIBinary()
 	require.NoError(err)
 	stake, err = NewCandidateUpdateFromABIBinary(data)
 	require.NoError(err)
-	require.Equal(cuName, stake.Name())
-	require.Equal(cuOperatorAddrStr, stake.OperatorAddress().String())
-	require.Equal(cuRewardAddrStr, stake.RewardAddress().String())
+	require.Equal(_cuName, stake.Name())
+	require.Equal(_cuOperatorAddrStr, stake.OperatorAddress().String())
+	require.Equal(_cuRewardAddrStr, stake.RewardAddress().String())
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_apiserviceclient"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -35,7 +35,7 @@ func TestNewAccountInfo(t *testing.T) {
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).AnyTimes()
 	client.EXPECT().Config().Return(config.Config{}).AnyTimes()
 
-	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:          accAddr.String(),
 		Balance:          "20000000132432000",
@@ -47,7 +47,7 @@ func TestNewAccountInfo(t *testing.T) {
 	}}
 
 	t.Run("retrieve account information successfully", func(t *testing.T) {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 
 		cmd := NewAccountInfo(client)
@@ -64,7 +64,7 @@ func TestNewAccountInfo(t *testing.T) {
 
 	t.Run("failed to invoke GetAccount api", func(t *testing.T) {
 		expectedErr := errors.New("failed to dial grpc connection")
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewAccountInfo(client)
@@ -73,7 +73,7 @@ func TestNewAccountInfo(t *testing.T) {
 	})
 
 	t.Run("invalid account balance", func(t *testing.T) {
-		client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil)
+		client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 		accountResponse.AccountMeta.Balance = "61xx44"
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 

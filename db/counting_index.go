@@ -7,6 +7,8 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -119,8 +121,8 @@ func (c *countingIndex) Add(value []byte, inBatch bool) error {
 		return errors.Wrap(ErrInvalid, "cannot call Add in batch mode, call Commit() first to exit batch mode")
 	}
 	b := batch.NewBatch()
-	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
-	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
+	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, fmt.Sprintf("failed to add %d-th item", c.size+1))
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), fmt.Sprintf("failed to update size = %d", c.size+1))
 	b.AddFillPercent(c.bucket, 1.0)
 	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
@@ -134,7 +136,7 @@ func (c *countingIndex) addBatch(value []byte) error {
 	if c.batch == nil {
 		c.batch = batch.NewBatch()
 	}
-	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
+	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, fmt.Sprintf("failed to add %d-th item", c.size+1))
 	c.size++
 	return nil
 }
@@ -166,9 +168,9 @@ func (c *countingIndex) Revert(count uint64) error {
 	b := batch.NewBatch()
 	start := c.size - count
 	for i := uint64(0); i < count; i++ {
-		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)
+		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), fmt.Sprintf("failed to delete %d-th item", start+i))
 	}
-	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), "failed to update size = %d", start)
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), fmt.Sprintf("failed to update size = %d", start))
 	b.AddFillPercent(c.bucket, 1.0)
 	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
@@ -189,7 +191,7 @@ func (c *countingIndex) Commit() error {
 	if c.batch == nil {
 		return nil
 	}
-	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
+	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), fmt.Sprintf("failed to update size = %d", c.size))
 	c.batch.AddFillPercent(c.bucket, 1.0)
 	if err := c.kvStore.WriteBatch(c.batch); err != nil {
 		return err
@@ -212,7 +214,7 @@ func (c *countingIndex) Finalize() error {
 	if c.batch == nil {
 		return ErrInvalid
 	}
-	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
+	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), fmt.Sprintf("failed to update size = %d", c.size))
 	c.batch.AddFillPercent(c.bucket, 1.0)
 	c.batch = nil
 	return nil

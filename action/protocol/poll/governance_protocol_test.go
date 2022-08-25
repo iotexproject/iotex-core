@@ -25,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -35,7 +35,13 @@ import (
 )
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
-	cfg := config.Default
+	cfg := struct {
+		Genesis genesis.Genesis
+		Chain   blockchain.Config
+	}{
+		Genesis: genesis.Default,
+		Chain:   blockchain.DefaultConfig,
+	}
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
 	cfg.Genesis.ProbationIntensityRate = 90
 	cfg.Genesis.ProbationEpochPeriod = 2
@@ -68,6 +74,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		ctx,
 		protocol.ActionCtx{},
 	)
+	ctx = protocol.WithFeatureCtx(ctx)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -395,7 +402,7 @@ func TestHandle(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller := selp2.SrcPubkey().Address()
+		caller := selp2.SenderAddress()
 		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
@@ -442,7 +449,7 @@ func TestHandle(t *testing.T) {
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
-		caller := selp2.SrcPubkey().Address()
+		caller := selp2.SenderAddress()
 		require.NotNil(caller)
 		ctx2 = protocol.WithBlockCtx(
 			ctx2,
@@ -477,7 +484,7 @@ func TestHandle(t *testing.T) {
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
-		caller := selp3.SrcPubkey().Address()
+		caller := selp3.SenderAddress()
 		require.NotNil(caller)
 		ctx3 = protocol.WithBlockCtx(
 			ctx3,
@@ -511,7 +518,7 @@ func TestHandle(t *testing.T) {
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
-		caller := selp4.SrcPubkey().Address()
+		caller := selp4.SenderAddress()
 		require.NotNil(caller)
 		ctx4 = protocol.WithBlockCtx(
 			ctx4,
@@ -545,7 +552,7 @@ func TestHandle(t *testing.T) {
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)
-		caller := selp5.SrcPubkey().Address()
+		caller := selp5.SenderAddress()
 		require.NotNil(caller)
 		ctx5 = protocol.WithBlockCtx(
 			ctx5,

@@ -21,20 +21,20 @@ import (
 
 // Multi-language support
 var (
-	createAddCmdShorts = map[config.Language]string{
+	_createAddCmdShorts = map[config.Language]string{
 		config.English: "Create new account for ioctl",
 		config.Chinese: "为ioctl创建新账户",
 	}
-	createAddCmdUses = map[config.Language]string{
+	_createAddCmdUses = map[config.Language]string{
 		config.English: "createadd ALIAS",
 		config.Chinese: "createadd 别名",
 	}
 )
 
-// accountCreateAddCmd represents the account createadd command
-var accountCreateAddCmd = &cobra.Command{
-	Use:   config.TranslateInLang(createAddCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(createAddCmdShorts, config.UILanguage),
+// _accountCreateAddCmd represents the account createadd command
+var _accountCreateAddCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_createAddCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_createAddCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -56,7 +56,9 @@ func accountCreateAdd(args []string) error {
 			"but bind the alias to the new one.\nWould you like to continue?\n", alias, addr)
 		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 		fmt.Println(message.String())
-		fmt.Scanf("%s", &confirm)
+		if _, err := fmt.Scanf("%s", &confirm); err != nil {
+			return output.NewError(output.InputError, "failed to input yes", err)
+		}
 		if !strings.EqualFold(confirm, "yes") {
 			output.PrintResult("quit")
 			return nil

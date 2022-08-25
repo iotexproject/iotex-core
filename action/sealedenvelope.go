@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -23,6 +22,8 @@ type SealedEnvelope struct {
 	evmNetworkID uint32
 	srcPubkey    crypto.PublicKey
 	signature    []byte
+	srcAddress   address.Address
+	hash         hash.Hash256
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -30,7 +31,11 @@ type SealedEnvelope struct {
 func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
-		tx, err := actionToRLP(sealed.Action())
+		act, ok := sealed.Action().(EthCompatibleAction)
+		if !ok {
+			return hash.ZeroHash256, ErrInvalidAct
+		}
+		tx, err := act.ToEthTx()
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -45,9 +50,24 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
+	if sealed.hash == hash.ZeroHash256 {
+		hashVal, hashErr := sealed.calcHash()
+		if hashErr == nil {
+			sealed.hash = hashVal
+		}
+		return sealed.hash, hashErr
+	}
+	return sealed.hash, nil
+}
+
+func (sealed *SealedEnvelope) calcHash() (hash.Hash256, error) {
 	switch sealed.encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
-		tx, err := actionToRLP(sealed.Action())
+		act, ok := sealed.Action().(EthCompatibleAction)
+		if !ok {
+			return hash.ZeroHash256, ErrInvalidAct
+		}
+		tx, err := act.ToEthTx()
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -61,6 +81,14 @@ func (sealed *SealedEnvelope) Hash() (hash.Hash256, error) {
 
 // SrcPubkey returns the source public key
 func (sealed *SealedEnvelope) SrcPubkey() crypto.PublicKey { return sealed.srcPubkey }
+
+// SenderAddress returns address of the source public key
+func (sealed *SealedEnvelope) SenderAddress() address.Address {
+	if sealed.srcAddress == nil {
+		sealed.srcAddress = sealed.srcPubkey.Address()
+	}
+	return sealed.srcAddress
+}
 
 // Signature returns signature bytes
 func (sealed *SealedEnvelope) Signature() []byte {
@@ -84,10 +112,10 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 	}
 }
 
-// LoadProto loads from proto scheme.
-func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
+// loadProto loads from proto scheme.
+func (sealed *SealedEnvelope) loadProto(pbAct *iotextypes.Action, evmID uint32) error {
 	if pbAct == nil {
-		return ErrEmptyActionPool
+		return ErrNilProto
 	}
 	if sealed == nil {
 		return ErrNilAction
@@ -110,14 +138,18 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	switch encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
-		tx, err := actionToRLP(elp.Action())
+		act, ok := elp.Action().(EthCompatibleAction)
+		if !ok {
+			return ErrInvalidAct
+		}
+		tx, err := act.ToEthTx()
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
+		if _, err = rlpSignedHash(tx, evmID, pbAct.GetSignature()); err != nil {
 			return err
 		}
-		sealed.evmNetworkID = config.EVMNetworkID()
+		sealed.evmNetworkID = evmID
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:
@@ -130,71 +162,16 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.signature = make([]byte, sigSize)
 	copy(sealed.signature, pbAct.GetSignature())
 	sealed.encoding = encoding
-	elp.Action().SetEnvelopeContext(*sealed)
+	sealed.hash = hash.ZeroHash256
+	sealed.srcAddress = nil
 	return nil
 }
 
-func actionToRLP(action Action) (rlpTransaction, error) {
-	var (
-		err error
-		tx  rlpTransaction
-	)
-	switch act := action.(type) {
-	case *Transfer:
-		tx = (*Transfer)(act)
-	case *Execution:
-		tx = (*Execution)(act)
-	case *CreateStake:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingCreateAddrHash[:], act.Proto())
-	case *DepositToStake:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingAddDepositAddrHash[:], act.Proto())
-	case *ChangeCandidate:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingChangeCandAddrHash[:], act.Proto())
-	case *Unstake:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUnstakeAddrHash[:], act.Proto())
-	case *WithdrawStake:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingWithdrawAddrHash[:], act.Proto())
-	case *Restake:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRestakeAddrHash[:], act.Proto())
-	case *TransferStake:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingTransferAddrHash[:], act.Proto())
-	case *CandidateRegister:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingRegisterCandAddrHash[:], act.Proto())
-	case *CandidateUpdate:
-		tx, err = wrapStakingActionIntoExecution(act.AbstractAction, address.StakingUpdateCandAddrHash[:], act.Proto())
-	default:
-		return nil, errors.Errorf("invalid action type %T not supported", act)
-	}
-	return tx, err
-}
-
-func wrapStakingActionIntoExecution(ab AbstractAction, toAddr []byte, pb proto.Message) (rlpTransaction, error) {
-	addr, err := address.FromBytes(toAddr[:])
-	if err != nil {
-		return nil, err
-	}
-	data, err := proto.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-	return &Execution{
-		AbstractAction: ab,
-		contract:       addr.String(),
-		data:           data,
-	}, nil
-}
-
-// Verify verifies the action using sender's public key
-func (sealed *SealedEnvelope) Verify() error {
+// VerifySignature verifies the action using sender's public key
+func (sealed *SealedEnvelope) VerifySignature() error {
 	if sealed.SrcPubkey() == nil {
 		return errors.New("empty public key")
 	}
-	// Reject action with insufficient gas limit
-	intrinsicGas, err := sealed.IntrinsicGas()
-	if intrinsicGas > sealed.GasLimit() || err != nil {
-		return ErrIntrinsicGas
-	}
-
 	h, err := sealed.envelopeHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to generate envelope hash")

@@ -31,14 +31,14 @@ import (
 )
 
 const (
-	// protocolID is the protocol ID
-	protocolID = "staking"
+	// _protocolID is the protocol ID
+	_protocolID = "staking"
 
-	// StakingNameSpace is the bucket name for staking state
-	StakingNameSpace = "Staking"
+	// _stakingNameSpace is the bucket name for staking state
+	_stakingNameSpace = "Staking"
 
-	// CandidateNameSpace is the bucket name for candidate state
-	CandidateNameSpace = "Candidate"
+	// _candidateNameSpace is the bucket name for candidate state
+	_candidateNameSpace = "Candidate"
 )
 
 const (
@@ -86,9 +86,25 @@ type (
 	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
 )
 
+// FindProtocol return a registered protocol from registry
+func FindProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(_protocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast rolldpos protocol")
+	}
+	return rp
+}
+
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
-	h := hash.Hash160b([]byte(protocolID))
+	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
@@ -132,7 +148,7 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	return protocol.HashStringToAddress(protocolID)
+	return protocol.HashStringToAddress(_protocolID)
 }
 
 // Start starts the protocol
@@ -185,7 +201,7 @@ func (p *Protocol) CreateGenesisStates(
 			return ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
-		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		bucketIdx, err := csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
 		}
@@ -223,7 +239,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err != nil {
 			return err
 		}
-		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); err != nil {
+		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey)); err != nil {
 			return err
 		}
 	}
@@ -254,7 +270,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
-	allBuckets, _, err := getAllBuckets(sm)
+	csr := newCandidateStateReader(sm)
+	allBuckets, _, err := csr.getAllBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -266,7 +283,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil {
 		return err
 	}
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -340,14 +357,14 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
 			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Debug("Failed to commit staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
+		return p.settleAction(ctx, csm.SM(), receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err
 }
@@ -355,7 +372,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 // Validate validates a staking message
 func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
 	if act == nil {
-		return ErrNilAction
+		return action.ErrNilAction
 	}
 	switch act := act.(type) {
 	case *action.CreateStake:
@@ -433,26 +450,26 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
 		}
-		resp, height, err = readStateBuckets(ctx, sr, r.GetBuckets())
+		resp, height, err = csr.readStateBuckets(ctx, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+		resp, height, err = csr.readStateBucketsByVoter(ctx, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = readStateBucketsByCandidate(ctx, csr, r.GetBucketsByCandidate())
+		resp, height, err = csr.readStateBucketsByCandidate(ctx, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+		resp, height, err = csr.readStateBucketByIndices(ctx, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
-		resp, height, err = readStateBucketCount(ctx, csr, r.GetBucketsCount())
+		resp, height, err = csr.readStateBucketCount(ctx, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
 		}
-		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
+		resp, height, err = csr.readStateCandidates(ctx, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
+		resp, height, err = csr.readStateCandidateByName(ctx, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
+		resp, height, err = csr.readStateCandidateByAddress(ctx, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = readStateTotalStakingAmount(ctx, csr, r.GetTotalStakingAmount())
+		resp, height, err = csr.readStateTotalStakingAmount(ctx, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
@@ -468,17 +485,17 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 
 // Register registers the protocol with a unique ID
 func (p *Protocol) Register(r *protocol.Registry) error {
-	return r.Register(protocolID, p)
+	return r.Register(_protocolID, p)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
-	return r.ForceRegister(protocolID, p)
+	return r.ForceRegister(_protocolID, p)
 }
 
 // Name returns the name of protocol
 func (p *Protocol) Name() string {
-	return protocolID
+	return _protocolID
 }
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
@@ -500,13 +517,16 @@ func (p *Protocol) settleAction(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller)
+	accountCreationOpts := []state.AccountCreationOption{}
+	if protocol.MustGetFeatureCtx(ctx).CreateLegacyNonceAccount {
+		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
+	}
+	acc, err := accountutil.LoadAccount(sm, actionCtx.Caller, accountCreationOpts...)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: this check shouldn't be necessary
-	if actionCtx.Nonce > acc.Nonce {
-		acc.Nonce = actionCtx.Nonce
+	if err := acc.SetPendingNonce(actionCtx.Nonce + 1); err != nil {
+		return nil, errors.Wrap(err, "failed to set nonce")
 	}
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, errors.Wrap(err, "failed to update nonce")

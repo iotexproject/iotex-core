@@ -17,11 +17,11 @@ import (
 
 // Multi-language support
 var (
-	exportPublicCmdShorts = map[config.Language]string{
+	_exportPublicCmdShorts = map[config.Language]string{
 		config.English: "Export IoTeX public key from wallet",
 		config.Chinese: "从钱包导出IoTeX的公钥",
 	}
-	exportPublicCmdUses = map[config.Language]string{
+	_exportPublicCmdUses = map[config.Language]string{
 		config.English: "exportpublic (ALIAS|ADDRESS)",
 		config.Chinese: "exportpublic (别名|地址)",
 	}
@@ -29,8 +29,8 @@ var (
 
 // NewAccountExportPublic represents the account export public command
 func NewAccountExportPublic(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(exportPublicCmdShorts)
-	short, _ := client.SelectTranslation(exportPublicCmdUses)
+	use, _ := client.SelectTranslation(_exportPublicCmdUses)
+	short, _ := client.SelectTranslation(_exportPublicCmdShorts)
 
 	return &cobra.Command{
 		Use:   use,

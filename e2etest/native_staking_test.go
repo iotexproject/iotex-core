@@ -34,6 +34,8 @@ const (
 	_bucket
 	_voterIndex
 	_candIndex
+	_stakingNameSpace   = "Staking"
+	_candidateNameSpace = "Candidate"
 
 	candidate1Name = "candidate1"
 	candidate2Name = "candidate2"
@@ -226,13 +228,13 @@ func TestNativeStaking(t *testing.T) {
 
 		// check buckets
 		var bis staking.BucketIndices
-		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
-			protocol.KeyOption(addrKeyWithPrefix(voter1Addr, _voterIndex)))
+		_, err = sf.State(&bis, protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(staking.AddrKeyWithPrefix(voter1Addr, _voterIndex)))
 		require.Error(err)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
-		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
-			protocol.KeyOption(addrKeyWithPrefix(voter2Addr, _voterIndex)))
+		_, err = sf.State(&bis, protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(staking.AddrKeyWithPrefix(voter2Addr, _voterIndex)))
 		require.NoError(err)
 		require.Equal(2, len(bis))
 		require.Equal(voter2BucketIndex, bis[0])
@@ -378,13 +380,13 @@ func TestNativeStaking(t *testing.T) {
 		require.Equal(hash.BytesToHash256(cand1Addr.Bytes()), logs[0].Topics[2])
 
 		// check buckets
-		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
-			protocol.KeyOption(addrKeyWithPrefix(cand1Addr, _voterIndex)))
+		_, err = sf.State(&bis, protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(staking.AddrKeyWithPrefix(cand1Addr, _voterIndex)))
 		require.NoError(err)
 		require.Equal(1, len(bis))
 
-		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
-			protocol.KeyOption(addrKeyWithPrefix(cand1Addr, _candIndex)))
+		_, err = sf.State(&bis, protocol.NamespaceOption(_stakingNameSpace),
+			protocol.KeyOption(staking.AddrKeyWithPrefix(cand1Addr, _candIndex)))
 		require.NoError(err)
 		require.Equal(2, len(bis))
 
@@ -426,15 +428,6 @@ func TestNativeStaking(t *testing.T) {
 	})
 }
 
-// TODO: to be removed
-func addrKeyWithPrefix(voterAddr address.Address, prefix byte) []byte {
-	k := voterAddr.Bytes()
-	key := make([]byte, len(k)+1)
-	key[0] = prefix
-	copy(key[1:], k)
-	return key
-}
-
 func checkCandidateState(
 	sr protocol.StateReader,
 	expectedName,
@@ -444,7 +437,7 @@ func checkCandidateState(
 	candidateAddr address.Address,
 ) error {
 	var cand staking.Candidate
-	if _, err := sr.State(&cand, protocol.NamespaceOption(staking.CandidateNameSpace), protocol.KeyOption(candidateAddr.Bytes())); err != nil {
+	if _, err := sr.State(&cand, protocol.NamespaceOption(_candidateNameSpace), protocol.KeyOption(candidateAddr.Bytes())); err != nil {
 		return err
 	}
 	if expectedName != cand.Name {

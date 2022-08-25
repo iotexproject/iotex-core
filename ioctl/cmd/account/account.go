@@ -26,30 +26,27 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support
 var (
-	accountCmdShorts = map[config.Language]string{
+	_accountCmdShorts = map[config.Language]string{
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
 	}
-	accountCmdUses = map[config.Language]string{
-		config.English: "account",
-		config.Chinese: "账户",
-	}
-	flagEndpoint = map[config.Language]string{
+	_flagEndpoint = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
 	}
-	flagInsecure = map[config.Language]string{
+	_flagInsecure = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全连接",
 	}
@@ -65,29 +62,29 @@ var CryptoSm2 bool
 
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
-	Use:   config.TranslateInLang(accountCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(accountCmdShorts, config.UILanguage),
+	Use:   "account",
+	Short: config.TranslateInLang(_accountCmdShorts, config.UILanguage),
 }
 
 func init() {
 	AccountCmd.AddCommand(accountBalanceCmd)
-	AccountCmd.AddCommand(accountCreateCmd)
-	AccountCmd.AddCommand(accountCreateAddCmd)
-	AccountCmd.AddCommand(accountDeleteCmd)
-	AccountCmd.AddCommand(accountEthaddrCmd)
-	AccountCmd.AddCommand(accountExportCmd)
-	AccountCmd.AddCommand(accountExportPublicCmd)
-	AccountCmd.AddCommand(accountImportCmd)
-	AccountCmd.AddCommand(accountInfoCmd)
-	AccountCmd.AddCommand(accountListCmd)
-	AccountCmd.AddCommand(accountNonceCmd)
-	AccountCmd.AddCommand(accountSignCmd)
-	AccountCmd.AddCommand(accountUpdateCmd)
-	AccountCmd.AddCommand(accountVerifyCmd)
-	AccountCmd.AddCommand(accountActionsCmd)
+	AccountCmd.AddCommand(_accountCreateCmd)
+	AccountCmd.AddCommand(_accountCreateAddCmd)
+	AccountCmd.AddCommand(_accountDeleteCmd)
+	AccountCmd.AddCommand(_accountEthaddrCmd)
+	AccountCmd.AddCommand(_accountExportCmd)
+	AccountCmd.AddCommand(_accountExportPublicCmd)
+	AccountCmd.AddCommand(_accountImportCmd)
+	AccountCmd.AddCommand(_accountInfoCmd)
+	AccountCmd.AddCommand(_accountListCmd)
+	AccountCmd.AddCommand(_accountNonceCmd)
+	AccountCmd.AddCommand(_accountSignCmd)
+	AccountCmd.AddCommand(_accountUpdateCmd)
+	AccountCmd.AddCommand(_accountVerifyCmd)
+	AccountCmd.AddCommand(_accountActionsCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
-	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(_flagEndpoint, config.UILanguage))
+	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(_flagInsecure, config.UILanguage))
 }
 
 // Sign sign message with signer
@@ -309,7 +306,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
-	keyJSON, err := os.ReadFile(keyStorePath)
+	keyJSON, err := os.ReadFile(filepath.Clean(keyStorePath))
 	if err != nil {
 		return "", output.NewError(output.ReadFileError,
 			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)

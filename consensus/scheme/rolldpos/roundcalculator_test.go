@@ -25,8 +25,10 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -158,8 +160,8 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.API.Port = testutil.RandomPort()
-	cfg.API.Web3Port = testutil.RandomPort()
+	cfg.API.GRPCPort = testutil.RandomPort()
+	cfg.API.HTTPPort = testutil.RandomPort()
 	cfg.Genesis.Timestamp = 1562382372
 	sk, err := crypto.GenerateKey()
 	cfg.Chain.ProducerPrivKey = sk.HexString()
@@ -179,15 +181,22 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 		}
 	}
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	db1, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	require.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	sf, err := factory.NewFactory(factoryCfg, db1, factory.RegistryOption(registry))
 	require.NoError(err)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
+	require.NoError(err)
+	dbcfg := cfg.DB
+	dbcfg.DbPath = cfg.Chain.ChainDBPath
+	deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+	dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf}, dbcfg, deser)
 	chain := blockchain.NewBlockchain(
-		cfg,
-		nil,
+		cfg.Chain,
+		cfg.Genesis,
+		dao,
 		factory.NewMinter(sf, ap),
-		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -222,7 +231,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, _, rp, pp := makeChain(t)
 	return &roundCalculator{
-		bc,
+		NewChainManager(bc),
 		true,
 		rp,
 		func(epochNum uint64) ([]string, error) {
@@ -240,7 +249,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 						},
 					},
 				),
-				config.Default.Genesis,
+				genesis.Default,
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList

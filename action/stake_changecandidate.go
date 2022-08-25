@@ -12,9 +12,12 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -27,7 +30,7 @@ const (
 	// MoveStakeBaseIntrinsicGas represents the base intrinsic gas for stake move
 	MoveStakeBaseIntrinsicGas = uint64(10000)
 
-	changeCandidateInterfaceABI = `[
+	_changeCandidateInterfaceABI = `[
 		{
 			"inputs": [
 				{
@@ -70,7 +73,7 @@ type ChangeCandidate struct {
 
 func init() {
 	var err error
-	changeCandidateInterface, err := abi.JSON(strings.NewReader(changeCandidateInterfaceABI))
+	changeCandidateInterface, err := abi.JSON(strings.NewReader(_changeCandidateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +134,7 @@ func (cc *ChangeCandidate) Proto() *iotextypes.StakeChangeCandidate {
 // LoadProto loads change candidate from protobuf
 func (cc *ChangeCandidate) LoadProto(pbAct *iotextypes.StakeChangeCandidate) error {
 	if pbAct == nil {
-		return errors.New("empty action proto to load")
+		return ErrNilProto
 	}
 
 	cc.candidateName = pbAct.GetCandidateName()
@@ -158,6 +161,10 @@ func (cc *ChangeCandidate) Cost() (*big.Int, error) {
 
 // EncodeABIBinary encodes data in abi encoding
 func (cc *ChangeCandidate) EncodeABIBinary() ([]byte, error) {
+	return cc.encodeABIBinary()
+}
+
+func (cc *ChangeCandidate) encodeABIBinary() ([]byte, error) {
 	data, err := _changeCandidateMethod.Inputs.Pack(cc.candidateName, cc.bucketIndex, cc.payload)
 	if err != nil {
 		return nil, err
@@ -189,4 +196,18 @@ func NewChangeCandidateFromABIBinary(data []byte) (*ChangeCandidate, error) {
 		return nil, errDecodeFailure
 	}
 	return &cc, nil
+}
+
+// ToEthTx converts action to eth-compatible tx
+func (cc *ChangeCandidate) ToEthTx() (*types.Transaction, error) {
+	addr, err := address.FromString(address.StakingProtocolAddr)
+	if err != nil {
+		return nil, err
+	}
+	ethAddr := common.BytesToAddress(addr.Bytes())
+	data, err := cc.encodeABIBinary()
+	if err != nil {
+		return nil, err
+	}
+	return types.NewTransaction(cc.Nonce(), ethAddr, big.NewInt(0), cc.GasLimit(), cc.GasPrice(), data), nil
 }

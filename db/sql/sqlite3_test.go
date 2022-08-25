@@ -15,12 +15,12 @@ import (
 )
 
 const (
-	path = "explorer.db"
+	_path = "explorer.db"
 )
 
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
-	testPath, err := testutil.PathOfTempFile(path)
+	testPath, err := testutil.PathOfTempFile(_path)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testPath)
 	cfg := CQLITE3{
@@ -33,7 +33,7 @@ func TestSQLite3StorePutGet(t *testing.T) {
 
 func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
-	testPath, err := testutil.PathOfTempFile(path)
+	testPath, err := testutil.PathOfTempFile(_path)
 	require.NoError(t, err)
 	defer testutil.CleanupPath(testPath)
 	cfg := CQLITE3{

@@ -19,13 +19,15 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
-	protocolID = "poll"
+	_protocolID     = "poll"
+	_rollDPoSScheme = "ROLLDPOS"
 )
 
 const (
@@ -35,7 +37,7 @@ const (
 	_modeNativeMix     = "nativeMix"     // native with backward compatibility for governanceMix before fairbank
 	_modeConsortium    = "consortium"
 
-	blockMetaPrefix = "BlockMeta."
+	_blockMetaPrefix = "BlockMeta."
 )
 
 // ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
@@ -91,7 +93,7 @@ func FindProtocol(registry *protocol.Registry) Protocol {
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		return nil
 	}
@@ -107,7 +109,7 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 	if registry == nil {
 		log.S().Panic("registry cannot be nil")
 	}
-	p, ok := registry.Find(protocolID)
+	p, ok := registry.Find(_protocolID)
 	if !ok {
 		log.S().Panic("poll protocol is not registered")
 	}
@@ -122,7 +124,9 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
-	cfg config.Config,
+	scheme string,
+	chainConfig blockchain.Config,
+	genesisConfig genesis.Genesis,
 	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
 	getCandidates GetCandidates,
@@ -134,8 +138,7 @@ func NewProtocol(
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
 ) (Protocol, error) {
-	genesisConfig := cfg.Genesis
-	if cfg.Consensus.Scheme != config.RollDPoSScheme {
+	if scheme != _rollDPoSScheme {
 		return nil, nil
 	}
 
@@ -165,9 +168,9 @@ func NewProtocol(
 		if err != nil {
 			return nil, err
 		}
-		scoreThreshold, ok = new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+		scoreThreshold, ok = new(big.Int).SetString(genesisConfig.ScoreThreshold, 10)
 		if !ok {
-			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+			return nil, errors.Errorf("failed to parse score threshold %s", genesisConfig.ScoreThreshold)
 		}
 	}
 
@@ -182,7 +185,7 @@ func NewProtocol(
 			electionCommittee,
 			genesisConfig.GravityChainStartHeight,
 			getBlockTimeFunc,
-			cfg.Chain.PollInitialCandidatesInterval,
+			chainConfig.PollInitialCandidatesInterval,
 			slasher,
 		)
 		if err != nil {
@@ -192,8 +195,8 @@ func NewProtocol(
 			electionCommittee,
 			governance,
 			readContract,
-			cfg.Genesis.NativeStakingContractAddress,
-			cfg.Genesis.NativeStakingContractCode,
+			genesisConfig.NativeStakingContractAddress,
+			genesisConfig.NativeStakingContractCode,
 			scoreThreshold,
 		)
 		if err != nil {
@@ -225,5 +228,5 @@ func NewProtocol(
 
 // ProtocolAddr returns the address generated from protocol id
 func ProtocolAddr() address.Address {
-	return protocol.HashStringToAddress(protocolID)
+	return protocol.HashStringToAddress(_protocolID)
 }

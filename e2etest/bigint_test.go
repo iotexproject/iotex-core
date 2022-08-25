@@ -29,30 +29,32 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
-	executor       = "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"
-	recipient      = "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"
-	executorPriKey = "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1"
+	_executor       = "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"
+	_recipient      = "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"
+	_executorPriKey = "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1"
 )
 
 func TestTransfer_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
-	bc, sf, ap := prepareBlockchain(ctx, executor, r)
+	bc, sf, ap := prepareBlockchain(ctx, _executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	addr, err := address.FromString(executor)
+	ctx = genesis.WithGenesisContext(ctx, bc.Genesis())
+	addr, err := address.FromString(_executor)
 	r.NoError(err)
-	stateBeforeTransfer, err := accountutil.AccountState(sf, addr)
+	stateBeforeTransfer, err := accountutil.AccountState(ctx, sf, addr)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, sf, ap, r)
 	r.NoError(err)
-	r.Equal(2, len(blk.Actions))
-	r.Error(bc.ValidateBlock(blk))
-	state, err := accountutil.AccountState(sf, addr)
+	r.Equal(1, len(blk.Actions))
+	r.NoError(bc.ValidateBlock(blk))
+	state, err := accountutil.AccountState(ctx, sf, addr)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
@@ -60,44 +62,49 @@ func TestTransfer_Negative(t *testing.T) {
 func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
-	bc, sf, ap := prepareBlockchain(ctx, executor, r)
+	bc, sf, ap := prepareBlockchain(ctx, _executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	addr, err := address.FromString(executor)
+	addr, err := address.FromString(_executor)
 	r.NoError(err)
-	stateBeforeTransfer, err := accountutil.AccountState(sf, addr)
+	ctx = genesis.WithGenesisContext(ctx, bc.Genesis())
+	stateBeforeTransfer, err := accountutil.AccountState(ctx, sf, addr)
 	r.NoError(err)
 	blk, err := prepareAction(bc, sf, ap, r)
 	r.NoError(err)
 	r.NotNil(blk)
-	r.Equal(2, len(blk.Actions))
-	r.Error(bc.ValidateBlock(blk))
-	state, err := accountutil.AccountState(sf, addr)
+	r.Equal(1, len(blk.Actions))
+	r.NoError(bc.ValidateBlock(blk))
+	state, err := accountutil.AccountState(ctx, sf, addr)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
 
-func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) (blockchain.Blockchain, factory.Factory, actpool.ActPool) {
+func prepareBlockchain(ctx context.Context, _executor string, r *require.Assertions) (blockchain.Blockchain, factory.Factory, actpool.ActPool) {
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.InitBalanceMap[executor] = "1000000000000000000000000000"
+	cfg.Genesis.InitBalanceMap[_executor] = "1000000000000000000000000000"
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	r.NoError(err)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	genericValidator := protocol.NewGenericValidator(sf, accountutil.AccountState)
+	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	r.NoError(err)
+	ap.AddActionEnvelopeValidators(genericValidator)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
+			genericValidator,
 		)),
 	)
 	r.NotNil(bc)
@@ -113,7 +120,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 }
 
 func prepareTransfer(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, r *require.Assertions) (*block.Block, error) {
-	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
+	exec, err := action.NewTransfer(1, big.NewInt(-10000), _recipient, nil, uint64(1000000), big.NewInt(9000000000000))
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
@@ -137,11 +144,11 @@ func prepareAction(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActP
 }
 
 func prepare(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
-	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
+	priKey, err := crypto.HexStringToPrivateKey(_executorPriKey)
 	r.NoError(err)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
-	r.NoError(ap.Add(context.Background(), selp))
+	r.Error(ap.Add(context.Background(), selp))
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	r.NoError(err)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil

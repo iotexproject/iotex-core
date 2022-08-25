@@ -23,20 +23,22 @@ var (
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrIO indicates the generic error of DB I/O operation
 	ErrIO = errors.New("DB I/O operation error")
+	// ErrNotSupported indicates that api is not supported
+	ErrNotSupported = errors.New("not supported")
 )
 
 const (
-	keyDelimiter = "."
+	_keyDelimiter = "."
 )
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	data   *cache.ThreadSafeLruCache
-	bucket *cache.ThreadSafeLruCache
+	data   cache.LRUCache
+	bucket cache.LRUCache
 }
 
 // NewMemKVStore instantiates an in-memory KV store
-func NewMemKVStore() KVStore {
+func NewMemKVStore() KVStoreForRangeIndex {
 	return &memKVStore{
 		bucket: cache.NewThreadSafeLruCache(0),
 		data:   cache.NewThreadSafeLruCache(0),
@@ -52,8 +54,28 @@ func (m *memKVStore) Put(namespace string, key, value []byte) error {
 	if _, ok := m.bucket.Get(namespace); !ok {
 		m.bucket.Add(namespace, struct{}{})
 	}
-	m.data.Add(namespace+keyDelimiter+string(key), value)
+	m.data.Add(namespace+_keyDelimiter+string(key), value)
 	return nil
+}
+
+func (m *memKVStore) Insert(name []byte, key uint64, value []byte) error {
+	return ErrNotSupported
+}
+
+func (m *memKVStore) Purge(name []byte, key uint64) error {
+	return ErrNotSupported
+}
+
+func (m *memKVStore) Remove(name []byte, key uint64) error {
+	return ErrNotSupported
+}
+
+func (m *memKVStore) SeekPrev(name []byte, key uint64) ([]byte, error) {
+	return nil, ErrNotSupported
+}
+
+func (m *memKVStore) SeekNext(name []byte, key uint64) ([]byte, error) {
+	return nil, ErrNotSupported
 }
 
 // Get retrieves a record
@@ -61,7 +83,7 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 	if _, ok := m.bucket.Get(namespace); !ok {
 		return nil, errors.Wrapf(ErrNotExist, "namespace = %x doesn't exist", []byte(namespace))
 	}
-	value, _ := m.data.Get(namespace + keyDelimiter + string(key))
+	value, _ := m.data.Get(namespace + _keyDelimiter + string(key))
 	if value != nil {
 		return value.([]byte), nil
 	}
@@ -77,7 +99,7 @@ func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte
 	start := byteutil.BytesToUint64BigEndian(key)
 	for i := uint64(0); i < count; i++ {
 		key = byteutil.Uint64ToBytesBigEndian(start + i)
-		v, _ := m.data.Get(namespace + keyDelimiter + string(key))
+		v, _ := m.data.Get(namespace + _keyDelimiter + string(key))
 		if v == nil {
 			return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
 		}
@@ -89,7 +111,7 @@ func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte
 
 // Delete deletes a record
 func (m *memKVStore) Delete(namespace string, key []byte) error {
-	m.data.Remove(namespace + keyDelimiter + string(key))
+	m.data.Remove(namespace + _keyDelimiter + string(key))
 	return nil
 }
 
@@ -139,10 +161,10 @@ func (m *memKVStore) WriteBatch(b batch.KVStoreBatch) (e error) {
 
 // GetBucketByPrefix retrieves all bucket those with const namespace prefix
 func (m *memKVStore) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
-	return nil, nil
+	return nil, ErrNotSupported
 }
 
 // GetKeyByPrefix retrieves all keys those with const prefix
 func (m *memKVStore) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
-	return nil, nil
+	return nil, ErrNotSupported
 }

@@ -31,58 +31,56 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
-	maxNumActsPerPool  = 8192
-	maxGasLimitPerPool = 81920000
-	maxNumActsPerAcct  = 256
+	_maxNumActsPerPool  = 8192
+	_maxGasLimitPerPool = 81920000
+	_maxNumActsPerAcct  = 256
 )
 
 var (
-	addr1   = identityset.Address(28).String()
-	pubKey1 = identityset.PrivateKey(28).PublicKey()
-	priKey1 = identityset.PrivateKey(28)
-	addr2   = identityset.Address(29).String()
-	priKey2 = identityset.PrivateKey(29)
-	addr3   = identityset.Address(30).String()
-	priKey3 = identityset.PrivateKey(30)
-	addr4   = identityset.Address(31).String()
-	priKey4 = identityset.PrivateKey(31)
-	addr5   = identityset.Address(32).String()
-	priKey5 = identityset.PrivateKey(32)
-	addr6   = identityset.Address(33).String()
-	priKey6 = identityset.PrivateKey(33)
+	_addr1   = identityset.Address(28).String()
+	_pubKey1 = identityset.PrivateKey(28).PublicKey()
+	_priKey1 = identityset.PrivateKey(28)
+	_addr2   = identityset.Address(29).String()
+	_priKey2 = identityset.PrivateKey(29)
+	_addr3   = identityset.Address(30).String()
+	_priKey3 = identityset.PrivateKey(30)
+	_addr4   = identityset.Address(31).String()
+	_priKey4 = identityset.PrivateKey(31)
+	_addr5   = identityset.Address(32).String()
+	_priKey5 = identityset.PrivateKey(32)
+	_addr6   = identityset.Address(33).String()
+	_priKey6 = identityset.PrivateKey(33)
 )
 
 func TestActPool_NewActPool(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
-	cfg := config.Default
 
 	//error caused by nil blockchain
-	_, err := NewActPool(nil, cfg.ActPool, nil)
+	_, err := NewActPool(genesis.Default, nil, DefaultConfig, nil)
 	require.Error(err)
 
 	// all good
 	opt := EnableExperimentalActions()
-	require.Panics(func() { blockchain.NewBlockchain(cfg, nil, nil, nil) }, "option is nil")
+	require.Panics(func() { blockchain.NewBlockchain(blockchain.DefaultConfig, genesis.Default, nil, nil, nil) }, "option is nil")
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	act, err := NewActPool(sf, cfg.ActPool, opt)
+	act, err := NewActPool(genesis.Default, sf, DefaultConfig, opt)
 	require.NoError(err)
 	require.NotNil(act)
 
 	// panic caused by option is nil
-	require.Panics(func() { NewActPool(sf, cfg.ActPool, nil) }, "option is nil")
+	require.Panics(func() { NewActPool(genesis.Default, sf, DefaultConfig, nil) }, "option is nil")
 
 	// error caused by option
 	opt2 := func(pool *actPool) error {
 		return errors.New("test error")
 	}
-	_, err = NewActPool(sf, cfg.ActPool, opt2)
+	_, err = NewActPool(genesis.Default, sf, DefaultConfig, opt2)
 	require.Error(err)
 
 	// test AddAction nil
@@ -92,31 +90,32 @@ func TestActPool_NewActPool(t *testing.T) {
 func TestValidate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	cfg := config.Default
-	cfg.Genesis.InitBalanceMap[addr1] = "100"
+
+	g := genesis.Default
+	g.InitBalanceMap[_addr1] = "100"
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
 	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), re),
-		cfg.Genesis,
+		g,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
 	mockError := errors.New("mock error")
 	sev.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(mockError).Times(1)
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(g, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(sev)
 	// Case 0: Blacklist
-	tsfFromBL, err := action.SignedTransfer(addr6, priKey6, 1, big.NewInt(1), nil, 0, big.NewInt(0))
+	tsfFromBL, err := action.SignedTransfer(_addr6, _priKey6, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
 	require.Equal(action.ErrAddress, errors.Cause(ap.Validate(ctx, tsfFromBL)))
 	// Case I: failed by sealed envelope validator
-	tsf, err := action.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
+	tsf, err := action.SignedTransfer(_addr1, _priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
 	require.Equal(mockError, errors.Cause(ap.Validate(ctx, tsf)))
 }
@@ -129,44 +128,44 @@ func TestActPool_AddActs(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		cfg := &protocol.StateConfig{}
 		for _, opt := range opts {
 			opt(cfg)
 		}
 		if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
-			acct.Balance = big.NewInt(100)
+			require.NoError(acct.AddBalance(big.NewInt(100)))
 		} else {
-			acct.Balance = big.NewInt(10)
+			require.NoError(acct.AddBalance(big.NewInt(10)))
 		}
 		return 0, nil
 	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := action.SignedTransfer(addr1, priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+	tsf5, err := action.SignedTransfer(_addr1, _priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := action.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
+	tsf6, err := action.SignedTransfer(_addr2, _priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := action.SignedTransfer(addr2, priKey2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	tsf7, err := action.SignedTransfer(_addr2, _priKey2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := action.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
+	tsf8, err := action.SignedTransfer(_addr2, _priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 	require.NoError(ap.Add(ctx, tsf3))
@@ -176,26 +175,26 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf7))
 	require.NoError(ap.Add(ctx, tsf8))
 
-	pBalance1, _ := ap.getPendingBalance(addr1)
+	pBalance1, _ := ap.getPendingBalance(_addr1)
 	require.Equal(uint64(10), pBalance1.Uint64())
-	pNonce1, _ := ap.getPendingNonce(addr1)
+	pNonce1, _ := ap.getPendingNonce(_addr1)
 	require.Equal(uint64(5), pNonce1)
 
-	pBalance2, _ := ap.getPendingBalance(addr2)
+	pBalance2, _ := ap.getPendingBalance(_addr2)
 	require.Equal(uint64(5), pBalance2.Uint64())
-	pNonce2, _ := ap.getPendingNonce(addr2)
+	pNonce2, _ := ap.getPendingNonce(_addr2)
 	require.Equal(uint64(2), pNonce2)
 
-	tsf9, err := action.SignedTransfer(addr2, priKey2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
+	tsf9, err := action.SignedTransfer(_addr2, _priKey2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(ap.Add(ctx, tsf9))
-	pBalance2, _ = ap.getPendingBalance(addr2)
+	pBalance2, _ = ap.getPendingBalance(_addr2)
 	require.Equal(uint64(1), pBalance2.Uint64())
-	pNonce2, _ = ap.getPendingNonce(addr2)
+	pNonce2, _ = ap.getPendingNonce(_addr2)
 	require.Equal(uint64(4), pNonce2)
 	// Error Case Handling
 	// Case I: Action source address is blacklisted
-	bannedTsf, err := action.SignedTransfer(addr6, priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
+	bannedTsf, err := action.SignedTransfer(_addr6, _priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, bannedTsf)
 	require.Contains(err.Error(), "action source address is blacklisted")
@@ -203,12 +202,12 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Error(ap.Add(ctx, tsf1))
 	require.Error(ap.Add(ctx, tsf4))
 	// Case III: Pool space/gas space is full
-	Ap2, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap2, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := action.SignedTransfer(addr2, priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
+		nTsf, err := action.SignedTransfer(_addr2, _priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
 		nTsfHash, err := nTsf.Hash()
 		require.NoError(err)
@@ -219,12 +218,12 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap2.Add(ctx, tsf4)
 	require.Equal(action.ErrTxPoolOverflow, errors.Cause(err))
 
-	Ap3, err := NewActPool(sf, apConfig)
+	Ap3, err := NewActPool(genesis.Default, sf, apConfig)
 	require.NoError(err)
 	ap3, ok := Ap3.(*actPool)
 	require.True(ok)
 	for i := uint64(1); i < apConfig.MaxGasLimitPerPool/10000; i++ {
-		nTsf, err := action.SignedTransfer(addr2, priKey2, i, big.NewInt(50), nil, uint64(10000), big.NewInt(0))
+		nTsf, err := action.SignedTransfer(_addr2, _priKey2, i, big.NewInt(50), nil, uint64(10000), big.NewInt(0))
 		require.NoError(err)
 		nTsfHash, err := nTsf.Hash()
 		require.NoError(err)
@@ -233,36 +232,36 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(err)
 		ap3.gasInPool += intrinsicGas
 	}
-	tsf10, err := action.SignedTransfer(addr2, priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
+	tsf10, err := action.SignedTransfer(_addr2, _priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	err = ap3.Add(ctx, tsf10)
 	require.Equal(action.ErrGasLimit, errors.Cause(err))
 
 	// Case IV: Nonce already exists
-	replaceTsf, err := action.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	replaceTsf, err := action.SignedTransfer(_addr2, _priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
 	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
-	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), addr2, []byte{}, uint64(100000), big.NewInt(0))
+	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), _addr2, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(4).
 		SetAction(replaceTransfer).
 		SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, priKey1)
+	selp, err := action.Sign(elp, _priKey1)
 
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
 	require.Equal(action.ErrReplaceUnderpriced, errors.Cause(err))
 	// Case V: Nonce is too large
-	outOfBoundsTsf, err := action.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	outOfBoundsTsf, err := action.SignedTransfer(_addr1, _priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, outOfBoundsTsf)
 	require.Equal(action.ErrNonceTooHigh, errors.Cause(err))
 	// Case VI: Insufficient balance
-	overBalTsf, err := action.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+	overBalTsf, err := action.SignedTransfer(_addr2, _priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(ctx, overBalTsf)
 	require.Equal(action.ErrInsufficientFunds, errors.Cause(err))
@@ -283,7 +282,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(10).
 		SetAction(creationExecution).Build()
-	selp, err = action.Sign(elp, priKey1)
+	selp, err = action.Sign(elp, _priKey1)
 	require.NoError(err)
 
 	err = ap.Add(ctx, selp)
@@ -294,61 +293,62 @@ func TestActPool_PickActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
-	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	createActPool := func(cfg Config) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		// Create actpool
-		Ap, err := NewActPool(sf, cfg, EnableExperimentalActions())
+		Ap, err := NewActPool(genesis.Default, sf, cfg, EnableExperimentalActions())
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-		tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+		tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+		tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+		tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(40), []byte{}, uint64(100000), big.NewInt(0))
+		tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(40), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf5, err := action.SignedTransfer(addr1, priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+		tsf5, err := action.SignedTransfer(_addr1, _priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf6, err := action.SignedTransfer(addr1, priKey1, uint64(6), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+		tsf6, err := action.SignedTransfer(_addr1, _priKey1, uint64(6), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf7, err := action.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+		tsf7, err := action.SignedTransfer(_addr2, _priKey2, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf8, err := action.SignedTransfer(addr2, priKey2, uint64(3), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
+		tsf8, err := action.SignedTransfer(_addr2, _priKey2, uint64(3), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf9, err := action.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+		tsf9, err := action.SignedTransfer(_addr2, _priKey2, uint64(4), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf10, err := action.SignedTransfer(addr2, priKey2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
+		tsf10, err := action.SignedTransfer(_addr2, _priKey2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
 		sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 			acct, ok := account.(*state.Account)
 			require.True(ok)
-			acct.Nonce = 0
 			cfg := &protocol.StateConfig{}
 			for _, opt := range opts {
 				opt(cfg)
 			}
 			if bytes.Equal(cfg.Key, identityset.Address(28).Bytes()) {
-				acct.Balance = big.NewInt(100)
+				require.NoError(acct.AddBalance(big.NewInt(100)))
 			} else {
-				acct.Balance = big.NewInt(10)
+				require.NoError(acct.AddBalance(big.NewInt(10)))
 			}
 			return 0, nil
 		}).AnyTimes()
-		require.NoError(ap.Add(context.Background(), tsf1))
-		require.NoError(ap.Add(context.Background(), tsf2))
-		require.NoError(ap.Add(context.Background(), tsf3))
-		require.NoError(ap.Add(context.Background(), tsf4))
-		require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(context.Background(), tsf5)))
-		require.Error(ap.Add(context.Background(), tsf6))
+		sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+		require.NoError(ap.Add(ctx, tsf1))
+		require.NoError(ap.Add(ctx, tsf2))
+		require.NoError(ap.Add(ctx, tsf3))
+		require.NoError(ap.Add(ctx, tsf4))
+		require.Equal(action.ErrInsufficientFunds, errors.Cause(ap.Add(ctx, tsf5)))
+		require.Error(ap.Add(ctx, tsf6))
 
-		require.Error(ap.Add(context.Background(), tsf7))
-		require.NoError(ap.Add(context.Background(), tsf8))
-		require.NoError(ap.Add(context.Background(), tsf9))
-		require.NoError(ap.Add(context.Background(), tsf10))
+		require.Error(ap.Add(ctx, tsf7))
+		require.NoError(ap.Add(ctx, tsf8))
+		require.NoError(ap.Add(ctx, tsf9))
+		require.NoError(ap.Add(ctx, tsf10))
 
 		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{}, []action.SealedEnvelope{}
 	}
@@ -376,47 +376,50 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	require.Equal(4, len(ap.allActions))
-	require.NotNil(ap.accountActs[addr1])
+	require.NotNil(ap.accountActs[_addr1])
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 4
-		acct.Balance = big.NewInt(100000000000000000)
+		for i := uint64(1); i <= 4; i++ {
+			require.NoError(acct.SetPendingNonce(i + 1))
+		}
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.removeConfirmedActs(ctx)
 	require.Equal(0, len(ap.allActions))
-	require.Nil(ap.accountActs[addr1])
+	require.Nil(ap.accountActs[_addr1])
 }
 
 func TestActPool_Reset(t *testing.T) {
@@ -441,57 +444,68 @@ func TestActPool_Reset(t *testing.T) {
 		}
 		switch {
 		case bytes.Equal(cfg.Key, identityset.Address(28).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[0])
-			acct.Nonce = nonces[0]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[0])))
+			for i := uint64(1); i <= nonces[0]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(29).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[1])
-			acct.Nonce = nonces[1]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[1])))
+			for i := uint64(1); i <= nonces[1]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(30).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[2])
-			acct.Nonce = nonces[2]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[2])))
+			for i := uint64(1); i <= nonces[2]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(31).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[3])
-			acct.Nonce = nonces[3]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[3])))
+			for i := uint64(1); i <= nonces[3]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		case bytes.Equal(cfg.Key, identityset.Address(32).Bytes()):
-			acct.Balance = new(big.Int).Set(balances[4])
-			acct.Nonce = nonces[4]
+			require.NoError(acct.AddBalance(new(big.Int).Set(balances[4])))
+			for i := uint64(1); i <= nonces[4]; i++ {
+				require.NoError(acct.SetPendingNonce(i + 1))
+			}
 		}
 		return 0, nil
 	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	apConfig := getActPoolCfg()
-	Ap1, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap1, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	Ap2, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap2, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	// Tsfs to be added to ap1
-	tsf1, err := action.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr2, _priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr3, priKey1, uint64(2), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr3, _priKey1, uint64(2), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr2, priKey1, uint64(3), big.NewInt(60), []byte{}, uint64(20000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr2, _priKey1, uint64(3), big.NewInt(60), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey2, uint64(1), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey2, uint64(1), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := action.SignedTransfer(addr3, priKey2, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
+	tsf5, err := action.SignedTransfer(_addr3, _priKey2, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := action.SignedTransfer(addr1, priKey2, uint64(3), big.NewInt(60), []byte{}, uint64(20000), big.NewInt(0))
+	tsf6, err := action.SignedTransfer(_addr1, _priKey2, uint64(3), big.NewInt(60), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := action.SignedTransfer(addr1, priKey3, uint64(1), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
+	tsf7, err := action.SignedTransfer(_addr1, _priKey3, uint64(1), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := action.SignedTransfer(addr2, priKey3, uint64(2), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
+	tsf8, err := action.SignedTransfer(_addr2, _priKey3, uint64(2), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf9, err := action.SignedTransfer(addr1, priKey3, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
+	tsf9, err := action.SignedTransfer(_addr1, _priKey3, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap1.Add(ctx, tsf1))
 	require.NoError(ap1.Add(ctx, tsf2))
 	err = ap1.Add(ctx, tsf3)
@@ -504,15 +518,15 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(ap1.Add(ctx, tsf8))
 	require.NoError(ap1.Add(ctx, tsf9))
 	// Tsfs to be added to ap2 only
-	tsf10, err := action.SignedTransfer(addr2, priKey1, uint64(3), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
+	tsf10, err := action.SignedTransfer(_addr2, _priKey1, uint64(3), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf11, err := action.SignedTransfer(addr3, priKey1, uint64(4), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
+	tsf11, err := action.SignedTransfer(_addr3, _priKey1, uint64(4), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf12, err := action.SignedTransfer(addr3, priKey2, uint64(2), big.NewInt(70), []byte{}, uint64(20000), big.NewInt(0))
+	tsf12, err := action.SignedTransfer(_addr3, _priKey2, uint64(2), big.NewInt(70), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf13, err := action.SignedTransfer(addr1, priKey3, uint64(1), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
+	tsf13, err := action.SignedTransfer(_addr1, _priKey3, uint64(1), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf14, err := action.SignedTransfer(addr2, priKey3, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
+	tsf14, err := action.SignedTransfer(_addr2, _priKey3, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap2.Add(ctx, tsf1))
@@ -529,35 +543,35 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ := ap1.getPendingNonce(addr1)
+	ap1PNonce1, _ := ap1.getPendingNonce(_addr1)
 	require.Equal(uint64(3), ap1PNonce1)
-	ap1PBalance1, _ := ap1.getPendingBalance(addr1)
+	ap1PBalance1, _ := ap1.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(20).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ := ap1.getPendingNonce(addr2)
+	ap1PNonce2, _ := ap1.getPendingNonce(_addr2)
 	require.Equal(uint64(3), ap1PNonce2)
-	ap1PBalance2, _ := ap1.getPendingBalance(addr2)
+	ap1PBalance2, _ := ap1.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(50).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ := ap1.getPendingNonce(addr3)
+	ap1PNonce3, _ := ap1.getPendingNonce(_addr3)
 	require.Equal(uint64(3), ap1PNonce3)
-	ap1PBalance3, _ := ap1.getPendingBalance(addr3)
+	ap1PBalance3, _ := ap1.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ := ap2.getPendingNonce(addr1)
+	ap2PNonce1, _ := ap2.getPendingNonce(_addr1)
 	require.Equal(uint64(4), ap2PNonce1)
-	ap2PBalance1, _ := ap2.getPendingBalance(addr1)
+	ap2PBalance1, _ := ap2.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(0).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ := ap2.getPendingNonce(addr2)
+	ap2PNonce2, _ := ap2.getPendingNonce(_addr2)
 	require.Equal(uint64(3), ap2PNonce2)
-	ap2PBalance2, _ := ap2.getPendingBalance(addr2)
+	ap2PBalance2, _ := ap2.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(30).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ := ap2.getPendingNonce(addr3)
+	ap2PNonce3, _ := ap2.getPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ := ap2.getPendingBalance(addr3)
+	ap2PBalance3, _ := ap2.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
 	balances[0] = big.NewInt(220)
@@ -572,50 +586,50 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(addr1)
+	ap1PNonce1, _ = ap1.getPendingNonce(_addr1)
 	require.Equal(uint64(3), ap1PNonce1)
-	ap1PBalance1, _ = ap1.getPendingBalance(addr1)
+	ap1PBalance1, _ = ap1.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(addr2)
+	ap1PNonce2, _ = ap1.getPendingNonce(_addr2)
 	require.Equal(uint64(3), ap1PNonce2)
-	ap1PBalance2, _ = ap1.getPendingBalance(addr2)
+	ap1PBalance2, _ = ap1.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(addr3)
+	ap1PNonce3, _ = ap1.getPendingNonce(_addr3)
 	require.Equal(uint64(3), ap1PNonce3)
-	ap1PBalance3, _ = ap1.getPendingBalance(addr3)
+	ap1PBalance3, _ = ap1.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(addr1)
+	ap2PNonce1, _ = ap2.getPendingNonce(_addr1)
 	require.Equal(uint64(4), ap2PNonce1)
-	ap2PBalance1, _ = ap2.getPendingBalance(addr1)
+	ap2PBalance1, _ = ap2.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(200).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(addr2)
+	ap2PNonce2, _ = ap2.getPendingNonce(_addr2)
 	require.Equal(uint64(3), ap2PNonce2)
-	ap2PBalance2, _ = ap2.getPendingBalance(addr2)
+	ap2PBalance2, _ = ap2.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(200).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(addr3)
+	ap2PNonce3, _ = ap2.getPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
+	ap2PBalance3, _ = ap2.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Tsfs after resetting
 	// Tsfs To be added to ap1 only
-	tsf15, err := action.SignedTransfer(addr2, priKey3, uint64(3), big.NewInt(80), []byte{}, uint64(20000), big.NewInt(0))
+	tsf15, err := action.SignedTransfer(_addr2, _priKey3, uint64(3), big.NewInt(80), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	// Tsfs To be added to ap2 only
-	tsf16, err := action.SignedTransfer(addr2, priKey1, uint64(4), big.NewInt(150), []byte{}, uint64(20000), big.NewInt(0))
+	tsf16, err := action.SignedTransfer(_addr2, _priKey1, uint64(4), big.NewInt(150), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf17, err := action.SignedTransfer(addr1, priKey2, uint64(3), big.NewInt(90), []byte{}, uint64(20000), big.NewInt(0))
+	tsf17, err := action.SignedTransfer(_addr1, _priKey2, uint64(3), big.NewInt(90), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf18, err := action.SignedTransfer(addr3, priKey2, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
+	tsf18, err := action.SignedTransfer(_addr3, _priKey2, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf19, err := action.SignedTransfer(addr1, priKey2, uint64(5), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
+	tsf19, err := action.SignedTransfer(_addr1, _priKey2, uint64(5), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf20, err := action.SignedTransfer(addr2, priKey3, uint64(3), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
+	tsf20, err := action.SignedTransfer(_addr2, _priKey3, uint64(3), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(ap1.Add(ctx, tsf15))
@@ -629,35 +643,35 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(addr1)
+	ap1PNonce1, _ = ap1.getPendingNonce(_addr1)
 	require.Equal(uint64(3), ap1PNonce1)
-	ap1PBalance1, _ = ap1.getPendingBalance(addr1)
+	ap1PBalance1, _ = ap1.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(addr2)
+	ap1PNonce2, _ = ap1.getPendingNonce(_addr2)
 	require.Equal(uint64(3), ap1PNonce2)
-	ap1PBalance2, _ = ap1.getPendingBalance(addr2)
+	ap1PBalance2, _ = ap1.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(addr3)
+	ap1PNonce3, _ = ap1.getPendingNonce(_addr3)
 	require.Equal(uint64(5), ap1PNonce3)
-	ap1PBalance3, _ = ap1.getPendingBalance(addr3)
+	ap1PBalance3, _ = ap1.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(addr1)
+	ap2PNonce1, _ = ap2.getPendingNonce(_addr1)
 	require.Equal(uint64(5), ap2PNonce1)
-	ap2PBalance1, _ = ap2.getPendingBalance(addr1)
+	ap2PBalance1, _ = ap2.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(addr2)
+	ap2PNonce2, _ = ap2.getPendingNonce(_addr2)
 	require.Equal(uint64(5), ap2PNonce2)
-	ap2PBalance2, _ = ap2.getPendingBalance(addr2)
+	ap2PBalance2, _ = ap2.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(10).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(addr3)
+	ap2PNonce3, _ = ap2.getPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
+	ap2PBalance3, _ = ap2.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
 	balances[0] = big.NewInt(140)
@@ -673,41 +687,41 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(addr1)
+	ap1PNonce1, _ = ap1.getPendingNonce(_addr1)
 	require.Equal(uint64(5), ap1PNonce1)
-	ap1PBalance1, _ = ap1.getPendingBalance(addr1)
+	ap1PBalance1, _ = ap1.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(140).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(addr2)
+	ap1PNonce2, _ = ap1.getPendingNonce(_addr2)
 	require.Equal(uint64(5), ap1PNonce2)
-	ap1PBalance2, _ = ap1.getPendingBalance(addr2)
+	ap1PBalance2, _ = ap1.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(180).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(addr3)
+	ap1PNonce3, _ = ap1.getPendingNonce(_addr3)
 	require.Equal(uint64(5), ap1PNonce3)
-	ap1PBalance3, _ = ap1.getPendingBalance(addr3)
+	ap1PBalance3, _ = ap1.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(addr1)
+	ap2PNonce1, _ = ap2.getPendingNonce(_addr1)
 	require.Equal(uint64(5), ap2PNonce1)
-	ap2PBalance1, _ = ap2.getPendingBalance(addr1)
+	ap2PBalance1, _ = ap2.getPendingBalance(_addr1)
 	require.Equal(big.NewInt(140).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(addr2)
+	ap2PNonce2, _ = ap2.getPendingNonce(_addr2)
 	require.Equal(uint64(5), ap2PNonce2)
-	ap2PBalance2, _ = ap2.getPendingBalance(addr2)
+	ap2PBalance2, _ = ap2.getPendingBalance(_addr2)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(addr3)
+	ap2PNonce3, _ = ap2.getPendingNonce(_addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
+	ap2PBalance3, _ = ap2.getPendingBalance(_addr3)
 	require.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
 
 	// Add two more players
-	tsf21, err := action.SignedTransfer(addr5, priKey4, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
+	tsf21, err := action.SignedTransfer(_addr5, _priKey4, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf22, err := action.SignedTransfer(addr5, priKey4, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
+	tsf22, err := action.SignedTransfer(_addr5, _priKey4, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	tsf23, err := action.NewTransfer(uint64(3), big.NewInt(1), "", []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -716,21 +730,21 @@ func TestActPool_Reset(t *testing.T) {
 	elp := bd.SetNonce(3).
 		SetGasLimit(20000).
 		SetAction(tsf23).Build()
-	selp23, err := action.Sign(elp, priKey4)
+	selp23, err := action.Sign(elp, _priKey4)
 	require.NoError(err)
 
-	tsf24, err := action.SignedTransfer(addr5, priKey5, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
+	tsf24, err := action.SignedTransfer(_addr5, _priKey5, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf25, err := action.SignedTransfer(addr4, priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
+	tsf25, err := action.SignedTransfer(_addr4, _priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf26, err := action.NewTransfer(uint64(3), big.NewInt(1), addr4, []byte{}, uint64(20000), big.NewInt(0))
+	tsf26, err := action.NewTransfer(uint64(3), big.NewInt(1), _addr4, []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(3).
 		SetGasLimit(20000).
 		SetAction(tsf26).Build()
-	selp26, err := action.Sign(elp, priKey5)
+	selp26, err := action.Sign(elp, _priKey5)
 	require.NoError(err)
 
 	require.NoError(ap1.Add(ctx, tsf21))
@@ -742,14 +756,14 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
 	// Addr4
-	ap1PNonce4, _ := ap1.getPendingNonce(addr4)
+	ap1PNonce4, _ := ap1.getPendingNonce(_addr4)
 	require.Equal(uint64(2), ap1PNonce4)
-	ap1PBalance4, _ := ap1.getPendingBalance(addr4)
+	ap1PBalance4, _ := ap1.getPendingBalance(_addr4)
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
-	ap1PNonce5, _ := ap1.getPendingNonce(addr5)
+	ap1PNonce5, _ := ap1.getPendingNonce(_addr5)
 	require.Equal(uint64(3), ap1PNonce5)
-	ap1PBalance5, _ := ap1.getPendingBalance(addr5)
+	ap1PBalance5, _ := ap1.getPendingBalance(_addr5)
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
 	balances[3] = big.NewInt(10)
@@ -761,14 +775,14 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr4
-	ap1PNonce4, _ = ap1.getPendingNonce(addr4)
+	ap1PNonce4, _ = ap1.getPendingNonce(_addr4)
 	require.Equal(uint64(2), ap1PNonce4)
-	ap1PBalance4, _ = ap1.getPendingBalance(addr4)
+	ap1PBalance4, _ = ap1.getPendingBalance(_addr4)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
-	ap1PNonce5, _ = ap1.getPendingNonce(addr5)
+	ap1PNonce5, _ = ap1.getPendingNonce(_addr5)
 	require.Equal(uint64(3), ap1PNonce5)
-	ap1PBalance5, _ = ap1.getPendingBalance(addr5)
+	ap1PBalance5, _ = ap1.getPendingBalance(_addr5)
 	require.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
 }
 
@@ -778,32 +792,33 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	hash1, err := tsf1.Hash()
 	require.NoError(err)
@@ -823,43 +838,44 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(10)
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
-	nonce, err := ap.GetPendingNonce(addr2)
+	nonce, err := ap.GetPendingNonce(_addr2)
 	require.NoError(err)
 	require.Equal(uint64(1), nonce)
 
-	nonce, err = ap.GetPendingNonce(addr1)
+	nonce, err = ap.GetPendingNonce(_addr1)
 	require.NoError(err)
 	require.Equal(uint64(2), nonce)
 
-	require.NoError(ap.Add(context.Background(), tsf2))
-	nonce, err = ap.GetPendingNonce(addr1)
+	require.NoError(ap.Add(ctx, tsf2))
+	nonce, err = ap.GetPendingNonce(_addr1)
 	require.NoError(err)
 	require.Equal(uint64(5), nonce)
 }
@@ -870,39 +886,48 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := action.SignedTransfer(addr1, priKey2, uint64(1), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tsf5, err := action.SignedTransfer(_addr1, _priKey2, uint64(1), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(10)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
-	require.NoError(ap.Add(context.Background(), tsf5))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
+	require.NoError(ap.Add(ctx, tsf5))
 
-	acts := ap.GetUnconfirmedActs(addr3)
+	acts := ap.GetUnconfirmedActs(_addr3)
 	require.Equal([]action.SealedEnvelope(nil), acts)
 
-	acts = ap.GetUnconfirmedActs(addr1)
-	require.Equal([]action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}, acts)
+	acts = ap.GetUnconfirmedActs(_addr1)
+	validated := []action.SealedEnvelope{tsf1, tsf3, tsf4, tsf5}
+	require.Equal(len(acts), len(validated))
+	for i := 0; i < len(acts); i++ {
+		hashVal1, hashErr1 := validated[i].Hash()
+		require.NoError(hashErr1)
+		hashVal2, hashErr2 := acts[i].Hash()
+		require.NoError(hashErr2)
+		require.Equal(hashVal1, hashVal2)
+	}
 }
 
 func TestActPool_GetActionByHash(t *testing.T) {
@@ -912,16 +937,16 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash1, err := tsf1.Hash()
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash2, err := tsf2.Hash()
 	require.NoError(err)
@@ -946,12 +971,12 @@ func TestActPool_GetCapacity(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	require.Equal(uint64(maxNumActsPerPool), ap.GetCapacity())
-	require.Equal(uint64(maxGasLimitPerPool), ap.GetGasCapacity())
+	require.Equal(uint64(_maxNumActsPerPool), ap.GetCapacity())
+	require.Equal(uint64(_maxGasLimitPerPool), ap.GetGasCapacity())
 }
 
 func TestActPool_GetSize(t *testing.T) {
@@ -960,7 +985,7 @@ func TestActPool_GetSize(t *testing.T) {
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
@@ -968,38 +993,41 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Zero(ap.GetSize())
 	require.Zero(ap.GetGasSize())
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(_addr1, _priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := action.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
+	tsf4, err := action.SignedTransfer(_addr1, _priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
-		acct.Balance = big.NewInt(100000000000000000)
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(8)
-	require.NoError(ap.Add(context.Background(), tsf1))
-	require.NoError(ap.Add(context.Background(), tsf2))
-	require.NoError(ap.Add(context.Background(), tsf3))
-	require.NoError(ap.Add(context.Background(), tsf4))
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 	require.Equal(uint64(4), ap.GetSize())
 	require.Equal(uint64(40000), ap.GetGasSize())
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 4
-		acct.Balance = big.NewInt(100000000000000000)
+		for i := uint64(1); i <= 4; i++ {
+			require.NoError(acct.SetPendingNonce(i + 1))
+		}
+		require.NoError(acct.AddBalance(big.NewInt(100000000000000000)))
 
 		return 0, nil
 	}).Times(1)
-	ap.removeConfirmedActs()
+	ap.removeConfirmedActs(ctx)
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())
 }
@@ -1008,8 +1036,8 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 
-	apConfig := config.Default.ActPool
-	ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	apConfig := DefaultConfig
+	ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(t, err)
 	tsf, err := action.SignedTransfer(
 		identityset.Address(0).String(),
@@ -1023,6 +1051,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 	require.Error(t, ap.Add(ctx, tsf))
 }
 
@@ -1033,50 +1062,50 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 		acct, ok := account.(*state.Account)
 		require.True(ok)
-		acct.Nonce = 0
 		cfg := &protocol.StateConfig{}
 		for _, opt := range opts {
 			opt(cfg)
 		}
-		acct.Balance = big.NewInt(10000000)
+		require.NoError(acct.AddBalance(big.NewInt(10000000)))
 		return 0, nil
 	}).AnyTimes()
+	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	// Create actpool
 	apConfig := getActPoolCfg()
-	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
+	Ap, err := NewActPool(genesis.Default, sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := action.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(1))
+	tsf2, err := action.SignedTransfer(_addr2, _priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(1))
 	require.NoError(err)
-	tsf3, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(3))
+	tsf3, err := action.SignedTransfer(_addr1, _priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(3))
 	require.NoError(err)
 
 	// A send action tsf1 with nonce 1, B send action tsf2 with nonce 1
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(ap.Add(ctx, tsf1))
 	require.NoError(ap.Add(ctx, tsf2))
 
 	// check account and actpool status
-	pBalance1, _ := ap.getPendingBalance(addr1)
+	pBalance1, _ := ap.getPendingBalance(_addr1)
 	require.Equal(uint64(10000000-10), pBalance1.Uint64())
-	pNonce1, _ := ap.getPendingNonce(addr1)
+	pNonce1, _ := ap.getPendingNonce(_addr1)
 	require.Equal(uint64(2), pNonce1)
-	pBalance2, _ := ap.getPendingBalance(addr2)
+	pBalance2, _ := ap.getPendingBalance(_addr2)
 	require.Equal(uint64(10000000-5-10000), pBalance2.Uint64())
-	pNonce2, _ := ap.getPendingNonce(addr2)
+	pNonce2, _ := ap.getPendingNonce(_addr2)
 	require.Equal(uint64(2), pNonce2)
 
 	// A send action tsf3 with nonce 1 and higher gas price
 	require.NoError(ap.Add(ctx, tsf3))
 
 	// check account and actpool status again after new action is inserted
-	pNonce3, _ := ap.getPendingNonce(addr1)
+	pNonce3, _ := ap.getPendingNonce(_addr1)
 	require.Equal(uint64(2), pNonce3)
 
 	ai := actioniterator.NewActionIterator(ap.PendingActionMap())
@@ -1089,7 +1118,15 @@ func TestActPool_SpeedUpAction(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	// tsf1 is replaced by tsf3 with higher gas price
-	require.Equal(appliedActionList, []action.SealedEnvelope{tsf3, tsf2})
+	validated := []action.SealedEnvelope{tsf3, tsf2}
+	require.Equal(len(appliedActionList), len(validated))
+	for i := 0; i < len(appliedActionList); i++ {
+		hashVal1, hashErr1 := validated[i].Hash()
+		require.NoError(hashErr1)
+		hashVal2, hashErr2 := appliedActionList[i].Hash()
+		require.NoError(hashErr2)
+		require.Equal(hashVal1, hashVal2)
+	}
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue
@@ -1097,12 +1134,19 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	addr1, err := address.FromString(addr)
+	_addr1, err := address.FromString(addr)
 	if err != nil {
 		return 0, err
 	}
-	committedState, err := accountutil.AccountState(ap.sf, addr1)
-	return committedState.Nonce + 1, err
+	committedState, err := accountutil.AccountState(
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		ap.sf,
+		_addr1,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return committedState.PendingNonce(), nil
 }
 
 // Helper function to return the correct pending balance just in case of empty queue
@@ -1110,11 +1154,15 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	addr1, err := address.FromString(addr)
+	_addr1, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
 	}
-	state, err := accountutil.AccountState(ap.sf, addr1)
+	state, err := accountutil.AccountState(
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
+		ap.sf,
+		_addr1,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1122,13 +1170,13 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	return state.Balance, nil
 }
 
-func getActPoolCfg() config.ActPool {
-	return config.ActPool{
-		MaxNumActsPerPool:  maxNumActsPerPool,
-		MaxGasLimitPerPool: maxGasLimitPerPool,
-		MaxNumActsPerAcct:  maxNumActsPerAcct,
+func getActPoolCfg() Config {
+	return Config{
+		MaxNumActsPerPool:  _maxNumActsPerPool,
+		MaxGasLimitPerPool: _maxGasLimitPerPool,
+		MaxNumActsPerAcct:  _maxNumActsPerAcct,
 		MinGasPriceStr:     "0",
-		BlackList:          []string{addr6},
+		BlackList:          []string{_addr6},
 	}
 }
 
@@ -1146,4 +1194,10 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
+}
+
+func TestValidateMinGasPrice(t *testing.T) {
+	ap := Config{MinGasPriceStr: DefaultConfig.MinGasPriceStr}
+	mgp := ap.MinGasPrice()
+	require.IsType(t, &big.Int{}, mgp)
 }

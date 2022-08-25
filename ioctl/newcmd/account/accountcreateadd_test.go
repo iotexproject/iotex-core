@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewAccountCreateAdd(t *testing.T) {
@@ -26,12 +25,11 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).AnyTimes()
 
-	testWallet, ks, pwd, _, err := newTestAccount()
+	testWallet, ks, pwd, _, err := newTestAccountWithKeyStore(t, veryLightScryptN, veryLightScryptP)
 	require.NoError(err)
-	defer testutil.CleanupPath(testWallet)
 
 	client.EXPECT().ReadSecret().Return(pwd, nil).Times(4)
-	client.EXPECT().AskToConfirm(gomock.Any()).Return(true).Times(2)
+	client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).Times(2)
 	client.EXPECT().Config().Return(config.Config{
 		Wallet: testWallet,
 		Aliases: map[string]string{
@@ -40,7 +38,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 		},
 	}).Times(4)
 	client.EXPECT().NewKeyStore().Return(ks).Times(2)
-	client.EXPECT().SetAlias(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	client.EXPECT().SetAliasAndSave(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	t.Run("CryptoSm2 is true", func(t *testing.T) {
 		client.EXPECT().IsCryptoSm2().Return(true)
@@ -59,7 +57,7 @@ func TestNewAccountCreateAdd(t *testing.T) {
 	})
 
 	t.Run("failed to confirm", func(t *testing.T) {
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, nil)
 
 		cmd := NewAccountCreateAdd(client)
 		_, err := util.ExecuteCmd(cmd, "aaa")

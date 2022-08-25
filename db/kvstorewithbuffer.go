@@ -3,6 +3,7 @@ package db
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -37,6 +38,7 @@ type (
 		SerializeQueue() []byte
 		Flush() error
 		KVStoreWithBuffer() KVStoreWithBuffer
+		BaseKVStore() KVStore
 	}
 
 	flusher struct {
@@ -128,6 +130,10 @@ func (f *flusher) KVStoreWithBuffer() KVStoreWithBuffer {
 	return f.kvb
 }
 
+func (f *flusher) BaseKVStore() KVStore {
+	return f.kvb.store
+}
+
 func (kvb *kvStoreWithBuffer) Start(ctx context.Context) error {
 	return kvb.store.Start(ctx)
 }
@@ -171,21 +177,21 @@ func (kvb *kvStoreWithBuffer) Get(ns string, key []byte) ([]byte, error) {
 }
 
 func (kvb *kvStoreWithBuffer) Put(ns string, key, value []byte) error {
-	kvb.buffer.Put(ns, key, value, "faild to put %x in %s", key, ns)
+	kvb.buffer.Put(ns, key, value, fmt.Sprintf("faild to put %x in %s", key, ns))
 	return nil
 }
 
 func (kvb *kvStoreWithBuffer) MustPut(ns string, key, value []byte) {
-	kvb.buffer.Put(ns, key, value, "faild to put %x in %s", key, ns)
+	kvb.buffer.Put(ns, key, value, fmt.Sprintf("faild to put %x in %s", key, ns))
 }
 
 func (kvb *kvStoreWithBuffer) Delete(ns string, key []byte) error {
-	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
+	kvb.buffer.Delete(ns, key, fmt.Sprintf("failed to delete %x in %s", key, ns))
 	return nil
 }
 
 func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
-	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
+	kvb.buffer.Delete(ns, key, fmt.Sprintf("failed to delete %x in %s", key, ns))
 }
 
 func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
@@ -198,7 +204,13 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey [
 	checkMin := len(minKey) > 0
 	checkMax := len(maxKey) > 0
 	for i := 0; i < kvb.buffer.Size(); i++ {
-		entry, _ := kvb.buffer.Entry(i)
+		entry, err := kvb.buffer.Entry(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		if entry.Namespace() != ns {
+			continue
+		}
 		k, v := entry.Key(), entry.Value()
 
 		if checkMin && bytes.Compare(k, minKey) == -1 {
@@ -261,9 +273,9 @@ func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
 	for _, write := range writes {
 		switch write.WriteType() {
 		case batch.Put:
-			kvb.buffer.Put(write.Namespace(), write.Key(), write.Value(), write.ErrorFormat(), write.ErrorArgs())
+			kvb.buffer.Put(write.Namespace(), write.Key(), write.Value(), write.Error())
 		case batch.Delete:
-			kvb.buffer.Delete(write.Namespace(), write.Key(), write.ErrorFormat(), write.ErrorArgs())
+			kvb.buffer.Delete(write.Namespace(), write.Key(), write.Error())
 		default:
 			log.S().Panic("unexpected write type")
 		}

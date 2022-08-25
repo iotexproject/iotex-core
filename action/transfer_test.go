@@ -23,7 +23,8 @@ func TestTransferSignVerify(t *testing.T) {
 
 	tsf, err := NewTransfer(1, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Nil(tsf.srcPubkey)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(87, tsf.TotalSize())
 
 	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(tsf.nonce).
@@ -34,19 +35,20 @@ func TestTransferSignVerify(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
-	require.Error(w.Verify())
+	require.Error(w.VerifySignature())
 	tsf2, ok := w.Envelope.Action().(*Transfer)
 	require.True(ok)
 	require.Equal(tsf, tsf2)
-	require.NotNil(tsf.srcPubkey)
 
 	// sign the transfer
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
+	require.EqualValues(21, tsf.BasicActionSize())
+	require.EqualValues(87, tsf.TotalSize())
 
 	// verify signature
-	require.NoError(selp.Verify())
+	require.NoError(selp.VerifySignature())
 }
 
 func TestTransfer(t *testing.T) {
@@ -67,7 +69,7 @@ func TestTransfer(t *testing.T) {
 	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
-	require.Error(w.Verify())
+	require.Error(w.VerifySignature())
 
 	require.NoError(err)
 	require.Equal("10", tsf.Amount().Text(10))
@@ -100,20 +102,6 @@ func TestTransfer(t *testing.T) {
 			uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		require.Equal(ErrNegativeValue, errors.Cause(tsf.SanityCheck()))
-	})
-	t.Run("Invalid recipient address", func(t *testing.T) {
-		tsf, err := NewTransfer(
-			1,
-			big.NewInt(1),
-			identityset.Address(28).String()+"aaa",
-			nil,
-			uint64(100000),
-			big.NewInt(0),
-		)
-		require.NoError(err)
-		err = tsf.SanityCheck()
-		require.Error(err)
-		require.Contains(err.Error(), "error when validating recipient's address")
 	})
 	t.Run("Negative gas fee", func(t *testing.T) {
 		tsf, err := NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,

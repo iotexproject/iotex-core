@@ -41,8 +41,8 @@ import (
 )
 
 const (
-	numNodes  = 4
-	numAdmins = 2
+	_numNodes  = 4
+	_numAdmins = 2
 )
 
 func main() {
@@ -73,16 +73,16 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
-	admins := chainAddrs[len(chainAddrs)-numAdmins:]
-	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
+	admins := chainAddrs[len(chainAddrs)-_numAdmins:]
+	delegates := chainAddrs[:len(chainAddrs)-_numAdmins]
 
 	dbFilePaths := make([]string, 0)
 	//a flag to indicate whether the DB files should be cleaned up upon completion of the minicluster.
 	deleteDBFiles := false
 
 	// Set mini-cluster configurations
-	configs := make([]config.Config, numNodes)
-	for i := 0; i < numNodes; i++ {
+	configs := make([]config.Config, _numNodes)
+	for i := 0; i < _numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
@@ -98,10 +98,11 @@ func main() {
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := config.Default.Network.Port + i
-		apiPort := config.Default.API.Port + i
-		web3APIPort := config.Default.API.Web3Port + i
+		apiPort := config.Default.API.GRPCPort + i
+		web3APIPort := config.Default.API.HTTPPort + i
+		web3SocketPort := config.Default.API.WebSocketPort + i
 		HTTPAdminPort := config.Default.System.HTTPAdminPort + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, HTTPAdminPort)
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, web3APIPort, web3SocketPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPatchFile = ""
 		config.Chain.TrieDBPath = trieDBPath
@@ -120,8 +121,8 @@ func main() {
 	}
 
 	// Create mini-cluster
-	svrs := make([]*itx.Server, numNodes)
-	for i := 0; i < numNodes; i++ {
+	svrs := make([]*itx.Server, _numNodes)
+	for i := 0; i < _numNodes; i++ {
 		svr, err := itx.NewServer(configs[i])
 		if err != nil {
 			log.L().Fatal("Failed to create server.", zap.Error(err))
@@ -140,7 +141,7 @@ func main() {
 	}()
 
 	// Start mini-cluster
-	for i := 0; i < numNodes; i++ {
+	for i := 0; i < _numNodes; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
@@ -202,9 +203,12 @@ func main() {
 			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
 		// Wait until the smart contract is successfully deployed
-		var receipt *iotextypes.Receipt
+		var (
+			receipt *iotextypes.Receipt
+			as      = svrs[0].APIServer(1)
+		)
 		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			receipt, err = util.GetReceiptByAction(svrs[0].ChainService(uint32(1)).APIServer(), eHash)
+			receipt, err = util.GetReceiptByAction(as.CoreService(), eHash)
 			return receipt != nil, nil
 		}); err != nil {
 			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
@@ -270,12 +274,12 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
+			expectedBalancesMap, as.CoreService(), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			empty, err := util.CheckPendingActionList(
-				svrs[0].ChainService(1),
+				as.CoreService(),
 				pendingActionMap,
 				expectedBalancesMap,
 			)
@@ -296,16 +300,16 @@ func main() {
 			log.L().Error("Not all actions are settled")
 		}
 
-		chains := make([]blockchain.Blockchain, numNodes)
-		sfs := make([]factory.Factory, numNodes)
-		stateHeights := make([]uint64, numNodes)
-		bcHeights := make([]uint64, numNodes)
-		idealHeight := make([]uint64, numNodes)
+		chains := make([]blockchain.Blockchain, _numNodes)
+		sfs := make([]factory.Factory, _numNodes)
+		stateHeights := make([]uint64, _numNodes)
+		bcHeights := make([]uint64, _numNodes)
+		idealHeight := make([]uint64, _numNodes)
 
 		var netTimeout int
 		var minTimeout int
 
-		for i := 0; i < numNodes; i++ {
+		for i := 0; i < _numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 			sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 
@@ -333,8 +337,8 @@ func main() {
 			}
 		}
 
-		for i := 0; i < numNodes; i++ {
-			for j := i + 1; j < numNodes; j++ {
+		for i := 0; i < _numNodes; i++ {
+			for j := i + 1; j < _numNodes; j++ {
 				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
 					log.S().Errorf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j)
 				} else {
@@ -395,6 +399,7 @@ func newConfig(
 	networkPort,
 	apiPort int,
 	web3APIPort int,
+	webSocketPort int,
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
@@ -407,7 +412,6 @@ func newConfig(
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
-	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
@@ -422,15 +426,17 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
-	cfg.API.Port = apiPort
-	cfg.API.Web3Port = web3APIPort
+	cfg.API.GRPCPort = apiPort
+	cfg.API.HTTPPort = web3APIPort
+	cfg.API.WebSocketPort = webSocketPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
-	cfg.Genesis.Blockchain.NumDelegates = numNodes
+	cfg.Genesis.Blockchain.NumDelegates = _numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : _numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
+
 	return cfg
 }

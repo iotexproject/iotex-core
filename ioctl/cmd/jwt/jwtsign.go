@@ -1,4 +1,4 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,20 +23,20 @@ import (
 
 // Multi-language support
 var (
-	signCmdShorts = map[config.Language]string{
+	_signCmdShorts = map[config.Language]string{
 		config.English: "Sign Json Web Token on IoTeX blockchain",
 		config.Chinese: "签发IoTeX区块链上的JWT",
 	}
-	signCmdUses = map[config.Language]string{
+	_signCmdUses = map[config.Language]string{
 		config.English: "sign [-s SIGNER] [-P PASSWORD] [-y] --with-arguments [INVOKE_INPUT]",
 		config.Chinese: "sign [-s 签署人] [-P 密码] [-y] --with-arguments [输入]",
 	}
 )
 
-// jwtSignCmd represents the jwt sign command
-var jwtSignCmd = &cobra.Command{
-	Use:   config.TranslateInLang(signCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(signCmdShorts, config.UILanguage),
+// _jwtSignCmd represents the jwt sign command
+var _jwtSignCmd = &cobra.Command{
+	Use:   config.TranslateInLang(_signCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(_signCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

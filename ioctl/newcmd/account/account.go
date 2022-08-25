@@ -36,21 +36,9 @@ import (
 
 // Multi-language support
 var (
-	accountCmdShorts = map[config.Language]string{
+	_accountCmdShorts = map[config.Language]string{
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
-	}
-	accountCmdUses = map[config.Language]string{
-		config.English: "account",
-		config.Chinese: "账户",
-	}
-	flagEndpoint = map[config.Language]string{
-		config.English: "set endpoint for once",
-		config.Chinese: "一次设置端点",
-	}
-	flagInsecure = map[config.Language]string{
-		config.English: "insecure connection for once",
-		config.Chinese: "一次不安全连接",
 	}
 )
 
@@ -62,18 +50,14 @@ var (
 
 // NewAccountCmd represents the account command
 func NewAccountCmd(client ioctl.Client) *cobra.Command {
-	accountUses, _ := client.SelectTranslation(accountCmdUses)
-	accountShorts, _ := client.SelectTranslation(accountCmdShorts)
-
-	var endpoint string
-	var insecure bool
+	accountShorts, _ := client.SelectTranslation(_accountCmdShorts)
 
 	ac := &cobra.Command{
-		Use:   accountUses,
+		Use:   "account",
 		Short: accountShorts,
 	}
-
 	ac.AddCommand(NewAccountCreate(client))
+	ac.AddCommand(NewAccountCreateAdd(client))
 	ac.AddCommand(NewAccountDelete(client))
 	ac.AddCommand(NewAccountNonce(client))
 	ac.AddCommand(NewAccountList(client))
@@ -84,13 +68,11 @@ func NewAccountCmd(client ioctl.Client) *cobra.Command {
 	ac.AddCommand(NewAccountEthAddr(client))
 	ac.AddCommand(NewAccountExportPublic(client))
 	ac.AddCommand(NewAccountExport(client))
+	ac.AddCommand(NewAccountImportCmd(client))
+	ac.AddCommand(NewAccountBalance(client))
 
-	flagEndpointUsage, _ := client.SelectTranslation(flagEndpoint)
-	flagInsecureUsage, _ := client.SelectTranslation(flagInsecure)
-
-	ac.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
-	ac.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
-
+	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
 	return ac
 }
 
@@ -161,7 +143,7 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 	}
 
 	if password == "" {
-		cmd.Println(fmt.Sprintf("Enter password for #%s:\n", signer))
+		cmd.Printf("Enter password for #%s:\n", signer)
 		password, err = client.ReadSecret()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get password")
@@ -173,7 +155,7 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid HDWallet key format")
 		}
-		_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+		_, prvKey, err = hdwallet.DeriveKey(client, account, change, index, password)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to derive key from HDWallet")
 		}
@@ -184,12 +166,7 @@ func PrivateKeyFromSigner(client ioctl.Client, cmd *cobra.Command, signer, passw
 
 // Meta gets account metadata
 func Meta(client ioctl.Client, addr string) (*iotextypes.AccountMeta, error) {
-	endpoint := client.Config().Endpoint
-	insecure := client.Config().SecureConnect && !config.Insecure
-	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
+	apiServiceClient, err := client.APIServiceClient()
 	if err != nil {
 		return nil, err
 	}
@@ -236,12 +213,12 @@ func IsSignerExist(client ioctl.Client, signer string) bool {
 }
 
 func newAccount(client ioctl.Client, cmd *cobra.Command, alias string) (string, error) {
-	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
+	cmd.Printf("#%s: Set password\n", alias)
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -262,12 +239,12 @@ func newAccount(client ioctl.Client, cmd *cobra.Command, alias string) (string, 
 }
 
 func newAccountSm2(client ioctl.Client, cmd *cobra.Command, alias string) (string, error) {
-	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
+	cmd.Printf("#%s: Set password\n", alias)
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
@@ -294,12 +271,12 @@ func newAccountSm2(client ioctl.Client, cmd *cobra.Command, alias string) (strin
 }
 
 func newAccountByKey(client ioctl.Client, cmd *cobra.Command, alias string, privateKey string) (string, error) {
-	cmd.Println(fmt.Sprintf("#%s: Set password\n", alias))
+	cmd.Printf("#%s: Set password\n", alias)
 	password, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
 	}
-	cmd.Println(fmt.Sprintf("#%s: Enter password again\n", alias))
+	cmd.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := client.ReadSecret()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get password")
