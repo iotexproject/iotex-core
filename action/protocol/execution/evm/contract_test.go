@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -34,8 +33,6 @@ func TestCreateContract(t *testing.T) {
 	require.NoError(err)
 	defer testutil.CleanupPath(testTriePath)
 
-	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -97,7 +94,7 @@ func TestCreateContract(t *testing.T) {
 func TestLoadStoreCommit(t *testing.T) {
 	require := require.New(t)
 
-	testLoadStoreCommit := func(cfg config.Config, t *testing.T, enableAsync bool) {
+	testLoadStoreCommit := func(t *testing.T, enableAsync bool) {
 		ctrl := gomock.NewController(t)
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
@@ -201,49 +198,13 @@ func TestLoadStoreCommit(t *testing.T) {
 		}
 	}
 
-	cfg := config.Default
 	t.Run("contract load/store with stateDB, sync mode", func(t *testing.T) {
-		testTriePath, err := testutil.PathOfTempFile("trie")
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(testTriePath)
-		}()
-
-		cfg.Chain.TrieDBPath = testTriePath
-		testLoadStoreCommit(cfg, t, false)
+		testLoadStoreCommit(t, false)
 	})
 	t.Run("contract load/store with stateDB, async mode", func(t *testing.T) {
-		testTriePath, err := testutil.PathOfTempFile("trie")
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(testTriePath)
-		}()
-
-		cfg := config.Default
-		cfg.Chain.TrieDBPath = testTriePath
-		testLoadStoreCommit(cfg, t, true)
+		testLoadStoreCommit(t, true)
 	})
 
-	t.Run("contract load/store with trie, sync mode", func(t *testing.T) {
-		testTriePath2, err := testutil.PathOfTempFile("trie")
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(testTriePath2)
-		}()
-		cfg.Chain.EnableTrielessStateDB = false
-		cfg.Chain.TrieDBPath = testTriePath2
-		testLoadStoreCommit(cfg, t, false)
-	})
-	t.Run("contract load/store with trie, async mode", func(t *testing.T) {
-		testTriePath2, err := testutil.PathOfTempFile("trie")
-		require.NoError(err)
-		defer func() {
-			testutil.CleanupPath(testTriePath2)
-		}()
-		cfg.Chain.EnableTrielessStateDB = false
-		cfg.Chain.TrieDBPath = testTriePath2
-		testLoadStoreCommit(cfg, t, true)
-	})
 }
 
 func TestSnapshot(t *testing.T) {
