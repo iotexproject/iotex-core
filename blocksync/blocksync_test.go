@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -40,7 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func newBlockSyncer(cfg Config, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
+func newBlockSyncer(cfg Config, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs *mock_consensus.MockConsensus) (*blockSyncer, error) {
 	bs, err := NewBlockSyncer(cfg, chain.TipHeight,
 		func(h uint64) (*block.Block, error) {
 			return dao.GetBlockByHeight(h)
