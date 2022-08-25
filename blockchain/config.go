@@ -33,6 +33,7 @@ type (
 		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
 		Address                string           `yaml:"address"`
 		ProducerPrivKey        string           `yaml:"producerPrivKey"`
+		PrivKeyConfigFile      string           `yaml:"privKeyConfigFile"`
 		SignatureScheme        []string         `yaml:"signatureScheme"`
 		EmptyGenesis           bool             `yaml:"emptyGenesis"`
 		GravityChainDB         db.Config        `yaml:"gravityChainDB"`

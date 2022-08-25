@@ -36,11 +36,10 @@ var recoveryHeight int
  * secretPath is the path to the  config file store secret values
  */
 var (
-	genesisPath     string
-	_overwritePath  string
-	_secretPath     string
-	_privateKeyPath string
-	_plugins        strs
+	genesisPath    string
+	_overwritePath string
+	_secretPath    string
+	_plugins       strs
 )
 
 type strs []string
@@ -58,7 +57,6 @@ func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
-	flag.StringVar(&_privateKeyPath, "private-key-path", "", "Private Key path")
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
@@ -76,7 +74,7 @@ func main() {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
 
-	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins, _privateKeyPath)
+	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}

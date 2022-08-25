@@ -108,7 +108,7 @@ func migrateDbFile() (err error) {
 		return fmt.Errorf("the --block-height cannot be larger than the height of the migration file")
 	}
 
-	cfg, err := config.New([]string{}, []string{}, "")
+	cfg, err := config.New([]string{}, []string{})
 	if err != nil {
 		return fmt.Errorf("failed to new config: %v", err)
 	}

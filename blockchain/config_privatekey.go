@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package config
+package blockchain
 
 import (
 	"net/http"
@@ -12,7 +12,6 @@ import (
 	"time"
 
 	vault "github.com/hashicorp/vault/api"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 )
@@ -35,7 +34,7 @@ type (
 	}
 
 	localPrivKeyLoader struct {
-		cfg *privKeyConfig
+		producerPrivKey string
 	}
 
 	vaultPrivKeyLoader struct {
@@ -44,7 +43,7 @@ type (
 )
 
 func (l *localPrivKeyLoader) load() (string, error) {
-	return l.cfg.ProducerPrivKey, nil
+	return l.producerPrivKey, nil
 }
 
 func (l *vaultPrivKeyLoader) load() (string, error) {
@@ -83,12 +82,12 @@ func (l *vaultPrivKeyLoader) load() (string, error) {
 	return v, nil
 }
 
-func setProducerPrivKey(cfg *blockchain.Config, privKeyPath string) error {
-	if privKeyPath == "" {
+func (cfg *Config) SetProducerPrivKey() error {
+	if cfg.PrivKeyConfigFile == "" {
 		return nil
 	}
 
-	yaml, err := uconfig.NewYAML(uconfig.Expand(os.LookupEnv), uconfig.File(privKeyPath))
+	yaml, err := uconfig.NewYAML(uconfig.Expand(os.LookupEnv), uconfig.File(cfg.PrivKeyConfigFile))
 	if err != nil {
 		return errors.Wrap(err, "failed to init private key config")
 	}
@@ -100,7 +99,7 @@ func setProducerPrivKey(cfg *blockchain.Config, privKeyPath string) error {
 	var loader privKeyLoader
 	switch {
 	case pc.ProducerPrivKey != "":
-		loader = &localPrivKeyLoader{pc}
+		loader = &localPrivKeyLoader{pc.ProducerPrivKey}
 	case pc.HashiCorpVault != nil:
 		loader = &vaultPrivKeyLoader{pc}
 	default:

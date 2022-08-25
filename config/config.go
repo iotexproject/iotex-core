@@ -250,7 +250,7 @@ type (
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
-func New(configPaths []string, _plugins []string, privKeyPath string, validates ...Validate) (Config, error) {
+func New(configPaths []string, _plugins []string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
@@ -269,7 +269,7 @@ func New(configPaths []string, _plugins []string, privKeyPath string, validates 
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
 
-	if err := setProducerPrivKey(&cfg.Chain, privKeyPath); err != nil {
+	if err := cfg.Chain.SetProducerPrivKey(); err != nil {
 		return Config{}, errors.Wrap(err, "failed to set producer private key")
 	}
 
