@@ -28,6 +28,7 @@ hashiCorpVault:
 
 func TestSetProducerPrivKey(t *testing.T) {
 	r := require.New(t)
+	testfile := "private_key.*.yaml"
 	t.Run("private config file does not exist", func(t *testing.T) {
 		cfg := DefaultConfig
 		key := DefaultConfig.ProducerPrivKey
@@ -38,7 +39,7 @@ func TestSetProducerPrivKey(t *testing.T) {
 	t.Run("private config file is empty", func(t *testing.T) {
 		cfg := DefaultConfig
 		key := DefaultConfig.ProducerPrivKey
-		tmp, err := os.CreateTemp("", "private_key.*.yaml")
+		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
 		defer os.Remove(tmp.Name())
 		cfg.PrivKeyConfigFile = tmp.Name()
@@ -48,7 +49,7 @@ func TestSetProducerPrivKey(t *testing.T) {
 	})
 	t.Run("private config file has producerPrivKey", func(t *testing.T) {
 		cfg := DefaultConfig
-		tmp, err := os.CreateTemp("", "private_key.*.yaml")
+		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
 		defer os.Remove(tmp.Name())
 		_, err = tmp.WriteString("producerPrivKey: my private key")
@@ -62,7 +63,7 @@ func TestSetProducerPrivKey(t *testing.T) {
 	})
 	t.Run("private config file has hashiCorpVault", func(t *testing.T) {
 		cfg := DefaultConfig
-		tmp, err := os.CreateTemp("", "private_key.*.yaml")
+		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
 		defer os.Remove(tmp.Name())
 
