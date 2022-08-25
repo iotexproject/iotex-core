@@ -82,6 +82,7 @@ func (l *vaultPrivKeyLoader) load() (string, error) {
 	return v, nil
 }
 
+// SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
 func (cfg *Config) SetProducerPrivKey() error {
 	if cfg.PrivKeyConfigFile == "" {
 		return nil
