@@ -15,6 +15,7 @@ import (
 
 const defaultHTTPTimeout = 10 * time.Second
 
+// ErrVault vault error
 var ErrVault = errors.New("vault error")
 
 type (
