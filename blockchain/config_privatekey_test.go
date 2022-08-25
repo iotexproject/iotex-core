@@ -95,6 +95,5 @@ func TestSetProducerPrivKey(t *testing.T) {
 		err = cfg.SetProducerPrivKey()
 		r.NoError(err)
 		r.Equal(value, cfg.ProducerPrivKey)
-		r.NoError(err)
 	})
 }
