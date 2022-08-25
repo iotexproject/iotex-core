@@ -270,7 +270,7 @@ func (store *factoryWorkingSetStore) Commit() error {
 	if _, err := store.tlt.RootHash(); err != nil {
 		return err
 	}
-	dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
+	_dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
 	if err := store.flusher.Flush(); err != nil {
 		return err
 	}
