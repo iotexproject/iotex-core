@@ -61,6 +61,7 @@ func createTestDefaultBuilderConfig() BuilderConfig {
 		DardanellesUpgrade: DefaultDardanellesUpgradeConfig,
 		BlockSync:          blocksync.DefaultConfig,
 		Genesis:            genesis.Default,
+		SystemActive:       true,
 	}
 }
 
