@@ -555,6 +555,7 @@ func (builder *Builder) buildConsensusComponent() error {
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	builderCfg := consensus.BuilderConfig{
 		Scheme:             builder.cfg.Consensus.Scheme,
+		Consensus:          builder.cfg.Consensus,
 		DB:                 builder.cfg.DB,
 		Genesis:            builder.cfg.Genesis,
 		Chain:              builder.cfg.Chain,
