@@ -67,7 +67,9 @@ func TestSetProducerPrivKey(t *testing.T) {
 		defer os.Remove(tmp.Name())
 
 		core, _, rootToken := vault.TestCoreUnsealed(t)
-		_, addr := http.TestServer(t, core)
+		ln, addr := http.TestServer(t, core)
+		defer ln.Close()
+
 		path := "secret/data/test"
 		key := "my key"
 		value := "my value"
