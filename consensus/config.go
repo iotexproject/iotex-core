@@ -3,14 +3,11 @@ package consensus
 import (
 	"time"
 
-	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
-	"go.uber.org/zap"
 )
 
 const (
@@ -118,34 +115,6 @@ type (
 		CommitTTL(uint64) time.Duration
 		BlockInterval(uint64) time.Duration
 		Delay(uint64) time.Duration
-	}
-
-	// FSMContext defines the context of the fsm
-	FSMContext interface {
-		Activate(bool)
-		Active() bool
-		IsStaleEvent(*consensusfsm.ConsensusEvent) bool
-		IsFutureEvent(*consensusfsm.ConsensusEvent) bool
-		IsStaleUnmatchedEvent(*consensusfsm.ConsensusEvent) bool
-
-		Logger() *zap.Logger
-		Height() uint64
-
-		NewConsensusEvent(fsm.EventType, interface{}) *consensusfsm.ConsensusEvent
-		NewBackdoorEvt(fsm.State) *consensusfsm.ConsensusEvent
-
-		Broadcast(interface{})
-
-		Prepare() error
-		IsDelegate() bool
-		Proposal() (interface{}, error)
-		WaitUntilRoundStart() time.Duration
-		PreCommitEndorsement() interface{}
-		NewProposalEndorsement(interface{}) (interface{}, error)
-		NewLockEndorsement(interface{}) (interface{}, error)
-		NewPreCommitEndorsement(interface{}) (interface{}, error)
-		Commit(interface{}) (bool, error)
-		FSMConfig
 	}
 
 	// config implements FSMConfig

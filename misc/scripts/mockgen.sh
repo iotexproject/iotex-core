@@ -39,12 +39,18 @@ mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -package=mock_consensus \
         Consensus
 
-mockgen -destination=./consensus/consensusfsm/mock_context_test.go  \
-        -source=./consensus/consensusfsm/context.go \
-	-self_package=github.com/iotexproject/iotex-core/consensus/consensusfsm \
-	-aux_files=github.com/iotexproject/iotex-core/consensus/consensusfsm=./consensus/consensusfsm/consensus_ttl.go \
-	-package=consensusfsm \
-        Context
+mockgen -destination=./consensus/mock_fsm_context_test.go  \
+        -source=./consensus/fsm_context.go \
+	-self_package=github.com/iotexproject/iotex-core/consensus \
+	-aux_files=github.com/iotexproject/iotex-core/consensus=./consensus/config.go \
+	-package=consensus \
+        FSMContext
+
+mockgen -destination=./consensus/mock_endorsedmessage_test.go  \
+        -source=./consensus/endorsedmessage.go \
+	-self_package=github.com/iotexproject/iotex-core/consensus \
+	-package=consensus \
+        EndorsedMessage
 
 mkdir -p ./test/mock/mock_lifecycle
 mockgen -destination=./test/mock/mock_lifecycle/mock_lifecycle.go \

@@ -7,7 +7,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -84,7 +83,7 @@ var (
 // FSM wraps over the general purpose FSM and implements the consensus logic
 type FSM struct {
 	fsm   fsm.FSM
-	evtq  chan *consensusfsm.ConsensusEvent
+	evtq  chan *ConsensusEvent
 	close chan interface{}
 	clock clock.Clock
 	ctx   FSMContext
@@ -94,7 +93,7 @@ type FSM struct {
 // NewFSM returns a new fsm
 func NewFSM(ctx FSMContext, clock clock.Clock) (*FSM, error) {
 	cm := &FSM{
-		evtq:  make(chan *consensusfsm.ConsensusEvent, ctx.EventChanSize()),
+		evtq:  make(chan *ConsensusEvent, ctx.EventChanSize()),
 		close: make(chan interface{}),
 		ctx:   ctx,
 		clock: clock,
@@ -297,7 +296,7 @@ func (m *FSM) produceConsensusEvent(et fsm.EventType, delay time.Duration) {
 }
 
 // produce adds an event into the queue for the consensus FSM to process
-func (m *FSM) produce(evt *consensusfsm.ConsensusEvent, delay time.Duration) {
+func (m *FSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	if evt == nil {
 		return
 	}
@@ -317,7 +316,7 @@ func (m *FSM) produce(evt *consensusfsm.ConsensusEvent, delay time.Duration) {
 	}
 }
 
-func (m *FSM) handle(evt *consensusfsm.ConsensusEvent) error {
+func (m *FSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsStaleEvent(evt) {
 		m.ctx.Logger().Debug("stale event", zap.Any("event", evt.Type()))
 		_consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
@@ -371,7 +370,7 @@ func (m *FSM) handle(evt *consensusfsm.ConsensusEvent) error {
 }
 
 func (m *FSM) calibrate(evt fsm.Event) (fsm.State, error) {
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sPrepare, errors.New("invalid fsm event")
 	}
@@ -413,7 +412,7 @@ func (m *FSM) prepare(evt fsm.Event) (fsm.State, error) {
 	}
 
 	var h uint64
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		m.ctx.Logger().Panic("failed to convert ConsensusEvent in prepare")
 	}
@@ -443,7 +442,7 @@ func (m *FSM) prepare(evt fsm.Event) (fsm.State, error) {
 
 func (m *FSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 	m.ctx.Logger().Debug("Receive block")
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		m.ctx.Logger().Error("invalid fsm event", zap.Any("event", evt))
 		return sAcceptBlockProposal, nil
@@ -484,7 +483,7 @@ func (m *FSM) onReceiveProposalEndorsementInAcceptProposalEndorsementState(evt f
 }
 
 func (m *FSM) onReceiveProposalEndorsement(evt fsm.Event, currentState fsm.State) (fsm.State, error) {
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return currentState, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
@@ -509,7 +508,7 @@ func (m *FSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.State, erro
 }
 
 func (m *FSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error) {
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sAcceptLockEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
@@ -527,7 +526,7 @@ func (m *FSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error) {
 }
 
 func (m *FSM) onBroadcastPreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
@@ -544,7 +543,7 @@ func (m *FSM) onStopReceivingLockEndorsement(evt fsm.Event) (fsm.State, error) {
 }
 
 func (m *FSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
@@ -563,7 +562,7 @@ func (m *FSM) onStopReceivingPreCommitEndorsement(evt fsm.Event) (fsm.State, err
 
 // handleBackdoorEvt takes the dst state from the event and move the FSM into it
 func (m *FSM) handleBackdoorEvt(evt fsm.Event) (fsm.State, error) {
-	cEvt, ok := evt.(*consensusfsm.ConsensusEvent)
+	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sPrepare, errors.Wrap(ErrEvtCast, "the event is not a backdoor event")
 	}

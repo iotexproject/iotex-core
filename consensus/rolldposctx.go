@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -267,7 +266,7 @@ func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
 func (ctx *rollDPoSCtx) NewConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
-) *consensusfsm.ConsensusEvent {
+) *ConsensusEvent {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -276,7 +275,7 @@ func (ctx *rollDPoSCtx) NewConsensusEvent(
 
 func (ctx *rollDPoSCtx) NewBackdoorEvt(
 	dst fsm.State,
-) *consensusfsm.ConsensusEvent {
+) *ConsensusEvent {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -541,21 +540,21 @@ func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 	}
 }
 
-func (ctx *rollDPoSCtx) IsStaleEvent(evt *consensusfsm.ConsensusEvent) bool {
+func (ctx *rollDPoSCtx) IsStaleEvent(evt *ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.IsStale(evt.Height(), evt.Round(), evt.Data())
 }
 
-func (ctx *rollDPoSCtx) IsFutureEvent(evt *consensusfsm.ConsensusEvent) bool {
+func (ctx *rollDPoSCtx) IsFutureEvent(evt *ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.IsFuture(evt.Height(), evt.Round())
 }
 
-func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *consensusfsm.ConsensusEvent) bool {
+func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -631,7 +630,7 @@ func (ctx *rollDPoSCtx) logger() *zap.Logger {
 func (ctx *rollDPoSCtx) newConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
-) *consensusfsm.ConsensusEvent {
+) *ConsensusEvent {
 	switch ed := data.(type) {
 	case *EndorsedConsensusMessage:
 		height := ed.Height()
@@ -647,7 +646,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			)
 			return nil
 		}
-		return consensusfsm.NewConsensusEvent(
+		return NewConsensusEvent(
 			eventType,
 			data,
 			ed.Height(),
@@ -655,7 +654,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			ctx.clock.Now(),
 		)
 	default:
-		return consensusfsm.NewConsensusEvent(
+		return NewConsensusEvent(
 			eventType,
 			data,
 			ctx.round.Height(),
