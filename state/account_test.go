@@ -8,6 +8,7 @@ package state
 
 import (
 	"encoding/hex"
+	"math"
 	"math/big"
 	"testing"
 
@@ -35,6 +36,50 @@ func TestNonce(t *testing.T) {
 		require.Error(acct.SetPendingNonce(2))
 		require.NoError(acct.SetPendingNonce(1))
 		require.Equal(uint64(1), acct.PendingNonce())
+	})
+}
+
+func TestNonceOverflow(t *testing.T) {
+	require := require.New(t)
+	t.Run("account nonce uint64 max", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64
+		acct.nonce = uint64(target)
+		require.ErrorIs(acct.SetPendingNonce(target+1), ErrNonceOverflow)
+		require.Equal(target, acct.PendingNonce())
+	})
+	t.Run("account nonce uint64 max-1", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 1
+		acct.nonce = uint64(target)
+		require.NoError(acct.SetPendingNonce(target + 1))
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64
+		acct.nonce = uint64(target)
+		require.ErrorIs(acct.SetPendingNonce(target+2), ErrNonceOverflow)
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max-1", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 1
+		acct.nonce = uint64(target)
+		require.ErrorIs(acct.SetPendingNonce(target+2), ErrNonceOverflow)
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max-2", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 2
+		acct.nonce = uint64(target)
+		require.NoError(acct.SetPendingNonce(target + 2))
+		require.Equal(target+2, acct.PendingNonce())
 	})
 }
 
@@ -108,6 +153,14 @@ func TestBalance(t *testing.T) {
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 	// Sub 40 to the balance
 	require.Equal(ErrNotEnoughBalance, state.SubBalance(big.NewInt(40)))
+
+	require.True(state.HasSufficientBalance(big.NewInt(30)))
+	require.False(state.HasSufficientBalance(big.NewInt(31)))
+
+	require.Contains(state.AddBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.AddBalance(nil).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(nil).Error(), ErrInvalidAmount.Error())
 }
 
 func TestClone(t *testing.T) {
