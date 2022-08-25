@@ -7,26 +7,27 @@
 package blockchain
 
 import (
-	"net/http"
-	"os"
 	"time"
 
-	vault "github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
-	uconfig "go.uber.org/config"
 )
 
 const defaultHTTPTimeout = 10 * time.Second
 
+var ErrVault = errors.New("vault error")
+
 type (
+	hashiCorpVault struct {
+		Address string `yaml:"address"`
+		Token   string `yaml:"token"`
+		Path    string `yaml:"path"`
+		Key     string `yaml:"key"`
+	}
+
 	privKeyConfig struct {
-		ProducerPrivKey string `yaml:"producerPrivKey"`
-		HashiCorpVault  *struct {
-			Address string `yaml:"address"`
-			Token   string `yaml:"token"`
-			Path    string `yaml:"path"`
-			Key     string `yaml:"key"`
-		} `yaml:"hashiCorpVault"`
+		ProducerPrivKey string          `yaml:"producerPrivKey"`
+		VaultConfig     *hashiCorpVault `yaml:"hashiCorpVault"`
 	}
 
 	privKeyLoader interface {
@@ -34,83 +35,47 @@ type (
 	}
 
 	localPrivKeyLoader struct {
-		producerPrivKey string
+		privKey string
 	}
 
 	vaultPrivKeyLoader struct {
-		cfg *privKeyConfig
+		cfg *hashiCorpVault
 	}
 )
 
 func (l *localPrivKeyLoader) load() (string, error) {
-	return l.producerPrivKey, nil
+	return l.privKey, nil
 }
 
 func (l *vaultPrivKeyLoader) load() (string, error) {
-	vc := l.cfg.HashiCorpVault
-	client, err := vault.NewClient(&vault.Config{
-		Address: vc.Address,
-		HttpClient: &http.Client{
-			Timeout: defaultHTTPTimeout,
-		},
-	})
+	conf := api.DefaultConfig()
+	conf.Address = l.cfg.Address
+	conf.Timeout = defaultHTTPTimeout
+	cli, err := api.NewClient(conf)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to init vault client")
 	}
-	client.SetToken(vc.Token)
+	cli.SetToken(l.cfg.Token)
 
-	secret, err := client.Logical().Read(vc.Path)
+	secret, err := cli.Logical().Read(l.cfg.Path)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read vault secret")
 	}
 	if secret == nil {
-		return "", errors.New("vault secret not exist")
+		return "", errors.Wrap(ErrVault, "secret does not exist")
 	}
 	data, ok := secret.Data["data"].(map[string]interface{})
 	if !ok {
-		return "", errors.New("vault data type invalid")
+		return "", errors.Wrap(ErrVault, "invalid data type")
 	}
-	value, ok := data[vc.Key]
+	value, ok := data[l.cfg.Key]
 	if !ok {
-		return "", errors.New("vault secret value not exist")
+		return "", errors.Wrap(ErrVault, "secret value does not exist")
 	}
 	v, ok := value.(string)
 	if !ok {
-		return "", errors.New("vault secret value type invalid")
+		return "", errors.Wrap(ErrVault, "invalid secret value type")
 	}
 
 	return v, nil
-}
-
-// SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
-func (cfg *Config) SetProducerPrivKey() error {
-	if cfg.PrivKeyConfigFile == "" {
-		return nil
-	}
-
-	yaml, err := uconfig.NewYAML(uconfig.Expand(os.LookupEnv), uconfig.File(cfg.PrivKeyConfigFile))
-	if err != nil {
-		return errors.Wrap(err, "failed to init private key config")
-	}
-	pc := &privKeyConfig{}
-	if err := yaml.Get(uconfig.Root).Populate(pc); err != nil {
-		return errors.Wrap(err, "failed to unmarshal YAML config to privKeyConfig struct")
-	}
-
-	var loader privKeyLoader
-	switch {
-	case pc.ProducerPrivKey != "":
-		loader = &localPrivKeyLoader{pc.ProducerPrivKey}
-	case pc.HashiCorpVault != nil:
-		loader = &vaultPrivKeyLoader{pc}
-	default:
-		return nil
-	}
-
-	key, err := loader.load()
-	if err != nil {
-		return errors.Wrap(err, "failed to load producer private key")
-	}
-	cfg.ProducerPrivKey = key
-	return nil
 }

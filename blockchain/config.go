@@ -8,11 +8,14 @@ package blockchain
 
 import (
 	"crypto/ecdsa"
+	"os"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/config"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/db"
@@ -125,6 +128,39 @@ func (cfg *Config) ProducerPrivateKey() crypto.PrivateKey {
 		log.L().Panic("The private key's signature scheme is not whitelisted")
 	}
 	return sk
+}
+
+// SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
+func (cfg *Config) SetProducerPrivKey() error {
+	if cfg.PrivKeyConfigFile == "" {
+		return nil
+	}
+
+	yaml, err := config.NewYAML(config.Expand(os.LookupEnv), config.File(cfg.PrivKeyConfigFile))
+	if err != nil {
+		return errors.Wrap(err, "failed to init private key config")
+	}
+	pc := &privKeyConfig{}
+	if err := yaml.Get(config.Root).Populate(pc); err != nil {
+		return errors.Wrap(err, "failed to unmarshal YAML config to privKeyConfig struct")
+	}
+
+	var loader privKeyLoader
+	switch {
+	case pc.VaultConfig != nil:
+		loader = &vaultPrivKeyLoader{pc.VaultConfig}
+	case pc.ProducerPrivKey != "":
+		loader = &localPrivKeyLoader{pc.ProducerPrivKey}
+	default:
+		return nil
+	}
+
+	key, err := loader.load()
+	if err != nil {
+		return errors.Wrap(err, "failed to load producer private key")
+	}
+	cfg.ProducerPrivKey = key
+	return nil
 }
 
 func generateRandomKey(scheme string) string {
