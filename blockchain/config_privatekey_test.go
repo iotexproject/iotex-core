@@ -15,7 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const hashiCorpVaultTestCfg = `
+const (
+	hashiCorpVaultTestCfg = `
 producerPrivKey: my private key
 hashiCorpVault:
     address: http://127.0.0.1:8200
@@ -23,6 +24,10 @@ hashiCorpVault:
     path: secret/data/test
     key: my key
 `
+
+	vaultTestKey   = "my key"
+	vaultTestValue = "my value"
+)
 
 type mockVaultSuccess struct{}
 type mockVaultNoSecret struct{}
@@ -34,7 +39,7 @@ func (m *mockVaultSuccess) Read(path string) (*api.Secret, error) {
 	return &api.Secret{
 		Data: map[string]interface{}{
 			"data": map[string]interface{}{
-				"my key": "my value",
+				vaultTestKey: vaultTestValue,
 			},
 		},
 	}, nil
@@ -48,7 +53,7 @@ func (m *mockVaultInvalidDataType) Read(path string) (*api.Secret, error) {
 	return &api.Secret{
 		Data: map[string]interface{}{
 			"data": map[string]string{
-				"my key": "my value",
+				vaultTestKey: vaultTestValue,
 			},
 		},
 	}, nil
@@ -66,7 +71,7 @@ func (m *mockVaultInvalidValueType) Read(path string) (*api.Secret, error) {
 	return &api.Secret{
 		Data: map[string]interface{}{
 			"data": map[string]interface{}{
-				"my key": 123,
+				vaultTestKey: 123,
 			},
 		},
 	}, nil
@@ -98,7 +103,7 @@ func TestVault(t *testing.T) {
 		Address: "http://127.0.0.1:8200",
 		Token:   "hello iotex",
 		Path:    "secret/data/test",
-		Key:     "my key",
+		Key:     vaultTestKey,
 	}
 	t.Run("new vault client", func(t *testing.T) {
 		_, err := newVaultClient(cfg)
@@ -112,7 +117,7 @@ func TestVault(t *testing.T) {
 		}
 		res, err := loader.load()
 		r.NoError(err)
-		r.Equal("my value", res)
+		r.Equal(vaultTestValue, res)
 	})
 	t.Run("vault no secret", func(t *testing.T) {
 		cli := newMockVaultClientNoSecret()
