@@ -36,7 +36,14 @@ func newExtensionNode(
 	e.cacheNode.serializable = e
 
 	if !mpt.async {
-		return e.store()
+		if err := e.Flush(); err != nil {
+			return nil, err
+		}
+		h, err := e.hash()
+		if err != nil {
+			return nil, err
+		}
+		return newHashNode(mpt, h), nil
 	}
 	return e, nil
 }
@@ -128,15 +135,7 @@ func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
 	return e.child.Search(key, offset+matched)
 }
 
-func (e *extensionNode) proto(flush bool) (proto.Message, error) {
-	if flush {
-		if sn, ok := e.child.(serializable); ok {
-			_, err := sn.store()
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
+func (e *extensionNode) proto() (proto.Message, error) {
 	h, err := e.child.Hash()
 	if err != nil {
 		return nil, err
@@ -166,8 +165,7 @@ func (e *extensionNode) Flush() error {
 	if err := e.child.Flush(); err != nil {
 		return err
 	}
-	_, err := e.store()
-	return err
+	return e.store()
 }
 
 func (e *extensionNode) updatePath(path []byte, hashnode bool) (node, error) {
@@ -178,12 +176,15 @@ func (e *extensionNode) updatePath(path []byte, hashnode bool) (node, error) {
 	e.dirty = true
 
 	if !e.mpt.async {
-		hn, err := e.store()
-		if err != nil {
+		if err := e.Flush(); err != nil {
 			return nil, err
 		}
 		if hashnode {
-			return hn, nil
+			h, err := e.hash()
+			if err != nil {
+				return nil, err
+			}
+			return newHashNode(e.mpt, h), nil
 		}
 	}
 	return e, nil
@@ -198,12 +199,15 @@ func (e *extensionNode) updateChild(newChild node, hashnode bool) (node, error) 
 	e.dirty = true
 
 	if !e.mpt.async {
-		hn, err := e.store()
-		if err != nil {
+		if err := e.Flush(); err != nil {
 			return nil, err
 		}
 		if hashnode {
-			return hn, nil
+			h, err := e.hash()
+			if err != nil {
+				return nil, err
+			}
+			return newHashNode(e.mpt, h), nil
 		}
 	}
 	return e, nil

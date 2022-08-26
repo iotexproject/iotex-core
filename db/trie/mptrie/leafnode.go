@@ -36,7 +36,14 @@ func newLeafNode(
 	}
 	l.cacheNode.serializable = l
 	if !mpt.async {
-		return l.store()
+		if err := l.Flush(); err != nil {
+			return nil, err
+		}
+		h, err := l.hash()
+		if err != nil {
+			return nil, err
+		}
+		return newHashNode(mpt, h), nil
 	}
 	return l, nil
 }
@@ -82,10 +89,14 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 	}
 	var oldLeaf node
 	if !l.mpt.async {
-		oldLeaf, err = l.store()
+		if err := l.Flush(); err != nil {
+			return nil, err
+		}
+		h, err := l.hash()
 		if err != nil {
 			return nil, err
 		}
+		oldLeaf = newHashNode(l.mpt, h)
 	} else {
 		oldLeaf = l
 	}
@@ -114,7 +125,7 @@ func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 	return l, nil
 }
 
-func (l *leafNode) proto(_ bool) (proto.Message, error) {
+func (l *leafNode) proto() (proto.Message, error) {
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Leaf{
 			Leaf: &triepb.LeafPb{
@@ -129,8 +140,7 @@ func (l *leafNode) Flush() error {
 	if !l.dirty {
 		return nil
 	}
-	_, err := l.store()
-	return err
+	return l.store()
 }
 
 func (l *leafNode) updateValue(value []byte) (node, error) {
@@ -140,7 +150,14 @@ func (l *leafNode) updateValue(value []byte) (node, error) {
 	l.value = value
 	l.dirty = true
 	if !l.mpt.async {
-		return l.store()
+		if err := l.Flush(); err != nil {
+			return nil, err
+		}
+		h, err := l.hash()
+		if err != nil {
+			return nil, err
+		}
+		return newHashNode(l.mpt, h), nil
 	}
 	return l, nil
 }
