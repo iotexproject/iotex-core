@@ -41,6 +41,17 @@ type (
 
 	vaultPrivKeyLoader struct {
 		cfg *hashiCorpVault
+		*vaultClient
+	}
+)
+
+type (
+	vaultLogicaler interface {
+		Read(path string) (*api.Secret, error)
+	}
+
+	vaultClient struct {
+		cli vaultLogicaler
 	}
 )
 
@@ -49,16 +60,7 @@ func (l *localPrivKeyLoader) load() (string, error) {
 }
 
 func (l *vaultPrivKeyLoader) load() (string, error) {
-	conf := api.DefaultConfig()
-	conf.Address = l.cfg.Address
-	conf.Timeout = defaultHTTPTimeout
-	cli, err := api.NewClient(conf)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to init vault client")
-	}
-	cli.SetToken(l.cfg.Token)
-
-	secret, err := cli.Logical().Read(l.cfg.Path)
+	secret, err := l.cli.Read(l.cfg.Path)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read vault secret")
 	}
@@ -79,4 +81,19 @@ func (l *vaultPrivKeyLoader) load() (string, error) {
 	}
 
 	return v, nil
+}
+
+func newVaultClient(cfg *hashiCorpVault) (*vaultClient, error) {
+	conf := api.DefaultConfig()
+	conf.Address = cfg.Address
+	conf.Timeout = defaultHTTPTimeout
+	cli, err := api.NewClient(conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to init vault client")
+	}
+	cli.SetToken(cfg.Token)
+
+	return &vaultClient{
+		cli: cli.Logical(),
+	}, nil
 }

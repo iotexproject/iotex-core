@@ -7,24 +7,40 @@
 package blockchain
 
 import (
-	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/vault"
 	"github.com/stretchr/testify/require"
 )
 
 const hashiCorpVaultTestCfg = `
 producerPrivKey: my private key
 hashiCorpVault:
-    address: %s
-    token: %s
-    path: %s
-    key: %s
+    address: http://127.0.0.1:8200
+    token: secret/data/test
+    path: secret/data/test
+    key: my key
 `
+
+type mockVault struct{}
+
+func (m *mockVault) Read(path string) (*api.Secret, error) {
+	return &api.Secret{
+		Data: map[string]interface{}{
+			"data": map[string]interface{}{
+				"my key": "my value",
+			},
+		},
+	}, nil
+}
+
+func newMockVaultClient() *vaultClient {
+	return &vaultClient{
+		cli: &mockVault{},
+	}
+}
 
 func TestSetProducerPrivKey(t *testing.T) {
 	r := require.New(t)
@@ -61,39 +77,43 @@ func TestSetProducerPrivKey(t *testing.T) {
 		r.NoError(err)
 		r.Equal("my private key", cfg.ProducerPrivKey)
 	})
+
 	t.Run("private config file has hashiCorpVault", func(t *testing.T) {
 		cfg := DefaultConfig
 		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
 		defer os.Remove(tmp.Name())
 
-		core, _, rootToken := vault.TestCoreUnsealed(t)
-		ln, addr := http.TestServer(t, core)
-		defer ln.Close()
-
-		path := "secret/data/test"
-		key := "my key"
-		value := "my value"
-
-		conf := api.DefaultConfig()
-		conf.Address = addr
-		client, err := api.NewClient(conf)
-		r.NoError(err)
-		client.SetToken(rootToken)
-		_, err = client.Logical().Write(path, map[string]interface{}{
-			"data": map[string]interface{}{
-				key: value,
-			},
-		})
-		r.NoError(err)
-
-		_, err = tmp.WriteString(fmt.Sprintf(hashiCorpVaultTestCfg, addr, rootToken, path, key))
+		_, err = tmp.WriteString(hashiCorpVaultTestCfg)
 		r.NoError(err)
 		err = tmp.Close()
 		r.NoError(err)
 		cfg.PrivKeyConfigFile = tmp.Name()
 		err = cfg.SetProducerPrivKey()
+		r.True(strings.Contains(err.Error(), "dial tcp 127.0.0.1:8200: connect: connection refused"))
+	})
+}
+
+func TestVault(t *testing.T) {
+	r := require.New(t)
+	cfg := &hashiCorpVault{
+		Address: "http://127.0.0.1:8200",
+		Token:   "hello iotex",
+		Path:    "secret/data/test",
+		Key:     "my key",
+	}
+	t.Run("new vault client", func(t *testing.T) {
+		_, err := newVaultClient(cfg)
 		r.NoError(err)
-		r.Equal(value, cfg.ProducerPrivKey)
+	})
+	t.Run("vault read", func(t *testing.T) {
+		cli := newMockVaultClient()
+		loader := &vaultPrivKeyLoader{
+			cfg:         cfg,
+			vaultClient: cli,
+		}
+		res, err := loader.load()
+		r.NoError(err)
+		r.Equal("my value", res)
 	})
 }

@@ -148,7 +148,14 @@ func (cfg *Config) SetProducerPrivKey() error {
 	var loader privKeyLoader
 	switch {
 	case pc.VaultConfig != nil:
-		loader = &vaultPrivKeyLoader{pc.VaultConfig}
+		cli, err := newVaultClient(pc.VaultConfig)
+		if err != nil {
+			return errors.Wrap(err, "failed to new vault client")
+		}
+		loader = &vaultPrivKeyLoader{
+			cfg:         pc.VaultConfig,
+			vaultClient: cli,
+		}
 	case pc.ProducerPrivKey != "":
 		loader = &localPrivKeyLoader{pc.ProducerPrivKey}
 	default:
