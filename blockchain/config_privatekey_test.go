@@ -24,9 +24,13 @@ hashiCorpVault:
     key: my key
 `
 
-type mockVault struct{}
+type mockVaultSuccess struct{}
+type mockVaultNoSecret struct{}
+type mockVaultInvalidDataType struct{}
+type mockVaultNoValue struct{}
+type mockVaultInvalidValueType struct{}
 
-func (m *mockVault) Read(path string) (*api.Secret, error) {
+func (m *mockVaultSuccess) Read(path string) (*api.Secret, error) {
 	return &api.Secret{
 		Data: map[string]interface{}{
 			"data": map[string]interface{}{
@@ -36,10 +40,116 @@ func (m *mockVault) Read(path string) (*api.Secret, error) {
 	}, nil
 }
 
-func newMockVaultClient() *vaultClient {
-	return &vaultClient{
-		cli: &mockVault{},
+func (m *mockVaultNoSecret) Read(path string) (*api.Secret, error) {
+	return nil, nil
+}
+
+func (m *mockVaultInvalidDataType) Read(path string) (*api.Secret, error) {
+	return &api.Secret{
+		Data: map[string]interface{}{
+			"data": map[string]string{
+				"my key": "my value",
+			},
+		},
+	}, nil
+}
+
+func (m *mockVaultNoValue) Read(path string) (*api.Secret, error) {
+	return &api.Secret{
+		Data: map[string]interface{}{
+			"data": map[string]interface{}{},
+		},
+	}, nil
+}
+
+func (m *mockVaultInvalidValueType) Read(path string) (*api.Secret, error) {
+	return &api.Secret{
+		Data: map[string]interface{}{
+			"data": map[string]interface{}{
+				"my key": 123,
+			},
+		},
+	}, nil
+}
+
+func newMockVaultClientSuccess() *vaultClient {
+	return &vaultClient{&mockVaultSuccess{}}
+}
+
+func newMockVaultClientNoSecret() *vaultClient {
+	return &vaultClient{&mockVaultNoSecret{}}
+}
+
+func newMockVaultClientInvalidDataType() *vaultClient {
+	return &vaultClient{&mockVaultInvalidDataType{}}
+}
+
+func newMockVaultClientNoValue() *vaultClient {
+	return &vaultClient{&mockVaultNoValue{}}
+}
+
+func newMockVaultClientInvalidValueType() *vaultClient {
+	return &vaultClient{&mockVaultInvalidValueType{}}
+}
+
+func TestVault(t *testing.T) {
+	r := require.New(t)
+	cfg := &hashiCorpVault{
+		Address: "http://127.0.0.1:8200",
+		Token:   "hello iotex",
+		Path:    "secret/data/test",
+		Key:     "my key",
 	}
+	t.Run("new vault client", func(t *testing.T) {
+		_, err := newVaultClient(cfg)
+		r.NoError(err)
+	})
+	t.Run("vault success", func(t *testing.T) {
+		cli := newMockVaultClientSuccess()
+		loader := &vaultPrivKeyLoader{
+			cfg:         cfg,
+			vaultClient: cli,
+		}
+		res, err := loader.load()
+		r.NoError(err)
+		r.Equal("my value", res)
+	})
+	t.Run("vault no secret", func(t *testing.T) {
+		cli := newMockVaultClientNoSecret()
+		loader := &vaultPrivKeyLoader{
+			cfg:         cfg,
+			vaultClient: cli,
+		}
+		_, err := loader.load()
+		r.True(strings.Contains(err.Error(), "secret does not exist"))
+	})
+	t.Run("vault invalid data type", func(t *testing.T) {
+		cli := newMockVaultClientInvalidDataType()
+		loader := &vaultPrivKeyLoader{
+			cfg:         cfg,
+			vaultClient: cli,
+		}
+		_, err := loader.load()
+		r.True(strings.Contains(err.Error(), "invalid data type"))
+	})
+	t.Run("vault no value", func(t *testing.T) {
+		cli := newMockVaultClientNoValue()
+		loader := &vaultPrivKeyLoader{
+			cfg:         cfg,
+			vaultClient: cli,
+		}
+		_, err := loader.load()
+		r.True(strings.Contains(err.Error(), "secret value does not exist"))
+	})
+	t.Run("vault invalid secret value type", func(t *testing.T) {
+		cli := newMockVaultClientInvalidValueType()
+		loader := &vaultPrivKeyLoader{
+			cfg:         cfg,
+			vaultClient: cli,
+		}
+		_, err := loader.load()
+		r.True(strings.Contains(err.Error(), "invalid secret value type"))
+	})
 }
 
 func TestSetProducerPrivKey(t *testing.T) {
@@ -91,29 +201,5 @@ func TestSetProducerPrivKey(t *testing.T) {
 		cfg.PrivKeyConfigFile = tmp.Name()
 		err = cfg.SetProducerPrivKey()
 		r.True(strings.Contains(err.Error(), "dial tcp 127.0.0.1:8200: connect: connection refused"))
-	})
-}
-
-func TestVault(t *testing.T) {
-	r := require.New(t)
-	cfg := &hashiCorpVault{
-		Address: "http://127.0.0.1:8200",
-		Token:   "hello iotex",
-		Path:    "secret/data/test",
-		Key:     "my key",
-	}
-	t.Run("new vault client", func(t *testing.T) {
-		_, err := newVaultClient(cfg)
-		r.NoError(err)
-	})
-	t.Run("vault read", func(t *testing.T) {
-		cli := newMockVaultClient()
-		loader := &vaultPrivKeyLoader{
-			cfg:         cfg,
-			vaultClient: cli,
-		}
-		res, err := loader.load()
-		r.NoError(err)
-		r.Equal("my value", res)
 	})
 }
