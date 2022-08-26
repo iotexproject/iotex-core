@@ -190,7 +190,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		}
 		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
 		return nil
-	case *ConsensusVote:
+	case *Vote:
 		if err := r.ctx.CheckVoteEndorser(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrapf(err, "failed to verify vote")
 		}
@@ -233,13 +233,13 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	blkHash := blk.HashBlock()
 	for _, en := range blk.Endorsements() {
 		if err := round.AddVoteEndorsement(
-			NewConsensusVote(blkHash[:], COMMIT),
+			NewVote(blkHash[:], COMMIT),
 			en,
 		); err != nil {
 			return err
 		}
 	}
-	if !round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{COMMIT}) {
+	if !round.EndorsedByMajority(blkHash[:], []VoteTopic{COMMIT}) {
 		return ErrInsufficientEndorsements
 	}
 

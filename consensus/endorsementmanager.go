@@ -32,26 +32,26 @@ var (
 )
 
 // EndorsedByMajorityFunc defines a function to give an information of consensus status
-type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
+type EndorsedByMajorityFunc func(blockHash []byte, topics []VoteTopic) bool
 
 type endorserEndorsementCollection struct {
-	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
+	endorsements map[VoteTopic]*endorsement.Endorsement
 }
 
 func newEndorserEndorsementCollection() *endorserEndorsementCollection {
 	return &endorserEndorsementCollection{
-		endorsements: map[ConsensusVoteTopic]*endorsement.Endorsement{},
+		endorsements: map[VoteTopic]*endorsement.Endorsement{},
 	}
 }
 
 func (ee *endorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) error {
-	ee.endorsements = make(map[ConsensusVoteTopic]*endorsement.Endorsement)
+	ee.endorsements = make(map[VoteTopic]*endorsement.Endorsement)
 	for index := range endorserPro.Topics {
 		endorse := &endorsement.Endorsement{}
 		if err := endorse.LoadProto(endorserPro.Endorsements[index]); err != nil {
 			return err
 		}
-		ee.endorsements[ConsensusVoteTopic(endorserPro.Topics[index])] = endorse
+		ee.endorsements[VoteTopic(endorserPro.Topics[index])] = endorse
 	}
 	return nil
 }
@@ -71,7 +71,7 @@ func (ee *endorserEndorsementCollection) toProto(endorser string) (*endorsementp
 }
 
 func (ee *endorserEndorsementCollection) AddEndorsement(
-	topic ConsensusVoteTopic,
+	topic VoteTopic,
 	en *endorsement.Endorsement,
 ) error {
 	if e, exists := ee.endorsements[topic]; exists {
@@ -103,7 +103,7 @@ func (ee *endorserEndorsementCollection) Cleanup(timestamp time.Time) *endorserE
 }
 
 func (ee *endorserEndorsementCollection) Endorsement(
-	topic ConsensusVoteTopic,
+	topic VoteTopic,
 ) *endorsement.Endorsement {
 	return ee.endorsements[topic]
 }
@@ -167,7 +167,7 @@ func (bc *blockEndorsementCollection) Block() *block.Block {
 }
 
 func (bc *blockEndorsementCollection) AddEndorsement(
-	topic ConsensusVoteTopic,
+	topic VoteTopic,
 	en *endorsement.Endorsement,
 ) error {
 	endorser := en.Endorser().HexString()
@@ -185,7 +185,7 @@ func (bc *blockEndorsementCollection) AddEndorsement(
 
 func (bc *blockEndorsementCollection) Endorsement(
 	endorser string,
-	topic ConsensusVoteTopic,
+	topic VoteTopic,
 ) *endorsement.Endorsement {
 	ee, exists := bc.endorsers[endorser]
 	if !exists {
@@ -203,7 +203,7 @@ func (bc *blockEndorsementCollection) Cleanup(timestamp time.Time) *blockEndorse
 }
 
 func (bc *blockEndorsementCollection) Endorsements(
-	topics []ConsensusVoteTopic,
+	topics []VoteTopic,
 ) []*endorsement.Endorsement {
 	endorsements := []*endorsement.Endorsement{}
 	for _, ee := range bc.endorsers {
@@ -352,12 +352,12 @@ func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
 }
 
 func (m *endorsementManager) AddVoteEndorsement(
-	vote *ConsensusVote,
+	vote *Vote,
 	en *endorsement.Endorsement,
 ) error {
 	var beforeVote, afterVote bool
 	if m.isMajorityFunc != nil {
-		beforeVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+		beforeVote = m.isMajorityFunc(vote.BlockHash(), []VoteTopic{vote.Topic()})
 	}
 	encoded := encodeToString(vote.BlockHash())
 	c, exists := m.collections[encoded]
@@ -370,7 +370,7 @@ func (m *endorsementManager) AddVoteEndorsement(
 	m.collections[encoded] = c
 
 	if m.eManagerDB != nil && m.isMajorityFunc != nil {
-		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+		afterVote = m.isMajorityFunc(vote.BlockHash(), []VoteTopic{vote.Topic()})
 		if !beforeVote && afterVote {
 			//put into DB only it changes the status of consensus
 			return m.PutEndorsementManagerToDB()
@@ -417,13 +417,13 @@ func (m *endorsementManager) Log(
 ) *zap.Logger {
 	for encoded, c := range m.collections {
 		proposalEndorsements := c.Endorsements(
-			[]ConsensusVoteTopic{PROPOSAL},
+			[]VoteTopic{PROPOSAL},
 		)
 		lockEndorsements := c.Endorsements(
-			[]ConsensusVoteTopic{LOCK},
+			[]VoteTopic{LOCK},
 		)
 		commitEndorsments := c.Endorsements(
-			[]ConsensusVoteTopic{COMMIT},
+			[]VoteTopic{COMMIT},
 		)
 		return logger.With(
 			zap.Int("numProposals:"+encoded, len(proposalEndorsements)),

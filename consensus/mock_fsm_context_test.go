@@ -216,7 +216,7 @@ func (mr *MockFSMContextMockRecorder) IsDelegate() *gomock.Call {
 }
 
 // IsFutureEvent mocks base method.
-func (m *MockFSMContext) IsFutureEvent(arg0 *ConsensusEvent) bool {
+func (m *MockFSMContext) IsFutureEvent(arg0 *Event) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsFutureEvent", arg0)
 	ret0, _ := ret[0].(bool)
@@ -230,7 +230,7 @@ func (mr *MockFSMContextMockRecorder) IsFutureEvent(arg0 interface{}) *gomock.Ca
 }
 
 // IsStaleEvent mocks base method.
-func (m *MockFSMContext) IsStaleEvent(arg0 *ConsensusEvent) bool {
+func (m *MockFSMContext) IsStaleEvent(arg0 *Event) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsStaleEvent", arg0)
 	ret0, _ := ret[0].(bool)
@@ -244,7 +244,7 @@ func (mr *MockFSMContextMockRecorder) IsStaleEvent(arg0 interface{}) *gomock.Cal
 }
 
 // IsStaleUnmatchedEvent mocks base method.
-func (m *MockFSMContext) IsStaleUnmatchedEvent(arg0 *ConsensusEvent) bool {
+func (m *MockFSMContext) IsStaleUnmatchedEvent(arg0 *Event) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsStaleUnmatchedEvent", arg0)
 	ret0, _ := ret[0].(bool)
@@ -272,10 +272,10 @@ func (mr *MockFSMContextMockRecorder) Logger() *gomock.Call {
 }
 
 // NewBackdoorEvt mocks base method.
-func (m *MockFSMContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
+func (m *MockFSMContext) NewBackdoorEvt(arg0 go_fsm.State) *Event {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBackdoorEvt", arg0)
-	ret0, _ := ret[0].(*ConsensusEvent)
+	ret0, _ := ret[0].(*Event)
 	return ret0
 }
 
@@ -286,10 +286,10 @@ func (mr *MockFSMContextMockRecorder) NewBackdoorEvt(arg0 interface{}) *gomock.C
 }
 
 // NewConsensusEvent mocks base method.
-func (m *MockFSMContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *ConsensusEvent {
+func (m *MockFSMContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *Event {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewConsensusEvent", arg0, arg1)
-	ret0, _ := ret[0].(*ConsensusEvent)
+	ret0, _ := ret[0].(*Event)
 	return ret0
 }
 

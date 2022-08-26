@@ -67,7 +67,7 @@ func TestRoundCtx(t *testing.T) {
 		)))
 		require.True(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
 			blockHeight+1,
-			NewConsensusVote(
+			NewVote(
 				blkHash,
 				PROPOSAL,
 			),
@@ -75,7 +75,7 @@ func TestRoundCtx(t *testing.T) {
 		)))
 		require.False(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
 			blockHeight+1,
-			NewConsensusVote(
+			NewVote(
 				blkHash,
 				COMMIT,
 			),

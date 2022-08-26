@@ -176,7 +176,7 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height
 func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	height uint64,
-	vote *ConsensusVote,
+	vote *Vote,
 	en *endorsement.Endorsement,
 ) error {
 	ctx.mutex.RLock()
@@ -236,19 +236,19 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		blkHash := proposal.block.HashBlock()
 		for _, e := range proposal.proofOfLock {
 			if err := round.AddVoteEndorsement(
-				NewConsensusVote(blkHash[:], PROPOSAL),
+				NewVote(blkHash[:], PROPOSAL),
 				e,
 			); err == nil {
 				continue
 			}
 			if err := round.AddVoteEndorsement(
-				NewConsensusVote(blkHash[:], COMMIT),
+				NewVote(blkHash[:], COMMIT),
 				e,
 			); err != nil {
 				return err
 			}
 		}
-		if !round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{PROPOSAL, COMMIT}) {
+		if !round.EndorsedByMajority(blkHash[:], []VoteTopic{PROPOSAL, COMMIT}) {
 			return errors.Wrap(ErrInsufficientEndorsements, "failed to verify proof of lock")
 		}
 	}
@@ -266,7 +266,7 @@ func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
 func (ctx *rollDPoSCtx) NewConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
-) *ConsensusEvent {
+) *Event {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -275,7 +275,7 @@ func (ctx *rollDPoSCtx) NewConsensusEvent(
 
 func (ctx *rollDPoSCtx) NewBackdoorEvt(
 	dst fsm.State,
-) *ConsensusEvent {
+) *Event {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -402,7 +402,7 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 	defer ctx.mutex.RUnlock()
 	blkHash, err := ctx.verifyVote(
 		msg,
-		[]ConsensusVoteTopic{PROPOSAL, COMMIT}, // commit is counted as one proposal
+		[]VoteTopic{PROPOSAL, COMMIT}, // commit is counted as one proposal
 	)
 	switch errors.Cause(err) {
 	case ErrInsufficientEndorsements:
@@ -430,7 +430,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	defer ctx.mutex.RUnlock()
 	blkHash, err := ctx.verifyVote(
 		msg,
-		[]ConsensusVoteTopic{LOCK, COMMIT}, // commit endorse is counted as one lock endorse
+		[]VoteTopic{LOCK, COMMIT}, // commit endorse is counted as one lock endorse
 	)
 	switch errors.Cause(err) {
 	case ErrInsufficientEndorsements:
@@ -452,7 +452,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	blkHash, err := ctx.verifyVote(msg, []ConsensusVoteTopic{COMMIT})
+	blkHash, err := ctx.verifyVote(msg, []VoteTopic{COMMIT})
 	switch errors.Cause(err) {
 	case ErrInsufficientEndorsements:
 		return false, nil
@@ -470,7 +470,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.Height()))
 	}
 	if err := pendingBlock.Finalize(
-		ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{COMMIT}),
+		ctx.round.Endorsements(blkHash, []VoteTopic{COMMIT}),
 		ctx.round.StartTime().Add(
 			ctx.AcceptBlockTTL(ctx.round.height)+ctx.AcceptProposalEndorsementTTL(ctx.round.height)+ctx.AcceptLockEndorsementTTL(ctx.round.height),
 		),
@@ -540,21 +540,21 @@ func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 	}
 }
 
-func (ctx *rollDPoSCtx) IsStaleEvent(evt *ConsensusEvent) bool {
+func (ctx *rollDPoSCtx) IsStaleEvent(evt *Event) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.IsStale(evt.Height(), evt.Round(), evt.Data())
 }
 
-func (ctx *rollDPoSCtx) IsFutureEvent(evt *ConsensusEvent) bool {
+func (ctx *rollDPoSCtx) IsFutureEvent(evt *Event) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.IsFuture(evt.Height(), evt.Round())
 }
 
-func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *ConsensusEvent) bool {
+func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *Event) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -630,7 +630,7 @@ func (ctx *rollDPoSCtx) logger() *zap.Logger {
 func (ctx *rollDPoSCtx) newConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
-) *ConsensusEvent {
+) *Event {
 	switch ed := data.(type) {
 	case *EndorsedConsensusMessage:
 		height := ed.Height()
@@ -646,7 +646,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			)
 			return nil
 		}
-		return NewConsensusEvent(
+		return NewEvent(
 			eventType,
 			data,
 			ed.Height(),
@@ -654,7 +654,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			ctx.clock.Now(),
 		)
 	default:
-		return NewConsensusEvent(
+		return NewEvent(
 			eventType,
 			data,
 			ctx.round.Height(),
@@ -670,13 +670,13 @@ func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 
 func (ctx *rollDPoSCtx) verifyVote(
 	msg interface{},
-	topics []ConsensusVoteTopic,
+	topics []VoteTopic,
 ) ([]byte, error) {
 	consensusMsg, ok := msg.(*EndorsedConsensusMessage)
 	if !ok {
 		return nil, errors.New("invalid msg")
 	}
-	vote, ok := consensusMsg.Document().(*ConsensusVote)
+	vote, ok := consensusMsg.Document().(*Vote)
 	if !ok {
 		return nil, errors.New("invalid msg")
 	}
@@ -699,10 +699,10 @@ func (ctx *rollDPoSCtx) verifyVote(
 
 func (ctx *rollDPoSCtx) newEndorsement(
 	blkHash []byte,
-	topic ConsensusVoteTopic,
+	topic VoteTopic,
 	timestamp time.Time,
 ) (*EndorsedConsensusMessage, error) {
-	vote := NewConsensusVote(
+	vote := NewVote(
 		blkHash,
 		topic,
 	)

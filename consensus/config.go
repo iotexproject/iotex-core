@@ -24,7 +24,7 @@ var (
 	DefaultConfig = Config{
 		Scheme: StandaloneScheme,
 		RollDPoS: RollDPoSConfig{
-			FSM: ConsensusTiming{
+			FSM: Timing{
 				UnmatchedEventTTL:            3 * time.Second,
 				UnmatchedEventInterval:       100 * time.Millisecond,
 				AcceptBlockTTL:               4 * time.Second,
@@ -62,14 +62,14 @@ type (
 
 	// RollDPoSConfig is the config struct for RollDPoS consensus package
 	RollDPoSConfig struct {
-		FSM               ConsensusTiming `yaml:"fsm"`
-		ToleratedOvertime time.Duration   `yaml:"toleratedOvertime"`
-		Delay             time.Duration   `yaml:"delay"`
-		ConsensusDBPath   string          `yaml:"consensusDBPath"`
+		FSM               Timing        `yaml:"fsm"`
+		ToleratedOvertime time.Duration `yaml:"toleratedOvertime"`
+		Delay             time.Duration `yaml:"delay"`
+		ConsensusDBPath   string        `yaml:"consensusDBPath"`
 	}
 
-	// ConsensusTiming defines a set of time durations used in fsm and event queue size
-	ConsensusTiming struct {
+	// Timing defines a set of time durations used in fsm and event queue size
+	Timing struct {
 		EventChanSize                uint          `yaml:"eventChanSize"`
 		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
 		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
@@ -119,7 +119,7 @@ type (
 
 	// config implements FSMConfig
 	fsmCfg struct {
-		cfg           ConsensusTiming
+		cfg           Timing
 		dardanelles   DardanellesUpgrade
 		g             genesis.Genesis
 		blockInterval time.Duration

@@ -11,15 +11,15 @@ import (
 type FSMContext interface {
 	Activate(bool)
 	Active() bool
-	IsStaleEvent(*ConsensusEvent) bool
-	IsFutureEvent(*ConsensusEvent) bool
-	IsStaleUnmatchedEvent(*ConsensusEvent) bool
+	IsStaleEvent(*Event) bool
+	IsFutureEvent(*Event) bool
+	IsStaleUnmatchedEvent(*Event) bool
 
 	Logger() *zap.Logger
 	Height() uint64
 
-	NewConsensusEvent(fsm.EventType, interface{}) *ConsensusEvent
-	NewBackdoorEvt(fsm.State) *ConsensusEvent
+	NewConsensusEvent(fsm.EventType, interface{}) *Event
+	NewBackdoorEvt(fsm.State) *Event
 
 	Broadcast(interface{})
 

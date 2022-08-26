@@ -60,7 +60,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 		Endorsement: ebp,
 	}
 	switch message := ecm.message.(type) {
-	case *ConsensusVote:
+	case *Vote:
 		mbp, err := message.Proto()
 		if err != nil {
 			return nil, err
@@ -83,7 +83,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage, deserializer *block.Deserializer) error {
 	switch {
 	case msg.GetVote() != nil:
-		vote := &ConsensusVote{}
+		vote := &Vote{}
 		if err := vote.LoadProto(msg.GetVote()); err != nil {
 			return err
 		}

@@ -109,7 +109,7 @@ func (ctx *roundCtx) Block(blkHash []byte) *block.Block {
 	return ctx.block(blkHash)
 }
 
-func (ctx *roundCtx) Endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
+func (ctx *roundCtx) Endorsements(blkHash []byte, topics []VoteTopic) []*endorsement.Endorsement {
 	return ctx.endorsements(blkHash, topics)
 }
 
@@ -137,7 +137,7 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 	blkHash := blk.HashBlock()
 	return NewEndorsedConsensusMessage(
 		blk.Height(),
-		NewConsensusVote(blkHash[:], COMMIT),
+		NewVote(blkHash[:], COMMIT),
 		en,
 	)
 }
@@ -163,7 +163,7 @@ func (ctx *roundCtx) IsStale(height uint64, num uint32, data interface{}) bool {
 		if !ok {
 			return true
 		}
-		vote, ok := msg.Document().(*ConsensusVote)
+		vote, ok := msg.Document().(*Vote)
 		if !ok {
 			return true
 		}
@@ -181,7 +181,7 @@ func (ctx *roundCtx) IsFuture(height uint64, num uint32) bool {
 
 func (ctx *roundCtx) EndorsedByMajority(
 	blockHash []byte,
-	topics []ConsensusVoteTopic,
+	topics []VoteTopic,
 ) bool {
 	return ctx.endorsedByMajority(blockHash, topics)
 }
@@ -191,7 +191,7 @@ func (ctx *roundCtx) AddBlock(blk *block.Block) error {
 }
 
 func (ctx *roundCtx) AddVoteEndorsement(
-	vote *ConsensusVote,
+	vote *Vote,
 	en *endorsement.Endorsement,
 ) error {
 	if !endorsement.VerifyEndorsement(vote, en) {
@@ -216,7 +216,7 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	}
 	endorsements := ctx.endorsements(
 		blockHash,
-		[]ConsensusVoteTopic{PROPOSAL, COMMIT},
+		[]VoteTopic{PROPOSAL, COMMIT},
 	)
 	if !ctx.isMajority(endorsements) {
 		return nil
@@ -243,7 +243,7 @@ func (ctx *roundCtx) CachedMintedBlock() *block.Block {
 
 // private functions
 
-func (ctx *roundCtx) endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
+func (ctx *roundCtx) endorsements(blkHash []byte, topics []VoteTopic) []*endorsement.Endorsement {
 	c := ctx.eManager.CollectionByBlockHash(blkHash)
 	if c == nil {
 		return []*endorsement.Endorsement{}
@@ -251,7 +251,7 @@ func (ctx *roundCtx) endorsements(blkHash []byte, topics []ConsensusVoteTopic) [
 	return c.Endorsements(topics)
 }
 
-func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []ConsensusVoteTopic) bool {
+func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []VoteTopic) bool {
 	return ctx.isMajority(ctx.endorsements(blockHash, topics))
 }
 

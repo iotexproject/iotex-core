@@ -254,7 +254,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	// case 8:Insufficient endorsements
 	block = getBlockforctx(t, 1, true)
 	hash := block.HashBlock()
-	vote := NewConsensusVote(hash[:], COMMIT)
+	vote := NewVote(hash[:], COMMIT)
 	en2, err = endorsement.Endorse(identityset.PrivateKey(7), vote, time.Unix(1562382592, 0))
 	require.NoError(err)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2})

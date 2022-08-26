@@ -23,7 +23,7 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	hash := []byte("abcdefg")
 	sig := []byte("signature")
 	priKey := identityset.PrivateKey(0)
-	vote := NewConsensusVote(hash, PROPOSAL)
+	vote := NewVote(hash, PROPOSAL)
 	now := time.Now()
 	en := endorsement.NewEndorsement(
 		now,
@@ -36,7 +36,7 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	cem := &EndorsedConsensusMessage{}
 	require.NoError(cem.LoadProto(pb, block.NewDeserializer(0)))
 	require.Equal(uint64(10), cem.Height())
-	cvote, ok := cem.Document().(*ConsensusVote)
+	cvote, ok := cem.Document().(*Vote)
 	require.True(ok)
 	require.Equal(PROPOSAL, cvote.Topic())
 	require.Equal(0, bytes.Compare(hash, cvote.BlockHash()))

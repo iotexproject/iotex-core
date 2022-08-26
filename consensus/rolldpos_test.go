@@ -172,11 +172,11 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 	for i := 0; i < numOfEndosements; i++ {
 		timeTime := time.Unix(int64(unixTime), 0)
 		hs := blk.HashBlock()
-		var consensusVote *ConsensusVote
+		var consensusVote *Vote
 		if makeInvalidEndorse {
-			consensusVote = NewConsensusVote(hs[:], LOCK)
+			consensusVote = NewVote(hs[:], LOCK)
 		} else {
-			consensusVote = NewConsensusVote(hs[:], COMMIT)
+			consensusVote = NewVote(hs[:], COMMIT)
 		}
 		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
 		require.NoError(t, err)
