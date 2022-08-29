@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -391,7 +390,7 @@ var tests = []stateDBTest{
 }
 
 func TestSnapshotRevertAndCommit(t *testing.T) {
-	testSnapshotAndRevert := func(_ config.Config, t *testing.T, async, fixSnapshot, revertLog bool) {
+	testSnapshotAndRevert := func(t *testing.T, async, fixSnapshot, revertLog bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -638,25 +637,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 	}
 
 	t.Run("contract snapshot/revert/commit", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, true, false)
+		testSnapshotAndRevert(t, false, true, false)
 	})
 	t.Run("contract snapshot/revert/commit w/o bug fix and revert log", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, false, false, true)
+		testSnapshotAndRevert(t, false, false, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie and revert log", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, true, true)
+		testSnapshotAndRevert(t, true, true, true)
 	})
 	t.Run("contract snapshot/revert/commit with async trie and w/o bug fix", func(t *testing.T) {
-		cfg := config.Default
-		testSnapshotAndRevert(cfg, t, true, false, false)
+		testSnapshotAndRevert(t, true, false, false)
 	})
 }
 
 func TestClearSnapshots(t *testing.T) {
-	testClearSnapshots := func(_ config.Config, t *testing.T, async, fixSnapshotOrder bool) {
+	testClearSnapshots := func(t *testing.T, async, fixSnapshotOrder bool) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 
@@ -733,12 +728,10 @@ func TestClearSnapshots(t *testing.T) {
 
 	}
 	t.Run("contract w/o clear snapshots", func(t *testing.T) {
-		cfg := config.Default
-		testClearSnapshots(cfg, t, false, false)
+		testClearSnapshots(t, false, false)
 	})
 	t.Run("contract with clear snapshots", func(t *testing.T) {
-		cfg := config.Default
-		testClearSnapshots(cfg, t, false, true)
+		testClearSnapshots(t, false, true)
 	})
 }
 
