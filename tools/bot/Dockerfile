@@ -1,4 +1,4 @@
-FROM golang:1.18.5-buster
+FROM golang:1.18.5-bullseye
 
 WORKDIR apps/iotex-bot
 
