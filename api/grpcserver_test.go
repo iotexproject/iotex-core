@@ -252,6 +252,7 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
+	errStr := "get block metas mock test error"
 	reqIndex := &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{},
@@ -275,9 +276,9 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 		require.True(strings.Contains(err.Error(), "invalid GetBlockMetasRequest type"))
 	})
 	t.Run("get block metas by index failed", func(t *testing.T) {
-		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(nil, errors.New("mock test"))
+		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(nil, errors.New(errStr))
 		_, err := grpcSvr.GetBlockMetas(context.Background(), reqIndex)
-		require.True(strings.Contains(err.Error(), "mock test"))
+		require.True(strings.Contains(err.Error(), errStr))
 	})
 	t.Run("get block metas by index success", func(t *testing.T) {
 		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(rets, nil)
@@ -286,9 +287,9 @@ func TestGrpcServer_GetBlockMetas(t *testing.T) {
 		require.Equal(res.Total, uint64(1))
 	})
 	t.Run("get block metas by hash failed", func(t *testing.T) {
-		core.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New("mock test"))
+		core.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New(errStr))
 		_, err := grpcSvr.GetBlockMetas(context.Background(), reqHash)
-		require.True(strings.Contains(err.Error(), "mock test"))
+		require.True(strings.Contains(err.Error(), errStr))
 	})
 	t.Run("get block metas by hash success", func(t *testing.T) {
 		core.EXPECT().BlockByHash(gomock.Any()).Return(ret, nil)
