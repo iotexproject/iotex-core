@@ -145,11 +145,9 @@ func main() {
 
 	// Start mini-cluster
 	for i := 0; i < _numNodes; i++ {
-		go func(i int) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
-		}(i)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
