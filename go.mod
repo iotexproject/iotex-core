@@ -1,6 +1,6 @@
 module github.com/iotexproject/iotex-core
 
-go 1.17
+go 1.18
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible

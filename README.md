@@ -33,7 +33,7 @@ Please visit [IoTeX Delegate Manual](https://github.com/iotexproject/iotex-boots
 
 | Components | Version | Description |
 |----------|-------------|-------------|
-| [Golang](https://golang.org) | &ge; 1.19 | Go programming language |
+| [Golang](https://golang.org) | &ge; 1.18.5 | Go programming language |
 | [Protoc](https://developers.google.com/protocol-buffers/) | &ge; 3.6.0 | Protocol buffers, required only when you rebuild protobuf messages |
 
 ### Compile
