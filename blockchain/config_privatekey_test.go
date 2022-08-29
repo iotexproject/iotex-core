@@ -29,11 +29,13 @@ hashiCorpVault:
 	vaultTestValue = "my value"
 )
 
-type mockVaultSuccess struct{}
-type mockVaultNoSecret struct{}
-type mockVaultInvalidDataType struct{}
-type mockVaultNoValue struct{}
-type mockVaultInvalidValueType struct{}
+type (
+	mockVaultSuccess          struct{}
+	mockVaultNoSecret         struct{}
+	mockVaultInvalidDataType  struct{}
+	mockVaultNoValue          struct{}
+	mockVaultInvalidValueType struct{}
+)
 
 func (m *mockVaultSuccess) Read(path string) (*api.Secret, error) {
 	return &api.Secret{

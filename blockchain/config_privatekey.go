@@ -43,15 +43,13 @@ type (
 		cfg *hashiCorpVault
 		*vaultClient
 	}
-)
 
-type (
-	vaultLogicaler interface {
+	vaultSecretReader interface {
 		Read(path string) (*api.Secret, error)
 	}
 
 	vaultClient struct {
-		cli vaultLogicaler
+		cli vaultSecretReader
 	}
 )
 
