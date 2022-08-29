@@ -26,7 +26,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -142,9 +145,11 @@ func main() {
 
 	// Start mini-cluster
 	for i := 0; i < _numNodes; i++ {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		go itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
+		go func(i int) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			itx.StartServer(ctx, svrs[i], probe.New(7788+i), configs[i])
+		}(i)
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -390,6 +395,42 @@ func main() {
 
 			log.S().Info("Fp token transfer test pass!")
 		}
+
+		registries := make([]*protocol.Registry, _numNodes)
+		for i := 0; i < _numNodes; i++ {
+			registries[i] = svrs[i].ChainService(configs[i].Chain.ID).Registry()
+
+			ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+				BlockHeight: bcHeights[i],
+			})
+			ctx = genesis.WithGenesisContext(
+				protocol.WithRegistry(ctx, registries[i]),
+				chains[i].Genesis(),
+			)
+			ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
+
+			rp := rewarding.FindProtocol(registries[i])
+			if rp == nil {
+				log.S().Error("rolldpos is not registered.")
+			}
+
+			blockReward, err := rp.BlockReward(ctx, sfs[i])
+			if err != nil {
+				log.S().Error("Failed to get block reward.", zap.Error(err))
+			}
+			if blockReward == configs[i].Genesis.BlockReward() {
+				log.S().Error("actual block reward is incorrect.")
+			}
+
+			epochReward, err := rp.EpochReward(ctx, sfs[i])
+			if err != nil {
+				log.S().Error("Failed to get epoch reward.", zap.Error(err))
+			}
+			if epochReward == configs[i].Genesis.AleutianEpochReward() {
+				log.S().Error("actual epoch reward is incorrect.")
+			}
+		}
+
 		deleteDBFiles = true
 	}
 }
