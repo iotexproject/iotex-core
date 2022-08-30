@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
-    make clean build-all 
+    make clean build-all
 
 FROM alpine:latest
 
