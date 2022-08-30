@@ -70,39 +70,44 @@ type (
 	}
 )
 
-// DefaultConfig is the default config of chain
-var DefaultConfig = Config{
-	ChainDBPath:            "/var/data/chain.db",
-	TrieDBPatchFile:        "/var/data/trie.db.patch",
-	TrieDBPath:             "/var/data/trie.db",
-	IndexDBPath:            "/var/data/index.db",
-	BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
-	CandidateIndexDBPath:   "/var/data/candidate.index.db",
-	StakingIndexDBPath:     "/var/data/staking.index.db",
-	ID:                     1,
-	EVMNetworkID:           4689,
-	Address:                "",
-	ProducerPrivKey:        generateRandomKey(SigP256k1),
-	SignatureScheme:        []string{SigP256k1},
-	EmptyGenesis:           false,
-	GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
-	Committee: committee.Config{
-		GravityChainAPIs: []string{},
-	},
-	EnableTrielessStateDB:         true,
-	EnableStateDBCaching:          false,
-	EnableArchiveMode:             false,
-	EnableAsyncIndexWrite:         true,
-	EnableSystemLogIndexer:        false,
-	EnableStakingProtocol:         true,
-	EnableStakingIndexer:          false,
-	AllowedBlockGasResidue:        10000,
-	MaxCacheSize:                  0,
-	PollInitialCandidatesInterval: 10 * time.Second,
-	StateDBCacheSize:              1000,
-	WorkingSetCacheSize:           20,
-	StreamingBlockBufferSize:      200,
-}
+var (
+	// DefaultConfig is the default config of chain
+	DefaultConfig = Config{
+		ChainDBPath:            "/var/data/chain.db",
+		TrieDBPatchFile:        "/var/data/trie.db.patch",
+		TrieDBPath:             "/var/data/trie.db",
+		IndexDBPath:            "/var/data/index.db",
+		BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
+		CandidateIndexDBPath:   "/var/data/candidate.index.db",
+		StakingIndexDBPath:     "/var/data/staking.index.db",
+		ID:                     1,
+		EVMNetworkID:           4689,
+		Address:                "",
+		ProducerPrivKey:        generateRandomKey(SigP256k1),
+		SignatureScheme:        []string{SigP256k1},
+		EmptyGenesis:           false,
+		GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
+		Committee: committee.Config{
+			GravityChainAPIs: []string{},
+		},
+		EnableTrielessStateDB:         true,
+		EnableStateDBCaching:          false,
+		EnableArchiveMode:             false,
+		EnableAsyncIndexWrite:         true,
+		EnableSystemLogIndexer:        false,
+		EnableStakingProtocol:         true,
+		EnableStakingIndexer:          false,
+		AllowedBlockGasResidue:        10000,
+		MaxCacheSize:                  0,
+		PollInitialCandidatesInterval: 10 * time.Second,
+		StateDBCacheSize:              1000,
+		WorkingSetCacheSize:           20,
+		StreamingBlockBufferSize:      200,
+	}
+
+	// ErrConfig config error
+	ErrConfig = errors.New("config error")
+)
 
 // ProducerAddress returns the configured producer address derived from key
 func (cfg *Config) ProducerAddress() address.Address {
@@ -146,20 +151,18 @@ func (cfg *Config) SetProducerPrivKey() error {
 	}
 
 	var loader privKeyLoader
-	switch {
-	case pc.VaultConfig != nil:
-		cli, err := newVaultClient(pc.VaultConfig)
+	switch pc.Method {
+	case vaultPrivKey:
+		cli, err := newVaultClient(&pc.VaultConfig)
 		if err != nil {
 			return errors.Wrap(err, "failed to new vault client")
 		}
 		loader = &vaultPrivKeyLoader{
-			cfg:         pc.VaultConfig,
+			cfg:         &pc.VaultConfig,
 			vaultClient: cli,
 		}
-	case pc.ProducerPrivKey != "":
-		loader = &localPrivKeyLoader{pc.ProducerPrivKey}
 	default:
-		return nil
+		return errors.Wrap(ErrConfig, "invalid private key method")
 	}
 
 	key, err := loader.load()

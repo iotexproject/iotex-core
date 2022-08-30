@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/hashicorp/vault/api"
@@ -17,7 +16,7 @@ import (
 
 const (
 	hashiCorpVaultTestCfg = `
-producerPrivKey: my private key
+method: hashiCorpVault
 hashiCorpVault:
     address: http://127.0.0.1:8200
     token: secret/data/test
@@ -128,7 +127,7 @@ func TestVault(t *testing.T) {
 			vaultClient: cli,
 		}
 		_, err := loader.load()
-		r.True(strings.Contains(err.Error(), "secret does not exist"))
+		r.Contains(err.Error(), "secret does not exist")
 	})
 	t.Run("vault invalid data type", func(t *testing.T) {
 		cli := newMockVaultClientInvalidDataType()
@@ -137,7 +136,7 @@ func TestVault(t *testing.T) {
 			vaultClient: cli,
 		}
 		_, err := loader.load()
-		r.True(strings.Contains(err.Error(), "invalid data type"))
+		r.Contains(err.Error(), "invalid data type")
 	})
 	t.Run("vault no value", func(t *testing.T) {
 		cli := newMockVaultClientNoValue()
@@ -146,7 +145,7 @@ func TestVault(t *testing.T) {
 			vaultClient: cli,
 		}
 		_, err := loader.load()
-		r.True(strings.Contains(err.Error(), "secret value does not exist"))
+		r.Contains(err.Error(), "secret value does not exist")
 	})
 	t.Run("vault invalid secret value type", func(t *testing.T) {
 		cli := newMockVaultClientInvalidValueType()
@@ -155,7 +154,7 @@ func TestVault(t *testing.T) {
 			vaultClient: cli,
 		}
 		_, err := loader.load()
-		r.True(strings.Contains(err.Error(), "invalid secret value type"))
+		r.Contains(err.Error(), "invalid secret value type")
 	})
 }
 
@@ -171,30 +170,13 @@ func TestSetProducerPrivKey(t *testing.T) {
 	})
 	t.Run("private config file is empty", func(t *testing.T) {
 		cfg := DefaultConfig
-		key := DefaultConfig.ProducerPrivKey
 		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
 		defer os.Remove(tmp.Name())
 		cfg.PrivKeyConfigFile = tmp.Name()
 		err = cfg.SetProducerPrivKey()
-		r.NoError(err)
-		r.Equal(key, cfg.ProducerPrivKey)
+		r.Contains(err.Error(), "invalid private key method")
 	})
-	t.Run("private config file has producerPrivKey", func(t *testing.T) {
-		cfg := DefaultConfig
-		tmp, err := os.CreateTemp("", testfile)
-		r.NoError(err)
-		defer os.Remove(tmp.Name())
-		_, err = tmp.WriteString("producerPrivKey: my private key")
-		r.NoError(err)
-		err = tmp.Close()
-		r.NoError(err)
-		cfg.PrivKeyConfigFile = tmp.Name()
-		err = cfg.SetProducerPrivKey()
-		r.NoError(err)
-		r.Equal("my private key", cfg.ProducerPrivKey)
-	})
-
 	t.Run("private config file has hashiCorpVault", func(t *testing.T) {
 		cfg := DefaultConfig
 		tmp, err := os.CreateTemp("", testfile)
@@ -207,6 +189,6 @@ func TestSetProducerPrivKey(t *testing.T) {
 		r.NoError(err)
 		cfg.PrivKeyConfigFile = tmp.Name()
 		err = cfg.SetProducerPrivKey()
-		r.True(strings.Contains(err.Error(), "dial tcp 127.0.0.1:8200: connect: connection refused"))
+		r.Contains(err.Error(), "dial tcp 127.0.0.1:8200: connect: connection refused")
 	})
 }

@@ -13,7 +13,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultHTTPTimeout = 10 * time.Second
+const (
+	defaultHTTPTimeout = 10 * time.Second
+
+	vaultPrivKey = "hashiCorpVault"
+)
 
 // ErrVault vault error
 var ErrVault = errors.New("vault error")
@@ -27,16 +31,12 @@ type (
 	}
 
 	privKeyConfig struct {
-		ProducerPrivKey string          `yaml:"producerPrivKey"`
-		VaultConfig     *hashiCorpVault `yaml:"hashiCorpVault"`
+		Method      string         `yaml:"method"`
+		VaultConfig hashiCorpVault `yaml:"hashiCorpVault"`
 	}
 
 	privKeyLoader interface {
 		load() (string, error)
-	}
-
-	localPrivKeyLoader struct {
-		privKey string
 	}
 
 	vaultPrivKeyLoader struct {
@@ -52,10 +52,6 @@ type (
 		cli vaultSecretReader
 	}
 )
-
-func (l *localPrivKeyLoader) load() (string, error) {
-	return l.privKey, nil
-}
 
 func (l *vaultPrivKeyLoader) load() (string, error) {
 	secret, err := l.cli.Read(l.cfg.Path)
