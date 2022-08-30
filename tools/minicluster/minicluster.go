@@ -409,7 +409,7 @@ func main() {
 
 			rp := rewarding.FindProtocol(registries[i])
 			if rp == nil {
-				log.S().Error("rolldpos is not registered.")
+				log.S().Fatal("rolldpos is not registered.")
 			}
 
 			blockReward, err := rp.BlockReward(ctx, sfs[i])
