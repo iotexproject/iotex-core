@@ -106,11 +106,11 @@ func TestVault(t *testing.T) {
 		Path:    "secret/data/test",
 		Key:     vaultTestKey,
 	}
-	t.Run("new vault client", func(t *testing.T) {
+	t.Run("NewVaultClientSuccess", func(t *testing.T) {
 		_, err := newVaultClient(cfg)
 		r.NoError(err)
 	})
-	t.Run("vault success", func(t *testing.T) {
+	t.Run("VaultSuccess", func(t *testing.T) {
 		cli := newMockVaultClientSuccess()
 		loader := &vaultPrivKeyLoader{
 			cfg:         cfg,
@@ -120,7 +120,7 @@ func TestVault(t *testing.T) {
 		r.NoError(err)
 		r.Equal(vaultTestValue, res)
 	})
-	t.Run("vault no secret", func(t *testing.T) {
+	t.Run("VaultNoSecret", func(t *testing.T) {
 		cli := newMockVaultClientNoSecret()
 		loader := &vaultPrivKeyLoader{
 			cfg:         cfg,
@@ -129,7 +129,7 @@ func TestVault(t *testing.T) {
 		_, err := loader.load()
 		r.Contains(err.Error(), "secret does not exist")
 	})
-	t.Run("vault invalid data type", func(t *testing.T) {
+	t.Run("VaultInvalidDataType", func(t *testing.T) {
 		cli := newMockVaultClientInvalidDataType()
 		loader := &vaultPrivKeyLoader{
 			cfg:         cfg,
@@ -138,7 +138,7 @@ func TestVault(t *testing.T) {
 		_, err := loader.load()
 		r.Contains(err.Error(), "invalid data type")
 	})
-	t.Run("vault no value", func(t *testing.T) {
+	t.Run("VaultNoValue", func(t *testing.T) {
 		cli := newMockVaultClientNoValue()
 		loader := &vaultPrivKeyLoader{
 			cfg:         cfg,
@@ -147,7 +147,7 @@ func TestVault(t *testing.T) {
 		_, err := loader.load()
 		r.Contains(err.Error(), "secret value does not exist")
 	})
-	t.Run("vault invalid secret value type", func(t *testing.T) {
+	t.Run("VaultInvalidSecretValueType", func(t *testing.T) {
 		cli := newMockVaultClientInvalidValueType()
 		loader := &vaultPrivKeyLoader{
 			cfg:         cfg,
@@ -161,14 +161,14 @@ func TestVault(t *testing.T) {
 func TestSetProducerPrivKey(t *testing.T) {
 	r := require.New(t)
 	testfile := "private_key.*.yaml"
-	t.Run("private config file does not exist", func(t *testing.T) {
+	t.Run("PrivateConfigFileDoesNotExist", func(t *testing.T) {
 		cfg := DefaultConfig
 		key := DefaultConfig.ProducerPrivKey
 		err := cfg.SetProducerPrivKey()
 		r.NoError(err)
 		r.Equal(key, cfg.ProducerPrivKey)
 	})
-	t.Run("private config file is empty", func(t *testing.T) {
+	t.Run("PrivateConfigFileIsEmpty", func(t *testing.T) {
 		cfg := DefaultConfig
 		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
@@ -177,7 +177,7 @@ func TestSetProducerPrivKey(t *testing.T) {
 		err = cfg.SetProducerPrivKey()
 		r.Contains(err.Error(), "invalid private key method")
 	})
-	t.Run("private config file has hashiCorpVault", func(t *testing.T) {
+	t.Run("PrivateConfigFileHasHashiCorpVault", func(t *testing.T) {
 		cfg := DefaultConfig
 		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
