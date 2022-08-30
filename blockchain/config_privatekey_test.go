@@ -10,8 +10,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/test/mock/mock_privatekey"
 )
 
 const (
@@ -28,131 +31,71 @@ hashiCorpVault:
 	vaultTestValue = "my value"
 )
 
-type (
-	mockVaultSuccess          struct{}
-	mockVaultNoSecret         struct{}
-	mockVaultInvalidDataType  struct{}
-	mockVaultNoValue          struct{}
-	mockVaultInvalidValueType struct{}
-)
-
-func (m *mockVaultSuccess) Read(path string) (*api.Secret, error) {
-	return &api.Secret{
-		Data: map[string]interface{}{
-			"data": map[string]interface{}{
-				vaultTestKey: vaultTestValue,
-			},
-		},
-	}, nil
-}
-
-func (m *mockVaultNoSecret) Read(path string) (*api.Secret, error) {
-	return nil, nil
-}
-
-func (m *mockVaultInvalidDataType) Read(path string) (*api.Secret, error) {
-	return &api.Secret{
-		Data: map[string]interface{}{
-			"data": map[string]string{
-				vaultTestKey: vaultTestValue,
-			},
-		},
-	}, nil
-}
-
-func (m *mockVaultNoValue) Read(path string) (*api.Secret, error) {
-	return &api.Secret{
-		Data: map[string]interface{}{
-			"data": map[string]interface{}{},
-		},
-	}, nil
-}
-
-func (m *mockVaultInvalidValueType) Read(path string) (*api.Secret, error) {
-	return &api.Secret{
-		Data: map[string]interface{}{
-			"data": map[string]interface{}{
-				vaultTestKey: 123,
-			},
-		},
-	}, nil
-}
-
-func newMockVaultClientSuccess() *vaultClient {
-	return &vaultClient{&mockVaultSuccess{}}
-}
-
-func newMockVaultClientNoSecret() *vaultClient {
-	return &vaultClient{&mockVaultNoSecret{}}
-}
-
-func newMockVaultClientInvalidDataType() *vaultClient {
-	return &vaultClient{&mockVaultInvalidDataType{}}
-}
-
-func newMockVaultClientNoValue() *vaultClient {
-	return &vaultClient{&mockVaultNoValue{}}
-}
-
-func newMockVaultClientInvalidValueType() *vaultClient {
-	return &vaultClient{&mockVaultInvalidValueType{}}
-}
-
 func TestVault(t *testing.T) {
 	r := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	reader := mock_privatekey.NewMockvaultSecretReader(ctrl)
 	cfg := &hashiCorpVault{
 		Address: "http://127.0.0.1:8200",
 		Token:   "hello iotex",
 		Path:    "secret/data/test",
 		Key:     vaultTestKey,
 	}
+	loader := &vaultPrivKeyLoader{
+		cfg:         cfg,
+		vaultClient: &vaultClient{reader},
+	}
+
 	t.Run("NewVaultClientSuccess", func(t *testing.T) {
 		_, err := newVaultClient(cfg)
 		r.NoError(err)
 	})
 	t.Run("VaultSuccess", func(t *testing.T) {
-		cli := newMockVaultClientSuccess()
-		loader := &vaultPrivKeyLoader{
-			cfg:         cfg,
-			vaultClient: cli,
-		}
+		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
+			Data: map[string]interface{}{
+				"data": map[string]interface{}{
+					vaultTestKey: vaultTestValue,
+				},
+			},
+		}, nil)
 		res, err := loader.load()
 		r.NoError(err)
 		r.Equal(vaultTestValue, res)
 	})
 	t.Run("VaultNoSecret", func(t *testing.T) {
-		cli := newMockVaultClientNoSecret()
-		loader := &vaultPrivKeyLoader{
-			cfg:         cfg,
-			vaultClient: cli,
-		}
+		reader.EXPECT().Read(gomock.Any()).Return(nil, nil)
 		_, err := loader.load()
 		r.Contains(err.Error(), "secret does not exist")
 	})
 	t.Run("VaultInvalidDataType", func(t *testing.T) {
-		cli := newMockVaultClientInvalidDataType()
-		loader := &vaultPrivKeyLoader{
-			cfg:         cfg,
-			vaultClient: cli,
-		}
+		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
+			Data: map[string]interface{}{
+				"data": map[string]string{
+					vaultTestKey: vaultTestValue,
+				},
+			},
+		}, nil)
 		_, err := loader.load()
 		r.Contains(err.Error(), "invalid data type")
 	})
 	t.Run("VaultNoValue", func(t *testing.T) {
-		cli := newMockVaultClientNoValue()
-		loader := &vaultPrivKeyLoader{
-			cfg:         cfg,
-			vaultClient: cli,
-		}
+		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
+			Data: map[string]interface{}{
+				"data": map[string]interface{}{},
+			},
+		}, nil)
 		_, err := loader.load()
 		r.Contains(err.Error(), "secret value does not exist")
 	})
 	t.Run("VaultInvalidSecretValueType", func(t *testing.T) {
-		cli := newMockVaultClientInvalidValueType()
-		loader := &vaultPrivKeyLoader{
-			cfg:         cfg,
-			vaultClient: cli,
-		}
+		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
+			Data: map[string]interface{}{
+				"data": map[string]interface{}{
+					vaultTestKey: 123,
+				},
+			},
+		}, nil)
 		_, err := loader.load()
 		r.Contains(err.Error(), "invalid secret value type")
 	})
