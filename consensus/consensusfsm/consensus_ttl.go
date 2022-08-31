@@ -10,10 +10,44 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 )
 
+//DefaultDardanellesUpgradeConfig is the default config for dardanelles upgrade
+var DefaultDardanellesUpgradeConfig = DardanellesUpgrade{
+	UnmatchedEventTTL:            2 * time.Second,
+	UnmatchedEventInterval:       100 * time.Millisecond,
+	AcceptBlockTTL:               2 * time.Second,
+	AcceptProposalEndorsementTTL: time.Second,
+	AcceptLockEndorsementTTL:     time.Second,
+	CommitTTL:                    time.Second,
+	BlockInterval:                5 * time.Second,
+	Delay:                        2 * time.Second,
+}
+
 type (
+	// DardanellesUpgrade is the config for dardanelles upgrade
+	DardanellesUpgrade struct {
+		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
+		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
+		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
+		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+		CommitTTL                    time.Duration `yaml:"commitTTL"`
+		BlockInterval                time.Duration `yaml:"blockInterval"`
+		Delay                        time.Duration `yaml:"delay"`
+	}
+
+	// Timing defines a set of time durations used in fsm and event queue size
+	Timing struct {
+		EventChanSize                uint          `yaml:"eventChanSize"`
+		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
+		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
+		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
+		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+		CommitTTL                    time.Duration `yaml:"commitTTL"`
+	}
+
 	// ConsensusConfig defines a set of time durations used in fsm
 	ConsensusConfig interface {
 		EventChanSize() uint
@@ -29,8 +63,8 @@ type (
 
 	// config implements ConsensusConfig
 	consensusCfg struct {
-		cfg           config.ConsensusTiming
-		dardanelles   config.DardanellesUpgrade
+		cfg           Timing
+		dardanelles   DardanellesUpgrade
 		g             genesis.Genesis
 		blockInterval time.Duration
 		delay         time.Duration
@@ -38,13 +72,13 @@ type (
 )
 
 // NewConsensusConfig creates a ConsensusConfig out of config.
-func NewConsensusConfig(cfg config.Config) ConsensusConfig {
+func NewConsensusConfig(timing Timing, dardanelles DardanellesUpgrade, g genesis.Genesis, delay time.Duration) ConsensusConfig {
 	return &consensusCfg{
-		cfg:           cfg.Consensus.RollDPoS.FSM,
-		dardanelles:   cfg.DardanellesUpgrade,
-		g:             cfg.Genesis,
-		blockInterval: cfg.Genesis.Blockchain.BlockInterval,
-		delay:         cfg.Consensus.RollDPoS.Delay,
+		cfg:           timing,
+		dardanelles:   dardanelles,
+		g:             g,
+		blockInterval: g.Blockchain.BlockInterval,
+		delay:         delay,
 	}
 }
 

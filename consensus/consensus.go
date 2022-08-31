@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -19,14 +20,12 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -43,7 +42,7 @@ type Consensus interface {
 
 // IotxConsensus implements Consensus
 type IotxConsensus struct {
-	cfg    config.Consensus
+	cfg    Config
 	scheme scheme.Scheme
 }
 
@@ -82,7 +81,7 @@ func WithPollProtocol(pp poll.Protocol) Option {
 
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
-	cfg config.Config,
+	cfg BuilderConfig,
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	opts ...Option,
@@ -98,11 +97,10 @@ func NewConsensus(
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	var err error
 	switch cfg.Consensus.Scheme {
-	case config.RollDPoSScheme:
-		bd := rolldpos.NewRollDPoSBuilder().
+	case RollDPoSScheme:
+		bd := NewRollDPoSBuilder().
 			SetAddr(cfg.Chain.ProducerAddress().String()).
 			SetPriKey(cfg.Chain.ProducerPrivateKey()).
-			SetConfig(cfg).
 			SetChainManager(rolldpos.NewChainManager(bc)).
 			SetBlockDeserializer(block.NewDeserializer(bc.EvmNetworkID())).
 			SetClock(clock).
@@ -144,9 +142,9 @@ func NewConsensus(
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
-	case config.NOOPScheme:
+	case NOOPScheme:
 		cs.scheme = scheme.NewNoop()
-	case config.StandaloneScheme:
+	case StandaloneScheme:
 		mintBlockCB := func() (*block.Block, error) {
 			blk, err := bc.MintNewBlock(clock.Now())
 			if err != nil {

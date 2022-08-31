@@ -10,17 +10,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/facebookgo/clock"
-	fsm "github.com/iotexproject/go-fsm"
-	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -37,6 +33,14 @@ var (
 )
 
 type (
+	// Config is the config struct for RollDPoS consensus package
+	Config struct {
+		FSM               consensusfsm.Timing `yaml:"fsm"`
+		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
+		Delay             time.Duration       `yaml:"delay"`
+		ConsensusDBPath   string              `yaml:"consensusDBPath"`
+	}
+
 	// ChainManager defines the blockchain interface
 	ChainManager interface {
 		// BlockProposeTime return propose time by height
@@ -55,10 +59,27 @@ type (
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
 	}
+
 	chainManager struct {
 		bc blockchain.Blockchain
 	}
 )
+
+// DefaultConfig is the default config
+var DefaultConfig = Config{
+	FSM: consensusfsm.Timing{
+		UnmatchedEventTTL:            3 * time.Second,
+		UnmatchedEventInterval:       100 * time.Millisecond,
+		AcceptBlockTTL:               4 * time.Second,
+		AcceptProposalEndorsementTTL: 2 * time.Second,
+		AcceptLockEndorsementTTL:     2 * time.Second,
+		CommitTTL:                    2 * time.Second,
+		EventChanSize:                10000,
+	},
+	ToleratedOvertime: 2 * time.Second,
+	Delay:             5 * time.Second,
+	ConsensusDBPath:   "/var/data/consensus.db",
+}
 
 // NewChainManager creates a chain manager
 func NewChainManager(bc blockchain.Blockchain) ChainManager {
@@ -122,9 +143,19 @@ func (cm *chainManager) ChainAddress() string {
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
 	cfsm       *consensusfsm.ConsensusFSM
-	ctx        *rollDPoSCtx
+	ctx        *RollDPoSCtx
 	startDelay time.Duration
 	ready      chan interface{}
+}
+
+// NewRollDPoS returns a new instance of RollDPoS
+func NewRollDPoS(cfsm *consensusfsm.ConsensusFSM, ctx *RollDPoSCtx, delay time.Duration) *RollDPoS {
+	return &RollDPoS{
+		cfsm:       cfsm,
+		ctx:        ctx,
+		startDelay: delay,
+		ready:      make(chan interface{}),
+	}
 }
 
 // Start starts RollDPoS consensus
@@ -288,123 +319,4 @@ func (r *RollDPoS) Activate(active bool) {
 // Active is true if the roll-DPoS consensus is active, or false if it is stand-by
 func (r *RollDPoS) Active() bool {
 	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
-}
-
-// Builder is the builder for RollDPoS
-type Builder struct {
-	cfg config.Config
-	// TODO: we should use keystore in the future
-	encodedAddr       string
-	priKey            crypto.PrivateKey
-	chain             ChainManager
-	blockDeserializer *block.Deserializer
-	broadcastHandler  scheme.Broadcast
-	clock             clock.Clock
-	// TODO: explorer dependency deleted at #1085, need to add api params
-	rp                   *rolldpos.Protocol
-	delegatesByEpochFunc DelegatesByEpochFunc
-}
-
-// NewRollDPoSBuilder instantiates a Builder instance
-func NewRollDPoSBuilder() *Builder {
-	return &Builder{}
-}
-
-// SetConfig sets config
-func (b *Builder) SetConfig(cfg config.Config) *Builder {
-	b.cfg = cfg
-	return b
-}
-
-// SetAddr sets the address and key pair for signature
-func (b *Builder) SetAddr(encodedAddr string) *Builder {
-	b.encodedAddr = encodedAddr
-	return b
-}
-
-// SetPriKey sets the private key
-func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
-	b.priKey = priKey
-	return b
-}
-
-// SetChainManager sets the blockchain APIs
-func (b *Builder) SetChainManager(chain ChainManager) *Builder {
-	b.chain = chain
-	return b
-}
-
-// SetBlockDeserializer set block deserializer
-func (b *Builder) SetBlockDeserializer(deserializer *block.Deserializer) *Builder {
-	b.blockDeserializer = deserializer
-	return b
-}
-
-// SetBroadcast sets the broadcast callback
-func (b *Builder) SetBroadcast(broadcastHandler scheme.Broadcast) *Builder {
-	b.broadcastHandler = broadcastHandler
-	return b
-}
-
-// SetClock sets the clock
-func (b *Builder) SetClock(clock clock.Clock) *Builder {
-	b.clock = clock
-	return b
-}
-
-// SetDelegatesByEpochFunc sets delegatesByEpochFunc
-func (b *Builder) SetDelegatesByEpochFunc(
-	delegatesByEpochFunc DelegatesByEpochFunc,
-) *Builder {
-	b.delegatesByEpochFunc = delegatesByEpochFunc
-	return b
-}
-
-// RegisterProtocol sets the rolldpos protocol
-func (b *Builder) RegisterProtocol(rp *rolldpos.Protocol) *Builder {
-	b.rp = rp
-	return b
-}
-
-// Build builds a RollDPoS consensus module
-func (b *Builder) Build() (*RollDPoS, error) {
-	if b.chain == nil {
-		return nil, errors.Wrap(ErrNewRollDPoS, "blockchain APIs is nil")
-	}
-	if b.broadcastHandler == nil {
-		return nil, errors.Wrap(ErrNewRollDPoS, "broadcast callback is nil")
-	}
-	if b.clock == nil {
-		b.clock = clock.New()
-	}
-	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
-	ctx, err := newRollDPoSCtx(
-		consensusfsm.NewConsensusConfig(b.cfg),
-		b.cfg.DB,
-		b.cfg.System.Active,
-		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
-		b.cfg.Genesis.TimeBasedRotation,
-		b.chain,
-		b.blockDeserializer,
-		b.rp,
-		b.broadcastHandler,
-		b.delegatesByEpochFunc,
-		b.encodedAddr,
-		b.priKey,
-		b.clock,
-		b.cfg.Genesis.BeringBlockHeight,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when constructing consensus context")
-	}
-	cfsm, err := consensusfsm.NewConsensusFSM(ctx, b.clock)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
-	}
-	return &RollDPoS{
-		cfsm:       cfsm,
-		ctx:        ctx,
-		startDelay: b.cfg.Consensus.RollDPoS.Delay,
-		ready:      make(chan interface{}),
-	}, nil
 }

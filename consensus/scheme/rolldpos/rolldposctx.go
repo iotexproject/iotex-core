@@ -69,28 +69,32 @@ func init() {
 	prometheus.MustRegister(_consensusHeightMtc)
 }
 
-// DelegatesByEpochFunc defines a function to overwrite candidates
-type DelegatesByEpochFunc func(uint64) ([]string, error)
-type rollDPoSCtx struct {
-	consensusfsm.ConsensusConfig
+type (
+	// DelegatesByEpochFunc defines a function to overwrite candidates
+	DelegatesByEpochFunc func(uint64) ([]string, error)
 
-	// TODO: explorer dependency deleted at #1085, need to add api params here
-	chain             ChainManager
-	blockDeserializer *block.Deserializer
-	broadcastHandler  scheme.Broadcast
-	roundCalc         *roundCalculator
-	eManagerDB        db.KVStore
-	toleratedOvertime time.Duration
+	RollDPoSCtx struct {
+		consensusfsm.ConsensusConfig
 
-	encodedAddr string
-	priKey      crypto.PrivateKey
-	round       *roundCtx
-	clock       clock.Clock
-	active      bool
-	mutex       sync.RWMutex
-}
+		// TODO: explorer dependency deleted at #1085, need to add api params here
+		chain             ChainManager
+		blockDeserializer *block.Deserializer
+		broadcastHandler  scheme.Broadcast
+		roundCalc         *roundCalculator
+		eManagerDB        db.KVStore
+		toleratedOvertime time.Duration
 
-func newRollDPoSCtx(
+		encodedAddr string
+		priKey      crypto.PrivateKey
+		round       *roundCtx
+		clock       clock.Clock
+		active      bool
+		mutex       sync.RWMutex
+	}
+)
+
+// NewRollDPoSCtx returns a new instance of RollDPoSCtx
+func NewRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
 	consensusDBConfig db.Config,
 	active bool,
@@ -105,7 +109,7 @@ func newRollDPoSCtx(
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
-) (*rollDPoSCtx, error) {
+) (*RollDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
 	}
@@ -139,7 +143,7 @@ func newRollDPoSCtx(
 		timeBasedRotation:    timeBasedRotation,
 		beringHeight:         beringHeight,
 	}
-	return &rollDPoSCtx{
+	return &RollDPoSCtx{
 		ConsensusConfig:   cfg,
 		active:            active,
 		encodedAddr:       encodedAddr,
@@ -154,7 +158,7 @@ func newRollDPoSCtx(
 	}, nil
 }
 
-func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
+func (ctx *RollDPoSCtx) Start(c context.Context) (err error) {
 	var eManager *endorsementManager
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
@@ -167,7 +171,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 	return err
 }
 
-func (ctx *rollDPoSCtx) Stop(c context.Context) error {
+func (ctx *RollDPoSCtx) Stop(c context.Context) error {
 	if ctx.eManagerDB != nil {
 		return ctx.eManagerDB.Stop(c)
 	}
@@ -175,7 +179,7 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 }
 
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height
-func (ctx *rollDPoSCtx) CheckVoteEndorser(
+func (ctx *RollDPoSCtx) CheckVoteEndorser(
 	height uint64,
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
@@ -194,7 +198,7 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 }
 
 // CheckBlockProposer checks the block proposal
-func (ctx *rollDPoSCtx) CheckBlockProposer(
+func (ctx *RollDPoSCtx) CheckBlockProposer(
 	height uint64,
 	proposal *blockProposal,
 	en *endorsement.Endorsement,
@@ -256,7 +260,7 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	return nil
 }
 
-func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
+func (ctx *RollDPoSCtx) RoundCalc() *roundCalculator {
 	return ctx.roundCalc
 }
 
@@ -264,7 +268,7 @@ func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
 // Context of consensusFSM interfaces
 /////////////////////////////////////
 
-func (ctx *rollDPoSCtx) NewConsensusEvent(
+func (ctx *RollDPoSCtx) NewConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
 ) *consensusfsm.ConsensusEvent {
@@ -274,7 +278,7 @@ func (ctx *rollDPoSCtx) NewConsensusEvent(
 	return ctx.newConsensusEvent(eventType, data)
 }
 
-func (ctx *rollDPoSCtx) NewBackdoorEvt(
+func (ctx *RollDPoSCtx) NewBackdoorEvt(
 	dst fsm.State,
 ) *consensusfsm.ConsensusEvent {
 	ctx.mutex.RLock()
@@ -283,14 +287,14 @@ func (ctx *rollDPoSCtx) NewBackdoorEvt(
 	return ctx.newConsensusEvent(consensusfsm.BackdoorEvent, dst)
 }
 
-func (ctx *rollDPoSCtx) Logger() *zap.Logger {
+func (ctx *RollDPoSCtx) Logger() *zap.Logger {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.logger()
 }
 
-func (ctx *rollDPoSCtx) Prepare() error {
+func (ctx *RollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	height := ctx.chain.TipHeight() + 1
@@ -313,14 +317,14 @@ func (ctx *rollDPoSCtx) Prepare() error {
 	return nil
 }
 
-func (ctx *rollDPoSCtx) IsDelegate() bool {
+func (ctx *RollDPoSCtx) IsDelegate() bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.isDelegate()
 }
 
-func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
+func (ctx *RollDPoSCtx) Proposal() (interface{}, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	if ctx.round.Proposer() != ctx.encodedAddr {
@@ -335,7 +339,7 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	return ctx.mintNewBlock()
 }
 
-func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
+func (ctx *RollDPoSCtx) WaitUntilRoundStart() time.Duration {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	now := ctx.clock.Now()
@@ -352,7 +356,7 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 	return overTime
 }
 
-func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
+func (ctx *RollDPoSCtx) PreCommitEndorsement() interface{} {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	endorsement := ctx.round.ReadyToCommit(ctx.encodedAddr)
@@ -363,7 +367,7 @@ func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
 	return endorsement
 }
 
-func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, error) {
+func (ctx *RollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	var blockHash []byte
@@ -396,7 +400,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 	)
 }
 
-func (ctx *rollDPoSCtx) NewLockEndorsement(
+func (ctx *RollDPoSCtx) NewLockEndorsement(
 	msg interface{},
 ) (interface{}, error) {
 	ctx.mutex.RLock()
@@ -424,7 +428,7 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 	return nil, err
 }
 
-func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
+func (ctx *RollDPoSCtx) NewPreCommitEndorsement(
 	msg interface{},
 ) (interface{}, error) {
 	ctx.mutex.RLock()
@@ -450,7 +454,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	}
 }
 
-func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
+func (ctx *RollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	blkHash, err := ctx.verifyVote(msg, []ConsensusVoteTopic{COMMIT})
@@ -523,7 +527,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	return true, nil
 }
 
-func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
+func (ctx *RollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	ecm, ok := endorsedMsg.(*EndorsedConsensusMessage)
@@ -541,42 +545,42 @@ func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 	}
 }
 
-func (ctx *rollDPoSCtx) IsStaleEvent(evt *consensusfsm.ConsensusEvent) bool {
+func (ctx *RollDPoSCtx) IsStaleEvent(evt *consensusfsm.ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.IsStale(evt.Height(), evt.Round(), evt.Data())
 }
 
-func (ctx *rollDPoSCtx) IsFutureEvent(evt *consensusfsm.ConsensusEvent) bool {
+func (ctx *RollDPoSCtx) IsFutureEvent(evt *consensusfsm.ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.IsFuture(evt.Height(), evt.Round())
 }
 
-func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *consensusfsm.ConsensusEvent) bool {
+func (ctx *RollDPoSCtx) IsStaleUnmatchedEvent(evt *consensusfsm.ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.clock.Now().Sub(evt.Timestamp()) > ctx.UnmatchedEventTTL(ctx.round.height)
 }
 
-func (ctx *rollDPoSCtx) Height() uint64 {
+func (ctx *RollDPoSCtx) Height() uint64 {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.Height()
 }
 
-func (ctx *rollDPoSCtx) Activate(active bool) {
+func (ctx *RollDPoSCtx) Activate(active bool) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
 	ctx.active = active
 }
 
-func (ctx *rollDPoSCtx) Active() bool {
+func (ctx *RollDPoSCtx) Active() bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
@@ -587,7 +591,7 @@ func (ctx *rollDPoSCtx) Active() bool {
 // private functions
 ///////////////////////////////////////////
 
-func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
+func (ctx *RollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	var err error
 	blk := ctx.round.CachedMintedBlock()
 	if blk == nil {
@@ -608,7 +612,7 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
 }
 
-func (ctx *rollDPoSCtx) isDelegate() bool {
+func (ctx *RollDPoSCtx) isDelegate() bool {
 	if active := ctx.active; !active {
 		ctx.logger().Info("current node is in standby mode")
 		return false
@@ -616,7 +620,7 @@ func (ctx *rollDPoSCtx) isDelegate() bool {
 	return ctx.round.IsDelegate(ctx.encodedAddr)
 }
 
-func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {
+func (ctx *RollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {
 	en, err := endorsement.Endorse(ctx.priKey, proposal, ctx.round.StartTime())
 	if err != nil {
 		return nil, err
@@ -624,11 +628,11 @@ func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*Endorsed
 	return NewEndorsedConsensusMessage(proposal.block.Height(), proposal, en), nil
 }
 
-func (ctx *rollDPoSCtx) logger() *zap.Logger {
+func (ctx *RollDPoSCtx) logger() *zap.Logger {
 	return ctx.round.Log(log.Logger("consensus"))
 }
 
-func (ctx *rollDPoSCtx) newConsensusEvent(
+func (ctx *RollDPoSCtx) newConsensusEvent(
 	eventType fsm.EventType,
 	data interface{},
 ) *consensusfsm.ConsensusEvent {
@@ -665,11 +669,11 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 	}
 }
 
-func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
+func (ctx *RollDPoSCtx) loggerWithStats() *zap.Logger {
 	return ctx.round.LogWithStats(log.Logger("consensus"))
 }
 
-func (ctx *rollDPoSCtx) verifyVote(
+func (ctx *RollDPoSCtx) verifyVote(
 	msg interface{},
 	topics []ConsensusVoteTopic,
 ) ([]byte, error) {
@@ -698,7 +702,7 @@ func (ctx *rollDPoSCtx) verifyVote(
 	return blkHash, nil
 }
 
-func (ctx *rollDPoSCtx) newEndorsement(
+func (ctx *RollDPoSCtx) newEndorsement(
 	blkHash []byte,
 	topic ConsensusVoteTopic,
 	timestamp time.Time,

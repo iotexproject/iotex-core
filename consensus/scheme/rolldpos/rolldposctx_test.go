@@ -39,12 +39,12 @@ func TestRollDPoSCtx(t *testing.T) {
 	b, _, _, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 2:panic because of rp is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -54,7 +54,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	)
 	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
 		require.Error(err)
 	})
 
@@ -64,19 +64,19 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = time.Second
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = time.Second
 	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	cfg.Genesis.Blockchain.BlockInterval = time.Second * 20
 	t.Run("case 5:panic because of nil CandidatesByHeight function", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, nil, "", nil, c, 0)
+		_, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, nil, "", nil, c, 0)
 		require.Error(err)
 	})
 
 	t.Run("case 6:normal", func(t *testing.T) {
 		bh := genesis.Default.BeringBlockHeight
-		rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
+		rctx, err := NewRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, NewChainManager(b), block.NewDeserializer(0), rp, nil, dummyCandidatesByHeightFunc, "", nil, c, bh)
 		require.NoError(err)
 		require.Equal(bh, rctx.roundCalc.beringHeight)
 		require.NotNil(rctx)
@@ -89,7 +89,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(
+	rctx, err := NewRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
 		db.DefaultConfig,
 		true,
@@ -162,7 +162,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(
+	rctx, err := NewRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
 		cfg.DB,
 		true,
@@ -274,7 +274,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(
+	rctx, err := NewRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
 		db.DefaultConfig,
 		true,
