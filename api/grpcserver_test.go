@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
+	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -244,7 +245,57 @@ func TestGrpcServer_GetActions(t *testing.T) {
 }
 
 func TestGrpcServer_GetBlockMetas(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	errStr := "get block metas mock test error"
+	reqIndex := &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{},
+		},
+	}
+	reqHash := &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+			ByHash: &iotexapi.GetBlockMetaByHashRequest{},
+		},
+	}
+	ret := &apitypes.BlockWithReceipts{
+		Block: &block.Block{},
+		Receipts: []*action.Receipt{
+			{},
+		},
+	}
+	rets := []*apitypes.BlockWithReceipts{ret}
+
+	t.Run("GetBlockMetasInvalidType", func(t *testing.T) {
+		_, err := grpcSvr.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+		require.Contains(err.Error(), "invalid GetBlockMetasRequest type")
+	})
+	t.Run("GetBlockMetasByIndexFailed", func(t *testing.T) {
+		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(nil, errors.New(errStr))
+		_, err := grpcSvr.GetBlockMetas(context.Background(), reqIndex)
+		require.Contains(err.Error(), errStr)
+	})
+	t.Run("GetBlockMetasByIndexSuccess", func(t *testing.T) {
+		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(rets, nil)
+		res, err := grpcSvr.GetBlockMetas(context.Background(), reqIndex)
+		require.NoError(err)
+		require.Equal(res.Total, uint64(1))
+	})
+	t.Run("GetBlockMetasByHashFailed", func(t *testing.T) {
+		core.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New(errStr))
+		_, err := grpcSvr.GetBlockMetas(context.Background(), reqHash)
+		require.Contains(err.Error(), errStr)
+	})
+	t.Run("GetBlockMetasByHashSuccess", func(t *testing.T) {
+		core.EXPECT().BlockByHash(gomock.Any()).Return(ret, nil)
+		res, err := grpcSvr.GetBlockMetas(context.Background(), reqHash)
+		require.NoError(err)
+		require.Equal(res.Total, uint64(1))
+	})
 }
 
 func TestGrpcServer_GetBlockMeta(t *testing.T) {
@@ -272,7 +323,35 @@ func TestGrpcServer_SendAction(t *testing.T) {
 }
 
 func TestGrpcServer_StreamLogs(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	t.Run("StreamLogsEmptyFilter", func(t *testing.T) {
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
+		require.Contains(err.Error(), "empty filter")
+	})
+	t.Run("StreamLogsAddResponderFailed", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).Return("", errors.New("mock test"))
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)
+		require.Contains(err.Error(), "mock test")
+	})
+	t.Run("StreamLogsSuccess", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCLogListener) (string, error) {
+			go func() {
+				g.errChan <- nil
+			}()
+			return "", nil
+		})
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)
+		require.NoError(err)
+	})
 }
 
 func TestGrpcServer_GetReceiptByAction(t *testing.T) {
