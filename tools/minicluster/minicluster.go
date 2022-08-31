@@ -414,18 +414,18 @@ func main() {
 
 			blockReward, err := rp.BlockReward(ctx, sfs[i])
 			if err != nil {
-				log.S().Error("Failed to get block reward.", zap.Error(err))
+				log.S().Fatal("Failed to get block reward.", zap.Error(err))
 			}
 			if blockReward == configs[i].Genesis.BlockReward() {
-				log.S().Error("actual block reward is incorrect.")
+				log.S().Fatal("actual block reward is incorrect.")
 			}
 
 			epochReward, err := rp.EpochReward(ctx, sfs[i])
 			if err != nil {
-				log.S().Error("Failed to get epoch reward.", zap.Error(err))
+				log.S().Fatal("Failed to get epoch reward.", zap.Error(err))
 			}
 			if epochReward == configs[i].Genesis.AleutianEpochReward() {
-				log.S().Error("actual epoch reward is incorrect.")
+				log.S().Fatal("actual epoch reward is incorrect.")
 			}
 		}
 
