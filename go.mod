@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/ethereum/go-ethereum v1.10.4
+	github.com/ethereum/go-ethereum v1.10.23
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/go-sql-driver/mysql v1.4.1
