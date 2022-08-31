@@ -152,7 +152,7 @@ func (cfg *Config) SetProducerPrivKey() error {
 
 	var loader privKeyLoader
 	switch pc.Method {
-	case vaultPrivKey:
+	case "hashiCorpVault":
 		cli, err := newVaultClient(&pc.VaultConfig)
 		if err != nil {
 			return errors.Wrap(err, "failed to new vault client")

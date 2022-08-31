@@ -13,11 +13,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	defaultHTTPTimeout = 10 * time.Second
-
-	vaultPrivKey = "hashiCorpVault"
-)
+const defaultHTTPTimeout = 10 * time.Second
 
 // ErrVault vault error
 var ErrVault = errors.New("vault error")
