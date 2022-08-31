@@ -85,19 +85,30 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 		if globalCfg.EcsIntegration {
 			cfg.Zap.EncoderConfig = ecszap.ECSCompatibleEncoderConfig(cfg.Zap.EncoderConfig)
 		}
-		logger, err := cfg.Zap.Build(opts...)
-		if err != nil {
-			return err
-		}
+
+		var cores []zapcore.Core
 		if cfg.StderrRedirectFile != nil {
 			stderrF, err := os.OpenFile(*cfg.StderrRedirectFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0644)
 			if err != nil {
 				return err
 			}
-			if err := redirectStderr(stderrF); err != nil {
-				return err
-			}
+
+			cores = append(cores, zapcore.NewCore(
+				zapcore.NewJSONEncoder(cfg.Zap.EncoderConfig),
+				zapcore.AddSync(stderrF),
+				cfg.Zap.Level))
 		}
+
+		consoleCfg := zap.NewDevelopmentConfig()
+		consoleCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cores = append(cores, zapcore.NewCore(
+			zapcore.NewConsoleEncoder(consoleCfg.EncoderConfig),
+			zapcore.AddSync(os.Stdout),
+			cfg.Zap.Level))
+
+		core := zapcore.NewTee(cores...)
+		logger := zap.New(core, opts...)
+
 		_logMu.Lock()
 		if name == _globalLoggerName {
 			_globalCfg = cfg
