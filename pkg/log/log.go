@@ -103,19 +103,11 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 		consoleCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cores = append(cores, zapcore.NewCore(
 			zapcore.NewConsoleEncoder(consoleCfg.EncoderConfig),
-			zapcore.Lock(os.Stderr),
-			zap.InfoLevel))
+			zapcore.AddSync(os.Stdout),
+			cfg.Zap.Level))
 
-		coreOpt := zap.WrapCore(func(zapcore.Core) zapcore.Core {
-			return zapcore.NewTee(cores...)
-		})
-		var buildOpts []zap.Option
-		buildOpts = append(buildOpts, coreOpt)
-		buildOpts = append(buildOpts, opts...)
-		logger, err := cfg.Zap.Build(buildOpts...)
-		if err != nil {
-			return err
-		}
+		core := zapcore.NewTee(cores...)
+		logger := zap.New(core, opts...)
 
 		_logMu.Lock()
 		if name == _globalLoggerName {
