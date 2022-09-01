@@ -6,7 +6,9 @@
 
 package enc
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // MachineEndian is the endianess of the machine
 var MachineEndian = binary.LittleEndian
