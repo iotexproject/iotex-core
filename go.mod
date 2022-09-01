@@ -62,6 +62,8 @@ require (
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
+	github.com/aws/aws-sdk-go v1.44.89 // indirect
+	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/benbjohnson/clock v1.0.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
@@ -71,6 +73,7 @@ require (
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/docker/docker v20.10.17+incompatible // indirect
 	github.com/dustinxie/gmsm v1.4.0 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -79,6 +82,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/uuid v1.1.5 // indirect
+	github.com/gorilla/css v1.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
@@ -101,6 +105,7 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
 	github.com/koron/go-ssdp v0.0.0-20191105050749-2e1c40ed0b5d // indirect
 	github.com/libp2p/go-addr-util v0.0.2 // indirect
@@ -147,6 +152,7 @@ require (
 	github.com/magefile/mage v1.9.0 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/microcosm-cc/bluemonday v1.0.19 // indirect
 	github.com/miekg/dns v1.1.41 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
