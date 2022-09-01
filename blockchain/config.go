@@ -9,6 +9,7 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -25,6 +26,7 @@ import (
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
+		producerPrivKeyLoader  sync.Once
 		ChainDBPath            string           `yaml:"chainDBPath"`
 		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
 		TrieDBPath             string           `yaml:"trieDBPath"`
@@ -36,7 +38,7 @@ type (
 		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
 		Address                string           `yaml:"address"`
 		ProducerPrivKey        string           `yaml:"producerPrivKey"`
-		PrivKeyConfigFile      string           `yaml:"privKeyConfigFile"`
+		ProducerPrivKeySchema  string           `yaml:"producerPrivKeySchema"`
 		SignatureScheme        []string         `yaml:"signatureScheme"`
 		EmptyGenesis           bool             `yaml:"emptyGenesis"`
 		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
@@ -137,39 +139,32 @@ func (cfg *Config) ProducerPrivateKey() crypto.PrivateKey {
 
 // SetProducerPrivKey set producer privKey by PrivKeyConfigFile info
 func (cfg *Config) SetProducerPrivKey() error {
-	if cfg.PrivKeyConfigFile == "" {
-		return nil
-	}
-
-	yaml, err := config.NewYAML(config.Expand(os.LookupEnv), config.File(cfg.PrivKeyConfigFile))
-	if err != nil {
-		return errors.Wrap(err, "failed to init private key config")
-	}
-	pc := &privKeyConfig{}
-	if err := yaml.Get(config.Root).Populate(pc); err != nil {
-		return errors.Wrap(err, "failed to unmarshal YAML config to privKeyConfig struct")
-	}
-
-	var loader privKeyLoader
-	switch pc.Method {
+	switch cfg.ProducerPrivKeySchema {
+	case "hex", "":
+		// do nothing
 	case "hashiCorpVault":
-		cli, err := newVaultClient(&pc.VaultConfig)
+		yaml, err := config.NewYAML(config.Expand(os.LookupEnv), config.File(cfg.ProducerPrivKey))
+		if err != nil {
+			return errors.Wrap(err, "failed to init private key config")
+		}
+		hcv := &hashiCorpVault{}
+		if err := yaml.Get(config.Root).Populate(hcv); err != nil {
+			return errors.Wrap(err, "failed to unmarshal YAML config to privKeyConfig struct")
+		}
+
+		loader, err := newVaultPrivKeyLoader(hcv)
 		if err != nil {
 			return errors.Wrap(err, "failed to new vault client")
 		}
-		loader = &vaultPrivKeyLoader{
-			cfg:         &pc.VaultConfig,
-			vaultClient: cli,
+		key, err := loader.load()
+		if err != nil {
+			return errors.Wrap(err, "failed to load producer private key")
 		}
+		cfg.ProducerPrivKey = key
 	default:
-		return errors.Wrap(ErrConfig, "invalid private key method")
+		return errors.Wrap(ErrConfig, "invalid private key schema")
 	}
 
-	key, err := loader.load()
-	if err != nil {
-		return errors.Wrap(err, "failed to load producer private key")
-	}
-	cfg.ProducerPrivKey = key
 	return nil
 }
 
