@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           go install golang.org/x/lint/golint@master
+          go install github.com/dave/courtney@latest
           go mod tidy
           golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
           #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
