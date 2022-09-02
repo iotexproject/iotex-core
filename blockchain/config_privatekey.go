@@ -48,11 +48,7 @@ func (l *vaultPrivKeyLoader) load() (string, error) {
 	if secret == nil {
 		return "", errors.Wrap(ErrVault, "secret does not exist")
 	}
-	data, ok := secret.Data["data"].(map[string]interface{})
-	if !ok {
-		return "", errors.Wrap(ErrVault, "invalid data type")
-	}
-	value, ok := data[l.cfg.Key]
+	value, ok := secret.Data[l.cfg.Key]
 	if !ok {
 		return "", errors.Wrap(ErrVault, "secret value does not exist")
 	}
