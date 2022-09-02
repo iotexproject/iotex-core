@@ -9,7 +9,6 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -26,7 +25,6 @@ import (
 type (
 	// Config is the config struct for blockchain package
 	Config struct {
-		producerPrivKeyLoader  sync.Once
 		ChainDBPath            string           `yaml:"chainDBPath"`
 		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
 		TrieDBPath             string           `yaml:"trieDBPath"`
