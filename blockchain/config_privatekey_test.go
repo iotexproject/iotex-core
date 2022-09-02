@@ -19,12 +19,10 @@ import (
 
 const (
 	hashiCorpVaultTestCfg = `
-method: hashiCorpVault
-hashiCorpVault:
-    address: http://127.0.0.1:8200
-    token: secret/data/test
-    path: secret/data/test
-    key: my key
+address: http://127.0.0.1:8200
+token: secret/data/test
+path: secret/data/test
+key: my key
 `
 
 	vaultTestKey   = "my key"
@@ -47,8 +45,8 @@ func TestVault(t *testing.T) {
 		vaultClient: &vaultClient{reader},
 	}
 
-	t.Run("NewVaultClientSuccess", func(t *testing.T) {
-		_, err := newVaultClient(cfg)
+	t.Run("NewVaultPrivKeyLoaderSuccess", func(t *testing.T) {
+		_, err := newVaultPrivKeyLoader(cfg)
 		r.NoError(err)
 	})
 	t.Run("VaultSuccess", func(t *testing.T) {
@@ -111,14 +109,15 @@ func TestSetProducerPrivKey(t *testing.T) {
 		r.NoError(err)
 		r.Equal(key, cfg.ProducerPrivKey)
 	})
-	t.Run("PrivateConfigFileIsEmpty", func(t *testing.T) {
+	t.Run("PrivateConfigUnknownSchema", func(t *testing.T) {
 		cfg := DefaultConfig
 		tmp, err := os.CreateTemp("", testfile)
 		r.NoError(err)
 		defer os.Remove(tmp.Name())
-		cfg.PrivKeyConfigFile = tmp.Name()
+		cfg.ProducerPrivKey = tmp.Name()
+		cfg.ProducerPrivKeySchema = "unknown"
 		err = cfg.SetProducerPrivKey()
-		r.Contains(err.Error(), "invalid private key method")
+		r.Contains(err.Error(), "invalid private key schema")
 	})
 	t.Run("PrivateConfigFileHasHashiCorpVault", func(t *testing.T) {
 		cfg := DefaultConfig
@@ -130,7 +129,8 @@ func TestSetProducerPrivKey(t *testing.T) {
 		r.NoError(err)
 		err = tmp.Close()
 		r.NoError(err)
-		cfg.PrivKeyConfigFile = tmp.Name()
+		cfg.ProducerPrivKey = tmp.Name()
+		cfg.ProducerPrivKeySchema = "hashiCorpVault"
 		err = cfg.SetProducerPrivKey()
 		r.Contains(err.Error(), "dial tcp 127.0.0.1:8200: connect: connection refused")
 	})

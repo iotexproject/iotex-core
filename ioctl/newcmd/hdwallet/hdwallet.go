@@ -8,6 +8,10 @@ package hdwallet
 
 import (
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // Errors
@@ -19,4 +23,25 @@ var (
 // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
 const DefaultRootDerivationPath = "m/44'/304'"
 
-var _hdWalletConfigFile string
+// Multi-language support
+var (
+	_hdwalletCmdShorts = map[config.Language]string{
+		config.English: "Manage hdwallets of IoTeX blockchain",
+		config.Chinese: "管理IoTeX区块链上的钱包",
+	}
+)
+
+// NewHdwalletCmd represents the new hdwallet command.
+func NewHdwalletCmd(client ioctl.Client) *cobra.Command {
+	hdwalletShorts, _ := client.SelectTranslation(_hdwalletCmdShorts)
+	cmd := &cobra.Command{
+		Use:   "hdwallet",
+		Short: hdwalletShorts,
+	}
+	cmd.AddCommand(NewHdwalletCreateCmd(client))
+	cmd.AddCommand(NewHdwalletDeleteCmd(client))
+	cmd.AddCommand(NewHdwalletDeriveCmd(client))
+	cmd.AddCommand(NewHdwalletExportCmd(client))
+	cmd.AddCommand(NewHdwalletImportCmd(client))
+	return cmd
+}
