@@ -26,15 +26,6 @@ type (
 		Key     string `yaml:"key"`
 	}
 
-	privKeyConfig struct {
-		Method      string         `yaml:"method"`
-		VaultConfig hashiCorpVault `yaml:"hashiCorpVault"`
-	}
-
-	privKeyLoader interface {
-		load() (string, error)
-	}
-
 	vaultPrivKeyLoader struct {
 		cfg *hashiCorpVault
 		*vaultClient
@@ -73,7 +64,7 @@ func (l *vaultPrivKeyLoader) load() (string, error) {
 	return v, nil
 }
 
-func newVaultClient(cfg *hashiCorpVault) (*vaultClient, error) {
+func newVaultPrivKeyLoader(cfg *hashiCorpVault) (*vaultPrivKeyLoader, error) {
 	conf := api.DefaultConfig()
 	conf.Address = cfg.Address
 	conf.Timeout = defaultHTTPTimeout
@@ -83,7 +74,8 @@ func newVaultClient(cfg *hashiCorpVault) (*vaultClient, error) {
 	}
 	cli.SetToken(cfg.Token)
 
-	return &vaultClient{
-		cli: cli.Logical(),
+	return &vaultPrivKeyLoader{
+		vaultClient: &vaultClient{cli: cli.Logical()},
+		cfg:         cfg,
 	}, nil
 }
