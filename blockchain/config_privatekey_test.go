@@ -52,9 +52,7 @@ func TestVault(t *testing.T) {
 	t.Run("VaultSuccess", func(t *testing.T) {
 		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
 			Data: map[string]interface{}{
-				"data": map[string]interface{}{
-					vaultTestKey: vaultTestValue,
-				},
+				vaultTestKey: vaultTestValue,
 			},
 		}, nil)
 		res, err := loader.load()
@@ -66,22 +64,9 @@ func TestVault(t *testing.T) {
 		_, err := loader.load()
 		r.Contains(err.Error(), "secret does not exist")
 	})
-	t.Run("VaultInvalidDataType", func(t *testing.T) {
-		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
-			Data: map[string]interface{}{
-				"data": map[string]string{
-					vaultTestKey: vaultTestValue,
-				},
-			},
-		}, nil)
-		_, err := loader.load()
-		r.Contains(err.Error(), "invalid data type")
-	})
 	t.Run("VaultNoValue", func(t *testing.T) {
 		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
-			Data: map[string]interface{}{
-				"data": map[string]interface{}{},
-			},
+			Data: map[string]interface{}{},
 		}, nil)
 		_, err := loader.load()
 		r.Contains(err.Error(), "secret value does not exist")
@@ -89,9 +74,7 @@ func TestVault(t *testing.T) {
 	t.Run("VaultInvalidSecretValueType", func(t *testing.T) {
 		reader.EXPECT().Read(gomock.Any()).Return(&api.Secret{
 			Data: map[string]interface{}{
-				"data": map[string]interface{}{
-					vaultTestKey: 123,
-				},
+				vaultTestKey: 123,
 			},
 		}, nil)
 		_, err := loader.load()
