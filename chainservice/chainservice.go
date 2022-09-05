@@ -54,11 +54,19 @@ var (
 		},
 		[]string{"sender", "recipient"},
 	)
+	_blockchainFullnessMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_blockchain_fullness",
+			Help: "Blockchain fullness statistics",
+		},
+		[]string{"message_type"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(_apiCallWithChainIDMtc)
 	prometheus.MustRegister(_apiCallWithOutChainIDMtc)
+	prometheus.MustRegister(_blockchainFullnessMtc)
 }
 
 // ChainService is a blockchain service with all blockchain components.
@@ -91,7 +99,8 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // ReportFullness switch on or off block sync
-func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType, fullness float32) {
+func (cs *ChainService) ReportFullness(_ context.Context, messageType iotexrpc.MessageType, fullness float32) {
+	_blockchainFullnessMtc.WithLabelValues(iotexrpc.MessageType_name[int32(messageType)]).Set(float64(fullness))
 }
 
 // HandleAction handles incoming action request.

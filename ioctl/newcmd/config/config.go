@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
@@ -44,6 +45,29 @@ var (
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
 )
+
+// Multi-language support
+var (
+	_configCmdShorts = map[config.Language]string{
+		config.English: "Manage the configuration of ioctl",
+		config.Chinese: "ioctl配置管理",
+	}
+)
+
+// NewConfigCmd represents the new node command.
+func NewConfigCmd(client ioctl.Client) *cobra.Command {
+	configShorts, _ := client.SelectTranslation(_configCmdShorts)
+
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: configShorts,
+	}
+	cmd.AddCommand(NewConfigSetCmd(client))
+	cmd.AddCommand(NewConfigGetCmd(client))
+	cmd.AddCommand(NewConfigResetCmd(client))
+
+	return cmd
+}
 
 // info contains the information of config file
 type info struct {
