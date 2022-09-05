@@ -11,10 +11,26 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
+
+func TestNewConfigCmd(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_ioctlclient.NewMockClient(ctrl)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("config usage", config.English).Times(8)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any())
+	cmd := NewConfigCmd(client)
+	result, err := util.ExecuteCmd(cmd)
+	require.NoError(err)
+	require.Contains(result, "Available Commands")
+}
 
 func TestInitConfig(t *testing.T) {
 	require := require.New(t)
