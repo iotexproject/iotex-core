@@ -63,9 +63,9 @@ func NewServerV2(
 		return nil, errors.Wrapf(err, "cannot config tracer provider")
 	}
 
-	wrappedWeb3Handler := otelhttp.NewHandler(newHTTPHandler(web3Handler), "web3.jsonrpc", otelhttp.WithTracerProvider(tp))
+	wrappedWeb3Handler := otelhttp.NewHandler(newHTTPHandler(web3Handler), "web3.jsonrpc")
 
-	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler), "web3.websocket", otelhttp.WithTracerProvider(tp))
+	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler), "web3.websocket")
 
 	return &ServerV2{
 		core:         coreAPI,
