@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -62,11 +63,15 @@ func NewServerV2(
 		return nil, errors.Wrapf(err, "cannot config tracer provider")
 	}
 
+	wrappedWeb3Handler := otelhttp.NewHandler(newHTTPHandler(web3Handler), "web3.jsonrpc", otelhttp.WithTracerProvider(tp))
+
+	wrappedWebsocketHandler := otelhttp.NewHandler(NewWebsocketHandler(web3Handler), "web3.websocket", otelhttp.WithTracerProvider(tp))
+
 	return &ServerV2{
 		core:         coreAPI,
 		grpcServer:   NewGRPCServer(coreAPI, cfg.GRPCPort),
-		httpSvr:      NewHTTPServer("", cfg.HTTPPort, newHTTPHandler(web3Handler)),
-		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, NewWebsocketHandler(web3Handler)),
+		httpSvr:      NewHTTPServer("", cfg.HTTPPort, wrappedWeb3Handler),
+		websocketSvr: NewHTTPServer("", cfg.WebSocketPort, wrappedWebsocketHandler),
 		tracer:       tp,
 	}, nil
 }
