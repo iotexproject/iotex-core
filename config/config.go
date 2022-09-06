@@ -116,21 +116,11 @@ var (
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
+			HTTPAdminPort:         0,
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB: db.Config{
-			NumRetries:            3,
-			MaxCacheSize:          64,
-			BlockStoreBatchSize:   16,
-			V2BlocksToSplitDB:     1000000,
-			Compressor:            "Snappy",
-			CompressLegacy:        false,
-			SplitDBSizeMB:         0,
-			SplitDBHeight:         900000,
-			HistoryStateRetention: 2000,
-		},
+		DB:      db.DefaultConfig,
 		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
 	}
@@ -277,6 +267,10 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 	var cfg Config
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+	}
+
+	if err := cfg.Chain.SetProducerPrivKey(); err != nil {
+		return Config{}, errors.Wrap(err, "failed to set producer private key")
 	}
 
 	// set network master key to private key
@@ -433,6 +427,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "LordHowe is heigher than Midway")
 	case hu.MidwayBlockHeight > hu.NewfoundlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Midway is heigher than Newfoundland")
+	case hu.NewfoundlandBlockHeight > hu.OkhotskBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Newfoundland is heigher than Okhotsk")
 	}
 	return nil
 }
