@@ -68,7 +68,11 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 				input["exp"] = "0"
 			}
 
-			signer, err := action.Signer(client, cmd)
+			signer, err := cmd.Flags().GetString("signer")
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag signer")
+			}
+			signer, err = action.Signer(client, signer)
 			if err != nil {
 				return errors.Wrap(err, "failed to get signer address")
 			}
