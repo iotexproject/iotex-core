@@ -18,11 +18,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tidwall/gjson"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
@@ -33,7 +35,7 @@ const (
 type (
 	// Web3Handler handle JRPC request
 	Web3Handler interface {
-		HandlePOSTReq(io.Reader, apitypes.Web3ResponseWriter) error
+		HandlePOSTReq(context.Context, io.Reader, apitypes.Web3ResponseWriter) error
 	}
 
 	web3Handler struct {
@@ -85,30 +87,39 @@ func NewWeb3Handler(core CoreService, cacheURL string) Web3Handler {
 }
 
 // HandlePOSTReq handles web3 request
-func (svr *web3Handler) HandlePOSTReq(reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) HandlePOSTReq(ctx context.Context, reader io.Reader, writer apitypes.Web3ResponseWriter) error {
+	ctx, span := tracer.NewSpan(ctx, "svr.HandlePOSTReq")
+	defer span.End()
 	web3Reqs, err := parseWeb3Reqs(reader)
 	if err != nil {
 		err := errors.Wrap(err, "failed to parse web3 requests.")
+		span.RecordError(err)
 		return writer.Write(&web3Response{err: err})
 	}
 	if !web3Reqs.IsArray() {
-		return svr.handleWeb3Req(&web3Reqs, writer)
+		return svr.handleWeb3Req(ctx, &web3Reqs, writer)
 	}
 	batchWriter := apitypes.NewBatchWriter(writer)
 	web3ReqArr := web3Reqs.Array()
 	for i := range web3ReqArr {
-		if err := svr.handleWeb3Req(&web3ReqArr[i], batchWriter); err != nil {
+		if err := svr.handleWeb3Req(ctx, &web3ReqArr[i], batchWriter); err != nil {
 			return err
 		}
 	}
 	return batchWriter.Flush()
 }
 
-func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
+func (svr *web3Handler) handleWeb3Req(ctx context.Context, web3Req *gjson.Result, writer apitypes.Web3ResponseWriter) error {
 	var (
 		res    interface{}
 		err    error
 		method = web3Req.Get("method").Value()
+	)
+	span := tracer.SpanFromContext(ctx)
+	defer span.End()
+	span.AddEvent("handleWeb3Req")
+	span.SetAttributes(
+		attribute.String("method", method.(string)),
 	)
 	log.Logger("api").Debug("web3Debug", zap.String("requestParams", fmt.Sprintf("%+v", web3Req)))
 	_web3ServerMtc.WithLabelValues(method.(string)).Inc()
@@ -214,6 +225,8 @@ func (svr *web3Handler) handleWeb3Req(web3Req *gjson.Result, writer apitypes.Web
 }
 
 func parseWeb3Reqs(reader io.Reader) (gjson.Result, error) {
+	_, span := tracer.NewSpan(context.Background(), "parseWeb3Reqs")
+	defer span.End()
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return gjson.Result{}, err
