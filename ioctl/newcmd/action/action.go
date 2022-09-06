@@ -140,7 +140,7 @@ func selectTranslation(client ioctl.Client, trls map[config.Language]string) str
 
 // NewActionCmd represents the action command
 func NewActionCmd(client ioctl.Client) *cobra.Command {
-	ac := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "action",
 		Short: selectTranslation(client, _actionCmdShorts),
 	}
@@ -155,9 +155,10 @@ func NewActionCmd(client ioctl.Client) *cobra.Command {
 	// cmd.AddCommand(NewActionDeposit(client))
 	// cmd.AddCommand(NewActionSendRaw(client))
 
-	client.SetEndpointWithFlag(ac.PersistentFlags().StringVar)
-	client.SetInsecureWithFlag(ac.PersistentFlags().BoolVar)
-	return ac
+	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
+	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
+
+	return cmd
 }
 
 // RegisterWriteCommand registers action flags for command
@@ -298,7 +299,7 @@ func SendAction(client ioctl.Client,
 ) error {
 	sk, err := account.PrivateKeyFromSigner(client, cmd, signer, password)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get privateKey")
 	}
 
 	chainMeta, err := bc.GetChainMeta(client)
@@ -327,12 +328,11 @@ func SendAction(client ioctl.Client,
 
 	selp := sealed.Proto()
 	sk.Zero()
-	// TODO wait newcmd/action/actionhash impl pr #3425
-	// actionInfo, err := printActionProto(selp)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to print action proto message")
-	// }
-	// cmd.Println(actionInfo)
+	actionInfo, err := printActionProto(client, selp)
+	if err != nil {
+		return errors.Wrap(err, "failed to print action proto message")
+	}
+	cmd.Println(actionInfo)
 
 	if !assumeYes {
 		infoWarn := selectTranslation(client, _infoWarn)
