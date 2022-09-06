@@ -361,9 +361,9 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	return nil
 }
 
-//======================================
+// ======================================
 // private functions
-//======================================
+// ======================================
 func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
 	span := tracer.SpanFromContext(ctx)
 	defer span.End()

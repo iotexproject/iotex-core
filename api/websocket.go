@@ -53,10 +53,10 @@ func (wsSvr *WebsocketHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	wsSvr.handleConnection(ws)
+	wsSvr.handleConnection(req.Context(), ws)
 }
 
-func (wsSvr *WebsocketHandler) handleConnection(ws *websocket.Conn) {
+func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websocket.Conn) {
 	defer ws.Close()
 	if err := ws.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
 		log.Logger("api").Warn("failed to set read deadline timeout.", zap.Error(err))
@@ -69,7 +69,7 @@ func (wsSvr *WebsocketHandler) handleConnection(ws *websocket.Conn) {
 		return nil
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	go ping(ctx, ws, cancel)
 
 	for {
@@ -84,7 +84,7 @@ func (wsSvr *WebsocketHandler) handleConnection(ws *websocket.Conn) {
 				return
 			}
 
-			err = wsSvr.msgHandler.HandlePOSTReq(reader,
+			err = wsSvr.msgHandler.HandlePOSTReq(ctx, reader,
 				apitypes.NewResponseWriter(
 					func(resp interface{}) error {
 						if err = ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {

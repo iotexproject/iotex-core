@@ -8,18 +8,24 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	apitypes "github.com/iotexproject/iotex-core/api/types"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_apicoreservice"
+	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
 )
 
 func TestGrpcServer_GetAccount(t *testing.T) {
@@ -29,45 +35,267 @@ func TestGrpcServer_GetAccount(t *testing.T) {
 	core := mock_apicoreservice.NewMockCoreService(ctrl)
 	grpcSvr := newGRPCHandler(core)
 
-	for _, test := range _getAccountTests {
-		accountMeta := &iotextypes.AccountMeta{
-			Address: test.address,
+	t.Run("get acccount", func(t *testing.T) {
+		for _, test := range _getAccountTests {
+			accountMeta := &iotextypes.AccountMeta{
+				Address: test.address,
+			}
+			blockIdentifier := &iotextypes.BlockIdentifier{}
+			request := &iotexapi.GetAccountRequest{
+				Address: test.address,
+			}
+
+			core.EXPECT().Account(gomock.Any()).Return(accountMeta, blockIdentifier, nil)
+
+			res, err := grpcSvr.GetAccount(context.Background(), request)
+			require.NoError(err)
+			require.Equal(test.address, res.AccountMeta.Address)
 		}
-		blockIdentifier := &iotextypes.BlockIdentifier{}
+	})
+
+	t.Run("failed to get account", func(t *testing.T) {
+		expectedErr := errors.New("failed to get account")
 		request := &iotexapi.GetAccountRequest{
-			Address: test.address,
+			Address: "io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 		}
 
-		core.EXPECT().Account(gomock.Any()).Return(accountMeta, blockIdentifier, nil)
+		core.EXPECT().Account(gomock.Any()).Return(nil, nil, expectedErr)
 
-		res, err := grpcSvr.GetAccount(context.Background(), request)
-		require.NoError(err)
-		require.Equal(test.address, res.AccountMeta.Address)
-	}
+		_, err := grpcSvr.GetAccount(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("invalid address", func(t *testing.T) {
+		expectedErr := errors.New("invalid address")
+		request := &iotexapi.GetAccountRequest{
+			Address: "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5",
+		}
+
+		_, err := grpcSvr.GetAccount(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_GetActions(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
-}
+	t.Run("get actions by address tests", func(t *testing.T) {
+		for _, test := range _getActionsByAddressTests {
+			actInfo := &iotexapi.ActionInfo{
+				Index:   0,
+				ActHash: "test",
+			}
+			response := []*iotexapi.ActionInfo{}
+			for i := 1; i <= test.numActions; i++ {
+				response = append(response, actInfo)
+			}
 
-func TestGrpcServer_GetAction(t *testing.T) {
+			requests := []struct {
+				req  *iotexapi.GetActionsRequest
+				call func()
+			}{
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_ByAddr{
+							ByAddr: &iotexapi.GetActionsByAddressRequest{
+								Address: test.address,
+								Start:   test.start,
+								Count:   test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().ActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_UnconfirmedByAddr{
+							UnconfirmedByAddr: &iotexapi.GetUnconfirmedActionsByAddressRequest{
+								Address: test.address,
+								Start:   test.start,
+								Count:   test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().UnconfirmedActionsByAddress(gomock.Any(), gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+				{
+					req: &iotexapi.GetActionsRequest{
+						Lookup: &iotexapi.GetActionsRequest_ByIndex{
+							ByIndex: &iotexapi.GetActionsByIndexRequest{
+								Start: test.start,
+								Count: test.count,
+							},
+						},
+					},
+					call: func() {
+						core.EXPECT().Actions(gomock.Any(), gomock.Any()).Return(response, nil)
+					},
+				},
+			}
 
-}
+			for _, request := range requests {
+				request.call()
+				res, err := grpcSvr.GetActions(context.Background(), request.req)
+				require.NoError(err)
+				require.Equal(uint64(test.numActions), res.Total)
+			}
+		}
+	})
 
-func TestGrpcServer_GetActionsByAddress(t *testing.T) {
+	t.Run("get actions by hash", func(t *testing.T) {
+		for _, test := range _getActionTests {
+			response := &iotexapi.ActionInfo{
+				Index:     0,
+				ActHash:   "test",
+				BlkHeight: test.blkNumber,
+			}
+			request := &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByHash{
+					ByHash: &iotexapi.GetActionByHashRequest{
+						ActionHash:   test.in,
+						CheckPending: test.checkPending,
+					},
+				},
+			}
 
-}
+			core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(response, nil)
 
-func TestGrpcServer_GetUnconfirmedActionsByAddress(t *testing.T) {
+			res, err := grpcSvr.GetActions(context.Background(), request)
+			require.NoError(err)
+			require.Len(res.ActionInfo, 1)
+			require.Equal(test.blkNumber, res.ActionInfo[0].BlkHeight)
+		}
+	})
 
-}
+	t.Run("get actions by block test", func(t *testing.T) {
+		addr1 := identityset.Address(28).String()
+		priKey1 := identityset.PrivateKey(28)
 
-func TestGrpcServer_GetActionsByBlock(t *testing.T) {
+		tsf1, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
 
+		for _, test := range _getActionsByBlockTests {
+			gasConsumed, ok := new(big.Int).SetString(test.firstTxGas, 10)
+			if !ok {
+				gasConsumed = big.NewInt(0)
+			}
+
+			response := &apitypes.BlockWithReceipts{
+				Block:    &block.Block{},
+				Receipts: []*action.Receipt{},
+			}
+			for i := 1; i <= test.numActions; i++ {
+				response.Block.Actions = append(response.Block.Actions, tsf1)
+				response.Receipts = append(response.Receipts, &action.Receipt{
+					BlockHeight: test.blkHeight,
+					GasConsumed: gasConsumed.Uint64(),
+				})
+			}
+
+			request := &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByBlk{
+					ByBlk: &iotexapi.GetActionsByBlockRequest{
+						BlkHash: _blkHash[test.blkHeight],
+						Start:   test.start,
+						Count:   test.count,
+					},
+				},
+			}
+
+			core.EXPECT().BlockByHash(gomock.Any()).Return(response, nil)
+
+			res, err := grpcSvr.GetActions(context.Background(), request)
+			require.NoError(err)
+			require.Equal(test.numActions-int(test.start), int(res.Total))
+		}
+	})
+
+	t.Run("invalid GetActionsRequest type", func(t *testing.T) {
+		expectedErr := errors.New("invalid GetActionsRequest type")
+		request := &iotexapi.GetActionsRequest{}
+
+		_, err := grpcSvr.GetActions(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get actions", func(t *testing.T) {
+		expectedErr := errors.New("failed to get actions")
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash:   hex.EncodeToString(_transferHash1[:]),
+					CheckPending: false,
+				},
+			},
+		}
+
+		core.EXPECT().Action(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
+
+		_, err := grpcSvr.GetActions(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_GetBlockMetas(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	errStr := "get block metas mock test error"
+	reqIndex := &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{},
+		},
+	}
+	reqHash := &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+			ByHash: &iotexapi.GetBlockMetaByHashRequest{},
+		},
+	}
+	ret := &apitypes.BlockWithReceipts{
+		Block: &block.Block{},
+		Receipts: []*action.Receipt{
+			{},
+		},
+	}
+	rets := []*apitypes.BlockWithReceipts{ret}
+
+	t.Run("GetBlockMetasInvalidType", func(t *testing.T) {
+		_, err := grpcSvr.GetBlockMetas(context.Background(), &iotexapi.GetBlockMetasRequest{})
+		require.Contains(err.Error(), "invalid GetBlockMetasRequest type")
+	})
+	t.Run("GetBlockMetasByIndexFailed", func(t *testing.T) {
+		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(nil, errors.New(errStr))
+		_, err := grpcSvr.GetBlockMetas(context.Background(), reqIndex)
+		require.Contains(err.Error(), errStr)
+	})
+	t.Run("GetBlockMetasByIndexSuccess", func(t *testing.T) {
+		core.EXPECT().BlockByHeightRange(gomock.Any(), gomock.Any()).Return(rets, nil)
+		res, err := grpcSvr.GetBlockMetas(context.Background(), reqIndex)
+		require.NoError(err)
+		require.Equal(res.Total, uint64(1))
+	})
+	t.Run("GetBlockMetasByHashFailed", func(t *testing.T) {
+		core.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New(errStr))
+		_, err := grpcSvr.GetBlockMetas(context.Background(), reqHash)
+		require.Contains(err.Error(), errStr)
+	})
+	t.Run("GetBlockMetasByHashSuccess", func(t *testing.T) {
+		core.EXPECT().BlockByHash(gomock.Any()).Return(ret, nil)
+		res, err := grpcSvr.GetBlockMetas(context.Background(), reqHash)
+		require.NoError(err)
+		require.Equal(res.Total, uint64(1))
+	})
 }
 
 func TestGrpcServer_GetBlockMeta(t *testing.T) {
@@ -95,11 +323,83 @@ func TestGrpcServer_SendAction(t *testing.T) {
 }
 
 func TestGrpcServer_StreamLogs(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
 
+	t.Run("StreamLogsEmptyFilter", func(t *testing.T) {
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
+		require.Contains(err.Error(), "empty filter")
+	})
+	t.Run("StreamLogsAddResponderFailed", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).Return("", errors.New("mock test"))
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)
+		require.Contains(err.Error(), "mock test")
+	})
+	t.Run("StreamLogsSuccess", func(t *testing.T) {
+		listener := mock_apitypes.NewMockListener(ctrl)
+		listener.EXPECT().AddResponder(gomock.Any()).DoAndReturn(func(g *gRPCLogListener) (string, error) {
+			go func() {
+				g.errChan <- nil
+			}()
+			return "", nil
+		})
+		core.EXPECT().ChainListener().Return(listener)
+		err := grpcSvr.StreamLogs(&iotexapi.StreamLogsRequest{Filter: &iotexapi.LogsFilter{}}, nil)
+		require.NoError(err)
+	})
 }
 
 func TestGrpcServer_GetReceiptByAction(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	receipt := &action.Receipt{
+		Status:          1,
+		BlockHeight:     1,
+		ActionHash:      hash.BytesToHash256([]byte("test")),
+		GasConsumed:     1,
+		ContractAddress: "test",
+		TxIndex:         1,
+	}
 
+	t.Run("get receipt by action", func(t *testing.T) {
+		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+		core.EXPECT().BlockHashByBlockHeight(gomock.Any()).Return(hash.ZeroHash256, nil)
+
+		res, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
+		require.NoError(err)
+		require.Equal(receipt.Status, res.ReceiptInfo.Receipt.Status)
+		require.Equal(receipt.BlockHeight, res.ReceiptInfo.Receipt.BlkHeight)
+		require.Equal(receipt.ActionHash[:], res.ReceiptInfo.Receipt.ActHash)
+		require.Equal(receipt.GasConsumed, res.ReceiptInfo.Receipt.GasConsumed)
+		require.Equal(receipt.ContractAddress, res.ReceiptInfo.Receipt.ContractAddress)
+		require.Equal(receipt.TxIndex, res.ReceiptInfo.Receipt.TxIndex)
+		require.Equal(hex.EncodeToString(hash.ZeroHash256[:]), res.ReceiptInfo.BlkHash)
+	})
+
+	t.Run("failed to get block hash by block height", func(t *testing.T) {
+		expectedErr := errors.New("failed to get block hash by block height")
+		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, nil)
+		core.EXPECT().BlockHashByBlockHeight(gomock.Any()).Return(hash.ZeroHash256, expectedErr)
+
+		_, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get reciept by action hash", func(t *testing.T) {
+		expectedErr := errors.New("failed to get reciept by action hash")
+		core.EXPECT().ReceiptByActionHash(gomock.Any()).Return(receipt, expectedErr)
+
+		_, err := grpcSvr.GetReceiptByAction(context.Background(), &iotexapi.GetReceiptByActionRequest{})
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_GetServerMeta(t *testing.T) {
@@ -120,7 +420,87 @@ func TestGrpcServer_GetServerMeta(t *testing.T) {
 }
 
 func TestGrpcServer_ReadContract(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	core := mock_apicoreservice.NewMockCoreService(ctrl)
+	grpcSvr := newGRPCHandler(core)
+	response := &iotextypes.Receipt{
+		ActHash:     []byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"),
+		GasConsumed: 10100,
+	}
 
+	t.Run("read contract", func(t *testing.T) {
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: identityset.Address(0).String(),
+			GasLimit:      10100,
+		}
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
+
+		res, err := grpcSvr.ReadContract(context.Background(), request)
+		require.NoError(err)
+		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), res.Receipt.ActHash)
+		require.Equal(10100, int(res.Receipt.GasConsumed))
+	})
+
+	t.Run("read contract from empty address", func(t *testing.T) {
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: "",
+			GasLimit:      10100,
+		}
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", response, nil)
+
+		res, err := grpcSvr.ReadContract(context.Background(), request)
+		require.NoError(err)
+		require.Equal([]byte("08b0066e10b5607e47159c2cf7ba36e36d0c980f5108dfca0ec20547a7adace4"), res.Receipt.ActHash)
+		require.Equal(10100, int(res.Receipt.GasConsumed))
+	})
+
+	t.Run("failed to read contract", func(t *testing.T) {
+		expectedErr := errors.New("failed to read contract")
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: "",
+			GasLimit:      10100,
+		}
+		core.EXPECT().ReadContract(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil, expectedErr)
+
+		_, err := grpcSvr.ReadContract(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to load execution", func(t *testing.T) {
+		expectedErr := errors.New("empty action proto to load")
+		request := &iotexapi.ReadContractRequest{
+			CallerAddress: "",
+			GasLimit:      10100,
+		}
+
+		_, err := grpcSvr.ReadContract(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("invalid caller address", func(t *testing.T) {
+		expectedErr := errors.New("invalid address")
+		request := &iotexapi.ReadContractRequest{
+			Execution: &iotextypes.Execution{
+				Data: _executionHash1[:],
+			},
+			CallerAddress: "9254d943485d0fb859ff63c5581acc44f00fc2110343ac0445b99dfe39a6f1a5",
+			GasLimit:      10100,
+		}
+
+		_, err := grpcSvr.ReadContract(context.Background(), request)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
 }
 
 func TestGrpcServer_SuggestGasPrice(t *testing.T) {
