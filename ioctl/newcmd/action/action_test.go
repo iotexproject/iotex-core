@@ -168,14 +168,14 @@ func TestSendAction(t *testing.T) {
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", "")
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, accAddr.String())
+		err = SendAction(client, cmd, elp, accAddr.String(), "", 0, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
 	client.EXPECT().ReadSecret().Return(passwd, nil).Times(1)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(7)
-	client.EXPECT().Alias(gomock.Any()).Return("producer", nil).Times(8)
+	client.EXPECT().Alias(gomock.Any()).Return("producer", nil).Times(10)
 	client.EXPECT().ReadInput().Return("confirm", nil)
 	client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil).Times(2)
 	client.EXPECT().Config().Return(config.Config{
@@ -184,15 +184,15 @@ func TestSendAction(t *testing.T) {
 	}).Times(11)
 
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(6)
-	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil).Times(5)
-	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil).Times(3)
+	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil).Times(4)
+	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil).Times(4)
 
 	t.Run("sends signed action to blockchain", func(t *testing.T) {
 		cmd := NewActionCmd(client)
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, accAddr.String())
+		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.NoError(err)
 	})
 
@@ -204,7 +204,7 @@ func TestSendAction(t *testing.T) {
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, "hdw::1/2")
+		err = SendAction(client, cmd, elp, "hdw::1/2", passwd, 1, false)
 		require.NoError(err)
 	})
 
@@ -215,7 +215,7 @@ func TestSendAction(t *testing.T) {
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, accAddr.String())
+		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.NoError(err)
 	})
 
@@ -227,7 +227,7 @@ func TestSendAction(t *testing.T) {
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, accAddr.String())
+		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -239,7 +239,7 @@ func TestSendAction(t *testing.T) {
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, accAddr.String())
+		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -253,19 +253,20 @@ func TestSendAction(t *testing.T) {
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, "hdw::1/2")
+		err = SendAction(client, cmd, elp, "hdw::1/2", passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
 	t.Run("failed to get chain meta", func(t *testing.T) {
 		expectedErr := errors.New("failed to get chain meta")
 		apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
+		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
 
 		cmd := NewActionCmd(client)
 		RegisterWriteCommand(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--password", passwd)
 		require.NoError(err)
-		err = SendAction(client, cmd, elp, accAddr.String())
+		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 }
