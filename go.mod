@@ -38,10 +38,10 @@ require (
 	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.25.0
-	go.opentelemetry.io/otel v1.0.1
+	go.opentelemetry.io/otel v1.9.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.1
 	go.opentelemetry.io/otel/sdk v1.0.1
-	go.opentelemetry.io/otel/trace v1.0.1
+	go.opentelemetry.io/otel/trace v1.9.0
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.16.0
@@ -57,6 +57,7 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.2
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	golang.org/x/text v0.3.7
 )
@@ -73,7 +74,10 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustinxie/gmsm v1.4.0 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
+	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -185,6 +189,7 @@ require (
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
+	go.opentelemetry.io/otel/metric v0.31.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
