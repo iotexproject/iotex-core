@@ -56,21 +56,36 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 				}
 			}
 
-			sender, err := Signer(client, cmd)
+			signer, err := cmd.Flags().GetString(signerFlagLabel)
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag signer")
+			}
+			sender, err := Signer(client, signer)
 			if err != nil {
 				return errors.Wrap(err, "failed to get signed address")
 			}
 
-			gasLimit := gasLimitFlagValue(cmd)
+			gasLimit, err := cmd.Flags().GetUint64(gasLimitFlagLabel)
+			if err != nil {
+				return errors.Wrap(err, "failed to get flage gas-limit")
+			}
 			if gasLimit == 0 {
 				gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
 			}
 
-			gasPriceRau, err := gasPriceInRau(client, cmd)
+			gasPrice, err := cmd.Flags().GetString(gasPriceFlagLabel)
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag gas-price")
+			}
+			gasPriceRau, err := gasPriceInRau(client, gasPrice)
 			if err != nil {
 				return errors.Wrap(err, "failed to get gas price")
 			}
-			nonce, err := nonce(client, cmd, sender)
+			nonce, err := cmd.Flags().GetUint64(nonceFlagLabel)
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag nonce")
+			}
+			nonce, err = checkNonce(client, nonce, sender)
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
@@ -78,6 +93,14 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 			s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
 			if err != nil {
 				return errors.Wrap(err, "failed to make a changeCandidate instance")
+			}
+			password, err := cmd.Flags().GetString(passwordFlagLabel)
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag password")
+			}
+			assumeYes, err := cmd.Flags().GetBool(assumeYesFlagLabel)
+			if err != nil {
+				return errors.Wrap(err, "failed to get flag assume-yes")
 			}
 			return SendAction(
 				client,
@@ -87,7 +110,11 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 					SetGasPrice(gasPriceRau).
 					SetGasLimit(gasLimit).
 					SetAction(s2w).Build(),
-				sender)
+				sender,
+				password,
+				nonce,
+				assumeYes,
+			)
 		},
 	}
 	RegisterWriteCommand(client, cmd)
