@@ -62,7 +62,12 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
-			return action.Execute(client, cmd, contract, big.NewInt(0), bytecode)
+
+			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := action.GetWriteCommandFlag(cmd)
+			if err != nil {
+				return err
+			}
+			return action.Execute(client, cmd, contract, big.NewInt(0), bytecode, gasPrice, signer, password, nonce, gasLimit, assumeYes)
 		},
 	}
 	action.RegisterWriteCommand(client, cmd)
