@@ -350,7 +350,7 @@ func SendAction(client ioctl.Client,
 	return SendRaw(client, cmd, selp)
 }
 
-// Execute sends signed execution transaction to blockchain
+// Execute sends signed execution's transaction to blockchain
 func Execute(client ioctl.Client,
 	cmd *cobra.Command,
 	contract string,
