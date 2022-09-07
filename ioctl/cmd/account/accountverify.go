@@ -23,15 +23,11 @@ var (
 		config.English: "Verify IoTeX public key and address by private key",
 		config.Chinese: "用私钥验证IoTeX的公钥和地址",
 	}
-	_verifyCmdUses = map[config.Language]string{
-		config.English: "verify",
-		config.Chinese: "verify 验证",
-	}
 )
 var (
 	// _accountVerifyCmd represents the account verify command
 	_accountVerifyCmd = &cobra.Command{
-		Use:   config.TranslateInLang(_verifyCmdUses, config.UILanguage),
+		Use:   "verify",
 		Short: config.TranslateInLang(_verifyCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

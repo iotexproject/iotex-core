@@ -26,10 +26,15 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+)
+
+// const
+const (
+	SigP256k1  = "secp256k1"
+	SigP256sm2 = "p256sm2"
 )
 
 var (
@@ -97,10 +102,27 @@ type (
 		// RemoveSubscriber make you listen to every single produced block
 		RemoveSubscriber(BlockCreationSubscriber) error
 	}
+
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
+	}
+
+	// blockchain implements the Blockchain interface
+	blockchain struct {
+		mu             sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+		dao            blockdao.BlockDAO
+		config         Config
+		genesis        genesis.Genesis
+		blockValidator block.Validator
+		lifecycle      lifecycle.Lifecycle
+		clk            clock.Clock
+		pubSubManager  PubSubManager
+		timerFactory   *prometheustimer.TimerFactory
+
+		// used by account-based model
+		bbf BlockBuilderFactory
 	}
 )
 
@@ -119,27 +141,12 @@ func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[stri
 	return stats, nil
 }
 
-// blockchain implements the Blockchain interface
-type blockchain struct {
-	mu             sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao            blockdao.BlockDAO
-	config         config.Config
-	blockValidator block.Validator
-	lifecycle      lifecycle.Lifecycle
-	clk            clock.Clock
-	pubSubManager  PubSubManager
-	timerFactory   *prometheustimer.TimerFactory
-
-	// used by account-based model
-	bbf BlockBuilderFactory
-}
-
 // Option sets blockchain construction parameter
-type Option func(*blockchain, config.Config) error
+type Option func(*blockchain) error
 
 // BlockValidatorOption sets block validator
 func BlockValidatorOption(blockValidator block.Validator) Option {
-	return func(bc *blockchain, cfg config.Config) error {
+	return func(bc *blockchain) error {
 		bc.blockValidator = blockValidator
 		return nil
 	}
@@ -147,24 +154,25 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 
 // ClockOption overrides the default clock
 func ClockOption(clk clock.Clock) Option {
-	return func(bc *blockchain, conf config.Config) error {
+	return func(bc *blockchain) error {
 		bc.clk = clk
 		return nil
 	}
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
+func NewBlockchain(cfg Config, g genesis.Genesis, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config:        cfg,
+		genesis:       g,
 		dao:           dao,
 		bbf:           bbf,
 		clk:           clock.New(),
-		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
+		pubSubManager: NewPubSub(cfg.StreamingBlockBufferSize),
 	}
 	for _, opt := range opts {
-		if err := opt(chain, cfg); err != nil {
+		if err := opt(chain); err != nil {
 			log.S().Panicf("Failed to execute blockchain creation option %p: %v", opt, err)
 		}
 	}
@@ -172,7 +180,7 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		"iotex_blockchain_perf",
 		"Performance of blockchain module",
 		[]string{"topic", "chainID"},
-		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
+		[]string{"default", strconv.FormatUint(uint64(cfg.ID), 10)},
 	)
 	if err != nil {
 		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
@@ -188,15 +196,15 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 }
 
 func (bc *blockchain) ChainID() uint32 {
-	return atomic.LoadUint32(&bc.config.Chain.ID)
+	return atomic.LoadUint32(&bc.config.ID)
 }
 
 func (bc *blockchain) EvmNetworkID() uint32 {
-	return atomic.LoadUint32(&bc.config.Chain.EVMNetworkID)
+	return atomic.LoadUint32(&bc.config.EVMNetworkID)
 }
 
 func (bc *blockchain) ChainAddress() string {
-	return bc.config.Chain.Address
+	return bc.config.Address
 }
 
 // Start starts the blockchain
@@ -302,7 +310,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimit,
 			Producer:       producerAddr,
 		},
 	)
@@ -328,7 +336,7 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
-			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			GasLimit:       bc.genesis.BlockGasLimit,
 		})
 }
 
@@ -351,7 +359,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 				EvmNetworkID: bc.EvmNetworkID(),
 			},
 		),
-		bc.config.Genesis,
+		bc.genesis,
 	)
 	return protocol.WithFeatureWithHeightCtx(ctx), nil
 }
@@ -391,7 +399,7 @@ func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	return &blk, nil
 }
 
-//  CommitBlock validates and appends a block to the chain
+// CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
@@ -418,7 +426,7 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 //=====================================
 
 func (bc *blockchain) Genesis() genesis.Genesis {
-	return bc.config.Genesis
+	return bc.genesis
 }
 
 //======================================
@@ -433,8 +441,8 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 	if tipHeight == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
-			Hash:      bc.config.Genesis.Hash(),
-			Timestamp: time.Unix(bc.config.Genesis.Timestamp, 0),
+			Hash:      bc.genesis.Hash(),
+			Timestamp: time.Unix(bc.genesis.Timestamp, 0),
 		}, nil
 	}
 	header, err := bc.dao.HeaderByHeight(tipHeight)

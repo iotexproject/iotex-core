@@ -157,7 +157,7 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if !testGreenland && v.postGreenland {
-			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 			r.NoError(err)
 			testGreenland = true
 		}
@@ -165,7 +165,7 @@ func TestBucketPool(t *testing.T) {
 
 	// verify state has been created successfully
 	var b totalAmount
-	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
+	_, err = sm.State(&b, protocol.NamespaceOption(_stakingNameSpace), protocol.KeyOption(_bucketPoolAddrKey))
 	r.NoError(err)
 	r.Equal(total, b.amount)
 	r.Equal(count, b.count)

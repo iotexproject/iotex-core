@@ -25,7 +25,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -94,7 +93,7 @@ func EnableExperimentalActions() Option {
 // actPool implements ActPool interface
 type actPool struct {
 	mutex                     sync.RWMutex
-	cfg                       config.ActPool
+	cfg                       Config
 	g                         genesis.Genesis
 	sf                        protocol.StateReader
 	accountActs               map[string]ActQueue
@@ -108,7 +107,7 @@ type actPool struct {
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg config.ActPool, opts ...Option) (ActPool, error) {
+func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...Option) (ActPool, error) {
 	if sf == nil {
 		return nil, errors.New("Try to attach a nil state reader")
 	}
@@ -362,9 +361,9 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 	return nil
 }
 
-//======================================
+// ======================================
 // private functions
-//======================================
+// ======================================
 func (ap *actPool) enqueueAction(ctx context.Context, addr address.Address, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
 	span := tracer.SpanFromContext(ctx)
 	defer span.End()

@@ -7,26 +7,30 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 
 	serverCfg "github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Regexp patterns
 const (
 	_ipPattern               = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
 	_domainPattern           = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
-	_urlPattern              = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 	_localPattern            = "localhost"
 	_endpointPattern         = "(" + _ipPattern + "|(" + _domainPattern + ")" + "|(" + _localPattern + "))" + `(:\d{1,5})?`
 	_defaultAnalyserEndpoint = "https://iotex-analyser-api-mainnet.chainanalytics.org"
@@ -41,6 +45,29 @@ var (
 	_endpointCompile   = regexp.MustCompile("^" + _endpointPattern + "$")
 	_configDir         = os.Getenv("HOME") + "/.config/ioctl/default"
 )
+
+// Multi-language support
+var (
+	_configCmdShorts = map[config.Language]string{
+		config.English: "Manage the configuration of ioctl",
+		config.Chinese: "ioctl配置管理",
+	}
+)
+
+// NewConfigCmd represents the new node command.
+func NewConfigCmd(client ioctl.Client) *cobra.Command {
+	configShorts, _ := client.SelectTranslation(_configCmdShorts)
+
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: configShorts,
+	}
+	cmd.AddCommand(NewConfigSetCmd(client))
+	cmd.AddCommand(NewConfigGetCmd(client))
+	cmd.AddCommand(NewConfigResetCmd(client))
+
+	return cmd
+}
 
 // info contains the information of config file
 type info struct {
@@ -66,8 +93,9 @@ func InitConfig() (config.Config, string, error) {
 	// Load or reset config file
 	err = info.loadConfig()
 	if os.IsNotExist(err) {
-		err = info.reset() // Config file doesn't exist
-	} else if err != nil {
+		err = info.reset()
+	}
+	if err != nil {
 		return info.readConfig, info.defaultConfigFile, err
 	}
 
@@ -94,7 +122,7 @@ func InitConfig() (config.Config, string, error) {
 		}
 	}
 	// Set language for ioctl
-	if info.isSupportedLanguage(info.readConfig.Language) == -1 {
+	if isSupportedLanguage(info.readConfig.Language) == -1 {
 		fmt.Printf("Warn: Language %s is not supported, English instead.\n", info.readConfig.Language)
 	}
 	return info.readConfig, info.defaultConfigFile, nil
@@ -110,7 +138,7 @@ func newInfo(readConfig config.Config, defaultConfigFile string) *info {
 
 // reset resets all values of config
 func (c *info) reset() error {
-	c.readConfig.Wallet = path.Dir(c.defaultConfigFile)
+	c.readConfig.Wallet = filepath.Dir(c.defaultConfigFile)
 	c.readConfig.Endpoint = ""
 	c.readConfig.SecureConnect = true
 	c.readConfig.DefaultAccount = *new(config.Context)
@@ -127,17 +155,109 @@ func (c *info) reset() error {
 	return nil
 }
 
-// isSupportedLanguage checks if the language is a supported option and returns index when supported
-func (c *info) isSupportedLanguage(arg string) config.Language {
-	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
-		return config.Language(index)
+// set sets config variable
+func (c *info) set(args []string, insecure bool, client ioctl.Client) (string, error) {
+	switch args[0] {
+	case "endpoint":
+		if !isValidEndpoint(args[1]) {
+			return "", errors.Errorf("endpoint %s is not valid", args[1])
+		}
+		c.readConfig.Endpoint = args[1]
+		c.readConfig.SecureConnect = !insecure
+	case "analyserEndpoint":
+		c.readConfig.AnalyserEndpoint = args[1]
+	case "wallet":
+		c.readConfig.Wallet = args[1]
+	case "explorer":
+		lowArg := strings.ToLower(args[1])
+		switch {
+		case isValidExplorer(lowArg):
+			c.readConfig.Explorer = lowArg
+		case args[1] == "custom":
+			link, err := client.ReadCustomLink()
+			if err != nil {
+				return "", errors.Wrapf(err, "invalid link %s", link)
+			}
+			c.readConfig.Explorer = link
+		default:
+			return "", errors.Errorf("explorer %s is not valid\nValid explorers: %s",
+				args[1], append(_validExpl, "custom"))
+		}
+	case "defaultacc":
+		if err := validator.ValidateAlias(args[1]); err == nil {
+		} else if err = validator.ValidateAddress(args[1]); err == nil {
+		} else {
+			return "", errors.Errorf("failed to validate alias or address %s", args[1])
+		}
+		c.readConfig.DefaultAccount.AddressOrAlias = args[1]
+	case "language":
+		lang := isSupportedLanguage(args[1])
+		if lang == -1 {
+			return "", errors.Errorf("language %s is not supported\nSupported languages: %s",
+				args[1], _supportedLanguage)
+		}
+		c.readConfig.Language = _supportedLanguage[lang]
+	case "nsv2height":
+		height, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return "", errors.Wrapf(err, "invalid height %d", height)
+		}
+		c.readConfig.Nsv2height = height
+	default:
+		return "", config.ErrConfigNotMatch
 	}
-	for i, lang := range _supportedLanguage {
-		if strings.EqualFold(arg, lang) {
-			return config.Language(i)
+
+	err := c.writeConfig()
+	if err != nil {
+		return "", err
+	}
+
+	return cases.Title(language.Und).String(args[0]) + " is set to " + args[1], nil
+}
+
+// get retrieves a config item from its key.
+func (c *info) get(arg string) (string, error) {
+	switch arg {
+	case "endpoint":
+		if c.readConfig.Endpoint == "" {
+			return "", config.ErrEmptyEndpoint
+		}
+		return fmt.Sprintf("%s secure connect(TLS): %t", c.readConfig.Endpoint, c.readConfig.SecureConnect), nil
+	case "wallet":
+		return c.readConfig.Wallet, nil
+	case "defaultacc":
+		if c.readConfig.DefaultAccount.AddressOrAlias == "" {
+			return "", config.ErrConfigDefaultAccountNotSet
+		}
+		return jsonString(c.readConfig.DefaultAccount)
+	case "explorer":
+		return c.readConfig.Explorer, nil
+	case "language":
+		return c.readConfig.Language, nil
+	case "nsv2height":
+		return strconv.FormatUint(c.readConfig.Nsv2height, 10), nil
+	case "analyserEndpoint":
+		return c.readConfig.AnalyserEndpoint, nil
+	case "all":
+		return jsonString(c.readConfig)
+	default:
+		return "", config.ErrConfigNotMatch
+	}
+}
+
+// isValidEndpoint makes sure the endpoint matches the endpoint match pattern
+func isValidEndpoint(endpoint string) bool {
+	return _endpointCompile.MatchString(endpoint)
+}
+
+// isValidExplorer checks if the explorer is a valid option
+func isValidExplorer(arg string) bool {
+	for _, exp := range _validExpl {
+		if arg == exp {
+			return true
 		}
 	}
-	return config.Language(-1)
+	return false
 }
 
 // writeConfig writes to config file
@@ -162,4 +282,26 @@ func (c *info) loadConfig() error {
 		return errors.Wrap(err, "failed to unmarshal config")
 	}
 	return nil
+}
+
+// isSupportedLanguage checks if the language is a supported option and returns index when supported
+func isSupportedLanguage(arg string) config.Language {
+	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(_supportedLanguage) {
+		return config.Language(index)
+	}
+	for i, lang := range _supportedLanguage {
+		if strings.EqualFold(arg, lang) {
+			return config.Language(i)
+		}
+	}
+	return config.Language(-1)
+}
+
+// jsonString returns json string for message
+func jsonString(input interface{}) (string, error) {
+	byteAsJSON, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to JSON marshal config field")
+	}
+	return fmt.Sprint(string(byteAsJSON)), nil
 }

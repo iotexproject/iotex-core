@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -82,7 +83,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
-	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
+	mBc.EXPECT().ChainID().AnyTimes().Return(blockchain.DefaultConfig.ID)
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
@@ -133,7 +134,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
+	mBc.EXPECT().ChainID().AnyTimes().Return(blockchain.DefaultConfig.ID)
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
@@ -186,7 +187,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
@@ -194,7 +196,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
@@ -248,7 +251,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap1, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -256,7 +260,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain1 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap1),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
@@ -272,7 +277,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
 	require.NoError(rp.Register(registry2))
-	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry2))
+	sf2, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry2))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -280,7 +285,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
 	chain2 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao2,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
@@ -343,7 +349,8 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 		cfg.Genesis.NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap1, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NotNil(ap1)
@@ -351,7 +358,8 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain1 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap1),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
@@ -366,7 +374,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
 	require.NoError(rolldposProtocol.Register(registry2))
-	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry2))
+	sf2, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry2))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(cfg.Genesis, sf2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -374,7 +382,8 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
 	chain2 := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao2,
 		factory.NewMinter(sf2, ap2),
 		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
@@ -430,7 +439,8 @@ func TestBlockSyncerSync(t *testing.T) {
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
@@ -438,7 +448,8 @@ func TestBlockSyncerSync(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),

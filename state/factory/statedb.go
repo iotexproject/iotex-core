@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -40,77 +39,30 @@ import (
 type stateDB struct {
 	mutex                    sync.RWMutex
 	currentChainHeight       uint64
-	cfg                      config.Config
+	cfg                      Config
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
+	workingsets              cache.LRUCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 	ps                       *patchStore
 }
 
 // StateDBOption sets stateDB construction parameter
-type StateDBOption func(*stateDB, config.Config) error
-
-// PrecreatedStateDBOption uses pre-created state db
-func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		if kv == nil {
-			return errors.New("Invalid state db")
-		}
-		sdb.dao = kv
-		return nil
-	}
-}
-
-// DefaultStateDBOption creates default state db from config
-func DefaultStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sdb.dao = db.NewBoltDB(cfg.DB)
-
-		return nil
-	}
-}
+type StateDBOption func(*stateDB, *Config) error
 
 // DefaultPatchOption loads patchs
 func DefaultPatchOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) (err error) {
+	return func(sdb *stateDB, cfg *Config) (err error) {
 		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
 }
 
-// CachedStateDBOption creates state db with cache from config
-func CachedStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sdb.dao = db.NewKvStoreWithCache(db.NewBoltDB(cfg.DB), cfg.Chain.StateDBCacheSize)
-
-		return nil
-	}
-}
-
-// InMemStateDBOption creates in memory state db
-func InMemStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
-		sdb.dao = db.NewMemKVStore()
-		return nil
-	}
-}
-
 // RegistryStateDBOption sets the registry in state db
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.registry = reg
 		return nil
 	}
@@ -118,23 +70,32 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 
 // SkipBlockValidationStateDBOption skips block validation on PutBlock
 func SkipBlockValidationStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) error {
+	return func(sdb *stateDB, cfg *Config) error {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
 }
 
+// DisableWorkingSetCacheOption disable workingset cache
+func DisableWorkingSetCacheOption() StateDBOption {
+	return func(sdb *stateDB, cfg *Config) error {
+		sdb.workingsets = cache.NewDummyLruCache()
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
-func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
+func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dao:                dao,
 	}
 	for _, opt := range opts {
-		if err := opt(&sdb, cfg); err != nil {
+		if err := opt(&sdb, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
@@ -180,7 +141,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			protocol.BlockCtx{
 				BlockHeight:    0,
 				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
-				Producer:       sdb.cfg.ProducerAddress(),
+				Producer:       sdb.cfg.Chain.ProducerAddress(),
 				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
 			})
 		ctx = protocol.WithFeatureCtx(ctx)

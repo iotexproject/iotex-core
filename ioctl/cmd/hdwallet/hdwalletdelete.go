@@ -23,15 +23,11 @@ var (
 		config.English: "delete hdwallet",
 		config.Chinese: "删除钱包",
 	}
-	_hdwalletDeleteCmdUses = map[config.Language]string{
-		config.English: "delete",
-		config.Chinese: "delete 删除",
-	}
 )
 
 // _hdwalletDeleteCmd represents the hdwallet delete command
 var _hdwalletDeleteCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_hdwalletDeleteCmdUses, config.UILanguage),
+	Use:   "delete",
 	Short: config.TranslateInLang(_hdwalletDeleteCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,7 +44,9 @@ func hdwalletDelete() error {
 		"Type 'YES' to continue, quit for anything else.")
 	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
-	fmt.Scanf("%s", &confirm)
+	if _, err := fmt.Scanf("%s", &confirm); err != nil {
+		return output.NewError(output.InputError, "failed to input yes", err)
+	}
 	if !strings.EqualFold(confirm, "yes") {
 		output.PrintResult("quit")
 		return nil

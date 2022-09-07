@@ -9,6 +9,7 @@ package hdwallet
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -21,19 +22,14 @@ var (
 		config.English: "delete hdwallet",
 		config.Chinese: "删除钱包",
 	}
-	_hdwalletDeleteCmdUses = map[config.Language]string{
-		config.English: "delete",
-		config.Chinese: "delete 删除",
-	}
 )
 
 // NewHdwalletDeleteCmd represents the hdwallet delete command
 func NewHdwalletDeleteCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_hdwalletDeleteCmdUses)
 	short, _ := client.SelectTranslation(_hdwalletDeleteCmdShorts)
 
 	return &cobra.Command{
-		Use:   use,
+		Use:   "delete",
 		Short: short,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,7 +37,11 @@ func NewHdwalletDeleteCmd(client ioctl.Client) *cobra.Command {
 			info := fmt.Sprintf("** This is an irreversible action!\n" +
 				"Once an hdwallet is deleted, all the assets under this hdwallet may be lost!\n" +
 				"Type 'YES' to continue, quit for anything else.")
-			if !client.AskToConfirm(info) {
+			confirmed, err := client.AskToConfirm(info)
+			if err != nil {
+				return errors.Wrap(err, "failed to ask confirm")
+			}
+			if !confirmed {
 				cmd.Println("quit")
 				return nil
 			}

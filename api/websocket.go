@@ -53,19 +53,23 @@ func (wsSvr *WebsocketHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	wsSvr.handleConnection(ws)
+	wsSvr.handleConnection(req.Context(), ws)
 }
 
-func (wsSvr *WebsocketHandler) handleConnection(ws *websocket.Conn) {
+func (wsSvr *WebsocketHandler) handleConnection(ctx context.Context, ws *websocket.Conn) {
 	defer ws.Close()
-	ws.SetReadDeadline(time.Now().Add(pongWait))
+	if err := ws.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		log.Logger("api").Warn("failed to set read deadline timeout.", zap.Error(err))
+	}
 	ws.SetReadLimit(maxMessageSize)
 	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(pongWait))
+		if err := ws.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+			log.Logger("api").Warn("failed to set read deadline timeout.", zap.Error(err))
+		}
 		return nil
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	go ping(ctx, ws, cancel)
 
 	for {
@@ -80,10 +84,12 @@ func (wsSvr *WebsocketHandler) handleConnection(ws *websocket.Conn) {
 				return
 			}
 
-			err = wsSvr.msgHandler.HandlePOSTReq(reader,
+			err = wsSvr.msgHandler.HandlePOSTReq(ctx, reader,
 				apitypes.NewResponseWriter(
 					func(resp interface{}) error {
-						ws.SetWriteDeadline(time.Now().Add(writeWait))
+						if err = ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+							log.Logger("api").Warn("failed to set write deadline timeout.", zap.Error(err))
+						}
 						return ws.WriteJSON(resp)
 					}),
 			)
@@ -100,7 +106,9 @@ func ping(ctx context.Context, ws *websocket.Conn, cancel context.CancelFunc) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
 		pingTicker.Stop()
-		ws.Close()
+		if err := ws.Close(); err != nil {
+			log.Logger("api").Warn("fail to close websocket connection.", zap.Error(err))
+		}
 	}()
 
 	for {
@@ -108,7 +116,9 @@ func ping(ctx context.Context, ws *websocket.Conn, cancel context.CancelFunc) {
 		case <-ctx.Done():
 			return
 		case <-pingTicker.C:
-			ws.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+				log.Logger("api").Warn("failed to set write deadline timeout.", zap.Error(err))
+			}
 			if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				log.Logger("api").Warn("fail to respond request.", zap.Error(err))
 				cancel()

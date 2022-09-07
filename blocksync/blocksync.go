@@ -9,7 +9,6 @@ package blocksync
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -213,7 +213,7 @@ func (bs *blockSyncer) requestBlock(ctx context.Context, start uint64, end uint6
 		repeat = len(peers)
 	}
 	for i := 0; i < repeat; i++ {
-		peer := peers[rand.Intn(len(peers))]
+		peer := peers[fastrand.Uint32n(uint32(len(peers)))]
 		if err := bs.unicastOutbound(
 			ctx,
 			peer,

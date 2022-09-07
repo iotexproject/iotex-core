@@ -106,18 +106,18 @@ type (
 		ActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error)
 		// ActPoolActions returns the all Transaction Identifiers in the actpool
 		ActionsInActPool(actHashes []string) ([]action.SealedEnvelope, error)
+		// BlockByHeightRange returns blocks within the height range
+		BlockByHeightRange(uint64, uint64) ([]*apitypes.BlockWithReceipts, error)
+		// BlockByHeight returns the block and its receipt from block height
+		BlockByHeight(uint64) (*apitypes.BlockWithReceipts, error)
 		// BlockByHash returns the block and its receipt
-		BlockByHash(string) (*block.Store, error)
+		BlockByHash(string) (*apitypes.BlockWithReceipts, error)
 		// UnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 		UnconfirmedActionsByAddress(address string, start uint64, count uint64) ([]*iotexapi.ActionInfo, error)
 		// EstimateGasForNonExecution  estimates action gas except execution
 		EstimateGasForNonExecution(action.Action) (uint64, error)
 		// EstimateExecutionGasConsumption estimate gas consumption for execution action
 		EstimateExecutionGasConsumption(ctx context.Context, sc *action.Execution, callerAddr address.Address) (uint64, error)
-		// BlockMetas returns blockmetas response within the height range
-		BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error)
-		// BlockMetaByHash returns blockmeta response by block hash
-		BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error)
 		// LogsInBlockByHash filter logs in the block by hash
 		LogsInBlockByHash(filter *logfilter.LogFilter, blockHash hash.Hash256) ([]*action.Log, error)
 		// LogsInRange filter logs among [start, end] blocks
@@ -331,21 +331,21 @@ func (core *coreService) ChainMeta() (*iotextypes.ChainMeta, string, error) {
 	if int64(tipHeight) < blockLimit {
 		blockLimit = int64(tipHeight)
 	}
-	blks, err := core.BlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
+	blkStores, err := core.BlockByHeightRange(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
 	if err != nil {
 		return nil, "", status.Error(codes.NotFound, err.Error())
 	}
-	if len(blks) == 0 {
+	if len(blkStores) == 0 {
 		return nil, "", status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
 	}
 
-	var numActions int64
-	for _, blk := range blks {
-		numActions += blk.NumActions
+	var numActions uint64
+	for _, blkStore := range blkStores {
+		numActions += uint64(len(blkStore.Block.Actions))
 	}
 
-	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
-	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
+	t1 := blkStores[0].Block.Timestamp()
+	t2 := blkStores[len(blkStores)-1].Block.Timestamp()
 	// duration of time difference in milli-seconds
 	// TODO: use config.Genesis.BlockInterval after PR1289 merges
 	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
@@ -1028,8 +1028,8 @@ func (core *coreService) UnconfirmedActionsByAddress(address string, start uint6
 	return res, nil
 }
 
-// BlockByHash returns the block and its receipt
-func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
+// BlockByHash returns the block and its receipt from block hash
+func (core *coreService) BlockByHash(blkHash string) (*apitypes.BlockWithReceipts, error) {
 	if err := core.checkActionIndex(); err != nil {
 		return nil, err
 	}
@@ -1045,81 +1045,64 @@ func (core *coreService) BlockByHash(blkHash string) (*block.Store, error) {
 	if err != nil {
 		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	return &block.Store{
+	return &apitypes.BlockWithReceipts{
 		Block:    blk,
 		Receipts: receipts,
 	}, nil
 }
 
-// BlockMetas returns blockmetas response within the height range
-func (core *coreService) BlockMetas(start uint64, count uint64) ([]*iotextypes.BlockMeta, error) {
+// BlockByHeightRange returns blocks within the height range
+func (core *coreService) BlockByHeightRange(start uint64, count uint64) ([]*apitypes.BlockWithReceipts, error) {
 	if count == 0 {
-		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+		return nil, errors.Wrap(errInvalidFormat, "count must be greater than zero")
 	}
 	if count > core.cfg.RangeQueryLimit {
-		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+		return nil, errors.Wrap(errInvalidFormat, "range exceeds the limit")
 	}
 
 	var (
 		tipHeight = core.bc.TipHeight()
-		res       = make([]*iotextypes.BlockMeta, 0)
+		res       = make([]*apitypes.BlockWithReceipts, 0)
 	)
 	if start > tipHeight {
-		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
+		return nil, errors.Wrap(errInvalidFormat, "start height should not exceed tip height")
 	}
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blockMeta, err := core.getBlockMetaByHeight(height)
+		blkStore, err := core.getBlockByHeight(height)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, blockMeta)
+		res = append(res, blkStore)
 		count--
 	}
 	return res, nil
 }
 
-// BlockMetaByHash returns blockmeta response by block hash
-func (core *coreService) BlockMetaByHash(blkHash string) (*iotextypes.BlockMeta, error) {
-	hash, err := hash.HexStringToHash256(blkHash)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	height, err := core.dao.GetBlockHeight(hash)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	return core.getBlockMetaByHeight(height)
+// BlockByHeight returns the block and its receipt from block height
+func (core *coreService) BlockByHeight(height uint64) (*apitypes.BlockWithReceipts, error) {
+	return core.getBlockByHeight(height)
 }
 
-// getBlockMetaByHeight gets BlockMeta by height
-func (core *coreService) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+func (core *coreService) getBlockByHeight(height uint64) (*apitypes.BlockWithReceipts, error) {
+	if height > core.bc.TipHeight() {
+		return nil, ErrNotFound
+	}
 	blk, err := core.dao.GetBlockByHeight(height)
 	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
+		return nil, errors.Wrap(ErrNotFound, err.Error())
 	}
-	// get block's receipt
+	receipts := []*action.Receipt{}
 	if blk.Height() > 0 {
-		blk.Receipts, err = core.dao.GetReceipts(height)
+		var err error
+		receipts, err = core.dao.GetReceipts(height)
 		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
+			return nil, errors.Wrap(ErrNotFound, err.Error())
 		}
 	}
-	return generateBlockMeta(blk), nil
-}
-
-// GasLimitAndUsed returns the gas limit and used in a block
-func gasLimitAndUsed(b *block.Block) (uint64, uint64) {
-	var gasLimit, gasUsed uint64
-	for _, tx := range b.Actions {
-		gasLimit += tx.GasLimit()
-	}
-	for _, r := range b.Receipts {
-		gasUsed += r.GasConsumed
-	}
-	return gasLimit, gasUsed
+	return &apitypes.BlockWithReceipts{
+		Block:    blk,
+		Receipts: receipts,
+	}, nil
 }
 
 func (core *coreService) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {

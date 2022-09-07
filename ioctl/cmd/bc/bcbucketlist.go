@@ -87,24 +87,26 @@ func (m *bucketlistMessage) String() string {
 
 // getBucketList get bucket list from chain
 func getBucketList(method, addr string, args ...string) (err error) {
-	offset, limit := uint64(0), uint64(1000)
+	offset, limit := uint32(0), uint32(1000)
 	if len(args) > 0 {
-		offset, err = strconv.ParseUint(args[0], 10, 64)
+		val, err := strconv.ParseUint(args[0], 10, 32)
 		if err != nil {
 			return output.NewError(output.ValidationError, "invalid offset", err)
 		}
+		offset = uint32(val)
 	}
 	if len(args) > 1 {
-		limit, err = strconv.ParseUint(args[1], 10, 64)
+		val, err := strconv.ParseUint(args[1], 10, 32)
 		if err != nil {
 			return output.NewError(output.ValidationError, "invalid limit", err)
 		}
+		limit = uint32(val)
 	}
 	switch method {
 	case _bucketlistMethodByVoter:
-		return getBucketListByVoter(addr, uint32(offset), uint32(limit))
+		return getBucketListByVoter(addr, offset, limit)
 	case _bucketlistMethodByCandidate:
-		return getBucketListByCand(addr, uint32(offset), uint32(limit))
+		return getBucketListByCand(addr, offset, limit)
 	}
 	return output.NewError(output.InputError, "unknown <method>", nil)
 }

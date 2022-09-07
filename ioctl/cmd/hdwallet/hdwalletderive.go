@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
@@ -28,15 +29,11 @@ var (
 		config.English: "derive key from HDWallet",
 		config.Chinese: "查询HDWallet钱包的派生key地址",
 	}
-	_hdwalletDeriveCmdUses = map[config.Language]string{
-		config.English: "derive id1/id2/id3",
-		config.Chinese: "derive id1/id2/id3",
-	}
 )
 
 // _hdwalletDeriveCmd represents the hdwallet derive command
 var _hdwalletDeriveCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_hdwalletDeriveCmdUses, config.UILanguage),
+	Use:   "derive id1/id2/id3",
 	Short: config.TranslateInLang(_hdwalletDeriveCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +72,7 @@ func DeriveKey(account, change, index uint32, password string) (string, crypto.P
 		return "", nil, output.NewError(output.InputError, "Run 'ioctl hdwallet create' to create your HDWallet first.", nil)
 	}
 
-	enctxt, err := os.ReadFile(hdWalletConfigFile)
+	enctxt, err := os.ReadFile(filepath.Clean(hdWalletConfigFile))
 	if err != nil {
 		return "", nil, output.NewError(output.InputError, "failed to read config", err)
 	}

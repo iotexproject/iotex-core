@@ -30,10 +30,6 @@ var (
 		config.English: "Deal with block chain of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链上的区块",
 	}
-	_bcCmdUses = map[config.Language]string{
-		config.English: "bc",
-		config.Chinese: "bc",
-	}
 	_flagEndpointUsages = map[config.Language]string{
 		config.English: "set endpoint for once",
 		config.Chinese: "一次设置端点",
@@ -46,7 +42,7 @@ var (
 
 // BCCmd represents the bc(block chain) command
 var BCCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_bcCmdUses, config.UILanguage),
+	Use:   "bc",
 	Short: config.TranslateInLang(_bcCmdShorts, config.UILanguage),
 }
 

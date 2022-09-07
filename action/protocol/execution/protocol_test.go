@@ -401,7 +401,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.IcelandBlockHeight = 0
 	}
 	if sct.InitGenesis.IsLondon {
-		cfg.Genesis.Blockchain.ToBeEnabledBlockHeight = 0
+		// London is enabled at okhotsk height
+		cfg.Genesis.Blockchain.OkhotskBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
@@ -413,14 +414,19 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(rp.Register(registry))
 	// create state factory
 	var sf factory.Factory
+	var daoKV db.KVStore
+
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 	if cfg.Chain.EnableTrielessStateDB {
 		if cfg.Chain.EnableStateDBCaching {
-			sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
 		} else {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			daoKV, err = db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		}
+		r.NoError(err)
+		sf, err = factory.NewStateDB(factoryCfg, daoKV, factory.RegistryStateDBOption(registry))
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+		sf, err = factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	}
 	r.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
@@ -432,7 +438,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
@@ -638,8 +645,11 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+		db2, err := db.CreateKVStoreWithCache(cfg.DB, cfg.Chain.TrieDBPath, cfg.Chain.StateDBCacheSize)
+		require.NoError(err)
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+		sf, err := factory.NewStateDB(factoryCfg, db2, factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 		require.NoError(err)
@@ -652,7 +662,8 @@ func TestProtocol_Handle(t *testing.T) {
 		dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
-			cfg,
+			cfg.Chain,
+			cfg.Genesis,
 			dao,
 			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
@@ -1035,6 +1046,9 @@ func TestIstanbulEVM(t *testing.T) {
 }
 
 func TestLondonEVM(t *testing.T) {
+	t.Run("factory", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/factory.json")
+	})
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
 	})

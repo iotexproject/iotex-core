@@ -8,11 +8,11 @@ package state
 
 import (
 	"encoding/hex"
+	"math"
 	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 )
@@ -39,37 +39,106 @@ func TestNonce(t *testing.T) {
 	})
 }
 
+func TestNonceOverflow(t *testing.T) {
+	require := require.New(t)
+	t.Run("account nonce uint64 max", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64
+		acct.nonce = uint64(target)
+		require.ErrorIs(acct.SetPendingNonce(target+1), ErrNonceOverflow)
+		require.Equal(target, acct.PendingNonce())
+	})
+	t.Run("account nonce uint64 max-1", func(t *testing.T) {
+		acct, err := NewAccount()
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 1
+		acct.nonce = uint64(target)
+		require.NoError(acct.SetPendingNonce(target + 1))
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64
+		acct.nonce = uint64(target)
+		require.ErrorIs(acct.SetPendingNonce(target+2), ErrNonceOverflow)
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max-1", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 1
+		acct.nonce = uint64(target)
+		require.ErrorIs(acct.SetPendingNonce(target+2), ErrNonceOverflow)
+		require.Equal(target+1, acct.PendingNonce())
+	})
+	t.Run("legacy account nonce uint64 max-2", func(t *testing.T) {
+		acct, err := NewAccount(LegacyNonceAccountTypeOption())
+		require.NoError(err)
+		var target uint64 = math.MaxUint64 - 2
+		acct.nonce = uint64(target)
+		require.NoError(acct.SetPendingNonce(target + 2))
+		require.Equal(target+2, acct.PendingNonce())
+	})
+}
+
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	s1 := Account{
-		accountType: 1,
-		nonce:       0x10,
-		Balance:     big.NewInt(20000000),
-		CodeHash:    []byte("testing codehash"),
-	}
-	ss, err := s1.Serialize()
-	require.NoError(err)
-	require.NotEmpty(ss)
-	require.Equal(66, len(ss))
 
-	s2 := Account{}
-	require.NoError(s2.Deserialize(ss))
-	require.Equal(s1.accountType, s2.accountType)
-	require.Equal(s1.Balance, s2.Balance)
-	require.Equal(s1.nonce, s2.nonce)
-	require.Equal(hash.ZeroHash256, s2.Root)
-	require.Equal(s1.CodeHash, s2.CodeHash)
+	for _, test := range []struct {
+		accountType int32
+		expectedLen int
+	}{
+		{
+			1, 66,
+		},
+		{
+			0, 64,
+		},
+	} {
+		acc := Account{
+			accountType: test.accountType,
+			Balance:     big.NewInt(20000000),
+			nonce:       0x10,
+			CodeHash:    []byte("testing codehash"),
+		}
+		ss, err := acc.Serialize()
+		require.NoError(err)
+		require.NotEmpty(ss)
+		require.Equal(test.expectedLen, len(ss))
+
+		s2 := Account{}
+		require.NoError(s2.Deserialize(ss))
+		require.Equal(acc.accountType, s2.accountType)
+		require.Equal(acc.Balance, s2.Balance)
+		require.Equal(acc.nonce, s2.nonce)
+		require.Equal(hash.ZeroHash256, s2.Root)
+		require.Equal(acc.CodeHash, s2.CodeHash)
+	}
 }
 
 func TestProto(t *testing.T) {
 	require := require.New(t)
-	raw := "1201301a200000000000000000000000000000000000000000000000000000000000000000"
-	ss, _ := hex.DecodeString(raw)
-	s1 := Account{}
-	require.NoError(Deserialize(&s1, ss))
-	d, err := Serialize(s1)
-	require.NoError(err)
-	require.Equal(raw, hex.EncodeToString(d))
+
+	for _, test := range []struct {
+		accountType int32
+		raw         string
+	}{
+		{
+			0, "1201301a200000000000000000000000000000000000000000000000000000000000000000",
+		},
+		{
+			1, "1201301a2000000000000000000000000000000000000000000000000000000000000000003801",
+		},
+	} {
+		acc := Account{accountType: test.accountType}
+		ss, _ := hex.DecodeString(test.raw)
+		require.NoError(acc.Deserialize(ss))
+		bytes, err := acc.Serialize()
+		require.NoError(err)
+		require.Equal(test.raw, hex.EncodeToString(bytes))
+	}
 }
 
 func TestBalance(t *testing.T) {
@@ -84,6 +153,14 @@ func TestBalance(t *testing.T) {
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 	// Sub 40 to the balance
 	require.Equal(ErrNotEnoughBalance, state.SubBalance(big.NewInt(40)))
+
+	require.True(state.HasSufficientBalance(big.NewInt(30)))
+	require.False(state.HasSufficientBalance(big.NewInt(31)))
+
+	require.Contains(state.AddBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(big.NewInt(-1)).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.AddBalance(nil).Error(), ErrInvalidAmount.Error())
+	require.Contains(state.SubBalance(nil).Error(), ErrInvalidAmount.Error())
 }
 
 func TestClone(t *testing.T) {

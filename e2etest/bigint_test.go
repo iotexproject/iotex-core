@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -88,7 +89,8 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	r.NoError(err)
 	genericValidator := protocol.NewGenericValidator(sf, accountutil.AccountState)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
@@ -96,7 +98,8 @@ func prepareBlockchain(ctx context.Context, _executor string, r *require.Asserti
 	ap.AddActionEnvelopeValidators(genericValidator)
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
-		cfg,
+		cfg.Chain,
+		cfg.Genesis,
 		dao,
 		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(

@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -56,7 +57,7 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	if !secure {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
 	}
-	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})))
 }
 
 // StringToRau converts different unit string into Rau big int
@@ -169,7 +170,7 @@ func Address(in string) (string, error) {
 // JwtAuth used for ioctl set auth and send for every grpc request
 func JwtAuth() (jwt metadata.MD, err error) {
 	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
-	jwtString, err := os.ReadFile(jwtFile)
+	jwtString, err := os.ReadFile(filepath.Clean(jwtFile))
 	if err != nil {
 		return nil, err
 	}

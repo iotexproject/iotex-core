@@ -25,7 +25,7 @@ func TestNewHdwalletDeleteCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(4)
 
 	t.Run("delete hdwallet", func(t *testing.T) {
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(true)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(true, nil)
 		client.EXPECT().RemoveHdWalletConfigFile().Return(nil)
 
 		cmd := NewHdwalletDeleteCmd(client)
@@ -35,7 +35,7 @@ func TestNewHdwalletDeleteCmd(t *testing.T) {
 	})
 
 	t.Run("quit hdwallet delete command", func(t *testing.T) {
-		client.EXPECT().AskToConfirm(gomock.Any()).Return(false)
+		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, nil)
 
 		cmd := NewHdwalletDeleteCmd(client)
 		result, err := util.ExecuteCmd(cmd)

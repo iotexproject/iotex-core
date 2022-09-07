@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -128,14 +127,14 @@ func TestActQueueUpdateNonce(t *testing.T) {
 func TestActQueuePendingActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	require := require.New(t)
-	cfg := config.Default
+
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
 		require.NoError(accountState.SetPendingNonce(accountState.PendingNonce() + 1))
 	}).Return(uint64(0), nil).Times(1)
 	sf.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
-	ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
-	ap, err := NewActPool(cfg.Genesis, sf, cfg.ActPool, EnableExperimentalActions())
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
+	ap, err := NewActPool(genesis.Default, sf, DefaultConfig, EnableExperimentalActions())
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), identityset.Address(0).String()).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))

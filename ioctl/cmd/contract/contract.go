@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -31,10 +32,6 @@ var (
 
 // Multi-language support
 var (
-	_contractCmdUses = map[config.Language]string{
-		config.English: "contract",
-		config.Chinese: "contract",
-	}
 	_contractCmdShorts = map[config.Language]string{
 		config.English: "Deal with smart contract of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链的智能合约",
@@ -55,7 +52,7 @@ var (
 
 // ContractCmd represents the contract command
 var ContractCmd = &cobra.Command{
-	Use:   config.TranslateInLang(_contractCmdUses, config.UILanguage),
+	Use:   "contract",
 	Short: config.TranslateInLang(_contractCmdShorts, config.UILanguage),
 }
 
@@ -78,7 +75,7 @@ func init() {
 
 // Compile compiles smart contract from source code
 func Compile(sourceFiles ...string) (map[string]*compiler.Contract, error) {
-	solc, err := compiler.SolidityVersion(_solCompiler)
+	solc, err := util.SolidityVersion(_solCompiler)
 	if err != nil {
 		return nil, output.NewError(output.CompilerError, "solidity compiler not ready", err)
 	}
@@ -87,14 +84,14 @@ func Compile(sourceFiles ...string) (map[string]*compiler.Contract, error) {
 			fmt.Sprintf("unsupported solc version %d.%d.%d", solc.Major, solc.Minor, solc.Patch), nil)
 	}
 
-	contracts, err := compiler.CompileSolidity(_solCompiler, sourceFiles...)
+	contracts, err := util.CompileSolidity(_solCompiler, sourceFiles...)
 	if err != nil {
 		return nil, output.NewError(output.CompilerError, "failed to compile", err)
 	}
 	return contracts, nil
 }
 
-func checkCompilerVersion(solc *compiler.Solidity) bool {
+func checkCompilerVersion(solc *util.Solidity) bool {
 	if solc.Major == 0 && solc.Minor == 5 {
 		return true
 	}
@@ -105,7 +102,7 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 }
 
 func readAbiFile(abiFile string) (*abi.ABI, error) {
-	abiBytes, err := os.ReadFile(abiFile)
+	abiBytes, err := os.ReadFile(filepath.Clean(abiFile))
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
 	}

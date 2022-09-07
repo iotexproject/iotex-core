@@ -12,12 +12,28 @@ import (
 	"testing"
 
 	ecrypt "github.com/ethereum/go-ethereum/crypto"
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/stretchr/testify/require"
 	"github.com/tyler-smith/go-bip39"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
+
+func TestNewHdwalletCmd(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_ioctlclient.NewMockClient(ctrl)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("hdwallet usage", config.English).Times(6)
+	cmd := NewHdwalletCmd(client)
+	result, err := util.ExecuteCmd(cmd)
+	require.NoError(err)
+	require.Contains(result, "Available Commands")
+}
 
 func Test_Hdwallet(t *testing.T) {
 	require := require.New(t)

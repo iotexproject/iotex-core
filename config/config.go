@@ -7,20 +7,17 @@
 package config
 
 import (
-	"crypto/ecdsa"
-	"math/big"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
-	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -58,56 +55,14 @@ func (ss *strs) Set(str string) error {
 }
 
 // Dardanelles consensus config
-const (
-	SigP256k1  = "secp256k1"
-	SigP256sm2 = "p256sm2"
-)
-
 var (
 	// Default is the default config
 	Default = Config{
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
 		Network: p2p.DefaultConfig,
-		Chain: Chain{
-			ChainDBPath:            "/var/data/chain.db",
-			TrieDBPatchFile:        "/var/data/trie.db.patch",
-			TrieDBPath:             "/var/data/trie.db",
-			IndexDBPath:            "/var/data/index.db",
-			BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
-			CandidateIndexDBPath:   "/var/data/candidate.index.db",
-			StakingIndexDBPath:     "/var/data/staking.index.db",
-			ID:                     1,
-			EVMNetworkID:           4689,
-			Address:                "",
-			ProducerPrivKey:        generateRandomKey(SigP256k1),
-			SignatureScheme:        []string{SigP256k1},
-			EmptyGenesis:           false,
-			GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
-			Committee: committee.Config{
-				GravityChainAPIs: []string{},
-			},
-			EnableTrielessStateDB:         true,
-			EnableStateDBCaching:          false,
-			EnableArchiveMode:             false,
-			EnableAsyncIndexWrite:         true,
-			EnableSystemLogIndexer:        false,
-			EnableStakingProtocol:         true,
-			EnableStakingIndexer:          false,
-			AllowedBlockGasResidue:        10000,
-			MaxCacheSize:                  0,
-			PollInitialCandidatesInterval: 10 * time.Second,
-			StateDBCacheSize:              1000,
-			WorkingSetCacheSize:           20,
-		},
-		ActPool: ActPool{
-			MaxNumActsPerPool:  32000,
-			MaxGasLimitPerPool: 320000000,
-			MaxNumActsPerAcct:  2000,
-			ActionExpiry:       10 * time.Minute,
-			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
-			BlackList:          []string{},
-		},
+		Chain:   blockchain.DefaultConfig,
+		ActPool: actpool.DefaultConfig,
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
 			RollDPoS: RollDPoS{
@@ -161,26 +116,12 @@ var (
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
+			HTTPAdminPort:         0,
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB: db.Config{
-			NumRetries:            3,
-			MaxCacheSize:          64,
-			BlockStoreBatchSize:   16,
-			V2BlocksToSplitDB:     1000000,
-			Compressor:            "Snappy",
-			CompressLegacy:        false,
-			SplitDBSizeMB:         0,
-			SplitDBHeight:         900000,
-			HistoryStateRetention: 2000,
-		},
-		Indexer: Indexer{
-			RangeBloomFilterNumElements: 100000,
-			RangeBloomFilterSize:        1200000,
-			RangeBloomFilterNumHash:     8,
-		},
+		DB:      db.DefaultConfig,
+		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
 	}
 
@@ -200,49 +141,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	// Chain is the config struct for blockchain package
-	Chain struct {
-		ChainDBPath            string           `yaml:"chainDBPath"`
-		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
-		TrieDBPath             string           `yaml:"trieDBPath"`
-		IndexDBPath            string           `yaml:"indexDBPath"`
-		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
-		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
-		ID                     uint32           `yaml:"id"`
-		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
-		Address                string           `yaml:"address"`
-		ProducerPrivKey        string           `yaml:"producerPrivKey"`
-		SignatureScheme        []string         `yaml:"signatureScheme"`
-		EmptyGenesis           bool             `yaml:"emptyGenesis"`
-		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
-		Committee              committee.Config `yaml:"committee"`
-
-		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
-		// EnableStateDBCaching enables cachedStateDBOption
-		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
-		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
-		EnableArchiveMode bool `yaml:"enableArchiveMode"`
-		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
-		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
-		// deprecated
-		EnableSystemLogIndexer bool `yaml:"enableSystemLog"`
-		// EnableStakingProtocol enables staking protocol
-		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
-		// EnableStakingIndexer enables staking indexer
-		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
-		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
-		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
-		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
-		MaxCacheSize int `yaml:"maxCacheSize"`
-		// PollInitialCandidatesInterval is the config for committee init db
-		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
-		// StateDBCacheSize is the max size of statedb LRU cache
-		StateDBCacheSize int `yaml:"stateDBCacheSize"`
-		// WorkingSetCacheSize is the max size of workingset cache in state factory
-		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
-	}
-
 	// Consensus is the config struct for consensus package
 	Consensus struct {
 		// There are three schemes that are supported
@@ -326,38 +224,12 @@ type (
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
 	}
 
-	// ActPool is the actpool config
-	ActPool struct {
-		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
-		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
-		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
-		MaxGasLimitPerPool uint64 `yaml:"maxGasLimitPerPool"`
-		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
-		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
-		// ActionExpiry defines how long an action will be kept in action pool.
-		ActionExpiry time.Duration `yaml:"actionExpiry"`
-		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
-		MinGasPriceStr string `yaml:"minGasPrice"`
-		// BlackList lists the account address that are banned from initiating actions
-		BlackList []string `yaml:"blackList"`
-	}
-
-	// Indexer is the config for indexer
-	Indexer struct {
-		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
-		RangeBloomFilterNumElements uint64 `yaml:"rangeBloomFilterNumElements"`
-		// RangeBloomFilterSize is the size (in bits) of rangeBloomfilter
-		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
-		// RangeBloomFilterNumHash is the number of hash functions of rangeBloomfilter
-		RangeBloomFilterNumHash uint64 `yaml:"rangeBloomFilterNumHash"`
-	}
-
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		Plugins            map[int]interface{}         `ymal:"plugins"`
 		Network            p2p.Config                  `yaml:"network"`
-		Chain              Chain                       `yaml:"chain"`
-		ActPool            ActPool                     `yaml:"actPool"`
+		Chain              blockchain.Config           `yaml:"chain"`
+		ActPool            actpool.Config              `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
 		BlockSync          BlockSync                   `yaml:"blockSync"`
@@ -365,7 +237,7 @@ type (
 		API                API                         `yaml:"api"`
 		System             System                      `yaml:"system"`
 		DB                 db.Config                   `yaml:"db"`
-		Indexer            Indexer                     `yaml:"indexer"`
+		Indexer            blockindex.Config           `yaml:"indexer"`
 		Log                log.GlobalConfig            `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis            genesis.Genesis             `yaml:"genesis"`
@@ -395,6 +267,10 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 	var cfg Config
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+	}
+
+	if err := cfg.Chain.SetProducerPrivKey(); err != nil {
+		return Config{}, errors.Wrap(err, "failed to set producer private key")
 	}
 
 	// set network master key to private key
@@ -454,79 +330,6 @@ func NewSub(configPaths []string, validates ...Validate) (Config, error) {
 		}
 	}
 	return cfg, nil
-}
-
-// ProducerAddress returns the configured producer address derived from key
-func (cfg Config) ProducerAddress() address.Address {
-	sk := cfg.ProducerPrivateKey()
-	addr := sk.PublicKey().Address()
-	if addr == nil {
-		log.L().Panic(
-			"Error when constructing producer address",
-			zap.Error(errors.New("failed to get address")),
-		)
-	}
-	return addr
-}
-
-// ProducerPrivateKey returns the configured private key
-func (cfg Config) ProducerPrivateKey() crypto.PrivateKey {
-	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
-	if err != nil {
-		log.L().Panic(
-			"Error when decoding private key",
-			zap.Error(err),
-		)
-	}
-
-	if !cfg.whitelistSignatureScheme(sk) {
-		log.L().Panic("The private key's signature scheme is not whitelisted")
-	}
-	return sk
-}
-
-func (cfg Config) whitelistSignatureScheme(sk crypto.PrivateKey) bool {
-	var sigScheme string
-
-	switch sk.EcdsaPrivateKey().(type) {
-	case *ecdsa.PrivateKey:
-		sigScheme = SigP256k1
-	case *crypto.P256sm2PrvKey:
-		sigScheme = SigP256sm2
-	}
-
-	if sigScheme == "" {
-		return false
-	}
-	for _, e := range cfg.Chain.SignatureScheme {
-		if sigScheme == e {
-			// signature scheme is whitelisted
-			return true
-		}
-	}
-	return false
-}
-
-func generateRandomKey(scheme string) string {
-	// generate a random key
-	switch scheme {
-	case SigP256k1:
-		sk, _ := crypto.GenerateKey()
-		return sk.HexString()
-	case SigP256sm2:
-		sk, _ := crypto.GenerateKeySm2()
-		return sk.HexString()
-	}
-	return ""
-}
-
-// MinGasPrice returns the minimal gas price threshold
-func (ap ActPool) MinGasPrice() *big.Int {
-	mgp, ok := new(big.Int).SetString(ap.MinGasPriceStr, 10)
-	if !ok {
-		log.S().Panicf("Error when parsing minimal gas price string: %s", ap.MinGasPriceStr)
-	}
-	return mgp
 }
 
 // ValidateDispatcher validates the dispatcher configs
@@ -624,6 +427,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "LordHowe is heigher than Midway")
 	case hu.MidwayBlockHeight > hu.NewfoundlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Midway is heigher than Newfoundland")
+	case hu.NewfoundlandBlockHeight > hu.OkhotskBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Newfoundland is heigher than Okhotsk")
 	}
 	return nil
 }

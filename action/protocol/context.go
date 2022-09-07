@@ -107,6 +107,7 @@ type (
 		ValidateRewardProtocol                  bool
 		CreateLegacyNonceAccount                bool
 		FixGasAndNonceUpdate                    bool
+		FixUnproductiveDelegates                bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -236,8 +237,9 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			RevertLog:                               g.IsMidway(height),
 			TolerateLegacyAddress:                   !g.IsNewfoundland(height),
 			ValidateRewardProtocol:                  g.IsNewfoundland(height),
-			CreateLegacyNonceAccount:                !g.IsToBeEnabled(height),
-			FixGasAndNonceUpdate:                    g.IsToBeEnabled(height),
+			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
+			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
+			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 		},
 	)
 }
