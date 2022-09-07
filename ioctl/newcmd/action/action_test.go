@@ -35,8 +35,7 @@ func TestSigner(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil).AnyTimes()
 
 		cmd := NewActionCmd(client)
-		signer := ""
-		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
+		registerSignerFlag(client, cmd)
 		_, err := util.ExecuteCmd(cmd, "--signer", "test")
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)

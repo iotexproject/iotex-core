@@ -67,20 +67,23 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to decode data")
 				}
 			}
-			sender, err := Signer(client, cmd)
+
+			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
+			if err != nil {
+				return err
+			}
+			sender, err := Signer(client, signer)
 			if err != nil {
 				return errors.Wrap(err, "failed to get signed address")
 			}
-			gasLimit := gasLimitFlagValue(cmd)
 			if gasLimit == 0 {
-				gasLimit = action.TransferBaseIntrinsicGas +
-					action.TransferPayloadGas*uint64(len(payload))
+				gasLimit = action.TransferBaseIntrinsicGas + action.TransferPayloadGas*uint64(len(payload))
 			}
-			gasPriceRau, err := gasPriceInRau(client, cmd)
+			gasPriceRau, err := gasPriceInRau(client, gasPrice)
 			if err != nil {
 				return errors.Wrap(err, "failed to get gas price")
 			}
-			nonce, err := nonce(client, cmd, sender)
+			nonce, err = checkNonce(client, nonce, sender)
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
@@ -97,6 +100,9 @@ func NewActionTransferCmd(client ioctl.Client) *cobra.Command {
 					SetGasLimit(gasLimit).
 					SetAction(tx).Build(),
 				sender,
+				password,
+				nonce,
+				assumeYes,
 			)
 		},
 	}
