@@ -171,6 +171,41 @@ func RegisterWriteCommand(client ioctl.Client, cmd *cobra.Command) {
 	registerPasswordFlag(client, cmd)
 }
 
+// GetWriteCommandFlag returns action flags for command
+func GetWriteCommandFlag(cmd *cobra.Command) (gasPrice, signer, password string, nonce, gasLimit uint64, assumeYes bool, err error) {
+	gasPrice, err = cmd.Flags().GetString(gasPriceFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag gas-price")
+		return
+	}
+	signer, err = cmd.Flags().GetString(signerFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag signer")
+		return
+	}
+	password, err = cmd.Flags().GetString(passwordFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag password")
+		return
+	}
+	nonce, err = cmd.Flags().GetUint64(nonceFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag nonce")
+		return
+	}
+	gasLimit, err = cmd.Flags().GetUint64(gasLimitFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag gas-limit")
+		return
+	}
+	assumeYes, err = cmd.Flags().GetBool(assumeYesFlagLabel)
+	if err != nil {
+		err = errors.Wrap(err, "failed to get flag assume-yes")
+		return
+	}
+	return
+}
+
 func handleClientRequestError(err error, apiName string) error {
 	sta, ok := status.FromError(err)
 	if ok {
