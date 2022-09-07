@@ -121,7 +121,7 @@ func TestNewXrc20TransferFromCmd(t *testing.T) {
 			"WrongContractAddress",
 			[]string{dftOwner, dftRecipient, dftAmount},
 			newcmd(wrongAddr, dftContractData, dftOwner, dftBalance),
-			fmt.Sprintf("invalid address #%s", dftOwner),
+			fmt.Sprintf("failed to get privateKey: invalid address #%s", dftOwner),
 		}, {
 			"WrongAmount",
 			[]string{dftOwner, dftRecipient, wrongAmount},

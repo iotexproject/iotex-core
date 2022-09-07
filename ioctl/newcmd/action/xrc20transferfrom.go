@@ -64,7 +64,11 @@ func NewXrc20TransferFromCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "cannot generate bytecode from given command")
 			}
-			return Execute(client, cmd, contract.String(), big.NewInt(0), bytecode)
+			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
+			if err != nil {
+				return err
+			}
+			return Execute(client, cmd, contract.String(), big.NewInt(0), bytecode, gasPrice, signer, password, nonce, gasLimit, assumeYes)
 		},
 	}
 	RegisterWriteCommand(client, cmd)
