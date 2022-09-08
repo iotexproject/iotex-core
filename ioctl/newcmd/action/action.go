@@ -348,7 +348,7 @@ func SendAction(client ioctl.Client,
 		signer = addr.String()
 		nonce, err = checkNonce(client, nonce, signer)
 		if err != nil {
-			return errors.Wrap(err, "failed to get nonce ")
+			return errors.Wrap(err, "failed to get nonce")
 		}
 		elp.SetNonce(nonce)
 	}

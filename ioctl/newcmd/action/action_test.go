@@ -24,6 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
+const _failedToGetNone = "failed to get nonce"
+
 func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -246,9 +248,9 @@ func TestSendAction(t *testing.T) {
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
-	t.Run("failed to get nonce", func(t *testing.T) {
+	t.Run(_failedToGetNone, func(t *testing.T) {
 		mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
-		expectedErr := errors.New("failed to get nonce")
+		expectedErr := errors.New(_failedToGetNone)
 		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
@@ -352,8 +354,8 @@ func TestExecute(t *testing.T) {
 		})
 	})
 
-	t.Run("failed to get nonce", func(t *testing.T) {
-		expectedErr := errors.New("failed to get nonce")
+	t.Run(_failedToGetNone, func(t *testing.T) {
+		expectedErr := errors.New(_failedToGetNone)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 		cmd := NewActionCmd(client)
 		err = Execute(client, cmd, "test", big.NewInt(100), []byte(bytecode), "100", accAddr.String(), passwd, 0, 100, true)
