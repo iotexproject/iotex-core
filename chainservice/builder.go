@@ -474,6 +474,9 @@ func (builder *Builder) registerExecutionProtocol() error {
 }
 
 func (builder *Builder) registerRollDPoSProtocol() error {
+	if builder.cfg.Consensus.Scheme == config.NOOPScheme {
+		return nil
+	}
 	if err := rolldpos.NewProtocol(
 		builder.cfg.Genesis.NumCandidateDelegates,
 		builder.cfg.Genesis.NumDelegates,
