@@ -31,9 +31,7 @@ func TestSigner(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
-	// SetEndpointWithFlag take a function as parameter
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
-	// SetInsecureWithFlag take a function as parameter
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
 
 	t.Run("returns signer's address", func(t *testing.T) {
@@ -314,8 +312,12 @@ func TestExecute(t *testing.T) {
 	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil).Times(2)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(7)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).AnyTimes()
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).AnyTimes()
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {
+		// SetEndpointWithFlag take a function as parameter
+	}).AnyTimes()
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {
+		// SetInsecureWithFlag take a function as parameter
+	}).AnyTimes()
 	client.EXPECT().IsCryptoSm2().Return(false).Times(10)
 	client.EXPECT().NewKeyStore().Return(ks).Times(4)
 
