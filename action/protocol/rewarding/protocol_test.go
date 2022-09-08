@@ -82,7 +82,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		g.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(g.DardanellesBlockHeight, g.DardanellesNumSubEpochs),
 	)
-	p := NewProtocol(g.Rewarding, _rollDPoSScheme)
+	p := NewProtocol(g.Rewarding)
 	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
@@ -221,7 +221,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 func TestProtocol_Validate(t *testing.T) {
 	g := genesis.Default
 	g.NewfoundlandBlockHeight = 0
-	p := NewProtocol(g.Rewarding, _rollDPoSScheme)
+	p := NewProtocol(g.Rewarding)
 	act := createGrantRewardAction(0, uint64(0)).Action()
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -329,7 +329,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	pp := poll.NewLifeLongDelegatesProtocol(g.Delegates)
 	require.NoError(t, pp.Register(registry))
-	p := NewProtocol(g.Rewarding, _rollDPoSScheme)
+	p := NewProtocol(g.Rewarding)
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))
@@ -523,7 +523,7 @@ func TestStateCheckLegacy(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	p := NewProtocol(genesis.Default.Rewarding, _rollDPoSScheme)
+	p := NewProtocol(genesis.Default.Rewarding)
 	chainCtx := genesis.WithGenesisContext(
 		context.Background(),
 		genesis.Genesis{

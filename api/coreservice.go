@@ -156,7 +156,6 @@ type (
 		gs                *gasstation.GasStation
 		broadcastHandler  BroadcastOutbound
 		cfg               config.API
-		scheme            string
 		registry          *protocol.Registry
 		chainListener     apitypes.Listener
 		electionCommittee committee.Committee
@@ -202,7 +201,6 @@ var (
 // newcoreService creates a api server that contains major blockchain components
 func newCoreService(
 	cfg config.API,
-	scheme string,
 	chain blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	sf factory.Factory,
@@ -231,7 +229,6 @@ func newCoreService(
 		bfIndexer:     bfIndexer,
 		ap:            actPool,
 		cfg:           cfg,
-		scheme:        scheme,
 		registry:      registry,
 		chainListener: NewChainListener(500),
 		gs:            gasstation.NewGasStation(chain, dao, cfg),
@@ -825,27 +822,25 @@ func (core *coreService) readState(ctx context.Context, p protocol.Protocol, hei
 	)
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 
-	if core.scheme == config.RollDPoSScheme {
-		rp := rolldpos.FindProtocol(core.registry)
-		if rp == nil {
-			return nil, uint64(0), errors.New("rolldpos is not registered")
-		}
+	rp := rolldpos.FindProtocol(core.registry)
+	if rp == nil {
+		return nil, uint64(0), errors.New("rolldpos is not registered")
+	}
 
-		tipEpochNum := rp.GetEpochNum(tipHeight)
-		if height != "" {
-			inputHeight, err := strconv.ParseUint(height, 0, 64)
-			if err != nil {
-				return nil, uint64(0), err
+	tipEpochNum := rp.GetEpochNum(tipHeight)
+	if height != "" {
+		inputHeight, err := strconv.ParseUint(height, 0, 64)
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		inputEpochNum := rp.GetEpochNum(inputHeight)
+		if inputEpochNum < tipEpochNum {
+			// old data, wrap to history state reader
+			d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+			if err == nil {
+				core.readCache.Put(key.Hash(), d)
 			}
-			inputEpochNum := rp.GetEpochNum(inputHeight)
-			if inputEpochNum < tipEpochNum {
-				// old data, wrap to history state reader
-				d, h, err := p.ReadState(ctx, factory.NewHistoryStateReader(core.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
-				if err == nil {
-					core.readCache.Put(key.Hash(), d)
-				}
-				return d, h, err
-			}
+			return d, h, err
 		}
 	}
 

@@ -139,7 +139,7 @@ func NewProtocol(
 	getBlockHash evm.GetBlockHash,
 ) (Protocol, error) {
 	if scheme != _rollDPoSScheme {
-		return nil, nil
+		return NewStandaloneProtocol(chainConfig.ProducerAddress()), nil
 	}
 
 	var (

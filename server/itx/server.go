@@ -79,7 +79,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
-	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Consensus.Scheme)
+	apiServer, err := cs.NewAPIServer(cfg.API, cfg.Plugins)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create api server")
 	}

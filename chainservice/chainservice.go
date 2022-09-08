@@ -202,7 +202,7 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // NewAPIServer creates a new api server
-func (cs *ChainService) NewAPIServer(cfg config.API, scheme string) (*api.ServerV2, error) {
+func (cs *ChainService) NewAPIServer(cfg config.API, plugins map[int]interface{}) (*api.ServerV2, error) {
 	if cfg.GRPCPort == 0 && cfg.HTTPPort == 0 {
 		return nil, nil
 	}
@@ -216,7 +216,6 @@ func (cs *ChainService) NewAPIServer(cfg config.API, scheme string) (*api.Server
 
 	svr, err := api.NewServerV2(
 		cfg,
-		scheme,
 		cs.chain,
 		cs.blocksync,
 		cs.factory,

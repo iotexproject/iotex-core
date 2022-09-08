@@ -347,7 +347,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	// Create a test account with 1000 token
 	ge.InitBalanceMap[identityset.Address(0).String()] = "1000"
 
-	p := NewProtocol(ge.Rewarding, _rollDPoSScheme)
+	p := NewProtocol(ge.Rewarding)
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,

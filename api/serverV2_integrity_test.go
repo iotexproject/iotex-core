@@ -335,7 +335,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(cfg.Genesis.Rewarding, cfg.Consensus.Scheme)
+	r := rewarding.NewProtocol(cfg.Genesis.Rewarding)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, "", err
@@ -438,7 +438,7 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = 0
 	cfg.API.WebSocketPort = 0
-	svr, err := NewServerV2(cfg.API, cfg.Consensus.Scheme, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
+	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
 	}
