@@ -29,7 +29,9 @@ func TestSigner(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
+	// SetEndpointWithFlag take a function as parameter
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
+	// SetInsecureWithFlag take a function as parameter
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
 
 	t.Run("returns signer's address", func(t *testing.T) {
