@@ -402,11 +402,11 @@ func Execute(client ioctl.Client,
 	if err != nil {
 		return errors.Wrap(err, "failed to get gas price")
 	}
-	signer, err = Signer(client, signer)
+	sender, err := Signer(client, signer)
 	if err != nil {
 		return errors.Wrap(err, "failed to get signer address")
 	}
-	nonce, err = checkNonce(client, nonce, signer)
+	nonce, err = checkNonce(client, nonce, sender)
 	if err != nil {
 		return errors.Wrap(err, "failed to get nonce")
 	}
@@ -415,7 +415,7 @@ func Execute(client ioctl.Client,
 		return errors.Wrap(err, "failed to make a Execution instance")
 	}
 	if gasLimit == 0 {
-		tx, err = fixGasLimit(client, signer, tx)
+		tx, err = fixGasLimit(client, sender, tx)
 		if err != nil || tx == nil {
 			return errors.Wrap(err, "failed to fix Execution gas limit")
 		}
@@ -429,7 +429,7 @@ func Execute(client ioctl.Client,
 			SetGasPrice(gasPriceRau).
 			SetGasLimit(gasLimit).
 			SetAction(tx).Build(),
-		signer,
+		sender,
 		password,
 		nonce,
 		assumeYes,
