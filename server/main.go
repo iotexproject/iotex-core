@@ -22,12 +22,14 @@ import (
 	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/prometheus/client_golang/prometheus"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/collector"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -103,6 +105,10 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
+	if err = initCollector(cfg); err != nil {
+		glog.Fatalln("Cannot init collector: ", zap.Error(err))
+	}
+
 	if err = recovery.SetCrashlogDir(cfg.System.SystemLogDBPath); err != nil {
 		glog.Fatalln("Failed to set directory of crashlog: ", zap.Error(err))
 	}
@@ -127,6 +133,7 @@ func main() {
 	if err := probeSvr.Start(ctx); err != nil {
 		log.L().Fatal("Failed to start probe server.", zap.Error(err))
 	}
+
 	go func() {
 		<-stop
 		// start stopping
@@ -172,4 +179,15 @@ func initLogger(cfg config.Config) error {
 	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.AddCaller(), zap.Fields(
 		zap.String("ioAddr", addr.String()),
 	))
+}
+
+func initCollector(cfg config.Config) error {
+	nc, err := collector.NewNodeCollector(cfg.Collector...)
+	if err != nil {
+		return err
+	}
+	if err := prometheus.Register(nc); err != nil {
+		return err
+	}
+	return nil
 }
