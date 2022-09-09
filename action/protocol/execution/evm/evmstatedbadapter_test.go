@@ -265,6 +265,7 @@ var tests = []stateDBTest{
 			{_c1, _k2, _v2},
 			{_c3, _k3, _v4},
 		},
+		15000,
 		[]sui{
 			{_c2, false, false},
 			{_c4, false, false},
@@ -298,6 +299,7 @@ var tests = []stateDBTest{
 			{_c2, _k3, _v3},
 			{_c2, _k4, _v4},
 		},
+		2000,
 		[]sui{
 			{_c1, true, true},
 			{_c3, true, true},
@@ -325,6 +327,7 @@ var tests = []stateDBTest{
 			{_c2, _k3, _v1},
 			{_c2, _k4, _v2},
 		},
+		15000,
 		[]sui{
 			{_addr1, true, true},
 		},
@@ -379,6 +382,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			for _, e := range test.states {
 				stateDB.SetState(e.addr, e.k, e.v)
 			}
+			// set refund
+			stateDB.refund = test.refund
 			// set suicide
 			for _, e := range test.suicide {
 				require.Equal(e.suicide, stateDB.Suicide(e.addr))
@@ -433,6 +438,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c2, _k3, _v1},
 					{_c2, _k4, _v2},
 				},
+				tests[2].refund,
 				[]sui{
 					{_c1, true, true},
 					{_c3, true, true},
@@ -460,6 +466,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				},
 				[]code{},
 				tests[1].states,
+				tests[1].refund,
 				[]sui{
 					{_c1, true, true},
 					{_c3, true, true},
@@ -491,6 +498,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 					{_c1, _k2, _v2},
 					{_c3, _k3, _v4},
 				},
+				tests[0].refund,
 				[]sui{
 					{_c1, false, true},
 					{_c3, false, true},
@@ -533,6 +541,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				for _, e := range test.states {
 					require.Equal(e.v, stateDB.GetState(e.addr, e.k))
 				}
+				// test refund
+				require.Equal(test.refund, stateDB.refund)
 				// test preimage
 				for _, e := range test.preimage {
 					v := stateDB.preimages[e.hash]
