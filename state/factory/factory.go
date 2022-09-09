@@ -25,9 +25,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -65,6 +65,12 @@ var (
 		},
 		[]string{},
 	)
+
+	//DefaultConfig is the default config for state factory
+	DefaultConfig = Config{
+		Chain:   blockchain.DefaultConfig,
+		Genesis: genesis.Default,
+	}
 )
 
 func init() {
@@ -92,7 +98,7 @@ type (
 	factory struct {
 		lifecycle                lifecycle.Lifecycle
 		mutex                    sync.RWMutex
-		cfg                      config.Config
+		cfg                      Config
 		registry                 *protocol.Registry
 		currentChainHeight       uint64
 		saveHistory              bool
@@ -104,46 +110,28 @@ type (
 		skipBlockValidationOnPut bool
 		ps                       *patchStore
 	}
+
+	// Config contains the config for factory
+	Config struct {
+		Chain   blockchain.Config
+		Genesis genesis.Genesis
+	}
 )
 
+// GenerateConfig generates the factory config
+func GenerateConfig(chain blockchain.Config, g genesis.Genesis) Config {
+	return Config{
+		Chain:   chain,
+		Genesis: g,
+	}
+}
+
 // Option sets Factory construction parameter
-type Option func(*factory, config.Config) error
-
-// PrecreatedTrieDBOption uses pre-created trie DB for state factory
-func PrecreatedTrieDBOption(kv db.KVStore) Option {
-	return func(sf *factory, cfg config.Config) (err error) {
-		if kv == nil {
-			return errors.New("Invalid empty trie db")
-		}
-		sf.dao = kv
-		return nil
-	}
-}
-
-// DefaultTrieOption creates trie from config for state factory
-func DefaultTrieOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
-		dbPath := cfg.Chain.TrieDBPath
-		if len(dbPath) == 0 {
-			return errors.New("Invalid empty trie db path")
-		}
-		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sf.dao = db.NewBoltDB(cfg.DB)
-		return nil
-	}
-}
-
-// InMemTrieOption creates in memory trie for state factory
-func InMemTrieOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
-		sf.dao = db.NewMemKVStore()
-		return nil
-	}
-}
+type Option func(*factory, *Config) error
 
 // RegistryOption sets the registry in state db
 func RegistryOption(reg *protocol.Registry) Option {
-	return func(sf *factory, cfg config.Config) error {
+	return func(sf *factory, cfg *Config) error {
 		sf.registry = reg
 		return nil
 	}
@@ -151,7 +139,7 @@ func RegistryOption(reg *protocol.Registry) Option {
 
 // SkipBlockValidationOption skips block validation on PutBlock
 func SkipBlockValidationOption() Option {
-	return func(sf *factory, cfg config.Config) error {
+	return func(sf *factory, cfg *Config) error {
 		sf.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -159,14 +147,14 @@ func SkipBlockValidationOption() Option {
 
 // DefaultTriePatchOption loads patchs
 func DefaultTriePatchOption() Option {
-	return func(sf *factory, cfg config.Config) (err error) {
+	return func(sf *factory, cfg *Config) (err error) {
 		sf.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
+func NewFactory(cfg Config, dao db.KVStore, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
@@ -174,10 +162,11 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
+		dao:                dao,
 	}
 
 	for _, opt := range opts {
-		if err := opt(sf, cfg); err != nil {
+		if err := opt(sf, &cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}

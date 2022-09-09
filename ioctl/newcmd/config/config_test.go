@@ -11,10 +11,26 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
+
+func TestNewConfigCmd(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_ioctlclient.NewMockClient(ctrl)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("config usage", config.English).Times(8)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any())
+	cmd := NewConfigCmd(client)
+	result, err := util.ExecuteCmd(cmd)
+	require.NoError(err)
+	require.Contains(result, "Available Commands")
+}
 
 func TestInitConfig(t *testing.T) {
 	require := require.New(t)
@@ -129,4 +145,79 @@ func TestConfigReset(t *testing.T) {
 	require.Equal(_defaultAnalyserEndpoint, resetCfg.AnalyserEndpoint)
 	require.Equal("iotexscan", resetCfg.Explorer)
 	require.Equal(*new(config.Context), resetCfg.DefaultAccount)
+}
+
+func TestConfigSet(t *testing.T) {
+	require := require.New(t)
+	testPath := t.TempDir()
+	cfgFile := fmt.Sprintf("%s/%s", testPath, "config.test")
+
+	info := newInfo(config.Config{
+		Wallet:           testPath,
+		SecureConnect:    true,
+		Aliases:          make(map[string]string),
+		DefaultAccount:   config.Context{AddressOrAlias: "test"},
+		Explorer:         "iotexscan",
+		Language:         "English",
+		AnalyserEndpoint: "testAnalyser",
+	}, cfgFile)
+
+	tcs := []struct {
+		args     []string
+		expected string
+	}{
+		{
+			[]string{"endpoint", "invalid endpoint"},
+			"endpoint invalid endpoint is not valid",
+		},
+		{
+			[]string{"wallet", testPath},
+			testPath,
+		},
+		{
+			[]string{"defaultacc", "io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he"},
+			"Defaultacc is set to io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he",
+		},
+		{
+			[]string{"defaultacc", "suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp"},
+			"failed to validate alias or address suzxctxgbidciovisbrecerurkbjkmyqrftxtnjyp",
+		},
+		{
+			[]string{"explorer", "iotxplorer"},
+			"Explorer is set to iotxplorer",
+		},
+		{
+			[]string{"explorer", "invalid"},
+			"explorer invalid is not valid\nValid explorers: [iotexscan iotxplorer custom]",
+		},
+		{
+			[]string{"language", "中文"},
+			"Language is set to 中文",
+		},
+		{
+			[]string{"language", "unknown language"},
+			"language unknown language is not supported\nSupported languages: [English 中文]",
+		},
+		{
+			[]string{"nsv2height", "20"},
+			"Nsv2height is set to 20",
+		},
+		{
+			[]string{"nsv2height", "invalid height"},
+			"invalid height",
+		},
+		{
+			[]string{"unknownField", ""},
+			"no matching config",
+		},
+	}
+
+	for _, tc := range tcs {
+		setResult, err := info.set(tc.args, false, nil)
+		if err != nil {
+			require.Contains(err.Error(), tc.expected)
+		} else {
+			require.Contains(setResult, tc.expected)
+		}
+	}
 }

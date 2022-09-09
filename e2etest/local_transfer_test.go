@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -647,7 +648,8 @@ func TestEnforceChainID(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
+	sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(cfg.Genesis, sf, cfg.ActPool)
 	require.NoError(err)

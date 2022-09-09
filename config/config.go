@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -115,26 +116,12 @@ var (
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
+			HTTPAdminPort:         0,
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB: db.Config{
-			NumRetries:            3,
-			MaxCacheSize:          64,
-			BlockStoreBatchSize:   16,
-			V2BlocksToSplitDB:     1000000,
-			Compressor:            "Snappy",
-			CompressLegacy:        false,
-			SplitDBSizeMB:         0,
-			SplitDBHeight:         900000,
-			HistoryStateRetention: 2000,
-		},
-		Indexer: Indexer{
-			RangeBloomFilterNumElements: 100000,
-			RangeBloomFilterSize:        1200000,
-			RangeBloomFilterNumHash:     8,
-		},
+		DB:      db.DefaultConfig,
+		Indexer: blockindex.DefaultConfig,
 		Genesis: genesis.Default,
 	}
 
@@ -237,16 +224,6 @@ type (
 		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
 	}
 
-	// Indexer is the config for indexer
-	Indexer struct {
-		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
-		RangeBloomFilterNumElements uint64 `yaml:"rangeBloomFilterNumElements"`
-		// RangeBloomFilterSize is the size (in bits) of rangeBloomfilter
-		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
-		// RangeBloomFilterNumHash is the number of hash functions of rangeBloomfilter
-		RangeBloomFilterNumHash uint64 `yaml:"rangeBloomFilterNumHash"`
-	}
-
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		Plugins            map[int]interface{}         `ymal:"plugins"`
@@ -260,7 +237,7 @@ type (
 		API                API                         `yaml:"api"`
 		System             System                      `yaml:"system"`
 		DB                 db.Config                   `yaml:"db"`
-		Indexer            Indexer                     `yaml:"indexer"`
+		Indexer            blockindex.Config           `yaml:"indexer"`
 		Log                log.GlobalConfig            `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis            genesis.Genesis             `yaml:"genesis"`
@@ -290,6 +267,10 @@ func New(configPaths []string, _plugins []string, validates ...Validate) (Config
 	var cfg Config
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+	}
+
+	if err := cfg.Chain.SetProducerPrivKey(); err != nil {
+		return Config{}, errors.Wrap(err, "failed to set producer private key")
 	}
 
 	// set network master key to private key
@@ -446,6 +427,8 @@ func ValidateForkHeights(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "LordHowe is heigher than Midway")
 	case hu.MidwayBlockHeight > hu.NewfoundlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Midway is heigher than Newfoundland")
+	case hu.NewfoundlandBlockHeight > hu.OkhotskBlockHeight:
+		return errors.Wrap(ErrInvalidCfg, "Newfoundland is heigher than Okhotsk")
 	}
 	return nil
 }

@@ -25,8 +25,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.2
-          # cache: true
+          go-version: 1.18.5
+          cache: false
 
 #       - name: Error Check
 #         uses: reviewdog/action-golangci-lint@v2
@@ -39,7 +39,9 @@ jobs:
         id: unittest
         shell: bash
         run: |
-          go get -u golang.org/x/lint/golint
+          go install golang.org/x/lint/golint@master
+          go install github.com/dave/courtney@latest
+          go mod tidy
           golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
           #go get -u github.com/dave/courtney@038390a12707e2d91979d2ca77a71597f4afe400
           ./go.test.sh

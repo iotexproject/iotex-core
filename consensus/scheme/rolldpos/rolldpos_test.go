@@ -38,6 +38,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -69,7 +70,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -85,7 +86,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -105,7 +106,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(NewChainManager(mock_blockchain.NewMockBlockchain(ctrl))).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
@@ -207,7 +208,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(blockchain).
+		SetChainManager(NewChainManager(blockchain)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -285,7 +286,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetChainManager(blockchain).
+		SetChainManager(NewChainManager(blockchain)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
@@ -401,11 +402,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 		chains := make([]blockchain.Blockchain, 0, numNodes)
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
+		factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
 			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			registry := protocol.NewRegistry()
-			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+			sf, err := factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(registry))
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
@@ -441,7 +443,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg).
-				SetChainManager(chain).
+				SetChainManager(NewChainManager(chain)).
 				SetBroadcast(p2p.Broadcast).
 				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				RegisterProtocol(rp).
