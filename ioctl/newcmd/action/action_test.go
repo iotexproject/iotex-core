@@ -23,6 +23,8 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
+const _signerFlag = "--signer"
+
 func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -36,7 +38,7 @@ func TestSigner(t *testing.T) {
 
 		cmd := NewActionCmd(client)
 		registerSignerFlag(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--signer", "test")
+		_, err := util.ExecuteCmd(cmd, _signerFlag, "test")
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)
 		require.NoError(err)
@@ -296,8 +298,12 @@ func TestRead(t *testing.T) {
 	}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(4)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).Times(2)
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).Times(2)
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {
+		// SetEndpointWithFlag take a function as parameter
+	}).Times(2)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {
+		// SetInsecureWithFlag take a function as parameter
+	}).Times(2)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
 	t.Run("reads smart contract on IoTeX blockchain", func(t *testing.T) {
@@ -311,7 +317,7 @@ func TestRead(t *testing.T) {
 
 		cmd := NewActionCmd(client)
 		registerSignerFlag(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--signer", "test")
+		_, err := util.ExecuteCmd(cmd, _signerFlag, "test")
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)
 		require.NoError(err)
@@ -325,7 +331,7 @@ func TestRead(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("", expectErr)
 		cmd := NewActionCmd(client)
 		registerSignerFlag(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--signer", "test")
+		_, err := util.ExecuteCmd(cmd, _signerFlag, "test")
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)
 		require.NoError(err)
