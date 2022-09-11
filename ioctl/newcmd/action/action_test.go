@@ -321,7 +321,7 @@ func TestRead(t *testing.T) {
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)
 		require.NoError(err)
-		result, err := Read(client, cmd, accAddr, "100", []byte(bytecode), signer, 100)
+		result, err := Read(client, accAddr, "100", []byte(bytecode), signer, 100)
 		require.NoError(err)
 		require.Equal("test", result)
 	})
@@ -335,7 +335,7 @@ func TestRead(t *testing.T) {
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)
 		require.NoError(err)
-		_, err = Read(client, cmd, accAddr, "100", []byte(bytecode), signer, 100)
+		_, err = Read(client, accAddr, "100", []byte(bytecode), signer, 100)
 		require.Contains(err.Error(), expectErr.Error())
 	})
 }
