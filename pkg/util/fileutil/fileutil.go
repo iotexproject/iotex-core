@@ -8,12 +8,6 @@ package fileutil
 
 import (
 	"os"
-	"path"
-	"strings"
-
-	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // FileExists checks if a file or a directory already exists
@@ -22,18 +16,4 @@ func FileExists(path string) bool {
 		return false
 	}
 	return true
-}
-
-// GetFileAbsPath returns the absolute path of a file in blockchain directory
-func GetFileAbsPath(filename string) string {
-	pwd, err := os.Getwd()
-	if err != nil {
-		log.L().Fatal("Fail to get absolute path of genesis actions yaml file.", zap.Error(err))
-	}
-	firstIndex := strings.LastIndex(pwd, "iotex-core")
-	index := strings.Index(pwd[firstIndex:], "/")
-	if index == -1 {
-		return path.Join(pwd, "blockchain", filename)
-	}
-	return path.Join(pwd[0:firstIndex+index], "blockchain", filename)
 }
