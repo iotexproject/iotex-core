@@ -120,10 +120,9 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/log",
 		},
-		DB:        db.DefaultConfig,
-		Indexer:   blockindex.DefaultConfig,
-		Genesis:   genesis.Default,
-		Collector: []string{},
+		DB:      db.DefaultConfig,
+		Indexer: blockindex.DefaultConfig,
+		Genesis: genesis.Default,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
