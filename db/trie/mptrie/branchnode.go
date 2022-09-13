@@ -42,6 +42,7 @@ func newBranchNode(
 			return bnode.store()
 		}
 	}
+	eventOnUpsert(bnode)
 	return bnode, nil
 }
 
@@ -88,6 +89,7 @@ func (b *branchNode) Children() []node {
 }
 
 func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
+	eventOnDelete(b)
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	if err != nil {
@@ -141,6 +143,7 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 }
 
 func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
+	eventOnUpsert(b)
 	var newChild node
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
@@ -158,6 +161,7 @@ func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, erro
 }
 
 func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
+	eventOnSearch(b)
 	child, err := b.child(key[offset])
 	if err != nil {
 		return nil, err
