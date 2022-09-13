@@ -15,6 +15,7 @@ import (
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/pkg/fsnotify"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
 	"github.com/iotexproject/iotex-core/tools/bot/server/bot"
@@ -36,10 +37,11 @@ func main() {
 		fmt.Println("Failed to new config.", zap.Error(err))
 		return
 	}
-	err = initLogger(cfg)
+	watchDirs, err := initLogger(cfg)
 	if err != nil {
 		return
 	}
+	go fsnotify.Watch(context.Background(), watchDirs...)
 	b, err := bot.NewServer(cfg)
 	if err != nil {
 		log.L().Fatal("new server:", zap.Error(err))
@@ -83,10 +85,6 @@ func main() {
 	select {}
 }
 
-func initLogger(cfg config.Config) error {
-	if err := log.InitLoggers(cfg.Log, cfg.SubLogs); err != nil {
-		fmt.Println("Cannot config global logger, use default one: ", err)
-		return err
-	}
-	return nil
+func initLogger(cfg config.Config) ([]string, error) {
+	return log.InitLoggers(cfg.Log, cfg.SubLogs)
 }
