@@ -30,12 +30,10 @@ func TestIterator(t *testing.T) {
 
 	mpt, err := New(KVStoreOption(memStore), KeyLengthOption(5), AsyncOption())
 	require.NoError(err)
-	err = mpt.Start(context.Background())
-	require.NoError(err)
+	require.NoError(mpt.Start(context.Background()))
 
 	for _, item := range items {
-		err = mpt.Upsert([]byte(item.k), []byte(item.v))
-		require.NoError(err)
+		require.NoError(mpt.Upsert([]byte(item.k), []byte(item.v)))
 	}
 
 	iter, err := NewLeafIterator(mpt)

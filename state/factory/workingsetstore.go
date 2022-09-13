@@ -16,7 +16,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -43,10 +45,12 @@ type (
 		readBuffer bool
 	}
 	factoryWorkingSetStore struct {
-		view      protocol.View
-		flusher   db.KVStoreFlusher
-		tlt       trie.TwoLayerTrie
-		trieRoots map[int][]byte
+		view           protocol.View
+		sf             *factory
+		flusher        db.KVStoreFlusher
+		kvStoreForTrie trie.KVStore
+		tlt            trie.TwoLayerTrie
+		trieRoots      map[int]trie.TwoLayerTrie
 	}
 )
 
@@ -58,17 +62,43 @@ func newStateDBWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher, re
 	}
 }
 
-func newFactoryWorkingSetStore(view protocol.View, flusher db.KVStoreFlusher) (workingSetStore, error) {
-	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
+func newFactoryWorkingSetStore(ctx context.Context, sf *factory, height uint64) (workingSetStore, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
+	flusher, err := db.NewKVStoreFlusher(
+		sf.dao,
+		batch.NewCachedBatch(),
+		sf.flusherOptions(!g.IsEaster(height))...,
+	)
 	if err != nil {
 		return nil, err
 	}
+	for _, p := range sf.ps.Get(height) {
+		if p.Type == _Delete {
+			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
+		} else {
+			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
+		}
+	}
+	kvStore, err := trie.NewKVStore(ArchiveTrieNamespace, flusher.KVStoreWithBuffer())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	clone, err := sf.twoLayerTrie.Clone(kvStore)
+	if err != nil {
+		return nil, err
+	}
+	// tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &factoryWorkingSetStore{
-		flusher:   flusher,
-		view:      view,
-		tlt:       tlt,
-		trieRoots: make(map[int][]byte),
+		flusher:        flusher,
+		view:           sf.protocolView,
+		tlt:            clone,
+		sf:             sf,
+		kvStoreForTrie: kvStore,
+		trieRoots:      make(map[int]trie.TwoLayerTrie),
 	}, nil
 }
 
@@ -237,17 +267,29 @@ func (store *factoryWorkingSetStore) Finalize(h uint64) error {
 }
 
 func (store *factoryWorkingSetStore) Commit() error {
+	if _, err := store.tlt.RootHash(); err != nil {
+		return err
+	}
 	_dbBatchSizelMtc.WithLabelValues().Set(float64(store.flusher.KVStoreWithBuffer().Size()))
-	return store.flusher.Flush()
+	if err := store.flusher.Flush(); err != nil {
+		return err
+	}
+	dbForTrie, err := trie.NewKVStore(ArchiveTrieNamespace, store.sf.dao)
+	if err != nil {
+		return errors.Wrap(err, "failed to create db for trie")
+	}
+	store.sf.twoLayerTrie, err = store.tlt.Clone(dbForTrie)
+
+	return err
 }
 
 func (store *factoryWorkingSetStore) Snapshot() int {
-	rh, err := store.tlt.RootHash()
+	clone, err := store.tlt.Clone(store.kvStoreForTrie)
 	if err != nil {
-		log.L().Panic("failed to do snapshot", zap.Error(err))
+		log.L().Panic("failed to clone two layer trie", zap.Error(err))
 	}
 	s := store.flusher.KVStoreWithBuffer().Snapshot()
-	store.trieRoots[s] = rh
+	store.trieRoots[s] = clone
 	return s
 }
 
@@ -255,15 +297,16 @@ func (store *factoryWorkingSetStore) RevertSnapshot(snapshot int) error {
 	if err := store.flusher.KVStoreWithBuffer().RevertSnapshot(snapshot); err != nil {
 		return err
 	}
-	root, ok := store.trieRoots[snapshot]
+	tlt, ok := store.trieRoots[snapshot]
 	if !ok {
 		// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
 		return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
 	}
-	return store.tlt.SetRootHash(root[:])
+	store.tlt = tlt
+	return nil
 }
 
 func (store *factoryWorkingSetStore) ResetSnapshots() {
 	store.flusher.KVStoreWithBuffer().ResetSnapshots()
-	store.trieRoots = make(map[int][]byte)
+	store.trieRoots = make(map[int]trie.TwoLayerTrie)
 }

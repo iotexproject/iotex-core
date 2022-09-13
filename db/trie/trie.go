@@ -47,6 +47,8 @@ type (
 		SetRootHash([]byte) error
 		// IsEmpty returns true is this is an empty trie
 		IsEmpty() bool
+		// Clone clones a trie with a new kvstore
+		Clone(KVStore) (Trie, error)
 	}
 	// TwoLayerTrie is a trie data structure with two layers
 	TwoLayerTrie interface {
@@ -64,5 +66,7 @@ type (
 		Upsert([]byte, []byte, []byte) error
 		// Delete deletes an item in layer two
 		Delete([]byte, []byte) error
+		// Clone clones the current trie with new kvstore
+		Clone(KVStore) (TwoLayerTrie, error)
 	}
 )

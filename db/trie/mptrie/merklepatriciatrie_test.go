@@ -539,7 +539,13 @@ func Test4kEntries(t *testing.T) {
 func test4kEntries(t *testing.T, enableAsync bool) {
 	require := require.New(t)
 
-	tr, err := New(KeyLengthOption(4), AsyncOption())
+	var tr trie.Trie
+	var err error
+	if enableAsync {
+		tr, err = New(KeyLengthOption(4), AsyncOption())
+	} else {
+		tr, err = New(KeyLengthOption(4))
+	}
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	root, err := tr.RootHash()
