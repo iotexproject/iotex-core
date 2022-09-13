@@ -241,7 +241,6 @@ type (
 		Log                log.GlobalConfig            `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis            genesis.Genesis             `yaml:"genesis"`
-		Collector          []string                    `yaml:"collector"`
 	}
 
 	// Validate is the interface of validating the config
