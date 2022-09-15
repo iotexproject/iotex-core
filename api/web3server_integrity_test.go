@@ -38,47 +38,120 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 	defer web3svr.Stop(ctx)
 	handler := newHTTPHandler(NewWeb3Handler(svr.core, ""))
 
-	t.Run("TestGasPriceIntegrity", func(t *testing.T) {
-		gasPriceIntegrity(t, handler)
+	// send request
+	t.Run("eth_gasPrice", func(t *testing.T) {
+		gasPrice(t, handler)
 	})
 
-	t.Run("TestGetChainIDIntegrity", func(t *testing.T) {
-		chainIDIntegrity(t, handler)
+	t.Run("eth_chainId", func(t *testing.T) {
+		chainID(t, handler)
 	})
 
-	t.Run("TestGetBlockNumberIntegrity", func(t *testing.T) {
-		blockNumberIntegrity(t, handler)
+	t.Run("eth_blockNumber", func(t *testing.T) {
+		blockNumber(t, handler)
 	})
 
-	t.Run("TestGetBlockByNumberIntegrity", func(t *testing.T) {
-		blockByNumberIntegrity(t, handler)
+	t.Run("eth_getBlockByNumber", func(t *testing.T) {
+		getBlockByNumber(t, handler)
 	})
 
-	t.Run("TestGetBalanceIntegrity", func(t *testing.T) {
-		balanceIntegrity(t, handler)
+	t.Run("eth_getBalance", func(t *testing.T) {
+		getBalance(t, handler)
 	})
 
-	t.Run("TestGetTransactionCountIntegrity", func(t *testing.T) {
-		transactionCountIntegrity(t, handler)
+	t.Run("eth_getTransactionCount", func(t *testing.T) {
+		getTransactionCount(t, handler)
 	})
 
-	t.Run("TestCallIntegrity", func(t *testing.T) {
-		callIntegrity(t, handler)
+	t.Run("eth_call", func(t *testing.T) {
+		ethCall(t, handler)
 	})
 
-	t.Run("TestGetNodeInfoIntegrity", func(t *testing.T) {
-		nodeInfoIntegrity(t, handler)
+	t.Run("web3_clientVersion", func(t *testing.T) {
+		getNodeInfo(t, handler)
 	})
 
-	t.Run("TestGetStorageAtIntegrity", func(t *testing.T) {
-		storageAtIntegrity(t, handler, bc, dao, actPool)
+	t.Run("eth_getBlockTransactionCountByHash", func(t *testing.T) {
+		getBlockTransactionCountByHash(t, handler, bc)
+	})
+
+	t.Run("eth_getBlockByHash", func(t *testing.T) {
+		getBlockByHash(t, handler, bc)
+	})
+
+	t.Run("eth_getTransactionByHash", func(t *testing.T) {
+		getTransactionByHash(t, handler)
+	})
+
+	t.Run("eth_getLogs", func(t *testing.T) {
+		getLogs(t, handler)
+	})
+
+	t.Run("eth_getTransactionReceipt", func(t *testing.T) {
+		getTransactionReceipt(t, handler)
+	})
+
+	t.Run("eth_getBlockTransactionCountByNumber", func(t *testing.T) {
+		getBlockTransactionCountByNumber(t, handler)
+	})
+
+	t.Run("eth_getTransactionByBlockHashAndIndex", func(t *testing.T) {
+		getTransactionByBlockHashAndIndex(t, handler, bc)
+	})
+
+	t.Run("eth_getTransactionByBlockNumberAndIndex", func(t *testing.T) {
+		getTransactionByBlockNumberAndIndex(t, handler)
+	})
+
+	t.Run("eth_newFilter", func(t *testing.T) {
+		newfilter(t, handler)
+	})
+
+	t.Run("eth_newBlockFilter", func(t *testing.T) {
+		newBlockFilter(t, handler)
+	})
+
+	t.Run("eth_getFilterChanges", func(t *testing.T) {
+		getFilterChanges(t, handler)
+	})
+
+	t.Run("eth_getFilterLogs", func(t *testing.T) {
+		getFilterLogs(t, handler)
+	})
+
+	t.Run("net_version", func(t *testing.T) {
+		getNetworkID(t, handler)
+	})
+
+	t.Run("eth_accounts", func(t *testing.T) {
+		ethAccounts(t, handler)
+	})
+
+	t.Run("web3Staking", func(t *testing.T) {
+		web3Staking(t, handler)
+	})
+
+	t.Run("eth_sendRawTransaction", func(t *testing.T) {
+		sendRawTransaction(t, handler)
+	})
+
+	t.Run("eth_estimateGas", func(t *testing.T) {
+		estimateGas(t, handler, bc, dao, actPool)
+	})
+
+	t.Run("eth_getCode", func(t *testing.T) {
+		getCode(t, handler, bc, dao, actPool)
+	})
+
+	t.Run("eth_getStorageAt", func(t *testing.T) {
+		getStorageAt(t, handler, bc, dao, actPool)
 	})
 }
 
 func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig()
 	cfg.Chain.EVMNetworkID = _evmNetworkID
-	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2(cfg, false)
+	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2(cfg, false, true)
 	return svr, bc, dao, actPool, func() {
 		testutil.CleanupPath(bfIndexFile)
 	}
@@ -102,7 +175,7 @@ func serveTestHTTP(require *require.Assertions, handler *hTTPHandler, method str
 	return vals[0].Result
 }
 
-func gasPriceIntegrity(t *testing.T, handler *hTTPHandler) {
+func gasPrice(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_gasPrice", "[]")
 	actual, ok := result.(string)
@@ -110,7 +183,7 @@ func gasPriceIntegrity(t *testing.T, handler *hTTPHandler) {
 	require.Equal(uint64ToHex(1000000000000), actual)
 }
 
-func chainIDIntegrity(t *testing.T, handler *hTTPHandler) {
+func chainID(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_chainId", "[]")
 	actual, ok := result.(string)
@@ -119,7 +192,7 @@ func chainIDIntegrity(t *testing.T, handler *hTTPHandler) {
 	require.Equal(uint64ToHex(uint64(_evmNetworkID)), actual)
 }
 
-func blockNumberIntegrity(t *testing.T, handler *hTTPHandler) {
+func blockNumber(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_blockNumber", "[]")
 	actual, ok := result.(string)
@@ -127,7 +200,7 @@ func blockNumberIntegrity(t *testing.T, handler *hTTPHandler) {
 	require.Equal(uint64ToHex(4), actual)
 }
 
-func blockByNumberIntegrity(t *testing.T, handler *hTTPHandler) {
+func getBlockByNumber(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	for _, test := range []struct {
 		params   string
@@ -148,7 +221,7 @@ func blockByNumberIntegrity(t *testing.T, handler *hTTPHandler) {
 	}
 }
 
-func balanceIntegrity(t *testing.T, handler *hTTPHandler) {
+func getBalance(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "eth_getBalance", `["0xDa7e12Ef57c236a06117c5e0d04a228e7181CF36", 1]`)
 	ans, ok := new(big.Int).SetString("9999999999999999999999999991", 10)
@@ -160,7 +233,7 @@ func balanceIntegrity(t *testing.T, handler *hTTPHandler) {
 	require.Equal("0x"+fmt.Sprintf("%x", ans), actual)
 }
 
-func transactionCountIntegrity(t *testing.T, handler *hTTPHandler) {
+func getTransactionCount(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	for _, test := range []struct {
 		params   string
@@ -176,7 +249,7 @@ func transactionCountIntegrity(t *testing.T, handler *hTTPHandler) {
 	}
 }
 
-func callIntegrity(t *testing.T, handler *hTTPHandler) {
+func ethCall(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	for _, test := range []struct {
 		params   string
@@ -218,7 +291,7 @@ func callIntegrity(t *testing.T, handler *hTTPHandler) {
 	}
 }
 
-func nodeInfoIntegrity(t *testing.T, handler *hTTPHandler) {
+func getNodeInfo(t *testing.T, handler *hTTPHandler) {
 	require := require.New(t)
 	result := serveTestHTTP(require, handler, "web3_clientVersion", "[]")
 	actual, ok := result.(string)
@@ -226,7 +299,61 @@ func nodeInfoIntegrity(t *testing.T, handler *hTTPHandler) {
 	require.Equal("NoBuildInfo/NoBuildInfo", actual)
 }
 
-func storageAtIntegrity(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
+func getBlockTransactionCountByHash(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain) {
+}
+
+func getBlockByHash(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain) {
+}
+
+func getTransactionByHash(t *testing.T, handler *hTTPHandler) {
+}
+
+func getLogs(t *testing.T, handler *hTTPHandler) {
+}
+
+func getTransactionReceipt(t *testing.T, handler *hTTPHandler) {
+}
+
+func getBlockTransactionCountByNumber(t *testing.T, handler *hTTPHandler) {
+}
+
+func getTransactionByBlockHashAndIndex(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain) {
+}
+
+func getTransactionByBlockNumberAndIndex(t *testing.T, handler *hTTPHandler) {
+}
+
+func newfilter(t *testing.T, handler *hTTPHandler) {
+}
+
+func newBlockFilter(t *testing.T, handler *hTTPHandler) {
+}
+
+func getFilterChanges(t *testing.T, handler *hTTPHandler) {
+}
+
+func getFilterLogs(t *testing.T, handler *hTTPHandler) {
+}
+
+func getNetworkID(t *testing.T, handler *hTTPHandler) {
+}
+
+func ethAccounts(t *testing.T, handler *hTTPHandler) {
+}
+
+func web3Staking(t *testing.T, handler *hTTPHandler) {
+}
+
+func sendRawTransaction(t *testing.T, handler *hTTPHandler) {
+}
+
+func estimateGas(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
+}
+
+func getCode(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
+}
+
+func getStorageAt(t *testing.T, handler *hTTPHandler, bc blockchain.Blockchain, dao blockdao.BlockDAO, actPool actpool.ActPool) {
 	require := require.New(t)
 	// deploy a contract
 	contractCode := "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b6100556004803603810190610050919061009d565b610075565b005b61005f61007f565b60405161006c91906100d9565b60405180910390f35b8060008190555050565b60008054905090565b60008135905061009781610103565b92915050565b6000602082840312156100b3576100b26100fe565b5b60006100c184828501610088565b91505092915050565b6100d3816100f4565b82525050565b60006020820190506100ee60008301846100ca565b92915050565b6000819050919050565b600080fd5b61010c816100f4565b811461011757600080fd5b5056fea2646970667358221220c86a8c4dd175f55f5732b75b721d714ceb38a835b87c6cf37cf28c790813e19064736f6c63430008070033"
