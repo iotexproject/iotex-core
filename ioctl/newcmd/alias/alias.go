@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
@@ -42,8 +41,8 @@ func NewAliasCmd(client ioctl.Client) *cobra.Command {
 }
 
 // IOAddress returns the address in IoTeX address format
-func IOAddress(in string) (address.Address, error) {
-	addr, err := util.Address(in)
+func IOAddress(client ioctl.Client, in string) (address.Address, error) {
+	addr, err := client.Address(in)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +50,8 @@ func IOAddress(in string) (address.Address, error) {
 }
 
 // EtherAddress returns the address in ether format
-func EtherAddress(in string) (common.Address, error) {
-	addr, err := util.Address(in)
+func EtherAddress(client ioctl.Client, in string) (common.Address, error) {
+	addr, err := client.Address(in)
 	if err != nil {
 		return common.Address{}, err
 	}
