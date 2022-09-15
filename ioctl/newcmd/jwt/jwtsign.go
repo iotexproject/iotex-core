@@ -47,9 +47,15 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 
 			var (
-				input map[string]string
-				exp   int64
-				err   error
+				input struct {
+					Exp   string `json:"exp,omitempty"`
+					Sub   string `json:"sub,omitempty"`
+					Scope string `json:"scope,omitempty"`
+					Iat   string `json:"iat,omitempty"`
+					Iss   string `json:"iss,omitempty"`
+				}
+				exp int64
+				err error
 			)
 
 			arg := flag.WithArgumentsFlag.Value().(string)
@@ -59,13 +65,13 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 			if err = json.Unmarshal([]byte(arg), &input); err != nil {
 				return errors.Wrap(err, "failed to unmarshal arguments")
 			}
-			if input["exp"] != "" {
-				exp, err = strconv.ParseInt(input["exp"], 10, 64)
+			if input.Exp != "" {
+				exp, err = strconv.ParseInt(input.Exp, 10, 64)
 				if err != nil {
 					return errors.Wrap(err, "invalid expire time")
 				}
 			} else {
-				input["exp"] = "0"
+				input.Exp = "0"
 			}
 
 			signer, err := cmd.Flags().GetString("signer")
@@ -85,15 +91,15 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 
 			// sign JWT
 			now := time.Now().Unix()
-			jwtString, err := jwt.SignJWT(now, exp, input["sub"], input["scope"], prvKey)
+			jwtString, err := jwt.SignJWT(now, exp, input.Sub, input.Scope, prvKey)
 			if err != nil {
 				return errors.Wrap(err, "failed to sign JWT token")
 			}
 			prvKey.Zero()
 
 			// format output
-			input["iat"] = strconv.FormatInt(now, 10)
-			input["iss"] = "0x" + pubKey.HexString()
+			input.Iat = strconv.FormatInt(now, 10)
+			input.Iss = "0x" + pubKey.HexString()
 			byteAsJSON, err := json.MarshalIndent(input, "", "  ")
 			if err != nil {
 				return err
@@ -106,7 +112,7 @@ func NewJwtSignCmd(client ioctl.Client) *cobra.Command {
 				"}\n"+
 				"with following claims:\n"+
 				"%s\n",
-				jwtString, addr.String(), input["iss"], string(byteAsJSON))
+				jwtString, addr.String(), input.Iss, string(byteAsJSON))
 			return nil
 		},
 	}
