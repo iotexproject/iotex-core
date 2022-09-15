@@ -407,7 +407,7 @@ func newConfig() config.Config {
 	return cfg
 }
 
-func createServerV2(cfg config.Config, needActPool bool, isHttp ...bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
+func createServerV2(cfg config.Config, needActPool bool, isHTTP ...bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
@@ -435,7 +435,7 @@ func createServerV2(cfg config.Config, needActPool bool, isHttp ...bool) (*Serve
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	if len(isHttp) == 1 && isHttp[0] {
+	if len(isHTTP) == 1 && isHTTP[0] {
 		cfg.API.GRPCPort = 0
 		cfg.API.HTTPPort = testutil.RandomPort()
 	} else {
