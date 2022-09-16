@@ -17,8 +17,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
-// WatchDev creates the time-tick task to check device
-func WatchDev(ctx context.Context, watchInternal time.Duration) func() {
+// Start creates a timer task to check device per watchInternal
+func Start(ctx context.Context, watchInternal time.Duration) func() {
 	task := routine.NewRecurringTask(checkDiskSpace, watchInternal)
 	if err := task.Start(ctx); err != nil {
 		log.L().Panic("Failed to start watch disk space", zap.Error(err))

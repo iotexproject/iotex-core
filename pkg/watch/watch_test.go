@@ -16,9 +16,9 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestWatch(t *testing.T) {
+func TestStart(t *testing.T) {
 	require := require.New(t)
-	h := WatchDev(context.Background(), 30*time.Millisecond)
+	h := Start(context.Background(), 30*time.Millisecond)
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 1*time.Second, func() (b bool, e error) {
 		h()
 		return true, nil

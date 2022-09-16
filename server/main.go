@@ -105,7 +105,7 @@ func main() {
 	}
 
 	// check device
-	stopWatch := watch.WatchDev(ctx, 5*time.Minute)
+	stopWatch := watch.Start(ctx, 5*time.Minute)
 	defer stopWatch()
 
 	if err = recovery.SetCrashlogDir(cfg.System.SystemLogDBPath); err != nil {
