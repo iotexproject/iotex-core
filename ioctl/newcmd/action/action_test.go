@@ -158,8 +158,8 @@ func TestSendAction(t *testing.T) {
 	}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(64)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).AnyTimes()
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).AnyTimes()
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).Times(8)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).Times(8)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
 	client.EXPECT().NewKeyStore().Return(ks).Times(15)
 
@@ -313,10 +313,10 @@ func TestExecute(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(7)
 	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {
 		// SetEndpointWithFlag take a function as parameter
-	}).AnyTimes()
+	}).Times(7)
 	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {
 		// SetInsecureWithFlag take a function as parameter
-	}).AnyTimes()
+	}).Times(7)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(10)
 	client.EXPECT().NewKeyStore().Return(ks).Times(4)
 
