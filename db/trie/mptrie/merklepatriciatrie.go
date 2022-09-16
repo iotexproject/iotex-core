@@ -243,8 +243,7 @@ func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 		if err != nil {
 			return err
 		}
-		mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
-		return nil
+		return mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
 	}
 	node, err := mpt.loadNode(rootHash)
 	if err != nil {
