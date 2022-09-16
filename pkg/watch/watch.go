@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
-// Watch creates the time-tick task to check device
+// WatchDev creates the time-tick task to check device
 func WatchDev(ctx context.Context, watchInternal time.Duration) func() {
 	task := routine.NewRecurringTask(checkDiskSpace, watchInternal)
 	if err := task.Start(ctx); err != nil {
@@ -38,6 +38,6 @@ func checkDiskSpace() {
 	}
 	// panic if left less than 2%
 	if usage.UsedPercent > 98.0 || usage.InodesUsedPercent > 98.0 {
-		log.L().Fatal("No space in device.", zap.Float64("UsedPercent", usage.UsedPercent), zap.Float64("InodesUsedPercent", usage.InodesUsedPercent))
+		log.L().Fatal("No space in device, pls clean up.", zap.Float64("UsedPercent", usage.UsedPercent), zap.Float64("InodesUsedPercent", usage.InodesUsedPercent))
 	}
 }
