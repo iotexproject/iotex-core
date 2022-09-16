@@ -56,25 +56,25 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 				}
 			}
 
-			sender, err := Signer(client, cmd)
+			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
+			if err != nil {
+				return err
+			}
+			sender, err := Signer(client, signer)
 			if err != nil {
 				return errors.Wrap(err, "failed to get signed address")
 			}
-
-			gasLimit := gasLimitFlagValue(cmd)
 			if gasLimit == 0 {
 				gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
 			}
-
-			gasPriceRau, err := gasPriceInRau(client, cmd)
+			gasPriceRau, err := gasPriceInRau(client, gasPrice)
 			if err != nil {
 				return errors.Wrap(err, "failed to get gas price")
 			}
-			nonce, err := nonce(client, cmd, sender)
+			nonce, err = checkNonce(client, nonce, sender)
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-
 			s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
 			if err != nil {
 				return errors.Wrap(err, "failed to make a changeCandidate instance")
@@ -87,7 +87,11 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 					SetGasPrice(gasPriceRau).
 					SetGasLimit(gasLimit).
 					SetAction(s2w).Build(),
-				sender)
+				sender,
+				password,
+				nonce,
+				assumeYes,
+			)
 		},
 	}
 	RegisterWriteCommand(client, cmd)

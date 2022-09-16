@@ -1,21 +1,22 @@
 #List of owners based on modules
 
 #Default owners
-*		@dustinxie @Liuhaai @raullenchai @CoderZhi
+*		        @dustinxie @Liuhaai @raullenchai @CoderZhi
 
-consensus/*	@CoderZhi 
-ioctl/* 	@huof6829 
-api/* 		@Liuhaai @millken 
-config/*	@dustinxie @CoderZhi 
-p2p/* 		@Liuhaai @dustinxie
+#Specific owners
+/consensus/	    @CoderZhi 
+/ioctl/  	    @huof6829 
+/api/   		    @Liuhaai @millken 
+/config/	        @dustinxie @CoderZhi 
+/p2p/		    @Liuhaai @dustinxie
 
-action/*		@dustinxie
-blockchain/*	@dustinxie
-blockindex/*	@dustinxie
-crypto/*		@dustinxie
-db/*		@dustinxie
-dispatcher/*/*	@dustinxie
-pkg/*		@dustinxie
-server/*		@dustinxie
-state/*		@dustinxie
-actpool/*		@Liuhaai
+/action/		    @dustinxie
+/blockchain/	    @dustinxie
+/blockindex/	    @dustinxie
+/crypto/		    @dustinxie
+/db/		        @dustinxie
+/dispatcher/	    @dustinxie
+/pkg/		    @dustinxie
+/server/		    @dustinxie
+/state/		    @dustinxie
+/actpool/		@Liuhaai
