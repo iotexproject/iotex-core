@@ -112,7 +112,7 @@ func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error)
 		return nil, err
 	}
 	if newChild != nil || b.isRoot {
-		return b.updateChild(cli, offsetKey, newChild, false)
+		return b.updateChild(cli, offsetKey, newChild)
 	}
 	switch len(b.children) {
 	case 1:
@@ -143,7 +143,6 @@ func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error)
 			return node.updatePath(
 				cli,
 				append([]byte{orphanKey}, node.path...),
-				false,
 			)
 		case *leafNode:
 			return node, nil
@@ -151,7 +150,7 @@ func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error)
 			return newExtensionNode(cli, []byte{orphanKey}, node)
 		}
 	default:
-		return b.updateChild(cli, offsetKey, newChild, false)
+		return b.updateChild(cli, offsetKey, newChild)
 	}
 }
 
@@ -169,7 +168,7 @@ func (b *branchNode) Upsert(cli client, key keyType, offset uint8, value []byte)
 		return nil, err
 	}
 
-	return b.updateChild(cli, offsetKey, newChild, true)
+	return b.updateChild(cli, offsetKey, newChild)
 }
 
 func (b *branchNode) Search(cli client, key keyType, offset uint8) (node, error) {
@@ -225,7 +224,7 @@ func (b *branchNode) Flush(cli client) error {
 	return b.store(cli)
 }
 
-func (b *branchNode) updateChild(cli client, key byte, child node, hashnode bool) (node, error) {
+func (b *branchNode) updateChild(cli client, key byte, child node) (node, error) {
 	if err := b.delete(cli); err != nil {
 		return nil, err
 	}

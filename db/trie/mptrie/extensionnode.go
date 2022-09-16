@@ -74,9 +74,9 @@ func (e *extensionNode) Delete(cli client, key keyType, offset uint8) (node, err
 	}
 	switch node := newChild.(type) {
 	case *extensionNode:
-		return node.updatePath(cli, append(e.path, node.path...), false)
+		return node.updatePath(cli, append(e.path, node.path...))
 	case *branchNode:
-		return e.updateChild(cli, node, false)
+		return e.updateChild(cli, node)
 	default:
 		if err := e.delete(cli); err != nil {
 			return nil, err
@@ -92,10 +92,10 @@ func (e *extensionNode) Upsert(cli client, key keyType, offset uint8, value []by
 		if err != nil {
 			return nil, err
 		}
-		return e.updateChild(cli, newChild, true)
+		return e.updateChild(cli, newChild)
 	}
 	eb := e.path[matched]
-	enode, err := e.updatePath(cli, e.path[matched+1:], true)
+	enode, err := e.updatePath(cli, e.path[matched+1:])
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +170,14 @@ func (e *extensionNode) Flush(cli client) error {
 	return e.store(cli)
 }
 
-func (e *extensionNode) updatePath(cli client, path []byte, hashnode bool) (node, error) {
+func (e *extensionNode) updatePath(cli client, path []byte) (node, error) {
 	if err := e.delete(cli); err != nil {
 		return nil, err
 	}
 	return newExtensionNode(cli, path, e.child)
 }
 
-func (e *extensionNode) updateChild(cli client, newChild node, hashnode bool) (node, error) {
+func (e *extensionNode) updateChild(cli client, newChild node) (node, error) {
 	err := e.delete(cli)
 	if err != nil {
 		return nil, err
