@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"go.elastic.co/ecszap"
@@ -68,15 +67,14 @@ func Logger(name string) *zap.Logger {
 }
 
 // InitLoggers initializes the global logger and other sub loggers.
-func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts ...zap.Option) ([]string, error) {
+func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts ...zap.Option) error {
 	if _, exists := subCfgs[_globalLoggerName]; exists {
-		return nil, errors.New("'" + _globalLoggerName + "' is a reserved name for global logger")
+		return errors.New("'" + _globalLoggerName + "' is a reserved name for global logger")
 	}
 	subCfgs[_globalLoggerName] = globalCfg
-	watchDirs := make([]string, 0, len(subCfgs))
 	for name, cfg := range subCfgs {
 		if _, exists := _subLoggers[name]; exists {
-			return nil, errors.Errorf("duplicate sub logger name: %s", name)
+			return errors.Errorf("duplicate sub logger name: %s", name)
 		}
 		if cfg.Zap == nil {
 			zapCfg := zap.NewProductionConfig()
@@ -92,9 +90,8 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 		if cfg.StderrRedirectFile != nil {
 			stderrF, err := os.OpenFile(*cfg.StderrRedirectFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0600)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			watchDirs = append(watchDirs, filepath.Dir(*cfg.StderrRedirectFile))
 
 			cores = append(cores, zapcore.NewCore(
 				zapcore.NewJSONEncoder(cfg.Zap.EncoderConfig),
@@ -126,7 +123,7 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 		_logMu.Unlock()
 	}
 
-	return watchDirs, nil
+	return nil
 }
 
 // RegisterLevelConfigMux registers log's level config http mux.

@@ -4,11 +4,10 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package fsnotify
+package watch
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -18,24 +17,10 @@ import (
 )
 
 func TestWatch(t *testing.T) {
-	var (
-		require = require.New(t)
-		dir     = t.TempDir()
-		times   int
-	)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go Watch(ctx, dir)
-
-	f, err := os.CreateTemp(dir, "log")
-	require.NoError(err)
-	defer f.Close()
-
+	require := require.New(t)
+	h := WatchDev(context.Background(), 30*time.Millisecond)
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 1*time.Second, func() (b bool, e error) {
-		err = os.WriteFile(f.Name(), []byte("test"), 0666)
-		require.NoError(err)
-		times++
-		return times >= 5, nil
+		h()
+		return true, nil
 	}))
-	cancel()
 }

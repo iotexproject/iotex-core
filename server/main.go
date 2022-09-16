@@ -20,6 +20,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	_ "go.uber.org/automaxprocs"
@@ -28,10 +29,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/fsnotify"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
+	"github.com/iotexproject/iotex-core/pkg/watch"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -99,11 +100,13 @@ func main() {
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
-	watchDirs, err := initLogger(cfg)
-	if err != nil {
+	if err = initLogger(cfg); err != nil {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
-	go fsnotify.Watch(ctx, watchDirs...)
+
+	// check device
+	stopWatch := watch.WatchDev(ctx, 5*time.Minute)
+	defer stopWatch()
 
 	if err = recovery.SetCrashlogDir(cfg.System.SystemLogDBPath); err != nil {
 		glog.Fatalln("Failed to set directory of crashlog: ", zap.Error(err))
@@ -169,7 +172,7 @@ func main() {
 	<-livenessCtx.Done()
 }
 
-func initLogger(cfg config.Config) ([]string, error) {
+func initLogger(cfg config.Config) error {
 	addr := cfg.Chain.ProducerAddress()
 	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.AddCaller(), zap.Fields(
 		zap.String("ioAddr", addr.String()),
