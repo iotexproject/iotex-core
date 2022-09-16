@@ -81,7 +81,6 @@ func NewDidGetHash(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	// action.RegisterWriteCommand(client, cmd)
 	return cmd
 }
 
