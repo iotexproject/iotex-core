@@ -144,10 +144,11 @@ func newParams(
 		Transfer:    MakeTransfer,
 		GetHash:     getHashFn,
 		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
+		GasLimit:    gasLimit,
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    gasLimit,
+		BaseFee:     new(big.Int).SetUint64(1), // in units of 10^-6 IOTX, current basefee is 1
 	}
 
 	return &Params{

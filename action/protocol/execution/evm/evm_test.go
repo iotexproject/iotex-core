@@ -294,6 +294,9 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsLondon)
 		require.False(chainRules.IsMerge)
+
+		// test basefee
+		require.Equal(new(big.Int).SetUint64(1), evm.Context.BaseFee)
 	}
 }
 
