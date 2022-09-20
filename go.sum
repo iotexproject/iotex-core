@@ -503,8 +503,8 @@ github.com/iotexproject/iotex-address v0.2.7/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph
 github.com/iotexproject/iotex-address v0.2.8 h1:jaTR5pZe/ljiYW4OqHl9NKPs0h1o91Gi6FILOTaBCXw=
 github.com/iotexproject/iotex-address v0.2.8/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-antenna-go/v2 v2.5.1-0.20210604061028-2c2056a5bfdb/go.mod h1:NqFzRL8RtA3xfXGpYbs0IY71HDiD6Dh2hD9iYngKLIU=
-github.com/iotexproject/iotex-antenna-go/v2 v2.6.1 h1:1ZLYBofpo/FdsTXT1jjGSjd80QAvOrPqq0qslkLP59A=
-github.com/iotexproject/iotex-antenna-go/v2 v2.6.1/go.mod h1:pyoZpYY2fofg42oxWiFhBRnbamtm5nthg33n0yxor74=
+github.com/iotexproject/iotex-antenna-go/v2 v2.5.1 h1:Z7X0qXxc/4hSSE3koBaFRpLAdiD6MlCxKbn7iAdI+xQ=
+github.com/iotexproject/iotex-antenna-go/v2 v2.5.1/go.mod h1:8pDZcM45M0gY6jm3PoM20rzoD2Z0vg3Hg64RS4c3qx0=
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d h1:/j1xCAC9YiG/8UKqYvycS/v3ddVsb1G7AMyLXOjeYI0=
 github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d/go.mod h1:GRWevxtqQ4gPMrd7Qxhr29/7aTgvjiTp+rFI9KMMZEo=
 github.com/iotexproject/iotex-proto v0.5.0/go.mod h1:Xg6REkv+nTZN+OC22xXIQuqKdTWWHwOAJEXCoMpDwtI=

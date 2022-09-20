@@ -56,7 +56,7 @@ type (
 		blockHeight                uint64
 		executionHash              hash.Hash256
 		refund                     uint64
-		refundLastSnapshot         uint64
+		refundAtLastSnapshot       uint64
 		refundSnapshot             map[int]uint64
 		cachedContract             contractMap
 		contractSnapshot           map[int]contractMap   // snapshots of contracts
@@ -553,11 +553,11 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		return
 	}
 	// restore gas refund
-	if !stateDB.notCorrectGasRefund {
-		stateDB.refund = stateDB.refundSnapshot[snapshot]
-	} else {
+	if stateDB.notCorrectGasRefund {
 		// check if refund has changed from last snapshot (due to dynamicGas)
-		stateDB.refundLastSnapshot = stateDB.refundSnapshot[snapshot]
+		stateDB.refundAtLastSnapshot = stateDB.refundSnapshot[snapshot]
+	} else {
+		stateDB.refund = stateDB.refundSnapshot[snapshot]
 	}
 	// restore logs and txLogs
 	if stateDB.revertLog {
@@ -641,9 +641,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 }
 
-// RefundLastSnapshot returns refund at last snapshot
-func (stateDB *StateDBAdapter) RefundLastSnapshot() uint64 {
-	return stateDB.refundLastSnapshot
+// RefundAtLastSnapshot returns refund at last snapshot
+func (stateDB *StateDBAdapter) RefundAtLastSnapshot() uint64 {
+	return stateDB.refundAtLastSnapshot
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -1036,6 +1036,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
+	stateDB.refundAtLastSnapshot = 0
 	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)

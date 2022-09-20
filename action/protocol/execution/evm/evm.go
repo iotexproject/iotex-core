@@ -423,10 +423,11 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	// adjust refund due to dynamicGas
 	var (
-		refundLastSnapshot = stateDB.RefundLastSnapshot()
+		refundLastSnapshot = stateDB.RefundAtLastSnapshot()
 		currentRefund      = stateDB.GetRefund()
+		featureCtx         = protocol.MustGetFeatureCtx(ctx)
 	)
-	if evmErr != nil && !g.IsOkhotsk(blockHeight) && refundLastSnapshot > 0 && refundLastSnapshot != currentRefund {
+	if evmErr != nil && !featureCtx.CorrectGasRefund && refundLastSnapshot > 0 && refundLastSnapshot != currentRefund {
 		if refundLastSnapshot > currentRefund {
 			stateDB.AddRefund(refundLastSnapshot - currentRefund)
 		} else {

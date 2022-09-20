@@ -261,7 +261,7 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	}
 }
 
-func (p *injectProcessor) pickAction() (iotex.Caller, error) {
+func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 	switch injectCfg.actionType {
 	case "transfer":
 		return p.transferCaller()
@@ -277,7 +277,7 @@ func (p *injectProcessor) pickAction() (iotex.Caller, error) {
 	}
 }
 
-func (p *injectProcessor) executionCaller() (iotex.Caller, error) {
+func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
@@ -305,7 +305,7 @@ func (p *injectProcessor) executionCaller() (iotex.Caller, error) {
 	return caller, nil
 }
 
-func (p *injectProcessor) transferCaller() (iotex.Caller, error) {
+func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
 	if val, ok := p.nonces.Get(sender.EncodedAddr); ok {
