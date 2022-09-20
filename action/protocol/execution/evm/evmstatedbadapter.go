@@ -641,6 +641,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 }
 
+// RefundLastSnapshot returns refund at last snapshot
 func (stateDB *StateDBAdapter) RefundLastSnapshot() uint64 {
 	return stateDB.refundLastSnapshot
 }
