@@ -15,18 +15,16 @@ import (
 	"go.elastic.co/ecszap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/pkg/errors"
 )
 
 // GlobalConfig defines the global logger configurations.
 type GlobalConfig struct {
-	Zap                *zap.Config        `json:"zap" yaml:"zap"`
-	Lumberjack         *lumberjack.Logger `json:"lumberjack" yaml:"lumberjack"`
-	StderrRedirectFile *string            `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
-	RedirectStdLog     bool               `json:"stdLogRedirect" yaml:"stdLogRedirect"`
-	EcsIntegration     bool               `json:"ecsIntegration" yaml:"ecsIntegration"`
+	Zap                *zap.Config `json:"zap" yaml:"zap"`
+	StderrRedirectFile *string     `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
+	RedirectStdLog     bool        `json:"stdLogRedirect" yaml:"stdLogRedirect"`
+	EcsIntegration     bool        `json:"ecsIntegration" yaml:"ecsIntegration"`
 }
 
 var (
@@ -94,11 +92,10 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 			if err != nil {
 				return err
 			}
-			cfg.Lumberjack.Filename = stderrF.Name()
 
 			cores = append(cores, zapcore.NewCore(
 				zapcore.NewJSONEncoder(cfg.Zap.EncoderConfig),
-				zapcore.AddSync(cfg.Lumberjack),
+				zapcore.AddSync(stderrF),
 				cfg.Zap.Level))
 		}
 

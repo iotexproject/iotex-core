@@ -16,8 +16,3 @@ log:
     errorOutputPaths: ["stderr"]
   stderrRedirectFile: /var/log/s.log
   stdLogRedirect: true
-  lumberjack:
-    maxsize: 10
-    maxage: 30
-    maxbackups: 100
-    localtime: true
