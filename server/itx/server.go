@@ -13,6 +13,7 @@ import (
 	"net/http/pprof"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
+	"github.com/iotexproject/iotex-core/pkg/watch"
 )
 
 // Server is the iotex server instance containing all components.
@@ -229,6 +231,10 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			}
 		}()
 	}
+
+	// check device
+	watchStop := watch.Start(ctx, 1*time.Second)
+	defer watchStop()
 
 	var adminserv http.Server
 	if cfg.System.HTTPAdminPort > 0 {

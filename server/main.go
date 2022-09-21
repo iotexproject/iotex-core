@@ -20,7 +20,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	_ "go.uber.org/automaxprocs"
@@ -32,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
-	"github.com/iotexproject/iotex-core/pkg/watch"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -76,7 +74,8 @@ func init() {
 
 func main() {
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(stop, os.Interrupt)
+	signal.Notify(stop, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
@@ -103,10 +102,6 @@ func main() {
 	if err = initLogger(cfg); err != nil {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
-
-	// check device
-	stopWatch := watch.Start(ctx, 5*time.Minute)
-	defer stopWatch()
 
 	if err = recovery.SetCrashlogDir(cfg.System.SystemLogDBPath); err != nil {
 		glog.Fatalln("Failed to set directory of crashlog: ", zap.Error(err))
