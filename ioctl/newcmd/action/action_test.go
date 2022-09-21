@@ -24,15 +24,13 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-const _failedToGetNone = "failed to get nonce"
-
 func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
+	client.EXPECT().SetEndpointWithFlag(gomock.Any())
+	client.EXPECT().SetInsecureWithFlag(gomock.Any())
 
 	t.Run("returns signer's address", func(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil).AnyTimes()
@@ -158,8 +156,8 @@ func TestSendAction(t *testing.T) {
 	}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(64)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).Times(8)
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).Times(8)
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Times(8)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Times(8)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
 	client.EXPECT().NewKeyStore().Return(ks).Times(15)
 
@@ -246,9 +244,9 @@ func TestSendAction(t *testing.T) {
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
-	t.Run(_failedToGetNone, func(t *testing.T) {
+	t.Run("failed to get nonce", func(t *testing.T) {
 		mnemonic := "lake stove quarter shove dry matrix hire split wide attract argue core"
-		expectedErr := errors.New(_failedToGetNone)
+		expectedErr := errors.New("failed to get nonce")
 		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
@@ -312,12 +310,8 @@ func TestExecute(t *testing.T) {
 	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil).Times(2)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(7)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {
-		// SetEndpointWithFlag take a function as parameter
-	}).Times(7)
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {
-		// SetInsecureWithFlag take a function as parameter
-	}).Times(7)
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Times(7)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Times(7)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(10)
 	client.EXPECT().NewKeyStore().Return(ks).Times(4)
 
@@ -356,8 +350,8 @@ func TestExecute(t *testing.T) {
 		})
 	})
 
-	t.Run(_failedToGetNone, func(t *testing.T) {
-		expectedErr := errors.New(_failedToGetNone)
+	t.Run("failed to get nonce", func(t *testing.T) {
+		expectedErr := errors.New("failed to get nonce")
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 		cmd := NewActionCmd(client)
 		err = Execute(client, cmd, "test", big.NewInt(100), []byte(bytecode), "100", accAddr.String(), passwd, 0, 100, true)
