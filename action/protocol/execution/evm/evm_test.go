@@ -261,7 +261,7 @@ func TestConstantinople(t *testing.T) {
 		require.True(evmChainConfig.IsPetersburg(evm.Context.BlockNumber))
 
 		// verify chainRules
-		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber, false)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
@@ -273,7 +273,6 @@ func TestConstantinople(t *testing.T) {
 		// verify iotex configs in chain config block
 		require.Equal(big.NewInt(int64(g.BeringBlockHeight)), evmChainConfig.BeringBlock)
 		require.Equal(big.NewInt(int64(g.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
-		require.Equal(!g.IsBering(e.height), evm.IsPreBering())
 
 		// iceland = support chainID + enable Istanbul and Muir Glacier
 		isIceland := g.IsIceland(e.height)
@@ -288,15 +287,13 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(isIceland, evmChainConfig.IsMuirGlacier(evm.Context.BlockNumber))
 		require.Equal(isIceland, chainRules.IsIstanbul)
 
-		// enable Berlin and London
-		isBerlin := g.IsOkhotsk(e.height)
-		require.Equal(isBerlin, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
-		require.Equal(isBerlin, chainRules.IsBerlin)
-		isLondon := g.IsOkhotsk(e.height)
-		require.Equal(isLondon, evmChainConfig.IsLondon(evm.Context.BlockNumber))
-		require.Equal(isLondon, chainRules.IsLondon)
-		require.False(evmChainConfig.IsCatalyst(evm.Context.BlockNumber))
-		require.False(chainRules.IsCatalyst)
+		// Okhotsk = enable Berlin and London
+		isOkhotsk := g.IsOkhotsk(e.height)
+		require.Equal(isOkhotsk, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
+		require.Equal(isOkhotsk, chainRules.IsBerlin)
+		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
+		require.Equal(isOkhotsk, chainRules.IsLondon)
+		require.False(chainRules.IsMerge)
 	}
 }
 
