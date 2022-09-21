@@ -24,22 +24,20 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-const _signerFlag = "--signer"
-
 func TestSigner(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString", config.English).Times(2)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
+	client.EXPECT().SetEndpointWithFlag(gomock.Any())
+	client.EXPECT().SetInsecureWithFlag(gomock.Any())
 
 	t.Run("returns signer's address", func(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil).AnyTimes()
 
 		cmd := NewActionCmd(client)
 		registerSignerFlag(client, cmd)
-		_, err := util.ExecuteCmd(cmd, _signerFlag, "test")
+		_, err := util.ExecuteCmd(cmd, "--signer", "test")
 		require.NoError(err)
 		signer, err := cmd.Flags().GetString(signerFlagLabel)
 		require.NoError(err)
@@ -122,7 +120,6 @@ func TestSendRaw(t *testing.T) {
 
 	t.Run("failed to invoke SendAction api", func(t *testing.T) {
 		expectedErr := errors.New("failed to invoke SendAction api")
-
 		apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
@@ -158,8 +155,8 @@ func TestSendAction(t *testing.T) {
 	}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(64)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).AnyTimes()
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).AnyTimes()
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).AnyTimes()
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).AnyTimes()
 	client.EXPECT().IsCryptoSm2().Return(false).Times(15)
 	client.EXPECT().NewKeyStore().Return(ks).Times(15)
 
@@ -168,9 +165,6 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().ReadSecret().Return("", expectedErr).Times(1)
 
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", "")
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String(), "", 0, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -192,9 +186,6 @@ func TestSendAction(t *testing.T) {
 
 	t.Run("sends signed action to blockchain", func(t *testing.T) {
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", passwd)
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.NoError(err)
 	})
@@ -204,9 +195,6 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().HdwalletMnemonic(gomock.Any()).Return(mnemonic, nil)
 
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", passwd)
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, "hdw::1/2", passwd, 1, false)
 		require.NoError(err)
 	})
@@ -215,9 +203,6 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, nil)
 
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", passwd)
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.NoError(err)
 	})
@@ -227,9 +212,6 @@ func TestSendAction(t *testing.T) {
 		client.EXPECT().AskToConfirm(gomock.Any()).Return(false, expectedErr)
 
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", passwd)
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -239,9 +221,6 @@ func TestSendAction(t *testing.T) {
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", passwd)
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, accAddr.String(), passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -253,9 +232,6 @@ func TestSendAction(t *testing.T) {
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 
 		cmd := NewActionCmd(client)
-		RegisterWriteCommand(client, cmd)
-		_, err := util.ExecuteCmd(cmd, "--password", passwd)
-		require.NoError(err)
 		err = SendAction(client, cmd, elp, "hdw::1/2", passwd, 1, false)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -281,8 +257,8 @@ func TestRead(t *testing.T) {
 	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("action", config.English).Times(4)
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {}).Times(2)
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {}).Times(2)
+	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Times(2)
+	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Times(2)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(2)
 
 	t.Run("reads smart contract on IoTeX blockchain", func(t *testing.T) {
