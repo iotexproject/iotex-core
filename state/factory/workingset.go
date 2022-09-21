@@ -184,6 +184,9 @@ func (ws *workingSet) runAction(
 func validateChainID(ctx context.Context, chainID uint32) error {
 	blkChainCtx := protocol.MustGetBlockchainCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
+	if featureCtx.AllowOnlyCorrectChainID && chainID != blkChainCtx.ChainID {
+		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
+	}
 	if featureCtx.AllowCorrectDefaultChainID && (chainID != blkChainCtx.ChainID && chainID != 0) {
 		return errors.Wrapf(action.ErrChainID, "expecting %d, got %d", blkChainCtx.ChainID, chainID)
 	}

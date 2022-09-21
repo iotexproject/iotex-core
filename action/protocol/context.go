@@ -109,6 +109,7 @@ type (
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
 		CorrectGasRefund                        bool
+		AllowOnlyCorrectChainID                 bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -242,6 +243,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
+			AllowOnlyCorrectChainID:                 g.IsOkhotsk(height),
 		},
 	)
 }

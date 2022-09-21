@@ -625,19 +625,25 @@ func TestEnforceChainID(t *testing.T) {
 		success bool
 	}{
 		{
-			1, true, // tx chainID = node chainID, height < KamchatkaHeight
+			1, true, // tx chainID = node chainID, height < MidwayHeight
 		},
 		{
-			2, true, // tx chainID != node chainID, height < KamchatkaHeight
+			2, true, // tx chainID != node chainID, height < MidwayHeight
 		},
 		{
-			1, true, // tx chainID = node chainID, height = KamchatkaHeight
+			1, true, // tx chainID = node chainID, height = MidwayHeight
 		},
 		{
-			1, true, // tx chainID = node chainID, height > KamchatkaHeight
+			1, true, // tx chainID = node chainID, height > MidwayHeight
 		},
 		{
-			2, false, // tx chainID != node chainID, height > KamchatkaHeight
+			0, true, // tx chainID = 0, height > MidwayHeight
+		},
+		{
+			0, false, // tx chainID = 0, height = Okhotsk
+		},
+		{
+			2, false, // tx chainID != node chainID, height > Okhotsk
 		},
 	}
 
@@ -645,6 +651,7 @@ func TestEnforceChainID(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.MidwayBlockHeight = 3
+	cfg.Genesis.OkhotskBlockHeight = 6
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))

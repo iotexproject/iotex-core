@@ -437,7 +437,11 @@ func (core *coreService) PendingNonce(addr address.Address) (uint64, error) {
 }
 
 func (core *coreService) validateChainID(chainID uint32) error {
-	if ge := core.bc.Genesis(); ge.IsMidway(core.bc.TipHeight()) && chainID != core.bc.ChainID() && chainID != 0 {
+	g := core.bc.Genesis()
+	if g.IsOkhotsk(core.bc.TipHeight()) && chainID != core.bc.ChainID() {
+		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
+	}
+	if g.IsMidway(core.bc.TipHeight()) && chainID != core.bc.ChainID() && chainID != 0 {
 		return status.Errorf(codes.InvalidArgument, "ChainID does not match, expecting %d, got %d", core.bc.ChainID(), chainID)
 	}
 	return nil
