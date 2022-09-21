@@ -317,6 +317,9 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 	if !featureCtx.FixUnproductiveDelegates {
 		opts = append(opts, NotCheckPutStateErrorOption())
 	}
+	if !featureCtx.CorrectGasRefund {
+		opts = append(opts, NotCorrectGasRefundOption())
+	}
 
 	return NewStateDBAdapter(
 		sm,
@@ -373,7 +376,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	if rules := chainConfig.Rules(evm.Context.BlockNumber); rules.IsBerlin {
+	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
 		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
 	var (
@@ -417,6 +420,19 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	} else {
 		// After EIP-3529: refunds are capped to gasUsed / 5
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotientEIP3529
+	}
+	// adjust refund due to dynamicGas
+	var (
+		refundLastSnapshot = stateDB.RefundAtLastSnapshot()
+		currentRefund      = stateDB.GetRefund()
+		featureCtx         = protocol.MustGetFeatureCtx(ctx)
+	)
+	if evmErr != nil && !featureCtx.CorrectGasRefund && refundLastSnapshot > 0 && refundLastSnapshot != currentRefund {
+		if refundLastSnapshot > currentRefund {
+			stateDB.AddRefund(refundLastSnapshot - currentRefund)
+		} else {
+			stateDB.SubRefund(currentRefund - refundLastSnapshot)
+		}
 	}
 	if refund > stateDB.GetRefund() {
 		refund = stateDB.GetRefund()
