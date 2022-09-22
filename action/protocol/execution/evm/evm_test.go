@@ -296,7 +296,7 @@ func TestConstantinople(t *testing.T) {
 		require.False(chainRules.IsMerge)
 
 		// test basefee
-		require.Equal(new(big.Int).SetUint64(1), evm.Context.BaseFee)
+		require.Equal(new(big.Int), evm.Context.BaseFee)
 	}
 }
 
