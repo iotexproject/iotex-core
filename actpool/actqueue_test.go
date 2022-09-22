@@ -15,7 +15,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -62,8 +61,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 
 func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "", 1, big.NewInt(0)).(*actQueue)
-	q.SetAccountBalance(big.NewInt(maxBalance))
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(1))
 	require.NoError(err)
 	require.NoError(q.Put(tsf1))
@@ -88,8 +86,7 @@ func TestActQueuePut(t *testing.T) {
 
 func TestActQueueFilterNonce(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "", 1, big.NewInt(0)).(*actQueue)
-	q.SetAccountBalance(big.NewInt(maxBalance))
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(1), nil, uint64(0), big.NewInt(0))
@@ -99,7 +96,7 @@ func TestActQueueFilterNonce(t *testing.T) {
 	require.NoError(q.Put(tsf1))
 	require.NoError(q.Put(tsf2))
 	require.NoError(q.Put(tsf3))
-	q.SetPendingNonce(3)
+	q.SetAccountState(3, big.NewInt(maxBalance))
 	q.CleanConfirmedAct()
 	require.Equal(1, len(q.items))
 	require.Equal(uint64(3), q.index[0].nonce)
@@ -108,8 +105,7 @@ func TestActQueueFilterNonce(t *testing.T) {
 
 func TestActQueueUpdateNonce(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "", 1, big.NewInt(0)).(*actQueue)
-	q.SetAccountBalance(big.NewInt(1010))
+	q := NewActQueue(nil, "", 1, big.NewInt(1010)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -143,8 +139,7 @@ func TestActQueuePendingActs(t *testing.T) {
 	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	ap, err := NewActPool(genesis.Default, sf, DefaultConfig, EnableExperimentalActions())
 	require.NoError(err)
-	q := NewActQueue(ap.(*actPool), identityset.Address(0).String(), 1, big.NewInt(0)).(*actQueue)
-	q.SetAccountBalance(big.NewInt(maxBalance))
+	q := NewActQueue(ap.(*actPool), identityset.Address(0).String(), 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
@@ -167,8 +162,7 @@ func TestActQueuePendingActs(t *testing.T) {
 
 func TestActQueueAllActs(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue(nil, "", 1, big.NewInt(0)).(*actQueue)
-	q.SetAccountBalance(big.NewInt(maxBalance))
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance)).(*actQueue)
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf3, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -181,8 +175,7 @@ func TestActQueueAllActs(t *testing.T) {
 
 func TestActQueueTimeOutAction(t *testing.T) {
 	c := clock.NewMock()
-	q := NewActQueue(nil, "", 1, big.NewInt(0), WithClock(c), WithTimeOut(3*time.Minute))
-	q.SetAccountBalance(big.NewInt(maxBalance))
+	q := NewActQueue(nil, "", 1, big.NewInt(maxBalance), WithClock(c), WithTimeOut(3*time.Minute))
 	tsf1, err := action.SignedTransfer(_addr2, _priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	tsf2, err := action.SignedTransfer(_addr2, _priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
@@ -193,10 +186,10 @@ func TestActQueueTimeOutAction(t *testing.T) {
 
 	require.NoError(t, q.Put(tsf2))
 	q.(*actQueue).cleanTimeout()
-	assert.Equal(t, 2, q.Len())
+	require.Equal(t, 2, q.Len())
 	c.Add(2 * time.Minute)
 	q.(*actQueue).cleanTimeout()
-	assert.Equal(t, 1, q.Len())
+	require.Equal(t, 1, q.Len())
 }
 
 func TestActQueueCleanTimeout(t *testing.T) {

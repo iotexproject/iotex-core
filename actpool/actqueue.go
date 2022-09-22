@@ -63,12 +63,10 @@ type ActQueue interface {
 	Put(action.SealedEnvelope) error
 	CleanConfirmedAct() []action.SealedEnvelope
 	UpdateQueue() []action.SealedEnvelope
-	SetPendingNonce(uint64)
+	SetAccountState(uint64, *big.Int)
+	AccountState() (uint64, *big.Int)
 	PendingNonce() uint64
-	AccountNonce() uint64
-	SetAccountBalance(*big.Int)
 	PendingBalance() *big.Int
-	AccountBalance() *big.Int
 	Len() int
 	Empty() bool
 	PendingActs(context.Context) []action.SealedEnvelope
@@ -240,12 +238,21 @@ func (q *actQueue) UpdateQueue() []action.SealedEnvelope {
 	return removedFromQueue
 }
 
-// SetPendingNonce sets pending nonce for the queue
-func (q *actQueue) SetPendingNonce(nonce uint64) {
+// SetAccountState sets the account's nonce and balance for the queue
+func (q *actQueue) SetAccountState(nonce uint64, balance *big.Int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.pendingNonce = nonce
 	q.accountNonce = nonce
+	q.accountBalance.Set(balance)
+	q.pendingBalance = make(map[uint64]*big.Int)
+}
+
+// AccountState returns the current account's nonce and balance
+func (q *actQueue) AccountState() (uint64, *big.Int) {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return q.accountNonce, new(big.Int).Set(q.accountBalance)
 }
 
 // PendingNonce returns the current pending nonce of the queue
@@ -255,33 +262,11 @@ func (q *actQueue) PendingNonce() uint64 {
 	return q.pendingNonce
 }
 
-// AccountNonce returns the current account nonce
-func (q *actQueue) AccountNonce() uint64 {
-	q.mu.RLock()
-	defer q.mu.RUnlock()
-	return q.accountNonce
-}
-
-// SetAccountBalance sets account balance for the queue
-func (q *actQueue) SetAccountBalance(balance *big.Int) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	q.accountBalance.Set(balance)
-	q.pendingBalance = make(map[uint64]*big.Int)
-}
-
 // PendingBalance returns the current pending balance of the queue
 func (q *actQueue) PendingBalance() *big.Int {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return q.getPendingBalanceAtNonce(q.pendingNonce)
-}
-
-// AccountBalance returns the current account balance
-func (q *actQueue) AccountBalance() *big.Int {
-	q.mu.RLock()
-	defer q.mu.RUnlock()
-	return new(big.Int).Set(q.accountBalance)
 }
 
 // Len returns the length of the action map

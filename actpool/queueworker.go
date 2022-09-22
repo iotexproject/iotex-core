@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/iotexproject/go-pkgs/cache/ttl"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"go.uber.org/zap"
 
@@ -72,6 +71,7 @@ func (worker *queueWorker) Stop() error {
 	return nil
 }
 
+// Hanlde is called sequentially by worker
 func (worker *queueWorker) Handle(job workerJob) error {
 	ctx := job.ctx
 	// ctx is canceled or timeout
@@ -104,11 +104,13 @@ func (worker *queueWorker) Handle(job workerJob) error {
 	worker.ap.allActions.Set(actHash, act)
 
 	if desAddress, ok := act.Destination(); ok && !strings.EqualFold(sender, desAddress) {
-		worker.addDestinationMap(act)
+		worker.ap.accountDesActs.addAction(act)
 	}
 
 	atomic.AddUint64(&worker.ap.gasInPool, intrinsicGas)
 
+	worker.mu.Lock()
+	defer worker.mu.Unlock()
 	worker.removeEmptyAccounts()
 
 	return nil
@@ -126,7 +128,8 @@ func (worker *queueWorker) getConfirmedState(ctx context.Context, sender address
 		}
 		return confirmedState.PendingNonce(), confirmedState.Balance, nil
 	}
-	return queue.AccountNonce(), queue.AccountBalance(), nil
+	nonce, balance := queue.AccountState()
+	return nonce, balance, nil
 }
 
 func (worker *queueWorker) checkSelpWithState(act *action.SealedEnvelope, pendingNonce uint64, balance *big.Int) error {
@@ -190,24 +193,10 @@ func (worker *queueWorker) putAction(sender string, act action.SealedEnvelope, p
 	return nil
 }
 
-func (worker *queueWorker) addDestinationMap(act action.SealedEnvelope) {
-	worker.ap.accountDesActs.mu.Lock()
-	defer worker.ap.accountDesActs.mu.Unlock()
-	destn, _ := act.Destination()
-	actHash, _ := act.Hash()
-	if desQueue := worker.ap.accountDesActs.acts[destn]; desQueue == nil {
-		worker.ap.accountDesActs.acts[destn] = make(map[hash.Hash256]action.SealedEnvelope)
-	}
-	worker.ap.accountDesActs.acts[destn][actHash] = act
-}
-
 func (worker *queueWorker) removeEmptyAccounts() {
 	if worker.emptyAccounts.Count() == 0 {
 		return
 	}
-
-	worker.mu.Lock()
-	defer worker.mu.Unlock()
 
 	worker.emptyAccounts.Range(func(key, _ interface{}) error {
 		sender := key.(string)
@@ -233,8 +222,7 @@ func (worker *queueWorker) Reset(ctx context.Context) {
 			worker.emptyAccounts.Set(from, struct{}{})
 			continue
 		}
-		queue.SetPendingNonce(confirmedState.PendingNonce())
-		queue.SetAccountBalance(confirmedState.Balance)
+		queue.SetAccountState(confirmedState.PendingNonce(), confirmedState.Balance)
 		// Remove all actions that are committed to new block
 		acts := queue.CleanConfirmedAct()
 		acts2 := queue.UpdateQueue()
@@ -275,12 +263,15 @@ func (worker *queueWorker) GetQueue(sender address.Address) ActQueue {
 }
 
 // ResetAccount resets account in the accountActs of worker
-func (worker *queueWorker) ResetAccount(sender address.Address) {
+func (worker *queueWorker) ResetAccount(sender address.Address) []action.SealedEnvelope {
 	senderStr := sender.String()
 	worker.mu.RLock()
 	defer worker.mu.RUnlock()
 	if queue := worker.accountActs[senderStr]; queue != nil {
+		pendingActs := queue.AllActs()
 		queue.Reset()
 		worker.emptyAccounts.Set(senderStr, struct{}{})
+		return pendingActs
 	}
+	return nil
 }

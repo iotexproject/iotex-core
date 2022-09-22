@@ -100,7 +100,7 @@ type actPool struct {
 	cfg                       Config
 	g                         genesis.Genesis
 	sf                        protocol.StateReader
-	accountDesActs            *desActs
+	accountDesActs            *destinationMap
 	allActions                *ttl.Cache
 	gasInPool                 uint64
 	actionEnvelopeValidators  []action.SealedEnvelopeValidator
@@ -109,11 +109,6 @@ type actPool struct {
 	senderBlackList           map[string]bool
 	jobQueue                  []chan workerJob
 	worker                    []*queueWorker
-}
-
-type desActs struct {
-	mu   sync.Mutex
-	acts map[string]map[hash.Hash256]action.SealedEnvelope
 }
 
 // NewActPool constructs a new actpool
@@ -133,7 +128,7 @@ func NewActPool(g genesis.Genesis, sf protocol.StateReader, cfg Config, opts ...
 		g:               g,
 		sf:              sf,
 		senderBlackList: senderBlackList,
-		accountDesActs:  &desActs{acts: make(map[string]map[hash.Hash256]action.SealedEnvelope)},
+		accountDesActs:  &destinationMap{acts: make(map[string]map[hash.Hash256]action.SealedEnvelope)},
 		allActions:      actsMap,
 		jobQueue:        make([]chan workerJob, _numWorker),
 		worker:          make([]*queueWorker, _numWorker),
@@ -395,10 +390,8 @@ func (ap *actPool) Validate(ctx context.Context, selp action.SealedEnvelope) err
 
 func (ap *actPool) DeleteAction(caller address.Address) {
 	worker := ap.worker[ap.allocatedWorker(caller)]
-	if queue := worker.GetQueue(caller); queue != nil {
-		pendingActs := queue.AllActs()
+	if pendingActs := worker.ResetAccount(caller); len(pendingActs) != 0 {
 		ap.removeInvalidActs(pendingActs)
-		worker.ResetAccount(caller)
 	}
 }
 
@@ -494,4 +487,20 @@ func (ap *actPool) allocatedWorker(senderAddr address.Address) int {
 	senderBytes := senderAddr.Bytes()
 	var lastByte uint8 = senderBytes[len(senderBytes)-1]
 	return int(lastByte) % _numWorker
+}
+
+type destinationMap struct {
+	mu   sync.Mutex
+	acts map[string]map[hash.Hash256]action.SealedEnvelope
+}
+
+func (des *destinationMap) addAction(act action.SealedEnvelope) {
+	des.mu.Lock()
+	defer des.mu.Unlock()
+	destn, _ := act.Destination()
+	actHash, _ := act.Hash()
+	if desMap := des.acts[destn]; desMap == nil {
+		des.acts[destn] = make(map[hash.Hash256]action.SealedEnvelope)
+	}
+	des.acts[destn][actHash] = act
 }
