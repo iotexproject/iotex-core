@@ -24,3 +24,10 @@ func TestStart(t *testing.T) {
 		return true, nil
 	}))
 }
+
+func BenchmarkCheckSpace(b *testing.B) {
+	// BenchmarkCheckSpace-4             560012              1849 ns/op             108 B/op          4 allocs/op
+	for i := 0; i < b.N; i++ {
+		checkDiskSpace()
+	}
+}

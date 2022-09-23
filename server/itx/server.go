@@ -233,7 +233,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	// check device
-	watchStop := watch.Start(ctx, 1*time.Second)
+	watchStop := watch.Start(ctx, 3*time.Minute)
 	defer watchStop()
 
 	var adminserv http.Server
