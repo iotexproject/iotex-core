@@ -35,17 +35,17 @@ func TestNewDidGetHashCmd(t *testing.T) {
 	accAddr, err := address.FromBytes(acc.Address.Bytes())
 	require.NoError(err)
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
-	client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(4)
-	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(4)
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(6)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(2)
+	client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil)
 	apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
-		Data: hex.EncodeToString([]byte("test")),
+		Data: hex.EncodeToString([]byte("60fe47b100000000000000000000000000000000000000000000000000000000")),
 	}, nil)
 
 	t.Run("get did hash", func(t *testing.T) {
 		cmd := NewDidGetHash(client)
-		_, err := util.ExecuteCmd(cmd, accAddr.String(), "test")
+		_, err := util.ExecuteCmd(cmd, accAddr.String(), "60fe47b100000000000000000000000000000000000000000000000000000000")
 		require.NoError(err)
 	})
 }
