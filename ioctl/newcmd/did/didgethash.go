@@ -57,7 +57,7 @@ func NewDidGetHash(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to read abi")
 			}
-			bytecode, err := encodeGet(abi, _getHashName, args[1])
+			bytecode, err := abi.Pack(_getHashName, []byte(args[1]))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
@@ -83,12 +83,4 @@ func NewDidGetHash(client ioctl.Client) *cobra.Command {
 		},
 	}
 	return cmd
-}
-
-func encodeGet(abi abi.ABI, method, did string) (ret []byte, err error) {
-	_, exist := abi.Methods[method]
-	if !exist {
-		return nil, errors.New("method is not found")
-	}
-	return abi.Pack(method, []byte(did))
 }
