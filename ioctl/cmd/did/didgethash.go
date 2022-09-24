@@ -59,7 +59,7 @@ func getHash(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	bytecode, err := encodeGet(abi, _getHashName, args[1])
+	bytecode, err := abi.Pack(_getHashName, []byte(args[1]))
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
@@ -82,12 +82,4 @@ func getHash(args []string) (err error) {
 	}
 	output.PrintResult(hex.EncodeToString(out[:]))
 	return
-}
-
-func encodeGet(abi abi.ABI, method, did string) (ret []byte, err error) {
-	_, exist := abi.Methods[method]
-	if !exist {
-		return nil, errors.New("method is not found")
-	}
-	return abi.Pack(method, []byte(did))
 }
