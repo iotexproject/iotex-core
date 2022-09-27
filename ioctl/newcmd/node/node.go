@@ -25,6 +25,7 @@ func NewNodeCmd(client ioctl.Client) *cobra.Command {
 	}
 	nc.AddCommand(NewNodeDelegateCmd(client))
 	nc.AddCommand(NewNodeRewardCmd(client))
+	nc.AddCommand(NewNodeProbationlistCmd(client))
 
 	client.SetEndpointWithFlag(nc.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(nc.PersistentFlags().BoolVar)

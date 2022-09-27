@@ -56,6 +56,8 @@ type (
 		blockHeight                uint64
 		executionHash              hash.Hash256
 		refund                     uint64
+		refundAtLastSnapshot       uint64
+		refundSnapshot             map[int]uint64
 		cachedContract             contractMap
 		contractSnapshot           map[int]contractMap   // snapshots of contracts
 		suicided                   deleteAccount         // account/contract calling Suicide
@@ -74,6 +76,7 @@ type (
 		fixSnapshotOrder           bool
 		revertLog                  bool
 		notCheckPutStateError      bool
+		notCorrectGasRefund        bool
 	}
 )
 
@@ -144,6 +147,14 @@ func NotCheckPutStateErrorOption() StateDBAdapterOption {
 	}
 }
 
+// NotCorrectGasRefundOption set correctGasRefund as true
+func NotCorrectGasRefundOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.notCorrectGasRefund = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
@@ -157,6 +168,7 @@ func NewStateDBAdapter(
 		err:                nil,
 		blockHeight:        blockHeight,
 		executionHash:      executionHash,
+		refundSnapshot:     make(map[int]uint64),
 		cachedContract:     make(contractMap),
 		contractSnapshot:   make(map[int]contractMap),
 		suicided:           make(deleteAccount),
@@ -540,6 +552,13 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
+	// restore gas refund
+	if stateDB.notCorrectGasRefund {
+		// check if refund has changed from last snapshot (due to dynamicGas)
+		stateDB.refundAtLastSnapshot = stateDB.refundSnapshot[snapshot]
+	} else {
+		stateDB.refund = stateDB.refundSnapshot[snapshot]
+	}
 	// restore logs and txLogs
 	if stateDB.revertLog {
 		stateDB.logs = stateDB.logs[:stateDB.logsSnapshot[snapshot]]
@@ -622,6 +641,11 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	}
 }
 
+// RefundAtLastSnapshot returns refund at last snapshot
+func (stateDB *StateDBAdapter) RefundAtLastSnapshot() uint64 {
+	return stateDB.refundAtLastSnapshot
+}
+
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
 	addrs := make([]hash.Hash160, 0, len(stateDB.cachedContract))
 	for addr := range stateDB.cachedContract {
@@ -653,6 +677,8 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		// stateDB.err = err
 		return sn
 	}
+	// record the current gas refund
+	stateDB.refundSnapshot[sn] = stateDB.refund
 	// record the current log size
 	if stateDB.revertLog {
 		stateDB.logsSnapshot[sn] = len(stateDB.logs)
@@ -1010,6 +1036,8 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
+	stateDB.refundAtLastSnapshot = 0
+	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
