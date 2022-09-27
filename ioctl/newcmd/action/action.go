@@ -438,7 +438,6 @@ func Execute(client ioctl.Client,
 
 // Read reads smart contract on IoTeX blockchain
 func Read(client ioctl.Client,
-	cmd *cobra.Command,
 	contract address.Address,
 	amount string,
 	bytecode []byte,

@@ -86,7 +86,7 @@ func parseAmount(client ioctl.Client, cmd *cobra.Command, contract address.Addre
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get flag gas-limit")
 	}
-	result, err := Read(client, cmd, contract, "0", decimalBytecode, signer, gasLimit)
+	result, err := Read(client, contract, "0", decimalBytecode, signer, gasLimit)
 	if err != nil {
 		return nil, errors.New("failed to read contract")
 	}
