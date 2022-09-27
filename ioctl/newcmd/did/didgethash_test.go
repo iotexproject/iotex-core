@@ -28,9 +28,8 @@ func TestNewDidGetHashCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
-	payload := "60fe47b100000000000000000000000000000000000000000000000000000000"
-
 	accAddr := identityset.Address(0).String()
+	payload := "60fe47b100000000000000000000000000000000000000000000000000000000"
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(4)
