@@ -33,8 +33,8 @@ var (
 	}
 )
 
-// NewDidGetHash represents the did get hash command
-func NewDidGetHash(client ioctl.Client) *cobra.Command {
+// NewDidGetHashCmd represents the did get hash command
+func NewDidGetHashCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_getHashCmdUses)
 	short, _ := client.SelectTranslation(_getHashCmdShorts)
 
