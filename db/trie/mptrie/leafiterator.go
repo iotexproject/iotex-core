@@ -14,7 +14,7 @@ import (
 
 // LeafIterator defines an iterator to go through all the leaves under given node
 type LeafIterator struct {
-	mpt   *merklePatriciaTrie
+	cli   client
 	stack []node
 }
 
@@ -26,7 +26,7 @@ func NewLeafIterator(tr trie.Trie) (trie.Iterator, error) {
 	}
 	stack := []node{mpt.root}
 
-	return &LeafIterator{mpt: mpt, stack: stack}, nil
+	return &LeafIterator{cli: mpt, stack: stack}, nil
 }
 
 // Next moves iterator to next node
@@ -36,7 +36,7 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 		node := li.stack[size-1]
 		li.stack = li.stack[:size-1]
 		if hn, ok := node.(*hashNode); ok {
-			node, err := hn.LoadNode()
+			node, err := hn.LoadNode(li.cli)
 			if err != nil {
 				return nil, nil, err
 			}
