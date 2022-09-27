@@ -62,7 +62,7 @@ func NewDidGetHash(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "invalid bytecode")
 			}
 
-			result, err := action.Read(client, addr, "0", bytecode, contract, 100000)
+			result, err := action.Read(client, addr, "0", bytecode, contract, 20000000)
 			if err != nil {
 				return errors.Wrap(err, "failed to read contract")
 			}
