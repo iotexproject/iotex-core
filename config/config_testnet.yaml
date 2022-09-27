@@ -1,0 +1,61 @@
+network:
+  # externalHost: SET YOUR EXTERNAL IP HERE (e.g., 12.34.56.78)
+  externalPort: 4689
+  bootstrapNodes:
+    - /dns4/bootnode-0.testnet.iotex.one/tcp/4689/ipfs/12D3KooWFnaTYuLo8Mkbm3wzaWHtUuaxBRe24Uiopu15Wr5EhD3o
+    - /dns4/bootnode-1.testnet.iotex.one/tcp/4689/ipfs/12D3KooWS7hkdFozeUqriUxv7zw8Y6NCeV8E5HUbgmVkGJUv4jHS
+
+chain:
+  # producerPrivKey: SET YOUR PRIVATE KEY HERE (e.g., 96f0aa5e8523d6a28dc35c927274be4e931e74eaa720b418735debfcbfe712b8)
+  id: 2
+  evmNetworkID: 4690
+  enableStakingIndexer: true
+  chainDBPath: "./data/chain.db"
+  trieDBPath: "./data/trie.db"
+  trieDBPatchFile: ""
+  indexDBPath: "./data/index.db"
+  bloomfilterIndexDBPath: "./data/bloomfilter.index.db"
+  candidateIndexDBPath: "./data/candidate.index.db"
+  stakingIndexDBPath: "./data/staking.index.db"
+  maxCacheSize: 1000
+  committee:
+    gravityChainAPIs:
+      # please change the infura key to your key (e.g., https://mainnet.infura.io/v3/YOUR_KEY)
+      - https://mainnet.infura.io/v3/b355cae6fafc4302b106b937ee6c15af
+    numOfRetries: 20
+    paginationSize: 255
+    cacheSize: 1000
+  gravityChainDB:
+    dbPath: "./data/poll.db"
+    numRetries: 8
+
+actPool:
+  minGasPrice: "1000000000000"
+
+consensus:
+  scheme: ROLLDPOS
+  rollDPoS:
+    fsm:
+      unmatchedEventTTL: 3s
+      unmatchedEventInterval: 100ms
+      acceptBlockTTL: 4s
+      acceptProposalEndorsementTTL: 2s
+      acceptLockEndorsementTTL: 2s
+    delay: 10s
+    consensusDBPath: "./data/consensus.db"
+
+blockSync:
+  interval: 10s
+  bufferSize: 400
+  maxRepeat: 3
+  repeatDecayStep: 3
+
+log:
+  zap:
+    level: info
+    encoding: json
+    disableStacktrace: true
+    outputPaths: ["stderr", "stdout"]
+    errorOutputPaths: ["stderr"]
+  stderrRedirectFile: ./data/s.log
+  stdLogRedirect: true
