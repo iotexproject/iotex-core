@@ -10,9 +10,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/pkg/errors"
@@ -20,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -31,15 +30,11 @@ func TestNewDidGetHashCmd(t *testing.T) {
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	payload := "60fe47b100000000000000000000000000000000000000000000000000000000"
 
-	ks := keystore.NewKeyStore(t.TempDir(), 2, 1)
-	acc, err := ks.NewAccount("")
-	require.NoError(err)
-	accAddr, err := address.FromBytes(acc.Address.Bytes())
-	require.NoError(err)
+	accAddr := identityset.Address(0).String()
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
-	client.EXPECT().Address(gomock.Any()).Return(accAddr.String(), nil).Times(4)
-	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr.String(), nil).Times(4)
+	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(4)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil).Times(4)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(4)
 
 	t.Run("get did hash", func(t *testing.T) {
@@ -47,7 +42,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 			Data: hex.EncodeToString([]byte(payload)),
 		}, nil)
 		cmd := NewDidGetHash(client)
-		_, err := util.ExecuteCmd(cmd, accAddr.String(), payload)
+		_, err := util.ExecuteCmd(cmd, accAddr, payload)
 		require.NoError(err)
 	})
 
@@ -67,7 +62,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 			Data: hex.EncodeToString([]byte("test")),
 		}, nil)
 		cmd := NewDidGetHash(client)
-		_, err := util.ExecuteCmd(cmd, accAddr.String(), payload)
+		_, err := util.ExecuteCmd(cmd, accAddr, payload)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -75,7 +70,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 		expectedErr := errors.New("failed to read contract")
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 		cmd := NewDidGetHash(client)
-		_, err := util.ExecuteCmd(cmd, accAddr.String(), payload)
+		_, err := util.ExecuteCmd(cmd, accAddr, payload)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
