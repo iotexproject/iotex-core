@@ -54,10 +54,12 @@ func (bic *BlockIndexerChecker) CheckIndexer(ctx context.Context, indexer BlockI
 	if err != nil {
 		return err
 	}
+	log.L().Info("indexer", zap.Uint64("height", tipHeight))
 	daoTip, err := bic.dao.Height()
 	if err != nil {
 		return err
 	}
+	log.L().Info("dao", zap.Uint64("height", daoTip))
 	if tipHeight > daoTip {
 		return errors.New("indexer tip height cannot by higher than dao tip height")
 	}
