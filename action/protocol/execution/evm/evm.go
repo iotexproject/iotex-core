@@ -319,7 +319,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 		opts = append(opts, NotCheckPutStateErrorOption())
 	}
 	if !featureCtx.CorrectGasRefund {
-		opts = append(opts, NotCorrectGasRefundOption())
+		opts = append(opts, ManualCorrectGasRefundOption())
 	}
 
 	return NewStateDBAdapter(
@@ -424,15 +424,15 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	// adjust refund due to dynamicGas
 	var (
-		refundLastSnapshot = stateDB.RefundAtLastSnapshot()
-		currentRefund      = stateDB.GetRefund()
-		featureCtx         = protocol.MustGetFeatureCtx(ctx)
+		refundBeforeDynamicGas = evm.TxContext.RefundBeforeDynamicGas
+		currentRefund          = stateDB.GetRefund()
+		featureCtx             = protocol.MustGetFeatureCtx(ctx)
 	)
-	if evmErr != nil && !featureCtx.CorrectGasRefund && refundLastSnapshot > 0 && refundLastSnapshot != currentRefund {
-		if refundLastSnapshot > currentRefund {
-			stateDB.AddRefund(refundLastSnapshot - currentRefund)
+	if evmErr != nil && !featureCtx.CorrectGasRefund && evm.TxContext.HitErrAfterDynamicGas && refundBeforeDynamicGas != currentRefund {
+		if refundBeforeDynamicGas > currentRefund {
+			stateDB.AddRefund(refundBeforeDynamicGas - currentRefund)
 		} else {
-			stateDB.SubRefund(currentRefund - refundLastSnapshot)
+			stateDB.SubRefund(currentRefund - refundBeforeDynamicGas)
 		}
 	}
 	if refund > stateDB.GetRefund() {
