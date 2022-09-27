@@ -351,7 +351,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
+	return ErrNotSupported
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}

@@ -598,7 +598,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	for _, addr := range stateDB.cachedContractAddrs() {
 		c := stateDB.cachedContract[addr]
 		if err := c.LoadRoot(); err != nil {
-			log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+			log.L().Debug("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
 			return
 		}
 	}

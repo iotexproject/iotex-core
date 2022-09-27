@@ -9,6 +9,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -208,6 +209,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
+	fmt.Printf("tx hash = 0x%x\n", actionCtx.ActionHash)
 	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ctx, ps, stateDB, g.Blockchain, blkCtx.GasLimit, blkCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
@@ -377,7 +379,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	remainingGas -= intriGas
 
 	// Set up the initial access list
-	if rules := chainConfig.Rules(evm.Context.BlockNumber, false); rules.IsBerlin {
+	if rules := chainConfig.Rules(evm.Context.BlockNumber); rules.IsBerlin {
 		stateDB.PrepareAccessList(evmParams.txCtx.Origin, evmParams.contract, vm.ActivePrecompiles(rules), evmParams.accessList)
 	}
 	var (
@@ -428,6 +430,15 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		currentRefund          = stateDB.GetRefund()
 		featureCtx             = protocol.MustGetFeatureCtx(ctx)
 	)
+	if evmErr != nil {
+		println("evmParams.gas =", evmParams.gas)
+		println("remainingGas =", remainingGas)
+		println("ENTER refund =", refund)
+		println("last refund =", refundBeforeDynamicGas)
+		println("curr refund =", currentRefund)
+		println("EVM refund =", evm.TxContext.RefundBeforeDynamicGas)
+		println("hit error =", evm.TxContext.HitErrAfterDynamicGas)
+	}
 	if evmErr != nil && !featureCtx.CorrectGasRefund && evm.TxContext.HitErrAfterDynamicGas && refundBeforeDynamicGas != currentRefund {
 		if refundBeforeDynamicGas > currentRefund {
 			stateDB.AddRefund(refundBeforeDynamicGas - currentRefund)
@@ -437,6 +448,12 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 	}
 	if refund > stateDB.GetRefund() {
 		refund = stateDB.GetRefund()
+	}
+	if evmErr != nil {
+		println("evmErr =", evmErr.Error())
+		println("curr refund =", stateDB.GetRefund())
+		println("EXIT refund =", refund)
+		println()
 	}
 	remainingGas += refund
 
