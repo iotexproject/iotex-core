@@ -76,7 +76,8 @@ type (
 		fixSnapshotOrder           bool
 		revertLog                  bool
 		notCheckPutStateError      bool
-		notCorrectGasRefund        bool
+		manualCorrectGasRefund     bool
+		manualCorrectionTriggered  bool
 	}
 )
 
@@ -147,10 +148,13 @@ func NotCheckPutStateErrorOption() StateDBAdapterOption {
 	}
 }
 
-// NotCorrectGasRefundOption set correctGasRefund as true
-func NotCorrectGasRefundOption() StateDBAdapterOption {
+// ManualCorrectGasRefundOption set manualCorrectGasRefund as true
+func ManualCorrectGasRefundOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.notCorrectGasRefund = true
+		// before London EVM activation (at Okhotsk height), in certain cases dynamicGas
+		// has caused gas refund to change, which needs to be manually adjusted after
+		// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
+		adapter.manualCorrectGasRefund = true
 		return nil
 	}
 }
@@ -553,9 +557,10 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		return
 	}
 	// restore gas refund
-	if stateDB.notCorrectGasRefund {
+	if stateDB.manualCorrectGasRefund {
 		// check if refund has changed from last snapshot (due to dynamicGas)
 		stateDB.refundAtLastSnapshot = stateDB.refundSnapshot[snapshot]
+		stateDB.manualCorrectionTriggered = true
 	} else {
 		stateDB.refund = stateDB.refundSnapshot[snapshot]
 	}
@@ -639,11 +644,6 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
-}
-
-// RefundAtLastSnapshot returns refund at last snapshot
-func (stateDB *StateDBAdapter) RefundAtLastSnapshot() uint64 {
-	return stateDB.refundAtLastSnapshot
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -1036,7 +1036,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
-	stateDB.refundAtLastSnapshot = 0
+	stateDB.manualCorrectionTriggered = false
 	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)

@@ -590,6 +590,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				}
 				// test refund
 				require.Equal(test.refund, stateDB.refund)
+				require.False(stateDB.manualCorrectionTriggered)
 				// test preimage
 				for _, e := range test.preimage {
 					v := stateDB.preimages[e.hash]
