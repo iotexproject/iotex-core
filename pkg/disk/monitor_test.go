@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package watch
+package disk
 
 import (
 	"context"
@@ -16,12 +16,15 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestStart(t *testing.T) {
+func TestMonitor(t *testing.T) {
 	require := require.New(t)
-	h := Start(context.Background(), 30*time.Millisecond)
+	m := NewMonitor(30 * time.Millisecond)
+	ctx := context.Background()
+	err := m.Start(ctx)
+	require.NoError(err)
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 1*time.Second, func() (b bool, e error) {
-		h()
-		return true, nil
+		err = m.Stop(ctx)
+		return err == nil, nil
 	}))
 }
 

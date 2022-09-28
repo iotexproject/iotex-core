@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package watch
+package disk
 
 import (
 	"context"
@@ -17,17 +17,25 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
-// Start creates a timer task to check device per watchInternal
-func Start(ctx context.Context, watchInternal time.Duration) func() {
-	task := routine.NewRecurringTask(checkDiskSpace, watchInternal)
-	if err := task.Start(ctx); err != nil {
-		log.L().Panic("Failed to start watch disk space", zap.Error(err))
+type monitor struct {
+	task *routine.RecurringTask
+}
+
+// NewMonitor creates a timer task
+func NewMonitor(internal time.Duration) *monitor {
+	return &monitor{
+		task: routine.NewRecurringTask(checkDiskSpace, internal),
 	}
-	return func() {
-		if err := task.Stop(ctx); err != nil {
-			log.L().Panic("Failed to stop watch disk space.", zap.Error(err))
-		}
-	}
+}
+
+// Start starts timer task
+func (m *monitor) Start(ctx context.Context) error {
+	return m.task.Start(ctx)
+}
+
+// Stop stops timer task
+func (m *monitor) Stop(ctx context.Context) error {
+	return m.task.Stop(ctx)
 }
 
 func checkDiskSpace() {

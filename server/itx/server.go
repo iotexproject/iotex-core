@@ -23,12 +23,12 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/disk"
 	"github.com/iotexproject/iotex-core/pkg/ha"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/pkg/util/httputil"
-	"github.com/iotexproject/iotex-core/pkg/watch"
 )
 
 // Server is the iotex server instance containing all components.
@@ -232,9 +232,16 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
-	// check device
-	watchStop := watch.Start(ctx, 3*time.Minute)
-	defer watchStop()
+	// check disk space
+	m := disk.NewMonitor(3 * time.Minute)
+	if err := m.Start(ctx); err != nil {
+		log.L().Panic("Failed to start monitor disk space", zap.Error(err))
+	}
+	defer func() {
+		if err := m.Stop(ctx); err != nil {
+			log.L().Panic("Failed to stop monitor disk space.", zap.Error(err))
+		}
+	}()
 
 	var adminserv http.Server
 	if cfg.System.HTTPAdminPort > 0 {
