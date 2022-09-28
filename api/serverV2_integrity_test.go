@@ -407,13 +407,13 @@ func newConfig() config.Config {
 	return cfg
 }
 
-func createServerV2ForGrpc(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
+func createServerV2ForGRPC(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	cfg.API.HTTPPort = 0
 	return createServerV2(cfg, needActPool)
 }
 
-func createServerV2ForHttp(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
+func createServerV2ForHTTP(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
 	cfg.API.GRPCPort = 0
 	cfg.API.HTTPPort = testutil.RandomPort()
 	return createServerV2(cfg, needActPool)
@@ -458,7 +458,7 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2ForGrpc(cfg, false)
+	svr, _, _, _, _, _, bfIndexFile, err := createServerV2ForGRPC(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)

@@ -151,7 +151,7 @@ func TestWeb3ServerIntegrity(t *testing.T) {
 func setupTestServer() (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, actpool.ActPool, func()) {
 	cfg := newConfig()
 	cfg.Chain.EVMNetworkID = _evmNetworkID
-	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2ForHttp(cfg, false)
+	svr, bc, dao, _, _, actPool, bfIndexFile, _ := createServerV2ForHTTP(cfg, false)
 	return svr, bc, dao, actPool, func() {
 		testutil.CleanupPath(bfIndexFile)
 	}
