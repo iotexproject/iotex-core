@@ -17,24 +17,25 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
-type monitor struct {
+// Monitor represents a timer task of checking disk
+type Monitor struct {
 	task *routine.RecurringTask
 }
 
-// NewMonitor creates a timer task
-func NewMonitor(internal time.Duration) *monitor {
-	return &monitor{
+// NewMonitor creates an instance of timer task
+func NewMonitor(internal time.Duration) *Monitor {
+	return &Monitor{
 		task: routine.NewRecurringTask(checkDiskSpace, internal),
 	}
 }
 
 // Start starts timer task
-func (m *monitor) Start(ctx context.Context) error {
+func (m *Monitor) Start(ctx context.Context) error {
 	return m.task.Start(ctx)
 }
 
 // Stop stops timer task
-func (m *monitor) Stop(ctx context.Context) error {
+func (m *Monitor) Stop(ctx context.Context) error {
 	return m.task.Stop(ctx)
 }
 
