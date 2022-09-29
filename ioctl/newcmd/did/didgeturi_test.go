@@ -7,7 +7,6 @@
 package did
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -28,7 +27,10 @@ func TestNewDidGetURICmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	accAddr := identityset.Address(0).String()
-	payload := "60fe47b100000000000000000000000000000000000000000000000000000000"
+	payload := "0000000000000000000000000000000000000000000000000000000000000020" +
+		"0000000000000000000000000000000000000000000000000000000000000020" +
+		"0000000000000000000000000000000000000000000000000000000000000001" +
+		"0000000000000000000000000000000000000000000000000000000000000002"
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(2)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(1)
@@ -37,10 +39,10 @@ func TestNewDidGetURICmd(t *testing.T) {
 
 	t.Run("get did hash", func(t *testing.T) {
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
-			Data: hex.EncodeToString([]byte(payload)),
+			Data: payload,
 		}, nil)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr, payload)
+		_, err := util.ExecuteCmd(cmd, accAddr, "did:io:0x11111111111111111")
 		require.NoError(err)
 	})
 }

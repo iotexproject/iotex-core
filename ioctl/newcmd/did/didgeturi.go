@@ -11,10 +11,10 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
@@ -52,7 +52,6 @@ func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "invalid contract address")
 			}
-
 			abi, err := abi.JSON(strings.NewReader(DIDABI))
 			if err != nil {
 				return errors.Wrap(err, "failed to read abi")
@@ -61,7 +60,6 @@ func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
-
 			result, err := action.Read(client, addr, "0", bytecode, contract, 20000000)
 			if err != nil {
 				return errors.Wrap(err, "failed to read contract")
@@ -72,9 +70,9 @@ func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
 			}
 			res, err := abi.Unpack(_getURIName, ret)
 			if err != nil {
-				return errors.New("DID does not exist")
+				return errors.Wrap(err, "DID does not exist")
 			}
-			out, err := util.To32Bytes(res[0])
+			out, err := util.ToByteSlice(res[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to convert hash to bytes")
 			}
