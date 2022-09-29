@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -32,17 +33,62 @@ func TestNewDidGetURICmd(t *testing.T) {
 		"0000000000000000000000000000000000000000000000000000000000000001" +
 		"0000000000000000000000000000000000000000000000000000000000000002"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(2)
-	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(1)
-	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil).Times(1)
-	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(1)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
+	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(4)
+	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil).Times(4)
+	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(4)
 
-	t.Run("get did hash", func(t *testing.T) {
+	t.Run("get did uri", func(t *testing.T) {
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
 			Data: payload,
 		}, nil)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr, "did:io:0x11111111111111111")
+		result, err := util.ExecuteCmd(cmd, accAddr, "did:io:0x11111111111111111")
 		require.NoError(err)
+		require.Contains(result, "0000000000000000000000000000000000000000000000000000000000000001")
+	})
+
+	t.Run("failed to decode contract", func(t *testing.T) {
+		expectedErr := errors.New("failed to decode contract")
+		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
+			Data: "test",
+		}, nil)
+		cmd := NewDidGetURICmd(client)
+		_, err := util.ExecuteCmd(cmd, "test", payload)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("DID does not exist", func(t *testing.T) {
+		expectedErr := errors.New("DID does not exist")
+		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
+			Data: "0000000000000000000000000000000000000000000000000000000000000020",
+		}, nil)
+		cmd := NewDidGetURICmd(client)
+		_, err := util.ExecuteCmd(cmd, accAddr, "did:io:0x11111111111111111")
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to read contract", func(t *testing.T) {
+		expectedErr := errors.New("failed to read contract")
+		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
+		cmd := NewDidGetURICmd(client)
+		_, err := util.ExecuteCmd(cmd, accAddr, payload)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("invalid contract address", func(t *testing.T) {
+		expectedErr := errors.New("invalid contract address")
+		client.EXPECT().Address(gomock.Any()).Return("test", nil)
+		cmd := NewDidGetURICmd(client)
+		_, err := util.ExecuteCmd(cmd, "test", payload)
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get contract address", func(t *testing.T) {
+		expectedErr := errors.New("failed to get contract address")
+		client.EXPECT().Address(gomock.Any()).Return("", expectedErr)
+		cmd := NewDidGetURICmd(client)
+		_, err := util.ExecuteCmd(cmd, "test", payload)
+		require.Contains(err.Error(), expectedErr.Error())
 	})
 }
