@@ -31,9 +31,6 @@ var (
 		config.English: "Geturi get DID URI on IoTeX blockchain",
 		config.Chinese: "Geturi 在IoTeX链上获取相应DID的uri",
 	}
-	// _didABI is the interface of the abi encoding of did
-	_didABI abi.ABI
-	err     error
 )
 
 func init() {
