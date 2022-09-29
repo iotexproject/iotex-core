@@ -31,7 +31,17 @@ var (
 		config.English: "Geturi get DID URI on IoTeX blockchain",
 		config.Chinese: "Geturi 在IoTeX链上获取相应DID的uri",
 	}
+	// _didABI is the interface of the abi encoding of did
+	_didABI abi.ABI
+	err     error
 )
+
+func init() {
+	_didABI, err = abi.JSON(strings.NewReader(DIDABI))
+	if err != nil {
+		panic(err)
+	}
+}
 
 // NewDidGetURICmd represents the did get uri command
 func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
@@ -52,11 +62,7 @@ func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "invalid contract address")
 			}
-			abi, err := abi.JSON(strings.NewReader(DIDABI))
-			if err != nil {
-				return errors.Wrap(err, "failed to read abi")
-			}
-			bytecode, err := abi.Pack(_getURIName, []byte(args[1]))
+			bytecode, err := _didABI.Pack(_getURIName, []byte(args[1]))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
@@ -68,7 +74,7 @@ func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to decode contract")
 			}
-			res, err := abi.Unpack(_getURIName, ret)
+			res, err := _didABI.Unpack(_getURIName, ret)
 			if err != nil {
 				return errors.Wrap(err, "DID does not exist")
 			}
