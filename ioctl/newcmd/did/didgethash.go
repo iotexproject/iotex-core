@@ -33,8 +33,15 @@ var (
 	}
 )
 
-// NewDidGetHashCmd represents the did get hash command
-func NewDidGetHashCmd(client ioctl.Client) *cobra.Command {
+func init() {
+	_didABI, err = abi.JSON(strings.NewReader(DIDABI))
+	if err != nil {
+		panic(err)
+	}
+}
+
+// NewDidGetHash represents the did get hash command
+func NewDidGetHash(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_getHashCmdUses)
 	short, _ := client.SelectTranslation(_getHashCmdShorts)
 
@@ -52,12 +59,7 @@ func NewDidGetHashCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "invalid contract address")
 			}
-
-			abi, err := abi.JSON(strings.NewReader(DIDABI))
-			if err != nil {
-				return errors.Wrap(err, "failed to read abi")
-			}
-			bytecode, err := abi.Pack(_getHashName, []byte(args[1]))
+			bytecode, err := _didABI.Pack(_getHashName, []byte(args[1]))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
@@ -70,7 +72,7 @@ func NewDidGetHashCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to decode contract")
 			}
-			res, err := abi.Unpack(_getHashName, ret)
+			res, err := _didABI.Unpack(_getHashName, ret)
 			if err != nil {
 				return errors.New("DID does not exist")
 			}

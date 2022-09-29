@@ -32,6 +32,13 @@ var (
 	}
 )
 
+func init() {
+	_didABI, err = abi.JSON(strings.NewReader(DIDABI))
+	if err != nil {
+		panic(err)
+	}
+}
+
 // NewDidRegisterCmd represents the did register command
 func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_registerCmdUses)
@@ -47,18 +54,13 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}
-
 			hashSlice, err := hex.DecodeString(args[1])
 			if err != nil {
 				return errors.Wrap(err, "failed to decode data")
 			}
 			var hashArray [32]byte
 			copy(hashArray[:], hashSlice)
-			abi, err := abi.JSON(strings.NewReader(DIDABI))
-			if err != nil {
-				return errors.Wrap(err, "falied to parse abi")
-			}
-			bytecode, err := abi.Pack(_registerDIDName, hashArray, []byte(args[2]))
+			bytecode, err := _didABI.Pack(_registerDIDName, hashArray, []byte(args[2]))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}

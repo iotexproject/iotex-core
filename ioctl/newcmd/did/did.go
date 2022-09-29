@@ -7,6 +7,7 @@
 package did
 
 import (
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
@@ -19,6 +20,9 @@ var (
 		config.English: "Manage Decentralized Identity of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的去中心化数字身份",
 	}
+	// _didABI is the interface of the abi encoding of did
+	_didABI abi.ABI
+	err     error
 )
 
 const (
