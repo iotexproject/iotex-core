@@ -8,9 +8,7 @@ package did
 
 import (
 	"encoding/hex"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -32,13 +30,6 @@ var (
 		config.Chinese: "Geturi 在IoTeX链上获取相应DID的uri",
 	}
 )
-
-func init() {
-	_didABI, err = abi.JSON(strings.NewReader(DIDABI))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // NewDidGetURICmd represents the did get uri command
 func NewDidGetURICmd(client ioctl.Client) *cobra.Command {
