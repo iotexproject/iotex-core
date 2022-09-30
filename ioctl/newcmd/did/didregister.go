@@ -9,9 +9,7 @@ package did
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -31,13 +29,6 @@ var (
 		config.Chinese: "Register 在IoTeX链上注册DID",
 	}
 )
-
-func init() {
-	_didABI, err = abi.JSON(strings.NewReader(DIDABI))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // NewDidRegisterCmd represents the did register command
 func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {

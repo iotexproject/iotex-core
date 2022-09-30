@@ -8,9 +8,7 @@ package did
 
 import (
 	"encoding/hex"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -32,13 +30,6 @@ var (
 		config.Chinese: "Gethash 在IoTeX链上获取相应DID的doc hash",
 	}
 )
-
-func init() {
-	_didABI, err = abi.JSON(strings.NewReader(DIDABI))
-	if err != nil {
-		panic(err)
-	}
-}
 
 // NewDidGetHash represents the did get hash command
 func NewDidGetHash(client ioctl.Client) *cobra.Command {
