@@ -32,7 +32,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 		"0000000000000000000000000000000000000000000000000000000000000020" +
 		"0000000000000000000000000000000000000000000000000000000000000001" +
 		"0000000000000000000000000000000000000000000000000000000000000002"
-	didString := "did:io:0x11111111111111111"
+	did := "did:io:0x11111111111111111"
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(4)
@@ -55,7 +55,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 			Data: "test",
 		}, nil)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, "test", didString)
+		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -65,7 +65,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 			Data: "0000000000000000000000000000000000000000000000000000000000000020",
 		}, nil)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr, didString)
+		_, err := util.ExecuteCmd(cmd, accAddr, did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -73,7 +73,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 		expectedErr := errors.New("failed to read contract")
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, accAddr, didString)
+		_, err := util.ExecuteCmd(cmd, accAddr, did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -81,7 +81,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 		expectedErr := errors.New("invalid contract address")
 		client.EXPECT().Address(gomock.Any()).Return("test", nil)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, "test", didString)
+		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
@@ -89,7 +89,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 		expectedErr := errors.New("failed to get contract address")
 		client.EXPECT().Address(gomock.Any()).Return("", expectedErr)
 		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, "test", didString)
+		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 }
