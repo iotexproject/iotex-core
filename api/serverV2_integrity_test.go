@@ -403,20 +403,10 @@ func newConfig() config.Config {
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.API.RangeQueryLimit = 100
-
-	return cfg
-}
-
-func createServerV2ForGRPC(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
-	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.API.HTTPPort = 0
-	return createServerV2(cfg, needActPool)
-}
-
-func createServerV2ForHTTP(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
 	cfg.API.GRPCPort = 0
-	cfg.API.HTTPPort = testutil.RandomPort()
-	return createServerV2(cfg, needActPool)
+	cfg.API.HTTPPort = 0
+	cfg.API.WebSocketPort = 0
+	return cfg
 }
 
 func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
@@ -447,7 +437,6 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 	opts := []Option{WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 		return nil
 	})}
-	cfg.API.WebSocketPort = 0
 	svr, err := NewServerV2(cfg.API, bc, nil, sf, dao, indexer, bfIndexer, ap, registry, opts...)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, "", err
@@ -458,7 +447,8 @@ func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.
 func TestServerV2Integrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	svr, _, _, _, _, _, bfIndexFile, err := createServerV2ForGRPC(cfg, false)
+	cfg.API.GRPCPort = testutil.RandomPort()
+	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
