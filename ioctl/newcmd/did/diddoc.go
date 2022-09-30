@@ -6,6 +6,12 @@
 
 package did
 
+import (
+	"github.com/iotexproject/iotex-core/ioctl"
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/spf13/cobra"
+)
+
 const (
 	// DIDPrefix is the prefix string
 	DIDPrefix = "did:io:"
@@ -13,6 +19,14 @@ const (
 	DIDAuthType = "EcdsaSecp256k1VerificationKey2019"
 	// DIDOwner is the suffix string
 	DIDOwner = "#owner"
+)
+
+// Multi-language support
+var (
+	_dIDDocCmdShorts = map[config.Language]string{
+		config.English: "Manage DID Settings IoTeX blockchain",
+		config.Chinese: "管理IoTeX区块链上的DID设定",
+	}
 )
 
 type (
@@ -29,6 +43,16 @@ type (
 		Authentication []authenticationStruct `json:"authentication,omitempty"`
 	}
 )
+
+// NewDidDocCmd represents the did doc command
+func NewDidDocCmd(client ioctl.Client) *cobra.Command {
+	short, _ := client.SelectTranslation(_dIDDocCmdShorts)
+	cmd := &cobra.Command{
+		Use:   "did doc",
+		Short: short,
+	}
+	return cmd
+}
 
 func newDIDDoc() *Doc {
 	return &Doc{
