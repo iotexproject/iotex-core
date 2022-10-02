@@ -46,7 +46,7 @@ func NewDidUpdateCmd(client ioctl.Client) *cobra.Command {
 			}
 			bytecode, err := encode(_updateDIDName, args[1], args[2])
 			if err != nil {
-				return errors.Wrap(err, "invalid bytecode")
+				return errors.Wrap(err, "failed to decode data")
 			}
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := action.GetWriteCommandFlag(cmd)
 			if err != nil {
@@ -55,5 +55,6 @@ func NewDidUpdateCmd(client ioctl.Client) *cobra.Command {
 			return action.Execute(client, cmd, contract, big.NewInt(0), bytecode, gasPrice, signer, password, nonce, gasLimit, assumeYes)
 		},
 	}
+	action.RegisterWriteCommand(client, cmd)
 	return cmd
 }
