@@ -45,17 +45,10 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}
-			hashSlice, err := hex.DecodeString(args[1])
+			bytecode, err := encode(_registerDIDName, args[1], args[2])
 			if err != nil {
 				return errors.Wrap(err, "failed to decode data")
 			}
-			var hashArray [32]byte
-			copy(hashArray[:], hashSlice)
-			bytecode, err := _didABI.Pack(_registerDIDName, hashArray, []byte(args[2]))
-			if err != nil {
-				return errors.Wrap(err, "invalid bytecode")
-			}
-
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := action.GetWriteCommandFlag(cmd)
 			if err != nil {
 				return err
@@ -65,4 +58,14 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 	}
 	action.RegisterWriteCommand(client, cmd)
 	return cmd
+}
+
+func encode(method, didHash, uri string) (ret []byte, err error) {
+	hashSlice, err := hex.DecodeString(didHash)
+	if err != nil {
+		return
+	}
+	var hashArray [32]byte
+	copy(hashArray[:], hashSlice)
+	return _didABI.Pack(method, hashArray, []byte(uri))
 }

@@ -77,7 +77,6 @@ func TestNewDidRegisterCmd(t *testing.T) {
 
 	t.Run("failed to decode data", func(t *testing.T) {
 		expectedErr := errors.New("failed to decode data")
-
 		cmd := NewDidRegisterCmd(client)
 		_, err := util.ExecuteCmd(cmd, accAddr.String(), "test", "test", "--signer", accAddr.String())
 		require.Contains(err.Error(), expectedErr.Error())
