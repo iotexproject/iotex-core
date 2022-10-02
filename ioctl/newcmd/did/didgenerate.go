@@ -57,15 +57,15 @@ func NewDidGenerateCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get password")
 			}
-			pri, err := account.PrivateKeyFromSigner(client, cmd, addr, password)
-			if err != nil {
-				return err
-			}
-			doc := newDIDDoc()
 			ethAddress, err := addrutil.IoAddrToEvmAddr(addr)
 			if err != nil {
-				return errors.Wrap(err, "")
+				return errors.Wrap(err, "failed to convert IoTeX address to EVM address")
 			}
+			pri, err := account.PrivateKeyFromSigner(client, cmd, addr, password)
+			if err != nil {
+				return errors.Wrap(err, "failed to get private key from signer")
+			}
+			doc := newDIDDoc()
 			doc.ID = DIDPrefix + ethAddress.String()
 			authentication := authenticationStruct{
 				ID:         doc.ID + DIDOwner,
