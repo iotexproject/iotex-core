@@ -42,6 +42,12 @@ type (
 	}
 )
 
+func (d *Candidate) print() {
+	println("Name =", d.Name)
+	println("Owner =", d.Owner.String())
+	println("SelfStakeBucketIdx =", d.SelfStakeBucketIdx)
+}
+
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
 	return &Candidate{

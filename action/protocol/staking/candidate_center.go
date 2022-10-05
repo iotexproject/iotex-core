@@ -274,6 +274,8 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 	if _, hit := m.base.getByOwner(d.Owner.String()); !hit {
 		m.size++
 	}
+	println("candCenter Upsert =======")
+	d.print()
 	return nil
 }
 

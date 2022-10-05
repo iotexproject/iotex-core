@@ -183,6 +183,18 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
+	println("CreateBaseView =======", height)
+	println("len(db) =", len(all))
+	for _, d := range all {
+		if d.Name == "binancevote" {
+			println("db has vote")
+			d.print()
+		}
+		if d.Name == "binancenode" {
+			println("db has node")
+			d.print()
+		}
+	}
 	center, err := NewCandidateCenter(all)
 	if err != nil {
 		return nil, height, err

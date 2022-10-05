@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -137,7 +138,7 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 	}
 	actionCtx.IntrinsicGas = intrinsicGas
 	actionCtx.Nonce = selp.Nonce()
-
+	fmt.Printf("txHash = %x\n", actionCtx.ActionHash)
 	return protocol.WithActionCtx(ctx, actionCtx), nil
 }
 

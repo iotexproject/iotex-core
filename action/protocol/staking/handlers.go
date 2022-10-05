@@ -277,30 +277,48 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	println("ENTER handleChangeCandidate =======")
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, featureCtx.NewStakingReceiptFormat)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
+		println("fetchCaller error:", fetchErr.Error())
 		return log, fetchErr
 	}
 
 	candidate := csm.GetByName(act.Candidate())
 	if candidate == nil {
+		println("get cand error:", act.Candidate())
 		return log, errCandNotExist
 	}
+	println("new candidate =======")
+	candidate.print()
 
 	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
 		return log, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes(), candidate.Owner.Bytes())
+	println("curr bucket =======", bucket.Index)
+	println("act.BucketIndex =", act.BucketIndex())
+	println("Index =", bucket.Index)
+	println("Candidate =", bucket.Candidate.String())
+	println("Owner =", bucket.Owner.String())
+	println("StakedAmount =", bucket.StakedAmount.String())
+	println("StakedDuration =", bucket.StakedDuration.String())
+	println("CreateTime =", bucket.CreateTime.String())
+	println("StakeStartTime =", bucket.StakeStartTime.String())
+	println("UnstakeStartTime =", bucket.UnstakeStartTime.String())
+	println("AutoStake =", bucket.AutoStake)
 
 	prevCandidate := csm.GetByOwner(bucket.Candidate)
 	if prevCandidate == nil {
 		return log, errCandNotExist
 	}
+	println("prev candidate =======")
+	prevCandidate.print()
 
 	if featureCtx.CannotUnstakeAgain && bucket.isUnstaked() {
 		return log, &handleError{
@@ -329,6 +347,17 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
+	println("update bucket =======", bucket.Index)
+	println("act.BucketIndex =", act.BucketIndex())
+	println("Index =", bucket.Index)
+	println("Candidate =", bucket.Candidate.String())
+	println("Owner =", bucket.Owner.String())
+	println("StakedAmount =", bucket.StakedAmount.String())
+	println("StakedDuration =", bucket.StakedDuration.String())
+	println("CreateTime =", bucket.CreateTime.String())
+	println("StakeStartTime =", bucket.StakeStartTime.String())
+	println("UnstakeStartTime =", bucket.UnstakeStartTime.String())
+	println("AutoStake =", bucket.AutoStake)
 
 	// update previous candidate
 	weightedVotes := p.calculateVoteWeight(bucket, false)
@@ -444,9 +473,21 @@ func (p *Protocol) handleConsignmentTransfer(
 
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
+	println("ENTER handleDepositToStake =======")
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleDepositToStake, featureCtx.NewStakingReceiptFormat)
+
+	all := csm.(*candSM).candCenter.All()
+	println("len(mem) =", len(all))
+	if b1 := csm.GetByName("binancevote"); b1 != nil {
+		println("mem has vote")
+		b1.print()
+	}
+	if b1 := csm.GetByName("binancenode"); b1 != nil {
+		println("mem has node")
+		b1.print()
+	}
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -730,6 +771,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	println("ENTER handleCandidateUpdate =======")
 	actCtx := protocol.MustGetActionCtx(ctx)
 	featureCtx := protocol.MustGetFeatureCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, featureCtx.NewStakingReceiptFormat)
@@ -739,11 +781,23 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		return log, fetchErr
 	}
 
+	all := csm.(*candSM).candCenter.All()
+	println("len(mem) =", len(all))
+	if b1 := csm.GetByName("binancevote"); b1 != nil {
+		println("mem has vote")
+		b1.print()
+	}
+	if b1 := csm.GetByName("binancenode"); b1 != nil {
+		println("mem has node")
+		b1.print()
+	}
 	// only owner can update candidate
 	c := csm.GetByOwner(actCtx.Caller)
 	if c == nil {
 		return log, errCandNotExist
 	}
+	println("curr candidate =======")
+	c.print()
 
 	if len(act.Name()) != 0 {
 		c.Name = act.Name()

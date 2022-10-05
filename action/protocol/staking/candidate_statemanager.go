@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -281,6 +282,7 @@ func (csm *candSM) putBucketIndex(addr address.Address, prefix byte, index uint6
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key))
+	fmt.Printf("put bucket index = 0x%x\n", key)
 	return err
 }
 
@@ -312,6 +314,7 @@ func (csm *candSM) delBucketIndex(addr address.Address, prefix byte, index uint6
 			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
 	}
+	fmt.Printf("del bucket index = 0x%x\n", key)
 	return err
 }
 
@@ -321,6 +324,9 @@ func (csm *candSM) delVoterBucketIndex(addr address.Address, index uint64) error
 
 func (csm *candSM) putCandidate(d *Candidate) error {
 	_, err := csm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	println("putCandidate =======")
+	d.print()
+	fmt.Printf("key = 0x%x\n", d.Owner.Bytes())
 	return err
 }
 
