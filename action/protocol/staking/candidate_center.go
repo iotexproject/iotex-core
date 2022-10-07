@@ -277,6 +277,16 @@ func (m *CandidateCenter) Upsert(d *Candidate) error {
 	return nil
 }
 
+// NameOperatorMapList converts the name/operator map to a write batch
+func (m *CandidateCenter) NameOperatorMapList() (CandidateList, CandidateList, error) {
+	name := m.base.candsInNameMap()
+	op := m.base.candsInOperatorMap()
+	if len(name) == 0 || len(op) == 0 {
+		return nil, nil, ErrNilParameters
+	}
+	return name, op, nil
+}
+
 func (m *CandidateCenter) collision(d *Candidate) error {
 	if err := m.change.collision(d); err != nil {
 		return err
@@ -433,6 +443,54 @@ func (cb *candBase) all() CandidateList {
 		list = append(list, d.Clone())
 	}
 	return list
+}
+
+func (cb *candBase) candsInNameMap() CandidateList {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	if len(cb.nameMap) == 0 {
+		return nil
+	}
+
+	list := make(CandidateList, 0, len(cb.nameMap))
+	for _, d := range cb.nameMap {
+		list = append(list, d.Clone())
+	}
+	return list
+}
+
+func (cb *candBase) candsInOperatorMap() CandidateList {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	if len(cb.operatorMap) == 0 {
+		return nil
+	}
+
+	list := make(CandidateList, 0, len(cb.operatorMap))
+	for _, d := range cb.operatorMap {
+		list = append(list, d.Clone())
+	}
+	return list
+}
+
+func (cb *candBase) loadNameOperatorMap(name, op CandidateList) error {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	cb.nameMap = make(map[string]*Candidate)
+	for i := range name {
+		if err := name[i].Validate(); err != nil {
+			return err
+		}
+		cb.nameMap[name[i].Name] = name[i]
+	}
+	cb.operatorMap = make(map[string]*Candidate)
+	for i := range op {
+		if err := op[i].Validate(); err != nil {
+			return err
+		}
+		cb.operatorMap[op[i].Operator.String()] = op[i]
+	}
+	return nil
 }
 
 func (cb *candBase) commit(change *candChange) (int, error) {

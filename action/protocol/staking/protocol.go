@@ -26,6 +26,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -39,6 +40,9 @@ const (
 
 	// CandidateNameSpace is the bucket name for candidate state
 	CandidateNameSpace = "Candidate"
+
+	// CandsMapNS is the bucket name to store candidate map
+	CandsMapNS = "CandsMap"
 )
 
 const (
@@ -57,6 +61,11 @@ var (
 	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
 )
 
+var (
+	_nameKey     = []byte("name")
+	_operatorKey = []byte("oper")
+)
+
 type (
 	// ReceiptError indicates a non-critical error with corresponding receipt status
 	ReceiptError interface {
@@ -71,6 +80,7 @@ type (
 		config             Configuration
 		candBucketsIndexer *CandidatesBucketsIndexer
 		voteReviser        *VoteReviser
+		patch              *Patch
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -167,6 +177,19 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
+	}
+
+	if p.needToReadCandsMap(height) {
+		name, operator, err := readNameOperatorMapFromStateDB(sr, height)
+		if err != nil {
+			// stateDB does not have name/operator map yet
+			if name, operator, err = p.readNameOperatorMapFromPatch(height); err != nil {
+				return nil, errors.Wrap(err, "failed to read name/operator map")
+			}
+		}
+		if err = c.candCenter.base.loadNameOperatorMap(name, operator); err != nil {
+			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
+		}
 	}
 	return c, nil
 }
@@ -308,7 +331,23 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
+	if err := csm.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit candidate change in Commit")
+	}
+
+	if p.needToWriteCandsMap(height) {
+		name, operator, err := csm.CandCenter().NameOperatorMapList()
+		if err != nil {
+			return errors.Wrap(err, "failed to serialize name/operator map")
+		}
+		if err := csm.putCandMapList(name, _nameKey); err != nil {
+			return errors.Wrap(err, "failed to put name map")
+		}
+		if err := csm.putCandMapList(operator, _operatorKey); err != nil {
+			return errors.Wrap(err, "failed to put operator map")
+		}
+	}
+	return nil
 }
 
 // Handle handles a staking message
@@ -541,4 +580,37 @@ func (p *Protocol) settleAction(
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
 	return &r, nil
+}
+
+func (p *Protocol) needToReadCandsMap(height uint64) bool {
+	return height > p.config.PersistCandsMapBlock
+}
+
+func (p *Protocol) needToWriteCandsMap(height uint64) bool {
+	return height >= p.config.PersistCandsMapBlock
+}
+
+func readNameOperatorMapFromStateDB(sr protocol.StateReader, height uint64) (CandidateList, CandidateList, error) {
+	var (
+		name, operator CandidateList
+	)
+	if _, err := sr.State(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return nil, nil, err
+	}
+	if _, err := sr.State(&operator, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return nil, nil, err
+	}
+	return name, operator, nil
+}
+
+func (p *Protocol) readNameOperatorMapFromPatch(height uint64) (CandidateList, CandidateList, error) {
+	if p.patch == nil {
+		cfg := db.DefaultConfig
+		cfg.DbPath = p.config.CandsMapDBPath
+		p.patch = NewPatch(db.NewBoltDB(cfg))
+		if err := p.patch.Start(context.Background()); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to load staking patch")
+		}
+	}
+	return p.patch.Read(height)
 }

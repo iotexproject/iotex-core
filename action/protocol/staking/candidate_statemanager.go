@@ -35,12 +35,13 @@ type (
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
-		putCandidate(d *Candidate) error
-		delCandidate(name address.Address) error
-		putVoterBucketIndex(addr address.Address, index uint64) error
-		delVoterBucketIndex(addr address.Address, index uint64) error
-		putCandBucketIndex(addr address.Address, index uint64) error
-		delCandBucketIndex(addr address.Address, index uint64) error
+		putCandidate(*Candidate) error
+		delCandidate(address.Address) error
+		putVoterBucketIndex(address.Address, uint64) error
+		delVoterBucketIndex(address.Address, uint64) error
+		putCandBucketIndex(address.Address, uint64) error
+		delCandBucketIndex(address.Address, uint64) error
+		putCandMapList(CandidateList, []byte) error
 	}
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
@@ -55,12 +56,12 @@ type (
 		ContainsSelfStakingBucket(uint64) bool
 		GetByName(string) *Candidate
 		GetByOwner(address.Address) *Candidate
-		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int) error
 		DebitBucketPool(*big.Int, bool) error
 		Commit() error
 		SM() protocol.StateManager
+		CandCenter() *CandidateCenter
 	}
 
 	candSM struct {
@@ -109,6 +110,10 @@ func (csm *candSM) SM() protocol.StateManager {
 	return csm.StateManager
 }
 
+func (csm *candSM) CandCenter() *CandidateCenter {
+	return csm.candCenter
+}
+
 // DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
 func (csm *candSM) DirtyView() *ViewData {
 	return &ViewData{
@@ -139,10 +144,6 @@ func (csm *candSM) GetByName(name string) *Candidate {
 
 func (csm *candSM) GetByOwner(addr address.Address) *Candidate {
 	return csm.candCenter.GetByOwner(addr)
-}
-
-func (csm *candSM) GetBySelfStakingIndex(index uint64) *Candidate {
-	return csm.candCenter.GetBySelfStakingIndex(index)
 }
 
 // Upsert writes the candidate into state manager and cand center
@@ -321,6 +322,11 @@ func (csm *candSM) delVoterBucketIndex(addr address.Address, index uint64) error
 
 func (csm *candSM) putCandidate(d *Candidate) error {
 	_, err := csm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	return err
+}
+
+func (csm *candSM) putCandMapList(l CandidateList, key []byte) error {
+	_, err := csm.PutState(l, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(key))
 	return err
 }
 
