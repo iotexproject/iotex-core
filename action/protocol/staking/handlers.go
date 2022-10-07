@@ -682,6 +682,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
+	csm.DirtyView().candCenter.base.recordOwner(c)
 
 	// update bucket pool
 	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
@@ -761,6 +762,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if err := csm.Upsert(c); err != nil {
 		return log, csmErrorToHandleError(c.Owner.String(), err)
 	}
+	csm.DirtyView().candCenter.base.recordOwner(c)
 
 	log.AddAddress(actCtx.Caller)
 	return log, nil

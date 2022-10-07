@@ -39,6 +39,9 @@ const (
 
 	// CandidateNameSpace is the bucket name for candidate state
 	CandidateNameSpace = "Candidate"
+
+	// CandsMapNS is the bucket name to store candidate map
+	CandsMapNS = "CandsMap"
 )
 
 const (
@@ -55,6 +58,12 @@ const (
 var (
 	ErrWithdrawnBucket = errors.New("the bucket is already withdrawn")
 	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
+)
+
+var (
+	_nameKey     = []byte("name")
+	_operatorKey = []byte("operator")
+	_ownerKey    = []byte("owner")
 )
 
 type (
@@ -165,6 +174,16 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
+	}
+
+	if p.needToReadCandsMap(height) {
+		name, operator, owners, err := readCandCenterStateFromStateDB(sr, height)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read name/operator map")
+		}
+		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
+			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
+		}
 	}
 	return c, nil
 }
@@ -291,6 +310,36 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	}
 	candidateList := toIoTeXTypesCandidateListV2(all)
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
+}
+
+// PreCommit preforms pre-commit
+func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
+	if err != nil {
+		return err
+	}
+	if !p.needToWriteCandsMap(height) {
+		return nil
+	}
+
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	if err != nil {
+		return err
+	}
+	cc := csm.DirtyView().candCenter
+	base := cc.base.clone()
+	if _, err = base.commit(cc.change); err != nil {
+		return errors.Wrap(err, "failed to apply candidate change in pre-commit")
+	}
+	// persist nameMap/operatorMap and ownerList to stateDB
+	name := base.candsInNameMap()
+	op := base.candsInOperatorMap()
+	owners := base.ownersList()
+	if len(name) == 0 || len(op) == 0 {
+		return ErrNilParameters
+	}
+	return errors.Wrap(p.writeCandCenterStateToStateDB(sm, name, op, owners), "failed to write name/operator map to stateDB")
 }
 
 // Commit commits the last change
@@ -539,4 +588,39 @@ func (p *Protocol) settleAction(
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
 	return &r, nil
+}
+
+func (p *Protocol) needToReadCandsMap(height uint64) bool {
+	return height > p.config.PersistStakingPatchBlock
+}
+
+func (p *Protocol) needToWriteCandsMap(height uint64) bool {
+	return height >= p.config.PersistStakingPatchBlock
+}
+
+func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (CandidateList, CandidateList, CandidateList, error) {
+	var (
+		name, operator, owner CandidateList
+	)
+	if _, err := sr.State(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := sr.State(&operator, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := sr.State(&owner, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	return name, operator, owner, nil
+}
+
+func (p *Protocol) writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
+	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return err
+	}
+	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return err
+	}
+	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	return err
 }
