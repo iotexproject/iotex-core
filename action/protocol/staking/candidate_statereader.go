@@ -161,6 +161,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
 	}
 
+	println("ConstructBaseView ======= ReadView")
 	return &candSR{
 		StateReader: sr,
 		height:      height,

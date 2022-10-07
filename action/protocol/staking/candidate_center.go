@@ -130,13 +130,24 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 		return nil
 	}
 
+	println("SetDelta ======= change all =", m.change.size())
+	for _, d := range m.change.dirty {
+		d.print()
+	}
+
+	println("SetDelta ======= base all =", m.base.size())
 	overlap := 0
 	for _, v := range m.base.all() {
+		if v.Name == "binancevote" || v.Name == "binancenode" {
+			v.print()
+		}
 		if m.change.containsOwner(v.Owner) {
+			println("SetDelta ======= change also contains", v.Owner.String())
 			overlap++
 		}
 	}
 	m.size = m.base.size() + m.change.size() - overlap
+	println("SetDelta ======= after merge =", m.size)
 	return nil
 }
 
@@ -158,7 +169,7 @@ func (m *CandidateCenter) Sync(sm protocol.StateManager) error {
 	if err := sm.Unload(_protocolID, _stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
 		return err
 	}
-
+	println("Sync ======= delta =", len(delta))
 	// apply delta to the center
 	return m.SetDelta(delta)
 }
@@ -220,10 +231,13 @@ func (m *CandidateCenter) ContainsSelfStakingBucket(index uint64) bool {
 // GetByName returns the candidate by name
 func (m *CandidateCenter) GetByName(name string) *Candidate {
 	if d := m.change.getByName(name); d != nil {
+		println("change returns", name)
 		return d
 	}
 
 	if d, hit := m.base.getByName(name); hit && !m.change.containsOwner(d.Owner) {
+		println("base contains", name)
+		println("change contains", d.Owner.String(), " =", m.change.containsOwner(d.Owner))
 		return d.Clone()
 	}
 	return nil

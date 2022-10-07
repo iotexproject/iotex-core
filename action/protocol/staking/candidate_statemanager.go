@@ -160,6 +160,10 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	if len(delta) == 0 {
 		return nil
 	}
+	println("Upsert ======= delta =", len(delta))
+	for i := range delta {
+		delta[i].print()
+	}
 
 	// load change to sm
 	return csm.StateManager.Load(_protocolID, _stakingCandCenter, &delta)
@@ -181,6 +185,7 @@ func (csm *candSM) Commit() error {
 	if err := csm.bucketPool.Commit(csm); err != nil {
 		return err
 	}
+	println("csm Commit ======= WriteView")
 
 	// write updated view back to state factory
 	return csm.WriteView(_protocolID, csm.DirtyView())

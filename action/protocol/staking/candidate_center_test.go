@@ -323,3 +323,43 @@ func TestCandCenter(t *testing.T) {
 		r.False(m.ContainsSelfStakingBucket(1000))
 	}
 }
+
+func TestUpdateName(t *testing.T) {
+	r := require.New(t)
+
+	// add 6 candidates into cand center
+	m, err := NewCandidateCenter(nil)
+	r.NoError(err)
+	for i, v := range testCandidates {
+		r.NoError(m.Upsert(testCandidates[i].d))
+		r.True(m.ContainsName(v.d.Name))
+		r.Equal(v.d, m.GetByName(v.d.Name))
+	}
+	r.Equal(len(testCandidates), m.Size())
+	r.NoError(m.Commit())
+
+	// simulate handleCandidateUpdate
+	name := testCandidates[0].d.Name
+	c := m.GetByName(name)
+	c.Equal(testCandidates[0].d)
+	c.Name = "break"
+	r.NoError(m.Upsert(c))
+
+	n := m.GetByName("break")
+	n.Equal(c)
+	r.Nil(m.GetByName(name))
+
+	println("simulate ============")
+	// simulate Commit()
+	delta := m.Delta()
+	r.Equal(1, len(delta))
+
+	// simulate Sync() in NewCandidateStateManager
+	m1 := m.Base()
+	r.NoError(m1.SetDelta(delta))
+	r.Equal(6, m1.size)
+	n = m1.GetByName("break")
+	n.Equal(c)
+
+	r.Nil(m1.GetByName(name))
+}
