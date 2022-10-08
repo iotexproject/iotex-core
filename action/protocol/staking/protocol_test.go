@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -86,7 +87,10 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	stk, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	r.NotNil(stk)
 	r.NoError(err)
 	buckets, _, err := csr.getAllBuckets()
@@ -189,7 +193,10 @@ func TestCreatePreStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	p, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), genesis.Default),
@@ -249,7 +256,10 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx := context.Background()
 	require.NoError(cbi.Start(ctx))
-	p, err := NewProtocol(nil, genesis.Default.Staking, cbi, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(nil, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, cbi, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	rol := rolldpos.NewProtocol(23, 4, 3)
@@ -362,7 +372,10 @@ func Test_CreateGenesisStates(t *testing.T) {
 	ctx = protocol.WithFeatureCtx(protocol.WithFeatureWithHeightCtx(ctx))
 	for _, test := range testBootstrapCandidates {
 		cfg.BootstrapCandidates = test.BootstrapCandidate
-		p, err := NewProtocol(nil, cfg, nil, genesis.Default.GreenlandBlockHeight)
+		p, err := NewProtocol(nil, &BuilderConfig{
+			Staking:                  cfg,
+			PersistStakingPatchBlock: math.MaxUint64,
+		}, nil, genesis.Default.GreenlandBlockHeight)
 		require.NoError(err)
 
 		v, err := p.Start(ctx, sm)
