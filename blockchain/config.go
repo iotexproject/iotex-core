@@ -67,6 +67,8 @@ type (
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 		// StreamingBlockBufferSize
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
+		// PersistCandsMapBlock is the block to persist candidates map
+		PersistCandsMapBlock uint64 `yaml:"persistCandsMapBlock"`
 	}
 )
 
@@ -103,6 +105,7 @@ var (
 		StateDBCacheSize:              1000,
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
+		PersistCandsMapBlock:          19778037,
 	}
 
 	// ErrConfig config error

@@ -448,7 +448,10 @@ func (builder *Builder) registerStakingProtocol() error {
 	}
 	stakingProtocol, err := staking.NewProtocol(
 		rewarding.DepositGas,
-		builder.cfg.Genesis.Staking,
+		&staking.BuilderConfig{
+			Staking:              builder.cfg.Genesis.Staking,
+			PersistCandsMapBlock: builder.cfg.Chain.PersistCandsMapBlock,
+		},
 		builder.cs.candBucketsIndexer,
 		builder.cfg.Genesis.GreenlandBlockHeight,
 		builder.cfg.Genesis.HawaiiBlockHeight,
