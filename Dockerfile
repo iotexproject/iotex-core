@@ -22,11 +22,15 @@ COPY --from=build /go/apps/iotex-core/bin/actioninjectorv2 /usr/local/bin/iotex-
 COPY --from=build /go/apps/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen
 COPY --from=build /go/apps/iotex-core/bin/ioctl /usr/local/bin/ioctl
 
-CMD [ "iotex-server"]
 
 # logrotate log file daily
-RUN apk add logrotate
+RUN apk add --no-cache logrotate
 COPY logrotate.conf /etc/logrotate.d/iotex
 RUN mkdir -p /var/lib/
 RUN touch /var/lib/logrotate.status
-RUN logrotate /etc/logrotate.d/iotex
+RUN echo -e "#!/bin/sh\n\n/usr/sbin/logrotate -f /etc/logrotate.d/iotex" > /etc/periodic/daily/logrotate
+
+COPY entrypoint.sh /usr/local/bin
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["iotex-server"]
