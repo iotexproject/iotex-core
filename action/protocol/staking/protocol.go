@@ -75,11 +75,12 @@ type (
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
-		VoteWeightCalConsts   genesis.VoteWeightCalConsts
-		RegistrationConsts    RegistrationConsts
-		WithdrawWaitingPeriod time.Duration
-		MinStakeAmount        *big.Int
-		BootstrapCandidates   []genesis.BootstrapCandidate
+		VoteWeightCalConsts      genesis.VoteWeightCalConsts
+		RegistrationConsts       RegistrationConsts
+		WithdrawWaitingPeriod    time.Duration
+		MinStakeAmount           *big.Int
+		BootstrapCandidates      []genesis.BootstrapCandidate
+		PersistStakingPatchBlock uint64
 	}
 
 	// DepositGas deposits gas to some pool
@@ -103,42 +104,43 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, cfg *BuilderConfig, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
 	}
 
-	minStakeAmount, ok := new(big.Int).SetString(cfg.MinStakeAmount, 10)
+	minStakeAmount, ok := new(big.Int).SetString(cfg.Staking.MinStakeAmount, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
 	}
 
-	regFee, ok := new(big.Int).SetString(cfg.RegistrationConsts.Fee, 10)
+	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
 	}
 
-	minSelfStake, ok := new(big.Int).SetString(cfg.RegistrationConsts.MinSelfStake, 10)
+	minSelfStake, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.MinSelfStake, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
 	}
 
 	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, reviseHeights...)
+	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, reviseHeights...)
 
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
-			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
+			VoteWeightCalConsts: cfg.Staking.VoteWeightCalConsts,
 			RegistrationConsts: RegistrationConsts{
 				Fee:          regFee,
 				MinSelfStake: minSelfStake,
 			},
-			WithdrawWaitingPeriod: cfg.WithdrawWaitingPeriod,
-			MinStakeAmount:        minStakeAmount,
-			BootstrapCandidates:   cfg.BootstrapCandidates,
+			WithdrawWaitingPeriod:    cfg.Staking.WithdrawWaitingPeriod,
+			MinStakeAmount:           minStakeAmount,
+			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
+			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
 		},
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,

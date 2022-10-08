@@ -67,6 +67,8 @@ type (
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 		// StreamingBlockBufferSize
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
+		// PersistStakingPatchBlock is the block to persist staking patch
+		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
 	}
 )
 
@@ -103,6 +105,7 @@ var (
 		StateDBCacheSize:              1000,
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
+		PersistStakingPatchBlock:      19778037,
 	}
 
 	// ErrConfig config error
