@@ -28,6 +28,7 @@ type (
 		ChainDBPath            string           `yaml:"chainDBPath"`
 		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
 		TrieDBPath             string           `yaml:"trieDBPath"`
+		CandsMapDBPath         string           `yaml:"candsMapDBPath"`
 		IndexDBPath            string           `yaml:"indexDBPath"`
 		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
 		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
@@ -67,6 +68,8 @@ type (
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 		// StreamingBlockBufferSize
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
+		// PersistCandsMapBlock is the block that caused candidates map inconsistency
+		PersistCandsMapBlock uint64 `yaml:"persistCandsMapBlock"`
 	}
 )
 
@@ -76,6 +79,7 @@ var (
 		ChainDBPath:            "/var/data/chain.db",
 		TrieDBPatchFile:        "/var/data/trie.db.patch",
 		TrieDBPath:             "/var/data/trie.db",
+		CandsMapDBPath:         "/var/data/candsmap.db",
 		IndexDBPath:            "/var/data/index.db",
 		BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
 		CandidateIndexDBPath:   "/var/data/candidate.index.db",
@@ -103,6 +107,7 @@ var (
 		StateDBCacheSize:              1000,
 		WorkingSetCacheSize:           20,
 		StreamingBlockBufferSize:      200,
+		PersistCandsMapBlock:          19778423,
 	}
 
 	// ErrConfig config error

@@ -354,9 +354,10 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
-				Tip:          tip,
-				ChainID:      bc.ChainID(),
-				EvmNetworkID: bc.EvmNetworkID(),
+				Tip:                  tip,
+				ChainID:              bc.ChainID(),
+				EvmNetworkID:         bc.EvmNetworkID(),
+				PersistCandsMapBlock: atomic.LoadUint64(&bc.config.PersistCandsMapBlock),
 			},
 		),
 		bc.genesis,

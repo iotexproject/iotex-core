@@ -48,6 +48,8 @@ type (
 		ChainID uint32
 		// EvmNetworkID is the EVM network ID
 		EvmNetworkID uint32
+		// PersistCandsMapBlock is the starting block to persist candidates map
+		PersistCandsMapBlock uint64
 	}
 
 	// BlockCtx provides block auxiliary information.

@@ -44,8 +44,9 @@ func TestGetBlockchainCtx(t *testing.T) {
 			Height:    1024,
 			Timestamp: time.Now(),
 		},
-		ChainID:      1,
-		EvmNetworkID: 100,
+		ChainID:              1,
+		EvmNetworkID:         100,
+		PersistCandsMapBlock: 1001,
 	}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
