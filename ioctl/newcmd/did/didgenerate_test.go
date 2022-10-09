@@ -46,7 +46,7 @@ func TestNewDidGenerateCmd(t *testing.T) {
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
-	client.EXPECT().ReadSecret().Return(passwd, nil).Times(3)
+	client.EXPECT().ReadSecret().Return(passwd, nil).Times(2)
 	client.EXPECT().IsCryptoSm2().Return(false).Times(3)
 	client.EXPECT().NewKeyStore().Return(ks).Times(3)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).AnyTimes()
@@ -62,14 +62,6 @@ func TestNewDidGenerateCmd(t *testing.T) {
 	t.Run("failed to get private key from signer", func(t *testing.T) {
 		expectedErr := errors.New("failed to get private key from signer")
 		client.EXPECT().Address(gomock.Any()).Return("", expectedErr)
-		cmd := NewDidGenerateCmd(client)
-		_, err := util.ExecuteCmd(cmd, "--signer", accAddr.String())
-		require.Contains(err.Error(), expectedErr.Error())
-	})
-
-	t.Run("failed to convert IoTeX address to EVM address", func(t *testing.T) {
-		expectedErr := errors.New("failed to convert IoTeX address to EVM address")
-		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return("test", nil)
 		cmd := NewDidGenerateCmd(client)
 		_, err := util.ExecuteCmd(cmd, "--signer", accAddr.String())
 		require.Contains(err.Error(), expectedErr.Error())
