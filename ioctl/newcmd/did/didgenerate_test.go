@@ -11,17 +11,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 )
 
-func TestNewDidGenerate(t *testing.T) {
+func TestNewDidGenerateCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -29,7 +29,7 @@ func TestNewDidGenerate(t *testing.T) {
 	apiServiceClient := mock_iotexapi.NewMockAPIServiceClient(ctrl)
 	passwd := "123456"
 
-	ks := keystore.NewKeyStore(t.TempDir(), 2, 103)
+	ks := keystore.NewKeyStore(t.TempDir(), 2, 1)
 	acc, err := ks.NewAccount(passwd)
 	require.NoError(err)
 	accAddr, err := address.FromBytes(acc.Address.Bytes())

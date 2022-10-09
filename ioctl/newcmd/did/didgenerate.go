@@ -57,15 +57,15 @@ func NewDidGenerateCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get password")
 			}
-			ethAddress, err := addrutil.IoAddrToEvmAddr(addr)
-			if err != nil {
-				return errors.Wrap(err, "failed to convert IoTeX address to EVM address")
-			}
 			pri, err := account.PrivateKeyFromSigner(client, cmd, addr, password)
 			if err != nil {
 				return errors.Wrap(err, "failed to get private key from signer")
 			}
 			doc := newDIDDoc()
+			ethAddress, err := addrutil.IoAddrToEvmAddr(addr)
+			if err != nil {
+				return errors.Wrap(err, "failed to convert IoTeX address to EVM address")
+			}
 			doc.ID = DIDPrefix + ethAddress.String()
 			authentication := authenticationStruct{
 				ID:         doc.ID + DIDOwner,
@@ -90,15 +90,11 @@ func NewDidGenerateCmd(client ioctl.Client) *cobra.Command {
 			doc.Authentication = append(doc.Authentication, authentication)
 			msg, err := json.MarshalIndent(doc, "", "  ")
 			if err != nil {
-				return errors.Wrap(err, "")
+				return err
 			}
 
 			sum := sha256.Sum256(msg)
-			generatedMessage := string(msg) + "\n\nThe hex encoded SHA256 hash of the DID doc is:" + hex.EncodeToString(sum[:])
-			if err != nil {
-				return errors.Wrap(err, "failed to sign message")
-			}
-			cmd.Println(generatedMessage)
+			cmd.Printf("%s\n\nThe hex encoded SHA256 hash of the DID doc is:%s", string(msg), hex.EncodeToString(sum[:]))
 			return nil
 		},
 	}
