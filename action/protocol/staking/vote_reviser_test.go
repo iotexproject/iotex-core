@@ -2,6 +2,7 @@ package staking
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -113,7 +114,10 @@ func TestVoteReviser(t *testing.T) {
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(
 		nil,
-		genesis.Default.Staking,
+		&BuilderConfig{
+			Staking:              genesis.Default.Staking,
+			PersistCandsMapBlock: math.MaxUint64,
+		},
 		nil,
 		genesis.Default.GreenlandBlockHeight,
 		genesis.Default.HawaiiBlockHeight,
