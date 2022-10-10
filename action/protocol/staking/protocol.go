@@ -92,6 +92,7 @@ type (
 		BootstrapCandidates   []genesis.BootstrapCandidate
 		CandsMapDBPath        string
 		PersistCandsMapBlock  uint64
+		CreateStakingPatch    bool
 	}
 
 	// DepositGas deposits gas to some pool
@@ -153,6 +154,7 @@ func NewProtocol(depositGas DepositGas, cfg *BuilderConfig, candBucketsIndexer *
 			BootstrapCandidates:   cfg.Staking.BootstrapCandidates,
 			CandsMapDBPath:        cfg.CandsMapDBPath,
 			PersistCandsMapBlock:  cfg.PersistCandsMapBlock,
+			CreateStakingPatch:    cfg.CreateStakingPatch,
 		},
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,
@@ -339,6 +341,11 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 		name, operator, err := csm.CandCenter().NameOperatorMapList()
 		if err != nil {
 			return errors.Wrap(err, "failed to serialize name/operator map")
+		}
+		if p.config.CreateStakingPatch {
+			if err := p.writeNameOperatorMapToPatch(height, name, operator); err != nil {
+				return errors.Wrap(err, "failed to write staking patch file")
+			}
 		}
 		if err := csm.putCandMapList(name, _nameKey); err != nil {
 			return errors.Wrap(err, "failed to put name map")
@@ -613,4 +620,19 @@ func (p *Protocol) readNameOperatorMapFromPatch(height uint64) (CandidateList, C
 		}
 	}
 	return p.patch.Read(height)
+}
+
+func (p *Protocol) writeNameOperatorMapToPatch(height uint64, name, op CandidateList) error {
+	if p.patch == nil {
+		cfg := db.DefaultConfig
+		cfg.DbPath = p.config.CandsMapDBPath
+		p.patch = NewPatch(db.NewBoltDB(cfg))
+		if err := p.patch.Start(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to load staking patch")
+		}
+		if err := p.patch.WriteStartHeight(height); err != nil {
+			return errors.Wrap(err, "failed to write start height")
+		}
+	}
+	return p.patch.Write(height, name, op)
 }

@@ -9,5 +9,6 @@ type (
 		Staking              genesis.Staking
 		CandsMapDBPath       string
 		PersistCandsMapBlock uint64
+		CreateStakingPatch   bool
 	}
 )

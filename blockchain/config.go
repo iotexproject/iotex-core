@@ -70,6 +70,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistCandsMapBlock is the block that caused candidates map inconsistency
 		PersistCandsMapBlock uint64 `yaml:"persistCandsMapBlock"`
+		// CreateStakingPatch indicates to create patch file or not
+		CreateStakingPatch bool `yaml:"createStakingPatch"`
 	}
 )
 
