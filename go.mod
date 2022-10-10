@@ -7,7 +7,6 @@ require (
 	github.com/ethereum/go-ethereum v1.10.21
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-redis/redis/v8 v8.11.4
-	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
@@ -23,14 +22,13 @@ require (
 	github.com/iotexproject/iotex-election v0.3.5-0.20210611041425-20ddf674363d
 	github.com/iotexproject/iotex-proto v0.5.10
 	github.com/libp2p/go-libp2p-core v0.8.5
-	github.com/mattn/go-sqlite3 v1.14.8
+	github.com/mattn/go-sqlite3 v1.14.8 // indirect
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rodaine/table v1.0.1
-	github.com/rs/zerolog v1.18.0
 	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.8.0
@@ -197,7 +195,6 @@ require (
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
-	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

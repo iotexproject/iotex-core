@@ -55,6 +55,9 @@ func NewNodeProbationlistCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get epoch meta")
 			}
+			if response.EpochData == nil {
+				return errors.New("ROLLDPOS is not registered")
+			}
 			probationlist, err := getProbationList(client, epochNum, response.EpochData.Height)
 			if err != nil {
 				return errors.Wrap(err, "failed to get probation list")
