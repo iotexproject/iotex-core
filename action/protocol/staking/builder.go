@@ -8,5 +8,6 @@ type (
 	BuilderConfig struct {
 		Staking                  genesis.Staking
 		PersistStakingPatchBlock uint64
+		StakingPatchDir          string
 	}
 )
