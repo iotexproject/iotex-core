@@ -70,6 +70,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistStakingPatchBlock is the block to persist staking patch
 		PersistStakingPatchBlock uint64 `yaml:"persistStakingPatchBlock"`
+		// CreateStakingPatch indicates to create patch file or not
+		CreateStakingPatch bool `yaml:"createStakingPatch"`
 	}
 )
 

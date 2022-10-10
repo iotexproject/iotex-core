@@ -78,3 +78,42 @@ func (store *PatchStore) Read(height uint64) (CandidateList, CandidateList, Cand
 	}
 	return listByName, listByOperator, listByOwner, nil
 }
+
+// Write writes CandidateList by name and CandidateList by operator into store
+func (store *PatchStore) Write(
+	height uint64,
+	listByName, listByOperator, listByOwner CandidateList,
+) (err error) {
+	if len(listByName) == 0 || len(listByOperator) == 0 {
+		return errors.Wrap(ErrNilParameters, "empty candidate list")
+	}
+	bytesByName, err := listByName.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidate list by name")
+	}
+	bytesByOperator, err := listByOperator.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidate list by operator")
+	}
+	bytesByOwner, err := listByOwner.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidate list by owner")
+	}
+	records := [][]string{
+		{hex.EncodeToString(bytesByName)},
+		{hex.EncodeToString(bytesByOperator)},
+		{hex.EncodeToString(bytesByOwner)},
+	}
+	file, err := os.Create(store.pathOf(height))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		fileCloseErr := file.Close()
+		if fileCloseErr != nil && err == nil {
+			err = fileCloseErr
+		}
+	}()
+
+	return csv.NewWriter(file).WriteAll(records)
+}

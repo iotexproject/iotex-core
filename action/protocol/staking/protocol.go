@@ -91,6 +91,7 @@ type (
 		MinStakeAmount           *big.Int
 		BootstrapCandidates      []genesis.BootstrapCandidate
 		PersistStakingPatchBlock uint64
+		CreateStakingPatch       bool
 	}
 
 	// DepositGas deposits gas to some pool
@@ -151,6 +152,7 @@ func NewProtocol(depositGas DepositGas, cfg *BuilderConfig, candBucketsIndexer *
 			MinStakeAmount:           minStakeAmount,
 			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
 			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
+			CreateStakingPatch:       cfg.CreateStakingPatch,
 		},
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,
@@ -346,6 +348,12 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	}
 	if err := p.writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
 		return errors.Wrap(err, "failed to write name/operator map to stateDB")
+	}
+	// write nameMap/operatorMap and ownerList to patch file
+	if p.config.CreateStakingPatch {
+		if err := p.patch.Write(height, name, op, owners); err != nil {
+			return errors.Wrap(err, "failed to write staking patch file")
+		}
 	}
 	return nil
 }
