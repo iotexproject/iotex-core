@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ func TestInvalidDirectory(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "invalid")
 	_, err := os.Create(dir)
 	require.NoError(err)
-	_, _, err = NewPatchStore(dir).Read(0)
+	_, _, _, _, err = NewPatchStore(dir).Read(0)
 	require.ErrorContains(err, "not a directory")
 }
 
@@ -32,11 +33,15 @@ func TestInvalidDirectory2(t *testing.T) {
 	require.NoError(os.Remove(dir))
 	_, err := os.Stat(dir)
 	require.ErrorIs(err, os.ErrNotExist)
-	_, _, err = NewPatchStore(dir).Read(0)
+	_, _, _, _, err = NewPatchStore(dir).Read(0)
 	require.ErrorContains(err, "no such file or directory")
 }
 
-func TestWrite(t *testing.T) {
+func TestCorruptedData(t *testing.T) {
+	// TODO: add test for corrupted data
+}
+
+func TestWriteAndRead(t *testing.T) {
 	require := require.New(t)
 	dir := t.TempDir()
 	patch := NewPatchStore(dir)
@@ -60,6 +65,9 @@ func TestWrite(t *testing.T) {
 			SelfStake:          unit.ConvertIotxToRau(1200000),
 		},
 	}
+	names := map[string]string{
+		identityset.Address(1).String(): "name1",
+	}
 	listByOperator := CandidateList{
 		&Candidate{
 			Owner:              identityset.Address(1),
@@ -80,14 +88,19 @@ func TestWrite(t *testing.T) {
 			SelfStake:          unit.ConvertIotxToRau(1200000),
 		},
 	}
-	require.ErrorIs(patch.Write(2, nil, nil), ErrNilParameters)
-	require.ErrorIs(patch.Write(2, nil, listByOperator), ErrNilParameters)
-	require.ErrorIs(patch.Write(2, listByName, nil), ErrNilParameters)
-	require.NoError(patch.Write(2, listByName, listByOperator))
-	listByNameCopy, listByOperatorCopy, err := patch.Read(2)
+	operators := map[string]address.Address{
+		identityset.Address(1).String(): identityset.Address(7),
+	}
+	require.ErrorIs(patch.Write(2, nil, nil, nil, nil), ErrNilParameters)
+	require.ErrorIs(patch.Write(2, nil, listByOperator, nil, nil), ErrNilParameters)
+	require.ErrorIs(patch.Write(2, listByName, nil, nil, nil), ErrNilParameters)
+	require.NoError(patch.Write(2, listByName, listByOperator, nil, nil))
+	listByNameCopy, listByOperatorCopy, namesCopy, operatorsCopy, err := patch.Read(2)
 	require.NoError(err)
 	require.Equal(2, len(listByNameCopy))
 	require.Equal(2, len(listByOperatorCopy))
+	require.Equal(0, len(namesCopy))
+	require.Equal(0, len(operatorsCopy))
 	nameMap := map[string]bool{
 		listByNameCopy[0].Name: true,
 		listByNameCopy[1].Name: true,
@@ -102,4 +115,13 @@ func TestWrite(t *testing.T) {
 	require.Equal(2, len(operatorMap))
 	require.True(operatorMap[identityset.Address(6).String()])
 	require.True(operatorMap[identityset.Address(7).String()])
+	require.NoError(patch.Write(2, listByName, listByOperator, names, operators))
+	listByNameCopy, listByOperatorCopy, namesCopy, operatorsCopy, err = patch.Read(2)
+	require.NoError(err)
+	require.Equal(2, len(listByNameCopy))
+	require.Equal(2, len(listByOperatorCopy))
+	require.Equal(1, len(namesCopy))
+	require.Equal(1, len(operatorsCopy))
+	require.Equal("name1", namesCopy[identityset.Address(1).String()])
+	require.Equal(identityset.Address(7), operatorsCopy[identityset.Address(1).String()])
 }
