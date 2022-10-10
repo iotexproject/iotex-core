@@ -7,179 +7,93 @@
 package staking
 
 import (
-	"context"
-	"sync"
+	"encoding/csv"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-const (
-	_metaNS     = "meta"
-	_nameNS     = "name"
-	_operatorNS = "operator"
-	_start      = "start"
-	_tip        = "tip"
-)
-
-var ErrPatchNotInitialized = errors.New("patch has not been initialized yet")
-
-// Patch is the patch of staking protocol
-type Patch struct {
-	lock        sync.RWMutex
-	initialized bool
-	startHeight uint64
-	tipHeight   uint64
-	store       db.KVStore
+// PatchStore is the patch store of staking protocol
+type PatchStore struct {
+	dir string
 }
 
-// NewPatch creates a new staking patch with a kvstore
-func NewPatch(store db.KVStore) *Patch {
-	return &Patch{
-		initialized: false,
-		store:       store,
-	}
+// NewPatchStore creates a new staking patch store
+func NewPatchStore(dir string) *PatchStore {
+	return &PatchStore{dir: dir}
 }
 
-func (patch *Patch) read(ns string, height uint64) (CandidateList, error) {
-	data, err := patch.store.Get(_nameNS, byteutil.Uint64ToBytes(height))
-	switch errors.Cause(err) {
-	case db.ErrNotExist:
-		return nil, nil
-	case nil:
-		var list CandidateList
-		if err := list.Deserialize(data); err != nil {
-			return nil, err
-		}
-		return list, nil
-	default:
+func (patch *PatchStore) pathOf(height uint64) string {
+	return filepath.Join(patch.dir, fmt.Sprintf("%d.patch", height))
+}
+
+func (patch *PatchStore) read(reader *csv.Reader) (CandidateList, error) {
+	record, err := reader.Read()
+	if err != nil {
 		return nil, err
 	}
-}
-
-// Start starts the patch
-func (patch *Patch) Start(ctx context.Context) error {
-	patch.lock.Lock()
-	defer patch.lock.Unlock()
-
-	if err := patch.store.Start(ctx); err != nil {
-		return err
+	data, err := hex.DecodeString(record[0])
+	if err != nil {
+		return nil, err
 	}
-	startHeight, err := patch.store.Get(_metaNS, []byte(_start))
-	switch errors.Cause(err) {
-	case db.ErrBucketNotExist, db.ErrNotExist:
-	case nil:
-		patch.initialized = true
-		patch.startHeight = byteutil.BytesToUint64(startHeight)
-	default:
-		return err
+	var list CandidateList
+	if err := list.Deserialize(data); err != nil {
+		return nil, err
 	}
-	tipHeight, err := patch.store.Get(_metaNS, []byte(_tip))
-	switch errors.Cause(err) {
-	case db.ErrBucketNotExist, db.ErrNotExist:
-		if patch.initialized {
-			return errors.New("tip height is not set")
-		}
-	case nil:
-		if !patch.initialized {
-			return errors.New("invalid tip height")
-		}
-		patch.tipHeight = byteutil.BytesToUint64(tipHeight)
-	default:
-		return err
-	}
-
-	return nil
-}
-
-// Stop stops the patch
-func (patch *Patch) Stop(ctx context.Context) error {
-	patch.lock.Lock()
-	defer patch.lock.Unlock()
-
-	return patch.store.Stop(ctx)
-}
-
-// Info returns the start height and the tip height
-func (patch *Patch) Info() (uint64, uint64, error) {
-	patch.lock.RLock()
-	defer patch.lock.RUnlock()
-	if !patch.initialized {
-		return 0, 0, ErrPatchNotInitialized
-	}
-
-	return patch.startHeight, patch.tipHeight, nil
+	return list, nil
 }
 
 // Read reads CandidateList by name and CandidateList by operator of given height
-func (patch *Patch) Read(height uint64) (CandidateList, CandidateList, error) {
-	patch.lock.RLock()
-	defer patch.lock.RUnlock()
-	if !patch.initialized {
-		return nil, nil, ErrPatchNotInitialized
+func (patch *PatchStore) Read(height uint64) (CandidateList, CandidateList, error) {
+	file, err := os.Open(patch.pathOf(height))
+	if err != nil {
+		return nil, nil, err
 	}
-	if height < patch.startHeight || height > patch.tipHeight {
-		return nil, nil, errors.Errorf("%d is out of range [%d, %d]", height, patch.startHeight, patch.tipHeight)
+	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = 1
+	listByName, err := patch.read(reader)
+	if err != nil {
+		return nil, nil, err
 	}
-	for h := height; h >= patch.startHeight; h-- {
-		listByName, err := patch.read(_nameNS, h)
-		if err != nil {
-			return nil, nil, err
-		}
-		if listByName == nil {
-			continue
-		}
-		listByOperator, err := patch.read(_operatorNS, h)
-		if err != nil {
-			return nil, nil, err
-		}
-		if listByOperator == nil {
-			return nil, nil, errors.Errorf("data corrupted at %d", h)
-		}
-		return listByName, listByOperator, nil
+	listByOperator, err := patch.read(reader)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return nil, nil, errors.Errorf("failed to read data of %d", height)
+	return listByName, listByOperator, nil
 }
 
 // Write writes CandidateList by name and CandidateList by operator into store
-func (patch *Patch) Write(height uint64, listByName, listByOperator CandidateList) error {
-	patch.lock.Lock()
-	defer patch.lock.Unlock()
-	b := batch.NewBatch()
-	switch {
-	case !patch.initialized:
-		b.Put(_metaNS, []byte(_start), byteutil.Uint64ToBytes(height), "failed to write start height")
-	case height < patch.startHeight:
-		return errors.Errorf("new height %d is lower than start height %d", height, patch.startHeight)
-	case height < patch.tipHeight:
-		return errors.Errorf("new tip height %d is lower than current tip %d", height, patch.tipHeight)
+func (patch *PatchStore) Write(height uint64, listByName, listByOperator CandidateList) (err error) {
+	if listByName == nil || listByOperator == nil {
+		return errors.Wrap(ErrNilParameters, "invalid candidate lists")
 	}
-	b.Put(_metaNS, []byte(_tip), byteutil.Uint64ToBytes(height), "failed to write tip height")
 	bytesByName, err := listByName.Serialize()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to serialize candidate list by name")
 	}
-	b.Put(_nameNS, byteutil.Uint64ToBytes(height), bytesByName, "failed to write candidate list by name")
 	bytesByOperator, err := listByOperator.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidate list by operator")
+	}
+	file, err := os.Create(patch.pathOf(height))
 	if err != nil {
 		return err
 	}
-	b.Put(_operatorNS, byteutil.Uint64ToBytes(height), bytesByOperator, "failed to write candidate list by operator")
-	if err := patch.store.WriteBatch(b); err != nil {
-		return err
-	}
-	switch {
-	case !patch.initialized:
-		patch.startHeight = height
-		patch.tipHeight = height
-		patch.initialized = true
-	case patch.tipHeight < height:
-		patch.tipHeight = height
-	}
+	defer func() {
+		fileCloseErr := file.Close()
+		if fileCloseErr != nil && err == nil {
+			err = fileCloseErr
+		}
+	}()
 
-	return nil
+	return csv.NewWriter(file).WriteAll(
+		[][]string{
+			{hex.EncodeToString(bytesByName)},
+			{hex.EncodeToString(bytesByOperator)},
+		},
+	)
 }
