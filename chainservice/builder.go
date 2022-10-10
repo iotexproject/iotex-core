@@ -451,6 +451,7 @@ func (builder *Builder) registerStakingProtocol() error {
 		&staking.BuilderConfig{
 			Staking:              builder.cfg.Genesis.Staking,
 			PersistCandsMapBlock: builder.cfg.Chain.PersistCandsMapBlock,
+			CandsMapPatchDir:     builder.cfg.Chain.CandsMapPatchDir,
 		},
 		builder.cs.candBucketsIndexer,
 		builder.cfg.Genesis.GreenlandBlockHeight,

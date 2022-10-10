@@ -8,5 +8,6 @@ type (
 	BuilderConfig struct {
 		Staking              genesis.Staking
 		PersistCandsMapBlock uint64
+		CandsMapPatchDir     string
 	}
 )
