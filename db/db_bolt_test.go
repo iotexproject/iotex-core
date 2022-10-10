@@ -74,6 +74,9 @@ func TestBucketExists(t *testing.T) {
 	r.False(kv.BucketExists("name"))
 	r.NoError(kv.Put("name", []byte("key"), []byte{}))
 	r.True(kv.BucketExists("name"))
+	v, err := kv.Get("name", []byte("key"))
+	r.NoError(err)
+	r.Equal([]byte{}, v)
 }
 
 func BenchmarkBoltDB_Get(b *testing.B) {

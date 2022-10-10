@@ -80,6 +80,7 @@ type (
 		config             Configuration
 		candBucketsIndexer *CandidatesBucketsIndexer
 		voteReviser        *VoteReviser
+		patch              *PatchStore
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -154,6 +155,7 @@ func NewProtocol(depositGas DepositGas, cfg *BuilderConfig, candBucketsIndexer *
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,
 		voteReviser:        voteReviser,
+		patch:              NewPatchStore(cfg.StakingPatchDir),
 	}, nil
 }
 
@@ -179,7 +181,10 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	if p.needToReadCandsMap(height) {
 		name, operator, owners, err := readCandCenterStateFromStateDB(sr, height)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read name/operator map")
+			// stateDB does not have name/operator map yet
+			if name, operator, owners, err = p.patch.Read(height); err != nil {
+				return nil, errors.Wrap(err, "failed to read name/operator map")
+			}
 		}
 		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
 			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
@@ -339,7 +344,10 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if len(name) == 0 || len(op) == 0 {
 		return ErrNilParameters
 	}
-	return errors.Wrap(p.writeCandCenterStateToStateDB(sm, name, op, owners), "failed to write name/operator map to stateDB")
+	if err := p.writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
+		return errors.Wrap(err, "failed to write name/operator map to stateDB")
+	}
+	return nil
 }
 
 // Commit commits the last change
