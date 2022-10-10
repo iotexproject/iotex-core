@@ -28,6 +28,7 @@ type (
 		ChainDBPath            string           `yaml:"chainDBPath"`
 		TrieDBPatchFile        string           `yaml:"trieDBPatchFile"`
 		TrieDBPath             string           `yaml:"trieDBPath"`
+		CandsMapPatchDir       string           `yaml:"candsMapPatchDir"`
 		IndexDBPath            string           `yaml:"indexDBPath"`
 		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
 		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
@@ -69,6 +70,8 @@ type (
 		StreamingBlockBufferSize uint64 `yaml:"streamingBlockBufferSize"`
 		// PersistCandsMapBlock is the block to persist candidates map
 		PersistCandsMapBlock uint64 `yaml:"persistCandsMapBlock"`
+		// CreateStakingPatch indicates to create patch file or not
+		CreateStakingPatch bool `yaml:"createStakingPatch"`
 	}
 )
 
@@ -78,6 +81,7 @@ var (
 		ChainDBPath:            "/var/data/chain.db",
 		TrieDBPatchFile:        "/var/data/trie.db.patch",
 		TrieDBPath:             "/var/data/trie.db",
+		CandsMapPatchDir:       "/var/data",
 		IndexDBPath:            "/var/data/index.db",
 		BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
 		CandidateIndexDBPath:   "/var/data/candidate.index.db",
