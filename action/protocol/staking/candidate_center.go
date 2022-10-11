@@ -58,12 +58,7 @@ func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 	}
 
 	c := CandidateCenter{
-		base: &candBase{
-			nameMap:          make(map[string]*Candidate),
-			ownerMap:         make(map[string]*Candidate),
-			operatorMap:      make(map[string]*Candidate),
-			selfStkBucketMap: make(map[uint64]*Candidate),
-		},
+		base:   newCandBase(),
 		change: delta,
 	}
 
@@ -142,7 +137,7 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 
 // Commit writes the change into base
 func (m *CandidateCenter) Commit() error {
-	size, err := m.base.commit(m.change)
+	size, err := m.base.Commit(m.change)
 	if err != nil {
 		return err
 	}
@@ -415,6 +410,15 @@ func (cc *candChange) delete(owner address.Address) {
 // candBase funcs
 //======================================
 
+func newCandBase() *candBase {
+	return &candBase{
+		nameMap:          make(map[string]*Candidate),
+		ownerMap:         make(map[string]*Candidate),
+		operatorMap:      make(map[string]*Candidate),
+		selfStkBucketMap: make(map[uint64]*Candidate),
+	}
+}
+
 func (cb *candBase) size() int {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
@@ -435,7 +439,27 @@ func (cb *candBase) all() CandidateList {
 	return list
 }
 
-func (cb *candBase) commit(change *candChange) (int, error) {
+func (cb *candBase) Clone() *candBase {
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
+	clone := newCandBase()
+	for name, cand := range cb.nameMap {
+		clone.nameMap[name] = cand.Clone()
+	}
+	for owner, cand := range cb.ownerMap {
+		clone.ownerMap[owner] = cand.Clone()
+	}
+	for operator, cand := range cb.operatorMap {
+		clone.operatorMap[operator] = cand.Clone()
+	}
+	for bucket, cand := range cb.selfStkBucketMap {
+		clone.selfStkBucketMap[bucket] = cand.Clone()
+	}
+
+	return clone
+}
+
+func (cb *candBase) Commit(change *candChange) (int, error) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	for _, v := range change.dirty {

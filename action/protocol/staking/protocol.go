@@ -291,14 +291,35 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
-// Commit commits the last change
-func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
+func (p *Protocol) createCandidateStateManager(ctx context.Context, sm protocol.StateManager) (CandidateStateManager, error) {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
 	height, err := sm.Height()
 	if err != nil {
+		return nil, err
+	}
+
+	return NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+}
+
+// PreCommit preforms pre-commit
+func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
+	csm, err := p.createCandidateStateManager(ctx, sm)
+	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	cc := csm.DirtyView().candCenter
+	base := cc.base.Clone()
+	if _, err = base.Commit(cc.change); err != nil {
+		return errors.Wrap(err, "failed to commit candidate change in Commit")
+	}
+	// TODO: make use of base.nameMap & base.operatorMap
+
+	return nil
+}
+
+// Commit commits the last change
+func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
+	csm, err := p.createCandidateStateManager(ctx, sm)
 	if err != nil {
 		return err
 	}
