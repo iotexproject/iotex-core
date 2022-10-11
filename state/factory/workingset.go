@@ -216,10 +216,14 @@ func (ws *workingSet) ResetSnapshots() {
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
+	if err := protocolPreCommit(ctx, ws); err != nil {
+		return err
+	}
 	if err := ws.store.Commit(); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
+		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
 	ws.Reset()
