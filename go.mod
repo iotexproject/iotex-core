@@ -54,6 +54,7 @@ require (
 )
 
 require (
+	github.com/lib/pq v1.0.0
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0

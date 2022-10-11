@@ -47,6 +47,9 @@ func newBranchNode(
 			}
 		}
 	}
+	if err := logNode(bnode); err != nil {
+		return nil, err
+	}
 	return bnode, nil
 }
 
@@ -70,6 +73,9 @@ func newRootBranchNode(cli client, children map[byte]node, indices *SortedList, 
 			}
 		}
 	}
+	if err := logNode(bnode); err != nil {
+		return nil, err
+	}
 	return bnode, nil
 }
 
@@ -86,6 +92,9 @@ func newBranchNodeFromProtoPb(pb *triepb.BranchPb, hashVal []byte) *branchNode {
 	}
 	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode
+	if err := logNode(bnode); err != nil {
+		panic(err)
+	}
 	return bnode
 }
 
@@ -102,6 +111,9 @@ func (b *branchNode) Children() []node {
 }
 
 func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error) {
+	if err := logNode(b); err != nil {
+		return nil, err
+	}
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	if err != nil {
@@ -155,6 +167,9 @@ func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error)
 }
 
 func (b *branchNode) Upsert(cli client, key keyType, offset uint8, value []byte) (node, error) {
+	if err := logNode(b); err != nil {
+		return nil, err
+	}
 	var newChild node
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
@@ -172,6 +187,9 @@ func (b *branchNode) Upsert(cli client, key keyType, offset uint8, value []byte)
 }
 
 func (b *branchNode) Search(cli client, key keyType, offset uint8) (node, error) {
+	if err := logNode(b); err != nil {
+		return nil, err
+	}
 	child, err := b.child(key[offset])
 	if err != nil {
 		return nil, err

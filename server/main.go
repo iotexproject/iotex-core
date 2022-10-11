@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/recovery"
@@ -140,6 +141,16 @@ func main() {
 		livenessCancel()
 	}()
 
+	if &cfg.Database != nil {
+		db, err := sql.Open(&cfg.Database)
+		if err != nil {
+			log.L().Fatal("Failed to connect to database.", zap.Error(err))
+		}
+		if err := sql.InitTables(db); err != nil {
+			log.L().Fatal("Failed to initialize tables.", zap.Error(err))
+		}
+
+	}
 	// create and start the node
 	svr, err := itx.NewServer(cfg)
 	if err != nil {

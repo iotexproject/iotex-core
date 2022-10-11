@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -241,6 +242,7 @@ type (
 		Log                log.GlobalConfig            `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis            genesis.Genesis             `yaml:"genesis"`
+		Database           sql.Database                `yaml:"database"`
 	}
 
 	// Validate is the interface of validating the config

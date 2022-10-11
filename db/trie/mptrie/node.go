@@ -7,6 +7,7 @@
 package mptrie
 
 import (
+	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
@@ -71,4 +72,31 @@ func commonPrefixLength(key1, key2 []byte) uint8 {
 	}
 
 	return match
+}
+
+func logNode(n node) error {
+	nodeType, nodeKey, nodePath, nodeChildren, err := parseNode(n)
+	if err != nil {
+		return err
+	}
+	return sql.StoreMptrieNode(nodeType, nodeKey, nodePath, nodeChildren)
+}
+func parseNode(n node) (nodeType byte, nodeKey []byte, nodePath []byte, nodeChildren []byte, err error) {
+	switch n := n.(type) {
+	case *hashNode:
+		nodeType = 'h'
+		nodeKey = n.hashVal
+	case *leafNode:
+		nodeType = 'l'
+		nodeKey = n.key
+	case *extensionNode:
+		nodeType = 'e'
+		nodePath = n.path
+	case *branchNode:
+		nodeType = 'b'
+		nodeChildren = n.indices.List()
+	default:
+		err = errors.Errorf("unknown node type %T", n)
+	}
+	return
 }
