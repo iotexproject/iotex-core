@@ -45,6 +45,7 @@ func main() {
 	if err != nil {
 		log.S().Panic("failed to new config.", zap.Error(err))
 	}
+	cfg.DB.ReadOnly = true
 	store, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 	if err != nil {
 		log.S().Panic("failed to load state db", zap.Error(err))
