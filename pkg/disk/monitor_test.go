@@ -18,9 +18,10 @@ import (
 
 func TestMonitor(t *testing.T) {
 	require := require.New(t)
-	m := NewMonitor(30 * time.Millisecond)
+	m, err := NewMonitor(t.TempDir(), 30*time.Millisecond)
+	require.NoError(err)
 	ctx := context.Background()
-	err := m.Start(ctx)
+	err = m.Start(ctx)
 	require.NoError(err)
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 1*time.Second, func() (b bool, e error) {
 		err = m.Stop(ctx)
@@ -29,8 +30,9 @@ func TestMonitor(t *testing.T) {
 }
 
 func BenchmarkCheckSpace(b *testing.B) {
-	// BenchmarkCheckSpace-4             560012              1849 ns/op             108 B/op          4 allocs/op
+	m := &Monitor{path: b.TempDir()}
+	// BenchmarkCheckSpace-4   	  522752	      2069 ns/op
 	for i := 0; i < b.N; i++ {
-		checkDiskSpace()
+		m.checkDiskSpace()
 	}
 }

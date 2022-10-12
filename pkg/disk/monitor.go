@@ -10,23 +10,29 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/v3/disk"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 // Monitor represents a timer task of checking disk
 type Monitor struct {
 	task *routine.RecurringTask
+	path string
 }
 
 // NewMonitor creates an instance of timer task
-func NewMonitor(internal time.Duration) *Monitor {
-	return &Monitor{
-		task: routine.NewRecurringTask(checkDiskSpace, internal),
+func NewMonitor(path string, internal time.Duration) (*Monitor, error) {
+	if !fileutil.FileExists(path) {
+		return nil, errors.Errorf("invalid file path %s", path)
 	}
+	m := &Monitor{path: path}
+	m.task = routine.NewRecurringTask(m.checkDiskSpace, internal)
+	return m, nil
 }
 
 // Start starts timer task
@@ -39,8 +45,8 @@ func (m *Monitor) Stop(ctx context.Context) error {
 	return m.task.Stop(ctx)
 }
 
-func checkDiskSpace() {
-	usage, err := disk.Usage("/")
+func (m *Monitor) checkDiskSpace() {
+	usage, err := disk.Usage(m.path)
 	if err != nil {
 		log.L().Error("Failed to get disk usage.", zap.Error(err))
 		return

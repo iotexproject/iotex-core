@@ -233,9 +233,12 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 
 	// check disk space
-	m := disk.NewMonitor(3 * time.Minute)
-	if err := m.Start(ctx); err != nil {
-		log.L().Panic("Failed to start monitor disk space", zap.Error(err))
+	m, err := disk.NewMonitor(cfg.Chain.ChainDBPath, 3*time.Minute)
+	if err != nil {
+		log.L().Panic("Failed to create monitor disk space.", zap.Error(err))
+	}
+	if err = m.Start(ctx); err != nil {
+		log.L().Panic("Failed to start monitor disk space.", zap.Error(err))
 	}
 	defer func() {
 		if err := m.Stop(ctx); err != nil {
