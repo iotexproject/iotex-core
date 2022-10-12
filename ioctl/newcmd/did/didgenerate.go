@@ -94,7 +94,7 @@ func NewDidGenerateCmd(client ioctl.Client) *cobra.Command {
 			}
 
 			sum := sha256.Sum256(msg)
-			cmd.Printf("%s\n\nThe hex encoded SHA256 hash of the DID doc is:%s", string(msg), hex.EncodeToString(sum[:]))
+			cmd.Printf("%s\n\nThe hex encoded SHA256 hash of the DID doc is:%s\n", string(msg), hex.EncodeToString(sum[:]))
 			return nil
 		},
 	}
