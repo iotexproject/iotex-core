@@ -63,7 +63,7 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 func encode(method, didHash, uri string) (ret []byte, err error) {
 	hashSlice, err := hex.DecodeString(didHash)
 	if err != nil {
-		return
+		return nil, err
 	}
 	var hashArray [32]byte
 	copy(hashArray[:], hashSlice)
