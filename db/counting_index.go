@@ -82,12 +82,11 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 		total = ZeroIndex
 	}
 
-	idx := &countingIndex{
+	return &countingIndex{
 		kvStore: kvRange,
 		bucket:  bucket,
-	}
-	atomic.StoreUint64(&idx.size, byteutil.BytesToUint64BigEndian(total))
-	return idx, nil
+		size:    byteutil.BytesToUint64BigEndian(total),
+	}, nil
 }
 
 // GetCountingIndex return an existing counting index
@@ -102,12 +101,11 @@ func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
 	if errors.Cause(err) == ErrNotExist || total == nil {
 		return nil, errors.Wrapf(err, "counting index 0x%x doesn't exist", name)
 	}
-	idx := &countingIndex{
+	return &countingIndex{
 		kvStore: kvRange,
 		bucket:  bucket,
-	}
-	atomic.StoreUint64(&idx.size, byteutil.BytesToUint64BigEndian(total))
-	return idx, nil
+		size:    byteutil.BytesToUint64BigEndian(total),
+	}, nil
 }
 
 // Size returns the total number of keys so far
@@ -124,7 +122,7 @@ func (c *countingIndex) Add(value []byte, inBatch bool) error {
 		return errors.Wrap(ErrInvalid, "cannot call Add in batch mode, call Commit() first to exit batch mode")
 	}
 	b := batch.NewBatch()
-	size := atomic.LoadUint64(&c.size)
+	size := c.Size()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size+1), fmt.Sprintf("failed to update size = %d", size+1))
 	b.AddFillPercent(c.bucket, 1.0)
@@ -140,7 +138,7 @@ func (c *countingIndex) addBatch(value []byte) error {
 	if c.batch == nil {
 		c.batch = batch.NewBatch()
 	}
-	size := atomic.LoadUint64(&c.size)
+	size := c.Size()
 	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(size), value, fmt.Sprintf("failed to add %d-th item", size+1))
 	atomic.AddUint64(&c.size, 1)
 	return nil
@@ -148,7 +146,7 @@ func (c *countingIndex) addBatch(value []byte) error {
 
 // Get return value of key[slot]
 func (c *countingIndex) Get(slot uint64) ([]byte, error) {
-	if slot >= atomic.LoadUint64(&c.size) {
+	if slot >= c.Size() {
 		return nil, errors.Wrapf(ErrNotExist, "slot: %d", slot)
 	}
 	return c.kvStore.Get(c.bucket, byteutil.Uint64ToBytesBigEndian(slot))
@@ -156,7 +154,7 @@ func (c *countingIndex) Get(slot uint64) ([]byte, error) {
 
 // Range return value of keys [start, start+count)
 func (c *countingIndex) Range(start, count uint64) ([][]byte, error) {
-	if start+count > atomic.LoadUint64(&c.size) || count == 0 {
+	if start+count > c.Size() || count == 0 {
 		return nil, errors.Wrapf(ErrInvalid, "start: %d, count: %d", start, count)
 	}
 	return c.kvStore.Range(c.bucket, byteutil.Uint64ToBytesBigEndian(start), count)
@@ -167,7 +165,7 @@ func (c *countingIndex) Revert(count uint64) error {
 	if c.batch != nil {
 		return errors.Wrap(ErrInvalid, "cannot call Revert in batch mode, call Commit() first to exit batch mode")
 	}
-	size := atomic.LoadUint64(&c.size)
+	size := c.Size()
 	if count == 0 || count > size {
 		return errors.Wrapf(ErrInvalid, "count: %d", count)
 	}
@@ -197,7 +195,7 @@ func (c *countingIndex) Commit() error {
 	if c.batch == nil {
 		return nil
 	}
-	size := atomic.LoadUint64(&c.size)
+	size := c.Size()
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size), fmt.Sprintf("failed to update size = %d", size))
 	c.batch.AddFillPercent(c.bucket, 1.0)
 	if err := c.kvStore.WriteBatch(c.batch); err != nil {
@@ -221,7 +219,7 @@ func (c *countingIndex) Finalize() error {
 	if c.batch == nil {
 		return ErrInvalid
 	}
-	size := atomic.LoadUint64(&c.size)
+	size := c.Size()
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(size), fmt.Sprintf("failed to update size = %d", size))
 	c.batch.AddFillPercent(c.bucket, 1.0)
 	c.batch = nil
