@@ -24,6 +24,8 @@ import (
 )
 
 var (
+	// _stateDBPath is the path of state db
+	_stateDBPath string
 	// overwritePath is the path to the config file which overwrite default values
 	_overwritePath string
 	// secretPath is the path to the  config file store secret values
@@ -31,6 +33,7 @@ var (
 )
 
 func init() {
+	flag.StringVar(&_stateDBPath, "state-db-path", "", "State DB path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.Usage = func() {
@@ -41,13 +44,21 @@ func init() {
 	flag.Parse()
 }
 
-func main() {
+func readStateDBPath() string {
+	if _stateDBPath != "" {
+		return _stateDBPath
+	}
 	cfg, err := config.New([]string{_overwritePath, _secretPath}, []string{})
 	if err != nil {
 		log.S().Panic("failed to new config.", zap.Error(err))
 	}
-	cfg.DB.ReadOnly = true
-	store, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
+	return cfg.Chain.TrieDBPath
+}
+
+func main() {
+	cfg := db.DefaultConfig
+	cfg.ReadOnly = true
+	store, err := db.CreateKVStore(cfg, readStateDBPath())
 	if err != nil {
 		log.S().Panic("failed to load state db", zap.Error(err))
 	}
