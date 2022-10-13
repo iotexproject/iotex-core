@@ -60,7 +60,7 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 	return cmd
 }
 
-func encode(method, didHash, uri string) (ret []byte, err error) {
+func encode(method, didHash, uri string) ([]byte, error) {
 	hashSlice, err := hex.DecodeString(didHash)
 	if err != nil {
 		return nil, err
