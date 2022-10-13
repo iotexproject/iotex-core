@@ -36,8 +36,9 @@ func TestNewActionSendRawCmd(t *testing.T) {
 		apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(&iotexapi.SendActionResponse{}, nil)
 		actBytes := "0a12080118a08d0622023130280162040a023130124104dc4c548c3a478278a6a09ffa8b5c4b384368e49654b35a6961ee8288fc889cdc39e9f8194e41abdbfac248ef9dc3f37b131a36ee2c052d974c21c1d2cd56730b1a41328c6912fa0e36414c38089c03e2fa8c88bba82ccc4ce5fb8ac4ef9f529dfce249a5b2f93a45b818e7f468a742b4e87be3b8077f95d1b3c49e9165b971848ead01"
 		cmd := NewActionSendRawCmd(client)
-		_, err := util.ExecuteCmd(cmd, actBytes)
+		result, err := util.ExecuteCmd(cmd, actBytes)
 		require.NoError(err)
+		require.Contains(result, "Action has been sent to blockchain")
 	})
 
 	t.Run("failed to unmarshal data bytes", func(t *testing.T) {
