@@ -8,6 +8,7 @@ package action
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -48,6 +49,7 @@ func NewActionReadCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag bytecode")
 			}
+			fmt.Println(bytecodeFlag)
 			bytecode, err := hex.DecodeString(util.TrimHexPrefix(bytecodeFlag))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
@@ -65,5 +67,6 @@ func NewActionReadCmd(client ioctl.Client) *cobra.Command {
 		},
 	}
 	registerBytecodeFlag(client, cmd)
+	RegisterWriteCommand(client, cmd)
 	return cmd
 }
