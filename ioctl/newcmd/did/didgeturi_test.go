@@ -34,7 +34,7 @@ func TestNewDidGetURICmd(t *testing.T) {
 		"0000000000000000000000000000000000000000000000000000000000000002"
 	did := "did:io:0x11111111111111111"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(10)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(4)
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil).Times(4)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(4)
@@ -74,14 +74,6 @@ func TestNewDidGetURICmd(t *testing.T) {
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
 		cmd := NewDidGetURICmd(client)
 		_, err := util.ExecuteCmd(cmd, accAddr, did)
-		require.Contains(err.Error(), expectedErr.Error())
-	})
-
-	t.Run("invalid contract address", func(t *testing.T) {
-		expectedErr := errors.New("invalid contract address")
-		client.EXPECT().Address(gomock.Any()).Return("test", nil)
-		cmd := NewDidGetURICmd(client)
-		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 

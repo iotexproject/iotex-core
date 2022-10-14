@@ -31,7 +31,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 	accAddr := identityset.Address(0).String()
 	did := "did:io:0x11111111111111111"
 
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(12)
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("did", config.English).Times(10)
 	client.EXPECT().Address(gomock.Any()).Return(accAddr, nil).Times(4)
 	client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil).Times(4)
 	client.EXPECT().APIServiceClient().Return(apiServiceClient, nil).Times(4)
@@ -40,7 +40,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
 			Data: hex.EncodeToString([]byte("60fe47b100000000000000000000000000000000000000000000000000000000")),
 		}, nil)
-		cmd := NewDidGetHash(client)
+		cmd := NewDidGetHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, accAddr, did)
 		require.NoError(err)
 	})
@@ -50,7 +50,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
 			Data: "test",
 		}, nil)
-		cmd := NewDidGetHash(client)
+		cmd := NewDidGetHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -60,7 +60,7 @@ func TestNewDidGetHashCmd(t *testing.T) {
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(&iotexapi.ReadContractResponse{
 			Data: hex.EncodeToString([]byte("test")),
 		}, nil)
-		cmd := NewDidGetHash(client)
+		cmd := NewDidGetHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, accAddr, did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
@@ -68,23 +68,15 @@ func TestNewDidGetHashCmd(t *testing.T) {
 	t.Run("failed to read contract", func(t *testing.T) {
 		expectedErr := errors.New("failed to read contract")
 		apiServiceClient.EXPECT().ReadContract(gomock.Any(), gomock.Any()).Return(nil, expectedErr)
-		cmd := NewDidGetHash(client)
+		cmd := NewDidGetHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, accAddr, did)
-		require.Contains(err.Error(), expectedErr.Error())
-	})
-
-	t.Run("invalid contract address", func(t *testing.T) {
-		expectedErr := errors.New("invalid contract address")
-		client.EXPECT().Address(gomock.Any()).Return("test", nil)
-		cmd := NewDidGetHash(client)
-		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})
 
 	t.Run("failed to get contract address", func(t *testing.T) {
 		expectedErr := errors.New("failed to get contract address")
 		client.EXPECT().Address(gomock.Any()).Return("", expectedErr)
-		cmd := NewDidGetHash(client)
+		cmd := NewDidGetHashCmd(client)
 		_, err := util.ExecuteCmd(cmd, "test", did)
 		require.Contains(err.Error(), expectedErr.Error())
 	})

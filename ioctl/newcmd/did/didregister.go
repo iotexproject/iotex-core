@@ -26,7 +26,7 @@ var (
 	}
 	_registerCmdShorts = map[config.Language]string{
 		config.English: "Register DID on IoTeX blockchain",
-		config.Chinese: "Register 在IoTeX链上注册DID",
+		config.Chinese: "在IoTeX链上注册DID",
 	}
 )
 

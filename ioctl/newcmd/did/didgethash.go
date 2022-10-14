@@ -9,13 +9,13 @@ package did
 import (
 	"encoding/hex"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/action"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -26,13 +26,13 @@ var (
 		config.Chinese: "gethash (合约地址|别名) DID",
 	}
 	_getHashCmdShorts = map[config.Language]string{
-		config.English: "Gethash get DID doc's hash on IoTeX blockchain",
-		config.Chinese: "Gethash 在IoTeX链上获取相应DID的doc hash",
+		config.English: "Get DID doc's hash on IoTeX blockchain",
+		config.Chinese: "在IoTeX链上获取相应DID的doc hash",
 	}
 )
 
-// NewDidGetHash represents the did get hash command
-func NewDidGetHash(client ioctl.Client) *cobra.Command {
+// NewDidGetHashCmd represents the did get hash command
+func NewDidGetHashCmd(client ioctl.Client) *cobra.Command {
 	use, _ := client.SelectTranslation(_getHashCmdUses)
 	short, _ := client.SelectTranslation(_getHashCmdShorts)
 
@@ -42,20 +42,15 @@ func NewDidGetHash(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			contract, err := client.Address(args[0])
+			addr, err := alias.IOAddress(client, args[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
-			}
-			addr, err := address.FromString(contract)
-			if err != nil {
-				return errors.Wrap(err, "invalid contract address")
 			}
 			bytecode, err := _didABI.Pack(_getHashName, []byte(args[1]))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
-
-			result, err := action.Read(client, addr, "0", bytecode, contract, 20000000)
+			result, err := action.Read(client, addr, "0", bytecode, action.SignerFlagDefault, action.GasLimitFlagDefault)
 			if err != nil {
 				return errors.Wrap(err, "failed to read contract")
 			}
