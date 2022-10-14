@@ -25,7 +25,7 @@ var (
 	}
 	_updateCmdShorts = map[config.Language]string{
 		config.English: "Update DID on IoTeX blockchain",
-		config.Chinese: "Update 在IoTeX链上更新DID",
+		config.Chinese: "在IoTeX链上更新DID",
 	}
 )
 
