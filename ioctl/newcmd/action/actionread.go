@@ -8,7 +8,6 @@ package action
 
 import (
 	"encoding/hex"
-	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -27,7 +26,7 @@ var (
 	}
 	_readCmdUses = map[config.Language]string{
 		config.English: "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
-		config.Chinese: "reads (别名|联系人地址) -b 类型码 [-s 签署人]",
+		config.Chinese: "read (别名|联系人地址) -b 类型码 [-s 签署人]",
 	}
 )
 
@@ -39,6 +38,7 @@ func NewActionReadCmd(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			contract, err := alias.IOAddress(client, args[0])
@@ -49,16 +49,15 @@ func NewActionReadCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get flag bytecode")
 			}
-			fmt.Println(bytecodeFlag)
 			bytecode, err := hex.DecodeString(util.TrimHexPrefix(bytecodeFlag))
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
-			_, signer, _, _, gasLimit, _, err := GetWriteCommandFlag(cmd)
+			signer, err := cmd.Flags().GetString(signerFlagLabel)
 			if err != nil {
 				return err
 			}
-			result, err := Read(client, contract, "0", bytecode, signer, gasLimit)
+			result, err := Read(client, contract, "0", bytecode, signer, 20000000)
 			if err != nil {
 				return errors.Wrap(err, "failed to Read contract")
 			}
@@ -67,6 +66,6 @@ func NewActionReadCmd(client ioctl.Client) *cobra.Command {
 		},
 	}
 	registerBytecodeFlag(client, cmd)
-	RegisterWriteCommand(client, cmd)
+	registerSignerFlag(client, cmd)
 	return cmd
 }
