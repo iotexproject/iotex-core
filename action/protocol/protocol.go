@@ -52,6 +52,11 @@ type PreStatesCreator interface {
 	CreatePreStates(context.Context, StateManager) error
 }
 
+// PreCommitter performs pre-commit action of the protocol
+type PreCommitter interface {
+	PreCommit(context.Context, StateManager) error
+}
+
 // Committer performs commit action of the protocol
 type Committer interface {
 	Commit(context.Context, StateManager) error
