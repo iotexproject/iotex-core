@@ -56,6 +56,7 @@ type (
 		bodyCache    cache.LRUCache
 		footerCache  cache.LRUCache
 		tipHeight    uint64
+		stopHeight   uint64
 	}
 )
 
@@ -90,13 +91,20 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
+	if err := dao.checkIndexers(ctx); err != nil {
+		return err
+	}
+	if dao.stopHeight > 0 {
+		log.L().Info("hard-stop at height", zap.Uint64("height", dao.stopHeight))
+		return db.ErrDBNotStarted
+	}
+	return nil
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 	checker := NewBlockIndexerChecker(dao)
 	for i, indexer := range dao.indexers {
-		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
+		if err := checker.CheckIndexer(ctx, indexer, dao.stopHeight, func(height uint64) {
 			if height%5000 == 0 {
 				log.L().Info(
 					"indexer is catching up.",
@@ -312,6 +320,7 @@ func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Co
 	blockDAO := &blockDAO{
 		blockStore: blkStore,
 		indexers:   indexers,
+		stopHeight: cfg.HardStopHeight,
 	}
 
 	blockDAO.lifecycle.Add(blkStore)

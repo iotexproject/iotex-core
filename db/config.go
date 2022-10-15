@@ -27,6 +27,8 @@ type Config struct {
 	SplitDBHeight uint64 `yaml:"splitDBHeight"`
 	// HistoryStateRetention is the number of blocks account/contract state will be retained
 	HistoryStateRetention uint64 `yaml:"historyStateRetention"`
+	// HardStopHeight is the height to hard-stop statedb syncing
+	HardStopHeight uint64 `yaml:"hardStopHeight"`
 }
 
 // SplitDBSize returns the configured SplitDBSizeMB
