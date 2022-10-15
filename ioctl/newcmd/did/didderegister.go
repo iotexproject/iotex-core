@@ -7,7 +7,6 @@
 package did
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -20,38 +19,32 @@ import (
 
 // Multi-language support
 var (
-	_registerCmdUses = map[config.Language]string{
-		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri",
-		config.Chinese: "register (合约地址|别名) hash uri",
+	_deregisterCmdUses = map[config.Language]string{
+		config.English: "deregister (CONTRACT_ADDRESS|ALIAS)",
+		config.Chinese: "deregister (合约地址|别名)",
 	}
-	_registerCmdShorts = map[config.Language]string{
-		config.English: "Register DID on IoTeX blockchain",
-		config.Chinese: "Register 在IoTeX链上注册DID",
+	_deregisterCmdShorts = map[config.Language]string{
+		config.English: "Deregister DID on IoTeX blockchain",
+		config.Chinese: "Deregister 在IoTeX链上注销DID",
 	}
 )
 
-// NewDidRegisterCmd represents the did register command
-func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_registerCmdUses)
-	short, _ := client.SelectTranslation(_registerCmdShorts)
+// NewDeregisterCmd represents the contract invoke deregister command
+func NewDeregisterCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_deregisterCmdUses)
+	short, _ := client.SelectTranslation(_deregisterCmdShorts)
 
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			contract, err := client.Address(args[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}
-			hashSlice, err := hex.DecodeString(args[1])
-			if err != nil {
-				return errors.Wrap(err, "failed to decode data")
-			}
-			var hashArray [32]byte
-			copy(hashArray[:], hashSlice)
-			bytecode, err := _didABI.Pack(_registerDIDName, hashArray, []byte(args[2]))
+			bytecode, err := _didABI.Pack(_deregisterDIDName)
 			if err != nil {
 				return errors.Wrap(err, "invalid bytecode")
 			}
