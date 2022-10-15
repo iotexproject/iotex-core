@@ -25,8 +25,8 @@ var (
 		config.Chinese: "在IoTeX区块链上发送原始行为",
 	}
 	_sendRawCmdUses = map[config.Language]string{
-		config.English: "sendraw DATA [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "sendraw 数据 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "sendraw DATA",
+		config.Chinese: "sendraw 数据",
 	}
 )
 
