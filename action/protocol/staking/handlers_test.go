@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -71,7 +72,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(depositGas, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -2664,7 +2668,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(depositGas, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate

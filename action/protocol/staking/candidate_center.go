@@ -27,6 +27,7 @@ type (
 		ownerMap         map[string]*Candidate
 		operatorMap      map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
+		owners           CandidateList
 	}
 
 	// CandidateCenter is a struct to manage the candidates
@@ -58,12 +59,7 @@ func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 	}
 
 	c := CandidateCenter{
-		base: &candBase{
-			nameMap:          make(map[string]*Candidate),
-			ownerMap:         make(map[string]*Candidate),
-			operatorMap:      make(map[string]*Candidate),
-			selfStkBucketMap: make(map[uint64]*Candidate),
-		},
+		base:   newCandBase(),
 		change: delta,
 	}
 
@@ -414,6 +410,15 @@ func (cc *candChange) delete(owner address.Address) {
 //======================================
 // candBase funcs
 //======================================
+
+func newCandBase() *candBase {
+	return &candBase{
+		nameMap:          make(map[string]*Candidate),
+		ownerMap:         make(map[string]*Candidate),
+		operatorMap:      make(map[string]*Candidate),
+		selfStkBucketMap: make(map[uint64]*Candidate),
+	}
+}
 
 func (cb *candBase) size() int {
 	cb.lock.RLock()
