@@ -69,10 +69,18 @@ func TestLeafNodeUpsert(t *testing.T) {
 			{keyType("block"), []byte("chain")},
 			{keyType("ioabc"), []byte("chabc")},
 		}
-		offset uint8 = 0
+		offset uint8
 		bnode  *branchNode
 		ok     bool
 	)
+
+	checkChild := func(key keyType, offset uint8, value []byte) {
+		child, ok := bnode.children[key[offset]]
+		require.True(ok)
+		ln1, ok := child.(*leafNode)
+		require.True(ok)
+		require.Equal(value, ln1.value)
+	}
 
 	lnode, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
 	require.NoError(err)
@@ -87,32 +95,24 @@ func TestLeafNodeUpsert(t *testing.T) {
 			require.True(ok)
 			require.Equal(item.k, newleaf.key)
 			require.Equal(item.v, newleaf.value)
+			continue
+
 		case 1:
 			bnode, ok = node.(*branchNode)
 			require.True(ok)
+			require.Len(bnode.children, 2)
+			checkChild(keyType("iotex"), 0, []byte("coin"))
+			checkChild(keyType("block"), 0, []byte("chain"))
+
 		case 2:
 			enode, ok := node.(*extensionNode)
 			require.True(ok)
 			require.Equal([]byte("io"), enode.path)
 			bnode, ok = enode.child.(*branchNode)
 			require.True(ok)
+			require.Len(bnode.children, 2)
+			checkChild(keyType("iotex"), 2, []byte("coin"))
+			checkChild(keyType("ioabc"), 2, []byte("chabc"))
 		}
-
-		if i == 0 {
-			break
-		}
-
-		require.Len(bnode.children, 2)
-		child, ok := bnode.children[keyType("iotex")[0]]
-		require.True(ok)
-		ln1, ok := child.(*leafNode)
-		require.True(ok)
-		require.Equal([]byte("coin"), ln1.value)
-
-		child, ok = bnode.children[keyType("block")[0]]
-		require.True(ok)
-		ln1, ok = child.(*leafNode)
-		require.True(ok)
-		require.Equal([]byte("chain"), ln1.value)
 	}
 }
