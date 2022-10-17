@@ -150,20 +150,23 @@ func TestBranchNodeChildren(t *testing.T) {
 
 func TestBranchNodeDelete(t *testing.T) {
 	var (
-		require = require.New(t)
-		items   = []struct{ k, v string }{
-			{"iotex", "coin"},
-			{"block", "chain"},
-			{"chain", "link"},
-			{"puppy", "dog"},
-			{"night", "knight"},
-		}
-		expected = []struct{ k, v string }{
-			items[len(items)-1],
-			items[len(items)-2],
+		require    = require.New(t)
+		itemsArray = [][]struct{ k, v string }{
+			{
+				{"iotex", "coin"},
+			},
+			{
+				{"iotex", "coin"},
+				{"block", "chain"},
+			},
+			{
+				{"iotex", "coin"},
+				{"block", "chain"},
+				{"chain", "link"},
+				{"puppy", "dog"},
+			},
 		}
 		cli = &merklePatriciaTrie{
-			async:     true,
 			keyLength: 5,
 			hashFunc:  DefaultHashFunc,
 			kvStore:   trie.NewMemKVStore(),
@@ -172,34 +175,29 @@ func TestBranchNodeDelete(t *testing.T) {
 		offset   uint8 = 0
 	)
 
-	for _, item := range items {
-		node, err := newLeafNode(cli, []byte(item.k), []byte(item.v))
+	for i, items := range itemsArray {
+		for _, item := range items {
+			lnode, err := newLeafNode(cli, []byte(item.k), []byte(item.v))
+			require.NoError(err)
+			children[[]byte(item.k)[offset]] = lnode
+		}
+		indices := NewSortedList(children)
+
+		bnode, err := newBranchNode(cli, children, indices)
 		require.NoError(err)
-		children[[]byte(item.k)[offset]] = node
-	}
-	indices := NewSortedList(children)
-
-	bnode, err := newBranchNode(cli, children, indices)
-	require.NoError(err)
-
-	last := len(items) - 2
-	for i, item := range items {
-		node, err := bnode.Delete(cli, []byte(item.k), offset)
-		require.NoError(err)
-
-		// note: item.k is not deleted because updateChild() is not deleted.  see  branchnode.go line#244
-		if i < last {
-			_, err = bnode.Search(cli, keyType(item.k), offset)
-			require.Equal(trie.ErrNotExist, err)
-		} else {
-			// note: bnode
-			ln, ok := node.(*leafNode)
-			require.True(ok)
-			require.Equal(keyType(expected[i-last].k), ln.key)
-			require.Equal([]byte(expected[i-last].v), ln.value)
+		for _, item := range items {
+			if i == 0 {
+				require.Panics(func() { bnode.Delete(cli, []byte(item.k), offset) })
+			} else {
+				newnode, err := bnode.Delete(cli, []byte(item.k), offset)
+				require.NoError(err)
+				_, err = newnode.Search(cli, keyType(item.k), offset)
+				require.Equal(trie.ErrNotExist, err)
+				err = bnode.Flush(cli)
+				require.NoError(err)
+			}
 		}
 	}
-
 }
 
 func TestBranchNodeUpsert(t *testing.T) {
@@ -217,21 +215,26 @@ func TestBranchNodeUpsert(t *testing.T) {
 			hashFunc:  DefaultHashFunc,
 			kvStore:   trie.NewMemKVStore(),
 		}
-		offset uint8 = 0
+		children       = make(map[byte]node)
+		offset   uint8 = 0
 	)
 
-	bnode, err := newRootBranchNode(cli, make(map[byte]node), NewSortedList(nil), false)
+	lnode, err := newLeafNode(cli, []byte("iotex"), []byte("chain"))
+	require.NoError(err)
+	children[[]byte("iotex")[offset]] = lnode
+
+	bnode, err := newRootBranchNode(cli, children, NewSortedList(nil), false)
 	require.NoError(err)
 	for _, item := range items {
-		_, err := bnode.Upsert(cli, keyType(item.k), offset, []byte(item.v))
+		newnode, err := bnode.Upsert(cli, keyType(item.k), offset, []byte(item.v))
 		require.NoError(err)
-
-		// note: item.k is not added to bnode because updateChild() is not added
-		node, err := bnode.Search(cli, keyType(item.k), offset)
+		node, err := newnode.Search(cli, keyType(item.k), offset)
 		require.NoError(err)
 		ln, ok := node.(*leafNode)
 		require.True(ok)
 		require.Equal(keyType(item.k), ln.key)
 		require.Equal([]byte(item.v), ln.value)
+		err = bnode.Flush(cli)
+		require.NoError(err)
 	}
 }
