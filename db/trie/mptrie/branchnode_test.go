@@ -171,15 +171,15 @@ func TestBranchNodeDelete(t *testing.T) {
 			hashFunc:  DefaultHashFunc,
 			kvStore:   trie.NewMemKVStore(),
 		}
-		children       = make(map[byte]node)
-		offset   uint8 = 0
+		children = make(map[byte]node)
+		offset   uint8
 	)
 
 	for i, items := range itemsArray {
 		for _, item := range items {
-			lnode, err := newLeafNode(cli, []byte(item.k), []byte(item.v))
+			lnode, err := newLeafNode(cli, keyType(item.k), []byte(item.v))
 			require.NoError(err)
-			children[[]byte(item.k)[offset]] = lnode
+			children[keyType(item.k)[offset]] = lnode
 		}
 		indices := NewSortedList(children)
 
@@ -187,14 +187,14 @@ func TestBranchNodeDelete(t *testing.T) {
 		require.NoError(err)
 		for _, item := range items {
 			if i == 0 {
-				require.Panics(func() { bnode.Delete(cli, []byte(item.k), offset) })
+				require.Panics(func() { bnode.Delete(cli, keyType(item.k), offset) })
 			} else {
-				newnode, err := bnode.Delete(cli, []byte(item.k), offset)
+				newnode, err := bnode.Delete(cli, keyType(item.k), offset)
+				require.NoError(err)
+				err = bnode.Flush(cli)
 				require.NoError(err)
 				_, err = newnode.Search(cli, keyType(item.k), offset)
 				require.Equal(trie.ErrNotExist, err)
-				err = bnode.Flush(cli)
-				require.NoError(err)
 			}
 		}
 	}
@@ -215,18 +215,20 @@ func TestBranchNodeUpsert(t *testing.T) {
 			hashFunc:  DefaultHashFunc,
 			kvStore:   trie.NewMemKVStore(),
 		}
-		children       = make(map[byte]node)
-		offset   uint8 = 0
+		children = make(map[byte]node)
+		offset   uint8
 	)
 
-	lnode, err := newLeafNode(cli, []byte("iotex"), []byte("chain"))
+	lnode, err := newLeafNode(cli, keyType("iotex"), []byte("chain"))
 	require.NoError(err)
-	children[[]byte("iotex")[offset]] = lnode
+	children[keyType("iotex")[offset]] = lnode
 
 	bnode, err := newRootBranchNode(cli, children, NewSortedList(nil), false)
 	require.NoError(err)
 	for _, item := range items {
 		newnode, err := bnode.Upsert(cli, keyType(item.k), offset, []byte(item.v))
+		require.NoError(err)
+		err = bnode.Flush(cli)
 		require.NoError(err)
 		node, err := newnode.Search(cli, keyType(item.k), offset)
 		require.NoError(err)
@@ -234,7 +236,5 @@ func TestBranchNodeUpsert(t *testing.T) {
 		require.True(ok)
 		require.Equal(keyType(item.k), ln.key)
 		require.Equal([]byte(item.v), ln.value)
-		err = bnode.Flush(cli)
-		require.NoError(err)
 	}
 }
