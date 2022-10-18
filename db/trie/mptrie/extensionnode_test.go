@@ -48,50 +48,36 @@ func TestExtensionNodeDelete(t *testing.T) {
 			hashFunc:  DefaultHashFunc,
 			kvStore:   trie.NewMemKVStore(),
 		}
-		offset uint8
+		items = []struct {
+			k keyType
+			v []byte
+		}{
+			// leafnode
+			{keyType("iotex"), []byte("coin")},
+			{keyType("ioabc"), []byte("abc")},
+		}
+		err error
 	)
 
-	// childs := []node{
-	// 	&branchNode{
-	// 		children: map[byte]node{
-	// 			'i': &hashNode{hashVal: []byte("i")},
-	// 			'c': &hashNode{hashVal: []byte("c")},
-	// 		},
-	// 	},
-	// 	&extensionNode{
-	// 		path:  []byte("i"),
-	// 		child: &hashNode{hashVal: []byte("d")},
-	// 	},
-	// 	&hashNode{hashVal: []byte("f")},
-	// }
-
-	// for _, child := range childs {
 	children := make(map[byte]node)
-	// lnode, err := newLeafNode(cli, []byte("iotex"), []byte("chain"))
-	// require.NoError(err)
-	// lnode, err := newLeafNode(cli, []byte("iotex"), []byte("chain"))
-	// require.NoError(err)
-
-	children[[]byte("a")[offset]] = &leafNode{key: keyType("a"), value: []byte("a")}
-	children[[]byte("b")[offset]] = &leafNode{key: keyType("b"), value: []byte("b")}
-	children[[]byte("b")[offset]] = &leafNode{key: keyType("c"), value: []byte("c")}
-
-	// children[[]byte("a")[offset]] = &hashNode{hashVal: []byte("a")}
-	// children[[]byte("b")[offset]] = &hashNode{hashVal: []byte("b")}
-	// children[[]byte("c")[offset]] = &hashNode{hashVal: []byte("c")}
-	child, _ := newBranchNode(cli, children, nil)
-
-	exnode, err := newExtensionNode(cli, []byte(""), child)
+	children['t'], err = newLeafNode(cli, items[0].k, items[0].v)
+	require.NoError(err)
+	children['a'], err = newLeafNode(cli, items[1].k, items[1].v)
 	require.NoError(err)
 
-	n, err := exnode.Delete(cli, keyType("a"), offset)
+	child, err := newBranchNode(cli, children, nil)
 	require.NoError(err)
-	t.Logf("%+v", n)
+	exnode, err := newExtensionNode(cli, []byte("io"), child)
+	require.NoError(err)
 
-	// }
+	node, err := exnode.Delete(cli, items[0].k, 0)
+	require.NoError(err)
+	lnode, ok := node.(*leafNode)
+	require.True(ok)
+	require.Equal(items[1].k, lnode.key)
 
-	// err = exnode.Flush(cli)
-	// require.NoError(err)
+	err = exnode.Flush(cli)
+	require.NoError(err)
 }
 
 func TestExtensionNodeUpsert(t *testing.T) {
@@ -106,54 +92,82 @@ func TestExtensionNodeUpsert(t *testing.T) {
 			k keyType
 			v []byte
 		}{
-			{keyType("iotex"), []byte("chain")},
+			// leafnode
+			{keyType("iotex"), []byte("coin")},
+			{keyType("ioabc"), []byte("abc")},
+			// testdata
+			{keyType("iodef"), []byte("link")},
 			{keyType("block"), []byte("chain")},
-			{keyType("ioabc"), []byte("chabc")},
+			{keyType("iuppy"), []byte("dog")},
 		}
 		offset uint8
-		bnode  *branchNode
-		ok     bool
+		err    error
 	)
 
-	lnode, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
-	require.NoError(err)
-
-	for i, item := range items {
-		node, err := lnode.Upsert(cli, item.k, offset, item.v)
-		require.NoError(err)
-
-		switch i {
-		case 0:
-			newleaf, ok := node.(*leafNode)
-			require.True(ok)
-			require.Equal(item.k, newleaf.key)
-			require.Equal(item.v, newleaf.value)
-		case 1:
-			bnode, ok = node.(*branchNode)
-			require.True(ok)
-		case 2:
-			enode, ok := node.(*extensionNode)
-			require.True(ok)
-			require.Equal([]byte("io"), enode.path)
-			bnode, ok = enode.child.(*branchNode)
-			require.True(ok)
-		}
-
-		if i == 0 {
-			break
-		}
-
-		require.Len(bnode.children, 2)
-		child, ok := bnode.children[keyType("iotex")[0]]
+	checkLeaf := func(bnode *branchNode, key keyType, offset uint8, value []byte) {
+		child, ok := bnode.children[key[offset]]
 		require.True(ok)
 		ln1, ok := child.(*leafNode)
 		require.True(ok)
-		require.Equal([]byte("coin"), ln1.value)
+		require.Equal(value, ln1.value)
+	}
 
-		child, ok = bnode.children[keyType("block")[0]]
+	checkBranch := func(bnode *branchNode, key1, key2 keyType, offset1, offset2 uint8, value1, value2 []byte) {
+		require.Len(bnode.children, 2)
+		child, ok := bnode.children[key1[offset1]]
 		require.True(ok)
-		ln1, ok = child.(*leafNode)
+		en, ok := child.(*extensionNode)
 		require.True(ok)
-		require.Equal([]byte("chain"), ln1.value)
+		bn, ok := en.child.(*branchNode)
+		require.True(ok)
+		require.Len(bn.children, 2)
+		checkLeaf(bn, key1, offset2, value1)
+		checkLeaf(bn, key2, offset2, value2)
+	}
+
+	children := make(map[byte]node)
+	children['t'], err = newLeafNode(cli, items[0].k, items[0].v)
+	require.NoError(err)
+	children['a'], err = newLeafNode(cli, items[1].k, items[1].v)
+	require.NoError(err)
+	child, err := newBranchNode(cli, children, nil)
+	require.NoError(err)
+
+	exnode, err := newExtensionNode(cli, keyType("io"), child)
+	require.NoError(err)
+
+	for i, item := range items {
+		node, err := exnode.Upsert(cli, item.k, offset, item.v)
+		require.NoError(err)
+
+		switch i {
+		case 2:
+			exnode1, ok := node.(*extensionNode)
+			require.True(ok)
+			bnode, ok := exnode1.child.(*branchNode)
+			require.True(ok)
+			require.Len(bnode.children, 3)
+			vn, ok := bnode.children[item.k[2]]
+			require.True(ok)
+			ln, ok := vn.(*leafNode)
+			require.True(ok)
+			require.Equal(item.v, ln.value)
+			continue
+
+		case 3:
+			bnode, ok := node.(*branchNode)
+			require.True(ok)
+			checkBranch(bnode, items[0].k, items[1].k, 0, 2, items[0].v, items[1].v)
+			checkLeaf(bnode, item.k, 0, item.v)
+
+		case 4:
+			enode, ok := node.(*extensionNode)
+			require.True(ok)
+			require.Equal([]byte("i"), enode.path)
+			bnode, ok := enode.child.(*branchNode)
+			require.True(ok)
+			checkBranch(bnode, items[0].k, items[1].k, 1, 2, items[0].v, items[1].v)
+			checkLeaf(bnode, item.k, 1, item.v)
+		}
 	}
 }
