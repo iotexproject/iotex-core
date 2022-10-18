@@ -25,7 +25,7 @@ var (
 	}
 	_deregisterCmdShorts = map[config.Language]string{
 		config.English: "Deregister DID on IoTeX blockchain",
-		config.Chinese: "Deregister 在IoTeX链上注销DID",
+		config.Chinese: "在IoTeX链上注销DID",
 	}
 )
 

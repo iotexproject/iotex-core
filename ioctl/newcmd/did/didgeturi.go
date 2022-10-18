@@ -27,7 +27,7 @@ var (
 	}
 	_getURICmdShorts = map[config.Language]string{
 		config.English: "Geturi get DID URI on IoTeX blockchain",
-		config.Chinese: "Geturi 在IoTeX链上获取相应DID的uri",
+		config.Chinese: "在IoTeX链上获取相应DID的uri",
 	}
 )
 
