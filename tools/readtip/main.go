@@ -50,6 +50,14 @@ func main() {
 	if err != nil {
 		log.S().Panic("failed to load state db", zap.Error(err))
 	}
+	if err := store.Start(context.Background()); err != nil {
+		log.S().Panic("failed to start state db", zap.Error(err))
+	}
+	defer func() {
+		if err := store.Stop(context.Background()); err != nil {
+			log.S().Panic("failed to stop state db", zap.Error(err))
+		}
+	}()	
 	h, err := store.Get(factory.AccountKVNamespace, []byte(factory.CurrentHeightKey))
 	if err != nil {
 		log.S().Panic("failed to read state db", zap.Error(err))
