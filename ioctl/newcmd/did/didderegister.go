@@ -20,8 +20,8 @@ import (
 // Multi-language support
 var (
 	_deregisterCmdUses = map[config.Language]string{
-		config.English: "deregister (CONTRACT_ADDRESS|ALIAS)",
-		config.Chinese: "deregister (合约地址|别名)",
+		config.English: "deregister (CONTRACT_ADDRESS|ALIAS) [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "deregister (合约地址|别名) IOTX数量 [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS价格] [-P 密码] [-y]",
 	}
 	_deregisterCmdShorts = map[config.Language]string{
 		config.English: "Deregister DID on IoTeX blockchain",

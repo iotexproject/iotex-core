@@ -21,8 +21,8 @@ import (
 // Multi-language support
 var (
 	_registerCmdUses = map[config.Language]string{
-		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri",
-		config.Chinese: "register (合约地址|别名) hash uri",
+		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "register (合约地址|别名) hash uri [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS价格] [-P 密码] [-y]",
 	}
 	_registerCmdShorts = map[config.Language]string{
 		config.English: "Register DID on IoTeX blockchain",
