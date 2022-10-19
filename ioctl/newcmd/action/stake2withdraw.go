@@ -21,10 +21,8 @@ import (
 // Multi-language support
 var (
 	_stake2WithDrawCmdUses = map[config.Language]string{
-		config.English: "withdraw BUCKET_INDEX [DATA]" +
-			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "withdraw 票索引 [数据]" +
-			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "withdraw BUCKET_INDEX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "withdraw 票索引 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	_stake2WithDrawCmdShorts = map[config.Language]string{
 		config.English: "Withdraw bucket from IoTeX blockchain",
