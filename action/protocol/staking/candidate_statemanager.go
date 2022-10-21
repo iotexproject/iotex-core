@@ -56,7 +56,7 @@ type (
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int) error
 		DebitBucketPool(*big.Int, bool) error
-		Commit() error
+		Commit(bool) error
 		SM() protocol.StateManager
 	}
 
@@ -165,8 +165,8 @@ func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
 	return csm.bucketPool.DebitPool(csm, amount, newBucket)
 }
 
-func (csm *candSM) Commit() error {
-	if err := csm.candCenter.Commit(); err != nil {
+func (csm *candSM) Commit(keepAlias bool) error {
+	if err := csm.candCenter.Commit(keepAlias); err != nil {
 		return err
 	}
 

@@ -25,7 +25,7 @@ func Test_CandidateStateReader(t *testing.T) {
 	require.NoError(err)
 	csr, err := ConstructBaseView(sm)
 	require.Equal(err, protocol.ErrNoName)
-	view, _, err := CreateBaseView(sm, false, false)
+	view, _, err := CreateBaseView(sm, false)
 	require.NoError(err)
 	csr = &candSR{
 		StateReader: sm,

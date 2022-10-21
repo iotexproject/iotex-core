@@ -17,7 +17,8 @@ import (
 type (
 	// candChange captures the change to candidates
 	candChange struct {
-		dirty map[string]*Candidate
+		candidates []*Candidate
+		dirty      map[string]*Candidate
 	}
 
 	// candBase is the confirmed base state
@@ -28,27 +29,15 @@ type (
 		operatorMap      map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
 		owners           CandidateList
-		hasAlias         bool
 	}
 
 	// CandidateCenter is a struct to manage the candidates
 	CandidateCenter struct {
-		base     *candBase
-		size     int
-		change   *candChange
-		hasAlias bool
+		base   *candBase
+		size   int
+		change *candChange
 	}
-
-	// CandidateCenterOption is an option
-	CandidateCenterOption func(*CandidateCenter)
 )
-
-// HasAliasOption indicates the candidate center has alias
-func HasAliasOption(hasAlias bool) CandidateCenterOption {
-	return func(c *CandidateCenter) {
-		c.hasAlias = hasAlias
-	}
-}
 
 // listToCandChange creates a candChange from list
 func listToCandChange(l CandidateList) (*candChange, error) {
@@ -58,31 +47,29 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 		if err := d.Validate(); err != nil {
 			return nil, err
 		}
+		cv.candidates = append(cv.candidates, d)
 		cv.dirty[d.Owner.String()] = d
 	}
 	return cv, nil
 }
 
 // NewCandidateCenter creates an instance of CandidateCenter
-func NewCandidateCenter(all CandidateList, opts ...CandidateCenterOption) (*CandidateCenter, error) {
+func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 	delta, err := listToCandChange(all)
 	if err != nil {
 		return nil, err
 	}
 
 	c := CandidateCenter{
+		base:   newCandBase(),
 		change: delta,
 	}
-	for _, opt := range opts {
-		opt(&c)
-	}
-	c.base = newCandBase(c.hasAlias)
 
 	if len(all) == 0 {
 		return &c, nil
 	}
 
-	if err := c.Commit(); err != nil {
+	if err := c.Commit(true); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -95,7 +82,7 @@ func (m *CandidateCenter) Size() int {
 
 // All returns all candidates in candidate center
 func (m *CandidateCenter) All() CandidateList {
-	list := m.change.all()
+	list := m.change.view()
 	if list == nil {
 		return m.base.all()
 	}
@@ -112,14 +99,14 @@ func (m *CandidateCenter) All() CandidateList {
 func (m CandidateCenter) Base() *CandidateCenter {
 	return &CandidateCenter{
 		base:   m.base,
-		size:   m.base.size(),
+		size:   len(m.base.ownerMap),
 		change: newCandChange(),
 	}
 }
 
 // Delta exports the pending changes
 func (m *CandidateCenter) Delta() CandidateList {
-	return m.change.all()
+	return m.change.items()
 }
 
 // SetDelta sets the delta
@@ -152,8 +139,8 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 }
 
 // Commit writes the change into base
-func (m *CandidateCenter) Commit() error {
-	size, err := m.base.commit(m.change)
+func (m *CandidateCenter) Commit(keepAliasBug bool) error {
+	size, err := m.base.commit(m.change, keepAliasBug)
 	if err != nil {
 		return err
 	}
@@ -322,7 +309,7 @@ func (cc *candChange) size() int {
 	return len(cc.dirty)
 }
 
-func (cc *candChange) all() CandidateList {
+func (cc *candChange) view() CandidateList {
 	if len(cc.dirty) == 0 {
 		return nil
 	}
@@ -332,6 +319,14 @@ func (cc *candChange) all() CandidateList {
 		list = append(list, d.Clone())
 	}
 	return list
+}
+
+func (cc *candChange) items() CandidateList {
+	var retval CandidateList
+	for _, c := range cc.candidates {
+		retval = append(retval, c.Clone())
+	}
+	return retval
 }
 
 func (cc *candChange) containsName(name string) bool {
@@ -402,6 +397,7 @@ func (cc *candChange) upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
+	cc.candidates = append(cc.candidates, d)
 	cc.dirty[d.Owner.String()] = d
 	return nil
 }
@@ -415,24 +411,16 @@ func (cc *candChange) collision(d *Candidate) error {
 	return nil
 }
 
-func (cc *candChange) delete(owner address.Address) {
-	if owner == nil {
-		return
-	}
-	delete(cc.dirty, owner.String())
-}
-
 //======================================
 // candBase funcs
 //======================================
 
-func newCandBase(hasAlias bool) *candBase {
+func newCandBase() *candBase {
 	return &candBase{
 		nameMap:          make(map[string]*Candidate),
 		ownerMap:         make(map[string]*Candidate),
 		operatorMap:      make(map[string]*Candidate),
 		selfStkBucketMap: make(map[uint64]*Candidate),
-		hasAlias:         hasAlias,
 	}
 }
 
@@ -456,18 +444,19 @@ func (cb *candBase) all() CandidateList {
 	return list
 }
 
-func (cb *candBase) commit(change *candChange) (int, error) {
+func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	for _, v := range change.dirty {
+	for _, v := range change.candidates {
 		if err := v.Validate(); err != nil {
 			return 0, err
 		}
 		d := v.Clone()
-		if curr, existing := cb.ownerMap[d.Owner.String()]; !cb.hasAlias && existing {
-			// this is an existing candidate, remove it from name/operator map
-			delete(cb.nameMap, curr.Name)
-			delete(cb.operatorMap, curr.Operator.String())
+		if !keepAliasBug {
+			if curr, ok := cb.ownerMap[d.Owner.String()]; ok {
+				delete(cb.nameMap, curr.Name)
+				delete(cb.operatorMap, curr.Operator.String())
+			}
 		}
 		cb.ownerMap[d.Owner.String()] = d
 		cb.nameMap[d.Name] = d

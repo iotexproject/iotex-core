@@ -77,7 +77,7 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 	}
 
-	view, _, err := CreateBaseView(sm, false, false)
+	view, _, err := CreateBaseView(sm, false)
 	r.NoError(err)
 	sm.WriteView(_protocolID, view)
 	pool = view.bucketPool
@@ -147,7 +147,7 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if v.commit {
-			r.NoError(csm.Commit())
+			r.NoError(csm.Commit(false))
 			// after commit, value should reflect in base view
 			c, err = ConstructBaseView(sm)
 			r.NoError(err)

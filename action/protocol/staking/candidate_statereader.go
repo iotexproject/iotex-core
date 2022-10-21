@@ -151,7 +151,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader, enableSMStorage, candCenterHasAlias bool) (*ViewData, uint64, error) {
+func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
 	if sr == nil {
 		return nil, 0, ErrMissingField
 	}
@@ -162,7 +162,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage, candCenterHasAlias
 		return nil, height, err
 	}
 
-	center, err := NewCandidateCenter(all, HasAliasOption(candCenterHasAlias))
+	center, err := NewCandidateCenter(all)
 	if err != nil {
 		return nil, height, err
 	}

@@ -55,8 +55,8 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 	r.NoError(err)
 
 	// number of changed cand = change
+	r.Equal(change, len(m.change.view()))
 	delta := m.Delta()
-	r.Equal(change, len(delta))
 	ser, err := delta.Serialize()
 	r.NoError(err)
 
@@ -71,8 +71,8 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 	// test commit
 	r.NoError(delta.Deserialize(ser))
 	r.NoError(m.SetDelta(delta))
-	r.NoError(m.Commit())
-	r.NoError(m.Commit()) // commit is idempotent
+	r.NoError(m.Commit(true))
+	r.NoError(m.Commit(true)) // commit is idempotent
 	r.Equal(size+increase, m.Size())
 	// m equal to current list, not equal to old
 	r.True(testEqual(m, list))
@@ -91,7 +91,7 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 func TestCandCenter(t *testing.T) {
 	r := require.New(t)
 
-	m, err := NewCandidateCenter(nil, HasAliasOption(true))
+	m, err := NewCandidateCenter(nil)
 	r.NoError(err)
 	for i, v := range testCandidates {
 		r.NoError(m.Upsert(testCandidates[i].d))
@@ -106,7 +106,7 @@ func TestCandCenter(t *testing.T) {
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 	r.NoError(m.SetDelta(list))
-	r.NoError(m.Commit())
+	r.NoError(m.Commit(true))
 	r.Equal(len(testCandidates), m.Size())
 	r.True(testEqual(m, list))
 	old := m.All()
@@ -214,7 +214,7 @@ func TestCandCenter(t *testing.T) {
 	r.NoError(m.SetDelta(delta))
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
-	r.NoError(m.Commit())
+	r.NoError(m.Commit(true))
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 
@@ -333,7 +333,7 @@ func TestFixAlias(t *testing.T) {
 
 	for _, hasAlias := range []bool{false, true} {
 		// add 6 candidates into cand center
-		m, err := NewCandidateCenter(nil, HasAliasOption(hasAlias))
+		m, err := NewCandidateCenter(nil)
 		r.NoError(err)
 		for i, v := range testCandidates {
 			r.NoError(m.Upsert(testCandidates[i].d))
@@ -341,7 +341,7 @@ func TestFixAlias(t *testing.T) {
 			r.True(m.ContainsOperator(v.d.Operator))
 			r.Equal(v.d, m.GetByName(v.d.Name))
 		}
-		r.NoError(m.Commit())
+		r.NoError(m.Commit(hasAlias))
 		r.NoError(view.Write(_protocolID, m))
 
 		// simulate handleCandidateUpdate: update name
@@ -394,7 +394,7 @@ func TestFixAlias(t *testing.T) {
 
 		// cand center Commit()
 		{
-			r.NoError(center.Commit())
+			r.NoError(center.Commit(hasAlias))
 			r.NoError(view.Write(_protocolID, center))
 			dk.Reset()
 		}
