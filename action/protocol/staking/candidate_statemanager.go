@@ -30,17 +30,15 @@ type (
 		delBucket(index uint64) error
 		putBucketAndIndex(bucket *VoteBucket) (uint64, error)
 		delBucketAndIndex(owner, cand address.Address, index uint64) error
-		putBucketIndex(addr address.Address, prefix byte, index uint64) error
-		delBucketIndex(addr address.Address, prefix byte, index uint64) error
 	}
 	// CandidateSet related to setting candidates
 	CandidateSet interface {
-		putCandidate(d *Candidate) error
-		delCandidate(name address.Address) error
-		putVoterBucketIndex(addr address.Address, index uint64) error
-		delVoterBucketIndex(addr address.Address, index uint64) error
-		putCandBucketIndex(addr address.Address, index uint64) error
-		delCandBucketIndex(addr address.Address, index uint64) error
+		putCandidate(*Candidate) error
+		delCandidate(address.Address) error
+		putVoterBucketIndex(address.Address, uint64) error
+		delVoterBucketIndex(address.Address, uint64) error
+		putCandBucketIndex(address.Address, uint64) error
+		delCandBucketIndex(address.Address, uint64) error
 	}
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
@@ -55,7 +53,6 @@ type (
 		ContainsSelfStakingBucket(uint64) bool
 		GetByName(string) *Candidate
 		GetByOwner(address.Address) *Candidate
-		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int) error
 		DebitBucketPool(*big.Int, bool) error
@@ -139,10 +136,6 @@ func (csm *candSM) GetByName(name string) *Candidate {
 
 func (csm *candSM) GetByOwner(addr address.Address) *Candidate {
 	return csm.candCenter.GetByOwner(addr)
-}
-
-func (csm *candSM) GetBySelfStakingIndex(index uint64) *Candidate {
-	return csm.candCenter.GetBySelfStakingIndex(index)
 }
 
 // Upsert writes the candidate into state manager and cand center
