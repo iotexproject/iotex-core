@@ -59,17 +59,17 @@ type (
 		base     candMap
 		size     int
 		change   *candChange
-		fixAlias bool
+		hasAlias bool
 	}
 
 	// CandidateCenterOption is an option
 	CandidateCenterOption func(*CandidateCenter)
 )
 
-// FixAliasOption sets to fix alias or not
-func FixAliasOption(fixAlias bool) CandidateCenterOption {
+// HasAliasOption indicates the candidate center has alias
+func HasAliasOption(hasAlias bool) CandidateCenterOption {
 	return func(c *CandidateCenter) {
-		c.fixAlias = fixAlias
+		c.hasAlias = hasAlias
 	}
 }
 
@@ -99,10 +99,10 @@ func NewCandidateCenter(all CandidateList, opts ...CandidateCenterOption) (*Cand
 	for _, opt := range opts {
 		opt(&c)
 	}
-	if c.fixAlias {
-		c.base = newCandBaseFixAlias()
-	} else {
+	if c.hasAlias {
 		c.base = newCandBase()
+	} else {
+		c.base = newCandBaseFixAlias()
 	}
 
 	if len(all) == 0 {

@@ -91,7 +91,7 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 func TestCandCenter(t *testing.T) {
 	r := require.New(t)
 
-	m, err := NewCandidateCenter(nil)
+	m, err := NewCandidateCenter(nil, HasAliasOption(true))
 	r.NoError(err)
 	for i, v := range testCandidates {
 		r.NoError(m.Upsert(testCandidates[i].d))
@@ -331,9 +331,9 @@ func TestFixAlias(t *testing.T) {
 	dk := protocol.NewDock()
 	view := protocol.View{}
 
-	for _, fixAlias := range []bool{false, true} {
+	for _, hasAlias := range []bool{false, true} {
 		// add 6 candidates into cand center
-		m, err := NewCandidateCenter(nil, FixAliasOption(fixAlias))
+		m, err := NewCandidateCenter(nil, HasAliasOption(hasAlias))
 		r.NoError(err)
 		for i, v := range testCandidates {
 			r.NoError(m.Upsert(testCandidates[i].d))
@@ -406,7 +406,7 @@ func TestFixAlias(t *testing.T) {
 		n = center.GetByOwner(testCandidates[1].d.Owner)
 		n.Equal(opAlias)
 		r.True(center.ContainsOperator(opAlias.Operator))
-		if fixAlias {
+		if !hasAlias {
 			r.Nil(center.GetByName(name))
 			r.False(center.ContainsName(name))
 			r.False(center.ContainsOperator(op))
