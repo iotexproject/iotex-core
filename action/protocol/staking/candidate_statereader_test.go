@@ -20,7 +20,7 @@ func Test_CandidateStateReader(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csr, err := GetStakingStateReader(sm)
+	csr, err := GetStakingStateReader(sm, false)
 	require.NoError(err)
 
 	h, err := sm.Height()

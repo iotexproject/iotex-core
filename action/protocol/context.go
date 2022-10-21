@@ -120,6 +120,7 @@ type (
 		StakingCorrectGas        CheckFunc
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
+		FixCandCenterAlias       CheckFunc
 	}
 )
 
@@ -289,6 +290,9 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			LoadCandidatesLegacy: func(height uint64) bool {
 				return !g.IsEaster(height)
+			},
+			FixCandCenterAlias: func(height uint64) bool {
+				return g.IsOkhotsk(height)
 			},
 		},
 	)

@@ -20,6 +20,25 @@ type (
 		dirty map[string]*Candidate
 	}
 
+	candMap interface {
+		size() int
+		all() CandidateList
+		commit(*candChange) (int, error)
+		getByName(string) (*Candidate, bool)
+		getByOwner(string) (*Candidate, bool)
+		getByOperator(string) (*Candidate, bool)
+		getBySelfStakingIndex(uint64) (*Candidate, bool)
+		collision(*Candidate) (address.Address, address.Address, address.Address)
+		delete(address.Address)
+		// below methods for manual patching the name/operator map
+		clone() candMap
+		candsInNameMap() CandidateList
+		candsInOperatorMap() CandidateList
+		ownersList() CandidateList
+		recordOwner(*Candidate)
+		loadNameOperatorMapOwnerList(CandidateList, CandidateList, CandidateList) error
+	}
+
 	// candBase is the confirmed base state
 	candBase struct {
 		lock             sync.RWMutex
@@ -30,13 +49,29 @@ type (
 		owners           CandidateList
 	}
 
+	// candBaseFixAlias is the base state, with alias fixed
+	candBaseFixAlias struct {
+		*candBase
+	}
+
 	// CandidateCenter is a struct to manage the candidates
 	CandidateCenter struct {
-		base   *candBase
-		size   int
-		change *candChange
+		base     candMap
+		size     int
+		change   *candChange
+		fixAlias bool
 	}
+
+	// CandidateCenterOption is an option
+	CandidateCenterOption func(*CandidateCenter)
 )
+
+// FixAliasOption sets to fix alias or not
+func FixAliasOption(fixAlias bool) CandidateCenterOption {
+	return func(c *CandidateCenter) {
+		c.fixAlias = fixAlias
+	}
+}
 
 // listToCandChange creates a candChange from list
 func listToCandChange(l CandidateList) (*candChange, error) {
@@ -52,15 +87,22 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 }
 
 // NewCandidateCenter creates an instance of CandidateCenter
-func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
+func NewCandidateCenter(all CandidateList, opts ...CandidateCenterOption) (*CandidateCenter, error) {
 	delta, err := listToCandChange(all)
 	if err != nil {
 		return nil, err
 	}
 
 	c := CandidateCenter{
-		base:   newCandBase(),
 		change: delta,
+	}
+	for _, opt := range opts {
+		opt(&c)
+	}
+	if c.fixAlias {
+		c.base = newCandBaseFixAlias()
+	} else {
+		c.base = newCandBase()
 	}
 
 	if len(all) == 0 {
@@ -97,7 +139,7 @@ func (m *CandidateCenter) All() CandidateList {
 func (m CandidateCenter) Base() *CandidateCenter {
 	return &CandidateCenter{
 		base:   m.base,
-		size:   len(m.base.ownerMap),
+		size:   m.base.size(),
 		change: newCandChange(),
 	}
 }
@@ -511,4 +553,35 @@ func (cb *candBase) delete(owner address.Address) {
 		delete(cb.operatorMap, d.Operator.String())
 		delete(cb.selfStkBucketMap, d.SelfStakeBucketIdx)
 	}
+}
+
+//======================================
+// candBaseFixAlias funcs
+//======================================
+
+func newCandBaseFixAlias() *candBaseFixAlias {
+	return &candBaseFixAlias{
+		candBase: newCandBase(),
+	}
+}
+
+func (cb *candBaseFixAlias) commit(change *candChange) (int, error) {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	for _, v := range change.dirty {
+		if err := v.Validate(); err != nil {
+			return 0, err
+		}
+		d := v.Clone()
+		if curr, existing := cb.ownerMap[d.Owner.String()]; existing {
+			// this is an existing candidate, remove it from name/operator map
+			delete(cb.nameMap, curr.Name)
+			delete(cb.operatorMap, curr.Operator.String())
+		}
+		cb.ownerMap[d.Owner.String()] = d
+		cb.nameMap[d.Name] = d
+		cb.operatorMap[d.Operator.String()] = d
+		cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
+	}
+	return len(cb.ownerMap), nil
 }

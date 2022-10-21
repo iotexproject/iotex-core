@@ -6,7 +6,7 @@
 
 package staking
 
-func (cb *candBase) clone() *candBase {
+func (cb *candBase) clone() candMap {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
 	clone := newCandBase()

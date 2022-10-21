@@ -120,12 +120,12 @@ func (c *candSR) ActiveBucketsCount() uint64 {
 }
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view
-func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
+func GetStakingStateReader(sr protocol.StateReader, fixCandCenterAlias bool) (CandidateStateReader, error) {
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
-			view, height, err := CreateBaseView(sr, true)
+			view, height, err := CreateBaseView(sr, true, fixCandCenterAlias)
 			if err != nil {
 				return nil, err
 			}
@@ -172,7 +172,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
+func CreateBaseView(sr protocol.StateReader, enableSMStorage, fixCandCenterAlias bool) (*ViewData, uint64, error) {
 	if sr == nil {
 		return nil, 0, ErrMissingField
 	}
@@ -183,7 +183,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
-	center, err := NewCandidateCenter(all)
+	center, err := NewCandidateCenter(all, FixAliasOption(fixCandCenterAlias))
 	if err != nil {
 		return nil, height, err
 	}

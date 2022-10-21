@@ -685,7 +685,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
 	height, _ := csm.SM().Height()
-	if p.needToWriteCandsMap(height) {
+	if p.needToWriteCandsMap(ctx, height) {
 		csm.DirtyView().candCenter.base.recordOwner(c)
 	}
 
@@ -768,7 +768,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		return log, csmErrorToHandleError(c.Owner.String(), err)
 	}
 	height, _ := csm.SM().Height()
-	if p.needToWriteCandsMap(height) {
+	if p.needToWriteCandsMap(ctx, height) {
 		csm.DirtyView().candCenter.base.recordOwner(c)
 	}
 
