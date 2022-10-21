@@ -28,15 +28,27 @@ type (
 		operatorMap      map[string]*Candidate
 		selfStkBucketMap map[uint64]*Candidate
 		owners           CandidateList
+		hasAlias         bool
 	}
 
 	// CandidateCenter is a struct to manage the candidates
 	CandidateCenter struct {
-		base   *candBase
-		size   int
-		change *candChange
+		base     *candBase
+		size     int
+		change   *candChange
+		hasAlias bool
 	}
+
+	// CandidateCenterOption is an option
+	CandidateCenterOption func(*CandidateCenter)
 )
+
+// HasAliasOption indicates the candidate center has alias
+func HasAliasOption(hasAlias bool) CandidateCenterOption {
+	return func(c *CandidateCenter) {
+		c.hasAlias = hasAlias
+	}
+}
 
 // listToCandChange creates a candChange from list
 func listToCandChange(l CandidateList) (*candChange, error) {
@@ -52,16 +64,19 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 }
 
 // NewCandidateCenter creates an instance of CandidateCenter
-func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
+func NewCandidateCenter(all CandidateList, opts ...CandidateCenterOption) (*CandidateCenter, error) {
 	delta, err := listToCandChange(all)
 	if err != nil {
 		return nil, err
 	}
 
 	c := CandidateCenter{
-		base:   newCandBase(),
 		change: delta,
 	}
+	for _, opt := range opts {
+		opt(&c)
+	}
+	c.base = newCandBase(c.hasAlias)
 
 	if len(all) == 0 {
 		return &c, nil
@@ -96,9 +111,10 @@ func (m *CandidateCenter) All() CandidateList {
 // Base returns the confirmed base state
 func (m CandidateCenter) Base() *CandidateCenter {
 	return &CandidateCenter{
-		base:   m.base,
-		size:   len(m.base.ownerMap),
-		change: newCandChange(),
+		base:     m.base,
+		size:     m.base.size(),
+		change:   newCandChange(),
+		hasAlias: m.hasAlias,
 	}
 }
 
@@ -411,12 +427,13 @@ func (cc *candChange) delete(owner address.Address) {
 // candBase funcs
 //======================================
 
-func newCandBase() *candBase {
+func newCandBase(hasAlias bool) *candBase {
 	return &candBase{
 		nameMap:          make(map[string]*Candidate),
 		ownerMap:         make(map[string]*Candidate),
 		operatorMap:      make(map[string]*Candidate),
 		selfStkBucketMap: make(map[uint64]*Candidate),
+		hasAlias:         hasAlias,
 	}
 }
 
@@ -448,6 +465,11 @@ func (cb *candBase) commit(change *candChange) (int, error) {
 			return 0, err
 		}
 		d := v.Clone()
+		if curr, existing := cb.ownerMap[d.Owner.String()]; !cb.hasAlias && existing {
+			// this is an existing candidate, remove it from name/operator map
+			delete(cb.nameMap, curr.Name)
+			delete(cb.operatorMap, curr.Operator.String())
+		}
 		cb.ownerMap[d.Owner.String()] = d
 		cb.nameMap[d.Name] = d
 		cb.operatorMap[d.Operator.String()] = d

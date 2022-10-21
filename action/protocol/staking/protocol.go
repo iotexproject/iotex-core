@@ -173,12 +173,12 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height))
+	c, _, err := CreateBaseView(sr, featureCtx.ReadStateFromDB(height), featureCtx.CandCenterHasAlias(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
 
-	if p.needToReadCandsMap(height) {
+	if p.needToReadCandsMap(ctx, height) {
 		name, operator, owners, err := readCandCenterStateFromStateDB(sr, height)
 		if err != nil {
 			// stateDB does not have name/operator map yet
@@ -323,7 +323,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if err != nil {
 		return err
 	}
-	if !p.needToWriteCandsMap(height) {
+	if !p.needToWriteCandsMap(ctx, height) {
 		return nil
 	}
 
@@ -601,12 +601,14 @@ func (p *Protocol) settleAction(
 	return &r, nil
 }
 
-func (p *Protocol) needToReadCandsMap(height uint64) bool {
-	return height > p.config.PersistStakingPatchBlock
+func (p *Protocol) needToReadCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height > p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
-func (p *Protocol) needToWriteCandsMap(height uint64) bool {
-	return height >= p.config.PersistStakingPatchBlock
+func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
 func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (CandidateList, CandidateList, CandidateList, error) {

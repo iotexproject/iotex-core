@@ -9,7 +9,7 @@ package staking
 func (cb *candBase) clone() *candBase {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
-	clone := newCandBase()
+	clone := newCandBase(cb.hasAlias)
 	for name, cand := range cb.nameMap {
 		clone.nameMap[name] = cand.Clone()
 	}
