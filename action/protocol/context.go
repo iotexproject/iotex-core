@@ -108,7 +108,6 @@ type (
 		CreateLegacyNonceAccount                bool
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
-		CorrectGasRefund                        bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -241,7 +240,6 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			CreateLegacyNonceAccount:                !g.IsOkhotsk(height),
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
-			CorrectGasRefund:                        g.IsOkhotsk(height),
 		},
 	)
 }

@@ -56,7 +56,6 @@ type (
 		balance            []bal
 		codes              []code
 		states             []evmSet
-		refund             uint64
 		suicide            []sui
 		preimage           []image
 		accessList         []access

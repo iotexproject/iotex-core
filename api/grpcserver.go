@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/eth/tracers/logger"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -672,7 +671,7 @@ func (svr *gRPCHandler) TraceTransactionStructLogs(ctx context.Context, in *iote
 	if !ok {
 		return nil, status.Error(codes.InvalidArgument, "the type of action is not supported")
 	}
-	tracer := logger.NewStructLogger(nil)
+	tracer := vm.NewStructLogger(nil)
 	ctx = protocol.WithVMConfigCtx(ctx, vm.Config{
 		Debug:     true,
 		Tracer:    tracer,
