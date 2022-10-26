@@ -7,7 +7,6 @@
 package did
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -20,20 +19,20 @@ import (
 
 // Multi-language support
 var (
-	_registerCmdUses = map[config.Language]string{
-		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri",
-		config.Chinese: "register (合约地址|别名) hash uri",
+	_updateCmdUses = map[config.Language]string{
+		config.English: "update (CONTRACT_ADDRESS|ALIAS) hash uri",
+		config.Chinese: "update (合约地址|别名) hash uri",
 	}
-	_registerCmdShorts = map[config.Language]string{
-		config.English: "Register DID on IoTeX blockchain",
-		config.Chinese: "Register 在IoTeX链上注册DID",
+	_updateCmdShorts = map[config.Language]string{
+		config.English: "Update DID on IoTeX blockchain",
+		config.Chinese: "在IoTeX链上更新DID",
 	}
 )
 
-// NewDidRegisterCmd represents the did register command
-func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_registerCmdUses)
-	short, _ := client.SelectTranslation(_registerCmdShorts)
+// NewDidUpdateCmd represents the contract invoke update command
+func NewDidUpdateCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_updateCmdUses)
+	short, _ := client.SelectTranslation(_updateCmdShorts)
 
 	cmd := &cobra.Command{
 		Use:   use,
@@ -45,7 +44,7 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}
-			bytecode, err := encode(_registerDIDName, args[1], args[2])
+			bytecode, err := encode(_updateDIDName, args[1], args[2])
 			if err != nil {
 				return errors.Wrap(err, "failed to decode data")
 			}
@@ -58,14 +57,4 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 	}
 	action.RegisterWriteCommand(client, cmd)
 	return cmd
-}
-
-func encode(method, didHash, uri string) ([]byte, error) {
-	hashSlice, err := hex.DecodeString(didHash)
-	if err != nil {
-		return nil, err
-	}
-	var hashArray [32]byte
-	copy(hashArray[:], hashSlice)
-	return _didABI.Pack(method, hashArray, []byte(uri))
 }
