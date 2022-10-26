@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewDidRegisterCmd(t *testing.T) {
+func TestNewDidUpdateCmd(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -68,16 +68,24 @@ func TestNewDidRegisterCmd(t *testing.T) {
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResp, nil).Times(1)
 	apiServiceClient.EXPECT().SendAction(gomock.Any(), gomock.Any()).Return(sendActionResp, nil).Times(1)
 
-	t.Run("did register", func(t *testing.T) {
-		cmd := NewDidRegisterCmd(client)
+	t.Run("update did", func(t *testing.T) {
+		cmd := NewDidUpdateCmd(client)
 		result, err := util.ExecuteCmd(cmd, accAddr.String(), payload, "test", "--signer", accAddr.String())
 		require.NoError(err)
-		require.Contains(result, "Action has been sent to blockchain")
+		require.Contains(result, "Action has been sent to blockchain.")
 	})
 
 	t.Run("failed to decode data", func(t *testing.T) {
 		expectedErr := errors.New("failed to decode data")
-		cmd := NewDidRegisterCmd(client)
+		cmd := NewDidUpdateCmd(client)
+		_, err := util.ExecuteCmd(cmd, accAddr.String(), "test", "test", "--signer", accAddr.String())
+		require.Contains(err.Error(), expectedErr.Error())
+	})
+
+	t.Run("failed to get contract address", func(t *testing.T) {
+		expectedErr := errors.New("failed to get contract address")
+		client.EXPECT().Address(gomock.Any()).Return("", expectedErr)
+		cmd := NewDidUpdateCmd(client)
 		_, err := util.ExecuteCmd(cmd, accAddr.String(), "test", "test", "--signer", accAddr.String())
 		require.Contains(err.Error(), expectedErr.Error())
 	})
