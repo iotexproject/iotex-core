@@ -74,4 +74,5 @@ func TestLogDB(t *testing.T) {
 	}()
 	require.NoError(OpenLogDB(testPath))
 	require.NoError(CloseLogDB())
+	enabledLogMptrie = false
 }
