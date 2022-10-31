@@ -1,8 +1,10 @@
 package mptrie
 
 import (
-	"os"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNodeEvent(t *testing.T) {
@@ -64,15 +66,12 @@ func TestNodeEvent(t *testing.T) {
 }
 
 func TestLogDB(t *testing.T) {
-	dbPath := "test_log_db"
+	require := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-log-db")
+	require.NoError(err)
 	defer func() {
-		_ = os.RemoveAll(dbPath)
+		testutil.CleanupPath(testPath)
 	}()
-	if err := OpenLogDB(dbPath); err != nil {
-		t.Errorf("unexpected open error %v", err)
-	}
-	if err := CloseLogDB(); err != nil {
-		t.Errorf("unexpected close error %v", err)
-	}
-
+	require.NoError(OpenLogDB(testPath))
+	require.NoError(CloseLogDB())
 }
