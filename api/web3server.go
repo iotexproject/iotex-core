@@ -330,7 +330,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return nil, nil
 	}
 	if to == address.StakingProtocolAddr {
-		sctx, err := CallDataToStakeStateContext(data)
+		sctx, err := action.CallDataToStakeStateContext(data)
 		if err != nil {
 			return nil, err
 		}

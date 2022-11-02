@@ -1,6 +1,7 @@
-package api
+package action
 
 import (
+	"encoding/hex"
 	"reflect"
 	"testing"
 
@@ -14,14 +15,14 @@ import (
 func TestCallDataToStakeStateContext_Buckets(t *testing.T) {
 	r := require.New(t)
 
-	data, _ := hexToBytes("0xb1ff5c2400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005")
+	data, _ := hex.DecodeString("b1ff5c2400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005")
 	req, err := CallDataToStakeStateContext(data)
 
 	r.Nil(err)
-	r.EqualValues("*api.BucketsStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*action.BucketsStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER,
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS,
 	}
 	methodBytes, _ := proto.Marshal(method)
 	r.EqualValues(methodBytes, req.Parameters().MethodName)
