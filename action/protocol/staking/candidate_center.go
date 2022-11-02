@@ -152,6 +152,14 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 	return nil
 }
 
+// ResetBase resets the base
+func (m *CandidateCenter) ResetBase(hasAlias bool) {
+	m.hasAlias = hasAlias
+	m.base = newCandBase(hasAlias)
+	m.size = m.change.size()
+	return
+}
+
 // Commit writes the change into base
 func (m *CandidateCenter) Commit() error {
 	size, err := m.base.commit(m.change)

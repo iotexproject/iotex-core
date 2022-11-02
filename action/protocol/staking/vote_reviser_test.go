@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -119,8 +120,8 @@ func TestVoteReviser(t *testing.T) {
 			PersistStakingPatchBlock: math.MaxUint64,
 		},
 		nil,
-		genesis.Default.GreenlandBlockHeight,
 		genesis.Default.HawaiiBlockHeight,
+		genesis.Default.GreenlandBlockHeight,
 	)
 	r.NotNil(stk)
 	r.NoError(err)
@@ -144,21 +145,37 @@ func TestVoteReviser(t *testing.T) {
 
 	csm, err = NewCandidateStateManager(sm, false)
 	r.NoError(err)
+	r.True(csm.DirtyView().candCenter.hasAlias)
 	// load a number of candidates
-	for _, e := range testCandidates {
-		r.NoError(csm.Upsert(e.d))
+	updateCands := CandidateList{
+		testCandidates[3].d, testCandidates[4].d, testCandidates[2].d,
+		testCandidates[0].d, testCandidates[1].d, testCandidates[5].d,
+	}
+	for _, e := range updateCands {
+		r.NoError(csm.Upsert(e))
 	}
 	r.NoError(csm.Commit())
 
 	// test revise
-	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
-	r.False(stk.voteReviser.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(stk.voteReviser.Revise(csm, genesis.Default.HawaiiBlockHeight))
-	r.NoError(csm.Commit())
-	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
+	vr := stk.voteReviser
+	r.False(vr.isCacheExist(genesis.Default.GreenlandBlockHeight))
+	r.False(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	verifyCands(r, sm, vr, updateCands)
+	// simulate first revise attempt failed -- call Revise() again
+	csm = verifyCands(r, sm, vr, updateCands)
+	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
+	// simulate protocol.Commit()
+	{
+		csm = verifyCands(r, sm, vr, updateCands)
+		r.NoError(csm.Commit())
+	}
+	verifyCands(r, sm, vr, updateCands)
 
 	// verify self-stake and total votes match
-	result, ok := stk.voteReviser.result(genesis.Default.HawaiiBlockHeight)
+	result, ok := vr.result(genesis.Default.HawaiiBlockHeight)
 	r.True(ok)
 	r.Equal(len(testCandidates), len(result))
 	cv := genesis.Default.Staking.VoteWeightCalConsts
@@ -183,4 +200,22 @@ func TestVoteReviser(t *testing.T) {
 			}
 		}
 	}
+}
+
+func verifyCands(r *require.Assertions, sm protocol.StateManager, vr *VoteReviser, cands CandidateList) CandidateStateManager {
+	csm, err := NewCandidateStateManager(sm, false)
+	r.NoError(err)
+	cc := csm.DirtyView().candCenter
+	cc.ResetBase(false)
+	r.False(cc.hasAlias)
+	r.Equal(len(cands), cc.Size())
+	all := cc.All()
+	sort.Sort(all)
+	r.Equal(len(cands), len(all))
+	for i := range cands {
+		r.NotEqual(all[i].Votes, cands[i].Votes)
+		all[i].Votes = new(big.Int).Set(cands[i].Votes)
+		r.Equal(all[i], cands[i])
+	}
+	return csm
 }

@@ -14,17 +14,19 @@ import (
 
 // VoteReviser is used to recalculate candidate votes.
 type VoteReviser struct {
-	reviseHeights []uint64
-	cache         map[uint64]CandidateList
-	c             genesis.VoteWeightCalConsts
+	reviseHeights      []uint64
+	cache              map[uint64]CandidateList
+	c                  genesis.VoteWeightCalConsts
+	correctCandsHeight uint64
 }
 
 // NewVoteReviser creates a VoteReviser.
-func NewVoteReviser(c genesis.VoteWeightCalConsts, reviseHeights ...uint64) *VoteReviser {
+func NewVoteReviser(c genesis.VoteWeightCalConsts, correctCandsHeight uint64, reviseHeights ...uint64) *VoteReviser {
 	return &VoteReviser{
-		reviseHeights: reviseHeights,
-		cache:         make(map[uint64]CandidateList),
-		c:             c,
+		reviseHeights:      reviseHeights,
+		cache:              make(map[uint64]CandidateList),
+		c:                  c,
+		correctCandsHeight: correctCandsHeight,
 	}
 }
 
@@ -35,9 +37,35 @@ func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
 		if err != nil {
 			return err
 		}
+		if vr.needCorrectCands(height) {
+			if err := vr.correctAliasCands(csm, cands); err != nil {
+				return err
+			}
+		}
 		vr.storeToCache(height, cands)
 	}
 	return vr.flush(height, csm)
+}
+
+func (vr *VoteReviser) correctAliasCands(csm CandidateStateManager, cands CandidateList) error {
+	_, _, owners, err := readCandCenterStateFromStateDB(csm.SM(), 0)
+	switch {
+	case errors.Cause(err) == state.ErrStateNotExist:
+		return nil
+	case err != nil:
+		return err
+	}
+
+	for _, c := range cands {
+		for _, owner := range owners {
+			if c.Owner.String() == owner.Owner.String() {
+				c.Operator = owner.Operator
+				c.Reward = owner.Reward
+				c.Name = owner.Name
+			}
+		}
+	}
+	return nil
 }
 
 func (vr *VoteReviser) result(height uint64) (CandidateList, bool) {
@@ -61,7 +89,12 @@ func (vr *VoteReviser) NeedRevise(height uint64) bool {
 			return true
 		}
 	}
-	return false
+	return vr.needCorrectCands(height)
+}
+
+// NeedCorrectCands returns true if height needs to correct candidates
+func (vr *VoteReviser) needCorrectCands(height uint64) bool {
+	return height == vr.correctCandsHeight
 }
 
 func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (CandidateList, error) {
