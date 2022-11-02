@@ -92,6 +92,7 @@ func init() {
 	}
 }
 
+// BucketsByIndexesStateContext context for BucketsByIndexes
 type BucketsByIndexesStateContext struct {
 	*baseStateContext
 }
@@ -104,7 +105,7 @@ func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext
 	}
 	var index []uint64
 	if index, ok = paramsMap["indexes"].([]uint64); !ok {
-		return nil, ErrDecodeFailure
+		return nil, errDecodeFailure
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
@@ -135,6 +136,7 @@ func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext
 	}, nil
 }
 
+// EncodeToEth encode proto to eth
 func (r *BucketsByIndexesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var result iotextypes.VoteBucketList
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {

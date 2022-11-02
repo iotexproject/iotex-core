@@ -12,18 +12,19 @@ import (
 )
 
 var (
-	ErrInvalidCallData  = errors.New("invalid call binary data")
-	ErrInvalidCallSig   = errors.New("invalid call sig")
-	ErrDecodeFailure    = errors.New("decode call data error")
-	ErrConvertBigNumber = errors.New("convert big number error")
+	errInvalidCallData  = errors.New("invalid call binary data")
+	errInvalidCallSig   = errors.New("invalid call sig")
+	errConvertBigNumber = errors.New("convert big number error")
 )
 
 type (
+	// Parameters state request parameters
 	Parameters struct {
 		MethodName []byte
 		Arguments  [][]byte
 	}
 
+	// StateContext context for ReadState
 	StateContext interface {
 		Parameters() *Parameters
 		EncodeToEth(*iotexapi.ReadStateResponse) (string, error)
@@ -33,6 +34,7 @@ type (
 		parameters *Parameters
 	}
 
+	// Bucket struct for eth
 	Bucket struct {
 		Index            uint64
 		CandidateAddress common.Address
@@ -63,7 +65,7 @@ func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error
 		if amount, ok := new(big.Int).SetString(bucket.StakedAmount, 10); ok {
 			args[i].StakedAmount = amount
 		} else {
-			return "", ErrConvertBigNumber
+			return "", errConvertBigNumber
 		}
 		args[i].StakedDuration = bucket.StakedDuration
 		args[i].CreateTime = bucket.CreateTime.Seconds
@@ -84,9 +86,10 @@ func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error
 	return hex.EncodeToString(data), nil
 }
 
+// CallDataToStakeStateContext decode eth_call data to StateContext
 func CallDataToStakeStateContext(data []byte) (StateContext, error) {
 	if len(data) < 4 {
-		return nil, ErrInvalidCallData
+		return nil, errInvalidCallData
 	}
 
 	switch methodSig := hex.EncodeToString(data[:4]); methodSig {
@@ -101,6 +104,6 @@ func CallDataToStakeStateContext(data []byte) (StateContext, error) {
 	case hex.EncodeToString(_bucketsCountMethod.ID):
 		return newBucketsCountStateContext()
 	default:
-		return nil, ErrInvalidCallSig
+		return nil, errInvalidCallSig
 	}
 }

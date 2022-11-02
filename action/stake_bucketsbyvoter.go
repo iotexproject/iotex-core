@@ -104,6 +104,7 @@ func init() {
 	}
 }
 
+// BucketsByVoterStateContext context for BucketsByVoter
 type BucketsByVoterStateContext struct {
 	*baseStateContext
 }
@@ -116,7 +117,7 @@ func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, er
 	}
 	var voter common.Address
 	if voter, ok = paramsMap["voter"].(common.Address); !ok {
-		return nil, ErrDecodeFailure
+		return nil, errDecodeFailure
 	}
 	voterAddress, err := address.FromBytes(voter[:])
 	if err != nil {
@@ -124,10 +125,10 @@ func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, er
 	}
 	var offset, limit uint32
 	if offset, ok = paramsMap["offset"].(uint32); !ok {
-		return nil, ErrDecodeFailure
+		return nil, errDecodeFailure
 	}
 	if limit, ok = paramsMap["limit"].(uint32); !ok {
-		return nil, ErrDecodeFailure
+		return nil, errDecodeFailure
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
@@ -162,6 +163,7 @@ func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, er
 	}, nil
 }
 
+// EncodeToEth encode proto to eth
 func (r *BucketsByVoterStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var result iotextypes.VoteBucketList
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {

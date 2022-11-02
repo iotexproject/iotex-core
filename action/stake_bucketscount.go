@@ -45,6 +45,7 @@ func init() {
 	}
 }
 
+// BucketsCountStateContext context for BucketsCount
 type BucketsCountStateContext struct {
 	*baseStateContext
 }
@@ -76,6 +77,7 @@ func newBucketsCountStateContext() (*BucketsCountStateContext, error) {
 	}, nil
 }
 
+// EncodeToEth encode proto to eth
 func (r *BucketsCountStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var result iotextypes.BucketsCount
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
