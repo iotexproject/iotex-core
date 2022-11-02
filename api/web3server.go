@@ -329,6 +329,21 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
 	}
+	if to == address.StakingProtocolAddr {
+		sctx, err := CallDataToStakeStateContext(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
 	exec, _ := action.NewExecution(to, 0, value, gasLimit, big.NewInt(0), data)
 	ret, _, err := svr.coreService.ReadContract(context.Background(), callerAddr, exec)
 	if err != nil {
