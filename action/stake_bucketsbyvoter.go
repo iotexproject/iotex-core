@@ -111,7 +111,7 @@ type BucketsByVoterStateContext struct {
 func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _bucketsMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _bucketsByVoterMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
 		return nil, err
 	}
 	var voter common.Address

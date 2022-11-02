@@ -99,7 +99,7 @@ type BucketsByIndexesStateContext struct {
 func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _bucketsMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _bucketsByIndexesMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
 		return nil, err
 	}
 	var index []uint64

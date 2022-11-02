@@ -15,7 +15,7 @@ var (
 	ErrInvalidCallData  = errors.New("invalid call binary data")
 	ErrInvalidCallSig   = errors.New("invalid call sig")
 	ErrDecodeFailure    = errors.New("decode call data error")
-	ErrConvertBigNumber = errors.New("convert big number  error")
+	ErrConvertBigNumber = errors.New("convert big number error")
 )
 
 type (
@@ -85,7 +85,7 @@ func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error
 }
 
 func CallDataToStakeStateContext(data []byte) (StateContext, error) {
-	if len(data) <= 4 {
+	if len(data) < 4 {
 		return nil, ErrInvalidCallData
 	}
 
@@ -98,6 +98,8 @@ func CallDataToStakeStateContext(data []byte) (StateContext, error) {
 		return newBucketsByIndexesStateContext(data[4:])
 	case hex.EncodeToString(_bucketsByVoterMethod.ID):
 		return newBucketsByVoterStateContext(data[4:])
+	case hex.EncodeToString(_bucketsCountMethod.ID):
+		return newBucketsCountStateContext()
 	default:
 		return nil, ErrInvalidCallSig
 	}
