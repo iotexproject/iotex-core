@@ -49,12 +49,6 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "failed to decode data")
 			}
-			var hashArray [32]byte
-			copy(hashArray[:], hashSlice)
-			bytecode, err := _didABI.Pack(_registerDIDName, hashArray, []byte(args[2]))
-			if err != nil {
-				return errors.Wrap(err, "invalid bytecode")
-			}
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := action.GetWriteCommandFlag(cmd)
 			if err != nil {
 				return err
