@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContext_TotalStakingAmount(t *testing.T) {
+func TestCallDataToStakeStateContextTotalStakingAmount(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("d201114a")

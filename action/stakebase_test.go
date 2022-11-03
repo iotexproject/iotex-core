@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCallDataToStakeStateContext_Error(t *testing.T) {
+func TestCallDataToStakeStateContextError(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("8ae8a8a4")
@@ -18,7 +18,7 @@ func TestCallDataToStakeStateContext_Error(t *testing.T) {
 	r.EqualValues("invalid call sig", err.Error())
 }
 
-func TestCallDataToStakeStateContext_Invalid(t *testing.T) {
+func TestCallDataToStakeStateContextInvalid(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("8ae8a8")

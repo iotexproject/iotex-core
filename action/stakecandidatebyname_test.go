@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContext_CandidateByName(t *testing.T) {
+func TestCallDataToStakeStateContextCandidateByName(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("6da1bb770000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000")

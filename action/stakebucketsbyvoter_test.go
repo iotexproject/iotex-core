@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContext_BucketsByVoter(t *testing.T) {
+func TestCallDataToStakeStateContextBucketsByVoter(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("4a0c59f9000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002")

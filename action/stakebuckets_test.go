@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestCallDataToStakeStateContext_Buckets(t *testing.T) {
+func TestCallDataToStakeStateContextBuckets(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("b1ff5c2400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005")

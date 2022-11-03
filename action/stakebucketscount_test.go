@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContext_BucketsCount(t *testing.T) {
+func TestCallDataToStakeStateContextBucketsCount(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("fa87b185")
