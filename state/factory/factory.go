@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -296,7 +297,7 @@ func (sf *factory) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 			if wi.Namespace() == ArchiveTrieNamespace {
 				return true
 			}
-			if wi.Namespace() != evm.CodeKVNameSpace {
+			if wi.Namespace() != evm.CodeKVNameSpace && wi.Namespace() != staking.CandsMapNS {
 				return false
 			}
 			return preEaster

@@ -216,10 +216,14 @@ func (ws *workingSet) ResetSnapshots() {
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
+	if err := protocolPreCommit(ctx, ws); err != nil {
+		return err
+	}
 	if err := ws.store.Commit(); err != nil {
 		return err
 	}
 	if err := protocolCommit(ctx, ws); err != nil {
+		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
 	ws.Reset()
@@ -530,10 +534,11 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 		return err
 	}
 	if !blk.VerifyDeltaStateDigest(digest) {
-		return block.ErrDeltaStateMismatch
+		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
 	}
-	if !blk.VerifyReceiptRoot(calculateReceiptRoot(ws.receipts)) {
-		return block.ErrReceiptRootMismatch
+	receiptRoot := calculateReceiptRoot(ws.receipts)
+	if !blk.VerifyReceiptRoot(receiptRoot) {
+		return errors.Wrapf(block.ErrReceiptRootMismatch, "receipt root in block '%x' vs receipt root in workingset '%x'", blk.ReceiptRoot(), receiptRoot)
 	}
 
 	return nil

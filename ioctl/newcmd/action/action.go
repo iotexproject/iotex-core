@@ -348,7 +348,7 @@ func SendAction(client ioctl.Client,
 		signer = addr.String()
 		nonce, err = checkNonce(client, nonce, signer)
 		if err != nil {
-			return errors.Wrap(err, "failed to get nonce ")
+			return errors.Wrap(err, "failed to get nonce")
 		}
 		elp.SetNonce(nonce)
 	}
@@ -385,7 +385,7 @@ func SendAction(client ioctl.Client,
 	return SendRaw(client, cmd, selp)
 }
 
-// Execute sends signed execution transaction to blockchain
+// Execute sends signed execution's transaction to blockchain
 func Execute(client ioctl.Client,
 	cmd *cobra.Command,
 	contract string,
