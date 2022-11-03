@@ -46,6 +46,17 @@ type (
 		AutoStake        bool
 		Owner            common.Address
 	}
+
+	// Candidate struct for eth
+	Candidate struct {
+		OwnerAddress       common.Address
+		OperatorAddress    common.Address
+		RewardAddress      common.Address
+		Name               string
+		TotalWeightedVotes *big.Int
+		SelfStakeBucketIdx uint64
+		SelfStakingTokens  *big.Int
+	}
 )
 
 func (r *baseStateContext) Parameters() *Parameters {
@@ -86,6 +97,38 @@ func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error
 	return hex.EncodeToString(data), nil
 }
 
+func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*Candidate, error) {
+	result := &Candidate{}
+	if addr, err := addrutil.IoAddrToEvmAddr(candidate.OwnerAddress); err == nil {
+		result.OwnerAddress = addr
+	} else {
+		return nil, err
+	}
+	if addr, err := addrutil.IoAddrToEvmAddr(candidate.OperatorAddress); err == nil {
+		result.OperatorAddress = addr
+	} else {
+		return nil, err
+	}
+	if addr, err := addrutil.IoAddrToEvmAddr(candidate.RewardAddress); err == nil {
+		result.RewardAddress = addr
+	} else {
+		return nil, err
+	}
+	result.Name = candidate.Name
+	if amount, ok := new(big.Int).SetString(candidate.TotalWeightedVotes, 10); ok {
+		result.TotalWeightedVotes = amount
+	} else {
+		return nil, errConvertBigNumber
+	}
+	result.SelfStakeBucketIdx = candidate.SelfStakeBucketIdx
+	if amount, ok := new(big.Int).SetString(candidate.SelfStakingTokens, 10); ok {
+		result.SelfStakingTokens = amount
+	} else {
+		return nil, errConvertBigNumber
+	}
+	return result, nil
+}
+
 // CallDataToStakeStateContext decode eth_call data to StateContext
 func CallDataToStakeStateContext(data []byte) (StateContext, error) {
 	if len(data) < 4 {
@@ -103,6 +146,14 @@ func CallDataToStakeStateContext(data []byte) (StateContext, error) {
 		return newBucketsByVoterStateContext(data[4:])
 	case hex.EncodeToString(_bucketsCountMethod.ID):
 		return newBucketsCountStateContext()
+	case hex.EncodeToString(_candidatesMethod.ID):
+		return newCandidatesStateContext(data[4:])
+	case hex.EncodeToString(_candidateByNameMethod.ID):
+		return newCandidateByNameStateContext(data[4:])
+	case hex.EncodeToString(_candidateByAddressMethod.ID):
+		return newCandidateByAddressStateContext(data[4:])
+	case hex.EncodeToString(_totalStakingAmountMethod.ID):
+		return newTotalStakingAmountContext()
 	default:
 		return nil, errInvalidCallSig
 	}
