@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -74,7 +75,17 @@ func newTotalStakingAmountContext() (*TotalStakingAmountStateContext, error) {
 
 // EncodeToEth encode proto to eth
 func (r *TotalStakingAmountStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	data, err := _totalStakingAmountMethod.Outputs.Pack(new(big.Int).SetBytes(resp.Data))
+	var meta iotextypes.AccountMeta
+	if err := proto.Unmarshal(resp.Data, &meta); err != nil {
+		return "", err
+	}
+
+	total, ok := new(big.Int).SetString(meta.Balance, 10)
+	if !ok {
+		return "", errConvertBigNumber
+	}
+
+	data, err := _totalStakingAmountMethod.Outputs.Pack(total)
 	if err != nil {
 		return "", nil
 	}

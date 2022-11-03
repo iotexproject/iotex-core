@@ -2,11 +2,11 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -38,9 +38,13 @@ func TestCallDataToStakeStateContext_TotalStakingAmount(t *testing.T) {
 func TestEncodeTotalStakingAmountToEth(t *testing.T) {
 	r := require.New(t)
 
-	total, _ := new(big.Int).SetString("100000000000000000000", 10)
+	meta := &iotextypes.AccountMeta{
+		Address: "io000000000000000000000000stakingprotocol",
+		Balance: "100000000000000000000",
+	}
+	metaBytes, _ := proto.Marshal(meta)
 	resp := &iotexapi.ReadStateResponse{
-		Data: total.Bytes(),
+		Data: metaBytes,
 	}
 
 	ctx := &TotalStakingAmountStateContext{}
