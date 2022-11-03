@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
@@ -10,16 +10,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const _candidateByNameInterfaceABI = `[
+const _candidatesInterfaceABI = `[
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "candName",
-				"type": "string"
+				"internalType": "uint32",
+				"name": "offset",
+				"type": "uint32"
+			},
+			{
+				"internalType": "uint32",
+				"name": "limit",
+				"type": "uint32"
 			}
 		],
-		"name": "candidateByName",
+		"name": "candidates",
 		"outputs": [
 			{
 				"components": [
@@ -59,9 +64,9 @@ const _candidateByNameInterfaceABI = `[
 						"type": "uint256"
 					}
 				],
-				"internalType": "struct IStaking.Candidate",
+				"internalType": "struct IStaking.Candidate[]",
 				"name": "",
-				"type": "tuple"
+				"type": "tuple[]"
 			}
 		],
 		"stateMutability": "view",
@@ -69,47 +74,53 @@ const _candidateByNameInterfaceABI = `[
 	}
 ]`
 
-var _candidateByNameMethod abi.Method
+var _candidatesMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_candidateByNameInterfaceABI))
+	_interface, err := abi.JSON(strings.NewReader(_candidatesInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_candidateByNameMethod, ok = _interface.Methods["candidateByName"]
+	_candidatesMethod, ok = _interface.Methods["candidates"]
 	if !ok {
 		panic("fail to load the method")
 	}
 }
 
-// CandidateByNameStateContext context for CandidateByName
-type CandidateByNameStateContext struct {
+// CandidatesStateContext context for Candidates
+type CandidatesStateContext struct {
 	*baseStateContext
 }
 
-func newCandidateByNameStateContext(data []byte) (*CandidateByNameStateContext, error) {
+func newCandidatesStateContext(data []byte) (*CandidatesStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _candidateByNameMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _candidatesMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
 		return nil, err
 	}
-	var candName string
-	if candName, ok = paramsMap["candName"].(string); !ok {
+	var offset, limit uint32
+	if offset, ok = paramsMap["offset"].(uint32); !ok {
+		return nil, errDecodeFailure
+	}
+	if limit, ok = paramsMap["limit"].(uint32); !ok {
 		return nil, errDecodeFailure
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME,
+		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,
 	}
 	methodBytes, err := proto.Marshal(method)
 	if err != nil {
 		return nil, err
 	}
 	arguments := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_CandidateByName_{
-			CandidateByName: &iotexapi.ReadStakingDataRequest_CandidateByName{
-				CandName: candName,
+		Request: &iotexapi.ReadStakingDataRequest_Candidates_{
+			Candidates: &iotexapi.ReadStakingDataRequest_Candidates{
+				Pagination: &iotexapi.PaginationParam{
+					Offset: offset,
+					Limit:  limit,
+				},
 			},
 		},
 	}
@@ -117,7 +128,7 @@ func newCandidateByNameStateContext(data []byte) (*CandidateByNameStateContext, 
 	if err != nil {
 		return nil, err
 	}
-	return &CandidateByNameStateContext{
+	return &CandidatesStateContext{
 		&baseStateContext{
 			&Parameters{
 				MethodName: methodBytes,
@@ -128,18 +139,22 @@ func newCandidateByNameStateContext(data []byte) (*CandidateByNameStateContext, 
 }
 
 // EncodeToEth encode proto to eth
-func (r *CandidateByNameStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	var result iotextypes.CandidateV2
+func (r *CandidatesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+	var result iotextypes.CandidateListV2
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
 		return "", err
 	}
 
-	cand, err := encodeCandidateToEth(&result)
-	if err != nil {
-		return "", err
+	args := make([]CandidateEth, len(result.Candidates))
+	for i, candidate := range result.Candidates {
+		cand, err := encodeCandidateToEth(candidate)
+		if err != nil {
+			return "", err
+		}
+		args[i] = *cand
 	}
 
-	data, err := _candidateByNameMethod.Outputs.Pack(cand)
+	data, err := _candidatesMethod.Outputs.Pack(args)
 	if err != nil {
 		return "", nil
 	}

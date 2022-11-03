@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
@@ -11,25 +11,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContextCandidateByName(t *testing.T) {
+func TestCallDataToStakeStateContextCandidateByAddress(t *testing.T) {
 	r := require.New(t)
 
-	data, _ := hex.DecodeString("6da1bb770000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000")
+	data, _ := hex.DecodeString("43f75ae40000000000000000000000000000000000000000000000000000000000000001")
 	req, err := CallDataToStakeStateContext(data)
 
 	r.Nil(err)
-	r.EqualValues("*action.CandidateByNameStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*staking.CandidateByAddressStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME,
+		Method: iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS,
 	}
 	methodBytes, _ := proto.Marshal(method)
 	r.EqualValues(methodBytes, req.Parameters().MethodName)
 
 	arguments := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_CandidateByName_{
-			CandidateByName: &iotexapi.ReadStakingDataRequest_CandidateByName{
-				CandName: "hello",
+		Request: &iotexapi.ReadStakingDataRequest_CandidateByAddress_{
+			CandidateByAddress: &iotexapi.ReadStakingDataRequest_CandidateByAddress{
+				OwnerAddr: "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
 			},
 		},
 	}
@@ -37,7 +37,7 @@ func TestCallDataToStakeStateContextCandidateByName(t *testing.T) {
 	r.EqualValues([][]byte{argumentsBytes}, req.Parameters().Arguments)
 }
 
-func TestCandidateByNameToEth(t *testing.T) {
+func TestCandidateByAddressToEth(t *testing.T) {
 	r := require.New(t)
 
 	candidate := &iotextypes.CandidateV2{
@@ -55,7 +55,7 @@ func TestCandidateByNameToEth(t *testing.T) {
 		Data: candidateBytes,
 	}
 
-	ctx := &CandidateByNameStateContext{}
+	ctx := &CandidateByAddressStateContext{}
 	data, err := ctx.EncodeToEth(resp)
 	r.Nil(err)
 	r.EqualValues("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000004563918244f40000000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000", data)

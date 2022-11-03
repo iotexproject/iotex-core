@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
@@ -18,7 +18,7 @@ func TestCallDataToStakeStateContextBucketsCount(t *testing.T) {
 	req, err := CallDataToStakeStateContext(data)
 
 	r.Nil(err)
-	r.EqualValues("*action.BucketsCountStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*staking.BucketsCountStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,

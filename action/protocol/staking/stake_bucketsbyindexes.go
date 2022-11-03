@@ -1,36 +1,24 @@
-package action
+package staking
 
 import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 )
 
-var _bucketsByVoterInterfaceABI = `[
+const _bucketsByIndexesInterfaceABI = `[
 	{
 		"inputs": [
 			{
-				"internalType": "address",
-				"name": "voter",
-				"type": "address"
-			},
-			{
-				"internalType": "uint32",
-				"name": "offset",
-				"type": "uint32"
-			},
-			{
-				"internalType": "uint32",
-				"name": "limit",
-				"type": "uint32"
+				"internalType": "uint64[]",
+				"name": "indexes",
+				"type": "uint64[]"
 			}
 		],
-		"name": "bucketsByVoter",
+		"name": "bucketsByIndexes",
 		"outputs": [
 			{
 				"components": [
@@ -90,62 +78,47 @@ var _bucketsByVoterInterfaceABI = `[
 	}
 ]`
 
-var _bucketsByVoterMethod abi.Method
+var _bucketsByIndexesMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_bucketsByVoterInterfaceABI))
+	_interface, err := abi.JSON(strings.NewReader(_bucketsByIndexesInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_bucketsByVoterMethod, ok = _interface.Methods["bucketsByVoter"]
+	_bucketsByIndexesMethod, ok = _interface.Methods["bucketsByIndexes"]
 	if !ok {
 		panic("fail to load the method")
 	}
 }
 
-// BucketsByVoterStateContext context for BucketsByVoter
-type BucketsByVoterStateContext struct {
+// BucketsByIndexesStateContext context for BucketsByIndexes
+type BucketsByIndexesStateContext struct {
 	*baseStateContext
 }
 
-func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, error) {
+func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _bucketsByVoterMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _bucketsByIndexesMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
 		return nil, err
 	}
-	var voter common.Address
-	if voter, ok = paramsMap["voter"].(common.Address); !ok {
-		return nil, errDecodeFailure
-	}
-	voterAddress, err := address.FromBytes(voter[:])
-	if err != nil {
-		return nil, err
-	}
-	var offset, limit uint32
-	if offset, ok = paramsMap["offset"].(uint32); !ok {
-		return nil, errDecodeFailure
-	}
-	if limit, ok = paramsMap["limit"].(uint32); !ok {
+	var index []uint64
+	if index, ok = paramsMap["indexes"].([]uint64); !ok {
 		return nil, errDecodeFailure
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER,
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
 	}
 	methodBytes, err := proto.Marshal(method)
 	if err != nil {
 		return nil, err
 	}
 	arguments := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketsByVoter{
-			BucketsByVoter: &iotexapi.ReadStakingDataRequest_VoteBucketsByVoter{
-				VoterAddress: voterAddress.String(),
-				Pagination: &iotexapi.PaginationParam{
-					Offset: offset,
-					Limit:  limit,
-				},
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
+			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
+				Index: index,
 			},
 		},
 	}
@@ -153,7 +126,7 @@ func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, er
 	if err != nil {
 		return nil, err
 	}
-	return &BucketsByVoterStateContext{
+	return &BucketsByIndexesStateContext{
 		&baseStateContext{
 			&Parameters{
 				MethodName: methodBytes,
@@ -164,7 +137,7 @@ func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, er
 }
 
 // EncodeToEth encode proto to eth
-func (r *BucketsByVoterStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+func (r *BucketsByIndexesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var result iotextypes.VoteBucketList
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
 		return "", err

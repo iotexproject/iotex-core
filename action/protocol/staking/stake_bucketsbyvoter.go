@@ -1,17 +1,24 @@
-package action
+package staking
 
 import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 )
 
-const _bucketsInterfaceABI = `[
+var _bucketsByVoterInterfaceABI = `[
 	{
 		"inputs": [
+			{
+				"internalType": "address",
+				"name": "voter",
+				"type": "address"
+			},
 			{
 				"internalType": "uint32",
 				"name": "offset",
@@ -23,7 +30,7 @@ const _bucketsInterfaceABI = `[
 				"type": "uint32"
 			}
 		],
-		"name": "buckets",
+		"name": "bucketsByVoter",
 		"outputs": [
 			{
 				"components": [
@@ -83,29 +90,37 @@ const _bucketsInterfaceABI = `[
 	}
 ]`
 
-var _bucketsMethod abi.Method
+var _bucketsByVoterMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_bucketsInterfaceABI))
+	_interface, err := abi.JSON(strings.NewReader(_bucketsByVoterInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_bucketsMethod, ok = _interface.Methods["buckets"]
+	_bucketsByVoterMethod, ok = _interface.Methods["bucketsByVoter"]
 	if !ok {
 		panic("fail to load the method")
 	}
 }
 
-// BucketsStateContext context for Buckets
-type BucketsStateContext struct {
+// BucketsByVoterStateContext context for BucketsByVoter
+type BucketsByVoterStateContext struct {
 	*baseStateContext
 }
 
-func newBucketsStateContext(data []byte) (*BucketsStateContext, error) {
+func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _bucketsMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _bucketsByVoterMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+		return nil, err
+	}
+	var voter common.Address
+	if voter, ok = paramsMap["voter"].(common.Address); !ok {
+		return nil, errDecodeFailure
+	}
+	voterAddress, err := address.FromBytes(voter[:])
+	if err != nil {
 		return nil, err
 	}
 	var offset, limit uint32
@@ -117,15 +132,16 @@ func newBucketsStateContext(data []byte) (*BucketsStateContext, error) {
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS,
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER,
 	}
 	methodBytes, err := proto.Marshal(method)
 	if err != nil {
 		return nil, err
 	}
 	arguments := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_Buckets{
-			Buckets: &iotexapi.ReadStakingDataRequest_VoteBuckets{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByVoter{
+			BucketsByVoter: &iotexapi.ReadStakingDataRequest_VoteBucketsByVoter{
+				VoterAddress: voterAddress.String(),
 				Pagination: &iotexapi.PaginationParam{
 					Offset: offset,
 					Limit:  limit,
@@ -137,7 +153,7 @@ func newBucketsStateContext(data []byte) (*BucketsStateContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BucketsStateContext{
+	return &BucketsByVoterStateContext{
 		&baseStateContext{
 			&Parameters{
 				MethodName: methodBytes,
@@ -148,7 +164,7 @@ func newBucketsStateContext(data []byte) (*BucketsStateContext, error) {
 }
 
 // EncodeToEth encode proto to eth
-func (r *BucketsStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+func (r *BucketsByVoterStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var result iotextypes.VoteBucketList
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
 		return "", err

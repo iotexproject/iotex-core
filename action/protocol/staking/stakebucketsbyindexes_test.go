@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
@@ -17,7 +17,7 @@ func TestCallDataToStakeStateContextBucketsByIndexes(t *testing.T) {
 	req, err := CallDataToStakeStateContext(data)
 
 	r.Nil(err)
-	r.EqualValues("*action.BucketsByIndexesStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*staking.BucketsByIndexesStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,

@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
@@ -15,6 +15,7 @@ var (
 	errInvalidCallData  = errors.New("invalid call binary data")
 	errInvalidCallSig   = errors.New("invalid call sig")
 	errConvertBigNumber = errors.New("convert big number error")
+	errDecodeFailure    = errors.New("decode data error")
 )
 
 type (
@@ -34,8 +35,8 @@ type (
 		parameters *Parameters
 	}
 
-	// Bucket struct for eth
-	Bucket struct {
+	// BucketEth struct for eth
+	BucketEth struct {
 		Index            uint64
 		CandidateAddress common.Address
 		StakedAmount     *big.Int
@@ -47,8 +48,8 @@ type (
 		Owner            common.Address
 	}
 
-	// Candidate struct for eth
-	Candidate struct {
+	// CandidateEth struct for eth
+	CandidateEth struct {
 		OwnerAddress       common.Address
 		OperatorAddress    common.Address
 		RewardAddress      common.Address
@@ -64,9 +65,9 @@ func (r *baseStateContext) Parameters() *Parameters {
 }
 
 func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error) {
-	args := make([]Bucket, len(buckets.Buckets))
+	args := make([]BucketEth, len(buckets.Buckets))
 	for i, bucket := range buckets.Buckets {
-		args[i] = Bucket{}
+		args[i] = BucketEth{}
 		args[i].Index = bucket.Index
 		if addr, err := addrutil.IoAddrToEvmAddr(bucket.CandidateAddress); err == nil {
 			args[i].CandidateAddress = addr
@@ -97,8 +98,8 @@ func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error
 	return hex.EncodeToString(data), nil
 }
 
-func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*Candidate, error) {
-	result := &Candidate{}
+func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, error) {
+	result := &CandidateEth{}
 	if addr, err := addrutil.IoAddrToEvmAddr(candidate.OwnerAddress); err == nil {
 		result.OwnerAddress = addr
 	} else {

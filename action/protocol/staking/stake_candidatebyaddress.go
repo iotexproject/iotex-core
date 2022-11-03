@@ -1,30 +1,27 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
 )
 
-const _candidatesInterfaceABI = `[
+const _candidateByAddressInterfaceABI = `[
 	{
 		"inputs": [
 			{
-				"internalType": "uint32",
-				"name": "offset",
-				"type": "uint32"
-			},
-			{
-				"internalType": "uint32",
-				"name": "limit",
-				"type": "uint32"
+				"internalType": "address",
+				"name": "ownerAddress",
+				"type": "address"
 			}
 		],
-		"name": "candidates",
+		"name": "candidateByAddress",
 		"outputs": [
 			{
 				"components": [
@@ -64,9 +61,9 @@ const _candidatesInterfaceABI = `[
 						"type": "uint256"
 					}
 				],
-				"internalType": "struct IStaking.Candidate[]",
+				"internalType": "struct IStaking.Candidate",
 				"name": "",
-				"type": "tuple[]"
+				"type": "tuple"
 			}
 		],
 		"stateMutability": "view",
@@ -74,53 +71,51 @@ const _candidatesInterfaceABI = `[
 	}
 ]`
 
-var _candidatesMethod abi.Method
+var _candidateByAddressMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_candidatesInterfaceABI))
+	_interface, err := abi.JSON(strings.NewReader(_candidateByAddressInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_candidatesMethod, ok = _interface.Methods["candidates"]
+	_candidateByAddressMethod, ok = _interface.Methods["candidateByAddress"]
 	if !ok {
 		panic("fail to load the method")
 	}
 }
 
-// CandidatesStateContext context for Candidates
-type CandidatesStateContext struct {
+// CandidateByAddressStateContext context for candidateByAddress
+type CandidateByAddressStateContext struct {
 	*baseStateContext
 }
 
-func newCandidatesStateContext(data []byte) (*CandidatesStateContext, error) {
+func newCandidateByAddressStateContext(data []byte) (*CandidateByAddressStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _candidatesMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _candidateByAddressMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
 		return nil, err
 	}
-	var offset, limit uint32
-	if offset, ok = paramsMap["offset"].(uint32); !ok {
+	var ownerAddress common.Address
+	if ownerAddress, ok = paramsMap["ownerAddress"].(common.Address); !ok {
 		return nil, errDecodeFailure
 	}
-	if limit, ok = paramsMap["limit"].(uint32); !ok {
-		return nil, errDecodeFailure
+	owner, err := address.FromBytes(ownerAddress[:])
+	if err != nil {
+		return nil, err
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,
+		Method: iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS,
 	}
 	methodBytes, err := proto.Marshal(method)
 	if err != nil {
 		return nil, err
 	}
 	arguments := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_Candidates_{
-			Candidates: &iotexapi.ReadStakingDataRequest_Candidates{
-				Pagination: &iotexapi.PaginationParam{
-					Offset: offset,
-					Limit:  limit,
-				},
+		Request: &iotexapi.ReadStakingDataRequest_CandidateByAddress_{
+			CandidateByAddress: &iotexapi.ReadStakingDataRequest_CandidateByAddress{
+				OwnerAddr: owner.String(),
 			},
 		},
 	}
@@ -128,7 +123,7 @@ func newCandidatesStateContext(data []byte) (*CandidatesStateContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CandidatesStateContext{
+	return &CandidateByAddressStateContext{
 		&baseStateContext{
 			&Parameters{
 				MethodName: methodBytes,
@@ -139,22 +134,18 @@ func newCandidatesStateContext(data []byte) (*CandidatesStateContext, error) {
 }
 
 // EncodeToEth encode proto to eth
-func (r *CandidatesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
-	var result iotextypes.CandidateListV2
+func (r *CandidateByAddressStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+	var result iotextypes.CandidateV2
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
 		return "", err
 	}
 
-	args := make([]Candidate, len(result.Candidates))
-	for i, candidate := range result.Candidates {
-		cand, err := encodeCandidateToEth(candidate)
-		if err != nil {
-			return "", err
-		}
-		args[i] = *cand
+	cand, err := encodeCandidateToEth(&result)
+	if err != nil {
+		return "", err
 	}
 
-	data, err := _candidatesMethod.Outputs.Pack(args)
+	data, err := _candidateByAddressMethod.Outputs.Pack(cand)
 	if err != nil {
 		return "", nil
 	}

@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"strings"
@@ -9,16 +9,26 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const _bucketsByIndexesInterfaceABI = `[
+const _bucketsByCandidateInterfaceABI = `[
 	{
 		"inputs": [
 			{
-				"internalType": "uint64[]",
-				"name": "indexes",
-				"type": "uint64[]"
+				"internalType": "string",
+				"name": "candName",
+				"type": "string"
+			},
+			{
+				"internalType": "uint32",
+				"name": "offset",
+				"type": "uint32"
+			},
+			{
+				"internalType": "uint32",
+				"name": "limit",
+				"type": "uint32"
 			}
 		],
-		"name": "bucketsByIndexes",
+		"name": "bucketsByCandidate",
 		"outputs": [
 			{
 				"components": [
@@ -78,47 +88,58 @@ const _bucketsByIndexesInterfaceABI = `[
 	}
 ]`
 
-var _bucketsByIndexesMethod abi.Method
+var _bucketsByCandidateMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_bucketsByIndexesInterfaceABI))
+	_interface, err := abi.JSON(strings.NewReader(_bucketsByCandidateInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_bucketsByIndexesMethod, ok = _interface.Methods["bucketsByIndexes"]
+	_bucketsByCandidateMethod, ok = _interface.Methods["bucketsByCandidate"]
 	if !ok {
 		panic("fail to load the method")
 	}
 }
 
-// BucketsByIndexesStateContext context for BucketsByIndexes
-type BucketsByIndexesStateContext struct {
+// BucketsByCandidateStateContext context for BucketsByCandidate
+type BucketsByCandidateStateContext struct {
 	*baseStateContext
 }
 
-func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext, error) {
+func newBucketsByCandidateStateContext(data []byte) (*BucketsByCandidateStateContext, error) {
 	paramsMap := map[string]interface{}{}
 	ok := false
-	if err := _bucketsByIndexesMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
+	if err := _bucketsByCandidateMethod.Inputs.UnpackIntoMap(paramsMap, data); err != nil {
 		return nil, err
 	}
-	var index []uint64
-	if index, ok = paramsMap["indexes"].([]uint64); !ok {
+	var candName string
+	if candName, ok = paramsMap["candName"].(string); !ok {
+		return nil, errDecodeFailure
+	}
+	var offset, limit uint32
+	if offset, ok = paramsMap["offset"].(uint32); !ok {
+		return nil, errDecodeFailure
+	}
+	if limit, ok = paramsMap["limit"].(uint32); !ok {
 		return nil, errDecodeFailure
 	}
 
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE,
 	}
 	methodBytes, err := proto.Marshal(method)
 	if err != nil {
 		return nil, err
 	}
 	arguments := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
-			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
-				Index: index,
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByCandidate{
+			BucketsByCandidate: &iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate{
+				CandName: candName,
+				Pagination: &iotexapi.PaginationParam{
+					Offset: offset,
+					Limit:  limit,
+				},
 			},
 		},
 	}
@@ -126,7 +147,7 @@ func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext
 	if err != nil {
 		return nil, err
 	}
-	return &BucketsByIndexesStateContext{
+	return &BucketsByCandidateStateContext{
 		&baseStateContext{
 			&Parameters{
 				MethodName: methodBytes,
@@ -137,7 +158,7 @@ func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext
 }
 
 // EncodeToEth encode proto to eth
-func (r *BucketsByIndexesStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
+func (r *BucketsByCandidateStateContext) EncodeToEth(resp *iotexapi.ReadStateResponse) (string, error) {
 	var result iotextypes.VoteBucketList
 	if err := proto.Unmarshal(resp.Data, &result); err != nil {
 		return "", err

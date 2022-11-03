@@ -1,4 +1,4 @@
-package action
+package staking
 
 import (
 	"encoding/hex"
