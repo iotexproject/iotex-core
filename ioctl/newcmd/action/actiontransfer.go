@@ -27,8 +27,7 @@ var (
 	}
 	_actionTransferCmdUses = map[config.Language]string{
 		config.English: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "transfer (别名|接收人地址) IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS" +
-			"价格] [-P 密码] [-y]",
+		config.Chinese: "transfer (别名|接收人地址) IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS价格] [-P 密码] [-y]",
 	}
 )
 
