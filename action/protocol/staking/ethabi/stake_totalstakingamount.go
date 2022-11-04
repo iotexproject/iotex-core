@@ -1,4 +1,4 @@
-package staking
+package ethabi
 
 import (
 	"encoding/hex"

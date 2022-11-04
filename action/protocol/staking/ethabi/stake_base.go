@@ -1,10 +1,11 @@
-package staking
+package ethabi
 
 import (
 	"encoding/hex"
 	"errors"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -64,7 +65,7 @@ func (r *baseStateContext) Parameters() *Parameters {
 	return r.parameters
 }
 
-func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error) {
+func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBucketList) (string, error) {
 	args := make([]BucketEth, len(buckets.Buckets))
 	for i, bucket := range buckets.Buckets {
 		args[i] = BucketEth{}
@@ -91,7 +92,7 @@ func encodeVoteBucketListToEth(buckets iotextypes.VoteBucketList) (string, error
 		}
 	}
 
-	data, err := _bucketsMethod.Outputs.Pack(args)
+	data, err := outputs.Pack(args)
 	if err != nil {
 		return "", nil
 	}

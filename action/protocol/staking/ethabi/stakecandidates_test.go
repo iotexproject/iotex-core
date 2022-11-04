@@ -1,4 +1,4 @@
-package staking
+package ethabi
 
 import (
 	"encoding/hex"
@@ -18,7 +18,7 @@ func TestCallDataToStakeStateContextCandidates(t *testing.T) {
 	req, err := CallDataToStakeStateContext(data)
 
 	r.Nil(err)
-	r.EqualValues("*staking.CandidatesStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*ethabi.CandidatesStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_CANDIDATES,

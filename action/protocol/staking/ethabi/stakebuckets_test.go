@@ -1,4 +1,4 @@
-package staking
+package ethabi
 
 import (
 	"encoding/hex"
@@ -19,7 +19,7 @@ func TestCallDataToStakeStateContextBuckets(t *testing.T) {
 	req, err := CallDataToStakeStateContext(data)
 
 	r.Nil(err)
-	r.EqualValues("*staking.BucketsStateContext", reflect.TypeOf(req).String())
+	r.EqualValues("*ethabi.BucketsStateContext", reflect.TypeOf(req).String())
 
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS,
@@ -69,7 +69,7 @@ func TestEncodeVoteBucketListToEth(t *testing.T) {
 		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxf907nt9",
 	}
 
-	data, err := encodeVoteBucketListToEth(iotextypes.VoteBucketList{
+	data, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
 		Buckets: buckets,
 	})
 

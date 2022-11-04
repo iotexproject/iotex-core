@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -331,7 +331,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return nil, nil
 	}
 	if to == address.StakingProtocolAddr {
-		sctx, err := staking.CallDataToStakeStateContext(data)
+		sctx, err := ethabi.CallDataToStakeStateContext(data)
 		if err != nil {
 			return nil, err
 		}

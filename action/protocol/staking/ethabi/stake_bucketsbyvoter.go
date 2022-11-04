@@ -1,4 +1,4 @@
-package staking
+package ethabi
 
 import (
 	"strings"
@@ -170,5 +170,5 @@ func (r *BucketsByVoterStateContext) EncodeToEth(resp *iotexapi.ReadStateRespons
 		return "", err
 	}
 
-	return encodeVoteBucketListToEth(result)
+	return encodeVoteBucketListToEth(_bucketsByVoterMethod.Outputs, result)
 }
