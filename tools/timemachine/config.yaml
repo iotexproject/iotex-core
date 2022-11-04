@@ -1,0 +1,18 @@
+chain:
+  chainDBPath: /Users/u/Downloads/fullsync_mainnet_14m25_chain-00000013.db
+  trieDBPath: /Users/u/Downloads/fullsync_mainnet_14m25_trie.db
+  indexDBPath: /var/data/index.db
+  candidateIndexDBPath: /var/data/candidate.index.db
+  gravityChainDB:
+    dbPath: /var/data/poll.db
+system:
+  systemLogDBPath: /var/log/systemlog.db
+log:
+  zap:
+    level: info
+    encoding: json
+    disableStacktrace: true
+    outputPaths: ["stderr", "stdout"]
+    errorOutputPaths: ["stderr"]
+  stderrRedirectFile: /var/log/s.log
+  stdLogRedirect: true

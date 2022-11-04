@@ -29,6 +29,6 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(getHeight)
 	rootCmd.AddCommand(syncHeight)
-	rootCmd.AddCommand(preHeight)
-	rootCmd.AddCommand(commitHeight)
+	rootCmd.AddCommand(playNext)
+	rootCmd.AddCommand(commitNext)
 }

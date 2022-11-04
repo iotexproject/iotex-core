@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// commitHeight represents the commitheight command
-var commitHeight = &cobra.Command{
-	Use:   "commitheight",
-	Short: "Show the tipheight of stateDB and chainDB",
+// commitNext represents the commitnext command
+var commitNext = &cobra.Command{
+	Use:   "commitnext",
+	Short: "Commit next height of block",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 

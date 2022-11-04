@@ -16,7 +16,20 @@ var getHeight = &cobra.Command{
 	Short: "Show the tipheight of stateDB and chainDB",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
+		svr, err := newMiniServer(miniServerConfig())
+		if err != nil {
+			return err
+		}
+		daoHeight, err := svr.BlockDao().Height()
+		if err != nil {
+			return err
+		}
+		indexerHeight, err := svr.Factory().Height()
+		if err != nil {
+			return err
+		}
+		cmd.Println("BlockDao's Height:", daoHeight)
+		cmd.Println("Indexer's Height:", indexerHeight)
 		return nil
 	},
 }

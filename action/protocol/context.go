@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -32,6 +33,8 @@ type (
 	featureWithHeightContextKey struct{}
 
 	vmConfigContextKey struct{}
+
+	testContextKey struct{}
 
 	// TipInfo contains the tip block information
 	TipInfo struct {
@@ -74,6 +77,11 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+	}
+
+	// TestCtx is ctx used in test or tool
+	TestCtx struct {
+		DisableBlockDaoSync bool
 	}
 
 	// CheckFunc is function type to check by height.
@@ -318,5 +326,16 @@ func WithVMConfigCtx(ctx context.Context, vmConfig vm.Config) context.Context {
 // GetVMConfigCtx returns the vm config from context
 func GetVMConfigCtx(ctx context.Context) (vm.Config, bool) {
 	cfg, ok := ctx.Value(vmConfigContextKey{}).(vm.Config)
+	return cfg, ok
+}
+
+// WithTestCtx adds test config to context
+func WithTestCtx(ctx context.Context, testCtx TestCtx) context.Context {
+	return context.WithValue(ctx, testContextKey{}, testCtx)
+}
+
+// GetTestCtx returns the test config from context
+func GetTestCtx(ctx context.Context) (TestCtx, bool) {
+	cfg, ok := ctx.Value(testContextKey{}).(TestCtx)
 	return cfg, ok
 }

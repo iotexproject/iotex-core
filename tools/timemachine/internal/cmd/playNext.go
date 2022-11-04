@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// preHeight represents the preheight command
-var preHeight = &cobra.Command{
-	Use:   "preheight",
-	Short: "Show the tipheight of stateDB and chainDB",
+// playNext represents the playnext command
+var playNext = &cobra.Command{
+	Use:   "playnext",
+	Short: "Play next height of block",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 

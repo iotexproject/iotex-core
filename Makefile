@@ -26,6 +26,7 @@ BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
 BUILD_TARGET_READTIP=readtip
 BUILD_TARGET_IOMIGRATER=iomigrater
+BUILD_TARGET_TIMEMACHINE=timemachine
 BUILD_TARGET_OS=$(shell go env GOOS)
 BUILD_TARGET_ARCH=$(shell go env GOARCH)
 
@@ -100,6 +101,10 @@ build-staterecoverer:
 .PHONY: build-readtip
 build-readtip:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
+
+.PHONY: build-timemachine
+build-timemachine:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_TIMEMACHINE) -v ./tools/timemachine
 
 .PHONY: fmt
 fmt:
