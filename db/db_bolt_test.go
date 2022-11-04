@@ -8,8 +8,12 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"syscall"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db/batch"
 
@@ -77,6 +81,11 @@ func TestBucketExists(t *testing.T) {
 	v, err := kv.Get("name", []byte("key"))
 	r.NoError(err)
 	r.Equal([]byte{}, v)
+}
+
+func TestDiskfullErr(t *testing.T) {
+	err := fmt.Errorf("write /run/data/chain.db: %w", syscall.ENOSPC)
+	require.True(t, errors.Is(err, syscall.ENOSPC))
 }
 
 func BenchmarkBoltDB_Get(b *testing.B) {
