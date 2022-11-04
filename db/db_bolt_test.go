@@ -14,11 +14,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db/batch"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
