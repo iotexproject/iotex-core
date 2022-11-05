@@ -52,3 +52,98 @@ func TestEncodeCandidateToEth(t *testing.T) {
 	r.EqualValues(100, cand.SelfStakeBucketIdx)
 	r.EqualValues("5000000000000000000", cand.SelfStakingTokens.String())
 }
+
+func TestEncodeCandidateToEthErrorOwnerAddress(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &iotextypes.CandidateV2{
+		OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833x",
+		OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz75y8gn",
+		RewardAddress:      "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrrzsj4p",
+		Name:               "hello",
+		TotalWeightedVotes: "10000000000000000000",
+		SelfStakeBucketIdx: 100,
+		SelfStakingTokens:  "5000000000000000000",
+	}
+
+	cand, err := encodeCandidateToEth(candidate)
+
+	r.Nil(cand)
+	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+}
+
+func TestEncodeCandidateToEthErrorOperatorAddress(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &iotextypes.CandidateV2{
+		OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
+		OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz75y8g",
+		RewardAddress:      "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrrzsj4p",
+		Name:               "hello",
+		TotalWeightedVotes: "10000000000000000000",
+		SelfStakeBucketIdx: 100,
+		SelfStakingTokens:  "5000000000000000000",
+	}
+
+	cand, err := encodeCandidateToEth(candidate)
+
+	r.Nil(cand)
+	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+}
+
+func TestEncodeCandidateToEthErrorRewardAddress(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &iotextypes.CandidateV2{
+		OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
+		OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz75y8gn",
+		RewardAddress:      "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrrzddd",
+		Name:               "hello",
+		TotalWeightedVotes: "10000000000000000000",
+		SelfStakeBucketIdx: 100,
+		SelfStakingTokens:  "5000000000000000000",
+	}
+
+	cand, err := encodeCandidateToEth(candidate)
+
+	r.Nil(cand)
+	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+}
+
+func TestEncodeCandidateToEthErrorTotalWeightedVotes(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &iotextypes.CandidateV2{
+		OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
+		OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz75y8gn",
+		RewardAddress:      "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrrzsj4p",
+		Name:               "hello",
+		TotalWeightedVotes: "XXX",
+		SelfStakeBucketIdx: 100,
+		SelfStakingTokens:  "5000000000000000000",
+	}
+
+	cand, err := encodeCandidateToEth(candidate)
+
+	r.Nil(cand)
+	r.EqualValues("convert big number error", err.Error())
+}
+
+func TestEncodeCandidateToEthErrorSelfStakingTokens(t *testing.T) {
+	r := require.New(t)
+
+	candidate := &iotextypes.CandidateV2{
+		OwnerAddress:       "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv",
+		OperatorAddress:    "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz75y8gn",
+		RewardAddress:      "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrrzsj4p",
+		Name:               "hello",
+		TotalWeightedVotes: "5000000000000000000",
+		SelfStakeBucketIdx: 100,
+		SelfStakingTokens:  "XXXX",
+	}
+
+	cand, err := encodeCandidateToEth(candidate)
+
+	r.Nil(cand)
+	r.EqualValues("convert big number error", err.Error())
+}

@@ -76,3 +76,88 @@ func TestEncodeVoteBucketListToEth(t *testing.T) {
 	r.Nil(err)
 	r.EqualValues("00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000000003b9aca01000000000000000000000000000000000000000000000000000000003b9aca02000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000650000000000000000000000000000000000000000000000001bc16d674ec8000000000000000000000000000000000000000000000000000000000000001e8480000000000000000000000000000000000000000000000000000000003b9aca64000000000000000000000000000000000000000000000000000000003b9aca65000000000000000000000000000000000000000000000000000000003b9aca66000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c9", data)
 }
+
+func TestEncodeVoteBucketListToEthEmptyBuckets(t *testing.T) {
+	r := require.New(t)
+
+	buckets := make([]*iotextypes.VoteBucket, 0)
+
+	data, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+		Buckets: buckets,
+	})
+
+	r.Nil(err)
+	r.EqualValues("00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000", data)
+}
+
+func TestEncodeVoteBucketListToEthErrorCandidateAddress(t *testing.T) {
+	r := require.New(t)
+
+	buckets := make([]*iotextypes.VoteBucket, 1)
+
+	buckets[0] = &iotextypes.VoteBucket{
+		Index:            1,
+		CandidateAddress: "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqryn4k9f",
+		StakedAmount:     "1000000000000000000",
+		StakedDuration:   1_000_000,
+		CreateTime:       &timestamppb.Timestamp{Seconds: 1_000_000_000},
+		StakeStartTime:   &timestamppb.Timestamp{Seconds: 1_000_000_001},
+		UnstakeStartTime: &timestamppb.Timestamp{Seconds: 1_000_000_002},
+		AutoStake:        true,
+		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxgce2xkh",
+	}
+
+	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+		Buckets: buckets,
+	})
+
+	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+}
+
+func TestEncodeVoteBucketListToEthErrorStakedAmount(t *testing.T) {
+	r := require.New(t)
+
+	buckets := make([]*iotextypes.VoteBucket, 1)
+
+	buckets[0] = &iotextypes.VoteBucket{
+		Index:            1,
+		CandidateAddress: "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqryn4k9fw",
+		StakedAmount:     "xxx",
+		StakedDuration:   1_000_000,
+		CreateTime:       &timestamppb.Timestamp{Seconds: 1_000_000_000},
+		StakeStartTime:   &timestamppb.Timestamp{Seconds: 1_000_000_001},
+		UnstakeStartTime: &timestamppb.Timestamp{Seconds: 1_000_000_002},
+		AutoStake:        true,
+		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxgce2xkh",
+	}
+
+	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+		Buckets: buckets,
+	})
+
+	r.EqualValues("convert big number error", err.Error())
+}
+
+func TestEncodeVoteBucketListToEthErrorOwner(t *testing.T) {
+	r := require.New(t)
+
+	buckets := make([]*iotextypes.VoteBucket, 1)
+
+	buckets[0] = &iotextypes.VoteBucket{
+		Index:            1,
+		CandidateAddress: "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqryn4k9fw",
+		StakedAmount:     "1000000000000000000",
+		StakedDuration:   1_000_000,
+		CreateTime:       &timestamppb.Timestamp{Seconds: 1_000_000_000},
+		StakeStartTime:   &timestamppb.Timestamp{Seconds: 1_000_000_001},
+		UnstakeStartTime: &timestamppb.Timestamp{Seconds: 1_000_000_002},
+		AutoStake:        true,
+		Owner:            "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxgce2xk",
+	}
+
+	_, err := encodeVoteBucketListToEth(_bucketsMethod.Outputs, iotextypes.VoteBucketList{
+		Buckets: buckets,
+	})
+
+	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+}
