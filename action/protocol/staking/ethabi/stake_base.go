@@ -70,11 +70,11 @@ func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBuc
 	for i, bucket := range buckets.Buckets {
 		args[i] = BucketEth{}
 		args[i].Index = bucket.Index
-		if addr, err := addrutil.IoAddrToEvmAddr(bucket.CandidateAddress); err == nil {
-			args[i].CandidateAddress = addr
-		} else {
+		addr, err := addrutil.IoAddrToEvmAddr(bucket.CandidateAddress)
+		if err != nil {
 			return "", err
 		}
+		args[i].CandidateAddress = addr
 		if amount, ok := new(big.Int).SetString(bucket.StakedAmount, 10); ok {
 			args[i].StakedAmount = amount
 		} else {
@@ -85,11 +85,11 @@ func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBuc
 		args[i].StakeStartTime = bucket.StakeStartTime.Seconds
 		args[i].UnstakeStartTime = bucket.UnstakeStartTime.Seconds
 		args[i].AutoStake = bucket.AutoStake
-		if addr, err := addrutil.IoAddrToEvmAddr(bucket.Owner); err == nil {
-			args[i].Owner = addr
-		} else {
+		addr, err = addrutil.IoAddrToEvmAddr(bucket.Owner)
+		if err != nil {
 			return "", err
 		}
+		args[i].Owner = addr
 	}
 
 	data, err := outputs.Pack(args)
@@ -101,21 +101,21 @@ func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBuc
 
 func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, error) {
 	result := &CandidateEth{}
-	if addr, err := addrutil.IoAddrToEvmAddr(candidate.OwnerAddress); err == nil {
-		result.OwnerAddress = addr
-	} else {
+	addr, err := addrutil.IoAddrToEvmAddr(candidate.OwnerAddress)
+	if err != nil {
 		return nil, err
 	}
-	if addr, err := addrutil.IoAddrToEvmAddr(candidate.OperatorAddress); err == nil {
-		result.OperatorAddress = addr
-	} else {
+	result.OwnerAddress = addr
+	addr, err = addrutil.IoAddrToEvmAddr(candidate.OperatorAddress)
+	if err != nil {
 		return nil, err
 	}
-	if addr, err := addrutil.IoAddrToEvmAddr(candidate.RewardAddress); err == nil {
-		result.RewardAddress = addr
-	} else {
+	result.OperatorAddress = addr
+	addr, err = addrutil.IoAddrToEvmAddr(candidate.RewardAddress)
+	if err != nil {
 		return nil, err
 	}
+	result.RewardAddress = addr
 	result.Name = candidate.Name
 	if amount, ok := new(big.Int).SetString(candidate.TotalWeightedVotes, 10); ok {
 		result.TotalWeightedVotes = amount
@@ -131,8 +131,8 @@ func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, err
 	return result, nil
 }
 
-// CallDataToStakeStateContext decode eth_call data to StateContext
-func CallDataToStakeStateContext(data []byte) (StateContext, error) {
+// BuildReadStateRequest decode eth_call data to StateContext
+func BuildReadStateRequest(data []byte) (StateContext, error) {
 	if len(data) < 4 {
 		return nil, errInvalidCallData
 	}

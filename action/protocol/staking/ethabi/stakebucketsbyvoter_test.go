@@ -10,11 +10,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContextBucketsByVoter(t *testing.T) {
+func TestBuildReadStateRequestBucketsByVoter(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("4a0c59f9000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
 	r.EqualValues("*ethabi.BucketsByVoterStateContext", reflect.TypeOf(req).String())

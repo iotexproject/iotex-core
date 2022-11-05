@@ -12,11 +12,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestCallDataToStakeStateContextBuckets(t *testing.T) {
+func TestBuildReadStateRequestBuckets(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("b1ff5c2400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000005")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
 	r.EqualValues("*ethabi.BucketsStateContext", reflect.TypeOf(req).String())

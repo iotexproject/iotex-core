@@ -11,11 +11,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContextBucketsCount(t *testing.T) {
+func TestBuildReadStateRequestBucketsCount(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("fa87b185")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
 	r.EqualValues("*ethabi.BucketsCountStateContext", reflect.TypeOf(req).String())

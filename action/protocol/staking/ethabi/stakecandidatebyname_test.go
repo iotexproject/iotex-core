@@ -11,11 +11,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContextCandidateByName(t *testing.T) {
+func TestBuildReadStateRequestCandidateByName(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("6da1bb770000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
 	r.EqualValues("*ethabi.CandidateByNameStateContext", reflect.TypeOf(req).String())

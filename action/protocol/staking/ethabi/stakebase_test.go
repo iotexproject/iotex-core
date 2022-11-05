@@ -8,21 +8,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCallDataToStakeStateContextError(t *testing.T) {
+func TestBuildReadStateRequestError(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("8ae8a8a4")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(req)
 	r.EqualValues("invalid call sig", err.Error())
 }
 
-func TestCallDataToStakeStateContextInvalid(t *testing.T) {
+func TestBuildReadStateRequestInvalid(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("8ae8a8")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(req)
 	r.EqualValues("invalid call binary data", err.Error())

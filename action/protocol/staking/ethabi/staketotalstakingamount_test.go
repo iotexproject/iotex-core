@@ -11,11 +11,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestCallDataToStakeStateContextTotalStakingAmount(t *testing.T) {
+func TestBuildReadStateRequestTotalStakingAmount(t *testing.T) {
 	r := require.New(t)
 
 	data, _ := hex.DecodeString("d201114a")
-	req, err := CallDataToStakeStateContext(data)
+	req, err := BuildReadStateRequest(data)
 
 	r.Nil(err)
 	r.EqualValues("*ethabi.TotalStakingAmountStateContext", reflect.TypeOf(req).String())
