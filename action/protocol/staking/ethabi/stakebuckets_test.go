@@ -111,7 +111,7 @@ func TestEncodeVoteBucketListToEthErrorCandidateAddress(t *testing.T) {
 		Buckets: buckets,
 	})
 
-	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+	r.EqualError(err, errInvalidMsg)
 }
 
 func TestEncodeVoteBucketListToEthErrorStakedAmount(t *testing.T) {
@@ -159,5 +159,5 @@ func TestEncodeVoteBucketListToEthErrorOwner(t *testing.T) {
 		Buckets: buckets,
 	})
 
-	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+	r.EqualError(err, errInvalidMsg)
 }

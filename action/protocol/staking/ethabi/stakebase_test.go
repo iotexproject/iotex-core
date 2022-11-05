@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var errInvalidMsg = "address length = 40, expecting 41: invalid address"
+
 func TestBuildReadStateRequestError(t *testing.T) {
 	r := require.New(t)
 
@@ -69,7 +71,7 @@ func TestEncodeCandidateToEthErrorOwnerAddress(t *testing.T) {
 	cand, err := encodeCandidateToEth(candidate)
 
 	r.Nil(cand)
-	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+	r.EqualError(err, errInvalidMsg)
 }
 
 func TestEncodeCandidateToEthErrorOperatorAddress(t *testing.T) {
@@ -88,7 +90,7 @@ func TestEncodeCandidateToEthErrorOperatorAddress(t *testing.T) {
 	cand, err := encodeCandidateToEth(candidate)
 
 	r.Nil(cand)
-	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+	r.EqualError(err, errInvalidMsg)
 }
 
 func TestEncodeCandidateToEthErrorRewardAddress(t *testing.T) {
@@ -107,7 +109,7 @@ func TestEncodeCandidateToEthErrorRewardAddress(t *testing.T) {
 	cand, err := encodeCandidateToEth(candidate)
 
 	r.Nil(cand)
-	r.EqualValues("address length = 40, expecting 41: invalid address", err.Error())
+	r.EqualError(err, errInvalidMsg)
 }
 
 func TestEncodeCandidateToEthErrorTotalWeightedVotes(t *testing.T) {
