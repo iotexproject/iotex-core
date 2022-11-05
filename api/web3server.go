@@ -331,7 +331,7 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 		return nil, nil
 	}
 	if to == address.StakingProtocolAddr {
-		sctx, err := stakingabi.CallDataToStakeStateContext(data)
+		sctx, err := stakingabi.BuildReadStateRequest(data)
 		if err != nil {
 			return nil, err
 		}
