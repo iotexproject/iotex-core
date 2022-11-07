@@ -289,6 +289,9 @@ func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
 		}
 	}
 	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to delete db.", zap.Error(err))
+		}
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
