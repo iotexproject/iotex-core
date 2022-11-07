@@ -1,0 +1,75 @@
+account:
+  initBalances:
+    io10t7juxazfteqzjsd6qjk7tkgmngj2tm7n4fvrd: "1000000000000000000000000000"
+    io120au9ra0nffdle04jx2g5gccn6gq8qd4fy03l4: "7000000000000000000000000000"
+    io1yrzvkucxpytn4fru35lc8r8jk4jtue4syg8d4h: "800000000000000000000000000"
+blockchain:
+  actionGasLimit: 5000000
+  aleutianHeight: 1
+  beringHeight: 1
+  blockGasLimit: 20000000
+  blockInterval: 10s
+  cookHeight: 1801
+  dardanellesHeight: 100081
+  daytonaBlockHeight: 1713601
+  easterHeight: 2696401
+  fbkMigrationHeight: 3250081
+  fairbankHeight: 3252241
+  greenlandHeight: 4794481
+  hawaiiHeight: 8613361
+  icelandHeight: 9291601
+  numCandidateDelegates: 36
+  numDelegates: 24
+  numSubEpochs: 15
+  pacificHeight: 1
+  timeBasedRotation: true
+  timestamp: 1571036400
+poll:
+  delegates: []
+  enableGravityChainVoting: true
+  gravityChainHeightInterval: 100
+  gravityChainStartHeight: 8740900
+  gravityChainCeilingHeight: 10022000
+  nativeStakingContractAddress: io1w97pslyg7qdayp8mfnffxkjkpapaf83wmmll2l
+  registerContractAddress: 0x92adef0e5e0c2b4f64a1ac79823f7ad3bc1662c4
+  scoreThreshold: "2000000000000000000000000"
+  selfStakingThreshold: "1200000000000000000000000"
+  stakingContractAddress: 0x3bbe2346c40d34fc3f66ab059f75a6caece2c3b3
+  voteThreshold: "100000000000000000000"
+staking:
+  withdrawWaitingPeriod: "336h"
+rewarding:
+  aleutianEpochReward: "15000000000000000000000"
+  blockReward: "16000000000000000000"
+  epochReward: "12500000000000000000000"
+  exemptAddrsFromEpochReward:
+  - io1rm223d7jyflpg0cvkja4zmgnjz8hrrdgm09pu0
+  - io1dg65erd07hrvyme0493f2kqj2utuvpyf6jeuhd
+  - io1343pwahz73s7vzd3l8jxxrjwcugxae2nx58zwf
+  - io15ccuntztkkuu0xnfhqf2qt8y28kpu0mnr65050
+  - io1se72frs5kn0j6gh0g3fk2usngu48sh2wjt4qgq
+  - io1az8tln8432h42vf54e0c0fmaqcytwm2nk82g95
+  - io1vdw0q7dv82g3jhmapvze99fdxeyztjrxdp7wse
+  - io1qendhfjmpmug6ywde0590lakvxp3ph869ehlyp
+  - io1jhcm9au9u77l27pgkqe6kqdf58dh64d0k5kf2x
+  - io1y4punwfvhxzee08a034922vwr48wz0p6ruy0ke
+  - io1c5a8kv4nljt4dy2mnxk23rj0255a9x4uvn4x5m
+  - io13n3382cjhaawmqfk4vmvvgllnryw4tf56qdtks
+  - io1gakgrsnsxmg9ed0tlcc2ukxzxdg6v8z2glw82e
+  - io1dh8uwmva79vhk8mec998f7qgfud7jyz9v8lede
+  - io1m8rge0h4xvmfzkc4yup766slcvn5cwymqeenpe
+  - io1etc9ffzsg7lvph3j4ncczg08llvame8k3asyzc
+  - io1959ykdhkene09at5nfl42a7xjwf5wgplpg7eh9
+  - io1j07xpufsj03sc0dg020jahacx2pnt6m8cdl6qt
+  - io1s3z2pr47u47p69zn7phshgenckw6tr70tex80k
+  - io1e5uh4sfkgemds4fannncujcdylerdynddj3f43
+  - io1eckfc699y4shqkc9ms8ts9sa254e5vtqyazkar
+  - io14jp9s6mp85g2x00spq66cmdds4qe2ge5r0p72d
+  - io1pgth3m3e4klanwdrfrgk6yelw03ws64ml8c22y
+  - io1gn450vcrjkh7r35gcjyt93tp3u2dadz3k07wzw
+  foundationBonus: "80000000000000000000"
+  foundationBonusLastEpoch: 8760
+  initBalance: "1200000000000000000000000000"
+  numDelegatesForEpochReward: 100
+  numDelegatesForFoundationBonus: 36
+  productivityThreshold: 85
