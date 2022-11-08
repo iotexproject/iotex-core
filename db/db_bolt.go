@@ -498,6 +498,13 @@ func (b *BoltDB) Remove(name []byte, key uint64) error {
 			break
 		}
 	}
+
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to remove db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
+	}
 	return err
 }
 
@@ -530,6 +537,13 @@ func (b *BoltDB) Purge(name []byte, key uint64) error {
 		}); err == nil {
 			break
 		}
+	}
+
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to purge db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
 }
