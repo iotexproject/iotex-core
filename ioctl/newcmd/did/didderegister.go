@@ -7,7 +7,6 @@
 package did
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -20,34 +19,34 @@ import (
 
 // Multi-language support
 var (
-	_registerCmdUses = map[config.Language]string{
-		config.English: "register (CONTRACT_ADDRESS|ALIAS) hash uri [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "register (合约地址|别名) hash uri [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS价格] [-P 密码] [-y]",
+	_deregisterCmdUses = map[config.Language]string{
+		config.English: "deregister (CONTRACT_ADDRESS|ALIAS) [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "deregister (合约地址|别名) IOTX数量 [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS价格] [-P 密码] [-y]",
 	}
-	_registerCmdShorts = map[config.Language]string{
-		config.English: "Register DID on IoTeX blockchain",
-		config.Chinese: "在IoTeX链上注册DID",
+	_deregisterCmdShorts = map[config.Language]string{
+		config.English: "Deregister DID on IoTeX blockchain",
+		config.Chinese: "在IoTeX链上注销DID",
 	}
 )
 
-// NewDidRegisterCmd represents the did register command
-func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
-	use, _ := client.SelectTranslation(_registerCmdUses)
-	short, _ := client.SelectTranslation(_registerCmdShorts)
+// NewDeregisterCmd represents the contract invoke deregister command
+func NewDeregisterCmd(client ioctl.Client) *cobra.Command {
+	use, _ := client.SelectTranslation(_deregisterCmdUses)
+	short, _ := client.SelectTranslation(_deregisterCmdShorts)
 
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			contract, err := client.Address(args[0])
 			if err != nil {
 				return errors.Wrap(err, "failed to get contract address")
 			}
-			bytecode, err := encode(_registerDIDName, args[1], args[2])
+			bytecode, err := _didABI.Pack(_deregisterDIDName)
 			if err != nil {
-				return errors.Wrap(err, "failed to decode data")
+				return errors.Wrap(err, "invalid bytecode")
 			}
 			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := action.GetWriteCommandFlag(cmd)
 			if err != nil {
@@ -58,14 +57,4 @@ func NewDidRegisterCmd(client ioctl.Client) *cobra.Command {
 	}
 	action.RegisterWriteCommand(client, cmd)
 	return cmd
-}
-
-func encode(method, didHash, uri string) ([]byte, error) {
-	hashSlice, err := hex.DecodeString(didHash)
-	if err != nil {
-		return nil, err
-	}
-	var hashArray [32]byte
-	copy(hashArray[:], hashSlice)
-	return _didABI.Pack(method, hashArray, []byte(uri))
 }

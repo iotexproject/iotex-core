@@ -14,7 +14,7 @@ COPY . .
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     make clean build-all
 
-FROM alpine:latest
+FROM alpine
 
 RUN mkdir -p /etc/iotex/
 COPY --from=build /go/apps/iotex-core/bin/server /usr/local/bin/iotex-server
