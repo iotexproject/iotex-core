@@ -24,7 +24,7 @@ type Builder struct {
 
 var (
 	_stakingProtocolAddr, _   = address.FromString(address.StakingProtocolAddr)
-	_rewardingProtocolAddr, _ = address.FromString(address.RewardingPoolAddr)
+	_rewardingProtocolAddr, _ = address.FromString(address.RewardingProtocol)
 )
 
 // SetVersion sets action's version.
