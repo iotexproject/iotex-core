@@ -101,7 +101,12 @@ func init() {
 }
 
 // Amount returns the amount
-func (r *Rewarding) Amount() *big.Int { return r.amount }
+func (r *Rewarding) Amount() *big.Int {
+	if r.amount == nil {
+		return big.NewInt(0)
+	}
+	return r.amount
+}
 
 // Payload returns the data bytes
 func (r *Rewarding) Data() []byte { return r.data }
@@ -122,7 +127,7 @@ func (r *Rewarding) SanityCheck() error {
 }
 
 func (r *Rewarding) encodeABIBinary(method abi.Method) ([]byte, error) {
-	data, err := method.Inputs.Pack(r.amount, r.data)
+	data, err := method.Inputs.Pack(r.Amount(), r.Data())
 	if err != nil {
 		return nil, err
 	}
@@ -195,12 +200,12 @@ func (r *RewardingClaim) EncodeABIBinary() ([]byte, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (r *RewardingClaim) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.RewardingPoolAddr)
+	addr, err := address.FromString(address.RewardingProtocol)
 	if err != nil {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	data, err := r.encodeABIBinary(_rewardingClaimMethod)
+	data, err := r.EncodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -268,8 +273,8 @@ func (r *RewardingDeposit) Serialize() []byte {
 }
 
 // Proto converts to protobuf RewardingDeposit Action
-func (r *RewardingDeposit) Proto() *iotextypes.ClaimFromRewardingFund {
-	act := &iotextypes.ClaimFromRewardingFund{
+func (r *RewardingDeposit) Proto() *iotextypes.DepositToRewardingFund {
+	act := &iotextypes.DepositToRewardingFund{
 		Data: r.data,
 	}
 
@@ -306,16 +311,16 @@ func (r *RewardingDeposit) EncodeABIBinary() ([]byte, error) {
 
 // ToEthTx converts action to eth-compatible tx
 func (r *RewardingDeposit) ToEthTx() (*types.Transaction, error) {
-	addr, err := address.FromString(address.RewardingPoolAddr)
+	addr, err := address.FromString(address.RewardingProtocol)
 	if err != nil {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	data, err := r.encodeABIBinary(_rewardingDepositMethod)
+	data, err := r.EncodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(r.Nonce(), ethAddr, big.NewInt(0), r.GasLimit(), r.GasPrice(), data), nil
+	return types.NewTransaction(r.Nonce(), ethAddr, r.Amount(), r.GasLimit(), r.GasPrice(), data), nil
 }
 
 // Cost returns the total cost
@@ -325,7 +330,7 @@ func (r *RewardingDeposit) Cost() (*big.Int, error) {
 		return nil, errors.Wrap(err, "failed to get intrinsic gas for rewarding deposit")
 	}
 	fee := big.NewInt(0).Mul(r.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return new(big.Int).Add(r.amount, fee), nil
+	return new(big.Int).Add(r.Amount(), fee), nil
 }
 
 // NewRewardingDepopsitFromABIBinary decodes data into action
