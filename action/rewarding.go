@@ -68,6 +68,7 @@ var (
 )
 
 type (
+	// Rewarding base struct for rewarding
 	Rewarding struct {
 		AbstractAction
 
@@ -75,10 +76,12 @@ type (
 		data   []byte
 	}
 
+	// RewardingClaim struct for rewarding claim
 	RewardingClaim struct {
 		Rewarding
 	}
 
+	// RewardingDeposit struct for rewarding deposit
 	RewardingDeposit struct {
 		Rewarding
 	}
@@ -108,7 +111,7 @@ func (r *Rewarding) Amount() *big.Int {
 	return r.amount
 }
 
-// Payload returns the data bytes
+// Data returns the data bytes
 func (r *Rewarding) Data() []byte { return r.data }
 
 // IntrinsicGas returns the intrinsic gas
@@ -333,7 +336,7 @@ func (r *RewardingDeposit) Cost() (*big.Int, error) {
 	return new(big.Int).Add(r.Amount(), fee), nil
 }
 
-// NewRewardingDepopsitFromABIBinary decodes data into action
+// NewRewardingDepositFromABIBinary decodes data into action
 func NewRewardingDepositFromABIBinary(data []byte) (*RewardingDeposit, error) {
 	var (
 		paramsMap = map[string]interface{}{}

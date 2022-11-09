@@ -11,7 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var _defaultGasPrice = big.NewInt(1000000000000)
+var (
+	_defaultGasPrice      = big.NewInt(1000000000000)
+	_errNegativeNumberMsg = "negative value: invalid amount"
+)
 
 func TestRewardingClaimProto(t *testing.T) {
 	r := require.New(t)
@@ -73,7 +76,7 @@ func TestRewardingClaimSanityCheck(t *testing.T) {
 	rc := &RewardingClaim{}
 	err := rc.SanityCheck()
 	r.NotNil(err)
-	r.EqualValues("negative value: invalid amount", err.Error())
+	r.EqualValues(_errNegativeNumberMsg, err.Error())
 
 	rc.amount = big.NewInt(1)
 	err = rc.SanityCheck()
@@ -82,7 +85,7 @@ func TestRewardingClaimSanityCheck(t *testing.T) {
 	rc.amount = big.NewInt(-1)
 	err = rc.SanityCheck()
 	r.NotNil(err)
-	r.EqualValues("negative value: invalid amount", err.Error())
+	r.EqualValues(_errNegativeNumberMsg, err.Error())
 }
 
 func TestRewardingClaimCost(t *testing.T) {
@@ -242,7 +245,7 @@ func TestRewardingDepositSanityCheck(t *testing.T) {
 	rp := &RewardingDeposit{}
 	err := rp.SanityCheck()
 	r.NotNil(err)
-	r.EqualValues("negative value: invalid amount", err.Error())
+	r.EqualValues(_errNegativeNumberMsg, err.Error())
 
 	rp.amount = big.NewInt(1)
 	err = rp.SanityCheck()
@@ -251,7 +254,7 @@ func TestRewardingDepositSanityCheck(t *testing.T) {
 	rp.amount = big.NewInt(-1)
 	err = rp.SanityCheck()
 	r.NotNil(err)
-	r.EqualValues("negative value: invalid amount", err.Error())
+	r.EqualValues(_errNegativeNumberMsg, err.Error())
 }
 
 func TestRewardingDepositCost(t *testing.T) {
