@@ -458,8 +458,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	featureCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
-	c, err := GetStakingStateReader(sr, featureCtx.FixCandCenterAlias(height))
+	c, err := GetStakingStateReader(sr, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
