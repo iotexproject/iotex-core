@@ -208,7 +208,9 @@ func TestBranchNodeUpsert(t *testing.T) {
 			{"block", "chain"},
 			{"chain", "link"},
 			{"cuppy", "dog"},
-			{"cught", "knight"},
+			{"cupht", "knight"},
+			{"cuphtabc", "knightabc"},
+			{"cup", "kni"},
 		}
 		cli = &merklePatriciaTrie{
 			keyLength: 5,
@@ -236,5 +238,44 @@ func TestBranchNodeUpsert(t *testing.T) {
 		require.True(ok)
 		require.Equal(keyType(item.k), ln.key)
 		require.Equal([]byte(item.v), ln.value)
+	}
+}
+
+func TestBranchBase(t *testing.T) {
+	var (
+		require = require.New(t)
+		cli     = &merklePatriciaTrie{
+			hashFunc: DefaultHashFunc,
+			kvStore:  trie.NewMemKVStore(),
+		}
+		key1       = keyType{1, 2, 3, 4, 5}
+		expectKeys = []keyType{
+			{1, 2, 5, 6, 7, 8, 9, 10}, // longer length
+			{1, 2, 5},                 // shorter length
+			{1, 2, 5, 6, 7},           // matched length
+		}
+	)
+
+	for _, expected := range expectKeys {
+		br, err := newRootBranchNode(cli, nil, nil, false)
+		require.NoError(err)
+		br1, err := br.Upsert(cli, key1, 2, []byte("1"))
+		require.NoError(err)
+		br2, err := br1.Upsert(cli, expected, 2, []byte("2"))
+		require.NoError(err)
+		br3, err := br2.Upsert(cli, key1, 2, []byte("3"))
+		require.NoError(err)
+		n1, err := br3.Search(cli, key1, 2)
+		require.NoError(err)
+		require.Equal([]byte("3"), n1.(*leafNode).value)
+		n2, err := br3.Delete(cli, key1, 2)
+		require.NoError(err)
+		br4, ok := n2.(*branchNode)
+		require.True(ok)
+		require.Len(br4.children, 1)
+		n3, ok := br4.children[5]
+		require.True(ok)
+		require.Equal(expected, n3.(*leafNode).key)
+		require.Equal([]byte("2"), n3.(*leafNode).value)
 	}
 }
