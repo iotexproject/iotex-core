@@ -1370,7 +1370,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 
 	for _, test := range tests {
 		request := &iotexapi.SendActionRequest{Action: test.action}
-		cfg:=test.cfg()
+		cfg := test.cfg()
 		cfg.API.GRPCPort = testutil.RandomPort()
 		svr, _, _, _, _, _, file, err := createServerV2(cfg, true)
 		require.NoError(err)

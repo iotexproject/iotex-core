@@ -123,18 +123,6 @@ func (c *candSR) ActiveBucketsCount() uint64 {
 func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
 	c, err := ConstructBaseView(sr)
 	if err != nil {
-		if errors.Cause(err) == protocol.ErrNoName {
-			// the view does not exist yet, create it
-			view, height, err := CreateBaseView(sr, true)
-			if err != nil {
-				return nil, err
-			}
-			return &candSR{
-				StateReader: sr,
-				height:      height,
-				view:        view,
-			}, nil
-		}
 		return nil, err
 	}
 	return c, nil
