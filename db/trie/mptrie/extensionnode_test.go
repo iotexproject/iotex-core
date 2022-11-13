@@ -171,3 +171,74 @@ func TestExtensionNodeUpsert(t *testing.T) {
 		}
 	}
 }
+
+func TestExtensionBase(t *testing.T) {
+	var (
+		require = require.New(t)
+		cli     = &merklePatriciaTrie{
+			hashFunc: DefaultHashFunc,
+			kvStore:  trie.NewMemKVStore(),
+		}
+		key1       = keyType{1, 2, 3, 4, 5}
+		expectKeys = []keyType{
+			key1,                      // same key
+			{1, 2, 5, 6, 7, 8, 9, 10}, // longer length
+			{1, 2, 5},                 // shorter length
+			{1, 2, 5, 6, 7},           // matched length
+		}
+	)
+
+	// key is nil
+	child1, _ := newLeafNode(cli, nil, nil)
+	ext, err := newExtensionNode(cli, keyType{}, child1)
+	require.NoError(err)
+	node1, err := ext.Search(cli, keyType{}, 0)
+	require.NoError(err)
+	require.Equal(child1, node1)
+	_, err = ext.Delete(cli, keyType{1, 2, 3}, 0)
+	require.Equal(trie.ErrNotExist, err)
+	node2, err := ext.Delete(cli, keyType{}, 0)
+	require.NoError(err)
+	require.Nil(node2)
+
+	// key is not nil
+	for i, expected := range expectKeys {
+		child1, _ := newLeafNode(cli, key1, []byte("1"))
+		ext, err := newExtensionNode(cli, key1, child1)
+		require.NoError(err)
+		node, err := ext.Search(cli, key1, 0)
+		require.NoError(err)
+		require.Equal(child1, node)
+		// insert two
+		node1, err := ext.Upsert(cli, expected, 0, []byte("2"))
+		require.NoError(err)
+		ext1, ok := node1.(*extensionNode)
+		require.True(ok)
+		if i == 0 {
+			// same key
+			leaf, ok := ext1.child.(*leafNode)
+			require.True(ok)
+			require.Equal([]byte("2"), leaf.value)
+			node2, err := node1.Delete(cli, key1, 0)
+			require.NoError(err)
+			require.Nil(node2)
+			continue
+		}
+		// different key
+		_, ok = ext1.child.(*branchNode)
+		require.True(ok)
+		node3, err := ext1.Search(cli, expected, 0)
+		require.NoError(err)
+		require.Equal([]byte("2"), node3.(*leafNode).value)
+		node4, err := ext1.Search(cli, key1, 0)
+		require.NoError(err)
+		require.Equal([]byte("1"), node4.(*leafNode).value)
+		// delete one
+		node5, err := node1.Delete(cli, key1, 0)
+		require.NoError(err)
+		_, err = node5.Search(cli, key1, 0)
+		require.Equal(trie.ErrNotExist, err)
+		_, err = node5.Search(cli, expected, 0)
+		require.NoError(err)
+	}
+}
