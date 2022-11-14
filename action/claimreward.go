@@ -152,8 +152,8 @@ func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 }
 
 // EncodeABIBinary encodes data in abi encoding
-func (r *ClaimFromRewardingFund) EncodeABIBinary() ([]byte, error) {
-	data, err := _claimRewardingMethod.Inputs.Pack(r.Amount(), r.Data())
+func (c *ClaimFromRewardingFund) EncodeABIBinary() ([]byte, error) {
+	data, err := _claimRewardingMethod.Inputs.Pack(c.Amount(), c.Data())
 	if err != nil {
 		return nil, err
 	}
@@ -161,17 +161,17 @@ func (r *ClaimFromRewardingFund) EncodeABIBinary() ([]byte, error) {
 }
 
 // ToEthTx converts action to eth-compatible tx
-func (r *ClaimFromRewardingFund) ToEthTx() (*types.Transaction, error) {
+func (c *ClaimFromRewardingFund) ToEthTx() (*types.Transaction, error) {
 	addr, err := address.FromString(address.RewardingProtocol)
 	if err != nil {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	data, err := r.EncodeABIBinary()
+	data, err := c.EncodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(r.Nonce(), ethAddr, big.NewInt(0), r.GasLimit(), r.GasPrice(), data), nil
+	return types.NewTransaction(c.Nonce(), ethAddr, big.NewInt(0), c.GasLimit(), c.GasPrice(), data), nil
 }
 
 // NewClaimFromRewardingFundFromABIBinary decodes data into action
