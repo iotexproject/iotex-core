@@ -256,10 +256,10 @@ func newRewardingActionFromABIBinary(data []byte) (actionPayload, error) {
 	if len(data) <= 4 {
 		return nil, ErrInvalidABI
 	}
-	if act, err := NewRewardingClaimFromABIBinary(data); err == nil {
+	if act, err := NewClaimFromRewardingFundFromABIBinary(data); err == nil {
 		return act, nil
 	}
-	if act, err := NewRewardingDepositFromABIBinary(data); err == nil {
+	if act, err := NewDepositToRewardingFundFromABIBinary(data); err == nil {
 		return act, nil
 	}
 	return nil, ErrInvalidABI

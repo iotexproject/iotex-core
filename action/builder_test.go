@@ -49,10 +49,10 @@ func TestBuildRewardingAction(t *testing.T) {
 	tx = types.NewTransaction(1, common.HexToAddress(_rewardingProtocolAddr.Hex()), big.NewInt(100), 10000, big.NewInt(10004), claimData)
 	env, err = eb.BuildRewardingAction(tx)
 	r.Nil(err)
-	r.IsType(&RewardingClaim{}, env.Action())
+	r.IsType(&ClaimFromRewardingFund{}, env.Action())
 	r.EqualValues(big.NewInt(10004), env.GasPrice())
 	r.EqualValues(10000, env.GasLimit())
-	r.EqualValues(big.NewInt(101), env.Action().(*RewardingClaim).Amount())
+	r.EqualValues(big.NewInt(101), env.Action().(*ClaimFromRewardingFund).Amount())
 
 	depositData, _ := hex.DecodeString("27852a6b000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003")
 	tx = types.NewTransaction(1, common.HexToAddress("0x0000000000000000000000000000000000000001"), big.NewInt(100), 10000, big.NewInt(10004), depositData)
@@ -64,8 +64,8 @@ func TestBuildRewardingAction(t *testing.T) {
 	tx = types.NewTransaction(1, common.HexToAddress(_rewardingProtocolAddr.Hex()), big.NewInt(100), 10000, big.NewInt(10004), depositData)
 	env, err = eb.BuildRewardingAction(tx)
 	r.Nil(err)
-	r.IsType(&RewardingDeposit{}, env.Action())
+	r.IsType(&DepositToRewardingFund{}, env.Action())
 	r.EqualValues(big.NewInt(10004), env.GasPrice())
 	r.EqualValues(10000, env.GasLimit())
-	r.EqualValues(big.NewInt(101), env.Action().(*RewardingDeposit).Amount())
+	r.EqualValues(big.NewInt(101), env.Action().(*DepositToRewardingFund).Amount())
 }
