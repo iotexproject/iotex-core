@@ -119,15 +119,6 @@ func (c *candSR) ActiveBucketsCount() uint64 {
 	return c.view.bucketPool.Count()
 }
 
-// GetStakingStateReader returns a candidate state reader that reflects the base view
-func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
-	c, err := ConstructBaseView(sr)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
 // ConstructBaseView returns a candidate state reader that reflects the base view
 // it will be used read-only
 func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
