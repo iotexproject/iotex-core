@@ -458,7 +458,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	c, err := GetStakingStateReader(sr, false)
+	c, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
@@ -20,11 +21,18 @@ func Test_CandidateStateReader(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := testdb.NewMockStateManager(ctrl)
-	csr, err := GetStakingStateReader(sm, false)
-	require.NoError(err)
-
 	h, err := sm.Height()
 	require.NoError(err)
+	csr, err := ConstructBaseView(sm)
+	require.Equal(err, protocol.ErrNoName)
+	view, _, err := CreateBaseView(sm, false, false)
+	require.NoError(err)
+	csr = &candSR{
+		StateReader: sm,
+		height:      h,
+		view:        view,
+	}
+
 	require.Equal(csr.Height(), h)
 	require.Equal(csr.SR(), sm)
 	require.Equal(len(csr.AllCandidates()), 0)
