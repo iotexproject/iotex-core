@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,24 +14,6 @@ var (
 	_defaultGasPrice      = big.NewInt(1000000000000)
 	_errNegativeNumberMsg = "negative value"
 )
-
-func TestClaimRewardProto(t *testing.T) {
-	r := require.New(t)
-
-	rc := &ClaimFromRewardingFund{}
-
-	p := rc.Proto()
-	r.NotNil(p)
-	r.IsType(&iotextypes.ClaimFromRewardingFund{}, p)
-	r.Nil(p.Data)
-
-	rc.amount = big.NewInt(100)
-	rc.data = []byte{1}
-	p = rc.Proto()
-	r.NotNil(p)
-	r.EqualValues([]byte{1}, p.Data)
-	r.EqualValues("100", p.Amount)
-}
 
 func TestClaimRewardSerialize(t *testing.T) {
 	r := require.New(t)
@@ -107,7 +88,7 @@ func TestClaimRewardEncodeABIBinary(t *testing.T) {
 
 	rc := &ClaimFromRewardingFund{}
 	rc.amount = big.NewInt(101)
-	data, err := rc.EncodeABIBinary()
+	data, err := rc.encodeABIBinary()
 	r.Nil(err)
 	r.EqualValues(
 		"2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000",
@@ -115,7 +96,7 @@ func TestClaimRewardEncodeABIBinary(t *testing.T) {
 	)
 
 	rc.data = []byte{1, 2, 3}
-	data, err = rc.EncodeABIBinary()
+	data, err = rc.encodeABIBinary()
 	r.Nil(err)
 	r.EqualValues(
 		"2df163ef000000000000000000000000000000000000000000000000000000000000006500000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003",

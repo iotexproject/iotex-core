@@ -53,12 +53,12 @@ var (
 )
 
 func init() {
-	rewardingInterface, err := abi.JSON(strings.NewReader(_depositRewardInterfaceABI))
+	depositRewardInterface, err := abi.JSON(strings.NewReader(_depositRewardInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_depositRewardMethod, ok = rewardingInterface.Methods["deposit"]
+	_depositRewardMethod, ok = depositRewardInterface.Methods["deposit"]
 	if !ok {
 		panic("fail to load the deposit method")
 	}
@@ -115,8 +115,7 @@ func (d *DepositToRewardingFund) Cost() (*big.Int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting intrinsic gas for the deposit action")
 	}
-	fee := big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return new(big.Int).Add(d.Amount(), fee), nil
+	return big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
 
 // SanityCheck validates the variables in the action
@@ -152,8 +151,8 @@ func (b *DepositToRewardingFundBuilder) Build() DepositToRewardingFund {
 	return b.deposit
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (d *DepositToRewardingFund) EncodeABIBinary() ([]byte, error) {
+// encodeABIBinary encodes data in abi encoding
+func (d *DepositToRewardingFund) encodeABIBinary() ([]byte, error) {
 	data, err := _depositRewardMethod.Inputs.Pack(d.Amount(), d.Data())
 	if err != nil {
 		return nil, err
@@ -168,11 +167,11 @@ func (d *DepositToRewardingFund) ToEthTx() (*types.Transaction, error) {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	data, err := d.EncodeABIBinary()
+	data, err := d.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
-	return types.NewTransaction(d.Nonce(), ethAddr, d.Amount(), d.GasLimit(), d.GasPrice(), data), nil
+	return types.NewTransaction(d.Nonce(), ethAddr, big.NewInt(0), d.GasLimit(), d.GasPrice(), data), nil
 }
 
 // NewDepositToRewardingFundFromABIBinary decodes data into action

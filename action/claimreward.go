@@ -53,12 +53,12 @@ var (
 )
 
 func init() {
-	rewardingInterface, err := abi.JSON(strings.NewReader(_claimRewardingInterfaceABI))
+	claimRewardInterface, err := abi.JSON(strings.NewReader(_claimRewardingInterfaceABI))
 	if err != nil {
 		panic(err)
 	}
 	var ok bool
-	_claimRewardingMethod, ok = rewardingInterface.Methods["claim"]
+	_claimRewardingMethod, ok = claimRewardInterface.Methods["claim"]
 	if !ok {
 		panic("fail to load the claim method")
 	}
@@ -151,8 +151,8 @@ func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 	return b.claim
 }
 
-// EncodeABIBinary encodes data in abi encoding
-func (c *ClaimFromRewardingFund) EncodeABIBinary() ([]byte, error) {
+// encodeABIBinary encodes data in abi encoding
+func (c *ClaimFromRewardingFund) encodeABIBinary() ([]byte, error) {
 	data, err := _claimRewardingMethod.Inputs.Pack(c.Amount(), c.Data())
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (c *ClaimFromRewardingFund) ToEthTx() (*types.Transaction, error) {
 		return nil, err
 	}
 	ethAddr := common.BytesToAddress(addr.Bytes())
-	data, err := c.EncodeABIBinary()
+	data, err := c.encodeABIBinary()
 	if err != nil {
 		return nil, err
 	}
