@@ -7,26 +7,26 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
+	"os"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "timemachine [command] [flags]",
-	Short:  "timemachine is a command-line interface to go back specific block height.",
+	Short: "timemachine is a command-line interface to go back specific block height.",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.L().Fatal("failed to add cmd", zap.Error(err))
+		os.Exit(1)
 	}
 }
 
 func init() {
+	rootCmd.AddCommand(downloadHeight)
 	rootCmd.AddCommand(getHeight)
 	rootCmd.AddCommand(syncHeight)
 	rootCmd.AddCommand(playNext)
