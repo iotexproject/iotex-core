@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"math/big"
-	"sort"
 	"testing"
 	"time"
 
@@ -23,7 +22,8 @@ func TestVoteReviser(t *testing.T) {
 	r := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
+	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
+	sm.EXPECT().Height().Return(uint64(0), nil).Times(4)
 	csm := newCandidateStateManager(sm)
 	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(
@@ -120,6 +120,7 @@ func TestVoteReviser(t *testing.T) {
 			PersistStakingPatchBlock: math.MaxUint64,
 		},
 		nil,
+		genesis.Default.OkhotskBlockHeight,
 		genesis.Default.HawaiiBlockHeight,
 		genesis.Default.GreenlandBlockHeight,
 	)
@@ -148,7 +149,7 @@ func TestVoteReviser(t *testing.T) {
 	oldCand := testCandidates[3].d.Clone()
 	oldCand.Name = "old name"
 	r.NoError(csm.Upsert(oldCand))
-	r.NoError(csm.Commit(true))
+	r.NoError(csm.Commit(ctx))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	// load a number of candidates
 	updateCands := CandidateList{
@@ -158,7 +159,7 @@ func TestVoteReviser(t *testing.T) {
 	for _, e := range updateCands {
 		r.NoError(csm.Upsert(e))
 	}
-	r.NoError(csm.Commit(true))
+	r.NoError(csm.Commit(ctx))
 	r.NotNil(csm.GetByName(oldCand.Name))
 	r.NotNil(csm.GetByName(testCandidates[3].d.Name))
 
@@ -168,19 +169,16 @@ func TestVoteReviser(t *testing.T) {
 	r.False(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
 	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
 	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	verifyCands(r, sm, vr, updateCands)
 	// simulate first revise attempt failed -- call Revise() again
-	csm = verifyCands(r, sm, vr, updateCands)
 	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
 	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
-	// simulate protocol.Commit()
-	{
-		csm = verifyCands(r, sm, vr, updateCands)
-		r.NoError(csm.Commit(false))
-	}
-	r.Nil(csm.GetByName(oldCand.Name))
-	verifyCands(r, sm, vr, updateCands)
-
+	sm.EXPECT().Height().DoAndReturn(
+		func() (uint64, error) {
+			return genesis.Default.HawaiiBlockHeight, nil
+		},
+	).Times(1)
+	r.NoError(csm.Commit(ctx))
+	r.NotNil(csm.GetByName(oldCand.Name))
 	// verify self-stake and total votes match
 	result, ok := vr.result(genesis.Default.HawaiiBlockHeight)
 	r.True(ok)
@@ -207,20 +205,12 @@ func TestVoteReviser(t *testing.T) {
 			}
 		}
 	}
-}
-
-func verifyCands(r *require.Assertions, sm protocol.StateManager, vr *VoteReviser, cands CandidateList) CandidateStateManager {
-	csm, err := NewCandidateStateManager(sm, false)
-	r.NoError(err)
-	cc := csm.DirtyView().candCenter
-	r.Equal(len(cands), cc.Size())
-	all := cc.All()
-	sort.Sort(all)
-	r.Equal(len(cands), len(all))
-	for i := range cands {
-		r.NotEqual(all[i].Votes, cands[i].Votes)
-		all[i].Votes = new(big.Int).Set(cands[i].Votes)
-		r.Equal(all[i], cands[i])
-	}
-	return csm
+	r.NoError(vr.Revise(csm, genesis.Default.OkhotskBlockHeight))
+	sm.EXPECT().Height().DoAndReturn(
+		func() (uint64, error) {
+			return genesis.Default.OkhotskBlockHeight, nil
+		},
+	).Times(1)
+	r.NoError(csm.Commit(ctx))
+	r.Nil(csm.GetByName(oldCand.Name))
 }

@@ -258,7 +258,7 @@ func (p *Protocol) CreateGenesisStates(
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(true), "failed to commit candidate change in CreateGenesisStates")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // CreatePreStates updates state manager
@@ -370,7 +370,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(featureWithHeightCtx.CandCenterHasAlias(height)), "failed to commit candidate change in Commit")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message

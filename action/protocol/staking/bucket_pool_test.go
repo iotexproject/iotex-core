@@ -8,6 +8,7 @@ package staking
 
 import (
 	"bytes"
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
@@ -118,6 +120,7 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(count, pool.Count())
 
 	var testGreenland bool
+	ctx := protocol.WithFeatureWithHeightCtx(genesis.WithGenesisContext(context.Background(), genesis.Default))
 	for _, v := range tests {
 		csm, err = NewCandidateStateManager(sm, v.postGreenland && testGreenland)
 		r.NoError(err)
@@ -147,7 +150,7 @@ func TestBucketPool(t *testing.T) {
 		}
 
 		if v.commit {
-			r.NoError(csm.Commit(false))
+			r.NoError(csm.Commit(ctx))
 			// after commit, value should reflect in base view
 			c, err = ConstructBaseView(sm)
 			r.NoError(err)

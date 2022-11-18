@@ -126,7 +126,7 @@ func TestProtocol(t *testing.T) {
 	for _, e := range testCandidates {
 		r.NoError(csm.Upsert(e.d))
 	}
-	r.NoError(csm.Commit(true))
+	r.NoError(csm.Commit(ctx))
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))

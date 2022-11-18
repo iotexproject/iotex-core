@@ -69,7 +69,7 @@ func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 		return &c, nil
 	}
 
-	if err := c.Commit(true); err != nil {
+	if err := c.Commit(); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -139,8 +139,20 @@ func (m *CandidateCenter) SetDelta(l CandidateList) error {
 }
 
 // Commit writes the change into base
-func (m *CandidateCenter) Commit(keepAliasBug bool) error {
-	size, err := m.base.commit(m.change, keepAliasBug)
+func (m *CandidateCenter) Commit() error {
+	size, err := m.base.commit(m.change, false)
+	if err != nil {
+		return err
+	}
+	m.size = size
+	m.change = nil
+	m.change = newCandChange()
+	return nil
+}
+
+// LegacyCommit writes the change into base with legacy logic
+func (m *CandidateCenter) LegacyCommit() error {
+	size, err := m.base.commit(m.change, true)
 	if err != nil {
 		return err
 	}
@@ -447,21 +459,32 @@ func (cb *candBase) all() CandidateList {
 func (cb *candBase) commit(change *candChange, keepAliasBug bool) (int, error) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	for _, v := range change.candidates {
-		if err := v.Validate(); err != nil {
-			return 0, err
+	if keepAliasBug {
+		for _, v := range change.dirty {
+			if err := v.Validate(); err != nil {
+				return 0, err
+			}
+			d := v.Clone()
+			cb.ownerMap[d.Owner.String()] = d
+			cb.nameMap[d.Name] = d
+			cb.operatorMap[d.Operator.String()] = d
+			cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 		}
-		d := v.Clone()
-		if !keepAliasBug {
+	} else {
+		for _, v := range change.candidates {
+			if err := v.Validate(); err != nil {
+				return 0, err
+			}
+			d := v.Clone()
 			if curr, ok := cb.ownerMap[d.Owner.String()]; ok {
 				delete(cb.nameMap, curr.Name)
 				delete(cb.operatorMap, curr.Operator.String())
 			}
+			cb.ownerMap[d.Owner.String()] = d
+			cb.nameMap[d.Name] = d
+			cb.operatorMap[d.Operator.String()] = d
+			cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 		}
-		cb.ownerMap[d.Owner.String()] = d
-		cb.nameMap[d.Name] = d
-		cb.operatorMap[d.Operator.String()] = d
-		cb.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 	}
 	return len(cb.ownerMap), nil
 }

@@ -71,8 +71,8 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 	// test commit
 	r.NoError(delta.Deserialize(ser))
 	r.NoError(m.SetDelta(delta))
-	r.NoError(m.Commit(true))
-	r.NoError(m.Commit(true)) // commit is idempotent
+	r.NoError(m.LegacyCommit())
+	r.NoError(m.LegacyCommit()) // commit is idempotent
 	r.Equal(size+increase, m.Size())
 	// m equal to current list, not equal to old
 	r.True(testEqual(m, list))
@@ -106,7 +106,7 @@ func TestCandCenter(t *testing.T) {
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 	r.NoError(m.SetDelta(list))
-	r.NoError(m.Commit(true))
+	r.NoError(m.LegacyCommit())
 	r.Equal(len(testCandidates), m.Size())
 	r.True(testEqual(m, list))
 	old := m.All()
@@ -214,7 +214,7 @@ func TestCandCenter(t *testing.T) {
 	r.NoError(m.SetDelta(delta))
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
-	r.NoError(m.Commit(true))
+	r.NoError(m.LegacyCommit())
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 
@@ -341,7 +341,11 @@ func TestFixAlias(t *testing.T) {
 			r.True(m.ContainsOperator(v.d.Operator))
 			r.Equal(v.d, m.GetByName(v.d.Name))
 		}
-		r.NoError(m.Commit(hasAlias))
+		if hasAlias {
+			r.NoError(m.LegacyCommit())
+		} else {
+			r.NoError(m.Commit())
+		}
 		r.NoError(view.Write(_protocolID, m))
 
 		// simulate handleCandidateUpdate: update name
@@ -394,7 +398,11 @@ func TestFixAlias(t *testing.T) {
 
 		// cand center Commit()
 		{
-			r.NoError(center.Commit(hasAlias))
+			if hasAlias {
+				r.NoError(center.LegacyCommit())
+			} else {
+				r.NoError(center.Commit())
+			}
 			r.NoError(view.Write(_protocolID, center))
 			dk.Reset()
 		}
