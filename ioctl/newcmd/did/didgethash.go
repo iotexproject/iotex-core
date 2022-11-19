@@ -27,7 +27,7 @@ var (
 	}
 	_getHashCmdShorts = map[config.Language]string{
 		config.English: "Gethash get DID doc's hash on IoTeX blockchain",
-		config.Chinese: "Gethash 在IoTeX链上获取相应DID的doc hash",
+		config.Chinese: "在IoTeX链上获取相应DID的doc hash",
 	}
 )
 
