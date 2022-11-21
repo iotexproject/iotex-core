@@ -36,6 +36,7 @@ var downloadHeight = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+
 		height, err := strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to convert input height: %s.", args[0])
@@ -44,11 +45,11 @@ var downloadHeight = &cobra.Command{
 			return errors.New("input height cannot be 0.")
 		}
 		var (
-			heighM    = float64(height) / float64(1024) / float64(1024)
 			heightDir string
 			destDir   = args[1]
 			bucket    = "blockchain-golden"
 			prefix    = "fullsync/mainnet/"
+			curr      uint64
 			wg        sync.WaitGroup
 		)
 
@@ -60,7 +61,6 @@ var downloadHeight = &cobra.Command{
 			return ErrNotExist
 		}
 		heiNames := make(map[string][]string)
-		curr := 0.0
 		for _, name := range allObjNames {
 			if strings.HasPrefix(name, prefix) {
 				s := strings.TrimPrefix(name, prefix)
@@ -82,32 +82,34 @@ var downloadHeight = &cobra.Command{
 				}
 			}
 		}
-		latest := curr + 0.25
+		latest := curr + 250000
 
-		if heighM < 8 {
+		if height < 8000000 {
 			heightDir = "0m"
-		} else if heighM >= 8 && heighM < 12 {
+		} else if height >= 8000000 && height < 12000000 {
 			heightDir = "8m"
-		} else if heighM >= 12 && heighM < 13 {
+		} else if height >= 12000000 && height < 13000000 {
 			heightDir = "12m"
-		} else if heighM >= 13 && heighM < latest {
-			inter := height / 1024 / 1024
-			deci := heighM - float64(inter)
+		} else if height >= 13000000 && height < latest {
+			inter := height / 1000000
+			deci := height - inter
 			interStr := fmt.Sprintf("%dm", inter)
-			if deci < 0.25 {
+			if deci < 250000 {
 				heightDir = interStr
-			} else if deci >= 0.25 && deci < 0.5 {
+			} else if deci >= 250000 && deci < 500000 {
 				heightDir = interStr + "25"
-			} else if deci >= 0.5 && deci < 0.75 {
+			} else if deci >= 500000 && deci < 750000 {
 				heightDir = interStr + "50"
-			} else if deci >= 0.75 {
+			} else if deci >= 750000 {
 				heightDir = interStr + "75"
 			}
-		} else if heighM >= latest && heighM < latest+0.25 {
+		} else if height >= latest && height < latest+250000 {
 			heightDir = "latest"
 		} else {
-			return errors.Errorf("input height: %s is larger than latest height: %v.", args[0], latest)
+			return errors.Errorf("input height: %s is larger than latest height: %v.", args[0], latest+250000)
 		}
+
+		cmd.Printf("download height dir is %s.\n", heightDir)
 
 		objs, ok := heiNames[heightDir]
 		if !ok {
@@ -119,7 +121,7 @@ var downloadHeight = &cobra.Command{
 				defer wg.Done()
 				cmd.Printf("downlaoding height from %s.\n", obj)
 				if err := downloadFile(bucket, obj, filepath.Join(destDir, obj)); err != nil {
-					panic(err)
+					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
 			}(obj)
 		}
@@ -200,20 +202,20 @@ func listFiles(bucket, prefix, delim string) ([]string, error) {
 	return objNames, nil
 }
 
-func convertHeightStr(heiStr string) float64 {
+func convertHeightStr(heiStr string) uint64 {
 	idx := strings.Index(heiStr, "m")
-	inter, err := strconv.Atoi(heiStr[:idx])
+	inter, err := strconv.ParseUint(heiStr[:idx], 10, 64)
 	if err != nil {
 		panic(err)
 	}
-	var deci int
+	var deci uint64
 	if len(heiStr) > idx+1 {
-		deci, err = strconv.Atoi(heiStr[idx+1:])
+		deci, err = strconv.ParseUint(heiStr[idx+1:], 10, 64)
 		if err != nil {
 			panic(err)
 		}
 	}
-	return float64(inter) + float64(deci)/float64(100)
+	return inter*1000000 + deci*10000
 }
 
 func mkdirIfNotExist(destDir string) error {

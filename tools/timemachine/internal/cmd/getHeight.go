@@ -12,10 +12,11 @@ import (
 
 // getHeight represents the getheight command
 var getHeight = &cobra.Command{
-	Use:   "getheight",
+	Use:   "get",
 	Short: "Show the tipheight of stateDB and chainDB",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
 		svr, err := newMiniServer(miniServerConfig())
 		if err != nil {
 			return err

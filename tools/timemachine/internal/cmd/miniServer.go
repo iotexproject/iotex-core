@@ -61,10 +61,8 @@ func (mini *miniServer) Factory() factory.Factory {
 
 func miniServerConfig() config.Config {
 	var (
-		genesisPath = "./genesis.yaml"
-		configPath  = "./config.yaml"
-		// genesisPath = "./tools/timemachine/genesis.yaml"
-		// configPath  = "./tools/timemachine/config.yaml"
+		genesisPath = "/Users/u/iotex-var/etc/genesis.yaml"
+		configPath  = "/Users/u/iotex-var/etc/config.yaml"
 	)
 	if _, err := os.Stat(genesisPath); errors.Is(err, os.ErrNotExist) {
 		panic("please put genesis.yaml under current dir")

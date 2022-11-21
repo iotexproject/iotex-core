@@ -28,7 +28,7 @@ type syncheightCmd struct {
 
 // syncHeight represents the syncheight command
 var syncHeight = &cobra.Command{
-	Use:   "syncheight",
+	Use:   "sync",
 	Short: "Sync stateDB height to height x",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
