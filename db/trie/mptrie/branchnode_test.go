@@ -248,8 +248,10 @@ func TestBranchBase(t *testing.T) {
 			hashFunc: DefaultHashFunc,
 			kvStore:  trie.NewMemKVStore(),
 		}
-		key1       = keyType{1, 2, 3, 4, 5}
+		key1 = keyType{1, 2, 3, 4, 5}
+
 		expectKeys = []keyType{
+			{},
 			{1, 2, 5, 6, 7, 8, 9, 10}, // longer length
 			{1, 2, 5},                 // shorter length
 			{1, 2, 5, 6, 7},           // matched length
@@ -261,6 +263,10 @@ func TestBranchBase(t *testing.T) {
 		require.NoError(err)
 		br1, err := br.Upsert(cli, key1, 2, []byte("1"))
 		require.NoError(err)
+		if len(expected) == 0 {
+			require.Panics(func() { br1.Upsert(cli, expected, 0, []byte("2")) }, "keyType{} is not exist.")
+			continue
+		}
 		br2, err := br1.Upsert(cli, expected, 2, []byte("2"))
 		require.NoError(err)
 		br3, err := br2.Upsert(cli, key1, 2, []byte("3"))
@@ -278,4 +284,25 @@ func TestBranchBase(t *testing.T) {
 		require.Equal(expected, n3.(*leafNode).key)
 		require.Equal([]byte("2"), n3.(*leafNode).value)
 	}
+
+	var (
+		br  node
+		err error
+	)
+	br, err = newRootBranchNode(cli, nil, nil, false)
+	require.NoError(err)
+	for i := byte(0); i < 255; i++ {
+		br, err = br.Upsert(cli, keyType{1, i}, 1, []byte{i})
+		require.NoError(err)
+	}
+	require.Len(br.(*branchNode).children, 255)
+	n1, err := br.Search(cli, keyType{1, 2}, 1)
+	require.NoError(err)
+	require.Equal([]byte{2}, n1.(*leafNode).value)
+	br, err = br.Upsert(cli, keyType{2, 3, 4, 5}, 0, []byte{2, 3, 4, 5})
+	require.NoError(err)
+	n1, err = br.Search(cli, keyType{2, 3, 4, 5}, 0)
+	require.NoError(err)
+	require.Equal([]byte{2, 3, 4, 5}, n1.(*leafNode).value)
+	require.Panics(func() { br.Search(cli, keyType{1, 2}, 1) }, "keyType{1, 2} is not exist")
 }
