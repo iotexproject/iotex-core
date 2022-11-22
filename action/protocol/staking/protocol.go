@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -366,11 +367,59 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 		return err
 	}
 	if p.voteReviser.needCorrectCands(height) {
+		cc := csm.DirtyView().candCenter
+		println("@@@@@@@ Commit")
+		println("base.size =", cc.base.size())
+		println("change.size =", cc.change.size())
+		println("center.size =", cc.Size())
+		println("center.hasAlias =", cc.hasAlias)
 		csm.DirtyView().candCenter.ResetBase(false)
+		println("@@@@@@@ rebase")
+		println("base.size =", cc.base.size())
+		println("change.size =", cc.change.size())
+		println("center.size =", cc.Size())
+		println("center.hasAlias =", cc.hasAlias)
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
+	err = errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
+	cc := csm.DirtyView().candCenter
+	println("@@@@@@@ after Commit")
+	println("base.size =", cc.base.size())
+	println("change.size =", cc.change.size())
+	println("center.size =", cc.Size())
+	println("center.hasAlias =", cc.hasAlias)
+	println("center.address =", cc)
+	println("@@@@@@@ all cands")
+	cands := cc.All()
+	sort.Sort(cands)
+	println("all.size =", len(cands))
+	for _, d := range cands {
+		d.print()
+	}
+	println("@@@@@@@ name map")
+	cands = cc.base.NameMap()
+	sort.Sort(cands)
+	println("name.size =", len(cands))
+	for _, d := range cands {
+		d.print()
+	}
+	println("@@@@@@@ operator map")
+	cands = cc.base.OpMap()
+	sort.Sort(cands)
+	println("op.size =", len(cands))
+	for _, d := range cands {
+		d.print()
+	}
+	view, _ := csm.SM().ReadView(_protocolID)
+	data := view.(*ViewData).candCenter
+	println("@@@@@@@ read view")
+	println("base.size =", data.base.size())
+	println("change.size =", data.change.size())
+	println("center.size =", data.Size())
+	println("center.hasAlias =", data.hasAlias)
+	println("center.address =", data)
+	return err
 }
 
 // Handle handles a staking message

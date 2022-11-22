@@ -33,11 +33,13 @@ func NewVoteReviser(c genesis.VoteWeightCalConsts, correctCandsHeight uint64, re
 // Revise recalculate candidate votes on preset revising height.
 func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
 	if !vr.isCacheExist(height) {
+		println("@@@@@@@ revise at height", height)
 		cands, err := vr.calculateVoteWeight(csm)
 		if err != nil {
 			return err
 		}
 		if vr.needCorrectCands(height) {
+			println("@@@@@@@ hit correct height", height)
 			if err := vr.correctAliasCands(csm, cands); err != nil {
 				return err
 			}
@@ -145,8 +147,16 @@ func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (Candidate
 	cands = make(CandidateList, 0, len(candm))
 	for _, cand := range candm {
 		cands = append(cands, cand)
+		if aliasCand(cand) {
+			cand.print()
+		}
 	}
 	return cands, nil
+}
+
+func aliasCand(d *Candidate) bool {
+	return d.Name == "binancenode" || d.Name == "envirobloq" || d.Name == "a4x" ||
+		d.Name == "hsiotx" || d.Name == "myjeenie" || d.Name == "goodwill" || d.Name == "sumolab"
 }
 
 func (vr *VoteReviser) flush(height uint64, csm CandidateStateManager) error {
@@ -163,6 +173,12 @@ func (vr *VoteReviser) flush(height uint64, csm CandidateStateManager) error {
 		}
 		log.L().Info("committed revise action",
 			zap.String("name", cand.Name), zap.String("votes", cand.Votes.String()))
+	}
+	println("@@@@@@@ ownerList")
+	for _, cand := range cands {
+		if aliasCand(cand) {
+			cand.print()
+		}
 	}
 	return nil
 }

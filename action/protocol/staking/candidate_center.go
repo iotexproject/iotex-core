@@ -542,3 +542,23 @@ func (cb *candBase) delete(owner address.Address) {
 		delete(cb.selfStkBucketMap, d.SelfStakeBucketIdx)
 	}
 }
+
+func (cb *candBase) NameMap() CandidateList {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	var res CandidateList
+	for _, v := range cb.nameMap {
+		res = append(res, v)
+	}
+	return res
+}
+
+func (cb *candBase) OpMap() CandidateList {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	var res CandidateList
+	for _, v := range cb.operatorMap {
+		res = append(res, v)
+	}
+	return res
+}

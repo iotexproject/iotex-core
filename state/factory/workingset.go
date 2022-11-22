@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"encoding/hex"
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -219,13 +220,12 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 	if err := protocolPreCommit(ctx, ws); err != nil {
 		return err
 	}
-	if err := ws.store.Commit(); err != nil {
-		return err
-	}
 	if err := protocolCommit(ctx, ws); err != nil {
 		// TODO (zhi): wrap the error and eventually panic it in caller side
 		return err
 	}
+	// abort w/o writing to db
+	panic(ErrNoArchiveData.Error())
 	ws.Reset()
 	return nil
 }
@@ -533,6 +533,8 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if err != nil {
 		return err
 	}
+	println("digest =", hex.EncodeToString(digest[:]))
+	return nil
 	if !blk.VerifyDeltaStateDigest(digest) {
 		return errors.Wrapf(block.ErrDeltaStateMismatch, "digest in block '%x' vs digest in workingset '%x'", blk.DeltaStateDigest(), digest)
 	}

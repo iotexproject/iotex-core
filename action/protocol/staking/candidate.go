@@ -42,6 +42,12 @@ type (
 	}
 )
 
+func (d *Candidate) print() {
+	println("======= name:", d.Name)
+	println("address:", d.Owner.String(), d.Operator.String(), d.Reward.String())
+	println("votes/selfIndex/Stake:", d.Votes.String(), d.SelfStakeBucketIdx, d.SelfStake.String())
+}
+
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
 	return &Candidate{
