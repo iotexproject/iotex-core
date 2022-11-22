@@ -32,7 +32,7 @@
         "expectedBlockInfos" : {
             "txRootHash" : "3d03a074dee9d9edb3dbd2bc30cf854c768e863ecf053c491fd71b2b1092c202",
             "stateRootHash" : "3595fffd9f80f99887e3108d84f3558e2691ab9dc1c73f6279e3da5735d02afa",
-            "receiptRootHash" : "5182918a42865f1ebddb18ad846b9657c49592e4252a9f4234f224bfda05b738"
+            "receiptRootHash" : "1a9cffd85255f3337744824bee82ec21126445d318bcc5edcd626bcf81e8a931"
         }
     }]
 }
