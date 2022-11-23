@@ -81,7 +81,7 @@ type (
 
 	// TestCtx is ctx used in test or tool
 	TestCtx struct {
-		DisableBlockDaoSync bool
+		TimeMachine bool
 	}
 
 	// CheckFunc is function type to check by height.

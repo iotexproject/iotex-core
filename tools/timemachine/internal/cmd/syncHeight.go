@@ -22,17 +22,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-type syncheightCmd struct {
-	svr *miniServer
-}
-
 // syncHeight represents the syncheight command
 var syncHeight = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync stateDB height to height x",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		newHeight, err := strconv.ParseUint(args[0], 10, 64)
+		stopHeight, err := strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
 			return err
 		}
@@ -40,106 +36,73 @@ var syncHeight = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		syncheightCmd := newSyncheightCmd(svr)
-
-		if err := syncheightCmd.checkSanity(newHeight); err != nil {
-			return err
-		}
-		return syncheightCmd.syncToHeight(newHeight)
+		return syncToHeight(svr, stopHeight)
 	},
 }
 
-func newSyncheightCmd(svr *miniServer) *syncheightCmd {
-	return &syncheightCmd{
-		svr: svr,
-	}
-}
-
-func (cmd *syncheightCmd) checkSanity(newHeight uint64) error {
-	daoHeight, err := cmd.svr.BlockDao().Height()
-	if err != nil {
-		return err
-	}
-	indexerHeight, err := cmd.svr.Factory().Height()
-	if err != nil {
-		return err
-	}
-	if newHeight > daoHeight {
-		return errors.New("calibrated Height shouldn't be larger than the height of chainDB")
-	}
-	if indexerHeight > newHeight {
-		return errors.New("the height of indexer shouldn't be larger than newheight")
-	}
-	return nil
-}
-
-func (cmd *syncheightCmd) syncToHeight(newHeight uint64) error {
+func syncToHeight(svr *miniServer, stopHeight uint64) error {
 	var (
-		ctx     = cmd.svr.Context()
-		dao     = cmd.svr.BlockDao()
-		indexer = cmd.svr.Factory()
+		ctx     = svr.Context()
+		dao     = svr.BlockDao()
+		indexer = svr.Factory()
 	)
-	indexerHeight, err := indexer.Height()
-	if err != nil {
-		panic(err)
+
+	checker := blockdao.NewBlockIndexerChecker(dao)
+	if err := checker.CheckIndexer(ctx, indexer, stopHeight-1, func(height uint64) {
+		if height%5000 == 0 {
+			log.L().Info(
+				"indexer is catching up.",
+				zap.Uint64("height", height-1),
+			)
+		}
+	}); err != nil {
+		return err
 	}
-	tipBlk, err := dao.GetBlockByHeight(indexerHeight)
+	log.L().Info("indexer is up to date.", zap.Uint64("height", stopHeight-1))
+
+	stopHeightIndexer, err := svr.StopHeightFactory(stopHeight)
 	if err != nil {
 		return err
 	}
-	syncCtx := ctx
-	for i := indexerHeight + 1; i <= newHeight; i++ {
-		blk, err := getBlockFromChainDB(dao, i)
-		if err != nil {
-			return err
-		}
-		indexCtx := syncCtx
-		if err := indexBlock(indexCtx, tipBlk, blk, indexer); err != nil {
-			return err
-		}
-		log.S().Info("Sync indexer height to", i)
-		tipBlk = blk
+	if err := putBlock(ctx, dao, stopHeightIndexer, stopHeight); err != nil {
+		return err
 	}
+	log.L().Info("indexer is up to date.", zap.Uint64("height", stopHeight))
 	return nil
 }
 
-func getBlockFromChainDB(dao blockdao.BlockDAO, height uint64) (*block.Block, error) {
+func putBlock(
+	ctx context.Context,
+	dao blockdao.BlockDAO,
+	indexer blockdao.BlockIndexer,
+	height uint64,
+) error {
 	blk, err := dao.GetBlockByHeight(height)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if blk.Receipts == nil {
 		blk.Receipts, err = dao.GetReceipts(height)
 		if err != nil {
-			return nil, err
+			return err
 		}
-	}
-	return blk, nil
-}
-
-func indexBlock(
-	ctx context.Context,
-	tipBlk *block.Block,
-	blk *block.Block,
-	indexer blockdao.BlockIndexer,
-) error {
-	if tipBlk.Height()+1 != blk.Height() {
-		return errors.New("fail")
-	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	gCtx := genesis.MustExtractGenesisContext(ctx)
-	bcCtx.Tip.Height = tipBlk.Height()
-	if bcCtx.Tip.Height > 0 {
-		bcCtx.Tip.Hash = tipBlk.HashHeader()
-		bcCtx.Tip.Timestamp = tipBlk.Timestamp()
-	} else {
-		bcCtx.Tip.Hash = gCtx.Hash()
-		bcCtx.Tip.Timestamp = time.Unix(gCtx.Timestamp, 0)
 	}
 	producer := blk.PublicKey().Address()
 	if producer == nil {
 		return errors.New("failed to get address")
 	}
+
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	gCtx := genesis.MustExtractGenesisContext(ctx)
+	bcCtx.Tip.Height = blk.Height()
+	if bcCtx.Tip.Height > 0 {
+		bcCtx.Tip.Hash = blk.HashHeader()
+		bcCtx.Tip.Timestamp = blk.Timestamp()
+	} else {
+		bcCtx.Tip.Hash = gCtx.Hash()
+		bcCtx.Tip.Timestamp = time.Unix(gCtx.Timestamp, 0)
+	}
+
 	for {
 		var err error
 		if err = indexer.PutBlock(protocol.WithBlockCtx(

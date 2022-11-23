@@ -9,6 +9,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"strconv"
 
 	"github.com/pkg/errors"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -25,6 +27,7 @@ import (
 type miniServer struct {
 	cs  *chainservice.ChainService
 	cfg config.Config
+	ctx context.Context
 }
 
 func newMiniServer(cfg config.Config) (*miniServer, error) {
@@ -33,8 +36,9 @@ func newMiniServer(cfg config.Config) (*miniServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	miniSvr := &miniServer{cs, cfg}
-	if err = cs.BlockDAO().Start(miniSvr.Context()); err != nil {
+	miniSvr := &miniServer{cs: cs, cfg: cfg}
+	miniSvr.ctx = miniSvr.Context()
+	if err = cs.BlockDAO().Start(miniSvr.ctx); err != nil {
 		return nil, err
 	}
 	if err := miniSvr.checkSanity(); err != nil {
@@ -47,7 +51,7 @@ func (mini *miniServer) Context() context.Context {
 	cfg := mini.cfg
 	blockchainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{ChainID: cfg.Chain.ID})
 	genesisContext := genesis.WithGenesisContext(blockchainCtx, cfg.Genesis)
-	featureContext := protocol.WithTestCtx(genesisContext, protocol.TestCtx{DisableBlockDaoSync: true})
+	featureContext := protocol.WithTestCtx(genesisContext, protocol.TestCtx{TimeMachine: true})
 	return protocol.WithFeatureWithHeightCtx(featureContext)
 }
 
@@ -59,10 +63,25 @@ func (mini *miniServer) Factory() factory.Factory {
 	return mini.cs.StateFactory()
 }
 
+func (mini *miniServer) StopHeightFactory(stopHeight uint64) (factory.Factory, error) {
+	factoryCfg := factory.GenerateConfig(mini.cfg.Chain, mini.cfg.Genesis)
+	dbPath := mini.cfg.Chain.TrieDBPath
+	stopHeightDBPath := dbPath[:len(dbPath)-3] + strconv.FormatUint(stopHeight, 10) + ".db"
+	dao, err := db.CreateKVStore(mini.cfg.DB, stopHeightDBPath)
+	if err != nil {
+		return nil, err
+	}
+	f, err := factory.NewStateDB(factoryCfg, dao)
+	if err != nil {
+		return nil, err
+	}
+	return f, f.Start(mini.ctx)
+}
+
 func miniServerConfig() config.Config {
 	var (
-		genesisPath = "/Users/u/iotex-var/etc/genesis.yaml"
-		configPath  = "/Users/u/iotex-var/etc/config.yaml"
+		genesisPath = os.Getenv("IOTEX_HOME") + "/etc/genesis.yaml"
+		configPath  = os.Getenv("IOTEX_HOME") + "/etc/config.yaml"
 	)
 	if _, err := os.Stat(genesisPath); errors.Is(err, os.ErrNotExist) {
 		panic("please put genesis.yaml under current dir")
