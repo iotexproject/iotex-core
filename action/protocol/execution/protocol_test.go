@@ -1048,6 +1048,10 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("CVE-2021-39137-attack-replay", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/CVE-2021-39137-attack-replay.json")
 	})
+	t.Run("err-write-protection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-istanbul/write-protection.json")
+	})
+
 }
 
 func TestLondonEVM(t *testing.T) {
