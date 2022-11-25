@@ -52,7 +52,7 @@ func TestLeafOperation(t *testing.T) {
 	node, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
 	require.NoError(err)
 
-	// insert same key -> newLeafNode
+	// leaf.Upsert newLeafNode -> leaf
 	node, err = node.Upsert(cli, keyType("iotex"), 0, []byte("chain"))
 	require.NoError(err)
 	leaf, ok := node.(*leafNode)
@@ -60,39 +60,37 @@ func TestLeafOperation(t *testing.T) {
 	require.Equal(keyType("iotex"), leaf.key)
 	require.Equal([]byte("chain"), leaf.value)
 
-	// insert longer key -> extension
+	// leaf.Upsert newBranchNode -> branch
+	node, err = node.Upsert(cli, keyType("block"), 0, []byte("chain"))
+	require.NoError(err)
+	bnode, ok := node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode.children, 2)
+	checkLeaf(bnode, keyType("iotex"), 0, []byte("chain"))
+	checkLeaf(bnode, keyType("block"), 0, []byte("chain"))
+
+	// branch.Upsert child.Upsert -> leaf.Upsert newExtensionNode -> extension
 	node, err = node.Upsert(cli, keyType("ioabc123"), 0, []byte("chabc"))
 	require.NoError(err)
-	enode, ok := node.(*extensionNode)
+	bnode, ok = node.(*branchNode)
 	require.True(ok)
-	require.Equal([]byte("io"), enode.path)
-	bnode, ok := enode.child.(*branchNode)
+	require.Len(bnode.children, 2)
+	enode, ok := bnode.children[byte('i')].(*extensionNode)
+	require.True(ok)
+	require.Equal([]byte("o"), enode.path)
+	bnode, ok = enode.child.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2)
 	checkLeaf(bnode, keyType("iotex"), 2, []byte("chain"))
 	checkLeaf(bnode, keyType("ioabc123"), 2, []byte("chabc"))
 
-	// insert same-length key -> branch
-	node, err = node.Upsert(cli, keyType("block"), 0, []byte("chain"))
-	require.NoError(err)
-	bnode, ok = node.(*branchNode)
-	require.True(ok)
-	require.Len(bnode.children, 2)
-	checkLeaf(bnode, keyType("block"), 0, []byte("chain"))
-	node1, ok := bnode.children[byte('i')]
-	require.True(ok)
-	enode1, ok := node1.(*extensionNode)
-	require.True(ok)
-	require.Equal([]byte("o"), enode1.path)
-	require.Len(enode1.child.(*branchNode).children, 2)
-
-	// insert shorter key -> branch
+	// branch.Upsert child.Upsert -> branch
 	node, err = node.Upsert(cli, keyType("ixy"), 0, []byte("dog"))
 	require.NoError(err)
 	bnode, ok = node.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2) // (block, (ixy, ext))
-	node1, ok = bnode.children[byte('i')]
+	node1, ok := bnode.children[byte('i')]
 	require.True(ok)
 	bnode1, ok := node1.(*branchNode)
 	require.True(ok)
@@ -107,7 +105,7 @@ func TestLeafOperation(t *testing.T) {
 
 	// insert wrong key
 	for _, key := range []keyType{
-		keyType("i"), keyType("bloc"), keyType("iote"),
+		keyType("i"), keyType("bloc"), keyType("iote"), keyType("ioabc12345678"),
 	} {
 		require.Panics(func() { node.Upsert(cli, key, 0, []byte("ch")) }, "index out of range in commonPrefixLength.")
 	}
@@ -126,24 +124,31 @@ func TestLeafOperation(t *testing.T) {
 	require.NoError(err)
 	require.Equal([]byte("dog"), node1.(*leafNode).value)
 
-	// delete shorter key -> branch
+	// branch.Delete case2 case *extensionNode -> branch.Delete b.updateChild -> branch
 	node, err = node.Delete(cli, keyType("ixy"), 0)
 	require.NoError(err)
 	bnode, ok = node.(*branchNode)
 	require.True(ok)
+	require.Len(bnode.children, 2) // block, ext
+	checkLeaf(bnode, keyType("block"), 0, []byte("chain"))
+	enode, ok = bnode.children[byte('i')].(*extensionNode)
+	require.True(ok)
+	require.Equal([]byte("o"), enode.path)
+	require.Len(enode.child.(*branchNode).children, 2)
 	node1, err = node.Search(cli, keyType("ixy"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// delete same-length key -> extension
+	// branch.Delete case2 case *extensionNode -> extension
 	node, err = node.Delete(cli, keyType("block"), 0)
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
 	require.True(ok)
 	require.Equal([]byte("io"), enode.path)
+	require.Len(enode2.child.(*branchNode).children, 2)
 	node1, err = node.Search(cli, keyType("block"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// delete same key -> leaf
+	// extension.Delete default -> branch.Delete case2 case *leafNode -> leaf
 	node, err = node.Delete(cli, keyType("iotex"), 0)
 	require.NoError(err)
 	leaf, ok = node.(*leafNode)
@@ -153,7 +158,7 @@ func TestLeafOperation(t *testing.T) {
 	node1, err = node.Search(cli, keyType("iotex"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// delete longer key
+	// leaf.Delete -> nil
 	node, err = node.Delete(cli, keyType("ioabc123"), 0)
 	require.NoError(err)
 	require.Nil(node)
