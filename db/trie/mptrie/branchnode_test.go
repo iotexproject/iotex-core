@@ -157,13 +157,6 @@ func TestBranchOperation(t *testing.T) {
 		}
 		children = make(map[byte]node)
 	)
-	checkLeaf := func(bnode *branchNode, key keyType, offset uint8, value []byte) {
-		child, ok := bnode.children[key[offset]]
-		require.True(ok)
-		ln, ok := child.(*leafNode)
-		require.True(ok)
-		require.Equal(value, ln.value)
-	}
 
 	// create
 	node, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
@@ -187,8 +180,8 @@ func TestBranchOperation(t *testing.T) {
 	bn1, ok := ex1.child.(*branchNode)
 	require.True(ok)
 	require.Len(bn1.children, 2)
-	checkLeaf(bn1, keyType("iotex"), 2, []byte("coin"))
-	checkLeaf(bn1, keyType("ioabc123"), 2, []byte("chabc"))
+	checkLeaf(require, bn1, keyType("iotex"), 2, []byte("coin"))
+	checkLeaf(require, bn1, keyType("ioabc123"), 2, []byte("chabc"))
 
 	// branch.Upsert newLeafNode -> branch
 	node, err = node.Upsert(cli, keyType("block"), 0, []byte("chain"))
@@ -197,7 +190,7 @@ func TestBranchOperation(t *testing.T) {
 	require.True(ok)
 	require.Len(bnode1.children, 2) // block, ext
 	require.Equal(bnode.children[byte('i')], bnode1.children[byte('i')])
-	checkLeaf(bnode1, keyType("block"), 0, []byte("chain"))
+	checkLeaf(require, bnode1, keyType("block"), 0, []byte("chain"))
 
 	// branch.Upsert child.Upsert -> branch
 	node, err = node.Upsert(cli, keyType("iotex"), 0, []byte("chain"))
@@ -211,7 +204,7 @@ func TestBranchOperation(t *testing.T) {
 	require.True(ok)
 	bn2, ok := ex2.child.(*branchNode)
 	require.True(ok)
-	checkLeaf(bn2, keyType("iotex"), 2, []byte("chain"))
+	checkLeaf(require, bn2, keyType("iotex"), 2, []byte("chain"))
 
 	// branch.Upsert child.Upsert -> branch
 	node, err = node.Upsert(cli, keyType("ixy"), 0, []byte("dog"))
@@ -224,7 +217,7 @@ func TestBranchOperation(t *testing.T) {
 	bn3, ok := bnode3.children[byte('i')].(*branchNode)
 	require.True(ok)
 	require.Len(bn3.children, 2) // ixy, ext
-	checkLeaf(bn3, keyType("ixy"), 1, []byte("dog"))
+	checkLeaf(require, bn3, keyType("ixy"), 1, []byte("dog"))
 
 	// branch.Upsert child.Upsert -> branch
 	node, err = node.Upsert(cli, keyType("idef"), 0, []byte("cat"))
@@ -236,7 +229,7 @@ func TestBranchOperation(t *testing.T) {
 	bn4, ok := bnode4.children[byte('i')].(*branchNode)
 	require.True(ok)
 	require.Len(bn4.children, 3) // idef, ixy, ext
-	checkLeaf(bn4, keyType("idef"), 1, []byte("cat"))
+	checkLeaf(require, bn4, keyType("idef"), 1, []byte("cat"))
 
 	// check key
 	node1, err := node.Search(cli, keyType("iotex"), 0)
@@ -320,4 +313,12 @@ func TestBranchOperation(t *testing.T) {
 	require.NoError(err)
 	require.Equal([]byte{2, 3, 4, 5}, n1.(*leafNode).value)
 	require.Panics(func() { node.Search(cli, keyType{1, 2}, 1) }, "keyType{1, 2} is not exist")
+}
+
+func checkLeaf(require *require.Assertions, bnode *branchNode, key keyType, offset uint8, value []byte) {
+	child, ok := bnode.children[key[offset]]
+	require.True(ok)
+	ln, ok := child.(*leafNode)
+	require.True(ok)
+	require.Equal(value, ln.value)
 }
