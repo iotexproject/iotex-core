@@ -116,9 +116,14 @@ func TestExtensionOperation(t *testing.T) {
 	require.Len(bn1.children, 2) // ixy, ext
 	checkLeaf(bn1, keyType("ixy"), 1, []byte("dog"))
 
+	// insert shorter key -> branch
+	node, err = node.Upsert(cli, keyType("idef"), 0, []byte("cat"))
+	require.NoError(err)
+	bnode, ok = node.(*branchNode)
+
 	// insert wrong key
 	for _, key := range []keyType{
-		keyType("b"), keyType("io"), keyType("ioabc12"),
+		keyType("b"), keyType("io"), keyType("ioabc12"), keyType("ixy123"),
 	} {
 		require.Panics(func() { node.Upsert(cli, key, 0, []byte("ch")) }, "index out of range in commonPrefixLength.")
 	}
@@ -136,8 +141,11 @@ func TestExtensionOperation(t *testing.T) {
 	node1, err = node.Search(cli, keyType("ixy"), 0)
 	require.NoError(err)
 	require.Equal([]byte("dog"), node1.(*leafNode).value)
+	node1, err = node.Search(cli, keyType("idef"), 0)
+	require.NoError(err)
+	require.Equal([]byte("cat"), node1.(*leafNode).value)
 
-	// delete one -> extension
+	// branch.Delete case2 newExtensionNode -> extension
 	node, err = node.Delete(cli, keyType("block"), 0)
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
@@ -145,7 +153,7 @@ func TestExtensionOperation(t *testing.T) {
 	require.Equal([]byte("i"), enode.path)
 	bnode, ok = enode.child.(*branchNode)
 	require.True(ok)
-	require.Len(bnode.children, 2) // ext, leaf
+	require.Len(bnode.children, 3) // ext, leaf
 	vn, ok = bnode.children[byte('o')]
 	require.True(ok)
 	ex1, ok = vn.(*extensionNode)
@@ -157,30 +165,43 @@ func TestExtensionOperation(t *testing.T) {
 	node1, err = node.Search(cli, keyType("block"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// delete second -> extension
-	node, err = node.Delete(cli, keyType("iotex"), 0)
+	// extension.Delete case *branchNode -> extension
+	node, err = node.Delete(cli, keyType("idef"), 0)
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
 	require.True(ok)
 	require.Equal([]byte("i"), enode.path)
 	bnode, ok = enode.child.(*branchNode)
 	require.True(ok)
+	require.Len(bnode.children, 2) // ext, leaf
+
+	// extension.Delete case *extensionNode -> extension
+	node, err = node.Delete(cli, keyType("ixy"), 0)
+	require.NoError(err)
+	enode, ok = node.(*extensionNode)
+	require.True(ok)
+	require.Equal([]byte("io"), enode.path)
+	bnode, ok = enode.child.(*branchNode)
+	require.True(ok)
 	require.Len(bnode.children, 2)
-	checkLeaf(bnode, keyType("ioabc123"), 1, []byte("chabc"))
-	checkLeaf(bnode, keyType("ixy"), 1, []byte("dog"))
-	node1, err = node.Search(cli, keyType("iotex"), 0)
+	checkLeaf(bnode, keyType("ioabc123"), 2, []byte("chabc"))
+	vn, ok = bnode.children[byte('t')]
+	require.True(ok)
+	ex1, ok = vn.(*extensionNode)
+	require.True(ok)
+	node1, err = node.Search(cli, keyType("ixy"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// delete third -> leaf
-	node, err = node.Delete(cli, keyType("ioabc123"), 0)
+	// extension.Delete default -> leaf
+	node, err = node.Delete(cli, keyType("iotex"), 0)
 	require.NoError(err)
 	ln, ok = node.(*leafNode)
 	require.True(ok)
-	node1, err = node.Search(cli, keyType("ioabc123"), 0)
+	node1, err = node.Search(cli, keyType("iotex"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
 	// delete last
-	node, err = node.Delete(cli, keyType("ixy"), 0)
+	node, err = node.Delete(cli, keyType("ioabc123"), 0)
 	require.NoError(err)
 	require.Nil(node)
 
