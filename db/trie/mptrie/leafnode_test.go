@@ -40,13 +40,6 @@ func TestLeafOperation(t *testing.T) {
 			kvStore:  trie.NewMemKVStore(),
 		}
 	)
-	checkLeaf := func(bnode *branchNode, key keyType, offset uint8, value []byte) {
-		child, ok := bnode.children[key[offset]]
-		require.True(ok)
-		ln1, ok := child.(*leafNode)
-		require.True(ok)
-		require.Equal(value, ln1.value)
-	}
 
 	// create
 	node, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
@@ -66,8 +59,8 @@ func TestLeafOperation(t *testing.T) {
 	bnode, ok := node.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2)
-	checkLeaf(bnode, keyType("iotex"), 0, []byte("chain"))
-	checkLeaf(bnode, keyType("block"), 0, []byte("chain"))
+	checkLeaf(require, bnode, keyType("iotex"), 0, []byte("chain"))
+	checkLeaf(require, bnode, keyType("block"), 0, []byte("chain"))
 
 	// branch.Upsert child.Upsert -> leaf.Upsert newExtensionNode -> extension
 	node, err = node.Upsert(cli, keyType("ioabc123"), 0, []byte("chabc"))
@@ -81,8 +74,8 @@ func TestLeafOperation(t *testing.T) {
 	bnode, ok = enode.child.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2)
-	checkLeaf(bnode, keyType("iotex"), 2, []byte("chain"))
-	checkLeaf(bnode, keyType("ioabc123"), 2, []byte("chabc"))
+	checkLeaf(require, bnode, keyType("iotex"), 2, []byte("chain"))
+	checkLeaf(require, bnode, keyType("ioabc123"), 2, []byte("chabc"))
 
 	// branch.Upsert child.Upsert -> branch
 	node, err = node.Upsert(cli, keyType("ixy"), 0, []byte("dog"))
@@ -101,7 +94,7 @@ func TestLeafOperation(t *testing.T) {
 	require.True(ok)
 	require.Equal([]byte(""), enode2.path)
 	require.Len(enode2.child.(*branchNode).children, 2)
-	checkLeaf(bnode1, keyType("ixy"), 1, []byte("dog"))
+	checkLeaf(require, bnode1, keyType("ixy"), 1, []byte("dog"))
 
 	// insert wrong key
 	for _, key := range []keyType{
@@ -130,7 +123,7 @@ func TestLeafOperation(t *testing.T) {
 	bnode, ok = node.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2) // block, ext
-	checkLeaf(bnode, keyType("block"), 0, []byte("chain"))
+	checkLeaf(require, bnode, keyType("block"), 0, []byte("chain"))
 	enode, ok = bnode.children[byte('i')].(*extensionNode)
 	require.True(ok)
 	require.Equal([]byte("o"), enode.path)
@@ -174,4 +167,12 @@ func TestLeafOperation(t *testing.T) {
 	node2, err = node.Delete(cli, keyType{}, 0)
 	require.NoError(err)
 	require.Nil(node2)
+}
+
+func checkLeaf(require *require.Assertions, bnode *branchNode, key keyType, offset uint8, value []byte) {
+	child, ok := bnode.children[key[offset]]
+	require.True(ok)
+	ln, ok := child.(*leafNode)
+	require.True(ok)
+	require.Equal(value, ln.value)
 }
