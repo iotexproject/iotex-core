@@ -148,161 +148,176 @@ func TestBranchNodeChildren(t *testing.T) {
 	}
 }
 
-func TestBranchNodeDelete(t *testing.T) {
-	var (
-		require    = require.New(t)
-		itemsArray = [][]struct{ k, v string }{
-			{
-				{"iotex", "coin"},
-			},
-			{
-				{"iotex", "coin"},
-				{"block", "chain"},
-			},
-			{
-				{"iotex", "coin"},
-				{"block", "chain"},
-				{"chain", "link"},
-				{"puppy", "dog"},
-			},
-		}
-		cli = &merklePatriciaTrie{
-			keyLength: 5,
-			hashFunc:  DefaultHashFunc,
-			kvStore:   trie.NewMemKVStore(),
-		}
-		children = make(map[byte]node)
-		offset   uint8
-	)
-
-	for i, items := range itemsArray {
-		for _, item := range items {
-			lnode, err := newLeafNode(cli, keyType(item.k), []byte(item.v))
-			require.NoError(err)
-			children[keyType(item.k)[offset]] = lnode
-		}
-		indices := NewSortedList(children)
-
-		bnode, err := newBranchNode(cli, children, indices)
-		require.NoError(err)
-		for _, item := range items {
-			if i == 0 {
-				require.Panics(func() { bnode.Delete(cli, keyType(item.k), offset) })
-			} else {
-				newnode, err := bnode.Delete(cli, keyType(item.k), offset)
-				require.NoError(err)
-				err = bnode.Flush(cli)
-				require.NoError(err)
-				_, err = newnode.Search(cli, keyType(item.k), offset)
-				require.Equal(trie.ErrNotExist, err)
-			}
-		}
-	}
-}
-
-func TestBranchNodeUpsert(t *testing.T) {
-	var (
-		require = require.New(t)
-		items   = []struct{ k, v string }{
-			{"iotex", "coin"},
-			{"block", "chain"},
-			{"chain", "link"},
-			{"cuppy", "dog"},
-			{"cupht", "knight"},
-			{"cuphtabc", "knightabc"},
-			{"cup", "kni"},
-		}
-		cli = &merklePatriciaTrie{
-			keyLength: 5,
-			hashFunc:  DefaultHashFunc,
-			kvStore:   trie.NewMemKVStore(),
-		}
-		children = make(map[byte]node)
-		offset   uint8
-	)
-
-	lnode, err := newLeafNode(cli, keyType("iotex"), []byte("chain"))
-	require.NoError(err)
-	children[keyType("iotex")[offset]] = lnode
-
-	bnode, err := newRootBranchNode(cli, children, NewSortedList(nil), false)
-	require.NoError(err)
-	for _, item := range items {
-		newnode, err := bnode.Upsert(cli, keyType(item.k), offset, []byte(item.v))
-		require.NoError(err)
-		err = bnode.Flush(cli)
-		require.NoError(err)
-		node, err := newnode.Search(cli, keyType(item.k), offset)
-		require.NoError(err)
-		ln, ok := node.(*leafNode)
-		require.True(ok)
-		require.Equal(keyType(item.k), ln.key)
-		require.Equal([]byte(item.v), ln.value)
-	}
-}
-
-func TestBranchBase(t *testing.T) {
+func TestBranchOperation(t *testing.T) {
 	var (
 		require = require.New(t)
 		cli     = &merklePatriciaTrie{
 			hashFunc: DefaultHashFunc,
 			kvStore:  trie.NewMemKVStore(),
 		}
-		key1 = keyType{1, 2, 3, 4, 5}
-
-		expectKeys = []keyType{
-			{},
-			{1, 2, 5, 6, 7, 8, 9, 10}, // longer length
-			{1, 2, 5},                 // shorter length
-			{1, 2, 5, 6, 7},           // matched length
-		}
+		children = make(map[byte]node)
 	)
-
-	for _, expected := range expectKeys {
-		br, err := newRootBranchNode(cli, nil, nil, false)
-		require.NoError(err)
-		br1, err := br.Upsert(cli, key1, 2, []byte("1"))
-		require.NoError(err)
-		if len(expected) == 0 {
-			require.Panics(func() { br1.Upsert(cli, expected, 0, []byte("2")) }, "keyType{} is not exist.")
-			continue
-		}
-		br2, err := br1.Upsert(cli, expected, 2, []byte("2"))
-		require.NoError(err)
-		br3, err := br2.Upsert(cli, key1, 2, []byte("3"))
-		require.NoError(err)
-		n1, err := br3.Search(cli, key1, 2)
-		require.NoError(err)
-		require.Equal([]byte("3"), n1.(*leafNode).value)
-		n2, err := br3.Delete(cli, key1, 2)
-		require.NoError(err)
-		br4, ok := n2.(*branchNode)
+	checkLeaf := func(bnode *branchNode, key keyType, offset uint8, value []byte) {
+		child, ok := bnode.children[key[offset]]
 		require.True(ok)
-		require.Len(br4.children, 1)
-		n3, ok := br4.children[5]
+		ln, ok := child.(*leafNode)
 		require.True(ok)
-		require.Equal(expected, n3.(*leafNode).key)
-		require.Equal([]byte("2"), n3.(*leafNode).value)
+		require.Equal(value, ln.value)
 	}
 
-	var (
-		br  node
-		err error
-	)
-	br, err = newRootBranchNode(cli, nil, nil, false)
+	// create
+	node, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
 	require.NoError(err)
+	children[byte('i')] = node
+	node, err = newBranchNode(cli, children, nil)
+	require.NoError(err)
+	require.Panics(func() { node.Delete(cli, keyType("iotex"), 0) }, "branch shouldn't have 0 child after deleting")
+
+	// branch.Upsert child.Upsert -> branch
+	node, err = node.Upsert(cli, keyType("ioabc123"), 0, []byte("chabc"))
+	require.NoError(err)
+	bnode, ok := node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode.children, 1) // ext
+	vn, ok := bnode.children[byte('i')]
+	require.True(ok)
+	ex1, ok := vn.(*extensionNode)
+	require.True(ok)
+	require.Equal([]byte("o"), ex1.path)
+	bn1, ok := ex1.child.(*branchNode)
+	require.True(ok)
+	require.Len(bn1.children, 2)
+	checkLeaf(bn1, keyType("iotex"), 2, []byte("coin"))
+	checkLeaf(bn1, keyType("ioabc123"), 2, []byte("chabc"))
+
+	// branch.Upsert newLeafNode -> branch
+	node, err = node.Upsert(cli, keyType("block"), 0, []byte("chain"))
+	require.NoError(err)
+	bnode1, ok := node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode1.children, 2) // block, ext
+	require.Equal(bnode.children[byte('i')], bnode1.children[byte('i')])
+	checkLeaf(bnode1, keyType("block"), 0, []byte("chain"))
+
+	// branch.Upsert child.Upsert -> branch
+	node, err = node.Upsert(cli, keyType("iotex"), 0, []byte("chain"))
+	require.NoError(err)
+	bnode2, ok := node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode2.children, 2) // block, ex2
+	require.Equal(bnode1.children[byte('b')], bnode2.children[byte('b')])
+	require.NotEqual(bnode.children[byte('i')], bnode2.children[byte('i')])
+	ex2, ok := bnode2.children[byte('i')].(*extensionNode)
+	require.True(ok)
+	bn2, ok := ex2.child.(*branchNode)
+	require.True(ok)
+	checkLeaf(bn2, keyType("iotex"), 2, []byte("chain"))
+
+	// branch.Upsert child.Upsert -> branch
+	node, err = node.Upsert(cli, keyType("ixy"), 0, []byte("dog"))
+	require.NoError(err)
+	bnode3, ok := node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode3.children, 2) // block, bn3
+	require.Equal(bnode1.children[byte('b')], bnode3.children[byte('b')])
+	require.NotEqual(bnode.children[byte('i')], bnode3.children[byte('i')])
+	bn3, ok := bnode3.children[byte('i')].(*branchNode)
+	require.True(ok)
+	require.Len(bn3.children, 2) // ixy, ext
+	checkLeaf(bn3, keyType("ixy"), 1, []byte("dog"))
+
+	// branch.Upsert child.Upsert -> branch
+	node, err = node.Upsert(cli, keyType("idef"), 0, []byte("cat"))
+	require.NoError(err)
+	bnode4, ok := node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode4.children, 2) // block, bn4
+	require.Equal(bnode1.children[byte('b')], bnode4.children[byte('b')])
+	bn4, ok := bnode4.children[byte('i')].(*branchNode)
+	require.True(ok)
+	require.Len(bn4.children, 3) // idef, ixy, ext
+	checkLeaf(bn4, keyType("idef"), 1, []byte("cat"))
+
+	// check key
+	node1, err := node.Search(cli, keyType("iotex"), 0)
+	require.NoError(err)
+	require.Equal([]byte("chain"), node1.(*leafNode).value)
+	node1, err = node.Search(cli, keyType("ioabc123"), 0)
+	require.NoError(err)
+	require.Equal([]byte("chabc"), node1.(*leafNode).value)
+	node1, err = node.Search(cli, keyType("block"), 0)
+	require.NoError(err)
+	require.Equal([]byte("chain"), node1.(*leafNode).value)
+	node1, err = node.Search(cli, keyType("ixy"), 0)
+	require.NoError(err)
+	require.Equal([]byte("dog"), node1.(*leafNode).value)
+	node1, err = node.Search(cli, keyType("idef"), 0)
+	require.NoError(err)
+	require.Equal([]byte("cat"), node1.(*leafNode).value)
+
+	// branch.Delete default b.updateChild -> extension
+	node, err = node.Delete(cli, keyType("idef"), 0)
+	require.NoError(err)
+	bnode, ok = node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode.children, 2)
+	node1, err = node.Search(cli, keyType("idef"), 0)
+	require.Equal(trie.ErrNotExist, err)
+
+	// branch.Delete case2 case *leafNode -> branch.Delete b.updateChild
+	node, err = node.Delete(cli, keyType("ioabc123"), 0)
+	require.NoError(err)
+	bnode, ok = node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode.children, 2)
+	node1, err = node.Search(cli, keyType("ioabc123"), 0)
+	require.Equal(trie.ErrNotExist, err)
+
+	// branch.Delete case2 default newExtensionNode
+	node, err = node.Delete(cli, keyType("block"), 0)
+	require.NoError(err)
+	enode, ok := node.(*extensionNode)
+	require.True(ok)
+	bn1, ok = enode.child.(*branchNode)
+	require.True(ok)
+	require.Len(bn1.children, 2)
+	node1, err = node.Search(cli, keyType("block"), 0)
+	require.Equal(trie.ErrNotExist, err)
+
+	// extension.Delete default
+	node, err = node.Delete(cli, keyType("iotex"), 0)
+	require.NoError(err)
+	_, ok = node.(*leafNode)
+	require.True(ok)
+	node1, err = node.Search(cli, keyType("iotex"), 0)
+	require.Equal(trie.ErrNotExist, err)
+
+	// leaf.Delete
+	node, err = node.Delete(cli, keyType("ixy"), 0)
+	require.NoError(err)
+	require.Nil(node)
+
+	// children is nil
+	node, err = newRootBranchNode(cli, nil, nil, false)
+	require.NoError(err)
+	node, err = node.Delete(cli, keyType{1}, 0)
+	require.Equal(trie.ErrNotExist, err)
+	require.Nil(node)
+
+	// children is max
+	node, err = newRootBranchNode(cli, nil, nil, false)
 	for i := byte(0); i < 255; i++ {
-		br, err = br.Upsert(cli, keyType{1, i}, 1, []byte{i})
+		node, err = node.Upsert(cli, keyType{1, i}, 1, []byte{i})
 		require.NoError(err)
 	}
-	require.Len(br.(*branchNode).children, 255)
-	n1, err := br.Search(cli, keyType{1, 2}, 1)
+	require.Len(node.(*branchNode).children, 255)
+	n1, err := node.Search(cli, keyType{1, 2}, 1)
 	require.NoError(err)
 	require.Equal([]byte{2}, n1.(*leafNode).value)
-	br, err = br.Upsert(cli, keyType{2, 3, 4, 5}, 0, []byte{2, 3, 4, 5})
+	node, err = node.Upsert(cli, keyType{2, 3, 4, 5}, 0, []byte{2, 3, 4, 5})
 	require.NoError(err)
-	n1, err = br.Search(cli, keyType{2, 3, 4, 5}, 0)
+	n1, err = node.Search(cli, keyType{2, 3, 4, 5}, 0)
 	require.NoError(err)
 	require.Equal([]byte{2, 3, 4, 5}, n1.(*leafNode).value)
-	require.Panics(func() { br.Search(cli, keyType{1, 2}, 1) }, "keyType{1, 2} is not exist")
+	require.Panics(func() { node.Search(cli, keyType{1, 2}, 1) }, "keyType{1, 2} is not exist")
 }
