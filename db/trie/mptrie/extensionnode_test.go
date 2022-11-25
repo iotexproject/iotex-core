@@ -47,18 +47,10 @@ func TestExtensionOperation(t *testing.T) {
 			kvStore:  trie.NewMemKVStore(),
 		}
 	)
-	checkLeaf := func(bnode *branchNode, key keyType, offset uint8, value []byte) {
-		child, ok := bnode.children[key[offset]]
-		require.True(ok)
-		ln1, ok := child.(*leafNode)
-		require.True(ok)
-		require.Equal(value, ln1.value)
-	}
-
-	child, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
-	require.NoError(err)
 
 	// create
+	child, err := newLeafNode(cli, keyType("iotex"), []byte("coin"))
+	require.NoError(err)
 	node, err := newExtensionNode(cli, keyType("iotex"), child)
 	require.NoError(err)
 
@@ -93,7 +85,7 @@ func TestExtensionOperation(t *testing.T) {
 	bnode, ok = node.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2) // (block, ext)
-	checkLeaf(bnode, keyType("block"), 0, []byte("chain"))
+	checkLeaf(require, bnode, keyType("block"), 0, []byte("chain"))
 	vn, ok = bnode.children[byte('i')] // ext
 	require.True(ok)
 	ex1, ok := vn.(*extensionNode)
@@ -114,7 +106,7 @@ func TestExtensionOperation(t *testing.T) {
 	bn1, ok = vn.(*branchNode)
 	require.True(ok)
 	require.Len(bn1.children, 2) // ixy, ext
-	checkLeaf(bn1, keyType("ixy"), 1, []byte("dog"))
+	checkLeaf(require, bn1, keyType("ixy"), 1, []byte("dog"))
 
 	// branch.Upsert newLeafNode -> branch
 	node, err = node.Upsert(cli, keyType("idef"), 0, []byte("cat"))
@@ -166,7 +158,7 @@ func TestExtensionOperation(t *testing.T) {
 	bn1, ok = ex1.child.(*branchNode)
 	require.True(ok)
 	require.Len(bn1.children, 2) // (iotex, ioabc123)
-	checkLeaf(bnode, keyType("ixy"), 1, []byte("dog"))
+	checkLeaf(require, bnode, keyType("ixy"), 1, []byte("dog"))
 	node1, err = node.Search(cli, keyType("block"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
@@ -191,7 +183,7 @@ func TestExtensionOperation(t *testing.T) {
 	bnode, ok = enode.child.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2)
-	checkLeaf(bnode, keyType("ioabc123"), 2, []byte("chabc"))
+	checkLeaf(require, bnode, keyType("ioabc123"), 2, []byte("chabc"))
 	vn, ok = bnode.children[byte('t')]
 	require.True(ok)
 	ex1, ok = vn.(*extensionNode)
@@ -224,4 +216,12 @@ func TestExtensionOperation(t *testing.T) {
 	node, err = node.Delete(cli, keyType{}, 0)
 	require.NoError(err)
 	require.Nil(node)
+}
+
+func checkLeaf(require *require.Assertions, bnode *branchNode, key keyType, offset uint8, value []byte) {
+	child, ok := bnode.children[key[offset]]
+	require.True(ok)
+	ln, ok := child.(*leafNode)
+	require.True(ok)
+	require.Equal(value, ln.value)
 }
