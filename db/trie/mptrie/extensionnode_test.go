@@ -62,7 +62,7 @@ func TestExtensionOperation(t *testing.T) {
 	node, err := newExtensionNode(cli, keyType("iotex"), child)
 	require.NoError(err)
 
-	// insert same key -> updateChild
+	// extension.Upsert updateChild -> extension
 	node, err = node.Upsert(cli, keyType("iotex"), 0, []byte("chain"))
 	require.NoError(err)
 	enode, ok := node.(*extensionNode)
@@ -72,7 +72,7 @@ func TestExtensionOperation(t *testing.T) {
 	require.True(ok)
 	require.Equal([]byte("chain"), ln.value)
 
-	// insert longer key -> extension
+	// extension.Upsert newExtensionNode -> extension
 	node, err = node.Upsert(cli, keyType("ioabc123"), 0, []byte("chabc"))
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
@@ -87,7 +87,7 @@ func TestExtensionOperation(t *testing.T) {
 	require.True(ok)
 	require.Equal([]byte("chabc"), ln.value)
 
-	// insert same-length key -> branch
+	// extension.Upsert newBranchNode -> branch
 	node, err = node.Upsert(cli, keyType("block"), 0, []byte("chain"))
 	require.NoError(err)
 	bnode, ok = node.(*branchNode)
@@ -103,7 +103,7 @@ func TestExtensionOperation(t *testing.T) {
 	require.True(ok)
 	require.Len(bn1.children, 2)
 
-	// insert shorter key -> branch
+	// branch.Upsert child.Upsert -> branch
 	node, err = node.Upsert(cli, keyType("ixy"), 0, []byte("dog"))
 	require.NoError(err)
 	bnode, ok = node.(*branchNode)
@@ -116,10 +116,15 @@ func TestExtensionOperation(t *testing.T) {
 	require.Len(bn1.children, 2) // ixy, ext
 	checkLeaf(bn1, keyType("ixy"), 1, []byte("dog"))
 
-	// insert shorter key -> branch
+	// branch.Upsert newLeafNode -> branch
 	node, err = node.Upsert(cli, keyType("idef"), 0, []byte("cat"))
 	require.NoError(err)
 	bnode, ok = node.(*branchNode)
+	require.True(ok)
+	require.Len(bnode.children, 2) // (block, (idef, ixy, ext))
+	bn1, ok = bnode.children[byte('i')].(*branchNode)
+	require.True(ok)
+	require.Len(bn1.children, 3) // idef, ixy, ext
 
 	// insert wrong key
 	for _, key := range []keyType{
@@ -145,7 +150,7 @@ func TestExtensionOperation(t *testing.T) {
 	require.NoError(err)
 	require.Equal([]byte("cat"), node1.(*leafNode).value)
 
-	// branch.Delete case2 newExtensionNode -> extension
+	// branch.Delete case2 default newExtensionNode -> extension
 	node, err = node.Delete(cli, keyType("block"), 0)
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
@@ -165,7 +170,7 @@ func TestExtensionOperation(t *testing.T) {
 	node1, err = node.Search(cli, keyType("block"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// extension.Delete case *branchNode -> extension
+	// extension.Delete case *branchNode -> branch.Delete default b.updateChild -> extension
 	node, err = node.Delete(cli, keyType("idef"), 0)
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
@@ -174,8 +179,10 @@ func TestExtensionOperation(t *testing.T) {
 	bnode, ok = enode.child.(*branchNode)
 	require.True(ok)
 	require.Len(bnode.children, 2) // ext, leaf
+	node1, err = node.Search(cli, keyType("idef"), 0)
+	require.Equal(trie.ErrNotExist, err)
 
-	// extension.Delete case *extensionNode -> extension
+	// extension.Delete case *extensionNode -> branch.Delete case2 case *extensionNode -> extension
 	node, err = node.Delete(cli, keyType("ixy"), 0)
 	require.NoError(err)
 	enode, ok = node.(*extensionNode)
@@ -192,7 +199,7 @@ func TestExtensionOperation(t *testing.T) {
 	node1, err = node.Search(cli, keyType("ixy"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// extension.Delete default -> leaf
+	// extension.Delete default -> branch.Delete case2 case *leafNode -> leaf
 	node, err = node.Delete(cli, keyType("iotex"), 0)
 	require.NoError(err)
 	ln, ok = node.(*leafNode)
@@ -200,7 +207,7 @@ func TestExtensionOperation(t *testing.T) {
 	node1, err = node.Search(cli, keyType("iotex"), 0)
 	require.Equal(trie.ErrNotExist, err)
 
-	// delete last
+	// delete last -> nil
 	node, err = node.Delete(cli, keyType("ioabc123"), 0)
 	require.NoError(err)
 	require.Nil(node)
