@@ -179,7 +179,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	if p.needToReadCandsMap(height) {
-		name, operator, owners, err := readCandCenterStateFromStateDB(sr, height)
+		name, operator, owners, err := readCandCenterStateFromStateDB(sr)
 		if err != nil {
 			// stateDB does not have name/operator map yet
 			if name, operator, owners, err = p.patch.Read(height); err != nil {
@@ -344,7 +344,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if len(name) == 0 || len(op) == 0 {
 		return ErrNilParameters
 	}
-	if err := p.writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
+	if err := writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
 		return errors.Wrap(err, "failed to write name/operator map to stateDB")
 	}
 	return nil
@@ -609,7 +609,7 @@ func (p *Protocol) needToWriteCandsMap(height uint64) bool {
 	return height >= p.config.PersistStakingPatchBlock
 }
 
-func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (CandidateList, CandidateList, CandidateList, error) {
+func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
 	var (
 		name, operator, owner CandidateList
 	)
@@ -625,7 +625,7 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (Can
 	return name, operator, owner, nil
 }
 
-func (p *Protocol) writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
+func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
 	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
 	}
