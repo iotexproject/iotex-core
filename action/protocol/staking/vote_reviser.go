@@ -59,8 +59,8 @@ func (vr *VoteReviser) correctAliasCands(csm CandidateStateManager, cands Candid
 	}
 	sort.Sort(retval)
 	ownerMap := map[string]*Candidate{}
-	for addr, owner := range csm.DirtyView().candCenter.base.ownerMap {
-		ownerMap[addr] = owner
+	for _, cand := range csm.DirtyView().candCenter.base.owners {
+		ownerMap[cand.Owner.String()] = cand
 	}
 	for _, c := range cands {
 		if owner, ok := ownerMap[c.Owner.String()]; ok {

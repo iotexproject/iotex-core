@@ -121,7 +121,7 @@ func NewMockStateManager(ctrl *gomock.Controller) *mock_chainmanager.MockStateMa
 	return sm
 }
 
-// NewMockStateManager returns a in memory StateManager without default height function.
+// NewMockStateManagerWithoutHeightFunc returns a in memory StateManager without default height function.
 func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainmanager.MockStateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	kv := NewMockKVStore(ctrl)
