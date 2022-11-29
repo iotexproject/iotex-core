@@ -168,11 +168,3 @@ func TestLeafOperation(t *testing.T) {
 	require.NoError(err)
 	require.Nil(node2)
 }
-
-func checkLeaf(require *require.Assertions, bnode *branchNode, key keyType, offset uint8, value []byte) {
-	child, ok := bnode.children[key[offset]]
-	require.True(ok)
-	ln, ok := child.(*leafNode)
-	require.True(ok)
-	require.Equal(value, ln.value)
-}
