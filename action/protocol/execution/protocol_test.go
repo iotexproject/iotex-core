@@ -402,6 +402,11 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	if sct.InitGenesis.IsLondon {
 		// London is enabled at okhotsk height
+		cfg.Genesis.Blockchain.JutlandBlockHeight = 0
+		cfg.Genesis.Blockchain.KamchatkaBlockHeight = 0
+		cfg.Genesis.Blockchain.LordHoweBlockHeight = 0
+		cfg.Genesis.Blockchain.MidwayBlockHeight = 0
+		cfg.Genesis.Blockchain.NewfoundlandBlockHeight = 0
 		cfg.Genesis.Blockchain.OkhotskBlockHeight = 0
 	}
 	for _, expectedBalance := range sct.InitBalances {
@@ -1051,6 +1056,9 @@ func TestLondonEVM(t *testing.T) {
 	})
 	t.Run("ArrayReturn", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/array-return.json")
+	})
+	t.Run("BaseFee", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata-london/basefee.json")
 	})
 	t.Run("BasicToken", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-london/basic-token.json")
