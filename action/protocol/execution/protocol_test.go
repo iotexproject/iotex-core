@@ -1051,7 +1051,30 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("err-write-protection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/write-protection.json")
 	})
+	t.Run("err-write-protection-twice-delta-0", func(t *testing.T) {
+		// hit errWriteProtection 2 times, delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-001.json")
+	})
+	t.Run("err-write-protection-once-delta-0", func(t *testing.T) {
+		// hit errWriteProtection 1 times, delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-002.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-0", func(t *testing.T) {
+		// hit errWriteProtection twice, delta is not 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-003.json")
+	})
+	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
+		// hit errWriteProtection twice, first delta is not 0, second delta is 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-004.json")
+	})
+	t.Run("err-write-protection-once-delta-1", func(t *testing.T) {
+		// hit errWriteProtection once, delta is not 0
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-005.json")
+	})
+}
 
+func TestSmartContractTest(t *testing.T) {
+	NewSmartContractTest(t, "testdata-istanbul/write-protection-005.json")
 }
 
 func TestLondonEVM(t *testing.T) {
