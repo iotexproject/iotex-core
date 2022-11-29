@@ -429,7 +429,7 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		deltaRefundByDynamicGas = evm.DeltaRefundByDynamicGas
 		featureCtx              = protocol.MustGetFeatureCtx(ctx)
 	)
-	if evmErr != nil && !featureCtx.CorrectGasRefund && deltaRefundByDynamicGas != 0 {
+	if !featureCtx.CorrectGasRefund && deltaRefundByDynamicGas != 0 {
 		if deltaRefundByDynamicGas > 0 {
 			stateDB.SubRefund(uint64(deltaRefundByDynamicGas))
 		} else {

@@ -1068,13 +1068,9 @@ func TestIstanbulEVM(t *testing.T) {
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-004.json")
 	})
 	t.Run("err-write-protection-once-delta-1", func(t *testing.T) {
-		// hit errWriteProtection once, delta is not 0
+		// hit errWriteProtection once, delta is not 0,but no revert
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-005.json")
 	})
-}
-
-func TestSmartContractTest(t *testing.T) {
-	NewSmartContractTest(t, "testdata-istanbul/write-protection-005.json")
 }
 
 func TestLondonEVM(t *testing.T) {
