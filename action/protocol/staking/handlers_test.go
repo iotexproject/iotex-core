@@ -52,7 +52,17 @@ func (m *CandidateCenter) deleteForTestOnly(owner address.Address) {
 	}
 
 	if m.change.containsOwner(owner) {
-		m.change.delete(owner)
+		if owner != nil {
+			candidates := []*Candidate{}
+			for _, c := range m.change.candidates {
+				if c.Owner.String() != owner.String() {
+					candidates = append(candidates, c)
+				}
+			}
+			m.change.candidates = candidates
+			delete(m.change.dirty, owner.String())
+			return
+		}
 		m.size--
 	}
 }
