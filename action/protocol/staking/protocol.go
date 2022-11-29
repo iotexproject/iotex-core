@@ -114,7 +114,13 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg *BuilderConfig, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
+func NewProtocol(
+	depositGas DepositGas,
+	cfg *BuilderConfig,
+	candBucketsIndexer *CandidatesBucketsIndexer,
+	correctCandsHeight uint64,
+	reviseHeights ...uint64,
+) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -137,7 +143,7 @@ func NewProtocol(depositGas DepositGas, cfg *BuilderConfig, candBucketsIndexer *
 	}
 
 	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, reviseHeights...)
+	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, correctCandsHeight, reviseHeights...)
 
 	return &Protocol{
 		addr: addr,
@@ -178,7 +184,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
 
-	if p.needToReadCandsMap(height) {
+	if p.needToReadCandsMap(ctx, height) {
 		name, operator, owners, err := readCandCenterStateFromStateDB(sr, height)
 		if err != nil {
 			// stateDB does not have name/operator map yet
@@ -201,6 +207,7 @@ func (p *Protocol) CreateGenesisStates(
 	if len(p.config.BootstrapCandidates) == 0 {
 		return nil
 	}
+	// TODO: set init values based on ctx
 	csm, err := NewCandidateStateManager(sm, false)
 	if err != nil {
 		return err
@@ -251,7 +258,7 @@ func (p *Protocol) CreateGenesisStates(
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // CreatePreStates updates state manager
@@ -323,7 +330,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if err != nil {
 		return err
 	}
-	if !p.needToWriteCandsMap(height) {
+	if !p.needToWriteCandsMap(ctx, height) {
 		return nil
 	}
 
@@ -334,7 +341,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	}
 	cc := csm.DirtyView().candCenter
 	base := cc.base.clone()
-	if _, err = base.commit(cc.change); err != nil {
+	if _, err = base.commit(cc.change, featureWithHeightCtx.CandCenterHasAlias(height)); err != nil {
 		return errors.Wrap(err, "failed to apply candidate change in pre-commit")
 	}
 	// persist nameMap/operatorMap and ownerList to stateDB
@@ -344,7 +351,7 @@ func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) erro
 	if len(name) == 0 || len(op) == 0 {
 		return ErrNilParameters
 	}
-	if err := p.writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
+	if err := writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
 		return errors.Wrap(err, "failed to write name/operator map to stateDB")
 	}
 	return nil
@@ -363,7 +370,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message
@@ -601,12 +608,14 @@ func (p *Protocol) settleAction(
 	return &r, nil
 }
 
-func (p *Protocol) needToReadCandsMap(height uint64) bool {
-	return height > p.config.PersistStakingPatchBlock
+func (p *Protocol) needToReadCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height > p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
-func (p *Protocol) needToWriteCandsMap(height uint64) bool {
-	return height >= p.config.PersistStakingPatchBlock
+func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
 func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (CandidateList, CandidateList, CandidateList, error) {
@@ -625,7 +634,7 @@ func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (Can
 	return name, operator, owner, nil
 }
 
-func (p *Protocol) writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
+func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
 	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
 		return err
 	}
