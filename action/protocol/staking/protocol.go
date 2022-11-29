@@ -185,7 +185,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	if p.needToReadCandsMap(ctx, height) {
-		name, operator, owners, err := readCandCenterStateFromStateDB(sr, height)
+		name, operator, owners, err := readCandCenterStateFromStateDB(sr)
 		if err != nil {
 			// stateDB does not have name/operator map yet
 			if name, operator, owners, err = p.patch.Read(height); err != nil {
@@ -618,7 +618,7 @@ func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool 
 	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
 }
 
-func readCandCenterStateFromStateDB(sr protocol.StateReader, height uint64) (CandidateList, CandidateList, CandidateList, error) {
+func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
 	var (
 		name, operator, owner CandidateList
 	)
