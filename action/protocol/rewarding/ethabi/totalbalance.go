@@ -3,11 +3,12 @@ package ethabi
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/protocol"
+
+	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
 const _totalBalanceInterfaceABI = `[
@@ -29,15 +30,7 @@ const _totalBalanceInterfaceABI = `[
 var _totalBalanceMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_totalBalanceInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
-	var ok bool
-	_totalBalanceMethod, ok = _interface.Methods["totalBalance"]
-	if !ok {
-		panic("fail to load the method")
-	}
+	_totalBalanceMethod = abiutil.MustLoadMethod(_totalBalanceInterfaceABI, "totalBalance")
 }
 
 // TotalBalanceStateContext context for TotalBalance

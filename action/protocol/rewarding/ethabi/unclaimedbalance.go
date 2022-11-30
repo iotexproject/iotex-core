@@ -3,13 +3,14 @@ package ethabi
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/protocol"
+
+	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
 const _unclaimedBalanceInterfaceABI = `[
@@ -37,15 +38,7 @@ const _unclaimedBalanceInterfaceABI = `[
 var _unclaimedBalanceMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_unclaimedBalanceInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
-	var ok bool
-	_unclaimedBalanceMethod, ok = _interface.Methods["unclaimedBalance"]
-	if !ok {
-		panic("fail to load the method")
-	}
+	_unclaimedBalanceMethod = abiutil.MustLoadMethod(_unclaimedBalanceInterfaceABI, "unclaimedBalance")
 }
 
 // UnclaimedBalanceStateContext context for UnclaimedBalance
