@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+// MustLoadMethod must load abi method
 func MustLoadMethod(abiStr, method string) abi.Method {
 	_interface, err := abi.JSON(strings.NewReader(abiStr))
 	if err != nil {
