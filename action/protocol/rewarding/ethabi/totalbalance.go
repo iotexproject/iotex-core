@@ -6,8 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/protocol"
+	proto "github.com/iotexproject/iotex-proto/golang/protocol"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
@@ -35,14 +36,14 @@ func init() {
 
 // TotalBalanceStateContext context for TotalBalance
 type TotalBalanceStateContext struct {
-	*baseStateContext
+	*protocol.BaseStateContext
 }
 
 func newTotalBalanceStateContext() (*TotalBalanceStateContext, error) {
 	return &TotalBalanceStateContext{
-		&baseStateContext{
-			&Parameters{
-				MethodName: []byte(protocol.ReadTotalBalanceMethodName),
+		&protocol.BaseStateContext{
+			Parameter: &protocol.Parameters{
+				MethodName: []byte(proto.ReadTotalBalanceMethodName),
 				Arguments:  nil,
 			},
 		},

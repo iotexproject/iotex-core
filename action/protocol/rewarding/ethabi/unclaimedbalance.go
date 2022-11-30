@@ -8,8 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/protocol"
+	proto "github.com/iotexproject/iotex-proto/golang/protocol"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
@@ -43,7 +44,7 @@ func init() {
 
 // UnclaimedBalanceStateContext context for UnclaimedBalance
 type UnclaimedBalanceStateContext struct {
-	*baseStateContext
+	*protocol.BaseStateContext
 }
 
 func newUnclaimedBalanceStateContext(data []byte) (*UnclaimedBalanceStateContext, error) {
@@ -62,9 +63,9 @@ func newUnclaimedBalanceStateContext(data []byte) (*UnclaimedBalanceStateContext
 	}
 
 	return &UnclaimedBalanceStateContext{
-		&baseStateContext{
-			&Parameters{
-				MethodName: []byte(protocol.ReadUnclaimedBalanceMethodName),
+		&protocol.BaseStateContext{
+			Parameter: &protocol.Parameters{
+				MethodName: []byte(proto.ReadUnclaimedBalanceMethodName),
 				Arguments:  [][]byte{[]byte(accountAddress.String())},
 			},
 		},

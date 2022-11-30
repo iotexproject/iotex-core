@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
 	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -329,6 +330,21 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 	}
 	if to == _metamaskBalanceContractAddr {
 		return nil, nil
+	}
+	if to == address.StakingProtocolAddr {
+		sctx, err := stakingabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
 	}
 	if to == address.RewardingProtocol {
 		sctx, err := rewardingabi.BuildReadStateRequest(data)

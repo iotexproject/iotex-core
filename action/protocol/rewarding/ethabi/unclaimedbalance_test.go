@@ -31,6 +31,6 @@ func TestNewUnclaimedBalanceStateContext(t *testing.T) {
 
 	ctx, err := newUnclaimedBalanceStateContext(data)
 	r.Nil(err)
-	r.EqualValues("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv", string(ctx.parameters.Arguments[0]))
-	r.EqualValues("UnclaimedBalance", string(ctx.parameters.MethodName))
+	r.EqualValues("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqps833xv", string(ctx.Parameters().Arguments[0]))
+	r.EqualValues("UnclaimedBalance", string(ctx.Parameters().MethodName))
 }
