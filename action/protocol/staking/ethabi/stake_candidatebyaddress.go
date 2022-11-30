@@ -2,7 +2,6 @@ package ethabi
 
 import (
 	"encoding/hex"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,6 +9,9 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
 const _candidateByAddressInterfaceABI = `[
@@ -74,20 +76,12 @@ const _candidateByAddressInterfaceABI = `[
 var _candidateByAddressMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_candidateByAddressInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
-	var ok bool
-	_candidateByAddressMethod, ok = _interface.Methods["candidateByAddress"]
-	if !ok {
-		panic("fail to load the method")
-	}
+	_candidateByAddressMethod = abiutil.MustLoadMethod(_candidateByAddressInterfaceABI, "candidateByAddress")
 }
 
 // CandidateByAddressStateContext context for candidateByAddress
 type CandidateByAddressStateContext struct {
-	*baseStateContext
+	*protocol.BaseStateContext
 }
 
 func newCandidateByAddressStateContext(data []byte) (*CandidateByAddressStateContext, error) {
@@ -124,8 +118,8 @@ func newCandidateByAddressStateContext(data []byte) (*CandidateByAddressStateCon
 		return nil, err
 	}
 	return &CandidateByAddressStateContext{
-		&baseStateContext{
-			&Parameters{
+		&protocol.BaseStateContext{
+			Parameter: &protocol.Parameters{
 				MethodName: methodBytes,
 				Arguments:  [][]byte{argumentsBytes},
 			},

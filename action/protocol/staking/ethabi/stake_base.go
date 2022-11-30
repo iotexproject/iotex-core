@@ -7,9 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/pkg/util/addrutil"
 )
 
 var (
@@ -20,22 +21,6 @@ var (
 )
 
 type (
-	// Parameters state request parameters
-	Parameters struct {
-		MethodName []byte
-		Arguments  [][]byte
-	}
-
-	// StateContext context for ReadState
-	StateContext interface {
-		Parameters() *Parameters
-		EncodeToEth(*iotexapi.ReadStateResponse) (string, error)
-	}
-
-	baseStateContext struct {
-		parameters *Parameters
-	}
-
 	// BucketEth struct for eth
 	BucketEth struct {
 		Index            uint64
@@ -60,10 +45,6 @@ type (
 		SelfStakingTokens  *big.Int
 	}
 )
-
-func (r *baseStateContext) Parameters() *Parameters {
-	return r.parameters
-}
 
 func encodeVoteBucketListToEth(outputs abi.Arguments, buckets iotextypes.VoteBucketList) (string, error) {
 	args := make([]BucketEth, len(buckets.Buckets))
@@ -132,7 +113,7 @@ func encodeCandidateToEth(candidate *iotextypes.CandidateV2) (*CandidateEth, err
 }
 
 // BuildReadStateRequest decode eth_call data to StateContext
-func BuildReadStateRequest(data []byte) (StateContext, error) {
+func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 	if len(data) < 4 {
 		return nil, errInvalidCallData
 	}

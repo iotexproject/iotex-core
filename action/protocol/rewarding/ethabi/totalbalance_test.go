@@ -13,7 +13,7 @@ func TestTotalBalanceEncodeToEth(t *testing.T) {
 
 	ctx, err := newTotalBalanceStateContext()
 	r.Nil(err)
-	r.EqualValues("TotalBalance", string(ctx.parameters.MethodName))
+	r.EqualValues("TotalBalance", string(ctx.Parameters().MethodName))
 
 	amount := big.NewInt(10000)
 	resp := &iotexapi.ReadStateResponse{

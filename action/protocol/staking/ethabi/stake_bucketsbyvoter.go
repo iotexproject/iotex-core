@@ -1,14 +1,15 @@
 package ethabi
 
 import (
-	"strings"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
 var _bucketsByVoterInterfaceABI = `[
@@ -93,20 +94,12 @@ var _bucketsByVoterInterfaceABI = `[
 var _bucketsByVoterMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_bucketsByVoterInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
-	var ok bool
-	_bucketsByVoterMethod, ok = _interface.Methods["bucketsByVoter"]
-	if !ok {
-		panic("fail to load the method")
-	}
+	_bucketsByVoterMethod = abiutil.MustLoadMethod(_bucketsByVoterInterfaceABI, "bucketsByVoter")
 }
 
 // BucketsByVoterStateContext context for BucketsByVoter
 type BucketsByVoterStateContext struct {
-	*baseStateContext
+	*protocol.BaseStateContext
 }
 
 func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, error) {
@@ -154,8 +147,8 @@ func newBucketsByVoterStateContext(data []byte) (*BucketsByVoterStateContext, er
 		return nil, err
 	}
 	return &BucketsByVoterStateContext{
-		&baseStateContext{
-			&Parameters{
+		&protocol.BaseStateContext{
+			Parameter: &protocol.Parameters{
 				MethodName: methodBytes,
 				Arguments:  [][]byte{argumentsBytes},
 			},

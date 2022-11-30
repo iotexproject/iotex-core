@@ -1,12 +1,13 @@
 package ethabi
 
 import (
-	"strings"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
 const _bucketsByIndexesInterfaceABI = `[
@@ -81,20 +82,12 @@ const _bucketsByIndexesInterfaceABI = `[
 var _bucketsByIndexesMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_bucketsByIndexesInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
-	var ok bool
-	_bucketsByIndexesMethod, ok = _interface.Methods["bucketsByIndexes"]
-	if !ok {
-		panic("fail to load the method")
-	}
+	_bucketsByIndexesMethod = abiutil.MustLoadMethod(_bucketsByIndexesInterfaceABI, "bucketsByIndexes")
 }
 
 // BucketsByIndexesStateContext context for BucketsByIndexes
 type BucketsByIndexesStateContext struct {
-	*baseStateContext
+	*protocol.BaseStateContext
 }
 
 func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext, error) {
@@ -127,8 +120,8 @@ func newBucketsByIndexesStateContext(data []byte) (*BucketsByIndexesStateContext
 		return nil, err
 	}
 	return &BucketsByIndexesStateContext{
-		&baseStateContext{
-			&Parameters{
+		&protocol.BaseStateContext{
+			Parameter: &protocol.Parameters{
 				MethodName: methodBytes,
 				Arguments:  [][]byte{argumentsBytes},
 			},

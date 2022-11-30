@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 var (
@@ -14,30 +14,8 @@ var (
 	errDecodeFailure    = errors.New("decode data error")
 )
 
-type (
-	// Parameters state request parameters
-	Parameters struct {
-		MethodName []byte
-		Arguments  [][]byte
-	}
-
-	// StateContext context for ReadState
-	StateContext interface {
-		Parameters() *Parameters
-		EncodeToEth(*iotexapi.ReadStateResponse) (string, error)
-	}
-
-	baseStateContext struct {
-		parameters *Parameters
-	}
-)
-
-func (r *baseStateContext) Parameters() *Parameters {
-	return r.parameters
-}
-
 // BuildReadStateRequest decode eth_call data to StateContext
-func BuildReadStateRequest(data []byte) (StateContext, error) {
+func BuildReadStateRequest(data []byte) (protocol.StateContext, error) {
 	if len(data) < 4 {
 		return nil, errInvalidCallData
 	}

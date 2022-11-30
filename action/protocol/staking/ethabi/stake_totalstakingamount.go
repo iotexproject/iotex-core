@@ -3,12 +3,14 @@ package ethabi
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/abiutil"
 )
 
 var _totalStakingAmountInterfaceABI = `[
@@ -30,20 +32,12 @@ var _totalStakingAmountInterfaceABI = `[
 var _totalStakingAmountMethod abi.Method
 
 func init() {
-	_interface, err := abi.JSON(strings.NewReader(_totalStakingAmountInterfaceABI))
-	if err != nil {
-		panic(err)
-	}
-	var ok bool
-	_totalStakingAmountMethod, ok = _interface.Methods["totalStakingAmount"]
-	if !ok {
-		panic("fail to load the method")
-	}
+	_totalStakingAmountMethod = abiutil.MustLoadMethod(_totalStakingAmountInterfaceABI, "totalStakingAmount")
 }
 
 // TotalStakingAmountStateContext context for TotalStakingAmount
 type TotalStakingAmountStateContext struct {
-	*baseStateContext
+	*protocol.BaseStateContext
 }
 
 func newTotalStakingAmountContext() (*TotalStakingAmountStateContext, error) {
@@ -64,8 +58,8 @@ func newTotalStakingAmountContext() (*TotalStakingAmountStateContext, error) {
 		return nil, err
 	}
 	return &TotalStakingAmountStateContext{
-		&baseStateContext{
-			&Parameters{
+		&protocol.BaseStateContext{
+			Parameter: &protocol.Parameters{
 				MethodName: methodBytes,
 				Arguments:  [][]byte{argumentsBytes},
 			},
