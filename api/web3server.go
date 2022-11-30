@@ -23,6 +23,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
+	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
@@ -336,6 +337,21 @@ func (svr *web3Handler) call(in *gjson.Result) (interface{}, error) {
 			return nil, err
 		}
 		states, err := svr.coreService.ReadState("staking", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := sctx.EncodeToEth(states)
+		if err != nil {
+			return nil, err
+		}
+		return "0x" + ret, nil
+	}
+	if to == address.RewardingProtocol {
+		sctx, err := rewardingabi.BuildReadStateRequest(data)
+		if err != nil {
+			return nil, err
+		}
+		states, err := svr.coreService.ReadState("rewarding", "", sctx.Parameters().MethodName, sctx.Parameters().Arguments)
 		if err != nil {
 			return nil, err
 		}
