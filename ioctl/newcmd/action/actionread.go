@@ -57,7 +57,7 @@ func NewActionReadCmd(client ioctl.Client) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result, err := Read(client, contract, "0", bytecode, signer, 20000000)
+			result, err := Read(client, contract, "0", bytecode, signer, GasLimitFlagDefault)
 			if err != nil {
 				return errors.Wrap(err, "failed to Read contract")
 			}
