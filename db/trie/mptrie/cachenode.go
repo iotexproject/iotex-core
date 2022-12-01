@@ -7,6 +7,8 @@
 package mptrie
 
 import (
+	"errors"
+
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,6 +26,9 @@ func (cn *cacheNode) Hash(cli client) ([]byte, error) {
 func (cn *cacheNode) hash(cli client, flush bool) ([]byte, error) {
 	if len(cn.hashVal) != 0 {
 		return cn.hashVal, nil
+	}
+	if cli == nil {
+		return []byte{}, errors.New("client cannot be nil")
 	}
 	pb, err := cn.proto(cli, flush)
 	if err != nil {
