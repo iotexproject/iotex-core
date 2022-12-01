@@ -28,7 +28,7 @@ import (
 // const value
 var (
 	GcpTimeout  = time.Second * 60
-	ErrNotExist = errors.New("height does not exist.")
+	ErrNotExist = errors.New("height does not exist")
 )
 
 // download represents the download command
@@ -43,18 +43,20 @@ var download = &cobra.Command{
 			return errors.Wrapf(err, "Failed to convert input height: %s.", args[0])
 		}
 		if height == 0 {
-			return errors.New("input height cannot be 0.")
+			return errors.New("input height cannot be 0")
 		}
 
 		var (
 			destDir = args[1]
-			bucket  = "blockchain-golden"
-			prefix  = "fullsync/mainnet/"
 			curr    uint64
 			wg      sync.WaitGroup
 		)
+		const (
+			_bucket    = "blockchain-golden"
+			_objPrefix = "fullsync/mainnet/"
+		)
 
-		allObjNames, err := listFiles(bucket, "", "")
+		allObjNames, err := listFiles(_bucket, "", "")
 		if err != nil {
 			return err
 		}
@@ -63,8 +65,8 @@ var download = &cobra.Command{
 		}
 		heiNames := make(map[string][]string)
 		for _, name := range allObjNames {
-			if strings.HasPrefix(name, prefix) {
-				s := strings.TrimPrefix(name, prefix)
+			if strings.HasPrefix(name, _objPrefix) {
+				s := strings.TrimPrefix(name, _objPrefix)
 				if len(s) > 0 {
 					heiStr := s[:strings.Index(s, "/")]
 					_, ok := heiNames[heiStr]
@@ -101,7 +103,7 @@ var download = &cobra.Command{
 			go func(obj string) {
 				defer wg.Done()
 				cmd.Printf("downlaoding height from %s.\n", obj)
-				if err := downloadFile(bucket, obj, filepath.Join(destDir, obj)); err != nil {
+				if err := downloadFile(_bucket, obj, filepath.Join(destDir, obj)); err != nil {
 					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
 			}(obj)
