@@ -39,7 +39,8 @@ func newLeafNode(
 			return nil, err
 		}
 	}
-	if err := logNode(l); err != nil {
+	hashVal, _ := l.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeLeaf, _actionTypeNew, hashVal, l); err != nil {
 		return nil, err
 	}
 	return l, nil
@@ -55,7 +56,7 @@ func newLeafNodeFromProtoPb(pb *triepb.LeafPb, hashVal []byte) *leafNode {
 		value: pb.Value,
 	}
 	l.cacheNode.serializable = l
-	if err := logNode(l); err != nil {
+	if err := logNode(_nodeTypeLeaf, _actionTypeNew, hashVal, l); err != nil {
 		panic(err)
 	}
 	return l
@@ -70,7 +71,8 @@ func (l *leafNode) Value() []byte {
 }
 
 func (l *leafNode) Delete(cli client, key keyType, offset uint8) (node, error) {
-	if err := logNode(l); err != nil {
+	hashVal, _ := l.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeLeaf, _actionTypeDelete, hashVal, l); err != nil {
 		return nil, err
 	}
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
@@ -80,7 +82,8 @@ func (l *leafNode) Delete(cli client, key keyType, offset uint8) (node, error) {
 }
 
 func (l *leafNode) Upsert(cli client, key keyType, offset uint8, value []byte) (node, error) {
-	if err := logNode(l); err != nil {
+	hashVal, _ := l.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeLeaf, _actionTypeUpsert, hashVal, l); err != nil {
 		return nil, err
 	}
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
@@ -119,8 +122,9 @@ func (l *leafNode) Upsert(cli client, key keyType, offset uint8, value []byte) (
 	return newExtensionNode(cli, l.key[offset:offset+matched], bnode)
 }
 
-func (l *leafNode) Search(_ client, key keyType, offset uint8) (node, error) {
-	if err := logNode(l); err != nil {
+func (l *leafNode) Search(cli client, key keyType, offset uint8) (node, error) {
+	hashVal, _ := l.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeLeaf, _actionTypeSearch, hashVal, l); err != nil {
 		return nil, err
 	}
 	if !bytes.Equal(l.key[offset:], key[offset:]) {

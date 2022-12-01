@@ -13,63 +13,48 @@ var (
 	logWriter        *bufio.Writer
 )
 
-// NodeEvent is the event of node
-type NodeEvent struct {
-	Type        byte
+type nodeType byte
+type actionType byte
+
+const (
+	_nodeTypeLeaf      nodeType = 'l'
+	_nodeTypeExtension nodeType = 'e'
+	_nodeTypeBranch    nodeType = 'b'
+
+	_actionTypeSearch actionType = 's'
+	_actionTypeUpsert actionType = 'u'
+	_actionTypeDelete actionType = 'd'
+	_actionTypeNew    actionType = 'n'
+)
+
+// nodeEvent is the event of node
+type nodeEvent struct {
+	NodeType    nodeType
+	ActionType  actionType
 	KeyLen      uint8
 	Key         []byte
 	PathLen     uint8
 	Path        []byte
 	ChildrenLen uint8
 	Children    []byte
+	HashLen     uint8
+	HashVal     []byte
 }
 
 // Bytes returns the bytes of node event
-func (e NodeEvent) Bytes() []byte {
-	b := make([]byte, 0, 1+1+e.KeyLen+1+e.PathLen+1+e.ChildrenLen)
-	b = append(b, e.Type)
+func (e nodeEvent) Bytes() []byte {
+	b := make([]byte, 0, 1+1+1+e.KeyLen+1+e.PathLen+1+e.ChildrenLen+1+e.HashLen)
+	b = append(b, byte(e.NodeType))
+	b = append(b, byte(e.ActionType))
 	b = append(b, e.KeyLen)
 	b = append(b, e.Key...)
 	b = append(b, e.PathLen)
 	b = append(b, e.Path...)
 	b = append(b, e.ChildrenLen)
 	b = append(b, e.Children...)
+	b = append(b, e.HashLen)
+	b = append(b, e.HashVal...)
 	return b
-}
-
-// ParseNodeEvent parse the node event
-func ParseNodeEvent(b []byte) (NodeEvent, error) {
-	if len(b) < 1 {
-		return NodeEvent{}, errors.New("invalid node event")
-	}
-	event := NodeEvent{
-		Type: b[0],
-	}
-	if len(b) < 2 {
-		return event, nil
-	}
-	event.KeyLen = b[1]
-	if len(b) < 2+int(event.KeyLen) {
-		return event, nil
-	}
-	event.Key = b[2 : 2+event.KeyLen]
-	if len(b) < 2+int(event.KeyLen)+1 {
-		return event, nil
-	}
-	event.PathLen = b[2+event.KeyLen]
-	if len(b) < 2+int(event.KeyLen)+1+int(event.PathLen) {
-		return event, nil
-	}
-	event.Path = b[2+event.KeyLen+1 : 2+event.KeyLen+1+event.PathLen]
-	if len(b) < 2+int(event.KeyLen)+1+int(event.PathLen)+1 {
-		return event, nil
-	}
-	event.ChildrenLen = b[2+event.KeyLen+1+event.PathLen]
-	if len(b) < 2+int(event.KeyLen)+1+int(event.PathLen)+1+int(event.ChildrenLen) {
-		return event, nil
-	}
-	event.Children = b[2+event.KeyLen+1+event.PathLen+1 : 2+event.KeyLen+1+event.PathLen+1+event.ChildrenLen]
-	return event, nil
 }
 
 // OpenLogDB open the log DB file
@@ -95,16 +80,17 @@ func CloseLogDB() error {
 	return logFile.Close()
 }
 
-func logNode(n node) error {
+func logNode(nt nodeType, at actionType, hashvalue []byte, n node) error {
 	if !enabledLogMptrie {
 		return nil
 	}
-	nodeType, nodeKey, nodePath, nodeChildren, err := parseNode(n)
+	nodeKey, nodePath, nodeChildren, err := parseNode(n)
 	if err != nil {
 		return err
 	}
-	event := NodeEvent{
-		Type:        nodeType,
+	event := nodeEvent{
+		NodeType:    nt,
+		ActionType:  at,
 		KeyLen:      uint8(len(nodeKey)),
 		Key:         nodeKey,
 		PathLen:     uint8(len(nodePath)),
@@ -121,19 +107,13 @@ func logNode(n node) error {
 	return err
 }
 
-func parseNode(n node) (nodeType byte, nodeKey []byte, nodePath []byte, nodeChildren []byte, err error) {
+func parseNode(n node) (nodeKey []byte, nodePath []byte, nodeChildren []byte, err error) {
 	switch n := n.(type) {
-	case *hashNode:
-		nodeType = 'h'
-		nodeKey = n.hashVal
 	case *leafNode:
-		nodeType = 'l'
 		nodeKey = n.key
 	case *extensionNode:
-		nodeType = 'e'
 		nodePath = n.path
 	case *branchNode:
-		nodeType = 'b'
 		nodeChildren = n.indices.List()
 	default:
 		err = errors.Errorf("unknown node type %T", n)

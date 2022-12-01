@@ -47,7 +47,8 @@ func newBranchNode(
 			}
 		}
 	}
-	if err := logNode(bnode); err != nil {
+	hashVal, _ := bnode.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeBranch, _actionTypeNew, hashVal, bnode); err != nil {
 		return nil, err
 	}
 	return bnode, nil
@@ -73,7 +74,8 @@ func newRootBranchNode(cli client, children map[byte]node, indices *SortedList, 
 			}
 		}
 	}
-	if err := logNode(bnode); err != nil {
+	hashVal, _ := bnode.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeBranch, _actionTypeNew, hashVal, bnode); err != nil {
 		return nil, err
 	}
 	return bnode, nil
@@ -92,7 +94,7 @@ func newBranchNodeFromProtoPb(pb *triepb.BranchPb, hashVal []byte) *branchNode {
 	}
 	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode
-	if err := logNode(bnode); err != nil {
+	if err := logNode(_nodeTypeBranch, _actionTypeNew, hashVal, bnode); err != nil {
 		panic(err)
 	}
 	return bnode
@@ -111,7 +113,8 @@ func (b *branchNode) Children() []node {
 }
 
 func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error) {
-	if err := logNode(b); err != nil {
+	hashVal, _ := b.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeBranch, _actionTypeDelete, hashVal, b); err != nil {
 		return nil, err
 	}
 	offsetKey := key[offset]
@@ -167,7 +170,8 @@ func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error)
 }
 
 func (b *branchNode) Upsert(cli client, key keyType, offset uint8, value []byte) (node, error) {
-	if err := logNode(b); err != nil {
+	hashVal, _ := b.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeBranch, _actionTypeUpsert, hashVal, b); err != nil {
 		return nil, err
 	}
 	var newChild node
@@ -187,7 +191,8 @@ func (b *branchNode) Upsert(cli client, key keyType, offset uint8, value []byte)
 }
 
 func (b *branchNode) Search(cli client, key keyType, offset uint8) (node, error) {
-	if err := logNode(b); err != nil {
+	hashVal, _ := b.cacheNode.Hash(cli)
+	if err := logNode(_nodeTypeBranch, _actionTypeSearch, hashVal, b); err != nil {
 		return nil, err
 	}
 	child, err := b.child(key[offset])
