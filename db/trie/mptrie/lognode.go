@@ -97,6 +97,8 @@ func logNode(nt nodeType, at actionType, hashvalue []byte, n node) error {
 		Path:        nodePath,
 		ChildrenLen: uint8(len(nodeChildren)),
 		Children:    nodeChildren,
+		HashLen:     uint8(len(hashvalue)),
+		HashVal:     hashvalue,
 	}
 	// write events length
 	if err = logWriter.WriteByte(byte(len(event.Bytes()))); err != nil {
