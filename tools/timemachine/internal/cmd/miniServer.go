@@ -134,9 +134,6 @@ func (svr *miniServer) checkSanity() error {
 	if svr.stopHeight > daoHeight {
 		return errors.Errorf("the stopHeight: %d shouldn't be larger than the height of chain.db: %d.", svr.stopHeight, daoHeight)
 	}
-	if svr.stopHeight < indexerHeight {
-		return errors.Errorf("the stopHeight: %d shouldn't be smaller than the current height of trie.db: %d.", svr.stopHeight, indexerHeight)
-	}
 	return nil
 }
 
