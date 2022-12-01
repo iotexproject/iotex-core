@@ -42,6 +42,6 @@
         "expectedLogs": [{},{}],
         "hasReturnValue": true,
         "rawReturnValue": "",
-        "comment": "call make"
+        "comment": "call setVars"
     }]
 }
