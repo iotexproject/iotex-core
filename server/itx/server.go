@@ -13,7 +13,6 @@ import (
 	"net/http/pprof"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -23,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/disk"
 	"github.com/iotexproject/iotex-core/pkg/ha"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -231,20 +229,6 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 			}
 		}()
 	}
-
-	// check disk space
-	m, err := disk.NewMonitor(cfg.Chain.ChainDBPath, 3*time.Minute)
-	if err != nil {
-		log.L().Panic("Failed to create monitor disk space.", zap.Error(err))
-	}
-	if err = m.Start(ctx); err != nil {
-		log.L().Panic("Failed to start monitor disk space.", zap.Error(err))
-	}
-	defer func() {
-		if err := m.Stop(ctx); err != nil {
-			log.L().Panic("Failed to stop monitor disk space.", zap.Error(err))
-		}
-	}()
 
 	var adminserv http.Server
 	if cfg.System.HTTPAdminPort > 0 {
