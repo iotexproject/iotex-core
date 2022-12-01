@@ -114,9 +114,16 @@ func NewMockKVStore(ctrl *gomock.Controller) db.KVStore {
 }
 
 // NewMockStateManager returns a in memory StateManager.
-func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
+func NewMockStateManager(ctrl *gomock.Controller) *mock_chainmanager.MockStateManager {
+	sm := NewMockStateManagerWithoutHeightFunc(ctrl)
+	sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
+
+	return sm
+}
+
+// NewMockStateManagerWithoutHeightFunc returns a in memory StateManager without default height function.
+func NewMockStateManagerWithoutHeightFunc(ctrl *gomock.Controller) *mock_chainmanager.MockStateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	var h uint64
 	kv := NewMockKVStore(ctrl)
 	dk := protocol.NewDock()
 	view := protocol.View{}
@@ -193,11 +200,7 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			return 0, state.NewIterator(fv), nil
 		},
 	).AnyTimes()
-	sm.EXPECT().Height().DoAndReturn(
-		func() (uint64, error) {
-			return h, nil
-		},
-	).AnyTimes()
+	// sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ns, key string, v interface{}) error {
 			return dk.Load(ns, key, v)
