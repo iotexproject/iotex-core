@@ -253,7 +253,37 @@ func (l CandidateList) Less(i, j int) bool {
 	if res := l[i].Votes.Cmp(l[j].Votes); res != 0 {
 		return res == 1
 	}
-	return strings.Compare(l[i].Owner.String(), l[j].Owner.String()) == 1
+	switch strings.Compare(l[i].Owner.String(), l[j].Owner.String()) {
+	case 1:
+		return true
+	case -1:
+		return false
+	}
+	switch strings.Compare(l[i].Reward.String(), l[j].Reward.String()) {
+	case 1:
+		return true
+	case -1:
+		return false
+	}
+	switch strings.Compare(l[i].Operator.String(), l[j].Operator.String()) {
+	case 1:
+		return true
+	case -1:
+		return false
+	}
+	switch {
+	case l[i].SelfStakeBucketIdx > l[j].SelfStakeBucketIdx:
+		return true
+	case l[i].SelfStakeBucketIdx < l[j].SelfStakeBucketIdx:
+		return false
+	}
+	switch l[i].SelfStake.Cmp(l[j].SelfStake) {
+	case 1:
+		return true
+	case -1:
+		return false
+	}
+	return strings.Compare(l[i].Name, l[j].Name) == 1
 }
 
 // Serialize serializes candidate to bytes
