@@ -7,30 +7,32 @@
 package cmd
 
 import (
+	"strconv"
+
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// getHeight represents the getheight command
-var getHeight = &cobra.Command{
-	Use:   "get",
-	Short: "Show the tipheight of stateDB and chainDB",
-	Args:  cobra.NoArgs,
+// play represents the play command
+var play = &cobra.Command{
+	Use:   "play [height]",
+	Short: "Play blocks from chain.db to trie.db without committing the height's block.",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		svr, err := newMiniServer(miniServerConfig())
+		stopHeight, err := strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
 			return err
 		}
-		daoHeight, err := svr.BlockDao().Height()
+		svr, err := newMiniServer(miniServerConfig(), WithStopHeight(stopHeight))
 		if err != nil {
 			return err
 		}
-		indexerHeight, err := svr.Factory().Height()
-		if err != nil {
+		if err = svr.checkIndexer(); err != nil {
 			return err
 		}
-		cmd.Println("BlockDao's Height:", daoHeight)
-		cmd.Println("Indexer's Height:", indexerHeight)
+		log.L().Info("play the height's block successfully.")
 		return nil
 	},
 }

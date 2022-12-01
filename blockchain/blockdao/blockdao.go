@@ -91,7 +91,8 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	if testCfg, ok := protocol.GetTestCtx(ctx); ok && testCfg.TimeMachine {
+
+	if testCfg, ok := protocol.GetTestCtx(ctx); ok && testCfg.DisableCheckIndexer {
 		return nil
 	}
 	return dao.checkIndexers(ctx)

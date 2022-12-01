@@ -9,9 +9,9 @@ package cmd
 import (
 	"context"
 	"os"
-	"strconv"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -19,63 +19,59 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-type miniServer struct {
-	cs  *chainservice.ChainService
-	cfg config.Config
-	ctx context.Context
+type (
+	miniServer struct {
+		ctx         context.Context
+		cfg         config.Config
+		cs          *chainservice.ChainService
+		commitBlock bool
+		stopHeight  uint64
+	}
+
+	// Option sets miniServer construction parameter
+	Option func(*miniServer)
+)
+
+// EnableCommitBlock enables to commit block
+func EnableCommitBlock() Option {
+	return func(svr *miniServer) {
+		svr.commitBlock = true
+	}
 }
 
-func newMiniServer(cfg config.Config) (*miniServer, error) {
+// WithStopHeight sets the stopHeight
+func WithStopHeight(height uint64) Option {
+	return func(svr *miniServer) {
+		svr.stopHeight = height
+	}
+}
+
+func newMiniServer(cfg config.Config, opts ...Option) (*miniServer, error) {
 	builder := chainservice.NewBuilder(cfg)
 	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build()
 	if err != nil {
 		return nil, err
 	}
-	miniSvr := &miniServer{cs: cs, cfg: cfg}
-	miniSvr.ctx = miniSvr.Context()
-	if err = cs.BlockDAO().Start(miniSvr.ctx); err != nil {
+	svr := &miniServer{
+		cfg: cfg,
+		cs:  cs,
+	}
+	for _, opt := range opts {
+		opt(svr)
+	}
+	svr.ctx = svr.Context()
+	if err = cs.BlockDAO().Start(svr.ctx); err != nil {
 		return nil, err
 	}
-	if err := miniSvr.checkSanity(); err != nil {
+	if err := svr.checkSanity(); err != nil {
 		return nil, err
 	}
-	return miniSvr, nil
-}
-
-func (mini *miniServer) Context() context.Context {
-	cfg := mini.cfg
-	blockchainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{ChainID: cfg.Chain.ID})
-	genesisContext := genesis.WithGenesisContext(blockchainCtx, cfg.Genesis)
-	featureContext := protocol.WithTestCtx(genesisContext, protocol.TestCtx{TimeMachine: true})
-	return protocol.WithFeatureWithHeightCtx(featureContext)
-}
-
-func (mini *miniServer) BlockDao() blockdao.BlockDAO {
-	return mini.cs.BlockDAO()
-}
-
-func (mini *miniServer) Factory() factory.Factory {
-	return mini.cs.StateFactory()
-}
-
-func (mini *miniServer) StopHeightFactory(stopHeight uint64) (factory.Factory, error) {
-	factoryCfg := factory.GenerateConfig(mini.cfg.Chain, mini.cfg.Genesis)
-	dbPath := mini.cfg.Chain.TrieDBPath
-	stopHeightDBPath := dbPath[:len(dbPath)-3] + strconv.FormatUint(stopHeight, 10) + ".db"
-	dao, err := db.CreateKVStore(mini.cfg.DB, stopHeightDBPath)
-	if err != nil {
-		return nil, err
-	}
-	f, err := factory.NewStateDB(factoryCfg, dao)
-	if err != nil {
-		return nil, err
-	}
-	return f, f.Start(mini.ctx)
+	return svr, nil
 }
 
 func miniServerConfig() config.Config {
@@ -103,17 +99,59 @@ func miniServerConfig() config.Config {
 	return cfg
 }
 
-func (mini *miniServer) checkSanity() error {
-	daoHeight, err := mini.BlockDao().Height()
+func (svr *miniServer) Context() context.Context {
+	cfg := svr.cfg
+	blockchainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{ChainID: cfg.Chain.ID})
+	genesisContext := genesis.WithGenesisContext(blockchainCtx, cfg.Genesis)
+	featureContext := protocol.WithTestCtx(genesisContext, protocol.TestCtx{
+		DisableCheckIndexer: true,
+		CommitBlock:         svr.commitBlock,
+		StopHeight:          svr.stopHeight,
+	})
+	return protocol.WithFeatureWithHeightCtx(featureContext)
+}
+
+func (svr *miniServer) BlockDao() blockdao.BlockDAO {
+	return svr.cs.BlockDAO()
+}
+
+func (svr *miniServer) Factory() factory.Factory {
+	return svr.cs.StateFactory()
+}
+
+func (svr *miniServer) checkSanity() error {
+	daoHeight, err := svr.BlockDao().Height()
 	if err != nil {
 		return err
 	}
-	indexerHeight, err := mini.Factory().Height()
+	indexerHeight, err := svr.Factory().Height()
 	if err != nil {
 		return err
 	}
 	if indexerHeight > daoHeight {
-		return errors.New("the height of indexer shouldn't be larger than the height of chainDB")
+		return errors.Errorf("the height of trie.db: %d shouldn't be larger than the height of chain.db: %d.", indexerHeight, daoHeight)
 	}
+	if svr.stopHeight > daoHeight {
+		return errors.Errorf("the stopHeight: %d shouldn't be larger than the height of chain.db: %d.", svr.stopHeight, daoHeight)
+	}
+	if svr.stopHeight < indexerHeight {
+		return errors.Errorf("the stopHeight: %d shouldn't be smaller than the current height of trie.db: %d.", svr.stopHeight, indexerHeight)
+	}
+	return nil
+}
+
+func (svr *miniServer) checkIndexer() error {
+	checker := blockdao.NewBlockIndexerChecker(svr.BlockDao())
+	if err := checker.CheckIndexer(svr.ctx, svr.Factory(), svr.stopHeight, func(height uint64) {
+		if height%5000 == 0 {
+			log.L().Info(
+				"trie.db is catching up.",
+				zap.Uint64("height", height),
+			)
+		}
+	}); err != nil {
+		return err
+	}
+	log.L().Info("trie.db is up to date.", zap.Uint64("height", svr.stopHeight))
 	return nil
 }

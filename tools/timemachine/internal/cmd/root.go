@@ -26,9 +26,8 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.AddCommand(downloadHeight)
-	rootCmd.AddCommand(getHeight)
-	rootCmd.AddCommand(syncHeight)
-	rootCmd.AddCommand(playNext)
-	rootCmd.AddCommand(commitNext)
+	rootCmd.AddCommand(download)
+	rootCmd.AddCommand(get)
+	rootCmd.AddCommand(play)
+	rootCmd.AddCommand(commit)
 }

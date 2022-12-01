@@ -353,6 +353,10 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
+	if testCfg, ok := protocol.GetTestCtx(ctx); ok &&
+		blk.Height() == testCfg.StopHeight && !testCfg.CommitBlock {
+		return nil
+	}
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}

@@ -8,15 +8,31 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// commitNext represents the commitnext command
-var commitNext = &cobra.Command{
-	Use:   "commitnext",
-	Short: "Commit next height of block",
+// get represents the get command
+var get = &cobra.Command{
+	Use:   "get",
+	Short: "Show current height of trie.db and chain.db",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
+		cmd.SilenceUsage = true
+		svr, err := newMiniServer(miniServerConfig())
+		if err != nil {
+			return err
+		}
+		daoHeight, err := svr.BlockDao().Height()
+		if err != nil {
+			return err
+		}
+		indexerHeight, err := svr.Factory().Height()
+		if err != nil {
+			return err
+		}
+		log.S().Infof("current chain.db height is: %d", daoHeight)
+		log.S().Infof("current trie.db height is: %d", indexerHeight)
 		return nil
 	},
 }
