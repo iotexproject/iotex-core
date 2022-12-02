@@ -81,8 +81,6 @@ type (
 
 	// TestCtx is ctx used in test or tool
 	TestCtx struct {
-		// DisableCheckIndexer disables to check indexer
-		DisableCheckIndexer bool
 		// CommitBlock allows to commits block
 		CommitBlock bool
 		// StopHeight is the input height of time machine command

@@ -104,7 +104,6 @@ func (svr *miniServer) Context() context.Context {
 	blockchainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{ChainID: cfg.Chain.ID})
 	genesisContext := genesis.WithGenesisContext(blockchainCtx, cfg.Genesis)
 	featureContext := protocol.WithTestCtx(genesisContext, protocol.TestCtx{
-		DisableCheckIndexer: true,
 		CommitBlock:         svr.commitBlock,
 		StopHeight:          svr.stopHeight,
 	})

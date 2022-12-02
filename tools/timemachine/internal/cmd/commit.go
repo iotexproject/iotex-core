@@ -32,7 +32,7 @@ var commit = &cobra.Command{
 		if err = svr.checkIndexer(); err != nil {
 			return err
 		}
-		log.L().Info("commit the height's block successfully.")
+		log.S().Infof("successful committed block %d",stopHeight)
 		return nil
 	},
 }

@@ -48,7 +48,6 @@ var download = &cobra.Command{
 
 		var (
 			destDir = args[1]
-			curr    uint64
 			wg      sync.WaitGroup
 		)
 		const (
@@ -56,53 +55,29 @@ var download = &cobra.Command{
 			_objPrefix = "fullsync/mainnet/"
 		)
 
-		allObjNames, err := listFiles(_bucket, "", "")
+		heightDir := genHeightDir(height)
+		log.S().Infof("download the height's dir: %s", heightDir)
+
+		objs, err := listFiles(_bucket, _objPrefix+heightDir+"/", "/")
 		if err != nil {
 			return err
 		}
-		if len(allObjNames) == 0 {
-			return ErrNotExist
-		}
-		heiNames := make(map[string][]string)
-		for _, name := range allObjNames {
-			if strings.HasPrefix(name, _objPrefix) {
-				s := strings.TrimPrefix(name, _objPrefix)
-				if len(s) > 0 {
-					heiStr := s[:strings.Index(s, "/")]
-					_, ok := heiNames[heiStr]
-					if ok {
-						heiNames[heiStr] = append(heiNames[heiStr], name)
-					} else {
-						heiNames[heiStr] = make([]string, 0)
-					}
-
-					if heiStr != "latest" {
-						v := convertHeightStr(heiStr)
-						if v > curr {
-							curr = v
-						}
-					}
-				}
+		if len(objs) == 0 {
+			objs, err = listFiles(_bucket, _objPrefix+"latest"+"/", "/")
+			if err != nil {
+				return err
 			}
-		}
-		latest := curr + 250000
-
-		heightDir := genHeightDir(height, latest)
-		if heightDir == "" {
-			return errors.Errorf("input height: %s is larger than latest height: %v.", args[0], latest+250000)
+			if len(objs) == 0 {
+				return ErrNotExist
+			}
+			log.L().Info("download the height's dir: latest")
 		}
 
-		log.S().Infof("download the height's dir: %s", heightDir)
-
-		objs, ok := heiNames[heightDir]
-		if !ok {
-			return errors.Errorf("Failed to get height: %s", heightDir)
-		}
 		for _, obj := range objs {
 			wg.Add(1)
 			go func(obj string) {
 				defer wg.Done()
-				cmd.Printf("downlaoding height from %s.\n", obj)
+				log.S().Infof("downlaoding height from %s", obj)
 				if err := downloadFile(_bucket, obj, filepath.Join(destDir, obj)); err != nil {
 					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
@@ -164,7 +139,10 @@ func listFiles(bucket, prefix, delim string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, GcpTimeout)
 	defer cancel()
 
-	query := &storage.Query{Prefix: prefix, Delimiter: delim}
+	query := &storage.Query{
+		Prefix:    prefix,
+		Delimiter: delim,
+	}
 	if err := query.SetAttrSelection([]string{"Name"}); err != nil {
 		return nil, errors.Wrap(err, "Failed to query.SetAttrSelection.")
 	}
@@ -201,14 +179,14 @@ func convertHeightStr(heiStr string) uint64 {
 	return inter*1000000 + deci*10000
 }
 
-func genHeightDir(height, latest uint64) (heightDir string) {
+func genHeightDir(height uint64) (heightDir string) {
 	if height < 8000000 {
 		heightDir = "0m"
 	} else if height >= 8000000 && height < 12000000 {
 		heightDir = "8m"
 	} else if height >= 12000000 && height < 13000000 {
 		heightDir = "12m"
-	} else if height >= 13000000 && height < latest {
+	} else {
 		inter := height / 1000000
 		interStr := fmt.Sprintf("%dm", inter)
 		deci := height - inter*1000000
@@ -218,11 +196,9 @@ func genHeightDir(height, latest uint64) (heightDir string) {
 			heightDir = interStr + "25"
 		} else if deci >= 500000 && deci < 750000 {
 			heightDir = interStr + "50"
-		} else if deci >= 750000 {
+		} else {
 			heightDir = interStr + "75"
 		}
-	} else if height >= latest && height < latest+250000 {
-		heightDir = "latest"
 	}
 	return
 }

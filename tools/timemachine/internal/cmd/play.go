@@ -32,7 +32,7 @@ var play = &cobra.Command{
 		if err = svr.checkIndexer(); err != nil {
 			return err
 		}
-		log.L().Info("play the height's block successfully.")
+		log.S().Infof("successful played block %d", stopHeight)
 		return nil
 	},
 }
