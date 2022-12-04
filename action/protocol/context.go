@@ -109,6 +109,7 @@ type (
 		FixGasAndNonceUpdate                    bool
 		FixUnproductiveDelegates                bool
 		CorrectGasRefund                        bool
+		FixRewardErroCheckPosition              bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -120,6 +121,7 @@ type (
 		StakingCorrectGas        CheckFunc
 		CalculateProbationList   CheckFunc
 		LoadCandidatesLegacy     CheckFunc
+		CandCenterHasAlias       CheckFunc
 	}
 )
 
@@ -242,6 +244,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixGasAndNonceUpdate:                    g.IsOkhotsk(height),
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
+			FixRewardErroCheckPosition:              g.IsOkhotsk(height),
 		},
 	)
 }
@@ -289,6 +292,9 @@ func WithFeatureWithHeightCtx(ctx context.Context) context.Context {
 			},
 			LoadCandidatesLegacy: func(height uint64) bool {
 				return !g.IsEaster(height)
+			},
+			CandCenterHasAlias: func(height uint64) bool {
+				return !g.IsOkhotsk(height)
 			},
 		},
 	)
