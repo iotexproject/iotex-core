@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -161,22 +160,6 @@ func listFiles(bucket, prefix, delim string) ([]string, error) {
 		}
 	}
 	return objNames, nil
-}
-
-func convertHeightStr(heiStr string) uint64 {
-	idx := strings.Index(heiStr, "m")
-	inter, err := strconv.ParseUint(heiStr[:idx], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	var deci uint64
-	if len(heiStr) > idx+1 {
-		deci, err = strconv.ParseUint(heiStr[idx+1:], 10, 64)
-		if err != nil {
-			panic(err)
-		}
-	}
-	return inter*1000000 + deci*10000
 }
 
 func genHeightDir(height uint64) (heightDir string) {
