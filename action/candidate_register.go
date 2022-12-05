@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -87,6 +88,9 @@ var (
 
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
+
+	//ErrInvalidCandidateName represents that candidate name is invalid
+	ErrInvalidCandidateName = errors.New("invalid candidate name")
 )
 
 // CandidateRegister is the action to register a candidate
@@ -288,6 +292,9 @@ func (cr *CandidateRegister) Cost() (*big.Int, error) {
 func (cr *CandidateRegister) SanityCheck() error {
 	if cr.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
+	}
+	if err := validator.ValidateCandidateNameForStake2(cr.Name()); err != nil {
+		return errors.Wrap(ErrInvalidCandidateName, err.Error())
 	}
 
 	return cr.AbstractAction.SanityCheck()
