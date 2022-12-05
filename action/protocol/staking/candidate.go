@@ -253,23 +253,14 @@ func (l CandidateList) Less(i, j int) bool {
 	if res := l[i].Votes.Cmp(l[j].Votes); res != 0 {
 		return res == 1
 	}
-	switch strings.Compare(l[i].Owner.String(), l[j].Owner.String()) {
-	case 1:
-		return true
-	case -1:
-		return false
+	if res := strings.Compare(l[i].Owner.String(), l[j].Owner.String()); res != 0 {
+		return res == 1
 	}
-	switch strings.Compare(l[i].Reward.String(), l[j].Reward.String()) {
-	case 1:
-		return true
-	case -1:
-		return false
+	if res := strings.Compare(l[i].Reward.String(), l[j].Reward.String()); res != 0 {
+		return res == 1
 	}
-	switch strings.Compare(l[i].Operator.String(), l[j].Operator.String()) {
-	case 1:
-		return true
-	case -1:
-		return false
+	if res := strings.Compare(l[i].Operator.String(), l[j].Operator.String()); res != 0 {
+		return res == 1
 	}
 	switch {
 	case l[i].SelfStakeBucketIdx > l[j].SelfStakeBucketIdx:
@@ -277,11 +268,8 @@ func (l CandidateList) Less(i, j int) bool {
 	case l[i].SelfStakeBucketIdx < l[j].SelfStakeBucketIdx:
 		return false
 	}
-	switch l[i].SelfStake.Cmp(l[j].SelfStake) {
-	case 1:
-		return true
-	case -1:
-		return false
+	if res := l[i].SelfStake.Cmp(l[j].SelfStake); res != 0 {
+		return res == 1
 	}
 	return strings.Compare(l[i].Name, l[j].Name) == 1
 }
