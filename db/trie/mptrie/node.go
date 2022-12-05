@@ -17,20 +17,28 @@ var ErrNoData = errors.New("no data in hash node")
 type (
 	keyType []byte
 
+	client interface {
+		asyncMode() bool
+		hash([]byte) []byte
+		loadNode([]byte) (node, error)
+		deleteNode([]byte) error
+		putNode([]byte, []byte) error
+	}
+
 	node interface {
-		Search(keyType, uint8) (node, error)
-		Delete(keyType, uint8) (node, error)
-		Upsert(keyType, uint8, []byte) (node, error)
-		Hash() ([]byte, error)
-		Flush() error
+		Search(client, keyType, uint8) (node, error)
+		Delete(client, keyType, uint8) (node, error)
+		Upsert(client, keyType, uint8, []byte) (node, error)
+		Hash(client) ([]byte, error)
+		Flush(client) error
 	}
 
 	serializable interface {
 		node
-		hash(flush bool) ([]byte, error)
-		proto(flush bool) (proto.Message, error)
-		delete() error
-		store() (node, error)
+		hash(client, bool) ([]byte, error)
+		proto(client, bool) (proto.Message, error)
+		delete(client) error
+		store(client) error
 	}
 
 	leaf interface {
@@ -50,6 +58,7 @@ type (
 		node
 		Children() []node
 		MarkAsRoot()
+		Clone() (branch, error)
 	}
 )
 

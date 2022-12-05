@@ -6,16 +6,16 @@ import (
 
 // SortedList is a data structure where elements are in ascending order
 type SortedList struct {
-	li       []uint8
-	isSorted bool // lazy-initilization
+	li     []uint8
+	sorted bool
 }
 
 // NewSortedList create SortedList from keys in the children map
 func NewSortedList(children map[byte]node) *SortedList {
 	if len(children) == 0 {
 		return &SortedList{
-			li:       make([]uint8, 0),
-			isSorted: true,
+			li:     make([]uint8, 0),
+			sorted: true,
 		}
 	}
 	li := make([]uint8, 0, len(children))
@@ -23,14 +23,23 @@ func NewSortedList(children map[byte]node) *SortedList {
 		li = append(li, k)
 	}
 	return &SortedList{
-		li:       li,
-		isSorted: false,
+		li: li,
 	}
+}
+
+func (sl *SortedList) sort() {
+	if sl.sorted {
+		return
+	}
+	sort.Slice(sl.li, func(i, j int) bool {
+		return sl.li[i] < sl.li[j]
+	})
+	sl.sorted = true
 }
 
 // Insert insert key into sortedlist
 func (sl *SortedList) Insert(key uint8) {
-	sl.sortIfNeed()
+	sl.sort()
 	i := sort.Search(len(sl.li), func(i int) bool {
 		return sl.li[i] >= uint8(key)
 	})
@@ -47,13 +56,13 @@ func (sl *SortedList) Insert(key uint8) {
 
 // List returns sorted indices
 func (sl *SortedList) List() []uint8 {
-	sl.sortIfNeed()
+	sl.sort()
 	return sl.li
 }
 
 // Delete deletes key in the sortedlist
 func (sl *SortedList) Delete(key uint8) {
-	sl.sortIfNeed()
+	sl.sort()
 	i := sort.Search(len(sl.li), func(i int) bool {
 		return sl.li[i] >= key
 	})
@@ -65,11 +74,9 @@ func (sl *SortedList) Delete(key uint8) {
 	}
 }
 
-func (sl *SortedList) sortIfNeed() {
-	if !sl.isSorted {
-		sort.Slice(sl.li, func(i, j int) bool {
-			return sl.li[i] < sl.li[j]
-		})
-		sl.isSorted = true
-	}
+// Clone clones a sorted list
+func (sl *SortedList) Clone() *SortedList {
+	li := make([]uint8, len(sl.li))
+	copy(li, sl.li)
+	return &SortedList{li: li, sorted: sl.sorted}
 }

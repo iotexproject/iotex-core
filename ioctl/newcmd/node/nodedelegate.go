@@ -182,6 +182,9 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 				if err != nil {
 					return errors.Wrap(err, "failed to get epoch meta")
 				}
+				if response.EpochData == nil {
+					return errors.New("ROLLDPOS is not registered")
+				}
 				epochData := response.EpochData
 				aliases := client.AliasMap()
 				message := delegatesMessage{

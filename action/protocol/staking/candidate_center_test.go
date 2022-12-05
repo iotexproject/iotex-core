@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -54,8 +55,8 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 	r.NoError(err)
 
 	// number of changed cand = change
+	r.Equal(change, len(m.change.view()))
 	delta := m.Delta()
-	r.Equal(change, len(delta))
 	ser, err := delta.Serialize()
 	r.NoError(err)
 
@@ -70,8 +71,8 @@ func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old Candidate
 	// test commit
 	r.NoError(delta.Deserialize(ser))
 	r.NoError(m.SetDelta(delta))
-	r.NoError(m.Commit())
-	r.NoError(m.Commit()) // commit is idempotent
+	r.NoError(m.LegacyCommit())
+	r.NoError(m.LegacyCommit()) // commit is idempotent
 	r.Equal(size+increase, m.Size())
 	// m equal to current list, not equal to old
 	r.True(testEqual(m, list))
@@ -105,7 +106,7 @@ func TestCandCenter(t *testing.T) {
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 	r.NoError(m.SetDelta(list))
-	r.NoError(m.Commit())
+	r.NoError(m.LegacyCommit())
 	r.Equal(len(testCandidates), m.Size())
 	r.True(testEqual(m, list))
 	old := m.All()
@@ -213,7 +214,7 @@ func TestCandCenter(t *testing.T) {
 	r.NoError(m.SetDelta(delta))
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
-	r.NoError(m.Commit())
+	r.NoError(m.LegacyCommit())
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
 
@@ -322,4 +323,120 @@ func TestCandCenter(t *testing.T) {
 		r.False(m.ContainsName("notexist"))
 		r.False(m.ContainsSelfStakingBucket(1000))
 	}
+}
+
+func TestFixAlias(t *testing.T) {
+	r := require.New(t)
+
+	dk := protocol.NewDock()
+	view := protocol.View{}
+
+	for _, hasAlias := range []bool{false, true} {
+		// add 6 candidates into cand center
+		m, err := NewCandidateCenter(nil)
+		r.NoError(err)
+		for i, v := range testCandidates {
+			r.NoError(m.Upsert(testCandidates[i].d))
+			r.True(m.ContainsName(v.d.Name))
+			r.True(m.ContainsOperator(v.d.Operator))
+			r.Equal(v.d, m.GetByName(v.d.Name))
+		}
+		if hasAlias {
+			r.NoError(m.LegacyCommit())
+		} else {
+			r.NoError(m.Commit())
+		}
+		r.NoError(view.Write(_protocolID, m))
+
+		// simulate handleCandidateUpdate: update name
+		center := candCenterFromNewCandidateStateManager(r, view, dk)
+		name := testCandidates[0].d.Name
+		nameAlias := center.GetByName(name)
+		nameAlias.Equal(testCandidates[0].d)
+		nameAlias.Name = "break"
+		{
+			r.NoError(center.Upsert(nameAlias))
+			delta := center.Delta()
+			r.Equal(1, len(delta))
+			r.NoError(dk.Load(_protocolID, _stakingCandCenter, &delta))
+		}
+
+		center = candCenterFromNewCandidateStateManager(r, view, dk)
+		n := center.GetByName("break")
+		n.Equal(nameAlias)
+		r.True(center.ContainsName("break"))
+		// old name does not exist
+		r.Nil(center.GetByName(name))
+		r.False(center.ContainsName(name))
+
+		// simulate handleCandidateUpdate: update operator
+		op := testCandidates[1].d.Operator
+		opAlias := testCandidates[1].d.Clone()
+		opAlias.Operator = identityset.Address(17)
+		r.True(center.ContainsOperator(op))
+		r.False(center.ContainsOperator(opAlias.Operator))
+		{
+			r.NoError(center.Upsert(opAlias))
+			delta := center.Delta()
+			r.Equal(2, len(delta))
+			r.NoError(dk.Load(_protocolID, _stakingCandCenter, &delta))
+		}
+
+		// verify cand center with name/op alias
+		center = candCenterFromNewCandidateStateManager(r, view, dk)
+		n = center.GetByName("break")
+		n.Equal(nameAlias)
+		r.True(center.ContainsName("break"))
+		// old name does not exist
+		r.Nil(center.GetByName(name))
+		r.False(center.ContainsName(name))
+		n = center.GetByOwner(testCandidates[1].d.Owner)
+		n.Equal(opAlias)
+		r.True(center.ContainsOperator(opAlias.Operator))
+		// old operator does not exist
+		r.False(center.ContainsOperator(op))
+
+		// cand center Commit()
+		{
+			if hasAlias {
+				r.NoError(center.LegacyCommit())
+			} else {
+				r.NoError(center.Commit())
+			}
+			r.NoError(view.Write(_protocolID, center))
+			dk.Reset()
+		}
+
+		// verify cand center after Commit()
+		center = candCenterFromNewCandidateStateManager(r, view, dk)
+		n = center.GetByName("break")
+		n.Equal(nameAlias)
+		n = center.GetByOwner(testCandidates[1].d.Owner)
+		n.Equal(opAlias)
+		r.True(center.ContainsOperator(opAlias.Operator))
+		if !hasAlias {
+			r.Nil(center.GetByName(name))
+			r.False(center.ContainsName(name))
+			r.False(center.ContainsOperator(op))
+		} else {
+			// alias still exist in name/operator map
+			n = center.GetByName(name)
+			n.Equal(testCandidates[0].d)
+			r.True(center.ContainsName(name))
+			r.True(center.ContainsOperator(op))
+		}
+	}
+}
+
+func candCenterFromNewCandidateStateManager(r *require.Assertions, view protocol.View, dk protocol.Dock) *CandidateCenter {
+	// get cand center: csm.ConstructBaseView
+	v, err := view.Read(_protocolID)
+	r.NoError(err)
+	center := v.(*CandidateCenter).Base()
+	// get changes: csm.Sync()
+	delta := CandidateList{}
+	err = dk.Unload(_protocolID, _stakingCandCenter, &delta)
+	r.True(err == nil || err == protocol.ErrNoName)
+	r.NoError(center.SetDelta(delta))
+	return center
 }

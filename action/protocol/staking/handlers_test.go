@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -51,7 +52,17 @@ func (m *CandidateCenter) deleteForTestOnly(owner address.Address) {
 	}
 
 	if m.change.containsOwner(owner) {
-		m.change.delete(owner)
+		if owner != nil {
+			candidates := []*Candidate{}
+			for _, c := range m.change.candidates {
+				if c.Owner.String() != owner.String() {
+					candidates = append(candidates, c)
+				}
+			}
+			m.change.candidates = candidates
+			delete(m.change.dirty, owner.String())
+			return
+		}
 		m.size--
 	}
 }
@@ -71,7 +82,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(depositGas, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -2664,7 +2678,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(depositGas, &BuilderConfig{
+		Staking:                  genesis.Default.Staking,
+		PersistStakingPatchBlock: math.MaxUint64,
+	}, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate

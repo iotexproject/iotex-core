@@ -21,10 +21,8 @@ import (
 // Multi-language support
 var (
 	_stake2WithDrawCmdUses = map[config.Language]string{
-		config.English: "withdraw BUCKET_INDEX [DATA]" +
-			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "withdraw 票索引 [数据]" +
-			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "withdraw BUCKET_INDEX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "withdraw 票索引 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	_stake2WithDrawCmdShorts = map[config.Language]string{
 		config.English: "Withdraw bucket from IoTeX blockchain",
@@ -56,51 +54,28 @@ func NewStake2WithdrawCmd(client ioctl.Client) *cobra.Command {
 				}
 			}
 
-			signer, err := cmd.Flags().GetString(signerFlagLabel)
+			gasPrice, signer, password, nonce, gasLimit, assumeYes, err := GetWriteCommandFlag(cmd)
 			if err != nil {
-				return errors.Wrap(err, "failed to get flag signer")
+				return err
 			}
 			sender, err := Signer(client, signer)
 			if err != nil {
 				return errors.Wrap(err, "failed to get signed address")
 			}
-
-			gasLimit, err := cmd.Flags().GetUint64(gasLimitFlagLabel)
-			if err != nil {
-				return errors.Wrap(err, "failed to get flage gas-limit")
-			}
 			if gasLimit == 0 {
 				gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
-			}
-
-			gasPrice, err := cmd.Flags().GetString(gasPriceFlagLabel)
-			if err != nil {
-				return errors.Wrap(err, "failed to get flag gas-price")
 			}
 			gasPriceRau, err := gasPriceInRau(client, gasPrice)
 			if err != nil {
 				return errors.Wrap(err, "failed to get gas price")
 			}
-			nonce, err := cmd.Flags().GetUint64(nonceFlagLabel)
-			if err != nil {
-				return errors.Wrap(err, "failed to get flag nonce")
-			}
 			nonce, err = checkNonce(client, nonce, sender)
 			if err != nil {
 				return errors.Wrap(err, "failed to get nonce")
 			}
-
 			s2w, err := action.NewWithdrawStake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
 			if err != nil {
 				return errors.Wrap(err, "failed to make a changeCandidate instance")
-			}
-			password, err := cmd.Flags().GetString(passwordFlagLabel)
-			if err != nil {
-				return errors.Wrap(err, "failed to get flag password")
-			}
-			assumeYes, err := cmd.Flags().GetBool(assumeYesFlagLabel)
-			if err != nil {
-				return errors.Wrap(err, "failed to get flag assume-yes")
 			}
 			return SendAction(
 				client,

@@ -12,6 +12,8 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/node"
 )
 
 // Multi-language support
@@ -47,6 +49,8 @@ func NewIoctl(client ioctl.Client) *cobra.Command {
 
 	rootCmd.AddCommand(config.ConfigCmd)
 	rootCmd.AddCommand(account.NewAccountCmd(client))
+	rootCmd.AddCommand(bc.NewBCCmd(client))
+	rootCmd.AddCommand(node.NewNodeCmd(client))
 
 	return rootCmd
 }

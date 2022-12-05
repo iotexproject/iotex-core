@@ -22,53 +22,67 @@ type branchNode struct {
 }
 
 func newBranchNode(
-	mpt *merklePatriciaTrie,
+	cli client,
 	children map[byte]node,
+	indices *SortedList,
 ) (node, error) {
 	if len(children) == 0 {
 		return nil, errors.New("branch node children cannot be empty")
 	}
+	if indices == nil {
+		indices = NewSortedList(children)
+	}
 	bnode := &branchNode{
 		cacheNode: cacheNode{
-			mpt:   mpt,
 			dirty: true,
 		},
 		children: children,
-		indices:  NewSortedList(children),
+		indices:  indices,
 	}
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
-		if !mpt.async {
-			return bnode.store()
+		if !cli.asyncMode() {
+			if err := bnode.store(cli); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return bnode, nil
 }
 
-func newEmptyRootBranchNode(mpt *merklePatriciaTrie) *branchNode {
+func newRootBranchNode(cli client, children map[byte]node, indices *SortedList, dirty bool) (branch, error) {
+	if indices == nil {
+		indices = NewSortedList(children)
+	}
 	bnode := &branchNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			dirty: dirty,
 		},
-		children: make(map[byte]node),
-		indices:  NewSortedList(nil),
+		children: children,
+		indices:  indices,
 		isRoot:   true,
 	}
 	bnode.cacheNode.serializable = bnode
-	return bnode
+	if len(bnode.children) != 0 {
+		if !cli.asyncMode() {
+			if err := bnode.store(cli); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return bnode, nil
 }
 
-func newBranchNodeFromProtoPb(pb *triepb.BranchPb, mpt *merklePatriciaTrie, hashVal []byte) *branchNode {
+func newBranchNodeFromProtoPb(pb *triepb.BranchPb, hashVal []byte) *branchNode {
 	bnode := &branchNode{
 		cacheNode: cacheNode{
-			mpt:     mpt,
 			hashVal: hashVal,
 			dirty:   false,
 		},
 		children: make(map[byte]node, len(pb.Branches)),
 	}
 	for _, n := range pb.Branches {
-		bnode.children[byte(n.Index)] = newHashNode(mpt, n.Path)
+		bnode.children[byte(n.Index)] = newHashNode(n.Path)
 	}
 	bnode.indices = NewSortedList(bnode.children)
 	bnode.cacheNode.serializable = bnode
@@ -87,24 +101,24 @@ func (b *branchNode) Children() []node {
 	return ret
 }
 
-func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
+func (b *branchNode) Delete(cli client, key keyType, offset uint8) (node, error) {
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	if err != nil {
 		return nil, err
 	}
-	newChild, err := child.Delete(key, offset+1)
+	newChild, err := child.Delete(cli, key, offset+1)
 	if err != nil {
 		return nil, err
 	}
 	if newChild != nil || b.isRoot {
-		return b.updateChild(offsetKey, newChild, false)
+		return b.updateChild(cli, offsetKey, newChild)
 	}
 	switch len(b.children) {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
 	case 2:
-		if err := b.delete(); err != nil {
+		if err := b.delete(cli); err != nil {
 			return nil, err
 		}
 		var orphan node
@@ -120,65 +134,63 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 			panic("unexpected branch status")
 		}
 		if hn, ok := orphan.(*hashNode); ok {
-			if orphan, err = hn.LoadNode(); err != nil {
+			if orphan, err = hn.LoadNode(cli); err != nil {
 				return nil, err
 			}
 		}
 		switch node := orphan.(type) {
 		case *extensionNode:
 			return node.updatePath(
+				cli,
 				append([]byte{orphanKey}, node.path...),
-				false,
 			)
 		case *leafNode:
 			return node, nil
 		default:
-			return newExtensionNode(b.mpt, []byte{orphanKey}, node)
+			return newExtensionNode(cli, []byte{orphanKey}, node)
 		}
 	default:
-		return b.updateChild(offsetKey, newChild, false)
+		return b.updateChild(cli, offsetKey, newChild)
 	}
 }
 
-func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
+func (b *branchNode) Upsert(cli client, key keyType, offset uint8, value []byte) (node, error) {
 	var newChild node
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	switch errors.Cause(err) {
 	case nil:
-		newChild, err = child.Upsert(key, offset+1, value) // look for next key offset
+		newChild, err = child.Upsert(cli, key, offset+1, value) // look for next key offset
 	case trie.ErrNotExist:
-		newChild, err = newLeafNode(b.mpt, key, value)
+		newChild, err = newLeafNode(cli, key, value)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return b.updateChild(offsetKey, newChild, true)
+	return b.updateChild(cli, offsetKey, newChild)
 }
 
-func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
+func (b *branchNode) Search(cli client, key keyType, offset uint8) (node, error) {
 	child, err := b.child(key[offset])
 	if err != nil {
 		return nil, err
 	}
-	return child.Search(key, offset+1)
+	return child.Search(cli, key, offset+1)
 }
 
-func (b *branchNode) proto(flush bool) (proto.Message, error) {
+func (b *branchNode) proto(cli client, flush bool) (proto.Message, error) {
 	nodes := []*triepb.BranchNodePb{}
 	for _, idx := range b.indices.List() {
 		c := b.children[idx]
 		if flush {
 			if sn, ok := c.(serializable); ok {
-				var err error
-				c, err = sn.store()
-				if err != nil {
+				if err := sn.store(cli); err != nil {
 					return nil, err
 				}
 			}
 		}
-		h, err := c.Hash()
+		h, err := c.Hash(cli)
 		if err != nil {
 			return nil, err
 		}
@@ -199,48 +211,72 @@ func (b *branchNode) child(key byte) (node, error) {
 	return c, nil
 }
 
-func (b *branchNode) Flush() error {
+func (b *branchNode) Flush(cli client) error {
 	if !b.dirty {
 		return nil
 	}
 	for _, idx := range b.indices.List() {
-		if err := b.children[idx].Flush(); err != nil {
+		if err := b.children[idx].Flush(cli); err != nil {
 			return err
 		}
 	}
-	_, err := b.store()
-	return err
+
+	return b.store(cli)
 }
 
-func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, error) {
-	if err := b.delete(); err != nil {
+func (b *branchNode) updateChild(cli client, key byte, child node) (node, error) {
+	if err := b.delete(cli); err != nil {
 		return nil, err
 	}
+	var indices *SortedList
 	// update branchnode with new child
-	if child == nil {
-		delete(b.children, key)
-		b.indices.Delete(key)
-	} else {
-		if _, exist := b.children[key]; !exist {
-			b.indices.Insert(key)
-		}
-		b.children[key] = child
+	children := make(map[byte]node, len(b.children))
+	for k, v := range b.children {
+		children[k] = v
 	}
-	b.dirty = true
-	if len(b.children) != 0 {
-		if !b.mpt.async {
-			hn, err := b.store()
-			if err != nil {
-				return nil, err
-			}
-			if !b.isRoot && hashnode {
-				return hn, nil // return hashnode
-			}
+	if child == nil {
+		delete(children, key)
+		if b.indices.sorted {
+			indices = b.indices.Clone()
+			indices.Delete(key)
 		}
 	} else {
-		if _, err := b.hash(false); err != nil {
+		children[key] = child
+		if b.indices.sorted {
+			indices = b.indices.Clone()
+			indices.Insert(key)
+		}
+	}
+
+	if b.isRoot {
+		bn, err := newRootBranchNode(cli, children, indices, true)
+		if err != nil {
 			return nil, err
 		}
+		return bn, nil
 	}
-	return b, nil // return branchnode
+	return newBranchNode(cli, children, indices)
+}
+
+func (b *branchNode) Clone() (branch, error) {
+	children := make(map[byte]node, len(b.children))
+	for key, child := range b.children {
+		children[key] = child
+	}
+	hashVal := make([]byte, len(b.hashVal))
+	copy(hashVal, b.hashVal)
+	ser := make([]byte, len(b.ser))
+	copy(ser, b.ser)
+	clone := &branchNode{
+		cacheNode: cacheNode{
+			dirty:   b.dirty,
+			hashVal: hashVal,
+			ser:     ser,
+		},
+		children: children,
+		indices:  b.indices.Clone(),
+		isRoot:   b.isRoot,
+	}
+	clone.cacheNode.serializable = clone
+	return clone, nil
 }

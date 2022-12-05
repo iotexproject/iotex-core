@@ -9,9 +9,11 @@ package db
 import (
 	"bytes"
 	"context"
+	"syscall"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -45,7 +47,11 @@ func NewBoltDB(cfg Config) *BoltDB {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *BoltDB) Start(_ context.Context) error {
-	db, err := bolt.Open(b.path, _fileMode, nil)
+	opts := *bolt.DefaultOptions
+	if b.config.ReadOnly {
+		opts.ReadOnly = true
+	}
+	db, err := bolt.Open(b.path, _fileMode, &opts)
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
 	}
@@ -82,6 +88,9 @@ func (b *BoltDB) Put(namespace string, key, value []byte) (err error) {
 		}
 	}
 	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to put db.", zap.Error(err))
+		}
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
@@ -280,6 +289,9 @@ func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
 		}
 	}
 	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to delete db.", zap.Error(err))
+		}
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
@@ -331,6 +343,9 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 	}
 
 	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to write batch db.", zap.Error(err))
+		}
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
@@ -392,6 +407,9 @@ func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
 		}
 	}
 	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to insert db.", zap.Error(err))
+		}
 		return errors.Wrap(ErrIO, err.Error())
 	}
 	return nil
@@ -480,6 +498,13 @@ func (b *BoltDB) Remove(name []byte, key uint64) error {
 			break
 		}
 	}
+
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to remove db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
+	}
 	return err
 }
 
@@ -512,6 +537,13 @@ func (b *BoltDB) Purge(name []byte, key uint64) error {
 		}); err == nil {
 			break
 		}
+	}
+
+	if err != nil {
+		if errors.Is(err, syscall.ENOSPC) {
+			log.L().Fatal("Failed to purge db.", zap.Error(err))
+		}
+		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
 }

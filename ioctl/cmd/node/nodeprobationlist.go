@@ -79,6 +79,9 @@ func probationlist() error {
 	if err != nil {
 		return output.NewError(0, "failed to get epoch meta", err)
 	}
+	if response.EpochData == nil {
+		return output.NewError(0, "ROLLDPOS is not registered", nil)
+	}
 	probationlist, err := getProbationList(_epochNum, response.EpochData.Height)
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)

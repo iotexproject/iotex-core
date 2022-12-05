@@ -119,27 +119,6 @@ func (c *candSR) ActiveBucketsCount() uint64 {
 	return c.view.bucketPool.Count()
 }
 
-// GetStakingStateReader returns a candidate state reader that reflects the base view
-func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
-	c, err := ConstructBaseView(sr)
-	if err != nil {
-		if errors.Cause(err) == protocol.ErrNoName {
-			// the view does not exist yet, create it
-			view, height, err := CreateBaseView(sr, true)
-			if err != nil {
-				return nil, err
-			}
-			return &candSR{
-				StateReader: sr,
-				height:      height,
-				view:        view,
-			}, nil
-		}
-		return nil, err
-	}
-	return c, nil
-}
-
 // ConstructBaseView returns a candidate state reader that reflects the base view
 // it will be used read-only
 func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
@@ -402,7 +381,7 @@ func (c *candSR) readStateBucketsByVoter(ctx context.Context, req *iotexapi.Read
 
 func (c *candSR) readStateBucketsByCandidate(ctx context.Context, req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
 	cand := c.GetCandidateByName(req.GetCandName())
-	if c == nil {
+	if cand == nil {
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
@@ -466,7 +445,7 @@ func (c *candSR) readStateCandidates(ctx context.Context, req *iotexapi.ReadStak
 
 func (c *candSR) readStateCandidateByName(ctx context.Context, req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
 	cand := c.GetCandidateByName(req.GetCandName())
-	if c == nil {
+	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
 	return cand.toIoTeXTypes(), c.Height(), nil
@@ -478,7 +457,7 @@ func (c *candSR) readStateCandidateByAddress(ctx context.Context, req *iotexapi.
 		return nil, 0, err
 	}
 	cand := c.GetCandidateByOwner(owner)
-	if c == nil {
+	if cand == nil {
 		return &iotextypes.CandidateV2{}, c.Height(), nil
 	}
 	return cand.toIoTeXTypes(), c.Height(), nil

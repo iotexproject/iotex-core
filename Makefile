@@ -24,6 +24,7 @@ BUILD_TARGET_XCTL=xctl
 BUILD_TARGET_NEWXCTL=newxctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
+BUILD_TARGET_READTIP=readtip
 BUILD_TARGET_IOMIGRATER=iomigrater
 BUILD_TARGET_OS=$(shell go env GOOS)
 BUILD_TARGET_ARCH=$(shell go env GOARCH)
@@ -78,7 +79,7 @@ build: ioctl
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
-build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer build-readtip
 
 .PHONY: build-actioninjector
 build-actioninjector: 
@@ -95,6 +96,10 @@ build-minicluster:
 .PHONY: build-staterecoverer
 build-staterecoverer:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
+
+.PHONY: build-readtip
+build-readtip:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_READTIP) -v ./tools/readtip
 
 .PHONY: fmt
 fmt:
