@@ -52,9 +52,10 @@ var download = &cobra.Command{
 		const (
 			_bucket    = "blockchain-golden"
 			_objPrefix = "fullsync/mainnet/"
+			_latest    = 20000000
 		)
 
-		heightDir := genHeightDir(height)
+		heightDir := genHeightDir(height, _latest)
 		log.S().Infof("download the height's dir: %s", heightDir)
 
 		objs, err := listFiles(_bucket, _objPrefix+heightDir+"/", "/")
@@ -62,14 +63,7 @@ var download = &cobra.Command{
 			return err
 		}
 		if len(objs) == 0 {
-			objs, err = listFiles(_bucket, _objPrefix+"latest"+"/", "/")
-			if err != nil {
-				return err
-			}
-			if len(objs) == 0 {
-				return ErrNotExist
-			}
-			log.L().Info("download the height's dir: latest")
+			return ErrNotExist
 		}
 
 		for _, obj := range objs {
@@ -162,14 +156,14 @@ func listFiles(bucket, prefix, delim string) ([]string, error) {
 	return objNames, nil
 }
 
-func genHeightDir(height uint64) (heightDir string) {
+func genHeightDir(height, latest uint64) (heightDir string) {
 	if height < 8000000 {
 		heightDir = "0m"
 	} else if height >= 8000000 && height < 12000000 {
 		heightDir = "8m"
 	} else if height >= 12000000 && height < 13000000 {
 		heightDir = "12m"
-	} else {
+	} else if height >= 13000000 && height < latest {
 		inter := height / 1000000
 		interStr := fmt.Sprintf("%dm", inter)
 		deci := height - inter*1000000
@@ -182,6 +176,8 @@ func genHeightDir(height uint64) (heightDir string) {
 		} else {
 			heightDir = interStr + "75"
 		}
+	} else {
+		heightDir = "latest"
 	}
 	return
 }
