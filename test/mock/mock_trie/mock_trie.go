@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	trie "github.com/iotexproject/iotex-core/db/trie"
 )
 
 // MockIterator is a mock of Iterator interface.
@@ -71,6 +72,21 @@ func NewMockTrie(ctrl *gomock.Controller) *MockTrie {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 	return m.recorder
+}
+
+// Clone mocks base method.
+func (m *MockTrie) Clone(arg0 trie.KVStore) (trie.Trie, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone", arg0)
+	ret0, _ := ret[0].(trie.Trie)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockTrieMockRecorder) Clone(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockTrie)(nil).Clone), arg0)
 }
 
 // Delete mocks base method.
@@ -208,6 +224,21 @@ func NewMockTwoLayerTrie(ctrl *gomock.Controller) *MockTwoLayerTrie {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTwoLayerTrie) EXPECT() *MockTwoLayerTrieMockRecorder {
 	return m.recorder
+}
+
+// Clone mocks base method.
+func (m *MockTwoLayerTrie) Clone(arg0 trie.KVStore) (trie.TwoLayerTrie, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone", arg0)
+	ret0, _ := ret[0].(trie.TwoLayerTrie)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockTwoLayerTrieMockRecorder) Clone(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockTwoLayerTrie)(nil).Clone), arg0)
 }
 
 // Delete mocks base method.

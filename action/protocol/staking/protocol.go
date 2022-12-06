@@ -39,6 +39,9 @@ const (
 
 	// _candidateNameSpace is the bucket name for candidate state
 	_candidateNameSpace = "Candidate"
+
+	// CandsMapNS is the bucket name to store candidate map
+	CandsMapNS = "CandsMap"
 )
 
 const (
@@ -57,6 +60,12 @@ var (
 	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
 )
 
+var (
+	_nameKey     = []byte("name")
+	_operatorKey = []byte("operator")
+	_ownerKey    = []byte("owner")
+)
+
 type (
 	// ReceiptError indicates a non-critical error with corresponding receipt status
 	ReceiptError interface {
@@ -71,15 +80,17 @@ type (
 		config             Configuration
 		candBucketsIndexer *CandidatesBucketsIndexer
 		voteReviser        *VoteReviser
+		patch              *PatchStore
 	}
 
 	// Configuration is the staking protocol configuration.
 	Configuration struct {
-		VoteWeightCalConsts   genesis.VoteWeightCalConsts
-		RegistrationConsts    RegistrationConsts
-		WithdrawWaitingPeriod time.Duration
-		MinStakeAmount        *big.Int
-		BootstrapCandidates   []genesis.BootstrapCandidate
+		VoteWeightCalConsts      genesis.VoteWeightCalConsts
+		RegistrationConsts       RegistrationConsts
+		WithdrawWaitingPeriod    time.Duration
+		MinStakeAmount           *big.Int
+		BootstrapCandidates      []genesis.BootstrapCandidate
+		PersistStakingPatchBlock uint64
 	}
 
 	// DepositGas deposits gas to some pool
@@ -103,46 +114,54 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 }
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
+func NewProtocol(
+	depositGas DepositGas,
+	cfg *BuilderConfig,
+	candBucketsIndexer *CandidatesBucketsIndexer,
+	correctCandsHeight uint64,
+	reviseHeights ...uint64,
+) (*Protocol, error) {
 	h := hash.Hash160b([]byte(_protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
 	}
 
-	minStakeAmount, ok := new(big.Int).SetString(cfg.MinStakeAmount, 10)
+	minStakeAmount, ok := new(big.Int).SetString(cfg.Staking.MinStakeAmount, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
 	}
 
-	regFee, ok := new(big.Int).SetString(cfg.RegistrationConsts.Fee, 10)
+	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
 	}
 
-	minSelfStake, ok := new(big.Int).SetString(cfg.RegistrationConsts.MinSelfStake, 10)
+	minSelfStake, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.MinSelfStake, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
 	}
 
 	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, reviseHeights...)
+	voteReviser := NewVoteReviser(cfg.Staking.VoteWeightCalConsts, correctCandsHeight, reviseHeights...)
 
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
-			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
+			VoteWeightCalConsts: cfg.Staking.VoteWeightCalConsts,
 			RegistrationConsts: RegistrationConsts{
 				Fee:          regFee,
 				MinSelfStake: minSelfStake,
 			},
-			WithdrawWaitingPeriod: cfg.WithdrawWaitingPeriod,
-			MinStakeAmount:        minStakeAmount,
-			BootstrapCandidates:   cfg.BootstrapCandidates,
+			WithdrawWaitingPeriod:    cfg.Staking.WithdrawWaitingPeriod,
+			MinStakeAmount:           minStakeAmount,
+			BootstrapCandidates:      cfg.Staking.BootstrapCandidates,
+			PersistStakingPatchBlock: cfg.PersistStakingPatchBlock,
 		},
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,
 		voteReviser:        voteReviser,
+		patch:              NewPatchStore(cfg.StakingPatchDir),
 	}, nil
 }
 
@@ -164,6 +183,19 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
+
+	if p.needToReadCandsMap(ctx, height) {
+		name, operator, owners, err := readCandCenterStateFromStateDB(sr)
+		if err != nil {
+			// stateDB does not have name/operator map yet
+			if name, operator, owners, err = p.patch.Read(height); err != nil {
+				return nil, errors.Wrap(err, "failed to read name/operator map")
+			}
+		}
+		if err = c.candCenter.base.loadNameOperatorMapOwnerList(name, operator, owners); err != nil {
+			return nil, errors.Wrap(err, "failed to load name/operator map to cand center")
+		}
+	}
 	return c, nil
 }
 
@@ -175,6 +207,7 @@ func (p *Protocol) CreateGenesisStates(
 	if len(p.config.BootstrapCandidates) == 0 {
 		return nil
 	}
+	// TODO: set init values based on ctx
 	csm, err := NewCandidateStateManager(sm, false)
 	if err != nil {
 		return err
@@ -225,7 +258,7 @@ func (p *Protocol) CreateGenesisStates(
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // CreatePreStates updates state manager
@@ -291,6 +324,39 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	return p.candBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
+// PreCommit preforms pre-commit
+func (p *Protocol) PreCommit(ctx context.Context, sm protocol.StateManager) error {
+	height, err := sm.Height()
+	if err != nil {
+		return err
+	}
+	if !p.needToWriteCandsMap(ctx, height) {
+		return nil
+	}
+
+	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	csm, err := NewCandidateStateManager(sm, featureWithHeightCtx.ReadStateFromDB(height))
+	if err != nil {
+		return err
+	}
+	cc := csm.DirtyView().candCenter
+	base := cc.base.clone()
+	if _, err = base.commit(cc.change, featureWithHeightCtx.CandCenterHasAlias(height)); err != nil {
+		return errors.Wrap(err, "failed to apply candidate change in pre-commit")
+	}
+	// persist nameMap/operatorMap and ownerList to stateDB
+	name := base.candsInNameMap()
+	op := base.candsInOperatorMap()
+	owners := base.ownersList()
+	if len(name) == 0 || len(op) == 0 {
+		return ErrNilParameters
+	}
+	if err := writeCandCenterStateToStateDB(sm, name, op, owners); err != nil {
+		return errors.Wrap(err, "failed to write name/operator map to stateDB")
+	}
+	return nil
+}
+
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	featureWithHeightCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
@@ -304,7 +370,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	}
 
 	// commit updated view
-	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
+	return errors.Wrap(csm.Commit(ctx), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message
@@ -399,7 +465,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	c, err := GetStakingStateReader(sr)
+	c, err := ConstructBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
@@ -540,4 +606,41 @@ func (p *Protocol) settleAction(
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
 	return &r, nil
+}
+
+func (p *Protocol) needToReadCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height > p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
+}
+
+func (p *Protocol) needToWriteCandsMap(ctx context.Context, height uint64) bool {
+	fCtx := protocol.MustGetFeatureWithHeightCtx(ctx)
+	return height >= p.config.PersistStakingPatchBlock && fCtx.CandCenterHasAlias(height)
+}
+
+func readCandCenterStateFromStateDB(sr protocol.StateReader) (CandidateList, CandidateList, CandidateList, error) {
+	var (
+		name, operator, owner CandidateList
+	)
+	if _, err := sr.State(&name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := sr.State(&operator, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := sr.State(&owner, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey)); err != nil {
+		return nil, nil, nil, err
+	}
+	return name, operator, owner, nil
+}
+
+func writeCandCenterStateToStateDB(sm protocol.StateManager, name, op, owners CandidateList) error {
+	if _, err := sm.PutState(name, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_nameKey)); err != nil {
+		return err
+	}
+	if _, err := sm.PutState(op, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_operatorKey)); err != nil {
+		return err
+	}
+	_, err := sm.PutState(owners, protocol.NamespaceOption(CandsMapNS), protocol.KeyOption(_ownerKey))
+	return err
 }

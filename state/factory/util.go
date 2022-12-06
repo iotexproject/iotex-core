@@ -81,6 +81,20 @@ func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) has
 	return hash.Hash256b(sum)
 }
 
+func protocolPreCommit(ctx context.Context, sr protocol.StateManager) error {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
+			post, ok := p.(protocol.PreCommitter)
+			if ok && sr.ProtocolDirty(p.Name()) {
+				if err := post.PreCommit(ctx, sr); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {

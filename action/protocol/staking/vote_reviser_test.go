@@ -2,6 +2,7 @@ package staking
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -21,7 +22,8 @@ func TestVoteReviser(t *testing.T) {
 	r := require.New(t)
 
 	ctrl := gomock.NewController(t)
-	sm := testdb.NewMockStateManager(ctrl)
+	sm := testdb.NewMockStateManagerWithoutHeightFunc(ctrl)
+	sm.EXPECT().Height().Return(uint64(0), nil).Times(4)
 	csm := newCandidateStateManager(sm)
 	csr := newCandidateStateReader(sm)
 	_, err := sm.PutState(
@@ -113,10 +115,14 @@ func TestVoteReviser(t *testing.T) {
 	// test loading with no candidate in stateDB
 	stk, err := NewProtocol(
 		nil,
-		genesis.Default.Staking,
+		&BuilderConfig{
+			Staking:                  genesis.Default.Staking,
+			PersistStakingPatchBlock: math.MaxUint64,
+		},
 		nil,
-		genesis.Default.GreenlandBlockHeight,
+		genesis.Default.OkhotskBlockHeight,
 		genesis.Default.HawaiiBlockHeight,
+		genesis.Default.GreenlandBlockHeight,
 	)
 	r.NotNil(stk)
 	r.NoError(err)
@@ -140,21 +146,41 @@ func TestVoteReviser(t *testing.T) {
 
 	csm, err = NewCandidateStateManager(sm, false)
 	r.NoError(err)
+	oldCand := testCandidates[3].d.Clone()
+	oldCand.Name = "old name"
+	r.NoError(csm.Upsert(oldCand))
+	r.NoError(csm.Commit(ctx))
+	r.NotNil(csm.GetByName(oldCand.Name))
 	// load a number of candidates
-	for _, e := range testCandidates {
-		r.NoError(csm.Upsert(e.d))
+	updateCands := CandidateList{
+		testCandidates[3].d, testCandidates[4].d, testCandidates[2].d,
+		testCandidates[0].d, testCandidates[1].d, testCandidates[5].d,
 	}
-	r.NoError(csm.Commit())
+	for _, e := range updateCands {
+		r.NoError(csm.Upsert(e))
+	}
+	r.NoError(csm.Commit(ctx))
+	r.NotNil(csm.GetByName(oldCand.Name))
+	r.NotNil(csm.GetByName(testCandidates[3].d.Name))
 
 	// test revise
-	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
-	r.False(stk.voteReviser.isCacheExist(genesis.Default.HawaiiBlockHeight))
-	r.NoError(stk.voteReviser.Revise(csm, genesis.Default.HawaiiBlockHeight))
-	r.NoError(csm.Commit())
-	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
-
+	vr := stk.voteReviser
+	r.False(vr.isCacheExist(genesis.Default.GreenlandBlockHeight))
+	r.False(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
+	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	// simulate first revise attempt failed -- call Revise() again
+	r.True(vr.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.NoError(vr.Revise(csm, genesis.Default.HawaiiBlockHeight))
+	sm.EXPECT().Height().DoAndReturn(
+		func() (uint64, error) {
+			return genesis.Default.HawaiiBlockHeight, nil
+		},
+	).Times(1)
+	r.NoError(csm.Commit(ctx))
+	r.NotNil(csm.GetByName(oldCand.Name))
 	// verify self-stake and total votes match
-	result, ok := stk.voteReviser.result(genesis.Default.HawaiiBlockHeight)
+	result, ok := vr.result(genesis.Default.HawaiiBlockHeight)
 	r.True(ok)
 	r.Equal(len(testCandidates), len(result))
 	cv := genesis.Default.Staking.VoteWeightCalConsts
@@ -179,4 +205,12 @@ func TestVoteReviser(t *testing.T) {
 			}
 		}
 	}
+	r.NoError(vr.Revise(csm, genesis.Default.OkhotskBlockHeight))
+	sm.EXPECT().Height().DoAndReturn(
+		func() (uint64, error) {
+			return genesis.Default.OkhotskBlockHeight, nil
+		},
+	).Times(1)
+	r.NoError(csm.Commit(ctx))
+	r.Nil(csm.GetByName(oldCand.Name))
 }

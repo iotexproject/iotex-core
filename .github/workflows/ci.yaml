@@ -50,6 +50,7 @@ jobs:
           bash <(curl -s https://codecov.io/bash)
 
       - name: Make Minicluster
+        if: github.event.pull_request.merged == true
         id: minicluster
         shell: bash
         run: |

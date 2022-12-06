@@ -7,10 +7,6 @@
 package fileutil
 
 import (
-	"os"
-	"path"
-	"runtime"
-	"strings"
 	"testing"
 
 	// "github.com/pkg/errors"
@@ -26,19 +22,5 @@ func TestFileExists(t *testing.T) {
 	t.Run("invalid file path", func(t *testing.T) {
 		isFileExists := FileExists("")
 		require.False(t, isFileExists)
-	})
-}
-
-func TestGetFileAbsPath(t *testing.T) {
-	t.Run("get absolute path in blockchain directory", func(t *testing.T) {
-		pwd, err := os.Getwd()
-		require.NoError(t, err)
-		fileAbsPath := GetFileAbsPath("filename")
-		if runtime.GOOS == "windows" {
-			require.Equal(t, path.Join(pwd, "blockchain/filename"), fileAbsPath)
-		} else {
-			pwd = strings.ReplaceAll(pwd, "pkg/util/fileutil", "")
-			require.Equal(t, path.Join(pwd, "blockchain/filename"), fileAbsPath)
-		}
 	})
 }

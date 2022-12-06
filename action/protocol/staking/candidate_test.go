@@ -58,6 +58,15 @@ func TestSer(t *testing.T) {
 	l1 := &CandidateList{}
 	r.NoError(l1.Deserialize(ser))
 	r.Equal(l, l1)
+
+	// empty CandidateList can successfully Serialize/Deserialize
+	var m CandidateList
+	ser, err = m.Serialize()
+	r.NoError(err)
+	r.Equal([]byte{}, ser)
+	var m1 CandidateList
+	r.NoError(m1.Deserialize(ser))
+	r.Nil(m1)
 }
 
 func TestClone(t *testing.T) {
