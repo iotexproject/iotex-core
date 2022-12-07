@@ -18,7 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -293,8 +292,8 @@ func (cr *CandidateRegister) SanityCheck() error {
 	if cr.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
-	if err := validator.ValidateCandidateNameForStake2(cr.Name()); err != nil {
-		return errors.Wrap(ErrInvalidCandidateName, err.Error())
+	if err := isValidCandidateName(cr.Name()); err != nil {
+		return err
 	}
 
 	return cr.AbstractAction.SanityCheck()
@@ -364,6 +363,18 @@ func NewCandidateRegisterFromABIBinary(data []byte) (*CandidateRegister, error) 
 		return nil, errDecodeFailure
 	}
 	return &cr, nil
+}
+
+func isValidCandidateName(candidateName string) error {
+	if len(candidateName) == 0 || len(candidateName) > 12 {
+		return ErrInvalidCandidateName
+	}
+	for _, c := range candidateName {
+		if !(('a' <= c && c <= 'z') || ('0' <= c && c <= '9')) {
+			return ErrInvalidCandidateName
+		}
+	}
+	return nil
 }
 
 func ethAddrToNativeAddr(in interface{}) (address.Address, error) {
