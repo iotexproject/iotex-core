@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -149,6 +148,7 @@ func TestCandidateRegisterABIEncodeAndDecode(t *testing.T) {
 }
 
 func TestIsValidCandidateName(t *testing.T) {
+	require := require.New(t)
 	tests := []struct {
 		input  string
 		output bool
@@ -189,6 +189,6 @@ func TestIsValidCandidateName(t *testing.T) {
 
 	for _, tt := range tests {
 		output := IsValidCandidateName(tt.input)
-		assert.Equal(t, tt.output, output)
+		require.Equal(tt.output, output)
 	}
 }
