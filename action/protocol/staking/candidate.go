@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -73,7 +74,7 @@ func (d *Candidate) Validate() error {
 	}
 
 	if d.Name == "" {
-		return ErrInvalidCanName
+		return action.ErrInvalidCanName
 	}
 
 	if d.Owner == nil {
@@ -100,7 +101,7 @@ func (d *Candidate) Collision(c *Candidate) error {
 		return nil
 	}
 	if c.Name == d.Name {
-		return ErrInvalidCanName
+		return action.ErrInvalidCanName
 	}
 	if address.Equal(c.Operator, d.Operator) {
 		return ErrInvalidOperator

@@ -17,7 +17,6 @@ import (
 // Errors
 var (
 	ErrInvalidAmount       = errors.New("invalid staking amount")
-	ErrInvalidCanName      = errors.New("invalid candidate name")
 	ErrInvalidOwner        = errors.New("invalid owner address")
 	ErrInvalidOperator     = errors.New("invalid operator address")
 	ErrInvalidReward       = errors.New("invalid reward address")
@@ -27,8 +26,8 @@ var (
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
-	if !isValidCandidateName(act.Candidate()) {
-		return ErrInvalidCanName
+	if !action.IsValidCandidateName(act.Candidate()) {
+		return action.ErrInvalidCanName
 	}
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
@@ -45,8 +44,8 @@ func (p *Protocol) validateWithdrawStake(ctx context.Context, act *action.Withdr
 }
 
 func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.ChangeCandidate) error {
-	if !isValidCandidateName(act.Candidate()) {
-		return ErrInvalidCanName
+	if !action.IsValidCandidateName(act.Candidate()) {
+		return action.ErrInvalidCanName
 	}
 	return nil
 }
@@ -64,8 +63,8 @@ func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) err
 }
 
 func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.CandidateRegister) error {
-	if !isValidCandidateName(act.Name()) {
-		return ErrInvalidCanName
+	if !action.IsValidCandidateName(act.Name()) {
+		return action.ErrInvalidCanName
 	}
 
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
@@ -76,22 +75,9 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
 	if len(act.Name()) != 0 {
-		if !isValidCandidateName(act.Name()) {
-			return ErrInvalidCanName
+		if !action.IsValidCandidateName(act.Name()) {
+			return action.ErrInvalidCanName
 		}
 	}
 	return nil
-}
-
-// IsValidCandidateName check if a candidate name string is valid.
-func isValidCandidateName(s string) bool {
-	if len(s) == 0 || len(s) > 12 {
-		return false
-	}
-	for _, c := range s {
-		if !(('a' <= c && c <= 'z') || ('0' <= c && c <= '9')) {
-			return false
-		}
-	}
-	return true
 }

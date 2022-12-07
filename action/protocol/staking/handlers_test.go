@@ -147,7 +147,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		{
@@ -379,7 +379,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1),
 			true,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// success for the following test
@@ -762,7 +762,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			"!invalidname",
 			identityset.Address(31).String(),
 			identityset.Address(32).String(),
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// success,update name, operator and reward address
@@ -1522,7 +1522,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			false,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// invalid candidate name 2
@@ -1542,7 +1542,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			false,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// invalid candidate name 3
@@ -1562,7 +1562,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			false,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// Upsert error cannot happen,because CreateStake already check collision

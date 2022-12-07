@@ -651,7 +651,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
 		return log, nil, &handleError{
-			err:           ErrInvalidCanName,
+			err:           action.ErrInvalidCanName,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
 	}
@@ -843,7 +843,7 @@ func csmErrorToHandleError(caller string, err error) error {
 	}
 
 	switch errors.Cause(err) {
-	case ErrInvalidCanName:
+	case action.ErrInvalidCanName:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
 		return hErr
 	case ErrInvalidOperator:
