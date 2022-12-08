@@ -111,6 +111,10 @@ func NewCandidateUpdate(
 			return nil, err
 		}
 	}
+
+	if !IsValidCandidateName(name) {
+		return nil, ErrInvalidCanName
+	}
 	return cu, nil
 }
 
