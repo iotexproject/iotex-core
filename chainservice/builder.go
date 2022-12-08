@@ -12,6 +12,11 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -34,23 +39,42 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
+	"github.com/iotexproject/iotex-core/tools/timemachine/minidao"
+	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
 )
 
 // Builder is a builder to build chainservice
 type Builder struct {
-	cfg config.Config
-	cs  *ChainService
+	cfg           config.Config
+	cs            *ChainService
+	opTimeMachine int
+	stopHeight    uint64
+}
+
+// BuilderOption sets Builder construction parameter
+type BuilderOption func(*Builder)
+
+// WithStopHeightBuilderOption sets the stopHeight
+func WithStopHeightBuilderOption(stopHeight uint64) BuilderOption {
+	return func(svr *Builder) {
+		svr.stopHeight = stopHeight
+	}
+}
+
+// WithOpTimeMachineBuilderOption sets the operation of timemachine
+func WithOpTimeMachineBuilderOption(op int) BuilderOption {
+	return func(svr *Builder) {
+		svr.opTimeMachine = op
+	}
 }
 
 // NewBuilder creates a new chainservice builder
-func NewBuilder(cfg config.Config) *Builder {
+func NewBuilder(cfg config.Config, opts ...BuilderOption) *Builder {
 	builder := &Builder{cfg: cfg}
 	builder.createInstance()
-
+	for _, opt := range opts {
+		opt(builder)
+	}
 	return builder
 }
 
@@ -147,10 +171,6 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		if forTest {
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 		}
-		opts := []factory.StateDBOption{
-			factory.RegistryStateDBOption(builder.cs.registry),
-			factory.DefaultPatchOption(),
-		}
 		if builder.cfg.Chain.EnableStateDBCaching {
 			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
@@ -159,7 +179,20 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		if err != nil {
 			return nil, err
 		}
-		return factory.NewStateDB(factoryCfg, dao, opts...)
+		switch builder.opTimeMachine {
+		case minifactory.Try:
+			return minifactory.NewStateDB(factoryCfg, dao, minifactory.RegistryStateDBOption(builder.cs.registry), minifactory.WithStopHeightStateDBOption(builder.stopHeight))
+		case minifactory.Commit:
+			return minifactory.NewStateDB(factoryCfg, dao, minifactory.RegistryStateDBOption(builder.cs.registry), minifactory.CommitBlockStateDBOption())
+		case minifactory.Get:
+			return minifactory.NewStateDB(factoryCfg, dao, minifactory.RegistryStateDBOption(builder.cs.registry))
+		default:
+			opts := []factory.StateDBOption{
+				factory.RegistryStateDBOption(builder.cs.registry),
+				factory.DefaultPatchOption(),
+			}
+			return factory.NewStateDB(factoryCfg, dao, opts...)
+		}
 	}
 	if forTest {
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
@@ -258,7 +291,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
 		deser := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
-		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
+		if builder.opTimeMachine == 0 {
+			builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
+		} else {
+			builder.cs.blockdao = minidao.NewBlockDAO(indexers, dbConfig, deser)
+		}
 	}
 
 	return nil

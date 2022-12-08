@@ -1,15 +1,14 @@
-// Copyright (c) 2020 IoTeX Foundation
+// Copyright (c) 2022 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package factory
+package minifactory
 
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -30,48 +29,63 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
-type stateDB struct {
-	mutex                    sync.RWMutex
-	currentChainHeight       uint64
-	cfg                      Config
-	registry                 *protocol.Registry
-	dao                      db.KVStore // the underlying DB for account/contract storage
-	timerFactory             *prometheustimer.TimerFactory
-	workingsets              cache.LRUCache // lru cache for workingsets
-	protocolView             protocol.View
-	skipBlockValidationOnPut bool
-	ps                       *patchStore
-}
+const (
+	Try = iota + 1
+	Commit
+	Get
+)
 
-// StateDBOption sets stateDB construction parameter
-type StateDBOption func(*stateDB, *Config) error
-
-// DefaultPatchOption loads patchs
-func DefaultPatchOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) (err error) {
-		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
-		return
+type (
+	// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
+	stateDB struct {
+		mutex                    sync.RWMutex
+		currentChainHeight       uint64
+		cfg                      factory.Config
+		registry                 *protocol.Registry
+		dao                      db.KVStore     // the underlying DB for account/contract storage
+		workingsets              cache.LRUCache // lru cache for workingsets
+		protocolView             protocol.View
+		skipBlockValidationOnPut bool
+		commitBlock              bool
+		stopHeight               uint64
 	}
-}
+
+	// StateDBOption sets stateDB construction parameter
+	StateDBOption func(*stateDB, *factory.Config) error
+)
 
 // RegistryStateDBOption sets the registry in state db
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
+	return func(sdb *stateDB, cfg *factory.Config) error {
 		sdb.registry = reg
+		return nil
+	}
+}
+
+// CommitBlockStateDBOption commits block on PutBlock
+func CommitBlockStateDBOption() StateDBOption {
+	return func(sdb *stateDB, cfg *factory.Config) error {
+		sdb.commitBlock = true
+		return nil
+	}
+}
+
+// WithStopHeightStateDBOption sets stopHeight for uncommitted on PutBlock
+func WithStopHeightStateDBOption(height uint64) StateDBOption {
+	return func(sdb *stateDB, cfg *factory.Config) error {
+		sdb.stopHeight = height
 		return nil
 	}
 }
 
 // SkipBlockValidationStateDBOption skips block validation on PutBlock
 func SkipBlockValidationStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
+	return func(sdb *stateDB, cfg *factory.Config) error {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -79,14 +93,14 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
+	return func(sdb *stateDB, cfg *factory.Config) error {
 		sdb.workingsets = cache.NewDummyLruCache()
 		return nil
 	}
 }
 
 // NewStateDB creates a new state db
-func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
+func NewStateDB(cfg factory.Config, dao db.KVStore, opts ...StateDBOption) (factory.Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
@@ -101,16 +115,6 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 			return nil, err
 		}
 	}
-	timerFactory, err := prometheustimer.New(
-		"iotex_statefactory_perf",
-		"Performance of state factory module",
-		[]string{"topic", "chainID"},
-		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
-	)
-	if err != nil {
-		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
-	}
-	sdb.timerFactory = timerFactory
 	return &sdb, nil
 }
 
@@ -120,7 +124,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	h, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	h, err := sdb.dao.Get(factory.AccountKVNamespace, []byte(factory.CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
@@ -130,7 +134,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		}
 	case db.ErrNotExist:
 		sdb.currentChainHeight = 0
-		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sdb.dao.Put(factory.AccountKVNamespace, []byte(factory.CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 		// start all protocols
@@ -168,7 +172,7 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	height, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	height, err := sdb.dao.Get(factory.AccountKVNamespace, []byte(factory.CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -185,13 +189,6 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	if err != nil {
 		return nil, err
 	}
-	for _, p := range sdb.ps.Get(height) {
-		if p.Type == _Delete {
-			flusher.KVStoreWithBuffer().MustDelete(p.Namespace, p.Key)
-		} else {
-			flusher.KVStoreWithBuffer().MustPut(p.Namespace, p.Key, p.Value)
-		}
-	}
 	store := newStateDBWorkingSetStore(sdb.protocolView, flusher, g.IsNewfoundland(height))
 	if err := store.Start(ctx); err != nil {
 		return nil, err
@@ -205,24 +202,7 @@ func (sdb *stateDB) Register(p protocol.Protocol) error {
 }
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
-	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
-	if err != nil {
-		return err
-	}
-	if !isExist {
-		if err = ws.ValidateBlock(ctx, blk); err != nil {
-			return errors.Wrap(err, "failed to validate block with workingset in statedb")
-		}
-		sdb.workingsets.Add(key, ws)
-	}
-	receipts, err := ws.Receipts()
-	if err != nil {
-		return err
-	}
-	blk.Receipts = receipts
-	return nil
+	return factory.ErrNotSupported
 }
 
 // NewBlockBuilder returns block builder which hasn't been signed yet
@@ -231,39 +211,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
-	ctx = protocol.WithRegistry(ctx, sdb.registry)
-	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
-	if err != nil {
-		return nil, err
-	}
-	postSystemActions := make([]action.SealedEnvelope, 0)
-	for _, p := range sdb.registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx, ws)
-			if err != nil {
-				return nil, err
-			}
-			for _, elp := range elps {
-				se, err := sign(elp)
-				if err != nil {
-					return nil, err
-				}
-				postSystemActions = append(postSystemActions, se)
-			}
-		}
-	}
-	blkBuilder, err := ws.CreateBuilder(ctx, ap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
-	if err != nil {
-		return nil, err
-	}
-
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.workingsets.Add(key, ws)
-	return blkBuilder, nil
+	return nil, factory.ErrNotSupported
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
@@ -274,38 +222,16 @@ func (sdb *stateDB) SimulateExecution(
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
-	ctx, span := tracer.NewSpan(ctx, "stateDB.SimulateExecution")
-	defer span.End()
-
-	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
+	return nil, nil, factory.ErrNotSupported
 }
 
 // ReadContractStorage reads contract's storage
 func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
-	sdb.mutex.RLock()
-	currHeight := sdb.currentChainHeight
-	sdb.mutex.RUnlock()
-	ws, err := sdb.newWorkingSet(ctx, currHeight+1)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate working set from state db")
-	}
-	return evm.ReadContractStorage(ctx, ws, contract, key)
+	return nil, factory.ErrNotSupported
 }
 
 // PutBlock persists all changes in RunActions() into the DB
 func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
-	sdb.mutex.Lock()
-	timer := sdb.timerFactory.NewTimer("Commit")
-	sdb.mutex.Unlock()
-	defer timer.End()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
 		return errors.New("failed to get address")
@@ -353,6 +279,9 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
+	if blk.Height() == sdb.stopHeight && !sdb.commitBlock {
+		return nil
+	}
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
@@ -361,7 +290,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 }
 
 func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
-	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
+	return errors.Wrap(factory.ErrNotSupported, "cannot delete tip block from state db")
 }
 
 // State returns a confirmed state in the state factory
@@ -373,7 +302,7 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if cfg.Keys != nil {
-		return 0, errors.Wrap(ErrNotSupported, "Read state with keys option has not been implemented yet")
+		return 0, errors.Wrap(factory.ErrNotSupported, "Read state with keys option has not been implemented yet")
 	}
 	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
@@ -387,7 +316,7 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if cfg.Key != nil {
-		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+		return sdb.currentChainHeight, nil, errors.Wrap(factory.ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
 	values, err := readStates(sdb.dao, cfg.Namespace, cfg.Keys)
 	if err != nil {
@@ -399,12 +328,12 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 
 // StateAtHeight returns a confirmed state at height -- archive mode
 func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
-	return ErrNotSupported
+	return factory.ErrNotSupported
 }
 
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
 func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
-	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
+	return nil, errors.Wrap(factory.ErrNotSupported, "state db does not support archive mode")
 }
 
 // ReadView reads the view

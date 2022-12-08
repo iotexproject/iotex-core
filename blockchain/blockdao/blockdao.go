@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/db"
@@ -91,10 +90,6 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-
-	if _, ok := protocol.GetTestCtx(ctx); ok {
-		return nil
-	}
 	return dao.checkIndexers(ctx)
 }
 

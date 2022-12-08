@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package cmd
+package miniserver
 
 import (
 	"context"
@@ -26,46 +26,43 @@ import (
 
 type (
 	miniServer struct {
-		ctx         context.Context
-		cfg         config.Config
-		cs          *chainservice.ChainService
-		commitBlock bool
-		stopHeight  uint64
+		ctx        context.Context
+		cfg        config.Config
+		cs         *chainservice.ChainService
+		stopHeight uint64
 	}
 
 	// Option sets miniServer construction parameter
 	Option func(*miniServer)
 )
 
-// EnableCommitBlock enables to commit block
-func EnableCommitBlock() Option {
+// WithStopHeightOption sets the stopHeight
+func WithStopHeightOption(stopHeight uint64) Option {
 	return func(svr *miniServer) {
-		svr.commitBlock = true
+		svr.stopHeight = stopHeight
 	}
 }
 
-// WithStopHeight sets the stopHeight
-func WithStopHeight(height uint64) Option {
-	return func(svr *miniServer) {
-		svr.stopHeight = height
-	}
-}
-
-func newMiniServer(cfg config.Config, opts ...Option) (*miniServer, error) {
-	builder := chainservice.NewBuilder(cfg)
-	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build()
-	if err != nil {
-		return nil, err
-	}
+func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*miniServer, error) {
 	svr := &miniServer{
 		cfg: cfg,
-		cs:  cs,
 	}
 	for _, opt := range opts {
 		opt(svr)
 	}
+
+	builder := chainservice.NewBuilder(cfg,
+		chainservice.WithOpTimeMachineBuilderOption(operation),
+		chainservice.WithStopHeightBuilderOption(svr.stopHeight),
+	)
+	cs, err := builder.SetP2PAgent(p2p.NewDummyAgent()).Build()
+	if err != nil {
+		return nil, err
+	}
+	svr.cs = cs
+
 	svr.ctx = svr.Context()
-	if err = cs.BlockDAO().Start(svr.ctx); err != nil {
+	if err = svr.cs.BlockDAO().Start(svr.ctx); err != nil {
 		return nil, err
 	}
 	if err := svr.checkSanity(); err != nil {
@@ -74,7 +71,7 @@ func newMiniServer(cfg config.Config, opts ...Option) (*miniServer, error) {
 	return svr, nil
 }
 
-func miniServerConfig() config.Config {
+func MiniServerConfig() config.Config {
 	var (
 		genesisPath = os.Getenv("IOTEX_HOME") + "/etc/genesis.yaml"
 		configPath  = os.Getenv("IOTEX_HOME") + "/etc/config.yaml"
@@ -100,14 +97,16 @@ func miniServerConfig() config.Config {
 }
 
 func (svr *miniServer) Context() context.Context {
-	cfg := svr.cfg
-	blockchainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{ChainID: cfg.Chain.ID})
-	genesisContext := genesis.WithGenesisContext(blockchainCtx, cfg.Genesis)
-	featureContext := protocol.WithTestCtx(genesisContext, protocol.TestCtx{
-		CommitBlock:         svr.commitBlock,
-		StopHeight:          svr.stopHeight,
-	})
-	return protocol.WithFeatureWithHeightCtx(featureContext)
+	ctx := genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				ChainID: svr.cfg.Chain.ID,
+			},
+		),
+		svr.cfg.Genesis,
+	)
+	return protocol.WithFeatureWithHeightCtx(ctx)
 }
 
 func (svr *miniServer) BlockDao() blockdao.BlockDAO {
@@ -136,7 +135,7 @@ func (svr *miniServer) checkSanity() error {
 	return nil
 }
 
-func (svr *miniServer) checkIndexer() error {
+func (svr *miniServer) CheckIndexer() error {
 	checker := blockdao.NewBlockIndexerChecker(svr.BlockDao())
 	if err := checker.CheckIndexer(svr.ctx, svr.Factory(), svr.stopHeight, func(height uint64) {
 		if height%5000 == 0 {

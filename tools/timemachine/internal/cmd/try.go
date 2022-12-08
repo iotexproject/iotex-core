@@ -12,11 +12,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/tools/timemachine/internal/miniserver"
+	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
 )
 
-// play represents the play command
-var play = &cobra.Command{
-	Use:   "play [height]",
+// try represents the try command
+var try = &cobra.Command{
+	Use:   "try [height]",
 	Short: "Play blocks from chain.db to trie.db without committing the height's block.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -25,11 +27,11 @@ var play = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		svr, err := newMiniServer(miniServerConfig(), WithStopHeight(stopHeight))
+		svr, err := miniserver.NewMiniServer(miniserver.MiniServerConfig(), minifactory.Try, miniserver.WithStopHeightOption(stopHeight))
 		if err != nil {
 			return err
 		}
-		if err = svr.checkIndexer(); err != nil {
+		if err = svr.CheckIndexer(); err != nil {
 			return err
 		}
 		log.S().Infof("successful played block %d", stopHeight)

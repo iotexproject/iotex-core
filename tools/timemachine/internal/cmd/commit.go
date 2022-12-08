@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/tools/timemachine/internal/miniserver"
+	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
 )
 
 // commit represents the commit command
@@ -25,14 +27,14 @@ var commit = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		svr, err := newMiniServer(miniServerConfig(), WithStopHeight(stopHeight), EnableCommitBlock())
+		svr, err := miniserver.NewMiniServer(miniserver.MiniServerConfig(), minifactory.Commit, miniserver.WithStopHeightOption(stopHeight))
 		if err != nil {
 			return err
 		}
-		if err = svr.checkIndexer(); err != nil {
+		if err = svr.CheckIndexer(); err != nil {
 			return err
 		}
-		log.S().Infof("successful committed block %d",stopHeight)
+		log.S().Infof("successful committed block %d", stopHeight)
 		return nil
 	},
 }

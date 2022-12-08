@@ -28,6 +28,6 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(download)
 	rootCmd.AddCommand(get)
-	rootCmd.AddCommand(play)
+	rootCmd.AddCommand(try)
 	rootCmd.AddCommand(commit)
 }

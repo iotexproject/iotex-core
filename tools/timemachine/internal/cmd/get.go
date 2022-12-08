@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/tools/timemachine/internal/miniserver"
+	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
 )
 
 // get represents the get command
@@ -19,7 +21,7 @@ var get = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		svr, err := newMiniServer(miniServerConfig())
+		svr, err := miniserver.NewMiniServer(miniserver.MiniServerConfig(), minifactory.Get)
 		if err != nil {
 			return err
 		}
