@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+// const represents the commands
 const (
 	Try = iota + 1
 	Commit
@@ -76,9 +77,9 @@ func CommitBlockStateDBOption() StateDBOption {
 }
 
 // WithStopHeightStateDBOption sets stopHeight for uncommitted on PutBlock
-func WithStopHeightStateDBOption(height uint64) StateDBOption {
+func WithStopHeightStateDBOption(stopHeight uint64) StateDBOption {
 	return func(sdb *stateDB, cfg *factory.Config) error {
-		sdb.stopHeight = height
+		sdb.stopHeight = stopHeight
 		return nil
 	}
 }

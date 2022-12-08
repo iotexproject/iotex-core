@@ -43,6 +43,7 @@ func WithStopHeightOption(stopHeight uint64) Option {
 	}
 }
 
+// NewMiniServer creates instace and runs chainservice
 func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*miniServer, error) {
 	svr := &miniServer{
 		cfg: cfg,
@@ -71,6 +72,7 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*miniServe
 	return svr, nil
 }
 
+// MiniServerConfig returns the config data from yaml
 func MiniServerConfig() config.Config {
 	var (
 		genesisPath = os.Getenv("IOTEX_HOME") + "/etc/genesis.yaml"
