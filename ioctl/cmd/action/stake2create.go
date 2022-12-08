@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -60,8 +59,8 @@ func stake2Create(args []string) error {
 	amountStringInRau := amountInRau.String()
 
 	var candidateName = args[1]
-	if err := validator.ValidateCandidateNameForStake2(candidateName); err != nil {
-		return output.NewError(output.ValidationError, "invalid candidate name", err)
+	if !action.IsValidCandidateName(candidateName) {
+		return output.NewError(output.ValidationError, "", action.ErrInvalidCanName)
 	}
 	stakeDuration, err := parseStakeDuration(args[2])
 	if err != nil {

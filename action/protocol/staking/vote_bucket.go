@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -69,11 +70,11 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 	vote, ok := new(big.Int).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if vote.Sign() <= 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	candAddr, err := address.FromString(pb.GetCandidateAddress())

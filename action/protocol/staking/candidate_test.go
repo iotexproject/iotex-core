@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -89,7 +90,7 @@ func TestClone(t *testing.T) {
 	r.False(d.Equal(d2))
 	r.NoError(d.Collision(d2))
 	d.Owner = identityset.Address(0)
-	r.Equal(ErrInvalidCanName, d.Collision(d2))
+	r.Equal(action.ErrInvalidCanName, d.Collision(d2))
 	d.Name = "noconflict"
 	r.Equal(ErrInvalidOperator, d.Collision(d2))
 	d.Operator = identityset.Address(0)
