@@ -493,7 +493,7 @@ func (sct *SmartContractTest) deployContracts(
 				return []string{}
 			}
 		}
-		if sct.Deployments[i].ExpectedGasConsumed() != 0 {
+		if sct.Deployments[i].ExpectedGasConsumed() != 0 { // debug
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
@@ -558,7 +558,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 
 		if sct.InitGenesis.IsBering {
 			// if it is post bering, it compares the status with expected status
-			r.Equal(exec.ExpectedStatus, receipt.Status)
+			r.Equal(exec.ExpectedStatus, receipt.Status) // debug
 		} else {
 			if exec.Failed {
 				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
@@ -567,7 +567,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 		}
 		if exec.ExpectedGasConsumed() != 0 {
-			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed, i)
+			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed, i) // debug
 		}
 		if exec.ExpectedBlockInfos != (ExpectedBlockInfo{}) {
 			r.Equal(exec.ExpectedBlockInfos.ReceiptRootHash, blkInfo.ReceiptRootHash)
@@ -1078,6 +1078,18 @@ func TestIstanbulEVM(t *testing.T) {
 	t.Run("err-write-protection-twice-delta-0-1", func(t *testing.T) {
 		// hit errWriteProtection twice,, first delta is 0, second delta is not 0, no revert
 		NewSmartContractTest(t, "testdata-istanbul/write-protection-007.json")
+	})
+	t.Run("err-write-protection-call-staticcall-revrt", func(t *testing.T) {
+		// call -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-008.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-009.json")
+	})
+	t.Run("err-write-protection-staticcall-staticcall-revrt-1", func(t *testing.T) {
+		// staticcall -> staticcall -> revrt twice
+		NewSmartContractTest(t, "testdata-istanbul/write-protection-010.json")
 	})
 }
 
