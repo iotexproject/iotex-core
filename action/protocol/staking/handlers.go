@@ -852,7 +852,7 @@ func csmErrorToHandleError(caller string, err error) error {
 	case ErrInvalidSelfStkIndex:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
 		return hErr
-	case ErrInvalidAmount:
+	case action.ErrInvalidAmount:
 		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
 		return hErr
 	case ErrInvalidOwner:

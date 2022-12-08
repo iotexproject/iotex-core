@@ -162,7 +162,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			ErrInvalidAmount,
+			action.ErrInvalidAmount,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		{
@@ -358,7 +358,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1),
 			true,
-			ErrInvalidAmount,
+			action.ErrInvalidAmount,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// invalid candidate name

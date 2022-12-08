@@ -16,7 +16,6 @@ import (
 
 // Errors
 var (
-	ErrInvalidAmount       = errors.New("invalid staking amount")
 	ErrInvalidOwner        = errors.New("invalid owner address")
 	ErrInvalidOperator     = errors.New("invalid operator address")
 	ErrInvalidReward       = errors.New("invalid reward address")
@@ -30,7 +29,7 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 		return action.ErrInvalidCanName
 	}
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
-		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
+		return errors.Wrap(action.ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
 	return nil
 }
@@ -68,7 +67,7 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	}
 
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
-		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
+		return errors.Wrap(action.ErrInvalidAmount, "self staking amount is not valid")
 	}
 	return nil
 }

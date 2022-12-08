@@ -70,7 +70,7 @@ func (d *Candidate) Equal(c *Candidate) bool {
 // Validate does the sanity check
 func (d *Candidate) Validate() error {
 	if d.Votes == nil {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if d.Name == "" {
@@ -90,7 +90,7 @@ func (d *Candidate) Validate() error {
 	}
 
 	if d.SelfStake == nil {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	return nil
 }
@@ -115,7 +115,7 @@ func (d *Candidate) Collision(c *Candidate) error {
 // AddVote adds vote
 func (d *Candidate) AddVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.Votes.Add(d.Votes, amount)
 	return nil
@@ -124,11 +124,11 @@ func (d *Candidate) AddVote(amount *big.Int) error {
 // SubVote subtracts vote
 func (d *Candidate) SubVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if d.Votes.Cmp(amount) == -1 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.Votes.Sub(d.Votes, amount)
 	return nil
@@ -137,7 +137,7 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 // AddSelfStake adds self stake
 func (d *Candidate) AddSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.SelfStake.Add(d.SelfStake, amount)
 	return nil
@@ -146,11 +146,11 @@ func (d *Candidate) AddSelfStake(amount *big.Int) error {
 // SubSelfStake subtracts self stake
 func (d *Candidate) SubSelfStake(amount *big.Int) error {
 	if amount.Sign() < 0 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	if d.Votes.Cmp(amount) == -1 {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	d.SelfStake.Sub(d.SelfStake, amount)
 	return nil
@@ -216,13 +216,13 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	var ok bool
 	d.Votes, ok = new(big.Int).SetString(pb.GetVotes(), 10)
 	if !ok {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 
 	d.SelfStakeBucketIdx = pb.GetSelfStakeBucketIdx()
 	d.SelfStake, ok = new(big.Int).SetString(pb.GetSelfStake(), 10)
 	if !ok {
-		return ErrInvalidAmount
+		return action.ErrInvalidAmount
 	}
 	return nil
 }

@@ -129,17 +129,17 @@ func NewProtocol(
 
 	minStakeAmount, ok := new(big.Int).SetString(cfg.Staking.MinStakeAmount, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	regFee, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.Fee, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	minSelfStake, ok := new(big.Int).SetString(cfg.Staking.RegistrationConsts.MinSelfStake, 10)
 	if !ok {
-		return nil, ErrInvalidAmount
+		return nil, action.ErrInvalidAmount
 	}
 
 	// new vote reviser, revise ate greenland
@@ -231,7 +231,7 @@ func (p *Protocol) CreateGenesisStates(
 
 		selfStake, ok := new(big.Int).SetString(bc.SelfStakingTokens, 10)
 		if !ok {
-			return ErrInvalidAmount
+			return action.ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
 		bucketIdx, err := csm.putBucketAndIndex(bucket)
