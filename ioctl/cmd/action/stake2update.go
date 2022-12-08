@@ -13,7 +13,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -47,8 +46,8 @@ func init() {
 
 func stake2Update(args []string) error {
 	name := args[0]
-	if err := validator.ValidateCandidateNameForStake2(name); err != nil {
-		return output.NewError(output.ValidationError, "invalid candidate name", err)
+	if !action.IsValidCandidateName(name) {
+		return output.NewError(output.ValidationError, "", action.ErrInvalidCanName)
 	}
 
 	operatorAddrStr, err := util.Address(args[1])

@@ -88,8 +88,8 @@ var (
 	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
 
-	//ErrInvalidCandidateName represents that candidate name is invalid
-	ErrInvalidCandidateName = errors.New("invalid candidate name")
+	//ErrInvalidCanName represents that candidate name is invalid
+	ErrInvalidCanName = errors.New("invalid candidate name")
 )
 
 // CandidateRegister is the action to register a candidate
@@ -397,4 +397,17 @@ func (cr *CandidateRegister) ToEthTx() (*types.Transaction, error) {
 		return nil, err
 	}
 	return types.NewTransaction(cr.Nonce(), ethAddr, big.NewInt(0), cr.GasLimit(), cr.GasPrice(), data), nil
+}
+
+// IsValidCandidateName check if a candidate name string is valid.
+func IsValidCandidateName(s string) bool {
+	if len(s) == 0 || len(s) > 12 {
+		return false
+	}
+	for _, c := range s {
+		if !(('a' <= c && c <= 'z') || ('0' <= c && c <= '9')) {
+			return false
+		}
+	}
+	return true
 }
