@@ -27,7 +27,7 @@ var try = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		svr, err := miniserver.NewMiniServer(miniserver.MiniServerConfig(), minifactory.Try, miniserver.WithStopHeightOption(stopHeight))
+		svr, err := miniserver.NewMiniServer(miniserver.Config(), minifactory.Try, miniserver.WithStopHeightOption(stopHeight))
 		if err != nil {
 			return err
 		}

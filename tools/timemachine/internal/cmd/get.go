@@ -21,7 +21,7 @@ var get = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		svr, err := miniserver.NewMiniServer(miniserver.MiniServerConfig(), minifactory.Get)
+		svr, err := miniserver.NewMiniServer(miniserver.Config(), minifactory.Get)
 		if err != nil {
 			return err
 		}

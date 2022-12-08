@@ -25,27 +25,28 @@ import (
 )
 
 type (
-	miniServer struct {
+	// MiniServer is an instance to build chain service
+	MiniServer struct {
 		ctx        context.Context
 		cfg        config.Config
 		cs         *chainservice.ChainService
 		stopHeight uint64
 	}
 
-	// Option sets miniServer construction parameter
-	Option func(*miniServer)
+	// Option sets MiniServer construction parameter
+	Option func(*MiniServer)
 )
 
 // WithStopHeightOption sets the stopHeight
 func WithStopHeightOption(stopHeight uint64) Option {
-	return func(svr *miniServer) {
+	return func(svr *MiniServer) {
 		svr.stopHeight = stopHeight
 	}
 }
 
 // NewMiniServer creates instace and runs chainservice
-func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*miniServer, error) {
-	svr := &miniServer{
+func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServer, error) {
+	svr := &MiniServer{
 		cfg: cfg,
 	}
 	for _, opt := range opts {
@@ -72,8 +73,8 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*miniServe
 	return svr, nil
 }
 
-// MiniServerConfig returns the config data from yaml
-func MiniServerConfig() config.Config {
+// Config returns the config data from yaml
+func Config() config.Config {
 	var (
 		genesisPath = os.Getenv("IOTEX_HOME") + "/etc/genesis.yaml"
 		configPath  = os.Getenv("IOTEX_HOME") + "/etc/config.yaml"
@@ -98,7 +99,7 @@ func MiniServerConfig() config.Config {
 	return cfg
 }
 
-func (svr *miniServer) Context() context.Context {
+func (svr *MiniServer) Context() context.Context {
 	ctx := genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			context.Background(),
@@ -111,15 +112,15 @@ func (svr *miniServer) Context() context.Context {
 	return protocol.WithFeatureWithHeightCtx(ctx)
 }
 
-func (svr *miniServer) BlockDao() blockdao.BlockDAO {
+func (svr *MiniServer) BlockDao() blockdao.BlockDAO {
 	return svr.cs.BlockDAO()
 }
 
-func (svr *miniServer) Factory() factory.Factory {
+func (svr *MiniServer) Factory() factory.Factory {
 	return svr.cs.StateFactory()
 }
 
-func (svr *miniServer) checkSanity() error {
+func (svr *MiniServer) checkSanity() error {
 	daoHeight, err := svr.BlockDao().Height()
 	if err != nil {
 		return err
@@ -137,7 +138,7 @@ func (svr *miniServer) checkSanity() error {
 	return nil
 }
 
-func (svr *miniServer) CheckIndexer() error {
+func (svr *MiniServer) CheckIndexer() error {
 	checker := blockdao.NewBlockIndexerChecker(svr.BlockDao())
 	if err := checker.CheckIndexer(svr.ctx, svr.Factory(), svr.stopHeight, func(height uint64) {
 		if height%5000 == 0 {

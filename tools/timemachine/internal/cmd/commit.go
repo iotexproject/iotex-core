@@ -27,7 +27,7 @@ var commit = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		svr, err := miniserver.NewMiniServer(miniserver.MiniServerConfig(), minifactory.Commit, miniserver.WithStopHeightOption(stopHeight))
+		svr, err := miniserver.NewMiniServer(miniserver.Config(), minifactory.Commit, miniserver.WithStopHeightOption(stopHeight))
 		if err != nil {
 			return err
 		}
