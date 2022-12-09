@@ -26,11 +26,7 @@ var (
 
 func TestCandidateUpdate(t *testing.T) {
 	require := require.New(t)
-	cu, err := NewCandidateUpdate(_cuNonce, "", _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
-	require.ErrorIs(err, ErrInvalidCanName)
-	cu, err = NewCandidateUpdate(_cuNonce, "aaaaaaaaaaaaa", _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
-	require.ErrorIs(err, ErrInvalidCanName)
-	cu, err = NewCandidateUpdate(_cuNonce, _cuName, _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
+	cu, err := NewCandidateUpdate(_cuNonce, _cuName, _cuOperatorAddrStr, _cuRewardAddrStr, _cuGasLimit, _cuGasPrice)
 	require.NoError(err)
 
 	ser := cu.Serialize()

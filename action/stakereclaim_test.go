@@ -21,6 +21,7 @@ var (
 	_gaslimit   = uint64(1000000)
 	_gasprice   = big.NewInt(10)
 	_canAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
+	_canName    = "candidate1"
 	_payload    = []byte("payload")
 	_nonce      = uint64(0)
 	_index      = uint64(10)
