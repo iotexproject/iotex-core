@@ -111,10 +111,6 @@ func NewCandidateUpdate(
 			return nil, err
 		}
 	}
-
-	if !IsValidCandidateName(name) {
-		return nil, ErrInvalidCanName
-	}
 	return cu, nil
 }
 
@@ -188,6 +184,15 @@ func (cu *CandidateUpdate) Cost() (*big.Int, error) {
 	}
 	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
+}
+
+// SanityCheck validates the variables in the action
+func (cu *CandidateUpdate) SanityCheck() error {
+	if !IsValidCandidateName(cu.Name()) {
+		return ErrInvalidCanName
+	}
+
+	return cu.AbstractAction.SanityCheck()
 }
 
 // EncodeABIBinary encodes data in abi encoding

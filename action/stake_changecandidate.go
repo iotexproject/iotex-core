@@ -159,6 +159,14 @@ func (cc *ChangeCandidate) Cost() (*big.Int, error) {
 	return changeCandidateFee, nil
 }
 
+// SanityCheck validates the variables in the action
+func (cc *ChangeCandidate) SanityCheck() error {
+	if !IsValidCandidateName(cc.candidateName) {
+		return ErrInvalidCanName
+	}
+	return cc.AbstractAction.SanityCheck()
+}
+
 // EncodeABIBinary encodes data in abi encoding
 func (cc *ChangeCandidate) EncodeABIBinary() ([]byte, error) {
 	return cc.encodeABIBinary()
