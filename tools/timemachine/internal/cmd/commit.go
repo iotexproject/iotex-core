@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/tools/timemachine/internal/miniserver"
 	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
+	"github.com/iotexproject/iotex-core/tools/timemachine/miniserver"
 )
 
 // commit represents the commit command

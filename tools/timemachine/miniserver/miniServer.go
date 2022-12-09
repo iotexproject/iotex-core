@@ -24,6 +24,12 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+// const
+const (
+	GenesisPath = "./tools/timemachine/etc/genesis.yaml"
+	ConfigPath  = "./tools/timemachine/etc/config.yaml"
+)
+
 type (
 	// MiniServer is an instance to build chain service
 	MiniServer struct {
@@ -75,23 +81,19 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServe
 
 // Config returns the config data from yaml
 func Config() config.Config {
-	var (
-		genesisPath = os.Getenv("IOTEX_HOME") + "/etc/genesis.yaml"
-		configPath  = os.Getenv("IOTEX_HOME") + "/etc/config.yaml"
-	)
-	if _, err := os.Stat(genesisPath); errors.Is(err, os.ErrNotExist) {
-		panic("please put genesis.yaml under current dir")
+	if _, err := os.Stat(GenesisPath); errors.Is(err, os.ErrNotExist) {
+		log.S().Fatalf("%s is not exist", GenesisPath)
 	}
-	genesisCfg, err := genesis.New(genesisPath)
+	genesisCfg, err := genesis.New(GenesisPath)
 	if err != nil {
 		panic(err)
 	}
 	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
 	block.LoadGenesisHash(&genesisCfg)
-	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
-		panic("please put config.yaml under current dir")
+	if _, err := os.Stat(ConfigPath); errors.Is(err, os.ErrNotExist) {
+		log.S().Fatalf("%s is not exist", ConfigPath)
 	}
-	cfg, err := config.New([]string{configPath}, []string{})
+	cfg, err := config.New([]string{ConfigPath}, []string{})
 	if err != nil {
 		panic(err)
 	}
@@ -99,6 +101,7 @@ func Config() config.Config {
 	return cfg
 }
 
+// Context adds blockchain and genesis contexts
 func (svr *MiniServer) Context() context.Context {
 	ctx := genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
@@ -112,12 +115,31 @@ func (svr *MiniServer) Context() context.Context {
 	return protocol.WithFeatureWithHeightCtx(ctx)
 }
 
+// BlockDao returns the chiandb instance
 func (svr *MiniServer) BlockDao() blockdao.BlockDAO {
 	return svr.cs.BlockDAO()
 }
 
+// Factory returns the triedb instance
 func (svr *MiniServer) Factory() factory.Factory {
 	return svr.cs.StateFactory()
+}
+
+// CheckIndexer catchs up height against blockdao
+func (svr *MiniServer) CheckIndexer() error {
+	checker := blockdao.NewBlockIndexerChecker(svr.BlockDao())
+	if err := checker.CheckIndexer(svr.ctx, svr.Factory(), svr.stopHeight, func(height uint64) {
+		if height%5000 == 0 {
+			log.L().Info(
+				"trie.db is catching up.",
+				zap.Uint64("height", height),
+			)
+		}
+	}); err != nil {
+		return err
+	}
+	log.L().Info("trie.db is up to date.", zap.Uint64("height", svr.stopHeight))
+	return nil
 }
 
 func (svr *MiniServer) checkSanity() error {
@@ -135,21 +157,5 @@ func (svr *MiniServer) checkSanity() error {
 	if svr.stopHeight > daoHeight {
 		return errors.Errorf("the stopHeight: %d shouldn't be larger than the height of chain.db: %d.", svr.stopHeight, daoHeight)
 	}
-	return nil
-}
-
-func (svr *MiniServer) CheckIndexer() error {
-	checker := blockdao.NewBlockIndexerChecker(svr.BlockDao())
-	if err := checker.CheckIndexer(svr.ctx, svr.Factory(), svr.stopHeight, func(height uint64) {
-		if height%5000 == 0 {
-			log.L().Info(
-				"trie.db is catching up.",
-				zap.Uint64("height", height),
-			)
-		}
-	}); err != nil {
-		return err
-	}
-	log.L().Info("trie.db is up to date.", zap.Uint64("height", svr.stopHeight))
 	return nil
 }

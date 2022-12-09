@@ -40,3 +40,5 @@ coverage.txt
 *.log
 .editorconfig
 
+# data directory
+**/data

@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/tools/timemachine/internal/miniserver"
 	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
+	"github.com/iotexproject/iotex-core/tools/timemachine/miniserver"
 )
 
 // get represents the get command
@@ -33,8 +33,8 @@ var get = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		log.S().Infof("current chain.db height is: %d", daoHeight)
-		log.S().Infof("current trie.db height is: %d", indexerHeight)
+		log.S().Infof("current chain.db height is %d", daoHeight)
+		log.S().Infof("current trie.db height is %d", indexerHeight)
 		return nil
 	},
 }

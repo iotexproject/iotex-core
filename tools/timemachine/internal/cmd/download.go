@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,17 +25,19 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// const value
-var (
-	GcpTimeout  = time.Second * 60
-	ErrNotExist = errors.New("height does not exist")
+// const
+const (
+	_gcpTimeout = time.Second * 60
+	_bucket     = "blockchain-golden"
+	_objPrefix  = "fullsync/mainnet/"
+	_latest     = 20000000
 )
 
 // download represents the download command
 var download = &cobra.Command{
-	Use:   "download [height] [directoy]",
+	Use:   "download [height]",
 	Short: "Download height block datas into directoy",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		height, err := strconv.ParseUint(args[0], 10, 64)
@@ -45,46 +48,37 @@ var download = &cobra.Command{
 			return errors.New("input height cannot be 0")
 		}
 
-		var (
-			destDir = args[1]
-			wg      sync.WaitGroup
-		)
-		const (
-			_bucket    = "blockchain-golden"
-			_objPrefix = "fullsync/mainnet/"
-			_latest    = 20000000
-		)
-
-		heightDir := genHeightDir(height, _latest)
-		log.S().Infof("download the height's dir: %s", heightDir)
+		heightDir := genHeightDir(height)
+		log.S().Infof("downloading %s", heightDir)
 
 		objs, err := listFiles(_bucket, _objPrefix+heightDir+"/", "/")
 		if err != nil {
 			return err
 		}
 		if len(objs) == 0 {
-			return ErrNotExist
+			return errors.New("height is not exist")
 		}
 
+		var wg sync.WaitGroup
 		for _, obj := range objs {
 			wg.Add(1)
 			go func(obj string) {
 				defer wg.Done()
-				log.S().Infof("downlaoding height from %s", obj)
-				if err := downloadFile(_bucket, obj, filepath.Join(destDir, obj)); err != nil {
+				if err := downloadFile(_bucket, obj, strings.TrimPrefix(obj, _objPrefix)); err != nil {
 					panic(errors.Wrapf(err, "Failed to downloadFile: %s.", obj))
 				}
 			}(obj)
 		}
 		wg.Wait()
 
-		log.L().Info("download the height's dir successfully.")
+		log.S().Infof("successful download height %d", height)
 		return nil
 	},
 }
 
 // downloadFile downloads an object to a file.
-func downloadFile(bucket, object, destFileName string) error {
+func downloadFile(bucket, object, dbpath string) error {
+	dbpath = fmt.Sprintf("./tools/timemachine/data/%s", dbpath)
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -93,28 +87,31 @@ func downloadFile(bucket, object, destFileName string) error {
 	defer client.Close()
 	client.SetRetry(storage.WithPolicy(storage.RetryAlways))
 
-	ctx, cancel := context.WithTimeout(ctx, GcpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, _gcpTimeout)
 	defer cancel()
 
-	if err = mkdirIfNotExist(filepath.Dir(destFileName)); err != nil {
+	if err = mkdirIfNotExist(filepath.Dir(dbpath)); err != nil {
 		return err
 	}
-	f, err := os.Create(destFileName)
+	f, err := os.Create(dbpath)
 	if err != nil {
-		return errors.Wrap(err, "Failed to os.Create.")
+		return errors.Wrapf(err, "Failed to os.Create %s", dbpath)
 	}
+
+	log.S().Infof("downlaoding %s to %s", object, dbpath)
+
 	rc, err := client.Bucket(bucket).Object(object).NewReader(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "Failed to Object(%q).NewReader.", object)
+		return errors.Wrapf(err, "Failed to Object(%q).NewReader %s", object, dbpath)
 	}
 	defer rc.Close()
 
 	if _, err = io.Copy(f, rc); err != nil {
-		return errors.Wrap(err, "Failed to io.Copy.")
+		return errors.Wrapf(err, "Failed to io.Copy %s", dbpath)
 	}
 
 	if err = f.Close(); err != nil {
-		return errors.Wrap(err, "Failed to f.Close.")
+		return errors.Wrapf(err, "Failed to f.Close %s", dbpath)
 	}
 	return nil
 }
@@ -129,7 +126,7 @@ func listFiles(bucket, prefix, delim string) ([]string, error) {
 	defer client.Close()
 	client.SetRetry(storage.WithPolicy(storage.RetryAlways))
 
-	ctx, cancel := context.WithTimeout(ctx, GcpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, _gcpTimeout)
 	defer cancel()
 
 	query := &storage.Query{
@@ -156,14 +153,14 @@ func listFiles(bucket, prefix, delim string) ([]string, error) {
 	return objNames, nil
 }
 
-func genHeightDir(height, latest uint64) (heightDir string) {
+func genHeightDir(height uint64) (heightDir string) {
 	if height < 8000000 {
 		heightDir = "0m"
 	} else if height >= 8000000 && height < 12000000 {
 		heightDir = "8m"
 	} else if height >= 12000000 && height < 13000000 {
 		heightDir = "12m"
-	} else if height >= 13000000 && height < latest {
+	} else if height >= 13000000 && height < _latest {
 		inter := height / 1000000
 		interStr := fmt.Sprintf("%dm", inter)
 		deci := height - inter*1000000
