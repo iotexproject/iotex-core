@@ -29,6 +29,8 @@ func NewContractInvokeCmd(client ioctl.Client) *cobra.Command {
 		Use:   "invoke",
 		Short: short,
 	}
+
+	// TODO add sub commands
 	// cmd.AddCommand(NewContractInvokeFunctionCmd)
 	// cmd.AddCommand(NewContractInvokeBytecodeCmd)
 	// action.RegisterWriteCommand(NewContractInvokeFunctionCmd)
