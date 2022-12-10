@@ -67,10 +67,7 @@ func Compile(sourceFiles ...string) (map[string]*compiler.Contract, error) {
 }
 
 func checkCompilerVersion(solc *util.Solidity) bool {
-	if solc.Major == 0 && solc.Minor == 5 {
-		return true
-	}
-	if solc.Major == 0 && solc.Minor == 4 && solc.Patch >= 24 {
+	if solc.Major == 0 && solc.Minor == 8 {
 		return true
 	}
 	return false
