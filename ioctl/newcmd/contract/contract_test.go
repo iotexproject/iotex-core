@@ -24,8 +24,8 @@ func TestNewContractCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("contract", config.English).AnyTimes()
-	client.EXPECT().SetEndpointWithFlag(gomock.Any()).Do(func(_ func(*string, string, string, string)) {})
-	client.EXPECT().SetInsecureWithFlag(gomock.Any()).Do(func(_ func(*bool, string, bool, string)) {})
+	client.EXPECT().SetEndpointWithFlag(gomock.Any())
+	client.EXPECT().SetInsecureWithFlag(gomock.Any())
 
 	cmd := NewContractCmd(client)
 	result, err := util.ExecuteCmd(cmd)
