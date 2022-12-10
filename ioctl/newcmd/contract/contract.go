@@ -43,6 +43,14 @@ func NewContractCmd(client ioctl.Client) *cobra.Command {
 		Use:   "contract",
 		Short: short,
 	}
+
+	// TODO add sub commands
+	// cmd.AddCommand(NewContractPrepareCmd)
+	// cmd.AddCommand(NewContractCompileCmd)
+	// cmd.AddCommand(NewContractDeployCmd)
+	// cmd.AddCommand(NewContractInvokeCmd)
+	// cmd.AddCommand(NewContractTestCmd)
+	// cmd.AddCommand(NewContractShareCmd)
 	cmd.AddCommand(NewContractCompileCmd(client))
 	client.SetEndpointWithFlag(cmd.PersistentFlags().StringVar)
 	client.SetInsecureWithFlag(cmd.PersistentFlags().BoolVar)
