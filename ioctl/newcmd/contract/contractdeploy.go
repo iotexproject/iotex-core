@@ -7,9 +7,10 @@
 package contract
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -27,6 +28,8 @@ func NewContractDeployCmd(client ioctl.Client) *cobra.Command {
 		Use:   "deploy",
 		Short: short,
 	}
+
+	// TODO add sub commands
 	// cmd.AddCommand(NewcontractDeployBytecodeCmd)
 	// cmd.AddCommand(NewContractDeployBinCmd)
 	// cmd.AddCommand(NewContractDeploySolCmd)
