@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -241,7 +242,7 @@ func TestCandCenter(t *testing.T) {
 		// d1 conflict with existing
 		conflict := list[(u1+3)%size]
 		d1.Name = conflict.Name
-		r.Equal(ErrInvalidCanName, m.Upsert(d1))
+		r.Equal(action.ErrInvalidCanName, m.Upsert(d1))
 		d1.Name = name1
 		d1.Operator = conflict.Operator
 		r.Equal(ErrInvalidOperator, m.Upsert(d1))
@@ -261,7 +262,7 @@ func TestCandCenter(t *testing.T) {
 
 		// d2 conflict d1
 		d2.Name = d1.Name
-		r.Equal(ErrInvalidCanName, m.Upsert(d2))
+		r.Equal(action.ErrInvalidCanName, m.Upsert(d2))
 		d2.Name = name2
 		d2.Operator = d1.Operator
 		r.Equal(ErrInvalidOperator, m.Upsert(d2))
@@ -278,7 +279,7 @@ func TestCandCenter(t *testing.T) {
 		// new n1 conflict with existing
 		n1 := list[(u2+size/2)%size].Clone()
 		n1.Owner = identityset.Address(15 + i*2)
-		r.Equal(ErrInvalidCanName, m.Upsert(n1))
+		r.Equal(action.ErrInvalidCanName, m.Upsert(n1))
 		n1.Name = name1
 		r.Equal(ErrInvalidOperator, m.Upsert(n1))
 		n1.Operator = op1
@@ -290,7 +291,7 @@ func TestCandCenter(t *testing.T) {
 		// new n2 conflict with dirty d2
 		n2 := d2.Clone()
 		n2.Owner = identityset.Address(16 + i*2)
-		r.Equal(ErrInvalidCanName, m.Upsert(n2))
+		r.Equal(action.ErrInvalidCanName, m.Upsert(n2))
 		n2.Name = name2
 		r.Equal(ErrInvalidOperator, m.Upsert(n2))
 		n2.Operator = op2
@@ -302,7 +303,7 @@ func TestCandCenter(t *testing.T) {
 		// verify conflict with n1
 		n2 = n1.Clone()
 		n2.Owner = identityset.Address(0)
-		r.Equal(ErrInvalidCanName, m.Upsert(n2))
+		r.Equal(action.ErrInvalidCanName, m.Upsert(n2))
 		n2.Name = "noconflict"
 		r.Equal(ErrInvalidOperator, m.Upsert(n2))
 		n2.Operator = identityset.Address(0)

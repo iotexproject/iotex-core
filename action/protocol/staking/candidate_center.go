@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
@@ -294,7 +295,7 @@ func (m *CandidateCenter) collision(d *Candidate) error {
 
 	name, oper, self := m.base.collision(d)
 	if name != nil && !m.change.containsOwner(name) {
-		return ErrInvalidCanName
+		return action.ErrInvalidCanName
 	}
 
 	if oper != nil && !m.change.containsOwner(oper) {

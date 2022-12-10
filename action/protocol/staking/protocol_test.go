@@ -341,7 +341,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: "test123",
 				},
 			},
-			"invalid staking amount",
+			"invalid amount",
 		},
 		{
 			[]genesis.BootstrapCandidate{
