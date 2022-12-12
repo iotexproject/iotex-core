@@ -47,7 +47,8 @@ type (
 		DeleteBlockToTarget(uint64) error
 	}
 
-	blockDAO struct {
+	// BlockDAODB implements BlockDAO interface
+	BlockDAODB struct {
 		blockStore   filedao.FileDAO
 		indexers     []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
@@ -79,7 +80,13 @@ func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
-func (dao *blockDAO) Start(ctx context.Context) error {
+func (dao *BlockDAODB) Start(ctx context.Context) error {
+	if err := dao.StartDB(ctx); err != nil {
+		return err
+	}
+	return dao.checkIndexers(ctx)
+}
+func (dao *BlockDAODB) StartDB(ctx context.Context) error {
 	err := dao.lifecycle.OnStart(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to start child services")
@@ -90,10 +97,10 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.checkIndexers(ctx)
+	return nil
 }
 
-func (dao *blockDAO) checkIndexers(ctx context.Context) error {
+func (dao *BlockDAODB) checkIndexers(ctx context.Context) error {
 	checker := NewBlockIndexerChecker(dao)
 	for i, indexer := range dao.indexers {
 		if err := checker.CheckIndexer(ctx, indexer, 0, func(height uint64) {
@@ -115,33 +122,33 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 	return nil
 }
 
-func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
+func (dao *BlockDAODB) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
 
-func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (dao *BlockDAODB) GetBlockHash(height uint64) (hash.Hash256, error) {
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()
 	return dao.blockStore.GetBlockHash(height)
 }
 
-func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+func (dao *BlockDAODB) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 	timer := dao.timerFactory.NewTimer("get_block_height")
 	defer timer.End()
 	return dao.blockStore.GetBlockHeight(hash)
 }
 
-func (dao *blockDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
+func (dao *BlockDAODB) GetBlock(hash hash.Hash256) (*block.Block, error) {
 	timer := dao.timerFactory.NewTimer("get_block")
 	defer timer.End()
 	return dao.blockStore.GetBlock(hash)
 }
 
-func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
+func (dao *BlockDAODB) GetBlockByHeight(height uint64) (*block.Block, error) {
 	timer := dao.timerFactory.NewTimer("get_block_byheight")
 	defer timer.End()
 	return dao.blockStore.GetBlockByHeight(height)
 }
 
-func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
+func (dao *BlockDAODB) HeaderByHeight(height uint64) (*block.Header, error) {
 	if v, ok := lruCacheGet(dao.headerCache, height); ok {
 		_cacheMtc.WithLabelValues("hit_header").Inc()
 		return v.(*block.Header), nil
@@ -157,7 +164,7 @@ func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
+func (dao *BlockDAODB) FooterByHeight(height uint64) (*block.Footer, error) {
 	if v, ok := lruCacheGet(dao.footerCache, height); ok {
 		_cacheMtc.WithLabelValues("hit_footer").Inc()
 		return v.(*block.Footer), nil
@@ -173,11 +180,11 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	return footer, nil
 }
 
-func (dao *blockDAO) Height() (uint64, error) {
+func (dao *BlockDAODB) Height() (uint64, error) {
 	return dao.blockStore.Height()
 }
 
-func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
+func (dao *BlockDAODB) Header(h hash.Hash256) (*block.Header, error) {
 	if header, ok := lruCacheGet(dao.headerCache, h); ok {
 		_cacheMtc.WithLabelValues("hit_header").Inc()
 		return header.(*block.Header), nil
@@ -193,7 +200,7 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, uint32, error) {
+func (dao *BlockDAODB) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, uint32, error) {
 	blk, err := dao.blockStore.GetBlockByHeight(height)
 	if err != nil {
 		return action.SealedEnvelope{}, 0, err
@@ -210,7 +217,7 @@ func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (actio
 	return action.SealedEnvelope{}, 0, errors.Errorf("block %d does not have action %x", height, h)
 }
 
-func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*action.Receipt, error) {
+func (dao *BlockDAODB) GetReceiptByActionHash(h hash.Hash256, height uint64) (*action.Receipt, error) {
 	receipts, err := dao.blockStore.GetReceipts(height)
 	if err != nil {
 		return nil, err
@@ -223,23 +230,23 @@ func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*act
 	return nil, errors.Errorf("receipt of action %x isn't found", h)
 }
 
-func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
+func (dao *BlockDAODB) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	timer := dao.timerFactory.NewTimer("get_receipt")
 	defer timer.End()
 	return dao.blockStore.GetReceipts(height)
 }
 
-func (dao *blockDAO) ContainsTransactionLog() bool {
+func (dao *BlockDAODB) ContainsTransactionLog() bool {
 	return dao.blockStore.ContainsTransactionLog()
 }
 
-func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
+func (dao *BlockDAODB) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
 	timer := dao.timerFactory.NewTimer("get_transactionlog")
 	defer timer.End()
 	return dao.blockStore.TransactionLogs(height)
 }
 
-func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
+func (dao *BlockDAODB) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := dao.timerFactory.NewTimer("put_block")
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
 		timer.End()
@@ -262,13 +269,13 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (dao *blockDAO) DeleteTipBlock() error {
+func (dao *BlockDAODB) DeleteTipBlock() error {
 	timer := dao.timerFactory.NewTimer("del_block")
 	defer timer.End()
 	return dao.blockStore.DeleteTipBlock()
 }
 
-func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
+func (dao *BlockDAODB) DeleteBlockToTarget(targetHeight uint64) error {
 	tipHeight, err := dao.blockStore.Height()
 	if err != nil {
 		return err
@@ -309,7 +316,7 @@ func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Co
 		return nil
 	}
 
-	blockDAO := &blockDAO{
+	blockDAO := &BlockDAODB{
 		blockStore: blkStore,
 		indexers:   indexers,
 	}

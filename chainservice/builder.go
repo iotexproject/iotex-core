@@ -181,11 +181,11 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		}
 		switch builder.opTimeMachine {
 		case minifactory.Try:
-			return minifactory.NewStateDB(factoryCfg, dao, minifactory.RegistryStateDBOption(builder.cs.registry), minifactory.WithStopHeightStateDBOption(builder.stopHeight))
+			return minifactory.NewStateDB(factoryCfg, dao, []factory.StateDBOption{factory.RegistryStateDBOption(builder.cs.registry)}, minifactory.WithStopHeightStateDBOption(builder.stopHeight))
 		case minifactory.Commit:
-			return minifactory.NewStateDB(factoryCfg, dao, minifactory.RegistryStateDBOption(builder.cs.registry), minifactory.CommitBlockStateDBOption())
+			return minifactory.NewStateDB(factoryCfg, dao, []factory.StateDBOption{factory.RegistryStateDBOption(builder.cs.registry)}, minifactory.CommitBlockStateDBOption())
 		case minifactory.Get:
-			return minifactory.NewStateDB(factoryCfg, dao, minifactory.RegistryStateDBOption(builder.cs.registry))
+			return minifactory.NewStateDB(factoryCfg, dao, []factory.StateDBOption{factory.RegistryStateDBOption(builder.cs.registry)})
 		default:
 			opts := []factory.StateDBOption{
 				factory.RegistryStateDBOption(builder.cs.registry),

@@ -36,8 +36,8 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
-type stateDB struct {
+// StateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
+type StateDB struct {
 	mutex                    sync.RWMutex
 	currentChainHeight       uint64
 	cfg                      Config
@@ -51,11 +51,11 @@ type stateDB struct {
 }
 
 // StateDBOption sets stateDB construction parameter
-type StateDBOption func(*stateDB, *Config) error
+type StateDBOption func(*StateDB, *Config) error
 
 // DefaultPatchOption loads patchs
 func DefaultPatchOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) (err error) {
+	return func(sdb *StateDB, cfg *Config) (err error) {
 		sdb.ps, err = newPatchStore(cfg.Chain.TrieDBPatchFile)
 		return
 	}
@@ -63,7 +63,7 @@ func DefaultPatchOption() StateDBOption {
 
 // RegistryStateDBOption sets the registry in state db
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
+	return func(sdb *StateDB, cfg *Config) error {
 		sdb.registry = reg
 		return nil
 	}
@@ -71,7 +71,7 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 
 // SkipBlockValidationStateDBOption skips block validation on PutBlock
 func SkipBlockValidationStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
+	return func(sdb *StateDB, cfg *Config) error {
 		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
@@ -79,7 +79,7 @@ func SkipBlockValidationStateDBOption() StateDBOption {
 
 // DisableWorkingSetCacheOption disable workingset cache
 func DisableWorkingSetCacheOption() StateDBOption {
-	return func(sdb *stateDB, cfg *Config) error {
+	return func(sdb *StateDB, cfg *Config) error {
 		sdb.workingsets = cache.NewDummyLruCache()
 		return nil
 	}
@@ -87,7 +87,7 @@ func DisableWorkingSetCacheOption() StateDBOption {
 
 // NewStateDB creates a new state db
 func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, error) {
-	sdb := stateDB{
+	sdb := StateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
@@ -114,7 +114,7 @@ func NewStateDB(cfg Config, dao db.KVStore, opts ...StateDBOption) (Factory, err
 	return &sdb, nil
 }
 
-func (sdb *stateDB) Start(ctx context.Context) error {
+func (sdb *StateDB) Start(ctx context.Context) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
@@ -157,7 +157,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	return nil
 }
 
-func (sdb *stateDB) Stop(ctx context.Context) error {
+func (sdb *StateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Clear()
@@ -165,7 +165,7 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 }
 
 // Height returns factory's height
-func (sdb *stateDB) Height() (uint64, error) {
+func (sdb *StateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	height, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
@@ -175,7 +175,7 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+func (sdb *StateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
 	flusher, err := db.NewKVStoreFlusher(
 		sdb.dao,
@@ -200,11 +200,11 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	return newWorkingSet(height, store), nil
 }
 
-func (sdb *stateDB) Register(p protocol.Protocol) error {
+func (sdb *StateDB) Register(p protocol.Protocol) error {
 	return p.Register(sdb.registry)
 }
 
-func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
+func (sdb *StateDB) Validate(ctx context.Context, blk *block.Block) error {
 	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
@@ -226,7 +226,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 }
 
 // NewBlockBuilder returns block builder which hasn't been signed yet
-func (sdb *stateDB) NewBlockBuilder(
+func (sdb *StateDB) NewBlockBuilder(
 	ctx context.Context,
 	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
@@ -268,7 +268,7 @@ func (sdb *stateDB) NewBlockBuilder(
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 // cause any state change
-func (sdb *stateDB) SimulateExecution(
+func (sdb *StateDB) SimulateExecution(
 	ctx context.Context,
 	caller address.Address,
 	ex *action.Execution,
@@ -289,7 +289,7 @@ func (sdb *stateDB) SimulateExecution(
 }
 
 // ReadContractStorage reads contract's storage
-func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
+func (sdb *StateDB) ReadContractStorage(ctx context.Context, contract address.Address, key []byte) ([]byte, error) {
 	sdb.mutex.RLock()
 	currHeight := sdb.currentChainHeight
 	sdb.mutex.RUnlock()
@@ -301,14 +301,26 @@ func (sdb *stateDB) ReadContractStorage(ctx context.Context, contract address.Ad
 }
 
 // PutBlock persists all changes in RunActions() into the DB
-func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
+func (sdb *StateDB) PutBlock(ctx context.Context, blk *block.Block) error {
+	ctx, ws, isExist, err := sdb.CreateWS(ctx, blk)
+	if err != nil {
+		return err
+	}
+	if err = sdb.TryBlock(ctx, blk, ws, isExist); err != nil {
+		return err
+	}
+	return sdb.CommitBlock(ctx, blk, ws)
+}
+
+// CreateWS returns workingset
+func (sdb *StateDB) CreateWS(ctx context.Context, blk *block.Block) (context.Context, *workingSet, bool, error) {
 	sdb.mutex.Lock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
 	defer timer.End()
 	producer := blk.PublicKey().Address()
 	if producer == nil {
-		return errors.New("failed to get address")
+		return ctx, nil, false, errors.New("failed to get address")
 	}
 	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(
@@ -324,8 +336,14 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
-		return err
+		return ctx, nil, false, err
 	}
+	return ctx, ws, isExist, nil
+}
+
+// TryBlock validates all changes in RunActions()
+func (sdb *StateDB) TryBlock(ctx context.Context, blk *block.Block, ws *workingSet, isExist bool) error {
+	var err error
 	if !isExist {
 		if !sdb.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
@@ -337,13 +355,18 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			return err
 		}
 	}
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	receipts, err := ws.Receipts()
 	if err != nil {
 		return err
 	}
 	blk.Receipts = receipts
+	return nil
+}
+
+// CommitBlock persists all changes in RunActions() into the DB
+func (sdb *StateDB) CommitBlock(ctx context.Context, blk *block.Block, ws *workingSet) error {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
 	h, _ := ws.Height()
 	if sdb.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
@@ -352,7 +375,6 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 			sdb.currentChainHeight, h,
 		)
 	}
-
 	if err := ws.Commit(ctx); err != nil {
 		return err
 	}
@@ -360,12 +382,12 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (sdb *stateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
+func (sdb *StateDB) DeleteTipBlock(_ context.Context, _ *block.Block) error {
 	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+func (sdb *StateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
@@ -379,7 +401,7 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 }
 
 // State returns a set of states in the state factory
-func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+func (sdb *StateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
@@ -398,17 +420,17 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 }
 
 // StateAtHeight returns a confirmed state at height -- archive mode
-func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
+func (sdb *StateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
 	return ErrNotSupported
 }
 
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
-func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
+func (sdb *StateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
 	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
 }
 
 // ReadView reads the view
-func (sdb *stateDB) ReadView(name string) (interface{}, error) {
+func (sdb *StateDB) ReadView(name string) (interface{}, error) {
 	return sdb.protocolView.Read(name)
 }
 
@@ -416,7 +438,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
+func (sdb *StateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {
@@ -436,7 +458,7 @@ func (sdb *stateDB) flusherOptions(preEaster bool) []db.KVStoreFlusherOption {
 	)
 }
 
-func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
+func (sdb *StateDB) state(ns string, addr []byte, s interface{}) error {
 	data, err := sdb.dao.Get(ns, addr)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -450,7 +472,7 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
+func (sdb *StateDB) createGenesisStates(ctx context.Context) error {
 	ws, err := sdb.newWorkingSet(ctx, 0)
 	if err != nil {
 		return err
@@ -463,7 +485,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
+func (sdb *StateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	if data, ok := sdb.workingsets.Get(key); ok {
 		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
