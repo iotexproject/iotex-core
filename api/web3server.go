@@ -22,8 +22,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
 	rewardingabi "github.com/iotexproject/iotex-core/action/protocol/rewarding/ethabi"
+	stakingabi "github.com/iotexproject/iotex-core/action/protocol/staking/ethabi"
 	apitypes "github.com/iotexproject/iotex-core/api/types"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
