@@ -635,10 +635,16 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.Equal(1, len(stateDB.contractSnapshot))
 			require.Equal(1, len(stateDB.suicideSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
+			require.Equal(1, len(stateDB.accessListSnapshot))
+			require.Equal(1, len(stateDB.refundSnapshot))
 		} else {
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.suicideSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
+			// refund fix and accessList are introduced after fixSnapshot
+			// so their snapshot are always properly cleared
+			require.Zero(len(stateDB.accessListSnapshot))
+			require.Zero(len(stateDB.refundSnapshot))
 		}
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
