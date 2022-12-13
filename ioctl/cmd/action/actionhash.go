@@ -22,13 +22,12 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // Multi-language support

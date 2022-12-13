@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cmd "github.com/iotexproject/iotex-core/tools/iomigrater/cmds"
+	"github.com/iotexproject/iotex-core/tools/iomigrater/cmds"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 

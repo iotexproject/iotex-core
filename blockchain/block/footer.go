@@ -11,9 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Footer defines a set of proof of this block

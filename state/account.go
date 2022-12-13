@@ -12,7 +12,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/iotexproject/iotex-core/action/protocol/account/accountpb"
 )
 

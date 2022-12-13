@@ -12,8 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -27,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.

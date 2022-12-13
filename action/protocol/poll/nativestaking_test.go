@@ -15,10 +15,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-election/types"
-
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/types"
 )
 
 var (

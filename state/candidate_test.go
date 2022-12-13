@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 

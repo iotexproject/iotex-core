@@ -13,13 +13,12 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Multi-language support

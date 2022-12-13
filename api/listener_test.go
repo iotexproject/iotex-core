@@ -9,10 +9,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	mock_apitypes "github.com/iotexproject/iotex-core/test/mock/mock_apiresponder"
+	"github.com/stretchr/testify/require"
 )
 
 // test for chainListener

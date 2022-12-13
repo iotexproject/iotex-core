@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/cache"
-
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )

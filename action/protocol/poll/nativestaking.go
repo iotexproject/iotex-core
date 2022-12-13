@@ -17,12 +17,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/types"
-
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/types"
 )
 
 var (

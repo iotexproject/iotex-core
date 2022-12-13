@@ -11,11 +11,6 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -38,6 +33,10 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Builder is a builder to build chainservice

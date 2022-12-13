@@ -8,10 +8,9 @@ package scheme
 import (
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // CreateBlockCB defines the callback to create a new block

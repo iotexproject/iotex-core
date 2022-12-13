@@ -18,8 +18,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -27,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestMerkle(t *testing.T) {

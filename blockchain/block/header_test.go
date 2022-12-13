@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHeader(t *testing.T) {

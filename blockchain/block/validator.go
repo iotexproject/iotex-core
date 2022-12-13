@@ -9,9 +9,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/pkg/errors"
 )
 
 // Validator is the interface of validator

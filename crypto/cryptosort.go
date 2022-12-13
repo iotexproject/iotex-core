@@ -10,7 +10,6 @@ import (
 	"sort"
 
 	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/iotexproject/iotex-core/pkg/enc"
 )
 

@@ -10,10 +10,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_CandidateStateReader(t *testing.T) {

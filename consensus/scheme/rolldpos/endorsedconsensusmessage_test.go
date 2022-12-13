@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/test/identityset"

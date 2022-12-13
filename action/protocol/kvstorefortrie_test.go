@@ -11,9 +11,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/stretchr/testify/require"
 )
 
 type inMemStateManager struct {

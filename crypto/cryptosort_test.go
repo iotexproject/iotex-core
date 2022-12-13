@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCryptoSort(t *testing.T) {
