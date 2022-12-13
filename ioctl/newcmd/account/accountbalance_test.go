@@ -10,11 +10,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi/mock_iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -37,7 +36,6 @@ func TestNewAccountBalance(t *testing.T) {
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:          accAddr.String(),
 		Balance:          "20000000132432000",
-		Nonce:            uint64(0),
 		PendingNonce:     uint64(1),
 		NumActions:       uint64(2),
 		IsContract:       true,

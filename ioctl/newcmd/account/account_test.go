@@ -240,7 +240,6 @@ func TestMeta(t *testing.T) {
 	accAddr := identityset.Address(28).String()
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:      accAddr,
-		Nonce:        1,
 		PendingNonce: 2,
 	}}
 	apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)

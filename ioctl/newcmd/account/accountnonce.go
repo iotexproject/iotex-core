@@ -55,8 +55,8 @@ func NewAccountNonce(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, failToGetAccountMeta)
 			}
 
-			cmd.Println(fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-				addr, accountMeta.Nonce, accountMeta.PendingNonce))
+			cmd.Println(fmt.Sprintf("%s:\nPending Nonce: %d",
+				addr, accountMeta.PendingNonce))
 			return nil
 		},
 	}

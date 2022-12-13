@@ -150,7 +150,6 @@ func TestSendAction(t *testing.T) {
 	require.NoError(err)
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:      accAddr.String(),
-		Nonce:        1,
 		PendingNonce: 1,
 		Balance:      cost.String(),
 	}}
@@ -268,7 +267,6 @@ func TestExecute(t *testing.T) {
 	require.NoError(err)
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:      accAddr.String(),
-		Nonce:        1,
 		PendingNonce: 1,
 		Balance:      cost.String(),
 	}}
