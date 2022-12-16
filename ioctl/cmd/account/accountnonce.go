@@ -45,11 +45,10 @@ var _accountNonceCmd = &cobra.Command{
 
 type nonceMessage struct {
 	Address      string `json:"address"`
-	Nonce        int    `json:"nonce"`
 	PendingNonce int    `json:"pendingNonce"`
 }
 
-// nonce gets nonce and pending nonce of an IoTeX blockchain address
+// nonce gets pending nonce of an IoTeX blockchain address
 func nonce(arg string) error {
 	addr, err := util.GetAddress(arg)
 	if err != nil {
@@ -61,7 +60,6 @@ func nonce(arg string) error {
 	}
 	message := nonceMessage{
 		Address:      addr,
-		Nonce:        int(accountMeta.Nonce),
 		PendingNonce: int(accountMeta.PendingNonce),
 	}
 	fmt.Println(message.String())
@@ -70,8 +68,8 @@ func nonce(arg string) error {
 
 func (m *nonceMessage) String() string {
 	if output.Format == "" {
-		return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-			m.Address, m.Nonce, m.PendingNonce)
+		return fmt.Sprintf("%s:\nPending Nonce: %d",
+			m.Address, m.PendingNonce)
 	}
 	return output.FormatString(output.Result, m)
 }

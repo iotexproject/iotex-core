@@ -38,7 +38,6 @@ func TestNewAccountInfo(t *testing.T) {
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:          accAddr.String(),
 		Balance:          "20000000132432000",
-		Nonce:            uint64(0),
 		PendingNonce:     uint64(1),
 		NumActions:       uint64(2),
 		IsContract:       true,
@@ -55,7 +54,6 @@ func TestNewAccountInfo(t *testing.T) {
 		var info infoMessage
 		require.NoError(json.Unmarshal([]byte(result), &info))
 		require.Equal(accAddr.String(), info.Address)
-		require.Equal(accountResponse.AccountMeta.Nonce, uint64(info.Nonce))
 		require.Equal(accountResponse.AccountMeta.PendingNonce, uint64(info.PendingNonce))
 		require.Equal(accountResponse.AccountMeta.NumActions, uint64(info.NumActions))
 		require.Equal(info.ContractByteCode, hex.EncodeToString(accountResponse.AccountMeta.ContractByteCode))
