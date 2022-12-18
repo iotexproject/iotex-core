@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -39,7 +38,6 @@ func TestNewAccountInfo(t *testing.T) {
 	accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 		Address:          accAddr.String(),
 		Balance:          "20000000132432000",
-		Nonce:            uint64(0),
 		PendingNonce:     uint64(1),
 		NumActions:       uint64(2),
 		IsContract:       true,
@@ -56,7 +54,6 @@ func TestNewAccountInfo(t *testing.T) {
 		var info infoMessage
 		require.NoError(json.Unmarshal([]byte(result), &info))
 		require.Equal(accAddr.String(), info.Address)
-		require.Equal(accountResponse.AccountMeta.Nonce, uint64(info.Nonce))
 		require.Equal(accountResponse.AccountMeta.PendingNonce, uint64(info.PendingNonce))
 		require.Equal(accountResponse.AccountMeta.NumActions, uint64(info.NumActions))
 		require.Equal(info.ContractByteCode, hex.EncodeToString(accountResponse.AccountMeta.ContractByteCode))
