@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -47,7 +46,6 @@ type infoMessage struct {
 	Address          string `json:"address"`
 	EthAddress       string `json:"ethAddress"`
 	Balance          string `json:"balance"`
-	Nonce            int    `json:"nonce"`
 	PendingNonce     int    `json:"pendingNonce"`
 	NumActions       int    `json:"numActions"`
 	IsContract       bool   `json:"isContract"`
@@ -80,7 +78,6 @@ func info(arg string) error {
 		Address:          addr,
 		EthAddress:       ethAddr.Hex(),
 		Balance:          util.RauToString(balance, util.IotxDecimalNum),
-		Nonce:            int(accountMeta.Nonce),
 		PendingNonce:     int(accountMeta.PendingNonce),
 		NumActions:       int(accountMeta.NumActions),
 		IsContract:       accountMeta.IsContract,
