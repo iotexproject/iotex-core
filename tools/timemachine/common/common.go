@@ -3,10 +3,11 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package main
+package common
 
-import "github.com/iotexproject/iotex-core/tools/timemachine/internal/cmd"
-
-func main() {
-	cmd.Execute()
-}
+// const represents cmd operation
+const (
+	Try = iota + 1
+	Commit
+	Get
+)

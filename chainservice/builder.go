@@ -38,20 +38,21 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/tools/timemachine/minidao"
-	"github.com/iotexproject/iotex-core/tools/timemachine/minifactory"
+	"github.com/iotexproject/iotex-core/tools/timemachine/common"
 )
 
-// Builder is a builder to build chainservice
-type Builder struct {
-	cfg           config.Config
-	cs            *ChainService
-	opTimeMachine int
-	stopHeight    uint64
-}
+type (
+	// Builder is a builder to build chainservice
+	Builder struct {
+		cfg           config.Config
+		cs            *ChainService
+		opTimeMachine int
+		stopHeight    uint64
+	}
 
-// BuilderOption sets Builder construction parameter
-type BuilderOption func(*Builder)
+	// BuilderOption sets Builder construction parameter
+	BuilderOption func(*Builder)
+)
 
 // WithStopHeightBuilderOption sets the stopHeight
 func WithStopHeightBuilderOption(stopHeight uint64) BuilderOption {
@@ -170,6 +171,10 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 		if forTest {
 			return factory.NewStateDB(factoryCfg, db.NewMemKVStore(), factory.RegistryStateDBOption(builder.cs.registry))
 		}
+		opts := []factory.StateDBOption{
+			factory.RegistryStateDBOption(builder.cs.registry),
+			factory.DefaultPatchOption(),
+		}
 		if builder.cfg.Chain.EnableStateDBCaching {
 			dao, err = db.CreateKVStoreWithCache(builder.cfg.DB, builder.cfg.Chain.TrieDBPath, builder.cfg.Chain.StateDBCacheSize)
 		} else {
@@ -179,19 +184,12 @@ func (builder *Builder) createFactory(forTest bool) (factory.Factory, error) {
 			return nil, err
 		}
 		switch builder.opTimeMachine {
-		case minifactory.Try:
-			return minifactory.NewStateDB(factoryCfg, dao, []factory.StateDBOption{factory.RegistryStateDBOption(builder.cs.registry)}, minifactory.WithStopHeightStateDBOption(builder.stopHeight))
-		case minifactory.Commit:
-			return minifactory.NewStateDB(factoryCfg, dao, []factory.StateDBOption{factory.RegistryStateDBOption(builder.cs.registry)}, minifactory.CommitBlockStateDBOption())
-		case minifactory.Get:
-			return minifactory.NewStateDB(factoryCfg, dao, []factory.StateDBOption{factory.RegistryStateDBOption(builder.cs.registry)})
-		default:
-			opts := []factory.StateDBOption{
-				factory.RegistryStateDBOption(builder.cs.registry),
-				factory.DefaultPatchOption(),
-			}
-			return factory.NewStateDB(factoryCfg, dao, opts...)
+		case common.Try:
+			opts = append(opts, factory.WithStopHeightStateDBOption(builder.stopHeight))
+		case common.Commit:
+			opts = append(opts, factory.CommitBlockStateDBOption())
 		}
+		return factory.NewStateDB(factoryCfg, dao, opts...)
 	}
 	if forTest {
 		return factory.NewFactory(factoryCfg, db.NewMemKVStore(), factory.RegistryOption(builder.cs.registry))
@@ -290,11 +288,11 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
 		deser := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
-		if builder.opTimeMachine == 0 {
-			builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser)
-		} else {
-			builder.cs.blockdao = minidao.NewBlockDAO(indexers, dbConfig, deser)
+		var opts []blockdao.BlockDAOOption
+		if builder.opTimeMachine > 0 {
+			opts = append(opts, blockdao.TimeMachineBlockDAOOption())
 		}
+		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser, opts...)
 	}
 
 	return nil

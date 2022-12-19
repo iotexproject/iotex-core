@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package miniserver
 
@@ -26,8 +25,11 @@ import (
 
 // const
 const (
-	GenesisPath = "./tools/timemachine/etc/genesis.yaml"
-	ConfigPath  = "./tools/timemachine/etc/config.yaml"
+	// config files
+	// ConfigPath  = "./etc/config.yaml"
+	// GenesisPath = "./etc/genesis.yaml"
+	_configPath  = "./tools/timemachine/etc/config.yaml"
+	_genesisPath = "./tools/timemachine/etc/genesis.yaml"
 )
 
 type (
@@ -59,7 +61,8 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServe
 		opt(svr)
 	}
 
-	builder := chainservice.NewBuilder(cfg,
+	builder := chainservice.NewBuilder(
+		cfg,
 		chainservice.WithOpTimeMachineBuilderOption(operation),
 		chainservice.WithStopHeightBuilderOption(svr.stopHeight),
 	)
@@ -81,19 +84,19 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServe
 
 // Config returns the config data from yaml
 func Config() config.Config {
-	if _, err := os.Stat(GenesisPath); errors.Is(err, os.ErrNotExist) {
-		log.S().Fatalf("%s is not exist", GenesisPath)
+	if _, err := os.Stat(_genesisPath); errors.Is(err, os.ErrNotExist) {
+		log.S().Fatalf("%s is not exist", _genesisPath)
 	}
-	genesisCfg, err := genesis.New(GenesisPath)
+	genesisCfg, err := genesis.New(_genesisPath)
 	if err != nil {
 		panic(err)
 	}
 	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
 	block.LoadGenesisHash(&genesisCfg)
-	if _, err := os.Stat(ConfigPath); errors.Is(err, os.ErrNotExist) {
-		log.S().Fatalf("%s is not exist", ConfigPath)
+	if _, err := os.Stat(_configPath); errors.Is(err, os.ErrNotExist) {
+		log.S().Fatalf("%s is not exist", _configPath)
 	}
-	cfg, err := config.New([]string{ConfigPath}, []string{})
+	cfg, err := config.New([]string{_configPath}, []string{})
 	if err != nil {
 		panic(err)
 	}
