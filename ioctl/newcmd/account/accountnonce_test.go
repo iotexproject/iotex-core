@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package account
 
@@ -28,22 +27,18 @@ func TestNewAccountNonce(t *testing.T) {
 		// input
 		inAddr string
 		// output
-		outNonce        int
 		outPendingNonce int
 	}{
 		{
 			inAddr:          "",
-			outNonce:        0,
 			outPendingNonce: 0,
 		},
 		{
 			inAddr:          "io1cjh35tq9k8fu0gqcsat4px7yr8trh75c95hc5r",
-			outNonce:        0,
 			outPendingNonce: 1,
 		},
 		{
 			inAddr:          "io187evpmjdankjh0g5dfz83w2z3p23ljhn4s9jw7",
-			outNonce:        2,
 			outPendingNonce: 3,
 		},
 	}
@@ -64,7 +59,6 @@ func TestNewAccountNonce(t *testing.T) {
 		client.EXPECT().AddressWithDefaultIfNotExist(gomock.Any()).Return(accAddr, nil)
 		accountResponse := &iotexapi.GetAccountResponse{AccountMeta: &iotextypes.AccountMeta{
 			Address:      accAddr,
-			Nonce:        uint64(accountNoneTests[i].outNonce),
 			PendingNonce: uint64(accountNoneTests[i].outPendingNonce),
 		}}
 		apiServiceClient.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(accountResponse, nil)
@@ -72,7 +66,6 @@ func TestNewAccountNonce(t *testing.T) {
 		cmd := NewAccountNonce(client)
 		result, err := util.ExecuteCmd(cmd, accountNoneTests[i].inAddr)
 		require.NoError(err)
-		require.Contains(result, fmt.Sprintf("Nonce: %d", accountNoneTests[i].outNonce))
 		require.Contains(result, fmt.Sprintf("Pending Nonce: %d", accountNoneTests[i].outPendingNonce))
 	}
 
