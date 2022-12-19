@@ -46,7 +46,6 @@ type infoMessage struct {
 	Address          string `json:"address"`
 	EthAddress       string `json:"ethAddress"`
 	Balance          string `json:"balance"`
-	Nonce            int    `json:"nonce"`
 	PendingNonce     int    `json:"pendingNonce"`
 	NumActions       int    `json:"numActions"`
 	IsContract       bool   `json:"isContract"`
@@ -79,7 +78,6 @@ func info(arg string) error {
 		Address:          addr,
 		EthAddress:       ethAddr.Hex(),
 		Balance:          util.RauToString(balance, util.IotxDecimalNum),
-		Nonce:            int(accountMeta.Nonce),
 		PendingNonce:     int(accountMeta.PendingNonce),
 		NumActions:       int(accountMeta.NumActions),
 		IsContract:       accountMeta.IsContract,
