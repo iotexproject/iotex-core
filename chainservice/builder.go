@@ -288,9 +288,9 @@ func (builder *Builder) buildBlockDAO(forTest bool) error {
 		dbConfig := builder.cfg.DB
 		dbConfig.DbPath = builder.cfg.Chain.ChainDBPath
 		deser := block.NewDeserializer(builder.cfg.Chain.EVMNetworkID)
-		var opts []blockdao.BlockDAOOption
+		var opts []blockdao.Option
 		if builder.opTimeMachine > 0 {
-			opts = append(opts, blockdao.TimeMachineBlockDAOOption())
+			opts = append(opts, blockdao.TimeMachineOption())
 		}
 		builder.cs.blockdao = blockdao.NewBlockDAO(indexers, dbConfig, deser, opts...)
 	}

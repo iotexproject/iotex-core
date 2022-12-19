@@ -58,19 +58,19 @@ type (
 		timemachine  bool
 	}
 
-	// BlockDAOOption sets blockDAO construction parameter
-	BlockDAOOption func(*blockDAO)
+	// Option sets blockDAO construction parameter
+	Option func(*blockDAO)
 )
 
-// TimeMachineBlockDAOOption uncheck indexer during start
-func TimeMachineBlockDAOOption() BlockDAOOption {
+// TimeMachineOption uncheck indexer during start
+func TimeMachineOption() Option {
 	return func(dao *blockDAO) {
 		dao.timemachine = true
 	}
 }
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg db.Config, deser *block.Deserializer, opts ...BlockDAOOption) BlockDAO {
+func NewBlockDAO(indexers []BlockIndexer, cfg db.Config, deser *block.Deserializer, opts ...Option) BlockDAO {
 	blkStore, err := filedao.NewFileDAO(cfg, deser)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
@@ -317,7 +317,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config, opts ...BlockDAOOption) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config, opts ...Option) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}
