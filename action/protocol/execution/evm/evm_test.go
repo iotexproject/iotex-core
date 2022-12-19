@@ -198,12 +198,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			37662680,
+			21543480,
 		},
 		// after Okhotsk
 		{
 			action.EmptyAddress,
-			37662681,
+			21543481,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
@@ -221,25 +221,14 @@ func TestConstantinople(t *testing.T) {
 			nil,
 		)
 		require.NoError(err)
-		opt := []StateDBAdapterOption{}
-		if !g.IsAleutian(e.height) {
-			opt = append(opt, NotFixTopicCopyBugOption())
-		}
-		if g.IsGreenland(e.height) {
-			opt = append(opt, AsyncContractTrieOption())
-		}
-		if g.IsKamchatka(e.height) {
-			opt = append(opt, FixSnapshotOrderOption())
-		}
-		stateDB, err := NewStateDBAdapter(sm, e.height, hash.ZeroHash256, opt...)
-		require.NoError(err)
 
-		fCtx := protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		fCtx := protocol.WithFeatureCtx(protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
-		})
-		fCtx = protocol.WithFeatureCtx(fCtx)
+		}))
+		stateDB, err := prepareStateDB(fCtx, sm)
+		require.NoError(err)
 		ps, err := newParams(fCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
@@ -288,6 +277,8 @@ func TestConstantinople(t *testing.T) {
 
 		// Okhotsk = enable Berlin and London
 		isOkhotsk := g.IsOkhotsk(e.height)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.BerlinBlock)
+		require.Equal(big.NewInt(int64(g.OkhotskBlockHeight)), evmChainConfig.LondonBlock)
 		require.Equal(isOkhotsk, evmChainConfig.IsBerlin(evm.Context.BlockNumber))
 		require.Equal(isOkhotsk, chainRules.IsBerlin)
 		require.Equal(isOkhotsk, evmChainConfig.IsLondon(evm.Context.BlockNumber))
