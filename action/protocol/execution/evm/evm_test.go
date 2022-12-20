@@ -198,12 +198,12 @@ func TestConstantinople(t *testing.T) {
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			21543480,
+			21542760,
 		},
 		// after Okhotsk
 		{
 			action.EmptyAddress,
-			21543481,
+			21542761,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
