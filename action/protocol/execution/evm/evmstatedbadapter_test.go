@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -635,10 +634,16 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.Equal(1, len(stateDB.contractSnapshot))
 			require.Equal(1, len(stateDB.suicideSnapshot))
 			require.Equal(1, len(stateDB.preimageSnapshot))
+			require.Equal(1, len(stateDB.accessListSnapshot))
+			require.Equal(1, len(stateDB.refundSnapshot))
 		} else {
 			require.Equal(3, len(stateDB.contractSnapshot))
 			require.Equal(3, len(stateDB.suicideSnapshot))
 			require.Equal(3, len(stateDB.preimageSnapshot))
+			// refund fix and accessList are introduced after fixSnapshot
+			// so their snapshot are always properly cleared
+			require.Zero(len(stateDB.accessListSnapshot))
+			require.Zero(len(stateDB.refundSnapshot))
 		}
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
