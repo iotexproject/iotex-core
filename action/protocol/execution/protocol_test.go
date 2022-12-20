@@ -492,7 +492,7 @@ func (sct *SmartContractTest) deployContracts(
 				return []string{}
 			}
 		}
-		if sct.Deployments[i].ExpectedGasConsumed() != 0 { // debug
+		if sct.Deployments[i].ExpectedGasConsumed() != 0 {
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
@@ -557,7 +557,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 
 		if sct.InitGenesis.IsBering {
 			// if it is post bering, it compares the status with expected status
-			r.Equal(exec.ExpectedStatus, receipt.Status) // debug
+			r.Equal(exec.ExpectedStatus, receipt.Status)
 		} else {
 			if exec.Failed {
 				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
@@ -566,7 +566,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 		}
 		if exec.ExpectedGasConsumed() != 0 {
-			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed, i) // debug
+			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed, i)
 		}
 		if exec.ExpectedBlockInfos != (ExpectedBlockInfo{}) {
 			r.Equal(exec.ExpectedBlockInfos.ReceiptRootHash, blkInfo.ReceiptRootHash)
