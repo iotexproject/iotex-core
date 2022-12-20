@@ -19,10 +19,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/tracer"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -99,16 +99,12 @@ var (
 		},
 		Dispatcher: dispatcher.DefaultConfig,
 		API: API{
-			UseRDS:        false,
-			GRPCPort:      14014,
-			HTTPPort:      15014,
-			WebSocketPort: 16014,
-			TpsWindow:     10,
-			GasStation: GasStation{
-				SuggestBlockWindow: 20,
-				DefaultGas:         uint64(unit.Qev),
-				Percentile:         60,
-			},
+			UseRDS:          false,
+			GRPCPort:        14014,
+			HTTPPort:        15014,
+			WebSocketPort:   16014,
+			TpsWindow:       10,
+			GasStation:      gasstation.DefaultConfig,
 			RangeQueryLimit: 1000,
 		},
 		System: System{
@@ -192,22 +188,15 @@ type (
 
 	// API is the api service config
 	API struct {
-		UseRDS          bool          `yaml:"useRDS"`
-		GRPCPort        int           `yaml:"port"`
-		HTTPPort        int           `yaml:"web3port"`
-		WebSocketPort   int           `yaml:"webSocketPort"`
-		RedisCacheURL   string        `yaml:"redisCacheURL"`
-		TpsWindow       int           `yaml:"tpsWindow"`
-		GasStation      GasStation    `yaml:"gasStation"`
-		RangeQueryLimit uint64        `yaml:"rangeQueryLimit"`
-		Tracer          tracer.Config `yaml:"tracer"`
-	}
-
-	// GasStation is the gas station config
-	GasStation struct {
-		SuggestBlockWindow int    `yaml:"suggestBlockWindow"`
-		DefaultGas         uint64 `yaml:"defaultGas"`
-		Percentile         int    `yaml:"Percentile"`
+		UseRDS          bool              `yaml:"useRDS"`
+		GRPCPort        int               `yaml:"port"`
+		HTTPPort        int               `yaml:"web3port"`
+		WebSocketPort   int               `yaml:"webSocketPort"`
+		RedisCacheURL   string            `yaml:"redisCacheURL"`
+		TpsWindow       int               `yaml:"tpsWindow"`
+		GasStation      gasstation.Config `yaml:"gasStation"`
+		RangeQueryLimit uint64            `yaml:"rangeQueryLimit"`
+		Tracer          tracer.Config     `yaml:"tracer"`
 	}
 
 	// System is the system config
