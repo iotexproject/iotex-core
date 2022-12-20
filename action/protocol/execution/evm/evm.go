@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -319,7 +318,7 @@ func prepareStateDB(ctx context.Context, sm protocol.StateManager) (*StateDBAdap
 		opts = append(opts, NotCheckPutStateErrorOption())
 	}
 	if !featureCtx.CorrectGasRefund {
-		opts = append(opts, NotCorrectGasRefundOption())
+		opts = append(opts, ManualCorrectGasRefundOption())
 	}
 
 	return NewStateDBAdapter(
@@ -422,17 +421,18 @@ func executeInEVM(ctx context.Context, evmParams *Params, stateDB *StateDBAdapte
 		// After EIP-3529: refunds are capped to gasUsed / 5
 		refund = (evmParams.gas - remainingGas) / params.RefundQuotientEIP3529
 	}
-	// adjust refund due to dynamicGas
+	// before London EVM activation (at Okhotsk height), in certain cases dynamicGas
+	// has caused gas refund to change, which needs to be manually adjusted after
+	// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
 	var (
-		refundLastSnapshot = stateDB.RefundAtLastSnapshot()
-		currentRefund      = stateDB.GetRefund()
-		featureCtx         = protocol.MustGetFeatureCtx(ctx)
+		deltaRefundByDynamicGas = evm.DeltaRefundByDynamicGas
+		featureCtx              = protocol.MustGetFeatureCtx(ctx)
 	)
-	if evmErr != nil && !featureCtx.CorrectGasRefund && refundLastSnapshot > 0 && refundLastSnapshot != currentRefund {
-		if refundLastSnapshot > currentRefund {
-			stateDB.AddRefund(refundLastSnapshot - currentRefund)
+	if !featureCtx.CorrectGasRefund && deltaRefundByDynamicGas != 0 {
+		if deltaRefundByDynamicGas > 0 {
+			stateDB.SubRefund(uint64(deltaRefundByDynamicGas))
 		} else {
-			stateDB.SubRefund(currentRefund - refundLastSnapshot)
+			stateDB.AddRefund(uint64(-deltaRefundByDynamicGas))
 		}
 	}
 	if refund > stateDB.GetRefund() {
