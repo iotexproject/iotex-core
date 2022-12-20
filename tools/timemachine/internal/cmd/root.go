@@ -13,8 +13,18 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "timemachine [command] [flags]",
-	Short: "timemachine is a command-line interface to go back specific block height.",
+	Use: "timemachine [command] [flags]",
+	Short: `timemachine is a command-line interface to go back specific block height.
+steps:
+1. mkdir ./tools/timemachine/etc
+   curl https://raw.githubusercontent.com/iotexproject/iotex-bootstrap/v1.8.4/config_mainnet.yaml > ./tools/timemachine/etc/config.yaml
+   curl https://raw.githubusercontent.com/iotexproject/iotex-bootstrap/v1.8.4/genesis_mainnet.yaml > ./tools/timemachine/etc/genesis.yaml
+2. make build-timemachine
+3. ./bin/timemachine download 13000188
+4、after download successful, edit ./tools/timemachine/etc/config.yaml and set chainDBPath trieDBPath gravityChainDB:dbPath, eg: ./tools/timemachine/data/13m/chain-00000012.db
+5. ./bin/timemachine try 13000188
+6. ./bin/timemachine commit 13000188
+7. ./bin/timemachine get`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

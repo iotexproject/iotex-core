@@ -26,8 +26,6 @@ import (
 // const
 const (
 	// config files
-	// ConfigPath  = "./etc/config.yaml"
-	// GenesisPath = "./etc/genesis.yaml"
 	_configPath  = "./tools/timemachine/etc/config.yaml"
 	_genesisPath = "./tools/timemachine/etc/genesis.yaml"
 )
