@@ -34,17 +34,17 @@ func TestClaimRewardIntrinsicGas(t *testing.T) {
 
 	rc := &ClaimFromRewardingFund{}
 	gas, err := rc.IntrinsicGas()
-	r.Nil(err)
+	r.NoError(err)
 	r.EqualValues(10000, gas)
 
 	rc.amount = big.NewInt(100000000)
 	gas, err = rc.IntrinsicGas()
-	r.Nil(err)
+	r.NoError(err)
 	r.EqualValues(10000, gas)
 
 	rc.data = []byte{1}
 	gas, err = rc.IntrinsicGas()
-	r.Nil(err)
+	r.NoError(err)
 	r.EqualValues(10100, gas)
 }
 
@@ -55,7 +55,7 @@ func TestClaimRewardSanityCheck(t *testing.T) {
 
 	rc.amount = big.NewInt(1)
 	err := rc.SanityCheck()
-	r.Nil(err)
+	r.NoError(err)
 
 	rc.amount = big.NewInt(-1)
 	err = rc.SanityCheck()
