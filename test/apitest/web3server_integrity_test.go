@@ -31,7 +31,7 @@ const (
 
 func TestWeb3ServerIntegrity(t *testing.T) {
 	svr, bc, dao, actPool, cleanIndexFile := setupTestServer()
-	web3svr := api.ServerV2Wrapper(*svr).HttpSvr()
+	web3svr := api.ServerV2Wrapper(*svr).HTTPSvr()
 	defer cleanIndexFile()
 	ctx := context.Background()
 	web3svr.Start(ctx)

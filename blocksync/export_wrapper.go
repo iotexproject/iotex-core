@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-// export_wrapper.go export some private functions/types to integration test
+// Package blocksync export_wrapper.go export some private functions/types to integration test
 // it's a temporary solution to solve these two problems without any modification of the test code logic
 //  1. circular dependency between the config and api package
 //  2. integration test moved out of package need to access package private functions/types
@@ -13,22 +13,34 @@
 package blocksync
 
 type (
+	// BlockSyncerWrapper export blockSyncer
 	BlockSyncerWrapper = blockSyncer
-	BlockBufferWrapper = blockBuffer
-	UniQueueWrapper    = uniQueue
+	// BlockBufferWrapper export blockBuffer
+	BlockBufferWrapper struct {
+		blockBuffer
+	}
+	// UniQueueWrapper export uniQueue
+	UniQueueWrapper = uniQueue
 )
 
 var (
+	// NewPeerBlockWrapper export newPeerBlock
 	NewPeerBlockWrapper = newPeerBlock
 )
 
-func NewBlockBufferWrapper(blockQueues map[uint64]*uniQueue, bufferSize uint64, intervalSize uint64) BlockBufferWrapper {
+// NewBlockBufferWrapper export blockBuffer
+func NewBlockBufferWrapper(bufferSize uint64, intervalSize uint64) BlockBufferWrapper {
 	return BlockBufferWrapper{
-		blockQueues:  blockQueues,
-		bufferSize:   bufferSize,
-		intervalSize: intervalSize,
+		blockBuffer: blockBuffer{
+			blockQueues:  make(map[uint64]*uniQueue),
+			bufferSize:   bufferSize,
+			intervalSize: intervalSize,
+		},
 	}
 }
 
-func (b *BlockBufferWrapper) BlockQueues() map[uint64]*uniQueue { return b.blockQueues }
-func (b *BlockBufferWrapper) SetIntervalSize(i uint64)          { b.intervalSize = i }
+// BlockQueuesLen export blockBuffer.blockQueues length
+func (b *BlockBufferWrapper) BlockQueuesLen() int { return len(b.blockQueues) }
+
+// SetIntervalSize export blockBuffer.intervalSize
+func (b *BlockBufferWrapper) SetIntervalSize(i uint64) { b.intervalSize = i }

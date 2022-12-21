@@ -69,13 +69,13 @@ func TestBlockBufferFlush(t *testing.T) {
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 
-	b := blocksync.NewBlockBufferWrapper(make(map[uint64]*blocksync.UniQueueWrapper), 16, 0)
+	b := blocksync.NewBlockBufferWrapper(16, 0)
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 
 	pid := "peer1"
 	b.AddBlock(chain.TipHeight(), blocksync.NewPeerBlockWrapper(pid, blk))
-	require.Equal(1, len(b.BlockQueues()))
+	require.Equal(1, b.BlockQueuesLen())
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -86,7 +86,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blocksync.NewPeerBlockWrapper(pid, blk))
-	require.Equal(1, len(b.BlockQueues()))
+	require.Equal(1, b.BlockQueuesLen())
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -97,7 +97,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blocksync.NewPeerBlockWrapper(pid, blk))
-	require.Equal(2, len(b.BlockQueues()))
+	require.Equal(2, b.BlockQueuesLen())
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -108,7 +108,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blocksync.NewPeerBlockWrapper(pid, blk))
-	require.Equal(2, len(b.BlockQueues()))
+	require.Equal(2, b.BlockQueuesLen())
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -119,7 +119,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blocksync.NewPeerBlockWrapper(pid, blk))
-	require.Equal(2, len(b.BlockQueues()))
+	require.Equal(2, b.BlockQueuesLen())
 }
 
 func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
@@ -154,7 +154,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 
-	b := blocksync.NewBlockBufferWrapper(make(map[uint64]*blocksync.UniQueueWrapper), 16, 8)
+	b := blocksync.NewBlockBufferWrapper(16, 8)
 
 	out := b.GetBlocksIntervalsToSync(chain.TipHeight(), 32)
 	require.Equal(2, len(out))
