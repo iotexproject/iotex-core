@@ -1,20 +1,21 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package db
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"syscall"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/db/batch"
-
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -77,6 +78,11 @@ func TestBucketExists(t *testing.T) {
 	v, err := kv.Get("name", []byte("key"))
 	r.NoError(err)
 	r.Equal([]byte{}, v)
+}
+
+func TestDiskfullErr(t *testing.T) {
+	err := fmt.Errorf("write /run/data/chain.db: %w", syscall.ENOSPC)
+	require.True(t, errors.Is(err, syscall.ENOSPC))
 }
 
 func BenchmarkBoltDB_Get(b *testing.B) {

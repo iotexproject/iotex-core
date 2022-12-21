@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -52,7 +51,17 @@ func (m *CandidateCenter) deleteForTestOnly(owner address.Address) {
 	}
 
 	if m.change.containsOwner(owner) {
-		m.change.delete(owner)
+		if owner != nil {
+			candidates := []*Candidate{}
+			for _, c := range m.change.candidates {
+				if c.Owner.String() != owner.String() {
+					candidates = append(candidates, c)
+				}
+			}
+			m.change.candidates = candidates
+			delete(m.change.dirty, owner.String())
+			return
+		}
 		m.size--
 	}
 }
@@ -137,7 +146,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		{
@@ -152,7 +161,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			ErrInvalidAmount,
+			action.ErrInvalidAmount,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		{
@@ -348,7 +357,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1),
 			true,
-			ErrInvalidAmount,
+			action.ErrInvalidAmount,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// invalid candidate name
@@ -369,7 +378,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1),
 			true,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// success for the following test
@@ -752,7 +761,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			"!invalidname",
 			identityset.Address(31).String(),
 			identityset.Address(32).String(),
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// success,update name, operator and reward address
@@ -1512,7 +1521,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			false,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// invalid candidate name 2
@@ -1532,7 +1541,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			false,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// invalid candidate name 3
@@ -1552,7 +1561,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			false,
-			ErrInvalidCanName,
+			action.ErrInvalidCanName,
 			iotextypes.ReceiptStatus_Failure,
 		},
 		// Upsert error cannot happen,because CreateStake already check collision

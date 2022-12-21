@@ -1,12 +1,12 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -56,7 +56,7 @@ type (
 		Upsert(*Candidate) error
 		CreditBucketPool(*big.Int) error
 		DebitBucketPool(*big.Int, bool) error
-		Commit() error
+		Commit(context.Context) error
 		SM() protocol.StateManager
 	}
 
@@ -165,9 +165,19 @@ func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
 	return csm.bucketPool.DebitPool(csm, amount, newBucket)
 }
 
-func (csm *candSM) Commit() error {
-	if err := csm.candCenter.Commit(); err != nil {
+func (csm *candSM) Commit(ctx context.Context) error {
+	height, err := csm.Height()
+	if err != nil {
 		return err
+	}
+	if featureWithHeightCtx, ok := protocol.GetFeatureWithHeightCtx(ctx); ok && featureWithHeightCtx.CandCenterHasAlias(height) {
+		if err := csm.candCenter.LegacyCommit(); err != nil {
+			return err
+		}
+	} else {
+		if err := csm.candCenter.Commit(); err != nil {
+			return err
+		}
 	}
 
 	if err := csm.bucketPool.Commit(csm); err != nil {

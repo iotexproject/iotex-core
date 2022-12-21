@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package gasstation
 
@@ -35,7 +34,7 @@ import (
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, config.Default.API.GasStation))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -106,7 +105,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.API.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -165,12 +164,12 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, blkMemDao, cfg.API.GasStation)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
 	fmt.Println(gp)
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
-	require.Equal(t, gs.cfg.GasStation.DefaultGas, gp)
+	require.Equal(t, gs.cfg.DefaultGas, gp)
 }

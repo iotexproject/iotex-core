@@ -1,8 +1,7 @@
 // Copyright (c) 2020 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -126,7 +125,7 @@ func TestProtocol(t *testing.T) {
 	for _, e := range testCandidates {
 		r.NoError(csm.Upsert(e.d))
 	}
-	r.NoError(csm.Commit())
+	r.NoError(csm.Commit(ctx))
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))
@@ -196,7 +195,7 @@ func TestCreatePreStates(t *testing.T) {
 	p, err := NewProtocol(nil, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, nil, genesis.Default.GreenlandBlockHeight)
+	}, nil, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
 		genesis.WithGenesisContext(context.Background(), genesis.Default),
@@ -259,7 +258,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	p, err := NewProtocol(nil, &BuilderConfig{
 		Staking:                  genesis.Default.Staking,
 		PersistStakingPatchBlock: math.MaxUint64,
-	}, cbi, genesis.Default.GreenlandBlockHeight)
+	}, cbi, genesis.Default.GreenlandBlockHeight, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	rol := rolldpos.NewProtocol(23, 4, 3)
@@ -341,7 +340,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 					SelfStakingTokens: "test123",
 				},
 			},
-			"invalid staking amount",
+			"invalid amount",
 		},
 		{
 			[]genesis.BootstrapCandidate{

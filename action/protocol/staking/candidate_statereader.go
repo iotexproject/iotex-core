@@ -1,8 +1,7 @@
 // Copyright (c) 2022 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package staking
 
@@ -117,27 +116,6 @@ func (c *candSR) TotalStakedAmount() *big.Int {
 
 func (c *candSR) ActiveBucketsCount() uint64 {
 	return c.view.bucketPool.Count()
-}
-
-// GetStakingStateReader returns a candidate state reader that reflects the base view
-func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
-	c, err := ConstructBaseView(sr)
-	if err != nil {
-		if errors.Cause(err) == protocol.ErrNoName {
-			// the view does not exist yet, create it
-			view, height, err := CreateBaseView(sr, true)
-			if err != nil {
-				return nil, err
-			}
-			return &candSR{
-				StateReader: sr,
-				height:      height,
-				view:        view,
-			}, nil
-		}
-		return nil, err
-	}
-	return c, nil
 }
 
 // ConstructBaseView returns a candidate state reader that reflects the base view

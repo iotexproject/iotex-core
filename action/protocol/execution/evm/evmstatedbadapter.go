@@ -1,8 +1,7 @@
 // Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability
+// or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
+// This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
 package evm
 
@@ -56,7 +55,6 @@ type (
 		blockHeight                uint64
 		executionHash              hash.Hash256
 		refund                     uint64
-		refundAtLastSnapshot       uint64
 		refundSnapshot             map[int]uint64
 		cachedContract             contractMap
 		contractSnapshot           map[int]contractMap   // snapshots of contracts
@@ -76,7 +74,7 @@ type (
 		fixSnapshotOrder           bool
 		revertLog                  bool
 		notCheckPutStateError      bool
-		notCorrectGasRefund        bool
+		manualCorrectGasRefund     bool
 	}
 )
 
@@ -147,10 +145,13 @@ func NotCheckPutStateErrorOption() StateDBAdapterOption {
 	}
 }
 
-// NotCorrectGasRefundOption set correctGasRefund as true
-func NotCorrectGasRefundOption() StateDBAdapterOption {
+// ManualCorrectGasRefundOption set manualCorrectGasRefund as true
+func ManualCorrectGasRefundOption() StateDBAdapterOption {
 	return func(adapter *StateDBAdapter) error {
-		adapter.notCorrectGasRefund = true
+		// before London EVM activation (at Okhotsk height), in certain cases dynamicGas
+		// has caused gas refund to change, which needs to be manually adjusted after
+		// the tx is reverted. After Okhotsk height, it is fixed inside RevertToSnapshot()
+		adapter.manualCorrectGasRefund = true
 		return nil
 	}
 }
@@ -553,11 +554,29 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 		return
 	}
 	// restore gas refund
-	if stateDB.notCorrectGasRefund {
-		// check if refund has changed from last snapshot (due to dynamicGas)
-		stateDB.refundAtLastSnapshot = stateDB.refundSnapshot[snapshot]
-	} else {
+	if !stateDB.manualCorrectGasRefund {
 		stateDB.refund = stateDB.refundSnapshot[snapshot]
+		delete(stateDB.refundSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.refundSnapshot[i]; ok {
+				delete(stateDB.refundSnapshot, i)
+			} else {
+				break
+			}
+		}
+	}
+	// restore access list
+	stateDB.accessList = nil
+	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
+	{
+		delete(stateDB.accessListSnapshot, snapshot)
+		for i := snapshot + 1; ; i++ {
+			if _, ok := stateDB.accessListSnapshot[i]; ok {
+				delete(stateDB.accessListSnapshot, i)
+			} else {
+				break
+			}
+		}
 	}
 	// restore logs and txLogs
 	if stateDB.revertLog {
@@ -626,24 +645,6 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			}
 		}
 	}
-	// restore access list
-	stateDB.accessList = nil
-	stateDB.accessList = stateDB.accessListSnapshot[snapshot]
-	{
-		delete(stateDB.accessListSnapshot, snapshot)
-		for i := snapshot + 1; ; i++ {
-			if _, ok := stateDB.accessListSnapshot[i]; ok {
-				delete(stateDB.accessListSnapshot, i)
-			} else {
-				break
-			}
-		}
-	}
-}
-
-// RefundAtLastSnapshot returns refund at last snapshot
-func (stateDB *StateDBAdapter) RefundAtLastSnapshot() uint64 {
-	return stateDB.refundAtLastSnapshot
 }
 
 func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
@@ -1036,7 +1037,6 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
-	stateDB.refundAtLastSnapshot = 0
 	stateDB.refundSnapshot = make(map[int]uint64)
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
