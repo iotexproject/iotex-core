@@ -230,7 +230,7 @@ func newCoreService(
 		cfg:           cfg,
 		registry:      registry,
 		chainListener: NewChainListener(500),
-		gs:            gasstation.NewGasStation(chain, dao, cfg),
+		gs:            gasstation.NewGasStation(chain, dao, cfg.GasStation),
 		readCache:     NewReadCache(),
 	}
 
