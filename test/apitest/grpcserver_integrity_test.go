@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package api
+package apitest
 
 import (
 	"bytes"
@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -822,7 +823,7 @@ func TestGrpcServer_GetAccountIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -887,7 +888,7 @@ func TestGrpcServer_GetActionsIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -948,7 +949,7 @@ func TestGrpcServer_GetActionIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, dao, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1002,7 +1003,7 @@ func TestGrpcServer_GetActionsByAddressIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1054,7 +1055,7 @@ func TestGrpcServer_GetUnconfirmedActionsByAddressIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1086,7 +1087,7 @@ func TestGrpcServer_GetActionsByBlockIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1126,7 +1127,7 @@ func TestGrpcServer_GetBlockMetasIntegrity(t *testing.T) {
 	block.LoadGenesisHash(&cfg.Genesis)
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1188,7 +1189,7 @@ func TestGrpcServer_GetBlockMetaIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, bc, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1256,7 +1257,7 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 		cfg.API.TpsWindow = test.tpsWindow
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1267,10 +1268,10 @@ func TestGrpcServer_GetChainMetaIntegrity(t *testing.T) {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
 			mbc.EXPECT().ChainID().Return(uint32(1)).Times(1)
-			coreService, ok := svr.core.(*coreService)
+			coreService, ok := api.ServerV2Wrapper(*svr).Core().(*api.CoreServiceWrapper)
 			require.True(ok)
 			// TODO: create a core service with empty chain to test
-			coreService.bc = mbc
+			coreService.SetBc(mbc)
 		}
 		res, err := grpcHandler.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
@@ -1291,18 +1292,19 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	cfg.Genesis.MidwayBlockHeight = 10
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
 
-	coreService, ok := svr.core.(*coreService)
+	coreService, ok := api.ServerV2Wrapper(*svr).Core().(*api.CoreServiceWrapper)
 	require.True(ok)
 	broadcastHandlerCount := 0
-	coreService.broadcastHandler = func(_ context.Context, _ uint32, _ proto.Message) error {
+	broadcastHandler := func(_ context.Context, _ uint32, _ proto.Message) error {
 		broadcastHandlerCount++
 		return nil
 	}
+	coreService.SetBroadcastHandler(broadcastHandler)
 
 	for i, test := range _sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
@@ -1373,7 +1375,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 		cfg.API.GRPCPort = testutil.RandomPort()
 		svr, _, _, _, _, _, file, err := createServerV2(cfg, true)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(file)
 		}()
@@ -1389,7 +1391,7 @@ func TestGrpcServer_StreamLogsIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1404,7 +1406,7 @@ func TestGrpcServer_GetReceiptByActionIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1434,7 +1436,7 @@ func TestGrpcServer_GetServerMetaIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1454,7 +1456,7 @@ func TestGrpcServer_ReadContractIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1490,7 +1492,7 @@ func TestGrpcServer_SuggestGasPriceIntegrity(t *testing.T) {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1506,7 +1508,7 @@ func TestGrpcServer_EstimateGasForActionIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, dao, indexer, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1532,7 +1534,7 @@ func TestGrpcServer_EstimateActionGasConsumptionIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1712,7 +1714,7 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1740,7 +1742,7 @@ func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1763,7 +1765,7 @@ func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -1834,7 +1836,7 @@ func TestGrpcServer_ReadCandidatesByEpochIntegrity(t *testing.T) {
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1908,7 +1910,7 @@ func TestGrpcServer_ReadBlockProducersByEpochIntegrity(t *testing.T) {
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -1980,7 +1982,7 @@ func TestGrpcServer_ReadActiveBlockProducersByEpochIntegrity(t *testing.T) {
 		}
 		svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -2005,7 +2007,7 @@ func TestGrpcServer_ReadRollDPoSMetaIntegrity(t *testing.T) {
 	for _, test := range _readRollDPoSMetaTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -2027,7 +2029,7 @@ func TestGrpcServer_ReadEpochCtxIntegrity(t *testing.T) {
 	for _, test := range _readEpochCtxTests {
 		svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 		require.NoError(err)
-		grpcHandler := newGRPCHandler(svr.core)
+		grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 		defer func() {
 			testutil.CleanupPath(bfIndexFile)
 		}()
@@ -2050,7 +2052,7 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, registry, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2139,15 +2141,15 @@ func TestGrpcServer_GetEpochMetaIntegrity(t *testing.T) {
 				}
 				return &block.Header{}, errors.Errorf("invalid block height %d", height)
 			}).AnyTimes()
-			coreService, ok := svr.core.(*coreService)
+			coreService, ok := api.ServerV2Wrapper(*svr).Core().(*api.CoreServiceWrapper)
 			require.True(ok)
 			// TODO: create a core service to test
-			coreService.bc = mbc
+			coreService.SetBc(mbc)
 		}
 
-		coreService, ok := svr.core.(*coreService)
+		coreService, ok := api.ServerV2Wrapper(*svr).Core().(*api.CoreServiceWrapper)
 		require.True(ok)
-		coreService.readCache.Clear()
+		coreService.ReadCache().Clear()
 		res, err := grpcHandler.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
@@ -2182,7 +2184,7 @@ func TestGrpcServer_GetRawBlocksIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2250,7 +2252,7 @@ func TestGrpcServer_GetLogsIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2310,7 +2312,7 @@ func TestGrpcServer_GetElectionBucketsIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2334,7 +2336,7 @@ func TestGrpcServer_GetActionByActionHashIntegrity(t *testing.T) {
 	}()
 
 	for _, test := range _getActionByActionHashTest {
-		ret, _, _, _, err := svr.core.ActionByActionHash(test.h)
+		ret, _, _, _, err := api.ServerV2Wrapper(*svr).Core().ActionByActionHash(test.h)
 		require.NoError(err)
 		require.Equal(test.expectedNounce, ret.Envelope.Nonce())
 	}
@@ -2346,7 +2348,7 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2370,7 +2372,7 @@ func TestGrpcServer_GetTransactionLogByActionHashIntegrity(t *testing.T) {
 	// TODO (huof6829): Re-enable this test
 	/*
 		// check implicit transfer receiver balance
-		state, err := accountutil.LoadAccount(svr.core.StateFactory(), identityset.Address(31))
+		state, err := accountutil.LoadAccount(api.ServerV2Wrapper(*svr).Core().StateFactory(), identityset.Address(31))
 		require.NoError(err)
 		require.Equal(big.NewInt(5), state.Balance)
 	*/
@@ -2382,7 +2384,7 @@ func TestGrpcServer_GetEvmTransfersByBlockHeightIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2417,7 +2419,7 @@ func TestGrpcServer_GetActPoolActionsIntegrity(t *testing.T) {
 	ctx := genesis.WithGenesisContext(context.Background(), cfg.Genesis)
 	svr, _, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2475,7 +2477,7 @@ func TestGrpcServer_GetEstimateGasSpecialIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, bc, dao, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()
@@ -2598,7 +2600,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 			cfg.API.GRPCPort = testutil.RandomPort()
 			svr, _, _, _, _, _, file, err := createServerV2(cfg, true)
 			require.NoError(err)
-			grpcHandler := newGRPCHandler(svr.core)
+			grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 			defer func() {
 				testutil.CleanupPath(file)
 			}()
@@ -2622,7 +2624,7 @@ func TestGrpcServer_TraceTransactionStructLogsIntegrity(t *testing.T) {
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, bc, _, _, _, actPool, bfIndexFile, err := createServerV2(cfg, true)
 	require.NoError(err)
-	grpcHandler := newGRPCHandler(svr.core)
+	grpcHandler := api.NewGRPCHandlerWrapper(api.ServerV2Wrapper(*svr).Core())
 	defer func() {
 		testutil.CleanupPath(bfIndexFile)
 	}()

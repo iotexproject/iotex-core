@@ -14,15 +14,15 @@ import (
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/tracer"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -89,24 +89,9 @@ var (
 			BlockInterval:                5 * time.Second,
 			Delay:                        2 * time.Second,
 		},
-		BlockSync: BlockSync{
-			Interval:              30 * time.Second,
-			ProcessSyncRequestTTL: 10 * time.Second,
-			BufferSize:            200,
-			IntervalSize:          20,
-			MaxRepeat:             3,
-			RepeatDecayStep:       1,
-		},
+		BlockSync:  blocksync.DefaultConfig,
 		Dispatcher: dispatcher.DefaultConfig,
-		API: API{
-			UseRDS:          false,
-			GRPCPort:        14014,
-			HTTPPort:        15014,
-			WebSocketPort:   16014,
-			TpsWindow:       10,
-			GasStation:      gasstation.DefaultConfig,
-			RangeQueryLimit: 1000,
-		},
+		API:        api.DefaultConfig,
 		System: System{
 			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
@@ -143,18 +128,6 @@ type (
 		RollDPoS RollDPoS `yaml:"rollDPoS"`
 	}
 
-	// BlockSync is the config struct for the BlockSync
-	BlockSync struct {
-		Interval              time.Duration `yaml:"interval"` // update duration
-		ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
-		BufferSize            uint64        `yaml:"bufferSize"`
-		IntervalSize          uint64        `yaml:"intervalSize"`
-		// MaxRepeat is the maximal number of repeat of a block sync request
-		MaxRepeat int `yaml:"maxRepeat"`
-		// RepeatDecayStep is the step for repeat number decreasing by 1
-		RepeatDecayStep int `yaml:"repeatDecayStep"`
-	}
-
 	// DardanellesUpgrade is the config for dardanelles upgrade
 	DardanellesUpgrade struct {
 		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
@@ -186,19 +159,6 @@ type (
 		CommitTTL                    time.Duration `yaml:"commitTTL"`
 	}
 
-	// API is the api service config
-	API struct {
-		UseRDS          bool              `yaml:"useRDS"`
-		GRPCPort        int               `yaml:"port"`
-		HTTPPort        int               `yaml:"web3port"`
-		WebSocketPort   int               `yaml:"webSocketPort"`
-		RedisCacheURL   string            `yaml:"redisCacheURL"`
-		TpsWindow       int               `yaml:"tpsWindow"`
-		GasStation      gasstation.Config `yaml:"gasStation"`
-		RangeQueryLimit uint64            `yaml:"rangeQueryLimit"`
-		Tracer          tracer.Config     `yaml:"tracer"`
-	}
-
 	// System is the system config
 	System struct {
 		// Active is the status of the node. True means active and false means stand-by
@@ -220,9 +180,9 @@ type (
 		ActPool            actpool.Config              `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`
 		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
-		BlockSync          BlockSync                   `yaml:"blockSync"`
+		BlockSync          blocksync.Config            `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config           `yaml:"dispatcher"`
-		API                API                         `yaml:"api"`
+		API                api.Config                  `yaml:"api"`
 		System             System                      `yaml:"system"`
 		DB                 db.Config                   `yaml:"db"`
 		Indexer            blockindex.Config           `yaml:"indexer"`

@@ -3,7 +3,7 @@
 // or fitness for purpose and, to the extent permitted by law, all liability for your use of the code is disclaimed.
 // This source code is governed by Apache License 2.0 that can be found in the LICENSE file.
 
-package blocksync
+package blocksynctest
 
 import (
 	"context"
@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
@@ -39,8 +40,8 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
-	bs, err := NewBlockSyncer(cfg, chain.TipHeight,
+func newBlockSyncer(cfg blocksync.Config, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blocksync.BlockSyncerWrapper, error) {
+	bs, err := blocksync.NewBlockSyncer(cfg, chain.TipHeight,
 		func(h uint64) (*block.Block, error) {
 			return dao.GetBlockByHeight(h)
 		},
@@ -70,7 +71,7 @@ func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao block
 	if err != nil {
 		return nil, err
 	}
-	return bs.(*blockSyncer), nil
+	return bs.(*blocksync.BlockSyncerWrapper), nil
 }
 
 func TestNewBlockSyncer(t *testing.T) {
@@ -515,7 +516,7 @@ func newTestConfig() (config.Config, error) {
 
 func TestDummyBlockSync(t *testing.T) {
 	require := require.New(t)
-	bs := NewDummyBlockSyncer()
+	bs := blocksync.NewDummyBlockSyncer()
 	require.NoError(bs.Start(nil))
 	require.NoError(bs.Stop(nil))
 	require.NoError(bs.ProcessBlock(nil, "", nil))
