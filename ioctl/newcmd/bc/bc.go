@@ -58,9 +58,7 @@ func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(context.Background())
 	}
-
 	chainMetaResponse, err := apiServiceClient.GetChainMeta(ctx, &iotexapi.GetChainMetaRequest{})
-
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -77,13 +75,12 @@ func GetEpochMeta(client ioctl.Client, epochNum uint64) (*iotexapi.GetEpochMetaR
 	if err != nil {
 		return nil, err
 	}
-
 	ctx := context.Background()
 	jwtMD, err := util.JwtAuth()
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
-	epochMetaresponse, err := apiServiceClient.GetEpochMeta(ctx, &iotexapi.GetEpochMetaRequest{})
+	epochMetaresponse, err := apiServiceClient.GetEpochMeta(ctx, &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum})
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
