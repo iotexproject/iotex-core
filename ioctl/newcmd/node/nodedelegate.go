@@ -87,20 +87,19 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-
+			var err error
 			if nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				chainMeta, err := bc.GetChainMeta(client)
+				epochNum, err = getEpochNum(client)
 				if err != nil {
-					return errors.Wrap(err, "failed to get chain meta")
+					return err
 				}
-				epochNum = chainMeta.GetEpoch().GetNum() + 1
+				epochNum += 1
 				message := nextDelegatesMessage{Epoch: int(epochNum)}
 
 				ctx := context.Background()
-				jwtMD, err := util.JwtAuth()
-				if err == nil {
+				if jwtMD, err := util.JwtAuth(); err == nil {
 					ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 				}
 				apiServiceClient, err := client.APIServiceClient()
@@ -171,11 +170,10 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			} else {
 				// specfic epoch-num
 				if epochNum == 0 {
-					chainMeta, err := bc.GetChainMeta(client)
+					epochNum, err = getEpochNum(client)
 					if err != nil {
-						return errors.Wrap(err, "failed to get chain meta")
+						return err
 					}
-					epochNum = chainMeta.GetEpoch().GetNum()
 				}
 
 				response, err := bc.GetEpochMeta(client, epochNum)
@@ -183,7 +181,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 					return errors.Wrap(err, "failed to get epoch meta")
 				}
 				if response.EpochData == nil {
-					return errors.New("ROLLDPOS is not registered")
+					return errors.New("rolldpos is not registered")
 				}
 				epochData := response.EpochData
 				aliases := client.AliasMap()
@@ -222,6 +220,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
+	
 	cmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
 		flagEpochNumUsage)
 	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
@@ -284,4 +283,16 @@ func (m *delegatesMessage) String() string {
 			bp.Alias, status, bp.Production, probatedStatus, bp.Votes))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func getEpochNum(client ioctl.Client) (uint64, error) {
+	chainMeta, err := bc.GetChainMeta(client)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get chain meta")
+	}
+	epoch := chainMeta.Epoch
+	if epoch == nil {
+		return 0, errors.Wrap(err, "rolldpos is not registered")
+	}
+	return epoch.Num, nil
 }
