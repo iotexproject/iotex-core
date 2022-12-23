@@ -87,15 +87,15 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			var err error
+
 			if nextEpoch {
 				//nextDelegates
 				//deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
-				epochNum, err = getEpochNum(client)
+				currEpochNum, err := currEpochNum(client)
 				if err != nil {
 					return err
 				}
-				epochNum += 1
+				epochNum = currEpochNum + 1
 				message := nextDelegatesMessage{Epoch: int(epochNum)}
 
 				ctx := context.Background()
@@ -170,10 +170,11 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			} else {
 				// specfic epoch-num
 				if epochNum == 0 {
-					epochNum, err = getEpochNum(client)
+					currEpochNum, err := currEpochNum(client)
 					if err != nil {
 						return err
 					}
+					epochNum = currEpochNum
 				}
 
 				response, err := bc.GetEpochMeta(client, epochNum)
@@ -220,7 +221,7 @@ func NewNodeDelegateCmd(client ioctl.Client) *cobra.Command {
 			return nil
 		},
 	}
-	
+
 	cmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
 		flagEpochNumUsage)
 	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
@@ -285,7 +286,7 @@ func (m *delegatesMessage) String() string {
 	return strings.Join(lines, "\n")
 }
 
-func getEpochNum(client ioctl.Client) (uint64, error) {
+func currEpochNum(client ioctl.Client) (uint64, error) {
 	chainMeta, err := bc.GetChainMeta(client)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get chain meta")
