@@ -330,7 +330,7 @@ func fillMessage(cli iotexapi.APIServiceClient, message *delegatesMessage, alias
 			continue
 		}
 		isProbated := false
-		if _, ok := pb.ProbationInfo[candidate.OwnerAddress]; ok {
+		if _, ok := pb.ProbationInfo[candidate.OperatorAddress]; ok {
 			isProbated = true
 		}
 		iotx, err := util.StringToIOTX(candidate.TotalWeightedVotes)
