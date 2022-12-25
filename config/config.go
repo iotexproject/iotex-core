@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
@@ -66,15 +67,8 @@ var (
 		ActPool:            actpool.DefaultConfig,
 		Consensus:          consensus.DefaultConfig,
 		DardanellesUpgrade: consensusfsm.DefaultDardanellesUpgradeConfig,
-		BlockSync: BlockSync{
-			Interval:              30 * time.Second,
-			ProcessSyncRequestTTL: 10 * time.Second,
-			BufferSize:            200,
-			IntervalSize:          20,
-			MaxRepeat:             3,
-			RepeatDecayStep:       1,
-		},
-		Dispatcher: dispatcher.DefaultConfig,
+		BlockSync:          blocksync.DefaultConfig,
+		Dispatcher:         dispatcher.DefaultConfig,
 		API: API{
 			UseRDS:        false,
 			GRPCPort:      14014,
@@ -170,7 +164,7 @@ type (
 		ActPool            actpool.Config                  `yaml:"actPool"`
 		Consensus          consensus.Config                `yaml:"consensus"`
 		DardanellesUpgrade consensusfsm.DardanellesUpgrade `yaml:"dardanellesUpgrade"`
-		BlockSync          BlockSync                       `yaml:"blockSync"`
+		BlockSync          blocksync.Config                `yaml:"blockSync"`
 		Dispatcher         dispatcher.Config               `yaml:"dispatcher"`
 		API                API                             `yaml:"api"`
 		System             System                          `yaml:"system"`

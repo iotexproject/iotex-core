@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -39,7 +39,14 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
+type testConfig struct {
+	BlockSync Config
+	Genesis   genesis.Genesis
+	Chain     blockchain.Config
+	ActPool   actpool.Config
+}
+
+func newBlockSyncer(cfg Config, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
 	bs, err := NewBlockSyncer(cfg, chain.TipHeight,
 		func(h uint64) (*block.Block, error) {
 			return dao.GetBlockByHeight(h)
@@ -487,28 +494,29 @@ func TestBlockSyncerSync(t *testing.T) {
 	time.Sleep(time.Millisecond << 7)
 }
 
-func newTestConfig() (config.Config, error) {
+func newTestConfig() (testConfig, error) {
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	if err != nil {
-		return config.Config{}, err
+		return testConfig{}, err
 	}
 	testDBPath, err := testutil.PathOfTempFile("db")
 	if err != nil {
-		return config.Config{}, err
+		return testConfig{}, err
 	}
 	defer func() {
 		testutil.CleanupPath(testTriePath)
 		testutil.CleanupPath(testDBPath)
 	}()
 
-	cfg := config.Default
+	cfg := testConfig{
+		BlockSync: DefaultConfig,
+		Genesis:   genesis.Default,
+		Chain:     blockchain.DefaultConfig,
+		ActPool:   actpool.DefaultConfig,
+	}
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.BlockSync.Interval = 100 * time.Millisecond
-	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.Host = "127.0.0.1"
-	cfg.Network.Port = 10000
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg, nil
 }
