@@ -33,13 +33,23 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+type testConfig struct {
+	API       Config
+	Genesis   genesis.Genesis
+	ActPool   actpool.Config
+	Chain     blockchain.Config
+	Consensus consensus.Config
+	DB        db.Config
+	Indexer   blockindex.Config
+}
 
 var (
 	_testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
@@ -277,7 +287,7 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
+func setupChain(cfg testConfig) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
 	factoryCfg := factory.GenerateConfig(cfg.Chain, cfg.Genesis)
@@ -366,8 +376,16 @@ func setupActPool(g genesis.Genesis, sf factory.Factory, cfg actpool.Config) (ac
 	return ap, nil
 }
 
-func newConfig() config.Config {
-	cfg := config.Default
+func newConfig() testConfig {
+	cfg := testConfig{
+		API:       DefaultConfig,
+		Genesis:   genesis.Default,
+		ActPool:   actpool.DefaultConfig,
+		Chain:     blockchain.DefaultConfig,
+		Consensus: consensus.DefaultConfig,
+		DB:        db.DefaultConfig,
+		Indexer:   blockindex.DefaultConfig,
+	}
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
 	if err != nil {
@@ -392,12 +410,10 @@ func newConfig() config.Config {
 		testutil.CleanupPath(testSystemLogPath)
 	}()
 
-	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EVMNetworkID = _evmNetworkID
-	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -408,7 +424,7 @@ func newConfig() config.Config {
 	return cfg
 }
 
-func createServerV2(cfg config.Config, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
+func createServerV2(cfg testConfig, needActPool bool) (*ServerV2, blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, actpool.ActPool, string, error) {
 	// TODO (zhi): revise
 	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {

@@ -32,9 +32,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -81,7 +82,7 @@ var (
 
 	// nonce is too high
 	_testTransferInvalid4, _ = action.SignedTransfer(identityset.Address(28).String(),
-		identityset.PrivateKey(28), config.Default.ActPool.MaxNumActsPerAcct+10, big.NewInt(1),
+		identityset.PrivateKey(28), actpool.DefaultConfig.MaxNumActsPerAcct+10, big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	_testTransferInvalid4Pb = _testTransferInvalid4.Proto()
 
@@ -1315,19 +1316,19 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
-		cfg    func() config.Config
+		cfg    func() testConfig
 		action *iotextypes.Action
 		err    string
 	}{
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			&iotextypes.Action{},
 			"invalid signature length",
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			&iotextypes.Action{
@@ -1336,7 +1337,7 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 			"empty action proto to load",
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				cfg := newConfig()
 				cfg.ActPool.MaxNumActsPerPool = 8
 				return cfg
@@ -1345,21 +1346,21 @@ func TestGrpcServer_SendActionIntegrity(t *testing.T) {
 			action.ErrTxPoolOverflow.Error(),
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			_testTransferInvalid1Pb,
 			action.ErrNonceTooLow.Error(),
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			_testTransferInvalid2Pb,
 			action.ErrUnderpriced.Error(),
 		},
 		{
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			_testTransferInvalid3Pb,
@@ -1709,7 +1710,7 @@ func TestGrpcServer_ReadUnclaimedBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 	cfg.API.GRPCPort = testutil.RandomPort()
-	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Consensus.Scheme = consensus.RollDPoSScheme
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
 	grpcHandler := newGRPCHandler(svr.core)
@@ -1759,7 +1760,7 @@ func TestGrpcServer_TotalBalanceIntegrity(t *testing.T) {
 func TestGrpcServer_AvailableBalanceIntegrity(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Consensus.Scheme = consensus.RollDPoSScheme
 	cfg.API.GRPCPort = testutil.RandomPort()
 	svr, _, _, _, _, _, bfIndexFile, err := createServerV2(cfg, false)
 	require.NoError(err)
@@ -2511,13 +2512,13 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 
 	tests := []struct {
 		testName string
-		cfg      func() config.Config
+		cfg      func() testConfig
 		actions  []*iotextypes.Action
 		errRegex *regexp.Regexp
 	}{
 		{
 			"NonceTooLow",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid1Pb},
@@ -2525,7 +2526,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"TerminallyUnderpriced",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid2Pb},
@@ -2533,7 +2534,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"InsufficientEth",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid3Pb},
@@ -2542,7 +2543,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 
 		{
 			"NonceTooHigh",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid4Pb},
@@ -2550,7 +2551,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"TransactionAlreadyInMempool",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferPb, _testTransferPb},
@@ -2558,7 +2559,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"ReplacementTransactionUnderpriced",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferPb, _testTransferInvalid5Pb},
@@ -2566,7 +2567,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"IntrinsicGasTooLow",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid6Pb},
@@ -2574,7 +2575,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"NegativeValue",
-			func() config.Config {
+			func() testConfig {
 				return newConfig()
 			},
 			[]*iotextypes.Action{_testTransferInvalid7Pb},
@@ -2582,7 +2583,7 @@ func TestChainlinkErrIntegrity(t *testing.T) {
 		},
 		{
 			"ExceedsBlockGasLimit",
-			func() config.Config {
+			func() testConfig {
 				cfg := newConfig()
 				cfg.ActPool.MaxGasLimitPerPool = 1e5
 				return cfg
