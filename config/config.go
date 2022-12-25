@@ -111,18 +111,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	// BlockSync is the config struct for the BlockSync
-	BlockSync struct {
-		Interval              time.Duration `yaml:"interval"` // update duration
-		ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
-		BufferSize            uint64        `yaml:"bufferSize"`
-		IntervalSize          uint64        `yaml:"intervalSize"`
-		// MaxRepeat is the maximal number of repeat of a block sync request
-		MaxRepeat int `yaml:"maxRepeat"`
-		// RepeatDecayStep is the step for repeat number decreasing by 1
-		RepeatDecayStep int `yaml:"repeatDecayStep"`
-	}
-
 	// API is the api service config
 	API struct {
 		UseRDS          bool          `yaml:"useRDS"`
