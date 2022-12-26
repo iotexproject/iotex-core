@@ -28,6 +28,6 @@ func TestNewContractPrepareCmd(t *testing.T) {
 		cmd := NewContractPrepareCmd(client)
 		result, err := util.ExecuteCmd(cmd)
 		require.NoError(err)
-		require.Equal("Solidity compiler is ready now.", result)
+		require.Equal("Solidity compiler is ready now.\n", result)
 	})
 }
