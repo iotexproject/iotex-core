@@ -23,7 +23,7 @@ import (
 
 // ErrInvalidArg indicates argument is invalid
 var (
-	ErrInvalidArg = errors.New("invalid argument")
+	ErrInvalidArg = fmt.Errorf("invalid argument")
 )
 
 func parseAbi(abiBytes []byte) (*abi.ABI, error) {

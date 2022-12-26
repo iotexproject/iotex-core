@@ -6,6 +6,7 @@
 package contract
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -30,4 +31,85 @@ func TestNewContractCmd(t *testing.T) {
 	result, err := util.ExecuteCmd(cmd)
 	require.NoError(err)
 	require.Contains(result, "Available Commands")
+}
+
+func Test_readAbiFile(t *testing.T) {
+	r := require.New(t)
+	testAbiFile := "test.abi"
+	abi, err := readAbiFile(testAbiFile)
+	r.NoError(err)
+	r.Equal("", abi.Constructor.Name)
+	r.Equal(10, len(abi.Methods))
+	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
+}
+
+func Test_packArguments(t *testing.T) {
+	r := require.New(t)
+
+	testAbiFile := "test.abi"
+	testAbi, err := readAbiFile(testAbiFile)
+	r.NoError(err)
+
+	tests := []struct {
+		expectCode string
+		method     string
+		inputs     string
+	}{
+		{
+			"0xe3b48f48000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000b9c46db7b8464bad383a595fd7aa7845fbdd642b000000000000000000000000aa77fbf8596e0de5ce362dbd5ab29599a6c38ac4000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000002fa7bc000000000000000000000000000000000000000000000000000000000000007b0000000000000000000000000000000000000000000000000000000000000009504c454153452121210000000000000000000000000000000000000000000000",
+			"multiSend",
+			`{"recipients":["io1h8zxmdacge966wp6t90a02ncghaa6eptnftfqr","io14fmlh7zedcx7tn3k9k744v54nxnv8zky86tjhj"],"amounts":["3123132","123"],"payload":"PLEASE!!!"}`,
+		}, {
+			"0xba025b7100000000000000000000000000000000000000011ade48e4922161024e211c62000000000000000000000000000000000000000000000000000000000001e0f30000000000000000000000000000000000000000000000000000000000000005fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf0d2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000",
+			"testArray",
+			// IntTy/UintTy larger than int64/uint64 should be passes by string, otherwise the precision losses
+			`{"a":["87543498528347976543703735394",123123,5,-12,-134958],"b":[1,2,0]}`,
+		}, {
+			"0x3ca8b1a70000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001007a675668798ab73482982748287842900000000000000000000000000000000",
+			"testBytes",
+			`{"t":"0x07a675668798ab734829827482878429"}`,
+		}, {
+			"0x901e5dda1221120000000000000000000000000000000000000000000000000000000000",
+			"testFixedBytes",
+			`{"t":"0x122112"}`,
+		}, {
+			"0x1bfc56c6000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000010496f54655820426c6f636b636861696e00000000000000000000000000000000",
+			"testBoolAndString",
+			`{"a":true,"s":"IoTeX Blockchain"}`,
+		},
+	}
+
+	for _, test := range tests {
+		expect, err := decodeBytecode(test.expectCode)
+		r.NoError(err)
+
+		bytecode, err := packArguments(testAbi, test.method, test.inputs)
+		r.NoError(err)
+
+		r.True(bytes.Equal(expect, bytecode))
+	}
+}
+
+func Test_decodeBytecode(t *testing.T) {
+	r := require.New(t)
+
+	tests := []struct {
+		bytecode string
+		expect   []byte
+	}{
+		{
+			"68656c6c6f20776f726c64",
+			[]byte(`hello world`),
+		},
+		{
+			"0x68656c6c6f20776f726c64",
+			[]byte(`hello world`),
+		},
+	}
+	for _, tt := range tests {
+		res, err := decodeBytecode(tt.bytecode)
+		r.NoError(err)
+
+		r.True(bytes.Equal(res, tt.expect))
+	}
 }
