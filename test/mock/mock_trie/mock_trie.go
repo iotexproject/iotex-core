@@ -226,21 +226,6 @@ func (m *MockTwoLayerTrie) EXPECT() *MockTwoLayerTrieMockRecorder {
 	return m.recorder
 }
 
-// Clone mocks base method.
-func (m *MockTwoLayerTrie) Clone(arg0 trie.KVStore) (trie.TwoLayerTrie, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clone", arg0)
-	ret0, _ := ret[0].(trie.TwoLayerTrie)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Clone indicates an expected call of Clone.
-func (mr *MockTwoLayerTrieMockRecorder) Clone(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockTwoLayerTrie)(nil).Clone), arg0)
-}
-
 // Delete mocks base method.
 func (m *MockTwoLayerTrie) Delete(arg0, arg1 []byte) error {
 	m.ctrl.T.Helper()
