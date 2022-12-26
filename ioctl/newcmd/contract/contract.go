@@ -7,13 +7,18 @@ package contract
 
 import (
 	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -78,4 +83,60 @@ func checkCompilerVersion(solc *util.Solidity) bool {
 
 func decodeBytecode(bytecode string) ([]byte, error) {
 	return hex.DecodeString(util.TrimHexPrefix(bytecode))
+}
+
+func readAbiFile(abiFile string) (*abi.ABI, error) {
+	abiBytes, err := os.ReadFile(filepath.Clean(abiFile))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read abi file")
+	}
+
+	return parseAbi(abiBytes)
+}
+
+func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]byte, error) {
+	var method abi.Method
+	var ok bool
+
+	if rowInput == "" {
+		rowInput = "{}"
+	}
+
+	rowArguments, err := parseInput(rowInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if targetMethod == "" {
+		method = targetAbi.Constructor
+	} else {
+		method, ok = targetAbi.Methods[targetMethod]
+		if !ok {
+			return nil, errors.New("invalid method name")
+		}
+	}
+
+	arguments := make([]interface{}, 0, len(method.Inputs))
+	for _, param := range method.Inputs {
+		if param.Name == "" {
+			param.Name = "_"
+		}
+
+		rowArg, ok := rowArguments[param.Name]
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("failed to parse argument \"%s\"", param.Name))
+		}
+
+		arg, err := parseInputArgument(&param.Type, rowArg)
+		if err != nil {
+			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)
+		}
+		arguments = append(arguments, arg)
+	}
+	return targetAbi.Pack(targetMethod, arguments...)
+}
+
+func translate(client ioctl.Client, trls map[config.Language]string) string {
+	trans, _ := client.SelectTranslation(trls)
+	return trans
 }
