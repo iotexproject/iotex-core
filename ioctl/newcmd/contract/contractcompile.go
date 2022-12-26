@@ -7,7 +7,6 @@
 package contract
 
 import (
-	"encoding/json"
 	"os"
 	"strings"
 
@@ -97,11 +96,7 @@ func NewContractCompileCmd(client ioctl.Client) *cobra.Command {
 				return errors.Errorf("failed to find out contract %s", contractName)
 			}
 
-			abiByte, err := json.Marshal(contract.Info.AbiDefinition)
-			if err != nil {
-				return errors.Wrap(err, "failed to marshal abi")
-			}
-			cmd.Printf("======= %s =======\nBinary:\n%s\nContract JSON ABI\n%s", contractName, contract.Code, string(abiByte))
+			cmd.Printf("======= %s =======\nBinary:\n%s\nContract JSON ABI\n%s", contractName, contract.Code, string(_contractABI))
 
 			if _binOut != "" {
 				// bin file starts with "0x" prefix
@@ -111,7 +106,7 @@ func NewContractCompileCmd(client ioctl.Client) *cobra.Command {
 			}
 
 			if _abiOut != "" {
-				if err := os.WriteFile(_abiOut, abiByte, 0600); err != nil {
+				if err := os.WriteFile(_abiOut, _contractABI, 0600); err != nil {
 					return errors.Wrap(err, "failed to write abi file")
 				}
 			}
