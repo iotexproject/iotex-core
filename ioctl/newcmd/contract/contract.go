@@ -7,8 +7,6 @@
 package contract
 
 import (
-	"encoding/json"
-
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -23,9 +21,6 @@ const _solCompiler = "solc"
 
 // Flags
 var (
-	contract           *compiler.Contract
-	_contractABI       []byte
-	err                error
 	_initialAmountFlag = flag.NewStringVar("init-amount", "0", config.TranslateInLang(_flagInitialAmountUsage, config.UILanguage))
 )
 
@@ -40,13 +35,6 @@ var (
 		config.Chinese: "为部署的新合约转入一笔初始资金",
 	}
 )
-
-func init() {
-	_contractABI, err = json.Marshal(contract.Info.AbiDefinition)
-	if err != nil {
-		panic(err)
-	}
-}
 
 // NewContractCmd represents the contract command
 func NewContractCmd(client ioctl.Client) *cobra.Command {
