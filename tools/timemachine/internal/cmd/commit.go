@@ -26,11 +26,7 @@ var commit = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		svr, err := miniserver.NewMiniServer(miniserver.Config(), common.Commit, miniserver.WithStopHeightOption(stopHeight))
-		if err != nil {
-			return err
-		}
-		if err = svr.CheckIndexer(); err != nil {
+		if _, err = miniserver.NewMiniServer(miniserver.Config(), common.Commit, miniserver.WithStopHeightOption(stopHeight)); err != nil {
 			return err
 		}
 		log.S().Infof("successful committed block %d", stopHeight)

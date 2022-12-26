@@ -6,10 +6,18 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
+	"context"
 
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/byteutil"
+
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/tools/timemachine/common"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/tools/timemachine/miniserver"
 )
 
@@ -20,20 +28,48 @@ var get = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		svr, err := miniserver.NewMiniServer(miniserver.Config(), common.Get)
+
+		cfg := miniserver.Config()
+		dbConfig := cfg.DB
+		dbConfig.DbPath = cfg.Chain.ChainDBPath
+		deser := block.NewDeserializer(cfg.Chain.EVMNetworkID)
+		blkStore, err := filedao.NewFileDAO(dbConfig, deser)
 		if err != nil {
 			return err
 		}
-		daoHeight, err := svr.BlockDao().Height()
+		ctx := context.Background()
+		if err = blkStore.Start(ctx); err != nil {
+			return err
+		}
+		defer func() {
+			if err := blkStore.Stop(ctx); err != nil {
+				log.S().Panic("failed to stop chain.db", zap.Error(err))
+			}
+		}()
+		chainHeight, err := blkStore.Height()
 		if err != nil {
 			return err
 		}
-		indexerHeight, err := svr.Factory().Height()
+
+		triedao, err := db.CreateKVStore(cfg.DB, cfg.Chain.TrieDBPath)
 		if err != nil {
 			return err
 		}
-		log.S().Infof("current chain.db height is %d", daoHeight)
-		log.S().Infof("current trie.db height is %d", indexerHeight)
+		if err = triedao.Start(ctx); err != nil {
+			return err
+		}
+		defer func() {
+			if err := triedao.Stop(ctx); err != nil {
+				log.S().Panic("failed to stop trie.db", zap.Error(err))
+			}
+		}()
+		trieHeight, err := triedao.Get(factory.AccountKVNamespace, []byte(factory.CurrentHeightKey))
+		if err != nil {
+			return err
+		}
+		
+		log.S().Infof("current chain.db height is %d", chainHeight)
+		log.S().Infof("current trie.db height is %d", byteutil.BytesToUint64(trieHeight))
 		return nil
 	},
 }

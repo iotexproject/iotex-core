@@ -14,13 +14,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // const
@@ -33,8 +31,6 @@ const (
 type (
 	// MiniServer is an instance to build chain service
 	MiniServer struct {
-		ctx        context.Context
-		cfg        config.Config
 		cs         *chainservice.ChainService
 		stopHeight uint64
 	}
@@ -52,9 +48,7 @@ func WithStopHeightOption(stopHeight uint64) Option {
 
 // NewMiniServer creates instace and runs chainservice
 func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServer, error) {
-	svr := &MiniServer{
-		cfg: cfg,
-	}
+	svr := &MiniServer{}
 	for _, opt := range opts {
 		opt(svr)
 	}
@@ -70,10 +64,16 @@ func NewMiniServer(cfg config.Config, operation int, opts ...Option) (*MiniServe
 	}
 	svr.cs = cs
 
-	svr.ctx = svr.Context()
-	if err = svr.cs.BlockDAO().Start(svr.ctx); err != nil {
+	ctx := Context(cfg)
+	if err = svr.cs.BlockDAO().Start(ctx); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := svr.cs.BlockDAO().Stop(ctx); err != nil {
+			log.S().Panic("failed to stop blockdao", zap.Error(err))
+		}
+	}()
+
 	if err := svr.checkSanity(); err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func Config() config.Config {
 	}
 	genesisCfg, err := genesis.New(_genesisPath)
 	if err != nil {
-		panic(err)
+		log.S().Panic("failed to read genesis.yaml", zap.Error(err))
 	}
 	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
 	block.LoadGenesisHash(&genesisCfg)
@@ -96,59 +96,32 @@ func Config() config.Config {
 	}
 	cfg, err := config.New([]string{_configPath}, []string{})
 	if err != nil {
-		panic(err)
+		log.S().Panic("failed to read config.yaml", zap.Error(err))
 	}
 	cfg.Genesis = genesisCfg
 	return cfg
 }
 
 // Context adds blockchain and genesis contexts
-func (svr *MiniServer) Context() context.Context {
+func Context(cfg config.Config) context.Context {
 	ctx := genesis.WithGenesisContext(
 		protocol.WithBlockchainCtx(
 			context.Background(),
 			protocol.BlockchainCtx{
-				ChainID: svr.cfg.Chain.ID,
+				ChainID: cfg.Chain.ID,
 			},
 		),
-		svr.cfg.Genesis,
+		cfg.Genesis,
 	)
 	return protocol.WithFeatureWithHeightCtx(ctx)
 }
 
-// BlockDao returns the chiandb instance
-func (svr *MiniServer) BlockDao() blockdao.BlockDAO {
-	return svr.cs.BlockDAO()
-}
-
-// Factory returns the triedb instance
-func (svr *MiniServer) Factory() factory.Factory {
-	return svr.cs.StateFactory()
-}
-
-// CheckIndexer catchs up height against blockdao
-func (svr *MiniServer) CheckIndexer() error {
-	checker := blockdao.NewBlockIndexerChecker(svr.BlockDao())
-	if err := checker.CheckIndexer(svr.ctx, svr.Factory(), svr.stopHeight, func(height uint64) {
-		if height%5000 == 0 {
-			log.L().Info(
-				"trie.db is catching up.",
-				zap.Uint64("height", height),
-			)
-		}
-	}); err != nil {
-		return err
-	}
-	log.L().Info("trie.db is up to date.", zap.Uint64("height", svr.stopHeight))
-	return nil
-}
-
 func (svr *MiniServer) checkSanity() error {
-	daoHeight, err := svr.BlockDao().Height()
+	daoHeight, err := svr.cs.BlockDAO().Height()
 	if err != nil {
 		return err
 	}
-	indexerHeight, err := svr.Factory().Height()
+	indexerHeight, err := svr.cs.StateFactory().Height()
 	if err != nil {
 		return err
 	}
