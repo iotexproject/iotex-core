@@ -68,28 +68,43 @@ func init() {
 	prometheus.MustRegister(_consensusHeightMtc)
 }
 
-// DelegatesByEpochFunc defines a function to overwrite candidates
-type DelegatesByEpochFunc func(uint64) ([]string, error)
-type rollDPoSCtx struct {
-	consensusfsm.ConsensusConfig
+type (
+	// DelegatesByEpochFunc defines a function to overwrite candidates
+	DelegatesByEpochFunc func(uint64) ([]string, error)
 
-	// TODO: explorer dependency deleted at #1085, need to add api params here
-	chain             ChainManager
-	blockDeserializer *block.Deserializer
-	broadcastHandler  scheme.Broadcast
-	roundCalc         *roundCalculator
-	eManagerDB        db.KVStore
-	toleratedOvertime time.Duration
+	// RDPoSCtx is the context of RollDPoS
+	RDPoSCtx interface {
+		consensusfsm.Context
+		Chain() ChainManager
+		BlockDeserializer() *block.Deserializer
+		RoundCalculator() *roundCalculator
+		Clock() clock.Clock
+		CheckBlockProposer(uint64, *blockProposal, *endorsement.Endorsement) error
+		CheckVoteEndorser(uint64, *ConsensusVote, *endorsement.Endorsement) error
+	}
 
-	encodedAddr string
-	priKey      crypto.PrivateKey
-	round       *roundCtx
-	clock       clock.Clock
-	active      bool
-	mutex       sync.RWMutex
-}
+	rollDPoSCtx struct {
+		consensusfsm.ConsensusConfig
 
-func newRollDPoSCtx(
+		// TODO: explorer dependency deleted at #1085, need to add api params here
+		chain             ChainManager
+		blockDeserializer *block.Deserializer
+		broadcastHandler  scheme.Broadcast
+		roundCalc         *roundCalculator
+		eManagerDB        db.KVStore
+		toleratedOvertime time.Duration
+
+		encodedAddr string
+		priKey      crypto.PrivateKey
+		round       *roundCtx
+		clock       clock.Clock
+		active      bool
+		mutex       sync.RWMutex
+	}
+)
+
+// NewRollDPoSCtx returns a context of RollDPoSCtx
+func NewRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
 	consensusDBConfig db.Config,
 	active bool,
@@ -104,7 +119,7 @@ func newRollDPoSCtx(
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
 	beringHeight uint64,
-) (*rollDPoSCtx, error) {
+) (RDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
 	}
@@ -171,6 +186,22 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 		return ctx.eManagerDB.Stop(c)
 	}
 	return nil
+}
+
+func (ctx *rollDPoSCtx) Chain() ChainManager {
+	return ctx.chain
+}
+
+func (ctx *rollDPoSCtx) BlockDeserializer() *block.Deserializer {
+	return ctx.blockDeserializer
+}
+
+func (ctx *rollDPoSCtx) RoundCalculator() *roundCalculator {
+	return ctx.roundCalc
+}
+
+func (ctx *rollDPoSCtx) Clock() clock.Clock {
+	return ctx.clock
 }
 
 // CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height

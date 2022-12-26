@@ -10,10 +10,13 @@ import (
 
 	fsm "github.com/iotexproject/go-fsm"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 // Context defines the context of the fsm
 type Context interface {
+	lifecycle.StartStopper
 	Activate(bool)
 	Active() bool
 	IsStaleEvent(*ConsensusEvent) bool

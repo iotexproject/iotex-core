@@ -5,6 +5,7 @@
 package consensusfsm
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -385,6 +386,34 @@ func (m *MockContext) Proposal() (interface{}, error) {
 func (mr *MockContextMockRecorder) Proposal() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proposal", reflect.TypeOf((*MockContext)(nil).Proposal))
+}
+
+// Start mocks base method.
+func (m *MockContext) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockContextMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockContext)(nil).Start), arg0)
+}
+
+// Stop mocks base method.
+func (m *MockContext) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockContextMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockContext)(nil).Stop), arg0)
 }
 
 // UnmatchedEventInterval mocks base method.

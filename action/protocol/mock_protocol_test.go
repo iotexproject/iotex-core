@@ -225,6 +225,43 @@ func (mr *MockPreStatesCreatorMockRecorder) CreatePreStates(arg0, arg1 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePreStates", reflect.TypeOf((*MockPreStatesCreator)(nil).CreatePreStates), arg0, arg1)
 }
 
+// MockPreCommitter is a mock of PreCommitter interface.
+type MockPreCommitter struct {
+	ctrl     *gomock.Controller
+	recorder *MockPreCommitterMockRecorder
+}
+
+// MockPreCommitterMockRecorder is the mock recorder for MockPreCommitter.
+type MockPreCommitterMockRecorder struct {
+	mock *MockPreCommitter
+}
+
+// NewMockPreCommitter creates a new mock instance.
+func NewMockPreCommitter(ctrl *gomock.Controller) *MockPreCommitter {
+	mock := &MockPreCommitter{ctrl: ctrl}
+	mock.recorder = &MockPreCommitterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPreCommitter) EXPECT() *MockPreCommitterMockRecorder {
+	return m.recorder
+}
+
+// PreCommit mocks base method.
+func (m *MockPreCommitter) PreCommit(arg0 context.Context, arg1 StateManager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreCommit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PreCommit indicates an expected call of PreCommit.
+func (mr *MockPreCommitterMockRecorder) PreCommit(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreCommit", reflect.TypeOf((*MockPreCommitter)(nil).PreCommit), arg0, arg1)
+}
+
 // MockCommitter is a mock of Committer interface.
 type MockCommitter struct {
 	ctrl     *gomock.Controller
