@@ -51,7 +51,7 @@ func NewContractPrepareCmd(client ioctl.Client) *cobra.Command {
 				return errors.Wrap(err, "solidity compiler not ready")
 			}
 			if !checkCompilerVersion(solc) {
-				return errors.Errorf("unsupported solc version %d.%d.%d, expects solc version 0.5.17",
+				return errors.Errorf("unsupported solc version %d.%d.%d, expects solc version 0.5.17\n",
 					solc.Major, solc.Minor, solc.Patch)
 			}
 
