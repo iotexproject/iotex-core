@@ -210,7 +210,9 @@ func (cs *CreateStake) SanityCheck() error {
 	if cs.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
-
+	if !IsValidCandidateName(cs.candName) {
+		return ErrInvalidCanName
+	}
 	return cs.AbstractAction.SanityCheck()
 }
 

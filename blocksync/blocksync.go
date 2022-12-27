@@ -19,7 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/fastrand"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -58,7 +57,7 @@ type (
 
 	// blockSyncer implements BlockSync interface
 	blockSyncer struct {
-		cfg config.BlockSync
+		cfg Config
 		buf *blockBuffer
 
 		tipHeightHandler     TipHeight
@@ -125,7 +124,7 @@ func (*dummyBlockSync) SyncStatus() (uint64, uint64, uint64, string) {
 
 // NewBlockSyncer returns a new block syncer instance
 func NewBlockSyncer(
-	cfg config.BlockSync,
+	cfg Config,
 	tipHeightHandler TipHeight,
 	blockByHeightHandler BlockByHeight,
 	commitBlockHandler CommitBlock,
