@@ -70,7 +70,8 @@ func (p *Protocol) Deposit(
 	if fCtx.CreateLegacyNonceAccount {
 		accountCreationOpts = append(accountCreationOpts, state.LegacyNonceAccountTypeOption())
 	}
-	if actionCtx.Encoding == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
+	if transactionLogType == iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND &&
+		actionCtx.Encoding == uint32(iotextypes.Encoding_ETHEREUM_RLP) {
 		if !fCtx.EnableWeb3Rewarding {
 			return nil, errUnactiveWeb3Rewarding
 		}
