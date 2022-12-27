@@ -45,7 +45,7 @@ jobs:
           asset_name: ${{ matrix.asset_name }}
           tag: ${{ github.ref }}
 
-      - name: Configure GPG and create artifacts
+      - name: Configure GPG
         env:
           GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -53,7 +53,6 @@ jobs:
           export GPG_TTY=$(tty)
           echo "$GPG_SIGNING_KEY" | gpg --batch --import
           echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./${{ matrix.artifact_name }}
-          mv *tar.gz* ..
 
       - name: Upload signature
         uses: actions/upload-artifact@v2
