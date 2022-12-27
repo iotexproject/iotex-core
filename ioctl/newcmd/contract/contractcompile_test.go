@@ -6,6 +6,7 @@
 package contract
 
 import (
+	"os/exec"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -18,6 +19,7 @@ import (
 )
 
 func TestNewContractCompileCmd(t *testing.T) {
+	skipWithoutSolc(t)
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -54,4 +56,10 @@ func TestNewContractCompileCmd(t *testing.T) {
 		_, err := util.ExecuteCmd(cmd, "", "")
 		require.Contains(err.Error(), expectedErr.Error())
 	})
+}
+
+func skipWithoutSolc(t *testing.T) {
+	if _, err := exec.LookPath("solc"); err != nil {
+		t.Skip(err)
+	}
 }
