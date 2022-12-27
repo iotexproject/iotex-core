@@ -1199,7 +1199,7 @@ func (core *coreService) reverseActionsInBlock(blk *block.Block, reverseStart, c
 	}
 
 	start := reverseStart + count - 1
-	if start > size-1 {
+	if start >= size {
 		start = size - 1
 	}
 	end := reverseStart
