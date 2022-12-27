@@ -1,9 +1,9 @@
-name: Release 
+name: Release
 
 on:
   push:
     tags:
-    - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -35,10 +35,6 @@ jobs:
           set CGO_ENABLED=1 
           set GOARCH=amd64
           go build -tags netgo -o ./${{ matrix.artifact_name }} -v ./tools/ioctl
-          
-      # - uses: release-drafter/release-drafter@master
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
@@ -46,4 +42,31 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./${{ matrix.artifact_name }}
           asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
+
+      - name: Configure GPG Linux/MacOS
+        if: startsWith(matrix.os, 'windows-latest') != true
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          export GPG_TTY=$(tty)
+          echo "$GPG_SIGNING_KEY" | gpg --batch --import
+          echo "$GPG_PASSPHRASE" | gpg --passphrase-fd 0 --pinentry-mode loopback --batch -ab ./${{ matrix.artifact_name }}
+
+      - name: Configure GPG Windows
+        if: startsWith(matrix.os, 'windows-latest')
+        env:
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo $env:GPG_SIGNING_KEY | gpg --batch --import
+          gpg --passphrase "$env:GPG_PASSPHRASE" --batch --pinentry-mode loopback -ab ./${{ matrix.artifact_name }}
+
+      - name: Upload signature
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          asset_name: ${{ matrix.artifact_name }}.asc
+          file: ./${{ matrix.artifact_name }}.asc
           tag: ${{ github.ref }}

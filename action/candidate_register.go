@@ -291,6 +291,9 @@ func (cr *CandidateRegister) SanityCheck() error {
 	if cr.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
+	if !IsValidCandidateName(cr.Name()) {
+		return ErrInvalidCanName
+	}
 
 	return cr.AbstractAction.SanityCheck()
 }
