@@ -11,7 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
-//DefaultDardanellesUpgradeConfig is the default config for dardanelles upgrade
+// DefaultDardanellesUpgradeConfig is the default config for dardanelles upgrade
 var DefaultDardanellesUpgradeConfig = DardanellesUpgrade{
 	UnmatchedEventTTL:            2 * time.Second,
 	UnmatchedEventInterval:       100 * time.Millisecond,
