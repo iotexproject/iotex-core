@@ -73,6 +73,8 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
+		// Encoding is the encoding of the action
+		Encoding uint32
 	}
 
 	// CheckFunc is function type to check by height.
@@ -109,6 +111,7 @@ type (
 		FixUnproductiveDelegates                bool
 		CorrectGasRefund                        bool
 		FixRewardErroCheckPosition              bool
+		EnableWeb3Rewarding                     bool
 	}
 
 	// FeatureWithHeightCtx provides feature check functions.
@@ -244,6 +247,7 @@ func WithFeatureCtx(ctx context.Context) context.Context {
 			FixUnproductiveDelegates:                g.IsOkhotsk(height),
 			CorrectGasRefund:                        g.IsOkhotsk(height),
 			FixRewardErroCheckPosition:              g.IsOkhotsk(height),
+			EnableWeb3Rewarding:                     g.IsToBeEnabled(height),
 		},
 	)
 }

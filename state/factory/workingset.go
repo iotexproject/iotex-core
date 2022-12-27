@@ -136,6 +136,7 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 	}
 	actionCtx.IntrinsicGas = intrinsicGas
 	actionCtx.Nonce = selp.Nonce()
+	actionCtx.Encoding = selp.Encoding()
 
 	return protocol.WithActionCtx(ctx, actionCtx), nil
 }

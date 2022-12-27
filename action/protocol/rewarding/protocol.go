@@ -39,6 +39,7 @@ var (
 	_accountKeyPrefix            = []byte("acc")
 	_exemptKey                   = []byte("xpt")
 	errInvalidEpoch              = errors.New("invalid start/end epoch number")
+	errUnactiveWeb3Rewarding     = errors.New("unactive web3 rewarding")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
